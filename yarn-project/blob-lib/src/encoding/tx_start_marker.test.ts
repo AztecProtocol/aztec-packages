@@ -24,7 +24,7 @@ describe('tx start marker', () => {
 
     // AZTEC_GENERATE_TEST_DATA=1 yarn test tx_start_marker.test.ts
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/tx_base/components/tx_blob_data.nr',
+      'noir-projects/noir-protocol-circuits/crates/types/src/blob_data/tx_blob_data.nr',
       'tx_start_marker_from_typescript',
       encoded.toString(),
     );
@@ -51,7 +51,7 @@ describe('tx start marker', () => {
 
     // AZTEC_GENERATE_TEST_DATA=1 yarn test tx_start_marker.test.ts
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/tx_base/components/tx_blob_data.nr',
+      'noir-projects/noir-protocol-circuits/crates/types/src/blob_data/tx_blob_data.nr',
       'large_tx_start_marker_from_typescript',
       encoded.toString(),
     );

@@ -21,7 +21,7 @@ Once sufficient attestations are collected (two-thirds of the committee plus one
 
 ### Minimum Hardware Requirements
 
-- 2 core / 4 vCPU (released in 2015 or later)
+- 8 core / 16 vCPU (released in 2015 or later)
 - 16 GB RAM
 - 1 TB NVMe SSD
 - 25 Mbps network connection
@@ -97,26 +97,22 @@ aztec validator-keys new \
 ```
 
 This command:
-
 - Automatically generates a mnemonic for key derivation (or provide your own with `--mnemonic`)
 - Creates a keystore with Ethereum keys (for node operation) and BLS keys (for staking)
 - Outputs your attester address and BLS public key
 - Saves the keystore to `~/.aztec/keystore/key1.json` by default
 
 **Save the following from the output:**
-
 - **Attester address**: Your sequencer's identity (needed for registration)
 - **BLS public key**: Required for staking registration
 
 :::tip Provide Your Own Mnemonic
 For deterministic key generation or to recreate keys later, provide your own mnemonic:
-
 ```bash
 aztec validator-keys new \
   --fee-recipient [YOUR_AZTEC_FEE_RECIPIENT_ADDRESS] \
   --mnemonic "your twelve word mnemonic phrase here"
 ```
-
 :::
 
 For detailed instructions, advanced options, and complete examples, see the [Creating Sequencer Keystores guide](../operation/keystore/creating_keystores.md).
@@ -212,11 +208,10 @@ Create a `docker-compose.yml` file in your `aztec-sequencer` directory:
 ```yaml
 services:
   aztec-sequencer:
-    image: "aztecprotocol/aztec:2.1.5"
+    image: "aztecprotocol/aztec:2.0.4"
     container_name: "aztec-sequencer"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
-      - ${AZTEC_ADMIN_PORT}:${AZTEC_ADMIN_PORT}
       - ${P2P_PORT}:${P2P_PORT}
       - ${P2P_PORT}:${P2P_PORT}/udp
     volumes:
@@ -240,7 +235,7 @@ services:
       --node
       --archiver
       --sequencer
-      --network mainnet
+      --network testnet
     networks:
       - aztec
     restart: always
@@ -250,7 +245,18 @@ networks:
     name: aztec
 ```
 
-This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
+:::warning Security: Admin Port Not Exposed
+The admin port (8880) is intentionally **not exposed** to the host machine for security reasons. The admin API provides sensitive operations like configuration changes and database rollbacks that should never be accessible from outside the container.
+
+If you need to access admin endpoints, use `docker exec`:
+```bash
+docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
+```
+:::
+
+This configuration includes only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
 
 ### Step 5: Start the Sequencer
 
@@ -319,7 +325,7 @@ aztec add-l1-validator \
 **Parameter descriptions:**
 
 - `--l1-rpc-urls`: Your Ethereum L1 RPC endpoint
-- `--network`: Network identifier (e.g., `mainnet`, `staging-public`)
+- `--network`: Network identifier (e.g., `testnet`, `staging-public`)
 - `--private-key`: Private key of an Ethereum account with ETH to pay for gas (this is NOT your sequencer key)
 - `--attester`: Your sequencer's attester address from the keystore
 - `--withdrawer`: Ethereum address that can withdraw your stake (typically same as attester)
@@ -349,7 +355,6 @@ The staking dashboard requires your BLS keys from the keystore you created earli
 **What you need:**
 
 From your keystore at `aztec-sequencer/keys/keystore.json`, you have:
-
 - `attester.eth`: Your Ethereum attester address
 - `attester.bls`: Your BLS private key (64-character hex string)
 
@@ -380,7 +385,6 @@ The staking dashboard requires this JSON format with expanded BLS key material:
 ```
 
 This includes:
-
 - **`attester`**: Your Ethereum attester address
 - **`publicKeyG1`**: BLS public key on the G1 curve (x, y coordinates as decimal strings)
 - **`publicKeyG2`**: BLS public key on the G2 curve (x0, x1, y0, y1 coordinates as decimal strings)
@@ -400,27 +404,25 @@ aztec validator-keys staker \
 ```
 
 **Parameters:**
-
 - `--from`: Path to your keystore file
 - `--gse-address`: The GSE (Governance Staking Escrow) contract address for your network
-- `--l1-rpc-urls`: Your Ethereum L1 RPC endpoint (e.g., `https://mainnet.infura.io/v3/YOUR_API_KEY`)
-- `--l1-chain-id`: The L1 chain ID (e.g., `1` for Ethereum mainnet)
+- `--l1-rpc-urls`: Your Ethereum L1 RPC endpoint (e.g., `https://sepolia.infura.io/v3/YOUR_API_KEY`)
+- `--l1-chain-id`: The L1 chain ID (e.g., `1` for Mainnet)
 - `--output`: (Optional) Output file path. If not specified, JSON is written to stdout
 
 This command automatically:
-
 1. Extracts your attester address from the keystore
 2. Computes G1 and G2 public keys from your BLS private key
 3. Generates the proof of possession signature by calling the GSE contract
 4. Outputs the complete registration JSON ready for the staking dashboard
 
-**Example using Ethereum mainnet:**
+**Example for Sepolia testnet:**
 
 ```bash
 aztec validator-keys staker \
   --from aztec-sequencer/keys/keystore.json \
-  --gse-address 0x1234567890123456789012345678901234567890 \
-  --l1-rpc-urls https://mainnet.infura.io/v3/YOUR_API_KEY \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+  --l1-rpc-urls https://www.infura.io/v3/YOUR_API_KEY \
   --l1-chain-id 1 \
   --output registration.json
 ```

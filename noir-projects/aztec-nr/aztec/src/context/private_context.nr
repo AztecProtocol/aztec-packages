@@ -1,6 +1,8 @@
 use crate::{
-    context::{inputs::PrivateContextInputs, returns_hash::ReturnsHash},
-    hash::{hash_args_array, hash_calldata_array},
+    context::{
+        inputs::PrivateContextInputs, note_hash_read::NoteHashRead, returns_hash::ReturnsHash,
+    },
+    hash::{hash_args, hash_calldata_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
     oracle::{
@@ -43,9 +45,9 @@ use dep::protocol_types::{
     },
     hash::poseidon2_hash,
     messaging::l2_to_l1_message::L2ToL1Message,
-    side_effect::Counted,
+    side_effect::{Counted, scoped::Scoped},
     traits::{Empty, Hash, ToField},
-    utils::arrays::{ClaimedLengthArray, trimmed_array_length_hint},
+    utils::arrays::{ClaimedLengthArray, find_first_index, trimmed_array_length_hint},
 };
 
 /// # PrivateContext
@@ -178,8 +180,8 @@ pub struct PrivateContext {
 
     pub include_by_timestamp: u64,
 
-    pub note_hash_read_requests: BoundedVec<Counted<Field>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
-    pub nullifier_read_requests: BoundedVec<Counted<Field>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    pub note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    pub nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     pub note_hashes: BoundedVec<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,
@@ -570,7 +572,7 @@ impl PrivateContext {
     /// * `serialized_return_values` - The serialized return values as a field array
     ///
     pub fn set_return_hash<let N: u32>(&mut self, serialized_return_values: [Field; N]) {
-        let return_hash = hash_args_array(serialized_return_values);
+        let return_hash = hash_args(serialized_return_values);
         self.return_hash = return_hash;
         execution_cache::store(serialized_return_values, return_hash);
     }
@@ -761,7 +763,7 @@ impl PrivateContext {
     /// requests.
     ///
     /// # Arguments
-    /// * `note_hash` - The note hash to read and verify
+    /// * `note_hash_read` - The note hash to read and verify
     ///
     /// # Advanced
     /// In "traditional" circuits for non-Aztec privacy applications, the merkle
@@ -793,9 +795,42 @@ impl PrivateContext {
     /// than performing the read in a later tx, after waiting for the earlier tx
     /// to be included, to ensure the note is included in the tree).
     ///
-    pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
-        let side_effect = Counted::new(note_hash, self.next_counter());
+    pub fn push_note_hash_read_request(&mut self, note_hash_read: NoteHashRead) {
+        let note_hash = note_hash_read.note_hash();
+        let contract_address = note_hash_read.contract_address().unwrap_or(AztecAddress::zero());
+        let side_effect = Scoped::new(
+            Counted::new(note_hash, self.next_counter()),
+            contract_address,
+        );
         self.note_hash_read_requests.push(side_effect);
+    }
+
+    /// Asserts that a NoteHashRead has been requested to the kernel by this context.
+    /// Asserts instead of returning a boolean to save on gates.
+    ///
+    /// # Arguments
+    /// * `note_hash_read` - The note hash read to assert that has been requested.
+    ///
+    pub fn assert_has_been_requested(self, note_hash_read: NoteHashRead) {
+        let note_hash = note_hash_read.note_hash();
+        let contract_address = note_hash_read.contract_address().unwrap_or(AztecAddress::zero());
+
+        // Safety: The index is constrained by the checks below.
+        let hinted_index = unsafe {
+            find_first_index(
+                self.note_hash_read_requests.storage(),
+                |r| (r.contract_address == contract_address) & (r.innermost() == note_hash),
+            )
+        };
+        // This assertion is not necessary, since the .get would fail. But it enables us to have a more explicit error message.
+        assert(
+            hinted_index != self.note_hash_read_requests.max_len(),
+            "Note hash read has not been requested",
+        );
+
+        let request = self.note_hash_read_requests.get(hinted_index);
+        assert_eq(request.contract_address, contract_address);
+        assert_eq(request.innermost(), note_hash);
     }
 
     /// Requests to read a specific nullifier from the nullifier tree.
@@ -816,15 +851,23 @@ impl PrivateContext {
     ///
     /// # Arguments
     /// * `nullifier` - The nullifier to read and verify
+    /// * `contract_address` - The contract address that emitted the nullifier
     ///
     /// # Advanced
     /// This approach improves latency between writes and reads:
     /// a function can read a nullifier which was created earlier in the tx
     /// (rather than performing the read in a later tx, after waiting for the
-    /// earlier tx to be included, to ensure the note is included in the tree).
+    /// earlier tx to be included, to ensure the nullifier is included in the tree).
     ///
-    pub fn push_nullifier_read_request(&mut self, nullifier: Field) {
-        let request = Counted::new(nullifier, self.next_counter());
+    pub fn push_nullifier_read_request(
+        &mut self,
+        nullifier: Field,
+        contract_address: AztecAddress,
+    ) {
+        let request = Scoped::new(
+            Counted::new(nullifier, self.next_counter()),
+            contract_address,
+        );
         self.nullifier_read_requests.push(request);
     }
 
@@ -1220,7 +1263,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ArgsCount],
     ) -> ReturnsHash {
-        let args_hash = hash_args_array(args);
+        let args_hash = hash_args(args);
         execution_cache::store(args, args_hash);
         self.call_private_function_with_args_hash(
             contract_address,
@@ -1254,7 +1297,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ArgsCount],
     ) -> ReturnsHash {
-        let args_hash = hash_args_array(args);
+        let args_hash = hash_args(args);
         execution_cache::store(args, args_hash);
         self.call_private_function_with_args_hash(
             contract_address,

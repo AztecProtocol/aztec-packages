@@ -23,7 +23,6 @@ export function makeSpongeBlob(seed = 1): SpongeBlob {
       false,
     ),
     seed,
-    seed + 1,
   );
 }
 

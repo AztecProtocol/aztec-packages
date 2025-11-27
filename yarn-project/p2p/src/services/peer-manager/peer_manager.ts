@@ -577,9 +577,11 @@ export class PeerManager implements PeerManagerInterface {
       const score = this.peerScoring.getScoreState(peer.remotePeer.toString());
       switch (score) {
         case PeerScoreState.Banned:
+          this.metrics.recordLowScoreDisconnect('Banned');
           void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.BANNED);
           break;
         case PeerScoreState.Disconnect:
+          this.metrics.recordLowScoreDisconnect('Disconnect');
           void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.LOW_SCORE);
           break;
         case PeerScoreState.Healthy:

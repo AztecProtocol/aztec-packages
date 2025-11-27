@@ -154,6 +154,7 @@ describe('WalletSchema', () => {
       authWitnesses: [],
       capsules: [],
       extraHashedArgs: [],
+      feePayer: undefined,
     };
     const opts: SimulateOptions = {
       from: await AztecAddress.random(),
@@ -183,6 +184,7 @@ describe('WalletSchema', () => {
       authWitnesses: [],
       capsules: [],
       extraHashedArgs: [],
+      feePayer: undefined,
     };
     const opts: ProfileOptions = {
       from: await AztecAddress.random(),
@@ -198,6 +200,7 @@ describe('WalletSchema', () => {
       authWitnesses: [],
       capsules: [],
       extraHashedArgs: [],
+      feePayer: undefined,
     };
     const opts: SendOptions = {
       from: await AztecAddress.random(),
@@ -220,6 +223,7 @@ describe('WalletSchema', () => {
       authWitnesses: [],
       capsules: [],
       extraHashedArgs: [],
+      feePayer: undefined,
     };
     const opts: SendOptions = {
       from: await AztecAddress.random(),
@@ -263,7 +267,7 @@ describe('WalletSchema', () => {
       { name: 'registerSender', args: [address1, 'alias1'] },
       { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
       { name: 'sendTx', args: [exec, opts] },
-      { name: 'simulateUtility', args: [call, [AuthWitness.random()], undefined] },
+      { name: 'simulateUtility', args: [call, [AuthWitness.random()]] },
       { name: 'simulateTx', args: [exec, simulateOpts] },
     ];
 
@@ -372,7 +376,7 @@ class MockWallet implements Wallet {
     return Promise.resolve(TxSimulationResult.random());
   }
 
-  simulateUtility(_call: any, _authwits?: AuthWitness[], _scopes?: AztecAddress[]): Promise<UtilitySimulationResult> {
+  simulateUtility(_call: any, _authwits?: AuthWitness[]): Promise<UtilitySimulationResult> {
     return Promise.resolve(UtilitySimulationResult.random());
   }
 

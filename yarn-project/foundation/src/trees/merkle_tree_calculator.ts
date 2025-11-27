@@ -1,4 +1,4 @@
-import { pedersenHash, sha256Trunc } from '@aztec/foundation/crypto';
+import { pedersenHash } from '@aztec/foundation/crypto';
 
 import type { AsyncHasher } from './hasher.js';
 import { MerkleTree } from './merkle_tree.js';
@@ -68,38 +68,5 @@ export class MerkleTreeCalculator {
     }
 
     return leaves[0];
-  }
-
-  /**
-   * Computes the Merkle root with the provided leaves **synchronously**.
-   *
-   * This method uses a synchronous hash function (defaults to `sha256Trunc`) and **does not** allow for padding.
-   * If the number of leaves is not a power of two, it throws an error.
-   * This contrasts with the above non-static async method `computeTreeRoot`, which can handle any number of leaves by
-   * padding with zero hashes.
-   */
-  static computeTreeRootSync(leaves: Buffer[], hasher = sha256Trunc): Buffer {
-    if (leaves.length === 0) {
-      throw new Error('Cannot compute a Merkle root with no leaves');
-    }
-
-    const height = Math.log2(leaves.length);
-    if (!Number.isInteger(height)) {
-      throw new Error('Cannot compute a Merkle root with a non-power-of-two number of leaves');
-    }
-
-    let nodes = leaves.slice();
-
-    for (let i = 0; i < height; ++i) {
-      let j = 0;
-      for (; j < nodes.length / 2; ++j) {
-        const l = nodes[j * 2];
-        const r = nodes[j * 2 + 1];
-        nodes[j] = hasher(Buffer.concat([l, r]));
-      }
-      nodes = nodes.slice(0, j);
-    }
-
-    return nodes[0];
   }
 }

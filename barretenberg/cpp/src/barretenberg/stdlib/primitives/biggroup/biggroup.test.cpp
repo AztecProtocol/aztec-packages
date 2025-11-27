@@ -226,7 +226,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 x_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68));
                 x_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
 
-                element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
+                // Skip curve check since we're intentionally creating an invalid point
+                element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)), /*assert_on_curve=*/false);
                 point.assert_coordinates_in_field();
 
                 // Circuit should fail because x coordinate is out of field
@@ -246,7 +247,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 y_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68));
                 y_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
 
-                element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
+                // Skip curve check since we're intentionally creating an invalid point
+                element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)), /*assert_on_curve=*/false);
                 point.assert_coordinates_in_field();
 
                 // Circuit should fail because y coordinate is out of field
@@ -678,7 +680,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         // Create a point with y = 0 (may not be on curve, but tests the edge case)
         auto x_coord = element_ct::BaseField::from_witness(&builder, test_point.x);
         auto y_coord = element_ct::BaseField::from_witness(&builder, fq(0));
-        element_ct a(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
+        // Skip curve check since we're intentionally creating an invalid point to test edge case
+        element_ct a(x_coord, y_coord, bool_ct(witness_ct(&builder, false)), /*assert_on_curve=*/false);
 
         a.set_origin_tag(submitted_value_origin_tag);
 

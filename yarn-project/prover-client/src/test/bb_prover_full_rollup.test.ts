@@ -55,8 +55,7 @@ describe('prover/bb_prover/full-rollup', () => {
       context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
 
       for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
-        const { constants, blocks, l1ToL2Messages, totalNumBlobFields, previousBlockHeader } =
-          checkpoints[checkpointIndex];
+        const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
 
         log.info(`Starting new checkpoint #${checkpointIndex}`);
         await context.orchestrator.startNewCheckpoint(
@@ -64,7 +63,6 @@ describe('prover/bb_prover/full-rollup', () => {
           constants,
           l1ToL2Messages,
           1,
-          totalNumBlobFields,
           previousBlockHeader,
         );
 

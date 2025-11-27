@@ -3,20 +3,7 @@ nodeSelector:
   node-type: "network"
   cores: "2"
 
-affinity:
-  podAntiAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-            - key: app
-              operator: In
-              values:
-                - node
-        topologyKey: "kubernetes.io/hostname"
-        namespaceSelector: {}
-
 replicaCount: 1
-hostNetwork: true
 
 node:
   resources:

@@ -56,6 +56,7 @@ describe('ValidatorClient', () => {
     p2pClient = mock<P2P>();
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     p2pClient.handleAuthRequestFromPeer.mockResolvedValue(StatusMessage.random());
+    p2pClient.broadcastAttestations.mockResolvedValue();
     blockBuilder = mock<IFullNodeBlockBuilder>();
     blockBuilder.getConfig.mockReturnValue({ l1GenesisTime: 1n, slotDuration: 24, l1ChainId: 1, rollupVersion: 1 });
     epochCache = mock<EpochCache>();
@@ -234,8 +235,8 @@ describe('ValidatorClient', () => {
       blockBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
     };
 
-    beforeEach(async () => {
-      const emptyInHash = await computeInHashFromL1ToL2Messages([]);
+    beforeEach(() => {
+      const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
       const blockHeader = makeL2BlockHeader(1, 100, 100, { contentCommitment });
       blockNumber = blockHeader.getBlockNumber();

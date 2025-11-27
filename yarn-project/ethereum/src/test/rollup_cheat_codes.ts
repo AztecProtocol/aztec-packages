@@ -14,7 +14,6 @@ import {
   hexToBigInt,
   http,
 } from 'viem';
-import { foundry } from 'viem/chains';
 
 import { EthCheatCodes } from './eth_cheat_codes.js';
 
@@ -30,7 +29,7 @@ export class RollupCheatCodes {
     addresses: Pick<L1ContractAddresses, 'rollupAddress'>,
   ) {
     this.client = createPublicClient({
-      chain: foundry,
+      chain: ethCheatCodes.chain,
       transport: fallback(ethCheatCodes.rpcUrls.map(url => http(url))),
     });
     this.rollup = getContract({
@@ -69,11 +68,7 @@ export class RollupCheatCodes {
     /** The pending chain tip */ pending: bigint;
     /** The proven chain tip */ proven: bigint;
   }> {
-    const res = await this.rollup.read.getTips();
-    return {
-      pending: res.pendingBlockNumber,
-      proven: res.provenBlockNumber,
-    };
+    return await this.rollup.read.getTips();
   }
 
   /**
@@ -81,16 +76,16 @@ export class RollupCheatCodes {
    */
   public async debugRollup() {
     const rollup = new RollupContract(this.client, this.rollup.address);
-    const pendingNum = await rollup.getBlockNumber();
-    const provenNum = await rollup.getProvenBlockNumber();
+    const pendingNum = await rollup.getCheckpointNumber();
+    const provenNum = await rollup.getProvenCheckpointNumber();
     const validators = await rollup.getAttesters();
     const committee = await rollup.getCurrentEpochCommittee();
     const archive = await rollup.archive();
     const slot = await this.getSlot();
     const epochNum = await rollup.getEpochNumberForSlotNumber(slot);
 
-    this.logger.info(`Pending block num: ${pendingNum}`);
-    this.logger.info(`Proven block num: ${provenNum}`);
+    this.logger.info(`Pending checkpoint num: ${pendingNum}`);
+    this.logger.info(`Proven checkpoint num: ${provenNum}`);
     this.logger.info(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
     this.logger.info(`Committee: ${committee?.map(v => v.toString()).join(', ')}`);
     this.logger.info(`Archive: ${archive}`);
@@ -171,34 +166,34 @@ export class RollupCheatCodes {
   }
 
   /**
-   * Marks the specified block (or latest if none) as proven
-   * @param maybeBlockNumber - The block number to mark as proven (defaults to latest pending)
+   * Marks the specified checkpoint (or latest if none) as proven
+   * @param maybeCheckpointNumber - The checkpoint number to mark as proven (defaults to latest pending)
    */
-  public markAsProven(maybeBlockNumber?: number | bigint) {
+  public markAsProven(maybeCheckpointNumber?: number | bigint) {
     return this.ethCheatCodes.execWithPausedAnvil(async () => {
       const tipsBefore = await this.getTips();
       const { pending, proven } = tipsBefore;
 
-      let blockNumber = maybeBlockNumber;
-      if (blockNumber === undefined || blockNumber > pending) {
-        blockNumber = pending;
+      let checkpointNumber = maybeCheckpointNumber;
+      if (checkpointNumber === undefined || checkpointNumber > pending) {
+        checkpointNumber = pending;
       }
-      if (blockNumber <= proven) {
-        this.logger.debug(`Block ${blockNumber} is already proven`);
+      if (checkpointNumber <= proven) {
+        this.logger.debug(`Checkpoint ${checkpointNumber} is already proven`);
         return;
       }
 
       // @note @LHerskind this is heavily dependent on the storage layout and size of values
       // The rollupStore is a struct and if the size of elements or the struct changes, this can break
-      const provenBlockNumberSlot = hexToBigInt(RollupContract.stfStorageSlot);
+      const provenCheckpointNumberSlot = hexToBigInt(RollupContract.stfStorageSlot);
 
       // Need to pack it as a single 32 byte word
-      const newValue = (BigInt(tipsBefore.pending) << 128n) | BigInt(blockNumber);
-      await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), provenBlockNumberSlot, newValue);
+      const newValue = (BigInt(tipsBefore.pending) << 128n) | BigInt(checkpointNumber);
+      await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), provenCheckpointNumberSlot, newValue);
 
       const tipsAfter = await this.getTips();
       if (tipsAfter.pending < tipsAfter.proven) {
-        throw new Error('Overwrote pending tip to a block in the past');
+        throw new Error('Overwrote pending tip to a checkpoint in the past');
       }
 
       this.logger.info(
@@ -209,7 +204,7 @@ export class RollupCheatCodes {
 
   /**
    * Overrides the inProgress field of the Inbox contract state
-   * @param howMuch - How many blocks to move it forward
+   * @param howMuch - How many checkpoints to move it forward
    */
   public advanceInboxInProgress(howMuch: number | bigint): Promise<bigint> {
     return this.ethCheatCodes.execWithPausedAnvil(async () => {

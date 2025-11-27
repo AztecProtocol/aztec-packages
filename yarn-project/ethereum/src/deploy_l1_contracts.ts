@@ -277,14 +277,21 @@ export const deploySharedContracts = async (
     logger.verbose(`Deployed Fee Asset at ${feeAssetAddress}`);
 
     // Mint a tiny bit of tokens to satisfy coin-issuer constraints
-    const { txHash } = await deployer.sendTransaction({
-      to: feeAssetAddress.toString(),
-      data: encodeFunctionData({
-        abi: FeeAssetArtifact.contractAbi,
-        functionName: 'mint',
-        args: [l1Client.account.address, 1n * 10n ** 18n],
-      }),
-    });
+    const { txHash } = await deployer.sendTransaction(
+      {
+        to: feeAssetAddress.toString(),
+        data: encodeFunctionData({
+          abi: FeeAssetArtifact.contractAbi,
+          functionName: 'mint',
+          args: [l1Client.account.address, 1n * 10n ** 18n],
+        }),
+      },
+      {
+        // contract may not have been deployed yet (CREATE2 returns address before mining),
+        // which causes gas estimation to fail. Hardcode to 100k which is plenty for ERC20 mint.
+        gasLimit: 100_000n,
+      },
+    );
     await l1Client.waitForTransactionReceipt({ hash: txHash });
     logger.verbose(`Minted tiny bit of tokens to satisfy coin-issuer constraints in ${txHash}`);
 
@@ -394,17 +401,16 @@ export const deploySharedContracts = async (
     /*                          CHEAT CODES START HERE                            */
     /* -------------------------------------------------------------------------- */
 
-    feeAssetHandlerAddress = (
-      await deployer.deploy(FeeAssetHandlerArtifact, [
-        l1Client.account.address,
-        feeAssetAddress.toString(),
-        BigInt(1000n * 10n ** 18n),
-      ])
-    ).address;
+    const deployedFeeAssetHandler = await deployer.deploy(FeeAssetHandlerArtifact, [
+      l1Client.account.address,
+      feeAssetAddress.toString(),
+      BigInt(1000n * 10n ** 18n),
+    ]);
+    feeAssetHandlerAddress = deployedFeeAssetHandler.address;
     logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
 
-    // Only if we are "fresh" will we be adding as a minter, otherwise above will simply get same address
-    if (needToSetGovernance) {
+    // Only add as minter if this is a new deployment (not reusing existing handler from failed previous run)
+    if (!deployedFeeAssetHandler.existed) {
       const { txHash } = await deployer.sendTransaction({
         to: feeAssetAddress.toString(),
         data: encodeFunctionData({
@@ -481,9 +487,9 @@ export const deploySharedContracts = async (
   const rewardDistributorAddress = await registry.getRewardDistributor();
 
   if (!args.existingTokenAddress) {
-    const blockReward = getRewardConfig(networkName).blockReward;
+    const checkpointReward = getRewardConfig(networkName).checkpointReward;
 
-    const funding = blockReward * 200000n;
+    const funding = checkpointReward * 200000n;
     const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
       to: feeAssetAddress.toString(),
       data: encodeFunctionData({
@@ -857,7 +863,8 @@ export const deployRollup = async (
     aztecSlotDuration: BigInt(args.aztecSlotDuration),
     aztecEpochDuration: BigInt(args.aztecEpochDuration),
     targetCommitteeSize: BigInt(args.aztecTargetCommitteeSize),
-    lagInEpochs: BigInt(args.lagInEpochs),
+    lagInEpochsForValidatorSet: BigInt(args.lagInEpochsForValidatorSet),
+    lagInEpochsForRandao: BigInt(args.lagInEpochsForRandao),
     aztecProofSubmissionEpochs: BigInt(args.aztecProofSubmissionEpochs),
     slashingQuorum: BigInt(args.slashingQuorum ?? (args.slashingRoundSizeInEpochs * args.aztecEpochDuration) / 2 + 1),
     slashingRoundSize: BigInt(args.slashingRoundSizeInEpochs * args.aztecEpochDuration),

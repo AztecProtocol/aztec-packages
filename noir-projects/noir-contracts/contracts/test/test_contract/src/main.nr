@@ -56,6 +56,7 @@ pub contract Test {
     // We are importing different kinds of notes to test the note type ids
     use crate::test_note::TestNote;
     use address_note::address_note::AddressNote;
+    use aztec::context::note_hash_read::NoteHashRead;
     use uint_note::uint_note::{PartialUintNote, UintNote};
 
     #[event]
@@ -178,7 +179,7 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(self.context, storage_slot, options);
 
         retrieved_notes.get(0).note.get_value()
@@ -191,7 +192,7 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(self.context, storage_slot, options);
 
         [retrieved_notes.get(0).note.get_value(), retrieved_notes.get(1).note.get_value()]
@@ -227,7 +228,7 @@ pub contract Test {
     #[external("private")]
     fn call_destroy_note(storage_slot: Field) {
         let options = NoteGetterOptions::new();
-        let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(self.context, storage_slot, options);
 
         let retrieved_note = retrieved_notes.get(0);
@@ -241,7 +242,7 @@ pub contract Test {
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(self.context, storage_slot, options);
 
         let header = self.context.get_anchor_block_header();

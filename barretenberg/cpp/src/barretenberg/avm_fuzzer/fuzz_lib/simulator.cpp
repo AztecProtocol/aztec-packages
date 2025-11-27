@@ -10,6 +10,7 @@
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/common/interfaces/simulation_helper.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/common/base64.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
@@ -48,14 +49,14 @@ std::string serialize_bytecode_and_calldata(const std::vector<uint8_t>& bytecode
 GlobalVariables create_default_globals()
 {
     return GlobalVariables{
-        .chain_id = 1,
-        .version = 1,
-        .block_number = 1,
-        .slot_number = 1,
-        .timestamp = 1000000,
-        .coinbase = EthAddress{ 0 },
-        .fee_recipient = AztecAddress{ 0 },
-        .gas_fees = GasFees{ .fee_per_da_gas = 1, .fee_per_l2_gas = 1 },
+        .chain_id = CHAIN_ID,
+        .version = VERSION,
+        .block_number = BLOCK_NUMBER,
+        .slot_number = SLOT_NUMBER,
+        .timestamp = TIMESTAMP,
+        .coinbase = COINBASE,
+        .fee_recipient = FEE_RECIPIENT,
+        .gas_fees = GasFees{ .fee_per_da_gas = FEE_PER_DA_GAS, .fee_per_l2_gas = FEE_PER_L2_GAS },
     };
 }
 
@@ -69,30 +70,27 @@ Tx create_default_tx(const AztecAddress& contract_address,
 {
     return Tx
     {
-        .hash = std::string("0xdeadbeef"),
+        .hash = TRANSACTION_HASH,
         .gas_settings = GasSettings{
             .gas_limits = gas_limit,
         },
-        .effective_gas_fees = GasFees{
-            .fee_per_da_gas = 0,
-            .fee_per_l2_gas = 0,
-        },
+        .effective_gas_fees = EFFECTIVE_GAS_FEES,
         .non_revertible_accumulated_data = AccumulatedData{
-            .note_hashes = {},
+            .note_hashes = NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES,
             // This nullifier is needed to make the nonces for note hashes and expected by simulation_helper
-            .nullifiers = {FF("0x00000000000000000000000000000000000000000000000000000000deadbeef")},
-            .l2_to_l1_messages = {},
+            .nullifiers = NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS,
+            .l2_to_l1_messages = NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MESSAGES,
         },
         .revertible_accumulated_data = AccumulatedData{
-            .note_hashes = {},
-            .nullifiers = {},
-            .l2_to_l1_messages = {},
+            .note_hashes = REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES,
+            .nullifiers = REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS,
+            .l2_to_l1_messages = REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MESSAGES,
         },
-        .setup_enqueued_calls = {},
+        .setup_enqueued_calls = SETUP_ENQUEUED_CALLS,
         .app_logic_enqueued_calls = {
             PublicCallRequestWithCalldata{
                 .request = PublicCallRequest{
-                    .msg_sender = 0,
+                    .msg_sender = MSG_SENDER,
                     .contract_address = contract_address,
                     .is_static_call = is_static_call,
                     .calldata_hash = 0,
@@ -100,8 +98,8 @@ Tx create_default_tx(const AztecAddress& contract_address,
                 .calldata = calldata,
             },
         },
-        .teardown_enqueued_call = std::nullopt,
-        .gas_used_by_private = Gas{ .l2_gas = 0, .da_gas = 0 },
+        .teardown_enqueued_call = TEARDOWN_ENQUEUED_CALLS,
+        .gas_used_by_private = GAS_USED_BY_PRIVATE,
         .fee_payer = sender_address,
     };
 }
@@ -109,19 +107,19 @@ Tx create_default_tx(const AztecAddress& contract_address,
 class TestSimulator {
   protected:
     FuzzerSimulationHelper helper;
-    AztecAddress contract_address{ 42 };
-    AztecAddress sender_address{ 100 };
-    FF transaction_fee = 0; // This has to be zero for now since we don't handle fee payment right now.
+    AztecAddress contract_address{ CONTRACT_ADDRESS };
+    AztecAddress sender_address{ MSG_SENDER };
+    FF transaction_fee = TRANSACTION_FEE;
     GlobalVariables globals = create_default_globals();
-    bool is_static_call = false;
-    Gas gas_limit{ 1000000, 1000000 }; // Large gas limit for tests
+    bool is_static_call = IS_STATIC_CALL;
+    Gas gas_limit = GAS_LIMIT; // Large gas limit for tests
   public:
     TxSimulationResult simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
     {
         FuzzerContractDB minimal_contract_db(bytecode);
         FuzzerLowLevelDB minimal_low_level_db;
 
-        const PublicSimulatorConfig config{};
+        const PublicSimulatorConfig config{ .collect_call_metadata = true };
 
         // This is needed so that the contract existence check passes in simulation
         minimal_low_level_db.insert_contract_address(contract_address);
@@ -142,8 +140,16 @@ SimulatorResult CppSimulator::simulate(const std::vector<uint8_t>& bytecode, con
     TestSimulator simulator;
     TxSimulationResult result = simulator.simulate(bytecode, calldata);
     bool reverted = result.revert_code != RevertCode::OK;
-    vinfo("C++ Simulator result - reverted: ", reverted, ", output size: ", result.app_logic_return_value->size());
-    return { .reverted = reverted, .output = result.app_logic_return_value.value_or(std::vector<FF>{}) };
+    vinfo("C++ Simulator result - reverted: ", reverted, ", output size: ", result.app_logic_return_values.size());
+    std::vector<FF> values;
+    for (const auto& metadata : result.app_logic_return_values) {
+        if (metadata.values.has_value()) {
+            for (const auto& value : *metadata.values) {
+                values.push_back(value);
+            }
+        }
+    }
+    return { .reverted = reverted, .output = values };
 }
 
 JsSimulator* JsSimulator::instance = nullptr;
@@ -152,16 +158,69 @@ JsSimulator::JsSimulator(std::string& simulator_path)
     , process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
 {}
 
-void JsSimulator::restart_simulator()
+void JsSimulator::restart_simulator_process()
 {
     if (instance == nullptr) {
         throw std::runtime_error("JsSimulator should be initialized before restarting");
     }
+    std::cout << "Restarting JsSimulator process" << std::endl;
     std::string simulator_path = instance->simulator_path;
     delete instance;
     instance = new JsSimulator(simulator_path);
 }
 
+void JsSimulator::restart_simulator()
+{
+    bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
+    if (logging_enabled) {
+        info("Restarting JsSimulator");
+    }
+    if (instance == nullptr) {
+        throw std::runtime_error("JsSimulator should be initialized before restarting");
+    }
+    instance->process.write_line("{\"restart\":1}");
+
+    std::string response = instance->process.read_line();
+    while (response.empty()) {
+        std::cout << "Empty response, reading again" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        response = instance->process.read_line();
+    }
+    response.erase(response.find_last_not_of('\n') + 1);
+
+    try {
+        std::vector<uint8_t> decoded_response = decode_bytecode(response);
+        std::string response_string(decoded_response.begin(), decoded_response.end());
+        if (logging_enabled) {
+            info("Received restart response: ", response_string);
+        }
+        json response_json = json::parse(response_string);
+
+        // Check if this is actually a restart response (has "restarted" field)
+        if (response_json.contains("reverted")) {
+            if (logging_enabled) {
+                info("Discarding stale simulation response, reading restart response");
+            }
+            response = instance->process.read_line();
+            response.erase(response.find_last_not_of('\n') + 1);
+            decoded_response = decode_bytecode(response);
+            response_string = std::string(decoded_response.begin(), decoded_response.end());
+            if (logging_enabled) {
+                info("Received restart response: ", response_string);
+            }
+            response_json = json::parse(response_string);
+        }
+
+        bool restarted = response_json["restarted"];
+        if (!restarted) {
+            std::string error = response_json.value("error", "Unknown error");
+            throw std::runtime_error("Restart failed: " + error);
+        }
+    } catch (const std::exception& e) {
+        std::cout << "Error processing restart response: " << e.what() << "Response: " << response << std::endl;
+        throw std::runtime_error("Failed to restart simulator: " + std::string(e.what()));
+    }
+}
 JsSimulator* JsSimulator::getInstance()
 {
     if (instance == nullptr) {
@@ -182,11 +241,20 @@ void JsSimulator::initialize(std::string& simulator_path)
 
 SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
 {
+    bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
     std::string serialized = serialize_bytecode_and_calldata(bytecode, calldata);
+    if (logging_enabled) {
+        info("Sending request to simulator: ", serialized);
+    }
 
     // Send the request
     process.write_line(serialized);
     std::string response = process.read_line();
+    while (response.empty()) {
+        std::cout << "Empty response, reading again" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        response = process.read_line();
+    }
     // Remove the newline character
     response.erase(response.find_last_not_of('\n') + 1);
 
@@ -199,12 +267,15 @@ SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, cons
     } catch (const std::exception& e) {
         std::cout << "Error decoding response: " << e.what() << std::endl;
         std::cout << "Response: " << response << std::endl;
-        restart_simulator();
+        restart_simulator_process();
 
         return simulate(bytecode, calldata);
     }
 
     std::string response_string(decoded_response.begin(), decoded_response.end());
+    if (logging_enabled) {
+        info("Received response from simulator: ", response_string);
+    }
     json response_json = json::parse(response_string);
     bool reverted = response_json["reverted"];
     std::vector<std::string> output = response_json["output"];

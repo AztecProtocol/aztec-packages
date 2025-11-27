@@ -22,6 +22,7 @@ import { parse } from 'buffer-json';
 import { trackButtonClick } from '../../../utils/matomo';
 import { EmbeddedWallet } from '../../../wallet/embedded_wallet';
 import { prepareForFeePayment } from '../../../utils/sponsoredFPC';
+import { colors, commonStyles } from '../../../global.styles';
 
 const container = css({
   display: 'flex',
@@ -30,12 +31,25 @@ const container = css({
   justifyContent: 'flex-start',
   flex: 1,
   transition: 'width 0.3s ease-in',
-  backgroundColor: '#ffffff38',
-  borderRadius: '10px',
-  padding: '2rem',
+  backgroundColor: colors.background.paper,
+  backdropFilter: commonStyles.backdropBlur,
+  border: commonStyles.borderLight,
+  borderRadius: commonStyles.borderRadius,
   position: 'relative',
+  overflow: 'hidden',
+  maxHeight: 'calc(100vh - 280px)',
   '@media (max-width: 1100px)': {
     width: 'auto',
+    maxHeight: 'none',
+  },
+});
+
+const contentScroll = css({
+  overflowY: 'auto',
+  padding: '2rem',
+  width: '100%',
+  height: '100%',
+  '@media (max-width: 1100px)': {
     padding: '1rem',
   },
 });
@@ -54,8 +68,9 @@ const cardsContainer = css({
 });
 
 const featureCard = css({
-  background: '#ffffff38 !important',
-  borderRadius: '10px',
+  background: `${commonStyles.glassVeryDark} !important`,
+  border: commonStyles.borderNormal,
+  borderRadius: commonStyles.borderRadius,
   padding: '25px',
   display: 'flex',
   flexDirection: 'column',
@@ -70,22 +85,23 @@ const cardIcon = css({
 });
 
 const cardTitle = css({
-  fontFamily: '"Space Grotesk", sans-serif',
+  fontFamily: 'Geist, sans-serif',
   fontWeight: 700,
   fontSize: '24px',
   lineHeight: '100%',
   letterSpacing: '0.02em',
-  color: '#2D2D2D',
+  color: colors.primary.main,
   marginBottom: '12px',
 });
 
 const cardDescription = css({
-  fontFamily: 'Inter, sans-serif',
-  fontWeight: 200,
+  fontFamily: 'Geist, sans-serif',
+  fontWeight: 400,
   fontSize: '13px',
   lineHeight: '110%',
   letterSpacing: '0.01em',
-  color: 'rgba(0, 0, 0, 0.8)',
+  color: colors.text.primary,
+  opacity: 0.9,
   paddingTop: '1rem',
   paddingBottom: '2rem',
 });
@@ -93,10 +109,10 @@ const cardDescription = css({
 const cardButton = css({
   width: '200px',
   height: '48px',
-  borderRadius: '6px',
+  borderRadius: commonStyles.borderRadius,
   display: 'flex',
   '&:disabled': {
-    backgroundColor: 'var(--mui-palette-primary-main)',
+    backgroundColor: colors.primary.main,
     opacity: 0.5,
   },
 });
@@ -105,7 +121,7 @@ const welcomeCardContainer = css({
   display: 'flex',
   width: '100%',
   minHeight: '200px',
-  borderRadius: '10px',
+  borderRadius: commonStyles.borderRadius,
   position: 'relative',
   marginBottom: '1.5rem',
   '& > div': {
@@ -130,7 +146,7 @@ const AccountAbstractionIcon = () => (
         height: '30px',
         left: '3.22px',
         top: '4.79px',
-        background: '#2D2D2D',
+        background: colors.secondary.main,
         borderRadius: '50%',
       }}
     />
@@ -141,7 +157,7 @@ const AccountAbstractionIcon = () => (
         height: '6px',
         left: '6.86px',
         top: '16.79px',
-        background: '#9894FF',
+        background: colors.primary.main,
         borderRadius: '50%',
       }}
     />
@@ -152,7 +168,7 @@ const AccountAbstractionIcon = () => (
         height: '27.12px',
         left: '19.66px',
         top: '18.09px',
-        background: '#9894FF',
+        background: colors.primary.main,
         borderRadius: '3.2455px',
       }}
     />
@@ -163,7 +179,7 @@ const AccountAbstractionIcon = () => (
         height: '6px',
         left: '38.84px',
         top: '37.23px',
-        background: '#2D2D2D',
+        background: colors.secondary.main,
         borderRadius: '50%',
       }}
     />
@@ -180,7 +196,7 @@ const PrivateVotingIcon = () => (
         height: '27.12px',
         left: 'calc(50% - 40.75px/2)',
         top: '18.45px',
-        background: '#9894FF',
+        background: colors.primary.main,
         borderRadius: '3.2455px',
       }}
     />
@@ -191,7 +207,7 @@ const PrivateVotingIcon = () => (
         height: '27.12px',
         left: 'calc(50% - 25.98px/2 - 0.57px)',
         top: '4.41px',
-        background: '#2D2D2D',
+        background: colors.secondary.main,
         borderRadius: '3.2455px',
         transform: 'rotate(-90deg)',
       }}
@@ -203,7 +219,7 @@ const PrivateVotingIcon = () => (
         height: '6px',
         left: '22px',
         top: '8.42px',
-        background: '#9894FF',
+        background: colors.primary.main,
         borderRadius: '50%',
       }}
     />
@@ -220,7 +236,7 @@ const PrivateTokensIcon = () => (
         height: '20.44px',
         left: '3.8px',
         top: '3.8px',
-        background: '#9894FF',
+        background: colors.primary.main,
         borderRadius: '50%',
       }}
     />
@@ -231,7 +247,7 @@ const PrivateTokensIcon = () => (
         height: '20.44px',
         left: '25.76px',
         top: '3.8px',
-        background: '#2D2D2D',
+        background: colors.secondary.main,
         borderRadius: '50%',
       }}
     />
@@ -242,7 +258,7 @@ const PrivateTokensIcon = () => (
         height: '20.44px',
         left: '3.8px',
         top: '25.76px',
-        background: '#2D2D2D',
+        background: colors.secondary.main,
         borderRadius: '50%',
       }}
     />
@@ -253,7 +269,7 @@ const PrivateTokensIcon = () => (
         height: '20.44px',
         left: '25.76px',
         top: '25.76px',
-        background: '#9894FF',
+        background: colors.primary.main,
         borderRadius: '50%',
       }}
     />
@@ -411,7 +427,8 @@ export function Landing() {
 
   return (
     <div css={container}>
-      <div css={welcomeCardContainer}>
+      <div css={contentScroll}>
+        <div css={welcomeCardContainer}>
         <div css={featureCard}>
           <div>
             <div css={cardTitle}>Deploy Privacy-Preserving Smart Contracts</div>
@@ -531,6 +548,7 @@ export function Landing() {
             </span>
           </Tooltip>
         </div>
+      </div>
       </div>
     </div>
   );

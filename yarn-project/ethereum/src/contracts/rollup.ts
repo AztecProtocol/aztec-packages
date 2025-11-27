@@ -61,6 +61,7 @@ export type EpochProofPublicInputArgs = {
 
 export type ViemHeader = {
   lastArchiveRoot: `0x${string}`;
+  blockHeadersHash: `0x${string}`;
   contentCommitment: ViemContentCommitment;
   slotNumber: bigint;
   timestamp: bigint;
@@ -227,8 +228,13 @@ export class RollupContract {
   }
 
   @memoize
-  getLagInEpochs() {
-    return this.rollup.read.getLagInEpochs();
+  getLagInEpochsForValidatorSet() {
+    return this.rollup.read.getLagInEpochsForValidatorSet();
+  }
+
+  @memoize
+  getLagInEpochsForRandao() {
+    return this.rollup.read.getLagInEpochsForRandao();
   }
 
   @memoize
@@ -331,16 +337,16 @@ export class RollupContract {
     return await slasher.getProposer();
   }
 
-  getBlockReward() {
-    return this.rollup.read.getBlockReward();
+  getCheckpointReward() {
+    return this.rollup.read.getCheckpointReward();
   }
 
-  getBlockNumber() {
-    return this.rollup.read.getPendingBlockNumber();
+  getCheckpointNumber() {
+    return this.rollup.read.getPendingCheckpointNumber();
   }
 
-  getProvenBlockNumber() {
-    return this.rollup.read.getProvenBlockNumber();
+  getProvenCheckpointNumber() {
+    return this.rollup.read.getProvenCheckpointNumber();
   }
 
   getSlotNumber() {
@@ -425,8 +431,8 @@ export class RollupContract {
     return result;
   }
 
-  getBlock(blockNumber: bigint | number) {
-    return this.rollup.read.getBlock([BigInt(blockNumber)]);
+  getCheckpoint(checkpointNumber: bigint | number) {
+    return this.rollup.read.getCheckpoint([BigInt(checkpointNumber)]);
   }
 
   getTips() {
@@ -453,8 +459,8 @@ export class RollupContract {
     return this.rollup.read.getCurrentEpoch();
   }
 
-  getEpochNumberForBlock(blockNumber: bigint) {
-    return this.rollup.read.getEpochForBlock([BigInt(blockNumber)]);
+  getEpochNumberForCheckpoint(checkpointNumber: bigint) {
+    return this.rollup.read.getEpochForCheckpoint([BigInt(checkpointNumber)]);
   }
 
   async getRollupAddresses(): Promise<L1RollupContractAddresses> {
@@ -538,15 +544,16 @@ export class RollupContract {
    * @dev     Throws if unable to propose
    *
    * @param archive - The archive that we expect to be current state
-   * @return [slot, blockNumber] - If you can propose, the L2 slot number and L2 block number of the next Ethereum block,
+   * @return [slot, checkpointNumber, timeOfNextL1Slot] - If you can propose, the L2 slot number, checkpoint number and
+   * timestamp of the next L1 block
    * @throws otherwise
    */
   public async canProposeAtNextEthBlock(
     archive: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
-    opts: { forcePendingBlockNumber?: number } = {},
-  ): Promise<{ slot: bigint; blockNumber: bigint; timeOfNextL1Slot: bigint }> {
+    opts: { forcePendingCheckpointNumber?: number } = {},
+  ): Promise<{ slot: bigint; checkpointNumber: bigint; timeOfNextL1Slot: bigint }> {
     if (typeof slotDuration === 'number') {
       slotDuration = BigInt(slotDuration);
     }
@@ -556,35 +563,37 @@ export class RollupContract {
 
     try {
       const {
-        result: [slot, blockNumber],
+        result: [slot, checkpointNumber],
       } = await this.client.simulateContract({
         address: this.address,
         abi: RollupAbi,
         functionName: 'canProposeAtTime',
         args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`, who],
         account,
-        stateOverride: await this.makePendingBlockNumberOverride(opts.forcePendingBlockNumber),
+        stateOverride: await this.makePendingCheckpointNumberOverride(opts.forcePendingCheckpointNumber),
       });
 
-      return { slot, blockNumber, timeOfNextL1Slot };
+      return { slot, checkpointNumber, timeOfNextL1Slot };
     } catch (err: unknown) {
       throw formatViemError(err);
     }
   }
 
   /**
-   * Returns a state override that sets the pending block number to the specified value. Useful for simulations.
-   * Requires querying the current state of the contract to get the current proven block number, as they are both
+   * Returns a state override that sets the pending checkpoint number to the specified value. Useful for simulations.
+   * Requires querying the current state of the contract to get the current proven checkpoint number, as they are both
    * stored in the same slot. If the argument is undefined, it returns an empty override.
    */
-  public async makePendingBlockNumberOverride(forcePendingBlockNumber: number | undefined): Promise<StateOverride> {
-    if (forcePendingBlockNumber === undefined) {
+  public async makePendingCheckpointNumberOverride(
+    forcePendingCheckpointNumber: number | undefined,
+  ): Promise<StateOverride> {
+    if (forcePendingCheckpointNumber === undefined) {
       return [];
     }
     const slot = RollupContract.stfStorageSlot;
     const currentValue = await this.client.getStorageAt({ address: this.address, slot });
-    const currentProvenBlockNumber = currentValue ? hexToBigInt(currentValue) & ((1n << 128n) - 1n) : 0n;
-    const newValue = (BigInt(forcePendingBlockNumber) << 128n) | currentProvenBlockNumber;
+    const currentProvenCheckpointNumber = currentValue ? hexToBigInt(currentValue) & ((1n << 128n) - 1n) : 0n;
+    const newValue = (BigInt(forcePendingCheckpointNumber) << 128n) | currentProvenCheckpointNumber;
     return [
       {
         address: this.address,
@@ -595,7 +604,7 @@ export class RollupContract {
 
   /** Creates a request to Rollup#invalidateBadAttestation to be simulated or sent */
   public buildInvalidateBadAttestationRequest(
-    blockNumber: number,
+    checkpointNumber: number,
     attestationsAndSigners: ViemCommitteeAttestations,
     committee: EthAddress[],
     invalidIndex: number,
@@ -606,7 +615,7 @@ export class RollupContract {
         abi: RollupAbi,
         functionName: 'invalidateBadAttestation',
         args: [
-          BigInt(blockNumber),
+          BigInt(checkpointNumber),
           attestationsAndSigners,
           committee.map(addr => addr.toString()),
           BigInt(invalidIndex),
@@ -617,7 +626,7 @@ export class RollupContract {
 
   /** Creates a request to Rollup#invalidateInsufficientAttestations to be simulated or sent */
   public buildInvalidateInsufficientAttestationsRequest(
-    blockNumber: number,
+    checkpointNumber: number,
     attestationsAndSigners: ViemCommitteeAttestations,
     committee: EthAddress[],
   ): L1TxRequest {
@@ -626,17 +635,17 @@ export class RollupContract {
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'invalidateInsufficientAttestations',
-        args: [BigInt(blockNumber), attestationsAndSigners, committee.map(addr => addr.toString())],
+        args: [BigInt(checkpointNumber), attestationsAndSigners, committee.map(addr => addr.toString())],
       }),
     };
   }
 
   /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
-  public getHasSubmittedProof(epochNumber: number, numberOfBlocksInEpoch: number, prover: Hex | EthAddress) {
+  public getHasSubmittedProof(epochNumber: number, numberOfCheckpointsInEpoch: number, prover: Hex | EthAddress) {
     if (prover instanceof EthAddress) {
       prover = prover.toString();
     }
-    return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfBlocksInEpoch), prover]);
+    return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfCheckpointsInEpoch), prover]);
   }
 
   getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean) {
@@ -647,9 +656,9 @@ export class RollupContract {
     return this.rollup.read.getSlotAt([timestamp]);
   }
 
-  async status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+  async status(checkpointNumber: bigint, options?: { blockNumber?: bigint }) {
     await checkBlockTag(options?.blockNumber, this.client);
-    return this.rollup.read.status([blockNumber], options);
+    return this.rollup.read.status([checkpointNumber], options);
   }
 
   async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
@@ -661,8 +670,8 @@ export class RollupContract {
     return this.rollup.read.archive();
   }
 
-  archiveAt(blockNumber: bigint) {
-    return this.rollup.read.archiveAt([blockNumber]);
+  archiveAt(checkpointNumber: bigint) {
+    return this.rollup.read.archiveAt([checkpointNumber]);
   }
 
   getSequencerRewards(address: Hex | EthAddress) {
@@ -704,8 +713,8 @@ export class RollupContract {
     return this.rollup.read.getStatus([address]);
   }
 
-  getBlobCommitmentsHash(blockNumber: bigint) {
-    return this.rollup.read.getBlobCommitmentsHash([blockNumber]);
+  getBlobCommitmentsHash(checkpointNumber: bigint) {
+    return this.rollup.read.getBlobCommitmentsHash([checkpointNumber]);
   }
 
   getCurrentBlobCommitmentsHash() {
@@ -760,15 +769,17 @@ export class RollupContract {
     );
   }
 
-  public listenToBlockInvalidated(callback: (args: { blockNumber: bigint }) => unknown): WatchContractEventReturnType {
-    return this.rollup.watchEvent.BlockInvalidated(
+  public listenToCheckpointInvalidated(
+    callback: (args: { checkpointNumber: bigint }) => unknown,
+  ): WatchContractEventReturnType {
+    return this.rollup.watchEvent.CheckpointInvalidated(
       {},
       {
         onLogs: logs => {
           for (const log of logs) {
             const args = log.args;
-            if (args.blockNumber !== undefined) {
-              callback({ blockNumber: args.blockNumber });
+            if (args.checkpointNumber !== undefined) {
+              callback({ checkpointNumber: args.checkpointNumber });
             }
           }
         },

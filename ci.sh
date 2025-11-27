@@ -103,12 +103,13 @@ case "$cmd" in
     bootstrap_ec2 "./bootstrap.sh ci-barretenberg"
     ;;
   "grind")
+    prep_vars
     # Spin up ec2 instance and run the merge-queue flow.
     run() {
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
-    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --line-buffered --halt now,fail=1  'run $USER-x{}-full amd64 ci-full-no-test-cache'
+    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered 'run $USER-x{}-full amd64 ci-full-no-test-cache'
     ;;
   "merge-queue")
     prep_vars
@@ -311,4 +312,3 @@ case "$cmd" in
     exit 1
     ;;
 esac
-

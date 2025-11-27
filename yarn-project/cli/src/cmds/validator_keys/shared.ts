@@ -13,11 +13,14 @@ import { homedir } from 'os';
 import { dirname, isAbsolute, join } from 'path';
 import { mnemonicToAccount } from 'viem/accounts';
 
+import { defaultBlsPath } from './utils.js';
+
 export type ValidatorSummary = { attesterEth?: string; attesterBls?: string; publisherEth?: string[] };
 
 export type BuildValidatorsInput = {
   validatorCount: number;
   publisherCount?: number;
+  publishers?: string[];
   accountIndex: number;
   baseAddressIndex: number;
   mnemonic: string;
@@ -26,30 +29,7 @@ export type BuildValidatorsInput = {
   feeRecipient: AztecAddress;
   coinbase?: EthAddress;
   remoteSigner?: string;
-  fundingAccount?: EthAddress;
 };
-
-export const defaultBlsPath = 'm/12381/3600/0/0/0';
-
-export function validateBlsPathOptions(options: {
-  count?: number;
-  publisherCount?: number;
-  accountIndex?: number;
-  addressIndex?: number;
-  blsPath?: string;
-  ikm?: string;
-}) {
-  if (options.blsPath && options.blsPath !== defaultBlsPath) {
-    if (
-      (options.count && options.count !== 1) ||
-      (options.publisherCount && options.publisherCount > 0) ||
-      (options.accountIndex && options.accountIndex !== 0) ||
-      (options.addressIndex && options.addressIndex !== 0)
-    ) {
-      throw new Error('--bls-path cannot be used with --count, --publisher-count, --account-index, or --address-index');
-    }
-  }
-}
 
 export function withValidatorIndex(path: string, accountIndex: number = 0, addressIndex: number = 0) {
   // NOTE: The legacy BLS CLI is to allow users who generated keys in 2.1.4 to be able to use the same command
@@ -99,6 +79,7 @@ export async function buildValidatorEntries(input: BuildValidatorsInput) {
   const {
     validatorCount,
     publisherCount = 0,
+    publishers,
     accountIndex,
     baseAddressIndex,
     mnemonic,
@@ -107,7 +88,6 @@ export async function buildValidatorEntries(input: BuildValidatorsInput) {
     feeRecipient,
     coinbase,
     remoteSigner,
-    fundingAccount,
   } = input;
 
   const summaries: ValidatorSummary[] = [];
@@ -126,7 +106,10 @@ export async function buildValidatorEntries(input: BuildValidatorsInput) {
 
       let publisherField: EthAccount | EthPrivateKey | (EthAccount | EthPrivateKey)[] | undefined;
       const publisherAddresses: string[] = [];
-      if (publisherCount > 0) {
+      if (publishers && publishers.length > 0) {
+        publisherAddresses.push(...publishers);
+        publisherField = publishers.length === 1 ? (publishers[0] as EthPrivateKey) : (publishers as EthPrivateKey[]);
+      } else if (publisherCount > 0) {
         const publishersBaseIndex = baseAddressIndex + validatorCount + i * publisherCount;
         const publisherAccounts = Array.from({ length: publisherCount }, (_unused2, j) => {
           const publisherAddressIndex = publishersBaseIndex + j;
@@ -157,8 +140,7 @@ export async function buildValidatorEntries(input: BuildValidatorsInput) {
         attester,
         ...(publisherField !== undefined ? { publisher: publisherField } : {}),
         feeRecipient,
-        coinbase,
-        fundingAccount,
+        coinbase: coinbase ?? attesterEthAddress,
       } as ValidatorKeyStore;
     }),
   );
@@ -338,11 +320,6 @@ export async function writeEthJsonV3ToFile(
       } else if (pub !== undefined) {
         (v as any).publisher = await maybeEncryptEth(pub, `publisher_${i + 1}`);
       }
-    }
-
-    // Optional fundingAccount within validator
-    if ('fundingAccount' in v) {
-      (v as any).fundingAccount = await maybeEncryptEth((v as any).fundingAccount, `funding_${i + 1}`);
     }
   }
 }

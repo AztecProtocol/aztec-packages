@@ -29,10 +29,9 @@ __metadata:
     idb-keyval: "npm:^6.2.1"
     msgpackr: "npm:^1.11.2"
     pako: "npm:^2.1.0"
-    pino: "npm:^9.5.0"
     tslib: "npm:^2.4.0"
   bin:
-    bb.js: dest/node/main.js
+    bb: dest/node/bin/index.js
   languageName: node
   linkType: soft
 
@@ -45,10 +44,9 @@ __metadata:
     idb-keyval: "npm:^6.2.1"
     msgpackr: "npm:^1.11.2"
     pako: "npm:^2.1.0"
-    pino: "npm:^9.5.0"
     tslib: "npm:^2.4.0"
   bin:
-    bb.js: dest/node/main.js
+    bb: dest/node/bin/index.js
   languageName: node
   linkType: soft
 

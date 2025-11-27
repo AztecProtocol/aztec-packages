@@ -1,9 +1,4 @@
-import {
-  SpongeBlob,
-  computeBlobsHashFromBlobs,
-  getBlobsPerL1Block,
-  getTotalNumBlobFieldsFromTxs,
-} from '@aztec/blob-lib';
+import { SpongeBlob, computeBlobsHashFromBlobs, encodeCheckpointEndMarker, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
@@ -76,9 +71,7 @@ export class LightweightBlockFactory implements IBlockFactory {
     const state = await this.db.getStateReference();
 
     const txs = this.txs ?? [];
-    const txEffects = txs.map(tx => tx.txEffect);
-    const totalNumBlobFields = getTotalNumBlobFieldsFromTxs([txEffects.map(tx => tx.getTxStartMarker())]);
-    const startSpongeBlob = await SpongeBlob.init(totalNumBlobFields);
+    const startSpongeBlob = SpongeBlob.init();
 
     const { header, body, blockBlobFields } = await buildHeaderAndBodyFromTxs(
       txs,
@@ -95,12 +88,15 @@ export class LightweightBlockFactory implements IBlockFactory {
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
 
     const outHash = computeBlockOutHash(txs.map(tx => tx.txEffect.l2ToL1Msgs));
-    const inHash = await computeInHashFromL1ToL2Messages(this.l1ToL2Messages!);
-    const blobFields = [new Fr(totalNumBlobFields)].concat(blockBlobFields);
+    const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages!);
+    const numBlobFields = blockBlobFields.length + 1;
+    const blobFields = blockBlobFields.concat([encodeCheckpointEndMarker({ numBlobFields })]);
     const blobsHash = computeBlobsHashFromBlobs(getBlobsPerL1Block(blobFields));
+    const blockHeaderHash = await header.hash();
     const contentCommitment = new ContentCommitment(blobsHash, inHash, outHash);
     const l2BlockHeader = L2BlockHeader.from({
       ...header,
+      blockHeadersHash: blockHeaderHash,
       contentCommitment,
     });
 

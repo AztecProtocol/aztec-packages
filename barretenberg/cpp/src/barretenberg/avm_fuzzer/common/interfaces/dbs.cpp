@@ -15,9 +15,9 @@ TreeSnapshots FuzzerLowLevelDB::get_tree_roots() const
 {
     return {
         .l1_to_l2_message_tree = { .root = FF(0), .next_available_leaf_index = 0 },
-        .note_hash_tree = { .root = FF(0), .next_available_leaf_index = 0 },
-        .nullifier_tree = { .root = FF(0), .next_available_leaf_index = 0 },
-        .public_data_tree = { .root = FF(0), .next_available_leaf_index = 0 },
+        .note_hash_tree = { .root = FF(0), .next_available_leaf_index = next_available_note_hash_index },
+        .nullifier_tree = { .root = FF(0), .next_available_leaf_index = next_available_nullifier_index },
+        .public_data_tree = { .root = FF(0), .next_available_leaf_index = next_available_public_data_index },
     };
 }
 
@@ -44,10 +44,14 @@ std::pair<FF, index_t> FuzzerLowLevelDB::get_indexed_low_leaf_helper(
 
 GetLowIndexedLeafResponse FuzzerLowLevelDB::get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const
 {
-    // todo(ilyas): implement other trees if needed
     switch (tree_id) {
     case MerkleTreeId::NULLIFIER_TREE: {
         auto [low_value, low_index] = get_indexed_low_leaf_helper(nullifier_values, value);
+        return GetLowIndexedLeafResponse(low_value == value, low_index);
+        break;
+    }
+    case MerkleTreeId::PUBLIC_DATA_TREE: {
+        auto [low_value, low_index] = get_indexed_low_leaf_helper(public_data_slots, value);
         return GetLowIndexedLeafResponse(low_value == value, low_index);
         break;
     }
@@ -61,18 +65,38 @@ FF FuzzerLowLevelDB::get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) co
     switch (tree_id) {
     case MerkleTreeId::NULLIFIER_TREE:
         return nullifier_leaves.at(leaf_index).nullifier;
+    case MerkleTreeId::PUBLIC_DATA_TREE:
+        return public_data_leaves.at(leaf_index).value;
+    case MerkleTreeId::NOTE_HASH_TREE:
+        return note_hash_leaves.at(leaf_index);
     default:
         break;
     }
     return FF(0);
 }
-bb::crypto::merkle_tree::IndexedLeaf<PublicDataLeafValue> FuzzerLowLevelDB::get_leaf_preimage_public_data_tree(
-    [[maybe_unused]] index_t leaf_index) const
-{
-    return {};
-}
-bb::crypto::merkle_tree::IndexedLeaf<NullifierLeafValue> FuzzerLowLevelDB::get_leaf_preimage_nullifier_tree(
+simulation::IndexedLeaf<PublicDataLeafValue> FuzzerLowLevelDB::get_leaf_preimage_public_data_tree(
     index_t leaf_index) const
+{
+    PublicDataLeafValue leaf_value = public_data_leaves.at(leaf_index);
+    std::pair<FF, index_t> value_index_pair = { leaf_value.value, leaf_index };
+    // Find index in public_data_slots
+    auto it = std::ranges::find_if(
+        public_data_slots.begin(), public_data_slots.end(), [&value_index_pair](const std::pair<FF, index_t>& pair) {
+            return pair.second == value_index_pair.second;
+        });
+    if (it == public_data_slots.end()) {
+        throw_or_abort("FuzzerLowLevelDB::get_leaf_preimage_public_data_tree: leaf not found in public_data_slots");
+    }
+    it++; // Now iterator is at the next element
+    if (it == public_data_slots.end()) {
+        // If this is the last leaf, return with index 0
+        return simulation::IndexedLeaf<PublicDataLeafValue>(leaf_value, 0, 0);
+    }
+    auto [next_value, next_index] = *it;
+    return bb::crypto::merkle_tree::IndexedLeaf<PublicDataLeafValue>(leaf_value, next_index, next_value);
+}
+
+simulation::IndexedLeaf<NullifierLeafValue> FuzzerLowLevelDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
 {
     auto leaf_value = nullifier_leaves.at(leaf_index);
     std::pair<FF, index_t> value_index_pair = { leaf_value.nullifier, leaf_index };
@@ -89,15 +113,28 @@ bb::crypto::merkle_tree::IndexedLeaf<NullifierLeafValue> FuzzerLowLevelDB::get_l
 
     if (it == nullifier_values.end()) {
         // If this is the last leaf, return with index 0
-        return bb::crypto::merkle_tree::IndexedLeaf(leaf_value, 0, 0);
+        return simulation::IndexedLeaf<NullifierLeafValue>(leaf_value, 0, 0);
     }
     auto [next_value, next_index] = *it;
-    return bb::crypto::merkle_tree::IndexedLeaf<NullifierLeafValue>(leaf_value, next_index, next_value);
+    return simulation::IndexedLeaf<NullifierLeafValue>(leaf_value, next_index, next_value);
 }
 
 SequentialInsertionResult<PublicDataLeafValue> FuzzerLowLevelDB::insert_indexed_leaves_public_data_tree(
-    [[maybe_unused]] const PublicDataLeafValue& leaf_value)
+    const PublicDataLeafValue& leaf_value)
 {
+    // Add to map
+    public_data_leaves[next_available_public_data_index] = leaf_value;
+    // Add to sorted vector
+    public_data_slots.push_back({ leaf_value.slot, next_available_public_data_index });
+    // Sort vector
+    std::ranges::sort(
+        public_data_slots.begin(),
+        public_data_slots.end(),
+        [](const std::pair<FF, index_t>& a, const std::pair<FF, index_t>& b) { return a.first < b.first; });
+
+    // Increment next available index
+    next_available_public_data_index++;
+    // Don't return any witness data for now, as it's not used for pure calls.
     return {};
 }
 
@@ -116,12 +153,15 @@ SequentialInsertionResult<NullifierLeafValue> FuzzerLowLevelDB::insert_indexed_l
 
     // Increment next available index
     next_available_nullifier_index++;
+    // Don't return any witness data for now, as it's not used for pure calls.
     return {};
 }
 
 std::vector<AppendLeafResult> FuzzerLowLevelDB::append_leaves([[maybe_unused]] MerkleTreeId tree_id,
-                                                              [[maybe_unused]] std::span<const FF> leaves)
+                                                              std::span<const FF> leaves)
 {
+    note_hash_leaves.insert(note_hash_leaves.end(), leaves.begin(), leaves.end());
+    next_available_note_hash_index += leaves.size();
     return {};
 }
 void FuzzerLowLevelDB::pad_tree([[maybe_unused]] MerkleTreeId tree_id, [[maybe_unused]] size_t num_leaves) {}
@@ -134,6 +174,7 @@ uint32_t FuzzerLowLevelDB::get_checkpoint_id() const
     return 0;
 }
 
+// Helper to insert a contract address into the nullifier tree
 void FuzzerLowLevelDB::insert_contract_address(const AztecAddress& contract_address)
 {
     auto contract_nullifier =

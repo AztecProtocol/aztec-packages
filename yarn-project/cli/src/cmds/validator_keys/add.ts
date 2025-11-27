@@ -12,23 +12,28 @@ import {
   buildValidatorEntries,
   logValidatorSummaries,
   maybePrintJson,
-  validateBlsPathOptions,
   writeBlsBn254ToFile,
   writeEthJsonV3ToFile,
   writeKeystoreFile,
 } from './shared.js';
+import { validateBlsPathOptions, validatePublisherOptions, validateRemoteSignerOptions } from './utils.js';
 
 export type AddValidatorKeysOptions = NewValidatorKeystoreOptions;
 
 export async function addValidatorKeys(existing: string, options: AddValidatorKeysOptions, log: LogFn) {
   // validate bls-path inputs before proceeding with key generation
   validateBlsPathOptions(options);
+  // validate publisher options
+  validatePublisherOptions(options);
+  // validate remote signer options
+  validateRemoteSignerOptions(options);
 
   const {
     dataDir,
     file,
     count,
     publisherCount = 0,
+    publishers,
     mnemonic,
     accountIndex = 0,
     addressIndex,
@@ -37,7 +42,6 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
     json,
     feeRecipient: feeRecipientOpt,
     coinbase: coinbaseOpt,
-    fundingAccount: fundingAccountOpt,
     remoteSigner: remoteSignerOpt,
     password,
     encryptedKeystoreDir,
@@ -58,8 +62,6 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
     throw new Error('feeRecipient is required (either present in existing file or via --fee-recipient)');
   }
   const coinbase = (coinbaseOpt as EthAddress | undefined) ?? (first.coinbase as EthAddress | undefined);
-  const fundingAccount =
-    (fundingAccountOpt as EthAddress | undefined) ?? (first.fundingAccount as EthAddress | undefined);
   const derivedRemoteSigner = (first.attester as any)?.remoteSignerUrl || (first.attester as any)?.eth?.remoteSignerUrl;
   const remoteSigner = remoteSignerOpt ?? derivedRemoteSigner;
 
@@ -73,6 +75,7 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
   const { validators, summaries } = await buildValidatorEntries({
     validatorCount,
     publisherCount,
+    publishers,
     accountIndex,
     baseAddressIndex: effectiveBaseAddressIndex,
     mnemonic: mnemonicToUse,
@@ -81,7 +84,6 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
     feeRecipient,
     coinbase,
     remoteSigner,
-    fundingAccount,
   });
 
   keystore.validators.push(...validators);

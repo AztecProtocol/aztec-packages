@@ -30,7 +30,8 @@
     "@aztec/kv-store": "latest",
     "@aztec/noir-contracts.js": "latest",
     "@aztec/pxe": "latest",
-    "@aztec/stdlib": "latest"
+    "@aztec/stdlib": "latest",
+    "@aztec/wallet-sdk": "latest"
   },
   "devDependencies": {
     "@aztec/test-wallet": "latest",

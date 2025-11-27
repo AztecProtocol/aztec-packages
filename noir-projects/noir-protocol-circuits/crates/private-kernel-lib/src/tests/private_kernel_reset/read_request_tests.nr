@@ -1,5 +1,8 @@
 use super::TestBuilder;
-use types::{hash::compute_siloed_nullifier, tests::utils::assert_array_eq};
+use types::{
+    address::aztec_address::AztecAddress, hash::compute_siloed_nullifier,
+    tests::utils::assert_array_eq, traits::FromField,
+};
 
 // Note: Only a few cases are tested here to ensure that the code path to the `ReadRequestValidator` is reached for both
 // note hash and nullifier read requests. More comprehensive tests for validating and propagating read requests can be
@@ -75,6 +78,20 @@ fn wrong_hint_for_settled_note_hash_read_request() {
     let mut hint = builder.note_hash_read_request_hints.settled_read_hints.pop();
     hint.leaf_preimage.value = 99;
     builder.note_hash_read_request_hints.settled_read_hints.push(hint);
+
+    builder.failed();
+}
+
+#[test(should_fail_with = "Settled read request must have zero contract address")]
+fn non_zero_contract_address_for_settled_note_hash_read_request() {
+    let mut builder = TestBuilder::new();
+
+    builder.read_settled_note_hash(1);
+
+    // Change the contract address to a non-zero value.
+    let mut request = builder.previous_kernel.note_hash_read_requests.pop();
+    request.contract_address = AztecAddress::from_field(1);
+    builder.previous_kernel.note_hash_read_requests.push(request);
 
     builder.failed();
 }

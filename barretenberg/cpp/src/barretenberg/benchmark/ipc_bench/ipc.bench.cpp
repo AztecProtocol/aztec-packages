@@ -33,7 +33,7 @@ void poseiden_hash_direct(State& state) noexcept
 BENCHMARK(poseiden_hash_direct)->Unit(benchmark::kMicrosecond)->Iterations(10000);
 
 // Helper: Spawn bb binary for msgpack benchmarks
-static pid_t spawn_bb_msgpack_server(const std::string& path, int max_clients = 1)
+static pid_t spawn_bb_msgpack_server(const std::string& path)
 {
     pid_t bb_pid = fork();
     if (bb_pid == 0) {
@@ -45,25 +45,14 @@ static pid_t spawn_bb_msgpack_server(const std::string& path, int max_clients = 
             close(devnull);
         }
 
-        // Convert max_clients to string for execl
-        std::string max_clients_str = std::to_string(max_clients);
-
         // Try multiple bb binary paths
-        const std::array<const char*, 5> bb_paths = { "./bin/bb",              // From build-no-avm/ or build/
-                                                      "./build-no-avm/bin/bb", // From cpp/
-                                                      "./build/bin/bb",        // From cpp/
-                                                      "../bin/bb",             // From subdirectory
-                                                      "bb" };                  // From PATH
+        const std::array<const char*, 5> bb_paths = { "./bb",           // Same directory
+                                                      "./build/bin/bb", // From cpp/
+                                                      "./bin/bb",       // From cpp/build
+                                                      "../bin/bb",      // From subdirectory
+                                                      "bb" };           // From PATH
         for (const char* bb_path : bb_paths) {
-            execl(bb_path,
-                  bb_path,
-                  "msgpack",
-                  "run",
-                  "--input",
-                  path.c_str(),
-                  "--max-clients",
-                  max_clients_str.c_str(),
-                  nullptr);
+            execl(bb_path, bb_path, "msgpack", "run", "--input", path.c_str(), nullptr);
         }
         _exit(1);
     }
@@ -117,8 +106,8 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
     {
         stop_background.store(false, std::memory_order_relaxed);
 
-        // Spawn bb binary in IPC server mode with max_clients = NumClients
-        bb_pid = spawn_bb_msgpack_server(ipc_path, static_cast<int>(NumClients));
+        // Spawn bb binary in IPC server mode
+        bb_pid = spawn_bb_msgpack_server(ipc_path);
         if (bb_pid < 0) {
             throw std::runtime_error("Failed to fork bb process");
         }
@@ -144,7 +133,7 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
             } else {
                 // Strip .shm suffix for base name
                 std::string base_name = ipc_path.substr(0, ipc_path.size() - 4);
-                clients[i] = ipc::IpcClient::create_shm(base_name, NumClients);
+                clients[i] = ipc::IpcClient::create_shm(base_name);
             }
 
             bool connected = false;
@@ -169,7 +158,6 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
                 background_threads[i - 1] = std::thread([this, i]() {
                     grumpkin::fq bx = grumpkin::fq::random_element();
                     grumpkin::fq by = grumpkin::fq::random_element();
-                    std::vector<uint8_t> resp_buffer(1024 * 1024);
 
                     while (!stop_background.load(std::memory_order_relaxed)) {
                         // Create Poseidon2Hash command
@@ -181,10 +169,26 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
                         msgpack::sbuffer cmd_buffer;
                         msgpack::pack(cmd_buffer, std::make_tuple(command));
 
-                        // Send and receive (keep load on server)
-                        if (clients[i]->send(cmd_buffer.data(), cmd_buffer.size(), 0)) {
-                            clients[i]->recv(resp_buffer.data(), resp_buffer.size(), 0);
+                        // Send with retry on backpressure (100ms timeout)
+                        constexpr uint64_t TIMEOUT_NS = 100000000; // 100ms
+                        while (!clients[i]->send(cmd_buffer.data(), cmd_buffer.size(), TIMEOUT_NS)) {
+                            // Ring buffer full, retry
+                            if (stop_background.load(std::memory_order_relaxed)) {
+                                return; // Exit if shutting down
+                            }
                         }
+
+                        // Receive with retry (100ms timeout)
+                        std::span<const uint8_t> response;
+                        while ((response = clients[i]->receive(TIMEOUT_NS)).empty()) {
+                            // Response not ready, retry
+                            if (stop_background.load(std::memory_order_relaxed)) {
+                                return; // Exit if shutting down
+                            }
+                        }
+
+                        // Release the message
+                        clients[i]->release(response.size());
                     }
                 });
             }
@@ -217,10 +221,18 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
             msgpack::sbuffer cmd_buffer;
             msgpack::pack(cmd_buffer, std::make_tuple(command));
 
-            // Send shutdown command
-            std::array<uint8_t, 1024> resp_buffer{};
-            clients[0]->send(cmd_buffer.data(), cmd_buffer.size(), 0);
-            clients[0]->recv(resp_buffer.data(), resp_buffer.size(), 0);
+            // Send shutdown command with retry (1s timeout)
+            constexpr uint64_t TIMEOUT_NS = 1000000000; // 1 second
+            while (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size(), TIMEOUT_NS)) {
+                // Retry on backpressure
+            }
+
+            std::span<const uint8_t> response;
+            while ((response = clients[0]->receive(TIMEOUT_NS)).empty()) {
+                // Retry until response ready
+            }
+
+            clients[0]->release(response.size());
         }
 
         // Close all clients
@@ -245,7 +257,7 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
     // Benchmark implementation shared across all variants
     void run_benchmark(benchmark::State& state)
     {
-        std::vector<uint8_t> resp_buffer(1024 * 1024);
+        constexpr uint64_t TIMEOUT_NS = 1000000000; // 1 second
 
         for (auto _ : state) {
             // Create Poseidon2Hash command
@@ -257,23 +269,24 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
             msgpack::sbuffer cmd_buffer;
             msgpack::pack(cmd_buffer, std::make_tuple(command));
 
-            // Send command
-            if (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size(), 0)) {
-                state.SkipWithError("Failed to send command");
-                break;
+            // Send command with retry on backpressure
+            while (!clients[0]->send(cmd_buffer.data(), cmd_buffer.size(), TIMEOUT_NS)) {
+                // Ring buffer full, retry (shouldn't happen often in benchmarks)
             }
 
-            // Receive response
-            ssize_t n = clients[0]->recv(resp_buffer.data(), resp_buffer.size(), 0);
-            if (n < 0) {
-                state.SkipWithError("Failed to receive response");
-                break;
+            // Receive response with retry
+            std::span<const uint8_t> resp;
+            while ((resp = clients[0]->receive(TIMEOUT_NS)).empty()) {
+                // Response not ready, retry
             }
 
             // Deserialize response
-            auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(resp_buffer.data()), static_cast<size_t>(n));
+            auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(resp.data()), resp.size());
             bb::bbapi::CommandResponse response;
             unpacked.get().convert(response);
+
+            // Release the message
+            clients[0]->release(resp.size());
 
             // Extract hash from response
             const auto& response_variant = static_cast<const bb::bbapi::CommandResponse::VariantType&>(response);
@@ -289,10 +302,12 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
 };
 
 // Type aliases for specific test cases
+// SPSC: Single client
 using Poseidon2BBSocketSPSC = Poseidon2BBMsgpack<TransportType::Socket, 1>;
-using Poseidon2BBSocketMPSC = Poseidon2BBMsgpack<TransportType::Socket, 3>;
 using Poseidon2BBShmSPSC = Poseidon2BBMsgpack<TransportType::Shm, 1>;
-using Poseidon2BBShmMPSC = Poseidon2BBMsgpack<TransportType::Shm, 3>;
+
+// MPSC: Multiple clients (socket only - SHM is SPSC-only now)
+using Poseidon2BBSocketMPSC = Poseidon2BBMsgpack<TransportType::Socket, 3>;
 
 // Macro to register benchmark variants
 #define REGISTER_BB_BENCHMARK(fixture_name)                                                                            \
@@ -305,7 +320,6 @@ using Poseidon2BBShmMPSC = Poseidon2BBMsgpack<TransportType::Shm, 3>;
 REGISTER_BB_BENCHMARK(Poseidon2BBSocketSPSC);
 REGISTER_BB_BENCHMARK(Poseidon2BBSocketMPSC);
 REGISTER_BB_BENCHMARK(Poseidon2BBShmSPSC);
-REGISTER_BB_BENCHMARK(Poseidon2BBShmMPSC);
 
 } // namespace
 

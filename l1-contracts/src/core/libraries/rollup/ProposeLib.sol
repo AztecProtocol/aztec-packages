@@ -3,8 +3,8 @@
 pragma solidity >=0.8.27;
 
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
-import {RollupStore, IRollupCore, BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
-import {TempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {RollupStore, IRollupCore, CheckpointHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
+import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -19,10 +19,8 @@ import {STFLib} from "./STFLib.sol";
 
 struct ProposeArgs {
   bytes32 archive;
-  // Including stateReference here so that the archiver can reconstruct the full block header.
-  // It doesn't need to be in the proposed header as the values are not used in propose() and they are committed to
-  // by the last archive and blobs hash.
-  // It can be removed if the archiver can refer to world state for the updated roots.
+  // TODO: Remove the `stateReference` as it's not part of the checkpoint header. And we don't need to get it from the
+  // calldata to validate the world state (only the new archive root is needed).
   StateReference stateReference;
   OracleInput oracleInput;
   ProposedHeader header;
@@ -45,15 +43,15 @@ struct InterimProposeValues {
   bytes32 attestationsHash;
   bytes32 payloadDigest;
   Epoch currentEpoch;
-  bool isFirstBlockOfEpoch;
+  bool isFirstCheckpointOfEpoch;
   bool isTxsEnabled;
 }
 
 /**
- * @param header - The proposed block header
+ * @param header - The proposed checkpoint header
  * @param digest - The digest that signatures signed
  * @param currentTime - The time of execution
- * @param blobsHashesCommitment - The blobs hash for this block, provided for simpler future simulation
+ * @param blobsHashesCommitment - The blobs hash for this checkpoint, provided for simpler future simulation
  * @param flags - Flags specific to the execution, whether certain checks should be skipped
  */
 struct ValidateHeaderArgs {
@@ -61,16 +59,16 @@ struct ValidateHeaderArgs {
   bytes32 digest;
   uint256 manaBaseFee;
   bytes32 blobsHashesCommitment;
-  BlockHeaderValidationFlags flags;
+  CheckpointHeaderValidationFlags flags;
 }
 
 /**
  * @title ProposeLib
  * @author Aztec Labs
- * @notice Library responsible for handling the L2 block proposal flow in the Aztec rollup.
+ * @notice Library responsible for handling the checkpoint proposal flow in the Aztec rollup.
  *
- * @dev This library implements the core block proposal mechanism that allows designated proposers to submit
- *      new L2 blocks to extend the rollup chain. It orchestrates the entire proposal process including:
+ * @dev This library implements the core checkpoint proposal mechanism that allows designated proposers to submit
+ *      new checkpoints to extend the rollup chain. It orchestrates the entire proposal process including:
  *      - Blob validation and commitment calculation
  *      - Header validation against chain state and timing constraints
  *      - Validator selection and proposer verification
@@ -80,14 +78,14 @@ struct ValidateHeaderArgs {
  *
  *      The proposal flow operates within Aztec's time-based model where:
  *      - Each slot has a designated proposer selected from the validator set
- *      - Blocks must be proposed in the correct time slot and build on the current chain tip
+ *      - checkpoints must be proposed in the correct time slot and build on the current chain tip
  *      - Proposers must provide valid attestations from committee members
  *      - All state transitions are atomically applied upon successful validation
  *
  *      Key functions:
  *      - `propose`: Main entry point called from `RollupCore.propose`.
- *         Handles the complete block proposal process from validation to state updates.
- *      - `validateHeader`: Validates block header against chain state, timing, and fee requirements.
+ *         Handles the complete checkpoint proposal process from validation to state updates.
+ *      - `validateHeader`: Validates checkpoint header against chain state, timing, and fee requirements.
  *         Called internally from `propose`, and externally from `RollupCore.validateHeaderWithAttestations`,
  *         used by proposers to ensure the header is valid before submitting the tx.
  *
@@ -96,15 +94,15 @@ struct ValidateHeaderArgs {
  *      - FeeLib: Fee calculation library for mana pricing, L1 gas oracles, and fee header computation
  *      - ValidatorSelectionLib: Validator and committee management for epoch setup and proposer verification
  *      - BlobLib: Blob commitment validation and hash calculation for data availability
- *      - ProposedHeaderLib: Block header hashing and validation utilities
+ *      - ProposedHeaderLib: checkpoint header hashing and validation utilities
  *
  *      Security considerations:
- *      - Only the designated proposer for the current slot can propose a block, enforced by
+ *      - Only the designated proposer for the current slot can propose a checkpoint, enforced by
  *        validating the proposer validator signature among attestations. All other attestations are not
  *        verified on chain until time of proof submission.
- *      - Each block must built on the immediate previous one, ensuring no forks. This is enforced by checking
- *        the last archive root and block numbers. If the previous block is invalid, the proposer is expected to
- *        first invalidate it.
+ *      - Each checkpoint must built on the immediate previous one, ensuring no forks. This is enforced by checking
+ *        the last archive root and checkpoint numbers. If the previous checkpoint is invalid, the proposer is expected
+ *        to first invalidate it.
  *      - Blob commitments are validated, to ensure that the values provided correctly match the actual blobs published
  */
 library ProposeLib {
@@ -115,10 +113,10 @@ library ProposeLib {
   using ChainTipsLib for CompressedChainTips;
 
   /**
-   * @notice  Publishes a new L2 block to the pending chain.
-   * @dev     Handles a proposed L2 block, validates it, and updates rollup state adding it to the pending chain.
+   * @notice  Publishes a new checkpoint to the pending chain.
+   * @dev     Handles a proposed checkpoint, validates it, and updates rollup state adding it to the pending chain.
    *          Orchestrates blob validation, header validation, proposer verification, fee calculations, and state
-   *          transitions. Automatically prunes unproven blocks if the proof submission window has passed.
+   *          transitions. Automatically prunes unproven checkpoints if the proof submission window has passed.
    *
    *          Note that some validations and processes are disabled if the chain is configured to run without
    *          transactions, such as during ignition phase:
@@ -128,7 +126,7 @@ library ProposeLib {
    *          Validations performed:
    *          - Blob commitments against provided blob data: Errors.Rollup__InvalidBlobHash,
    *            Errors.Rollup__InvalidBlobProof
-   *          - Block header validations (see validateHeader function for details)
+   *          - Checkpoint header validations (see validateHeader function for details)
    *          - Proposer signature is valid for designated slot proposer:
    *            Errors.ValidatorSelection__MissingProposerSignature
    *          - Inbox hash matches expected value (when txs enabled): Errors.Rollup__InvalidInHash
@@ -138,15 +136,15 @@ library ProposeLib {
    *          - Transaction validity and state root computation (done at proof submission via a validity proof)
    *
    *          State changes:
-   *          - Increment pending block number
-   *          - Store archive root for the new block number
-   *          - Store block metadata in circular storage (TempBlockLog)
+   *          - Increment pending checkpoint number
+   *          - Store archive root for the new checkpoint number
+   *          - Store checkpoint metadata in circular storage (TempCheckpointLog)
    *          - Update L1 gas fee oracle (when txs enabled)
    *          - Consume inbox messages (when txs enabled)
    *          - Insert outbox messages (when txs enabled)
-   *          - Setup epoch for validator selection (first block of the epoch)
+   *          - Setup epoch for validator selection (first checkpoint of the epoch)
    *
-   * @param _args - The arguments to propose the block
+   * @param _args - The arguments to propose the checkpoint
    * @param _attestations - Committee attestations in a packed format:
    *        - Contains an array of length equal to the committee size
    *        - At position `i`: if committee member `i` attested, contains their signature over the digest;
@@ -160,10 +158,10 @@ library ProposeLib {
    *        - Used to verify that the proposer is one of the committee members by allowing cheap reconstruction of the
    *          commitment
    *        - Allows computing committee commitment without expensive signature recovery onchain thus saving gas
-   *        - Nodes must validate actual signatures offchain when downloading blocks
+   *        - Nodes must validate actual signatures offchain when downloading checkpoints
    * @param _blobsInput - The bytes to verify our input blob commitments match real blobs:
-   *        - input[:1] - num blobs in block
-   *        - input[1:] - blob commitments (48 bytes * num blobs in block)
+   *        - input[:1] - num blobs in checkpoint
+   *        - input[1:] - blob commitments (48 bytes * num blobs in checkpoint)
    * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true in RollupCore, exists only to be
    *          overridden in tests
    */
@@ -175,7 +173,7 @@ library ProposeLib {
     bytes calldata _blobsInput,
     bool _checkBlob
   ) internal {
-    // Prune unproven blocks if the proof submission window has passed
+    // Prune unproven checkpoints if the proof submission window has passed
     if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
       STFLib.prune();
     }
@@ -202,7 +200,7 @@ library ProposeLib {
     v.headerHash = ProposedHeaderLib.hash(v.header);
 
     // Setup epoch by sampling the committee for the current epoch and setting the seed for the one after the next.
-    // This is a no-op if the epoch is already set up, so it only gets executed by the first block of the epoch.
+    // This is a no-op if the epoch is already set up, so it only gets executed by the first checkpoint of the epoch.
     v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     ValidatorSelectionLib.setupEpoch(v.currentEpoch);
 
@@ -223,14 +221,14 @@ library ProposeLib {
       })
     );
 
-    // Validate block header
+    // Validate checkpoint header
     validateHeader(
       ValidateHeaderArgs({
         header: v.header,
         digest: v.payloadDigest,
         manaBaseFee: FeeLib.summedBaseFee(components),
         blobsHashesCommitment: v.blobsHashesCommitment,
-        flags: BlockHeaderValidationFlags({ignoreDA: false})
+        flags: CheckpointHeaderValidationFlags({ignoreDA: false})
       })
     );
 
@@ -251,24 +249,25 @@ library ProposeLib {
     RollupStore storage rollupStore = STFLib.getStorage();
     CompressedChainTips tips = rollupStore.tips;
 
-    // Increment block number and update chain tips
-    uint256 blockNumber = tips.getPendingBlockNumber() + 1;
-    tips = tips.updatePendingBlockNumber(blockNumber);
+    // Increment checkpoint number and update chain tips
+    uint256 checkpointNumber = tips.getPending() + 1;
+    tips = tips.updatePending(checkpointNumber);
 
-    // Calculate accumulated blob commitments hash for this block
+    // Calculate accumulated blob commitments hash for this checkpoint
     // Blob commitments are collected and proven per root rollup proof (per epoch),
     // so we need to know whether we are at the epoch start:
-    v.isFirstBlockOfEpoch = v.currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
+    v.isFirstCheckpointOfEpoch =
+      v.currentEpoch > STFLib.getEpochForCheckpoint(checkpointNumber - 1) || checkpointNumber == 1;
     bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
-      STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, v.isFirstBlockOfEpoch
+      STFLib.getBlobCommitmentsHash(checkpointNumber - 1), v.blobCommitments, v.isFirstCheckpointOfEpoch
     );
 
-    // Compute fee header for block metadata
+    // Compute fee header for checkpoint metadata
     FeeHeader memory feeHeader;
     if (v.isTxsEnabled) {
       // Since ignition have no transactions, we need not waste gas deriving the fee header
       feeHeader = FeeLib.computeFeeHeader(
-        blockNumber,
+        checkpointNumber,
         _args.oracleInput.feeAssetPriceModifier,
         v.header.totalManaUsed,
         components.congestionCost,
@@ -276,15 +275,15 @@ library ProposeLib {
       );
     }
 
-    // Hash attestations for storage in block log
+    // Hash attestations for storage in checkpoint log
     // Compute attestationsHash from the attestations
     v.attestationsHash = keccak256(abi.encode(_attestations));
 
-    // Commit state changes: update chain tips and store block data
+    // Commit state changes: update chain tips and store checkpoint data
     rollupStore.tips = tips;
-    rollupStore.archives[blockNumber] = _args.archive;
-    STFLib.addTempBlockLog(
-      TempBlockLog({
+    rollupStore.archives[checkpointNumber] = _args.archive;
+    STFLib.addTempCheckpointLog(
+      TempCheckpointLog({
         headerHash: v.headerHash,
         blobCommitmentsHash: blobCommitmentsHash,
         attestationsHash: v.attestationsHash,
@@ -301,31 +300,31 @@ library ProposeLib {
       // Since the inbox is async, it must enforce its own check to not try to insert if ignition.
 
       // Consume pending L1->L2 messages and validate against header commitment
-      // @note  The block number here will always be >=1 as the genesis block is at 0
-      v.inHash = rollupStore.config.inbox.consume(blockNumber);
+      // @note  The checkpoint number here will always be >=1 as the genesis checkpoint is at 0
+      v.inHash = rollupStore.config.inbox.consume(checkpointNumber);
       require(
         v.header.contentCommitment.inHash == v.inHash,
         Errors.Rollup__InvalidInHash(v.inHash, v.header.contentCommitment.inHash)
       );
 
       // Insert L2->L1 messages into outbox for later consumption
-      rollupStore.config.outbox.insert(blockNumber, v.header.contentCommitment.outHash);
+      rollupStore.config.outbox.insert(checkpointNumber, v.header.contentCommitment.outHash);
     }
 
     // Emit event for external listeners. Nodes rely on this event to update their state.
-    emit IRollupCore.L2BlockProposed(blockNumber, _args.archive, v.blobHashes);
+    emit IRollupCore.CheckpointProposed(checkpointNumber, _args.archive, v.blobHashes);
   }
 
   /**
-   * @notice Validates a proposed block header against chain state and constraints
+   * @notice Validates a proposed checkpoint header against chain state and constraints
    * @dev Called internally from propose() and externally from RollupCore.validateHeaderWithAttestations()
    *      for proposers to check header validity before submitting transactions
    *
    *      Header validations performed:
    *      - Coinbase address is non-zero: Errors.Rollup__InvalidCoinbase
    *      - Mana usage within limits: Errors.Rollup__ManaLimitExceeded
-   *      - Builds on correct parent block (archive root check): Errors.Rollup__InvalidArchive
-   *      - Slot number greater than last block's slot: Errors.Rollup__SlotAlreadyInChain
+   *      - Builds on correct parent checkpoint (archive root check): Errors.Rollup__InvalidArchive
+   *      - Slot number greater than last checkpoint's slot: Errors.Rollup__SlotAlreadyInChain
    *      - Slot number matches current timestamp slot: Errors.HeaderLib__InvalidSlotNumber
    *      - Timestamp matches slot-derived timestamp: Errors.Rollup__InvalidTimestamp
    *      - Timestamp not in future: Errors.Rollup__TimestampInFuture
@@ -342,16 +341,16 @@ library ProposeLib {
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(currentTime);
+    uint256 pendingCheckpointNumber = STFLib.getEffectivePendingCheckpointNumber(currentTime);
 
-    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
+    bytes32 tipArchive = rollupStore.archives[pendingCheckpointNumber];
     require(
       tipArchive == _args.header.lastArchiveRoot,
       Errors.Rollup__InvalidArchive(tipArchive, _args.header.lastArchiveRoot)
     );
 
     Slot slot = _args.header.slotNumber;
-    Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);
+    Slot lastSlot = STFLib.getSlotNumber(pendingCheckpointNumber);
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
     Slot currentSlot = currentTime.slotFromTimestamp();
@@ -379,7 +378,7 @@ library ProposeLib {
    *          For more context, consult:
    *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
    *
-   * @param _timestamp - The timestamp of the block
+   * @param _timestamp - The timestamp of the checkpoint
    * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
    *
    * @return The mana base fee components
@@ -389,11 +388,11 @@ library ProposeLib {
     view
     returns (ManaBaseFeeComponents memory)
   {
-    uint256 blockOfInterest = STFLib.getEffectivePendingBlockNumber(_timestamp);
-    return FeeLib.getManaBaseFeeComponentsAt(blockOfInterest, _timestamp, _inFeeAsset);
+    uint256 checkpointOfInterest = STFLib.getEffectivePendingCheckpointNumber(_timestamp);
+    return FeeLib.getManaBaseFeeComponentsAt(checkpointOfInterest, _timestamp, _inFeeAsset);
   }
 
   function digest(ProposePayload memory _args) internal pure returns (bytes32) {
-    return keccak256(abi.encode(SignatureDomainSeparator.blockAttestation, _args));
+    return keccak256(abi.encode(SignatureDomainSeparator.checkpointAttestation, _args));
   }
 }

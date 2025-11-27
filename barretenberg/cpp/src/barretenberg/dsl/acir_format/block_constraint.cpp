@@ -15,7 +15,8 @@ namespace acir_format {
 
 using namespace bb;
 
-template <typename Builder> stdlib::field_t<Builder> poly_triple_to_field_ct(const poly_triple poly, Builder& builder)
+template <typename Builder>
+stdlib::field_t<Builder> arithmetic_triple_to_field_ct(const arithmetic_triple poly, Builder& builder)
 {
     using field_ct = stdlib::field_t<Builder>;
 
@@ -45,7 +46,7 @@ void create_block_constraints(UltraCircuitBuilder& builder,
 
     std::vector<field_ct> init;
     for (auto i : constraint.init) {
-        field_ct value = poly_triple_to_field_ct(i, builder);
+        field_ct value = arithmetic_triple_to_field_ct(i, builder);
         init.push_back(value);
     }
 
@@ -79,7 +80,7 @@ void create_block_constraints(MegaCircuitBuilder& builder,
 
     std::vector<field_ct> init;
     for (auto i : constraint.init) {
-        field_ct value = poly_triple_to_field_ct(i, builder);
+        field_ct value = arithmetic_triple_to_field_ct(i, builder);
         init.push_back(value);
     }
 
@@ -114,8 +115,8 @@ void process_ROM_operations(Builder& builder,
     rom_table_ct table(init);
     for (const auto& op : constraint.trace) {
         BB_ASSERT_EQ(op.access_type, 0);
-        field_ct value = poly_triple_to_field_ct(op.value, builder);
-        field_ct index = poly_triple_to_field_ct(op.index, builder);
+        field_ct value = arithmetic_triple_to_field_ct(op.value, builder);
+        field_ct index = arithmetic_triple_to_field_ct(op.index, builder);
         // For a ROM table, constant read should be already optimized out by the Noir compiler. Note that the
         // `rom_table` indeed can perform constant reads, so this assert is present just to make sure the Noir compiler
         // is acting as-it-should.
@@ -141,8 +142,8 @@ void process_RAM_operations(Builder& builder,
 
     ram_table_ct table(init);
     for (const auto& op : constraint.trace) {
-        field_ct value = poly_triple_to_field_ct(op.value, builder);
-        field_ct index = poly_triple_to_field_ct(op.index, builder);
+        field_ct value = arithmetic_triple_to_field_ct(op.value, builder);
+        field_ct index = arithmetic_triple_to_field_ct(op.index, builder);
         // In case of invalid witness assignment, we set the value of index value to zero to not hit an out-of-bounds
         // index in the RAM table
         if (!has_valid_witness_assignments) {
@@ -176,8 +177,8 @@ void process_call_data_operations(Builder& builder,
 
         for (const auto& op : constraint.trace) {
             BB_ASSERT_EQ(op.access_type, 0);
-            field_ct value = poly_triple_to_field_ct(op.value, builder);
-            field_ct index = poly_triple_to_field_ct(op.index, builder);
+            field_ct value = arithmetic_triple_to_field_ct(op.value, builder);
+            field_ct index = arithmetic_triple_to_field_ct(op.index, builder);
             // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
             // calldata-array
             if (!has_valid_witness_assignments) {

@@ -44,7 +44,7 @@ describe('e2e_epochs/manual_rollback', () => {
       await context.aztecNodeAdmin!.pauseSync();
       context.sequencer?.updateConfig({ minTxsPerBlock: 100 }); // Ensure no new blocks are produced
       await context.cheatCodes.eth.reorg(2);
-      const blockAfterReorg = Number(await rollup.getBlockNumber());
+      const blockAfterReorg = Number(await rollup.getCheckpointNumber());
       expect(blockAfterReorg).toBeLessThan(4);
       logger.info(`Rolled back to L2 block ${blockAfterReorg}.`);
 

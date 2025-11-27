@@ -4,8 +4,8 @@
 # are defined in yarn-project/foundation/src/config/env_var.ts
 #
 # This script scans:
-# - Helm templates in spartan/aztec-*/templates/ directories (excluding aztec-network) for "- name: VAR_NAME" patterns
-# - Helm values files in spartan/aztec-*/ (excluding aztec-network) and spartan/terraform/deploy-aztec-infra/values/ for "VAR_NAME:" patterns
+# - Helm templates in spartan/aztec-*/templates/ directories for "- name: VAR_NAME" patterns
+# - Helm values files in spartan/aztec-*/ and spartan/terraform/deploy-aztec-infra/values/ for "VAR_NAME:" patterns
 # - Terraform files in spartan/terraform/deploy-aztec-infra/ for env vars set via Helm chart values: "*.env.VAR_NAME"
 #   (Note: Terraform input variables are NOT scanned, only actual env vars passed to the application)
 #
@@ -180,7 +180,6 @@ EXCLUDED_VARS_ARRAY=(
     "PUBLISHER_KEY_INDEX_START"
     "PUBLISHERS_PER_VALIDATOR_KEY"
     "PUBLISHERS_PER_PROVER"
-    "AGENT_COUNT"
 )
 
 # Join array elements with | for regex
@@ -190,8 +189,8 @@ EXCLUDED_VARS=$(IFS='|'; echo "${EXCLUDED_VARS_ARRAY[*]}")
 echo "Scanning Helm templates..."
 helm_vars=""
 if [[ -d "$HELM_CHARTS_DIR" ]]; then
-    # Find templates directories in aztec-* charts only (excluding aztec-network)
-    helm_vars=$(find "$HELM_CHARTS_DIR" -maxdepth 2 -type d -name templates -path "*/aztec-*/*" ! -path "*/aztec-network/*" | \
+    # Find templates directories in aztec-* charts only
+    helm_vars=$(find "$HELM_CHARTS_DIR" -maxdepth 2 -type d -name templates -path "*/aztec-*/*" | \
                 xargs -I {} find {} -name "*.yaml" -o -name "*.yml" -o -name "*.tpl" 2>/dev/null | \
                 xargs grep -hE "^\s*- name:\s+[A-Z][A-Z0-9_]*\s*$" 2>/dev/null | \
                 sed -E 's/.*- name:\s+([A-Z][A-Z0-9_]*).*/\1/' | \
@@ -202,8 +201,8 @@ fi
 echo "Scanning Helm values files..."
 values_vars=""
 if [[ -d "$HELM_CHARTS_DIR" ]]; then
-    # Find values.yaml files in aztec-* chart directories only (excluding aztec-network)
-    values_vars=$(find "$HELM_CHARTS_DIR" -maxdepth 2 -name "values.yaml" -path "*/aztec-*/*" ! -path "*/aztec-network/*" 2>/dev/null | \
+    # Find values.yaml files in aztec-* chart directories only
+    values_vars=$(find "$HELM_CHARTS_DIR" -maxdepth 2 -name "values.yaml" -path "*/aztec-*/*" 2>/dev/null | \
                   xargs grep -hE "^\s+[A-Z][A-Z0-9_]*:" 2>/dev/null | \
                   sed -E 's/^\s+([A-Z][A-Z0-9_]*):.*/\1/' | \
                   sort -u || true)

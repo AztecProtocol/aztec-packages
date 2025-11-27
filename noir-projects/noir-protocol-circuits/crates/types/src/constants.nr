@@ -125,6 +125,7 @@ pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 24;
 
 // MISC CONSTANTS
 pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
+pub global INITIAL_CHECKPOINT_NUMBER: Field = 1;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_CHECKPOINT: u32 = 6;
@@ -264,7 +265,7 @@ pub global FUNCTION_LEAF_PREIMAGE_LENGTH: u32 = 5;
 pub global GLOBAL_VARIABLES_LENGTH: u32 = 7 + GAS_FEES_LENGTH;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
-pub global SPONGE_BLOB_LENGTH: u32 = 11;
+pub global SPONGE_BLOB_LENGTH: u32 = 10;
 pub global BLS12_FR_LIMBS: u32 = 3; // TODO(#14646): get this from bignum
 pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(#14646): get this from bignum
 pub global BLS12_POINT_LENGTH: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(#14646): reduce num fields needed here?
@@ -288,7 +289,6 @@ pub global KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 = KEY_VALIDATION_REQ
 pub global SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 =
     KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH + 1;
 pub global PARTIAL_STATE_REFERENCE_LENGTH: u32 = 6;
-pub global READ_REQUEST_LENGTH: u32 = 2;
 pub global TREE_LEAF_READ_REQUEST_LENGTH: u32 = 2;
 pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/messages/payload.nr.
 pub global PRIVATE_LOG_LENGTH: u32 = PRIVATE_LOG_SIZE_IN_FIELDS + 1 /* length */;
@@ -358,7 +358,8 @@ pub global BLOCK_HEADER_LENGTH_BYTES: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYT
     - 12
     + 32 * TOTAL_FEES_LENGTH
     + 32 * TOTAL_MANA_USED_LENGTH;
-pub global PROPOSED_BLOCK_HEADER_LENGTH: u32 = 1 /* last_archive_root */
+pub global CHECKPOINT_HEADER_LENGTH: u32 = 1 /* last_archive_root */
+    + 1 /* block_headers_hash */
     + CONTENT_COMMITMENT_LENGTH
     + 1 /* slot_number */
     + 1 /* timestamp */
@@ -366,11 +367,13 @@ pub global PROPOSED_BLOCK_HEADER_LENGTH: u32 = 1 /* last_archive_root */
     + 1 /* fee_recipient */
     + GAS_FEES_LENGTH
     + TOTAL_MANA_USED_LENGTH;
-pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENGTH - 4) * 32
+pub global CHECKPOINT_HEADER_SIZE_IN_BYTES: u32 = (CHECKPOINT_HEADER_LENGTH - 4) * 32
     + 8 /* timestamp */
     + 20 /* coinbase */
     + 16 /* gas_fees.fee_per_da_gas */
     + 16 /* gas_fees.fee_per_l2_gas */;
+
+pub global SCOPED_READ_REQUEST_LEN: u32 = 3;
 pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 1 /* args_hash */
     + 1 /* returns_hash */
@@ -378,8 +381,8 @@ pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 1 /* is_fee_payer */
     + 1 /* include_by_timestamp */
     // The `(... + 1)` is because these arrays include a `length` field.
-    + (READ_REQUEST_LENGTH * MAX_NOTE_HASH_READ_REQUESTS_PER_CALL + 1)
-    + (READ_REQUEST_LENGTH * MAX_NULLIFIER_READ_REQUESTS_PER_CALL + 1)
+    + (SCOPED_READ_REQUEST_LEN * MAX_NOTE_HASH_READ_REQUESTS_PER_CALL + 1)
+    + (SCOPED_READ_REQUEST_LEN * MAX_NULLIFIER_READ_REQUESTS_PER_CALL + 1)
     + (KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH * MAX_KEY_VALIDATION_REQUESTS_PER_CALL + 1)
     + (NOTE_HASH_LENGTH * MAX_NOTE_HASHES_PER_CALL + 1)
     + (NULLIFIER_LENGTH * MAX_NULLIFIERS_PER_CALL + 1)
@@ -406,7 +409,6 @@ pub global HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE: u32 = 56;
 pub global PAIRING_POINTS_SIZE: u32 = 16;
 pub global IPA_CLAIM_SIZE: u32 = 10;
 
-pub global SCOPED_READ_REQUEST_LEN: u32 = READ_REQUEST_LENGTH + 1;
 pub global PUBLIC_DATA_READ_LENGTH: u32 = 3;
 // The `(... + 1)` is because these arrays include a `length` field.
 pub global PRIVATE_VALIDATION_REQUESTS_LENGTH: u32 = (
@@ -538,6 +540,7 @@ pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LEN
     + 2 * STATE_REFERENCE_LENGTH /* start_state and end_state */
     + 2 * SPONGE_BLOB_LENGTH /* start_sponge_blob and end_sponge_blob */
     + 2 /* start_timestamp and end_timestamp */
+    + 1 /* block_headers_hash */
     + 1 /* in_hash */
     + 1 /* out_hash */
     + 1 /* accumulated_fees */
@@ -1101,6 +1104,7 @@ pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE
 // TODO: Maybe hash instead of directly encoding to field for NUMS
 pub global TX_START_PREFIX: Field = 0x74785f7374617274; // = "tx_start".to_field() in nr
 pub global BLOCK_END_PREFIX: Field = 0x626c6f636b5f656e64; // = "block_end".to_field() in nr
+pub global CHECKPOINT_END_PREFIX: Field = 0x636865636b706f696e745f656e64; // = "checkpoint_end".to_field() in nr
 
 // Constants related to proof type of a recursive proof verification.
 // Keep following constants in sync with the enum acir_format::PROOF_TYPE in recursion_constraint.hpp

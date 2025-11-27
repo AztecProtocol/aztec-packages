@@ -1,13 +1,20 @@
 import { css, keyframes } from '@mui/styled-engine';
+import { designTokens } from '../global.styles';
 
 export const dialogBody = css({
   display: 'flex',
   flexDirection: 'column',
   minWidth: '600px',
+  maxWidth: '90vw',
   minHeight: '500px',
+  color: designTokens.colors.text.primary,
+  overflowX: 'hidden',
 
   '@media (max-width: 900px)': {
-    minWidth: '320px',
+    minWidth: '280px',
+    maxWidth: 'calc(100vw - 32px)',
+    minHeight: '300px',
+    maxHeight: 'calc(100vh - 64px)',
   },
 });
 
@@ -43,26 +50,32 @@ export const dropdownIcon = css({
 
 export const navbarButtonStyle = css({
   height: '48px',
-  borderRadius: '8px',
-  backgroundColor: '#ffffff38',
+  borderRadius: designTokens.shape.borderRadius,
+  backgroundColor: designTokens.colors.background.paper,
+  border: designTokens.borders.light,
+  backdropFilter: designTokens.effects.backdropBlur,
   width: '300px',
   display: 'flex',
   alignItems: 'center',
   padding: '12px 16px',
   fontSize: '16px',
   lineHeight: '15px',
-  color: '#000000',
+  color: designTokens.colors.text.primary,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-  transition: 'background-color 0.3s ease',
+  transition: 'background-color 0.3s ease, border-color 0.3s ease',
 
   '&:hover': {
-    backgroundColor: '#f8f8f8',
+    backgroundColor: designTokens.colors.background.paperDark,
+    borderColor: designTokens.borders.medium.replace('1px solid ', ''),
   },
 
   '@media (max-width: 900px)': {
     width: '100%',
+    maxWidth: '100vw',
+    padding: '12px 8px',
+    fontSize: '14px',
   },
 });
 

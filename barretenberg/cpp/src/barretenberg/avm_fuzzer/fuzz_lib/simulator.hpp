@@ -40,7 +40,7 @@ class JsSimulator : public Simulator {
     JsSimulator(std::string& simulator_path);
     Process process;
 
-    static void restart_simulator();
+    void restart_simulator_process();
 
   public:
     JsSimulator(JsSimulator& other) = delete;
@@ -51,6 +51,7 @@ class JsSimulator : public Simulator {
 
     static JsSimulator* getInstance();
     static void initialize(std::string& simulator_path);
+    static void restart_simulator();
 
     SimulatorResult simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata) override;
 };
