@@ -25,19 +25,19 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
   beforeAll(async () => {
     // Setup direct WASM access for baseline benchmark (always required)
     wasm = new BarretenbergWasmMain();
-    const { module } = await fetchModuleAndThreads(1);
-    await wasm.init(module, 1);
+    const { module } = await fetchModuleAndThreads(1, undefined, console.log);
+    await wasm.init(module, 1, console.log);
 
     // Setup WASM API
     try {
-      wasmApi = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1 });
+      wasmApi = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1, logger: console.log });
     } catch (error) {
       console.warn('Failed to initialize WASM backend:', error instanceof Error ? error.message : String(error));
     }
 
     // Setup native socket API
     try {
-      nativeSocketApi = await Barretenberg.new({ backend: BackendType.NativeUnixSocket, threads: 1 });
+      nativeSocketApi = await Barretenberg.new({ backend: BackendType.NativeUnixSocket, threads: 1, logger: console.log });
     } catch (error) {
       console.warn(
         'Failed to initialize Native Socket backend:',
@@ -47,7 +47,7 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
     // Setup native shared memory API (async)
     try {
-      nativeShmApi = await Barretenberg.new({ backend: BackendType.NativeSharedMemory, threads: 1 });
+      nativeShmApi = await Barretenberg.new({ backend: BackendType.NativeSharedMemory, threads: 1, logger: console.log });
     } catch (error) {
       console.warn(
         'Failed to initialize Native Shared Memory (async) backend:',
@@ -57,7 +57,7 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
 
     // Setup native shared memory API (sync)
     try {
-      nativeShmSyncApi = await BarretenbergSync.new({ backend: BackendType.NativeSharedMemory, threads: 1 });
+      nativeShmSyncApi = await BarretenbergSync.new({ backend: BackendType.NativeSharedMemory, threads: 1, logger: console.log });
     } catch (error) {
       console.warn(
         'Failed to initialize Native Shared Memory (sync) backend:',
@@ -65,6 +65,14 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
       );
     }
   }, 20000);
+
+  afterAll(async () => {
+    await wasm.destroy();
+    await wasmApi?.destroy();
+    await nativeSocketApi?.destroy();
+    await nativeShmApi?.destroy();
+    await nativeShmSyncApi?.destroy();
+  });
 
   it.each(SIZES)(
     'benchmark with %p field elements',
