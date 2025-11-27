@@ -2,12 +2,12 @@
 id: running_a_node
 sidebar_position: 2
 title: Running a Full Node
-description: A comprehensive guide on how to run a full node on the Aztec network using either CLI or Docker Compose.
+description: A comprehensive guide on how to run a full node on the Aztec network using Docker Compose.
 ---
 
 ## Overview
 
-This guide covers the steps required to run a full node on Aztec using either the CLI method or Docker Compose method.
+This guide covers the steps required to run a full node on Aztec using Docker Compose.
 
 A full node allows you to connect and interact with the network, providing an interface to send and receive transactions and state updates without relying on third parties.
 
@@ -22,42 +22,11 @@ You should run your own full node if you want to interact with the network in th
 
 These requirements are subject to change as the network throughput increases.
 
-**Before proceeding:** Ensure you've reviewed and completed the [prerequisites](../prerequisites.md) for your chosen deployment method.
+**Before proceeding:** Ensure you've reviewed and completed the [prerequisites](../prerequisites.md).
 
-Both setup methods below include only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
+This setup includes only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
 
-## Setup with CLI
-
-### Step 1: Configure the Node
-
-Create a directory for node data:
-
-```bash
-mkdir aztec-node && cd ./aztec-node
-```
-
-Set the required configuration options. You can use environment variables or pass values directly to the command:
-
-```bash
-export AZTEC_NODE_NETWORK=testnet
-export AZTEC_NODE_P2P_IP=[your external IP]
-export AZTEC_NODE_ETH_HOSTS=[execution endpoint]
-export AZTEC_NODE_CONSENSUS_HOSTS=[consensus endpoint]
-```
-
-:::tip
-Find your public IP address with: `curl ipv4.icanhazip.com`
-:::
-
-### Step 2: Run the Node
-
-Start the node:
-
-```bash
-aztec supervised-start --node --archiver --p2p.p2pIp $AZTEC_NODE_P2P_IP --network $AZTEC_NODE_NETWORK --l1-rpc-urls $AZTEC_NODE_ETH_HOSTS --l1-consensus-host-urls $AZTEC_NODE_CONSENSUS_HOSTS
-```
-
-## Setup with Docker Compose
+## Setup
 
 ### Step 1: Set Up Directory Structure
 
@@ -99,7 +68,6 @@ services:
     container_name: "aztec-node"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
-      - ${AZTEC_ADMIN_PORT}:${AZTEC_ADMIN_PORT}
       - ${P2P_PORT}:${P2P_PORT}
       - ${P2P_PORT}:${P2P_PORT}/udp
     volumes:
@@ -129,6 +97,17 @@ networks:
   aztec:
     name: aztec
 ```
+
+:::warning Security: Admin Port Not Exposed
+The admin port (8880) is intentionally **not exposed** to the host machine for security reasons. The admin API provides sensitive operations like configuration changes and database rollbacks that should never be accessible from outside the container.
+
+If you need to access admin endpoints, use `docker exec`:
+```bash
+docker exec -it aztec-node curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
+```
+:::
 
 ### Step 4: Start the Node
 

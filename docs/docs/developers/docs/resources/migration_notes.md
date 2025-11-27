@@ -13,9 +13,14 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 In order to prevent pre-image attacks, it is necessary to inject randomness to notes. Aztec.nr users were previously expected to add said randomness to their custom note types. From now on, Aztec.nr takes care of handling randomness as built-in note metadata, making it impossible to miss for library users. This change breaks backwards compatibility as we'll discuss below.
 
-#### Changes to ValueNote, UintNote and NFTNote
+#### Changes to Aztec.nr note types
 
-If you're using `ValueNote`, `UintNote` or `NFTNote`, please be aware that `randomness` no longer is an explicit attribute in them.
+If you're using any of the following note types, please be aware that `randomness` no longer is an explicit attribute in them.
+
+- ValueNote
+- UintNote
+- NFTNote
+- AddressNote
 
 #### Migrating your custom note types: refer to UintNote as an example of how to migrate
 
@@ -314,11 +319,11 @@ The method now only accepts:
 - `artifact` (optional): A `ContractArtifact` object
 - `secretKey` (optional): A secret key for privacy keys registration
 
-#### Return value of `getNotes` no longer contains a recipient
+#### Return value of `getNotes` no longer contains a recipient and it contains some other additional info
 
-Return value of `getNotes` is defined as `Promise<UniqueNote[]>` and recipient has been dropped from `UniqueNote`.
-This change has been done because the value has been redundant as the same outcome can be achieved by populating the `scopes` array in `NoteFilter` with the `recipient` value.
-(Having the recipient in the `UniqueNote` was also logically incorrect because a note does not have a recipient - it's the message containing the note that has a recipient.)
+Return value of `getNotes` used to be defined as `Promise<UniqueNote[]>` and now it's defined as `Promise<UniqueNote[]>`.
+`NoteDao` is mostly a super-set of `UniqueNote` but it doesn't contain a `recipient`.
+Having the recipient in the return value has been redundant as the same outcome can be achieved by populating the `scopes` array in `NoteFilter` with the `recipient` value.
 
 ### [CLI] Command refactor
 

@@ -14,7 +14,6 @@ import {
   hexToBigInt,
   http,
 } from 'viem';
-import { foundry } from 'viem/chains';
 
 import { EthCheatCodes } from './eth_cheat_codes.js';
 
@@ -30,7 +29,7 @@ export class RollupCheatCodes {
     addresses: Pick<L1ContractAddresses, 'rollupAddress'>,
   ) {
     this.client = createPublicClient({
-      chain: foundry,
+      chain: ethCheatCodes.chain,
       transport: fallback(ethCheatCodes.rpcUrls.map(url => http(url))),
     });
     this.rollup = getContract({

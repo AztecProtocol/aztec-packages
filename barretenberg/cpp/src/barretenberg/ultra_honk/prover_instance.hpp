@@ -65,8 +65,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
     CommitmentKey commitment_key;
 
-    ActiveRegionData active_region_data; // specifies active regions of execution trace
-
     void set_dyadic_size(size_t size) { metadata.dyadic_size = size; }
     void set_final_active_wire_idx(size_t idx) { final_active_wire_idx = idx; }
     size_t dyadic_size() const { return metadata.dyadic_size; }
@@ -158,7 +156,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         vinfo("populating trace...");
-        Trace::populate(circuit, polynomials, active_region_data);
+        Trace::populate(circuit, polynomials);
 
         {
             BB_BENCH_NAME("constructing prover instance after trace populate");

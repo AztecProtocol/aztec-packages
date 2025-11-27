@@ -1,1 +1,1 @@
-export { UniqueNote, Comparator, Note } from '@aztec/stdlib/note';
+export { Comparator, Note } from '@aztec/stdlib/note';
