@@ -57,6 +57,10 @@ function has_label {
 function determine_ci_mode {
   echo_header "CI Mode Determination"
   echo "Labels: ${LABELS}"
+  # Handle fail-fast override
+  if has_label "ci-no-fail-fast"; then
+    echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
+  fi
   # Determine CI mode based on event, labels, and target branch
   if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || has_label "ci-merge-queue"; then
     CI_MODE="merge-queue"
@@ -83,8 +87,12 @@ function determine_ci_mode {
 
 function check_cache {
   echo_header "Cache Check"
-  local cache_name="ci-success-${CI_MODE}.tar.gz"
+  local tree_hash=$(git rev-parse HEAD^{tree})
+  local cache_name="ci-success-${CI_MODE}-${tree_hash}.tar.gz"
+  # Export for use by ci3-post.sh
+  echo "CI_CACHE_NAME=$cache_name" >> $GITHUB_ENV
   if has_label "ci-no-cache"; then
+    echo "NO_CACHE=1" >> $GITHUB_ENV
     echo "Cache disabled by label"
   elif cache_download "$cache_name" . 2>/dev/null && [ -f ".ci-success.txt" ]; then
     echo "Cache hit! Previous run: $(cat ".ci-success.txt")"

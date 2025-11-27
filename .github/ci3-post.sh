@@ -4,14 +4,18 @@ set -euo pipefail
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 function save_cache {
-  local ci_mode="$1"
-  local github_repository="$2"
+  local github_repository="$1"
+  # CI_CACHE_NAME is set by ci3.sh with tree hash included
+  local cache_name="${CI_CACHE_NAME:-}"
+  if [ -z "$cache_name" ]; then
+    echo "CI_CACHE_NAME not set, skipping cache upload"
+    return
+  fi
   # Save CI success marker for cache
   local run_url="https://github.com/${github_repository}/actions/runs/${GITHUB_RUN_ID}"
   echo "${run_url}" > ".ci-success.txt"
   echo "Saved CI success marker: ${run_url}"
   # Upload cache
-  local cache_name="ci-success-${ci_mode}.tar.gz"
   cache_upload "$cache_name" ".ci-success.txt" 2>&1 | grep -v "^$" || true
 }
 
@@ -52,11 +56,9 @@ function handle_benchmarks {
 
 function main {
   echo_header "CI3 Post-Actions"
-  # Read CI mode from env vars set by ci3.sh
-  local ci_mode="${CI_MODE:-fast}"
   # Get repository from git remote
   local github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
-  save_cache "${ci_mode}" "${github_repository}"
+  save_cache "${github_repository}"
   handle_squash_merge "${github_repository}"
   handle_benchmarks
   echo_header "Post-Actions Complete"
