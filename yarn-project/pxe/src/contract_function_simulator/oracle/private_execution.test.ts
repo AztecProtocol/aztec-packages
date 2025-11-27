@@ -48,7 +48,7 @@ import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
 import { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note } from '@aztec/stdlib/note';
-import { makeHeader } from '@aztec/stdlib/testing';
+import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -1160,7 +1160,7 @@ describe('Private Execution test suite', () => {
 
   describe('Historical header in private context', () => {
     beforeEach(() => {
-      anchorBlockHeader = makeHeader();
+      anchorBlockHeader = makeBlockHeader();
 
       executionDataProvider.getAnchorBlockHeader.mockClear();
       executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);

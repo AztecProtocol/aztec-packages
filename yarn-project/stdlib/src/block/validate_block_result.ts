@@ -47,6 +47,7 @@ export type ValidateBlockNegativeResult =
       invalidIndex: number;
     };
 
+// TODO: Rename to ValidateAttestationsResult
 /** Result type for validating a block attestations */
 export type ValidateBlockResult = { valid: true } | ValidateBlockNegativeResult;
 

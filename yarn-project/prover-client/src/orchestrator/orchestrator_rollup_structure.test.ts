@@ -1,4 +1,4 @@
-import { BatchedBlob } from '@aztec/blob-lib';
+import { BatchedBlobAccumulator } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { EpochNumber } from '@aztec/foundation/branded-types';
@@ -144,7 +144,7 @@ describe('prover/orchestrator/rollup-structure', () => {
         padArrayEnd(expectedFees, FeeRecipient.empty(), AZTEC_MAX_EPOCH_DURATION),
       );
 
-      const batchedBlob = await BatchedBlob.batch(context.getBlobFields());
+      const batchedBlob = await BatchedBlobAccumulator.batch(context.getBlobFields());
       const expectedFinalBlobAccumulator = batchedBlob.toFinalBlobAccumulator();
       expect(result.publicInputs.blobPublicInputs).toEqual(expectedFinalBlobAccumulator);
 
@@ -203,7 +203,7 @@ describe('prover/orchestrator/rollup-structure', () => {
 
       expect(result.publicInputs.fees).toEqual(Array.from({ length: AZTEC_MAX_EPOCH_DURATION }, FeeRecipient.empty));
 
-      const batchedBlob = await BatchedBlob.batch(context.getBlobFields());
+      const batchedBlob = await BatchedBlobAccumulator.batch(context.getBlobFields());
       const expectedFinalBlobAccumulator = batchedBlob.toFinalBlobAccumulator();
       expect(result.publicInputs.blobPublicInputs).toEqual(expectedFinalBlobAccumulator);
 

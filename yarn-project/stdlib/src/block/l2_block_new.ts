@@ -103,6 +103,34 @@ export class L2BlockNew {
   }
 
   /**
+   * Creates an L2 block containing random data.
+   * @param l2BlockNum - The number of the L2 block.
+   * @param txsPerBlock - The number of transactions to include in the block.
+   * @param numPublicCallsPerTx - The number of public function calls to include in each transaction.
+   * @param numPublicLogsPerCall - The number of public logs per 1 public function invocation.
+   * @param inHash - The hash of the L1 to L2 messages subtree which got inserted in this block.
+   * @returns The L2 block.
+   */
+  static async random(
+    blockNumber: number,
+    {
+      txsPerBlock = 1,
+      txOptions = {},
+      makeTxOptions,
+      ...blockHeaderOverrides
+    }: {
+      txsPerBlock?: number;
+      txOptions?: Partial<Parameters<typeof Body.random>[0]>;
+      makeTxOptions?: (txIndex: number) => Partial<Parameters<typeof Body.random>[0]>;
+    } & Partial<Parameters<typeof BlockHeader.random>[0]> = {},
+  ): Promise<L2BlockNew> {
+    const archive = new AppendOnlyTreeSnapshot(Fr.random(), blockNumber + 1);
+    const header = BlockHeader.random({ blockNumber, ...blockHeaderOverrides });
+    const body = await Body.random({ txsPerBlock, makeTxOptions, ...txOptions });
+    return new L2BlockNew(archive, header, body);
+  }
+
+  /**
    * Returns stats used for logging.
    * @returns Stats on tx count, number, and log size and count.
    */
