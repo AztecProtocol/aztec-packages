@@ -55,7 +55,28 @@ pub fn bb_binary_exists() -> bool {
     std::path::Path::new(&path).exists()
 }
 
-/// Skip test if BB binary is not available
+/// Check if BB binary supports the msgpack API
+pub fn bb_supports_msgpack() -> bool {
+    let path = get_bb_binary_path();
+    if !std::path::Path::new(&path).exists() {
+        return false;
+    }
+
+    // Try to run `bb --help` and check if "msgpack" appears in the output
+    // This is more reliable than checking exit codes
+    match std::process::Command::new(&path)
+        .args(["--help"])
+        .output()
+    {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            stdout.contains("msgpack")
+        }
+        Err(_) => false,
+    }
+}
+
+/// Skip test if BB binary is not available or doesn't support msgpack API
 #[macro_export]
 macro_rules! require_bb_binary {
     () => {
@@ -63,5 +84,22 @@ macro_rules! require_bb_binary {
             eprintln!("Skipping test: BB binary not found at {}", $crate::utils::get_bb_binary_path());
             return;
         }
+        if !$crate::utils::bb_supports_msgpack() {
+            eprintln!("Skipping test: BB binary at {} does not support msgpack API", $crate::utils::get_bb_binary_path());
+            return;
+        }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bb_binary_detection() {
+        let path = get_bb_binary_path();
+        eprintln!("BB_BINARY_PATH: {}", path);
+        eprintln!("bb_binary_exists: {}", bb_binary_exists());
+        eprintln!("bb_supports_msgpack: {}", bb_supports_msgpack());
+    }
 }
