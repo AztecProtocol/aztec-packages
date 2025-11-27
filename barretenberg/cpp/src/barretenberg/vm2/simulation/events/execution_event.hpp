@@ -13,7 +13,7 @@
 namespace bb::avm2::simulation {
 
 // Possible mutually exclusive execution errors.
-enum class ExecutionError {
+enum class ExecutionError : uint8_t {
     NONE,
     BYTECODE_RETRIEVAL,
     INSTRUCTION_FETCHING,
@@ -32,11 +32,11 @@ struct ExecutionEvent {
     MemoryValue output;
 
     // Context Id for the next context.
-    uint32_t next_context_id;
+    uint32_t next_context_id = 0;
 
     // Sub-events.
     AddressingEvent addressing_event;
-    ContextEvent before_context_event; // FIXME: currently unused (also might be overkill).
+    ContextEvent before_context_event;
     ContextEvent after_context_event;
 
     GasEvent gas_event;

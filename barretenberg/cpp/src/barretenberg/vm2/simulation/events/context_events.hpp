@@ -8,26 +8,26 @@
 namespace bb::avm2::simulation {
 
 struct ContextEvent {
-    uint32_t id;
-    uint32_t parent_id;
-    uint32_t last_child_id;
+    uint32_t id = 0;
+    uint32_t parent_id = 0;
+    uint32_t last_child_id = 0;
 
     // State
-    uint32_t pc;
-    AztecAddress msg_sender;
-    AztecAddress contract_addr;
-    BytecodeId bytecode_id;
-    FF transaction_fee;
-    bool is_static;
+    uint32_t pc = 0;
+    AztecAddress msg_sender = 0;
+    AztecAddress contract_addr = 0;
+    BytecodeId bytecode_id = 0;
+    FF transaction_fee = 0;
+    bool is_static = false;
 
     // Calldata info from parent context
-    uint32_t parent_cd_addr;
-    uint32_t parent_cd_size;
+    uint32_t parent_cd_addr = 0;
+    uint32_t parent_cd_size = 0;
 
     // Return data info from child context
-    uint32_t last_child_rd_addr;
-    uint32_t last_child_rd_size;
-    bool last_child_success;
+    uint32_t last_child_rd_addr = 0;
+    uint32_t last_child_rd_size = 0;
+    bool last_child_success = true;
 
     // Gas
     Gas gas_used;
@@ -47,28 +47,28 @@ struct ContextEvent {
     AppendOnlyTreeSnapshot retrieved_bytecodes_tree_snapshot;
 
     // Non-tree-tracked side effects
-    uint32_t numUnencryptedLogFields;
-    uint32_t numL2ToL1Messages;
+    uint32_t numUnencryptedLogFields = 0;
+    uint32_t numL2ToL1Messages = 0;
 
     // Phase
-    TransactionPhase phase;
+    TransactionPhase phase = TransactionPhase::NR_NULLIFIER_INSERTION;
 };
 
 struct ContextStackEvent {
-    uint32_t id;
-    uint32_t parent_id;
-    uint32_t entered_context_id;
+    uint32_t id = 0;
+    uint32_t parent_id = 0;
+    uint32_t entered_context_id = 0;
 
     // State
-    uint32_t next_pc;
-    AztecAddress msg_sender;
-    AztecAddress contract_addr;
-    BytecodeId bytecode_id;
-    bool is_static;
+    uint32_t next_pc = 0;
+    AztecAddress msg_sender = 0;
+    AztecAddress contract_addr = 0;
+    BytecodeId bytecode_id = 0;
+    bool is_static = false;
 
     // Calldata info from parent context
-    uint32_t parent_cd_addr;
-    uint32_t parent_cd_size;
+    uint32_t parent_cd_addr = 0;
+    uint32_t parent_cd_size = 0;
 
     // Gas
     Gas parent_gas_used;
@@ -79,8 +79,8 @@ struct ContextStackEvent {
     AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
 
     // Non-tree-tracked side effects
-    uint32_t numUnencryptedLogFields;
-    uint32_t numL2ToL1Messages;
+    uint32_t numUnencryptedLogFields = 0;
+    uint32_t numL2ToL1Messages = 0;
 };
 
 } // namespace bb::avm2::simulation
