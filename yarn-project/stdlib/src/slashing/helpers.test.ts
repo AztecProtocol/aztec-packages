@@ -1,3 +1,5 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
+
 import {
   getEpochForOffense,
   getEpochsForRound,
@@ -44,20 +46,20 @@ describe('SlashingHelpers', () => {
 
   describe('getRoundsForEpoch', () => {
     it('returns correct rounds for epoch 0', () => {
-      const [startRound, endRound] = getRoundsForEpoch(0n, constants);
+      const [startRound, endRound] = getRoundsForEpoch(EpochNumber.fromBigInt(0n), constants);
       expect(startRound).toEqual(0n);
       expect(endRound).toEqual(0n);
     });
 
     it('returns correct rounds for epoch that spans multiple rounds', () => {
       const largeEpochConstants = { ...constants, epochDuration: 25 };
-      const [startRound, endRound] = getRoundsForEpoch(1n, largeEpochConstants);
+      const [startRound, endRound] = getRoundsForEpoch(EpochNumber.fromBigInt(1n), largeEpochConstants);
       expect(startRound).toEqual(2n);
       expect(endRound).toEqual(4n);
     });
 
     it('returns same round for epoch within single round', () => {
-      const [startRound, endRound] = getRoundsForEpoch(1n, constants);
+      const [startRound, endRound] = getRoundsForEpoch(EpochNumber.fromBigInt(1n), constants);
       expect(startRound).toEqual(endRound);
     });
   });
@@ -65,24 +67,24 @@ describe('SlashingHelpers', () => {
   describe('getEpochsForRound', () => {
     it('returns correct epochs for round 0', () => {
       const epochs = getEpochsForRound(0n, constants);
-      expect(epochs).toEqual([0n, 1n, 2n]);
+      expect(epochs).toEqual([EpochNumber(0), EpochNumber(1), EpochNumber(2)]);
     });
 
     it('returns correct epochs for round 1', () => {
       const epochs = getEpochsForRound(1n, constants);
-      expect(epochs).toEqual([2n, 3n, 4n]);
+      expect(epochs).toEqual([EpochNumber(2), EpochNumber(3), EpochNumber(4)]);
     });
 
     it('returns single epoch when round size equals epoch duration', () => {
       const singleEpochConstants = { slashingRoundSize: 4, epochDuration: 4 };
       const epochs = getEpochsForRound(2n, singleEpochConstants);
-      expect(epochs).toEqual([2n]);
+      expect(epochs).toEqual([EpochNumber(2)]);
     });
 
     it('returns correct epochs when round size is multiple of epoch duration', () => {
       const singleEpochConstants = { slashingRoundSize: 12, epochDuration: 4 };
       const epochs = getEpochsForRound(1n, singleEpochConstants);
-      expect(epochs).toEqual([3n, 4n, 5n]);
+      expect(epochs).toEqual([EpochNumber(3), EpochNumber(4), EpochNumber(5)]);
     });
   });
 

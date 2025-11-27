@@ -1,3 +1,4 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BatchQueue } from '@aztec/foundation/queue';
@@ -104,7 +105,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     const jobsToAdd = items.filter((item): item is ProvingJob => 'id' in item);
     const resultsToAdd = items.filter((item): item is [ProvingJobId, ProvingJobSettledResult] => Array.isArray(item));
 
-    const db = await this.getEpochDatabase(epochNumber);
+    const db = await this.getEpochDatabase(EpochNumber(epochNumber));
     await db.batchWrite(jobsToAdd, resultsToAdd);
   }
 
@@ -164,8 +165,8 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     }
   }
 
-  async deleteAllProvingJobsOlderThanEpoch(epochNumber: number): Promise<void> {
-    const oldEpochs = Array.from(this.epochs.keys()).filter(e => e < epochNumber);
+  async deleteAllProvingJobsOlderThanEpoch(epochNumber: EpochNumber): Promise<void> {
+    const oldEpochs = Array.from(this.epochs.keys()).filter(e => e < Number(epochNumber));
     for (const old of oldEpochs) {
       const db = this.epochs.get(old);
       if (!db) {
@@ -196,7 +197,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     return this.batchQueue.put([id, { status: 'fulfilled', value }], getEpochFromProvingJobId(id));
   }
 
-  private async getEpochDatabase(epochNumber: number): Promise<SingleEpochDatabase> {
+  private async getEpochDatabase(epochNumber: EpochNumber): Promise<SingleEpochDatabase> {
     let epochDb = this.epochs.get(epochNumber);
     if (!epochDb) {
       const newEpochDirectory = join(this.config.dataDirectory!, epochNumber.toString());

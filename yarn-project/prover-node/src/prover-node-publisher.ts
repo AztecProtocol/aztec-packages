@@ -2,6 +2,7 @@ import type { BatchedBlob } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import type { L1TxUtils, RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { areArraysEqual } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -85,7 +86,7 @@ export class ProverNodePublisher {
   }
 
   public async submitEpochProof(args: {
-    epochNumber: number;
+    epochNumber: EpochNumber;
     fromBlock: number;
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
