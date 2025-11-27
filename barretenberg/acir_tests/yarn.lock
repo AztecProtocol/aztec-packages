@@ -609,6 +609,87 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@typescript/native-preview-darwin-arm64@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-darwin-arm64@npm:7.0.0-dev.20251126.1"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-darwin-x64@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-darwin-x64@npm:7.0.0-dev.20251126.1"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-linux-arm64@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-linux-arm64@npm:7.0.0-dev.20251126.1"
+  conditions: os=linux & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-linux-arm@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-linux-arm@npm:7.0.0-dev.20251126.1"
+  conditions: os=linux & cpu=arm
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-linux-x64@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-linux-x64@npm:7.0.0-dev.20251126.1"
+  conditions: os=linux & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-win32-arm64@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-win32-arm64@npm:7.0.0-dev.20251126.1"
+  conditions: os=win32 & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-win32-x64@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-win32-x64@npm:7.0.0-dev.20251126.1"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview@npm:7.0.0-dev.20251126.1"
+  dependencies:
+    "@typescript/native-preview-darwin-arm64": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-darwin-x64": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-linux-arm": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-linux-arm64": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-linux-x64": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-win32-arm64": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-win32-x64": "npm:7.0.0-dev.20251126.1"
+  dependenciesMeta:
+    "@typescript/native-preview-darwin-arm64":
+      optional: true
+    "@typescript/native-preview-darwin-x64":
+      optional: true
+    "@typescript/native-preview-linux-arm":
+      optional: true
+    "@typescript/native-preview-linux-arm64":
+      optional: true
+    "@typescript/native-preview-linux-x64":
+      optional: true
+    "@typescript/native-preview-win32-arm64":
+      optional: true
+    "@typescript/native-preview-win32-x64":
+      optional: true
+  bin:
+    tsgo: bin/tsgo.js
+  checksum: 10c0/6101172e52b0220af9447f16e0afb26384d820fb82da56011904955fdb68f302120c8e9596c792ac86f2653d00af944987f04b584858e4cd341e56818417a92b
+  languageName: node
+  linkType: hard
+
 "@webassemblyjs/ast@npm:1.14.1, @webassemblyjs/ast@npm:^1.14.1":
   version: 1.14.1
   resolution: "@webassemblyjs/ast@npm:1.14.1"
@@ -1112,8 +1193,8 @@ __metadata:
   resolution: "bbjs-test@workspace:bbjs-test"
   dependencies:
     "@aztec/bb.js": "portal:../../ts"
+    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
     commander: "npm:^12.1.0"
-    typescript: "npm:^5.6.3"
   languageName: unknown
   linkType: soft
 
@@ -5171,7 +5252,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.4.2, typescript@npm:^5.6.3":
+"typescript@npm:^5.4.2":
   version: 5.8.2
   resolution: "typescript@npm:5.8.2"
   bin:
@@ -5181,7 +5262,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A^5.4.2#optional!builtin<compat/typescript>, typescript@patch:typescript@npm%3A^5.6.3#optional!builtin<compat/typescript>":
+"typescript@patch:typescript@npm%3A^5.4.2#optional!builtin<compat/typescript>":
   version: 5.8.2
   resolution: "typescript@patch:typescript@npm%3A5.8.2#optional!builtin<compat/typescript>::version=5.8.2&hash=5786d5"
   bin:
