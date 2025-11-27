@@ -1,6 +1,7 @@
 import { BatchedBlob } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -106,7 +107,7 @@ describe('prover/orchestrator/rollup-structure', () => {
       });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(1 /* epochNumber */, numCheckpoints, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1) /* epochNumber */, numCheckpoints, finalBlobChallenges);
 
       for (let checkpointIndex = 0; checkpointIndex < checkpoints.length; checkpointIndex++) {
         const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
@@ -175,7 +176,7 @@ describe('prover/orchestrator/rollup-structure', () => {
       });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex

@@ -4,6 +4,7 @@ import { BatchedBlob } from '@aztec/blob-lib';
 import type { ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import type { ProverNodePublisher } from '@aztec/prover-node';
@@ -62,13 +63,13 @@ describe('e2e_epochs/epochs_proof_fails', () => {
       .delayer!;
 
     // Hold off prover tx until end epoch 1
-    const [epoch2Start] = getTimestampRangeForEpoch(2n, constants);
+    const [epoch2Start] = getTimestampRangeForEpoch(EpochNumber(2), constants);
     proverDelayer.pauseNextTxUntilTimestamp(epoch2Start);
     logger.info(`Delayed prover tx until epoch 2 starts at ${epoch2Start}`);
 
     // Wait until the start of epoch 1 and grab the block number
     await test.waitUntilEpochStarts(1);
-    const blockNumberAtEndOfEpoch0 = Number(await rollup.getBlockNumber());
+    const blockNumberAtEndOfEpoch0 = Number(await rollup.getCheckpointNumber());
     logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
 
     // Wait until the last block of epoch 1 is published and then hold off the sequencer.
@@ -80,7 +81,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
 
     // Next sequencer to publish a block should trigger a rollback to block 1
     await waitUntilL1Timestamp(l1Client, epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
-    expect(await rollup.getBlockNumber()).toEqual(1n);
+    expect(await rollup.getCheckpointNumber()).toEqual(1n);
     expect(await rollup.getSlotNumber()).toEqual(BigInt(2 * test.epochDuration));
 
     // The prover tx should have been rejected, and mined strictly before the one that triggered the rollback
@@ -137,7 +138,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     logger.info(`Starting epoch 2`);
 
     // No proof for epoch zero should have landed during epoch one
-    expect(monitor.l2ProvenBlockNumber).toEqual(0);
+    expect(monitor.provenCheckpointNumber).toEqual(0);
 
     // Wait until the prover job finalizes (and a bit more) and check that it aborted and never attempted to submit a tx
     logger.info(`Awaiting finalize epoch`);

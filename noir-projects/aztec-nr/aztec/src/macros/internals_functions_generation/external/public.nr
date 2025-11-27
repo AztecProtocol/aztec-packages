@@ -50,7 +50,7 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
             let context = dep::aztec::context::public_context::PublicContext::new(|| {
             // We start from 1 because we skip the selector for the dispatch function.
             let serialized_args : [Field; $args_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $args_len_quote);
-            dep::aztec::hash::hash_args_array(serialized_args)
+            dep::aztec::hash::hash_args(serialized_args)
             });
             $storage_init
             let self_address = context.this_address();

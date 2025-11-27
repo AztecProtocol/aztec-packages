@@ -3,13 +3,13 @@
   "packageManager": "yarn@4.5.2",
   "main": "dest/index.js",
   "scripts": {
-    "build": "tsc"
+    "build": "yarn tsgo"
   },
   "dependencies": {
     "@aztec/bb.js": "portal:../../ts",
     "commander": "^12.1.0"
   },
   "devDependencies": {
-    "typescript": "^5.6.3"
+    "@typescript/native-preview": "7.0.0-dev.20251126.1"
   }
 }

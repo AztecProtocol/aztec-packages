@@ -2,6 +2,7 @@ import type { BatchedBlob } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import type { L1TxUtils, RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { areArraysEqual } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -85,7 +86,7 @@ export class ProverNodePublisher {
   }
 
   public async submitEpochProof(args: {
-    epochNumber: number;
+    epochNumber: EpochNumber;
     fromBlock: number;
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
@@ -153,7 +154,7 @@ export class ProverNodePublisher {
     const { fromBlock, toBlock, publicInputs, batchedBlobInputs } = args;
 
     // Check that the block numbers match the expected epoch to be proven
-    const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.getTips();
+    const { pending, proven } = await this.rollupContract.getTips();
     // Don't publish if proven is beyond our toBlock, pointless to do so
     if (proven > BigInt(toBlock)) {
       throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as proven block is ${proven}`);
@@ -164,7 +165,7 @@ export class ProverNodePublisher {
     }
 
     // Check the archive for the immediate block before the epoch
-    const blockLog = await this.rollupContract.getBlock(BigInt(fromBlock - 1));
+    const blockLog = await this.rollupContract.getCheckpoint(BigInt(fromBlock - 1));
     if (publicInputs.previousArchiveRoot.toString() !== blockLog.archive) {
       throw new Error(
         `Previous archive root mismatch: ${publicInputs.previousArchiveRoot.toString()} !== ${blockLog.archive}`,
@@ -172,7 +173,7 @@ export class ProverNodePublisher {
     }
 
     // Check the archive for the last block in the epoch
-    const endBlockLog = await this.rollupContract.getBlock(BigInt(toBlock));
+    const endBlockLog = await this.rollupContract.getCheckpoint(BigInt(toBlock));
     if (publicInputs.endArchiveRoot.toString() !== endBlockLog.archive) {
       throw new Error(
         `End archive root mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endBlockLog.archive}`,

@@ -1,4 +1,5 @@
 import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import type { EpochNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 
@@ -19,7 +20,7 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
    * @param finalBlobBatchingChallenges - The final blob batching challenges for the epoch.
    **/
   startNewEpoch(
-    epochNumber: number,
+    epochNumber: EpochNumber,
     totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
   ): void;

@@ -845,6 +845,22 @@ curl -X POST http://localhost:8080 \
 
 Administrative operations are exposed on port 8880 under the `nodeAdmin_` namespace.
 
+:::warning Security: Admin API Access
+For security reasons, the admin port (8880) should **not be exposed** to the host machine in Docker deployments. The examples below show both CLI and Docker methods:
+
+**CLI Method** (when running with `aztec start` directly):
+```bash
+curl -X POST http://localhost:8880 ...
+```
+
+**Docker Method** (when running with Docker Compose):
+```bash
+docker exec -it <container-name> curl -X POST http://localhost:8880 ...
+```
+
+Replace `<container-name>` with your container name (e.g., `aztec-node`, `aztec-sequencer`, `prover-node`).
+:::
+
 ### nodeAdmin_getConfig
 
 Gets the current node configuration.
@@ -853,9 +869,16 @@ Gets the current node configuration.
 
 **Returns**: `AztecNodeAdminConfig`
 
-**Example**:
+**Example (CLI)**:
 ```bash
 curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
+```
+
+**Example (Docker)**:
+```bash
+docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
 ```
@@ -869,9 +892,16 @@ Updates the node configuration.
 
 **Returns**: `void`
 
-**Example**:
+**Example (CLI)**:
 ```bash
 curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_setConfig","params":[{"archiverPollingIntervalMS":1000}],"id":1}'
+```
+
+**Example (Docker)**:
+```bash
+docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_setConfig","params":[{"archiverPollingIntervalMS":1000}],"id":1}'
 ```
@@ -884,9 +914,16 @@ Pauses archiver and world state syncing.
 
 **Returns**: `void`
 
-**Example**:
+**Example (CLI)**:
 ```bash
 curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_pauseSync","params":[],"id":1}'
+```
+
+**Example (Docker)**:
+```bash
+docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_pauseSync","params":[],"id":1}'
 ```
@@ -899,9 +936,16 @@ Resumes archiver and world state syncing.
 
 **Returns**: `void`
 
-**Example**:
+**Example (CLI)**:
 ```bash
 curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_resumeSync","params":[],"id":1}'
+```
+
+**Example (Docker)**:
+```bash
+docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_resumeSync","params":[],"id":1}'
 ```
@@ -916,9 +960,16 @@ Rolls back the database to a target block.
 
 **Returns**: `void`
 
-**Example**:
+**Example (CLI)**:
 ```bash
 curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12000,true],"id":1}'
+```
+
+**Example (Docker)**:
+```bash
+docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12000,true],"id":1}'
 ```
@@ -932,9 +983,16 @@ Starts uploading a database snapshot.
 
 **Returns**: `void`
 
-**Example**:
+**Example (CLI)**:
 ```bash
 curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_startSnapshotUpload","params":["gs://bucket/snapshots/"],"id":1}'
+```
+
+**Example (Docker)**:
+```bash
+docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_startSnapshotUpload","params":["gs://bucket/snapshots/"],"id":1}'
 ```
@@ -947,9 +1005,16 @@ Gets all monitored slash payloads for the current round.
 
 **Returns**: `SlashPayloadRound[]`
 
-**Example**:
+**Example (CLI)**:
 ```bash
 curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashPayloads","params":[],"id":1}'
+```
+
+**Example (Docker)**:
+```bash
+docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashPayloads","params":[],"id":1}'
 ```
@@ -963,9 +1028,16 @@ Gets all offenses for a specific round.
 
 **Returns**: `Offense[]`
 
-**Example**:
+**Example (CLI)**:
 ```bash
 curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["current"],"id":1}'
+```
+
+**Example (Docker)**:
+```bash
+docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["current"],"id":1}'
 ```

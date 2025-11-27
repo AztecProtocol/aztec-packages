@@ -42,59 +42,6 @@ extern "C" size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
 namespace {
 
 /**
- * @brief Simple PRNG for deterministic witness solving
- */
-class SimpleRNG {
-    uint64_t state;
-
-  public:
-    explicit SimpleRNG(uint64_t seed = 0x123456789ABCDEF0ULL)
-        : state(seed)
-    {}
-    uint64_t next()
-    {
-        state ^= state << 13;
-        state ^= state >> 7;
-        state ^= state << 17;
-        return state;
-    }
-    fr next_fr()
-    {
-        uint256_t val(next(), next(), next(), next());
-        return fr(val);
-    }
-};
-
-/**
- * @brief Convert bytes to field element
- */
-fr bytes_to_fr(const std::vector<uint8_t>& bytes)
-{
-    if (bytes.size() != 32)
-        return fr::zero();
-    uint256_t result = 0;
-    for (size_t i = 0; i < 32; ++i) {
-        result <<= 8;
-        result |= bytes[i];
-    }
-    return fr(result);
-}
-
-/**
- * @brief Convert field element to 32-byte big-endian representation
- */
-std::vector<uint8_t> fr_to_bytes(const fr& value)
-{
-    std::vector<uint8_t> bytes(32, 0);
-    uint256_t val = value;
-    for (size_t i = 0; i < 32; ++i) {
-        bytes[31 - i] = static_cast<uint8_t>(val.data[0] & 0xFF);
-        val >>= 8;
-    }
-    return bytes;
-}
-
-/**
  * @brief Witness solver that handles ASSERT_ZERO expressions
  *
  * Takes VM-generated initial values and iteratively solves to satisfy constraints
@@ -133,15 +80,15 @@ bool solve_witnesses(std::vector<Acir::Expression>& expressions,
     // Solve linear-only witnesses and adjust q_c as needed
     for (auto& expr : expressions) {
         // Evaluate current value
-        fr value = bytes_to_fr(expr.q_c);
+        fr value = fr::serialize_from_buffer(&expr.q_c[0]);
 
         for (const auto& [coeff_bytes, w1, w2] : expr.mul_terms) {
-            fr coeff = bytes_to_fr(coeff_bytes);
+            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
             value += coeff * witnesses[w1.value] * witnesses[w2.value];
         }
 
         for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
-            fr coeff = bytes_to_fr(coeff_bytes);
+            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
             value += coeff * witnesses[w.value];
         }
 
@@ -154,7 +101,7 @@ bool solve_witnesses(std::vector<Acir::Expression>& expressions,
             std::map<uint32_t, fr> linear_witness_coeffs;
             for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
                 if (linear_only_witnesses.contains(w.value)) {
-                    fr coeff = bytes_to_fr(coeff_bytes);
+                    fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
                     linear_witness_coeffs[w.value] += coeff;
                 }
             }
@@ -164,14 +111,14 @@ bool solve_witnesses(std::vector<Acir::Expression>& expressions,
                 if (total_coeff != fr::zero()) {
                     // Calculate value excluding this witness:
                     // value = q_c + mul_terms + (coeff_of_other_witnesses * other_witnesses)
-                    fr value_without_witness = bytes_to_fr(expr.q_c);
+                    fr value_without_witness = fr::serialize_from_buffer(&expr.q_c[0]);
                     for (const auto& [coeff_bytes, w1, w2] : expr.mul_terms) {
-                        fr coeff = bytes_to_fr(coeff_bytes);
+                        fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
                         value_without_witness += coeff * witnesses[w1.value] * witnesses[w2.value];
                     }
                     for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
                         if (w.value != w_idx) {
-                            fr coeff = bytes_to_fr(coeff_bytes);
+                            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
                             value_without_witness += coeff * witnesses[w.value];
                         }
                     }
@@ -187,7 +134,7 @@ bool solve_witnesses(std::vector<Acir::Expression>& expressions,
             // TIER 2: If no linear-only witness found, adjust q_c to force equation to zero
             if (!solved) {
                 // Set q_c = -value to make: q_c + value = 0
-                expr.q_c = fr_to_bytes(bytes_to_fr(expr.q_c) - value);
+                fr::serialize_to_buffer(fr::serialize_from_buffer(&expr.q_c[0]) - value, &expr.q_c[0]);
             }
         }
 
@@ -209,14 +156,14 @@ bool solve_witnesses(std::vector<Acir::Expression>& expressions,
 bool is_trivial_expression(const Acir::Expression& expr)
 {
     // Check constant term
-    fr q_c = bytes_to_fr(expr.q_c);
+    fr q_c = fr::serialize_from_buffer(&expr.q_c[0]);
     if (q_c != fr::zero()) {
         return false;
     }
 
     // Check mul terms
     for (const auto& [coeff_bytes, w1, w2] : expr.mul_terms) {
-        fr coeff = bytes_to_fr(coeff_bytes);
+        fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
         if (coeff != fr::zero()) {
             return false;
         }
@@ -224,7 +171,7 @@ bool is_trivial_expression(const Acir::Expression& expr)
 
     // Check linear combinations
     for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
-        fr coeff = bytes_to_fr(coeff_bytes);
+        fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
         if (coeff != fr::zero()) {
             return false;
         }
@@ -312,14 +259,14 @@ void print_expressions_and_witnesses(const std::vector<Acir::Expression>& expres
         std::cerr << "\nExpression " << i << ":" << std::endl;
 
         // Constant term
-        fr q_c = bytes_to_fr(expr.q_c);
+        fr q_c = fr::serialize_from_buffer(&expr.q_c[0]);
         std::cerr << "  Constant: " << q_c << std::endl;
 
         // Multiplication terms
         if (!expr.mul_terms.empty()) {
             std::cerr << "  Mul terms:" << std::endl;
             for (const auto& [coeff_bytes, w1, w2] : expr.mul_terms) {
-                fr coeff = bytes_to_fr(coeff_bytes);
+                fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
                 std::cerr << "    " << coeff << " * w" << w1.value << " * w" << w2.value << std::endl;
             }
         }
@@ -328,7 +275,7 @@ void print_expressions_and_witnesses(const std::vector<Acir::Expression>& expres
         if (!expr.linear_combinations.empty()) {
             std::cerr << "  Linear terms:" << std::endl;
             for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
-                fr coeff = bytes_to_fr(coeff_bytes);
+                fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
                 std::cerr << "    " << coeff << " * w" << w.value << std::endl;
             }
         }
@@ -336,7 +283,7 @@ void print_expressions_and_witnesses(const std::vector<Acir::Expression>& expres
         // Evaluate expression
         fr value = q_c;
         for (const auto& [coeff_bytes, w1, w2] : expr.mul_terms) {
-            fr coeff = bytes_to_fr(coeff_bytes);
+            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
             auto it1 = witnesses.find(w1.value);
             auto it2 = witnesses.find(w2.value);
             if (it1 != witnesses.end() && it2 != witnesses.end()) {
@@ -344,7 +291,7 @@ void print_expressions_and_witnesses(const std::vector<Acir::Expression>& expres
             }
         }
         for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
-            fr coeff = bytes_to_fr(coeff_bytes);
+            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
             auto it = witnesses.find(w.value);
             if (it != witnesses.end()) {
                 value += coeff * it->second;
@@ -379,10 +326,10 @@ bool validate_witnesses(const std::vector<Acir::Expression>& expressions,
         const auto& expr = expressions[i];
 
         // Evaluate expression
-        fr value = bytes_to_fr(expr.q_c);
+        fr value = fr::serialize_from_buffer(&expr.q_c[0]);
 
         for (const auto& [coeff_bytes, w1, w2] : expr.mul_terms) {
-            fr coeff = bytes_to_fr(coeff_bytes);
+            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
             auto it1 = witnesses.find(w1.value);
             auto it2 = witnesses.find(w2.value);
             if (it1 != witnesses.end() && it2 != witnesses.end()) {
@@ -391,7 +338,7 @@ bool validate_witnesses(const std::vector<Acir::Expression>& expressions,
         }
 
         for (const auto& [coeff_bytes, w] : expr.linear_combinations) {
-            fr coeff = bytes_to_fr(coeff_bytes);
+            fr coeff = fr::serialize_from_buffer(&coeff_bytes[0]);
             auto it = witnesses.find(w.value);
             if (it != witnesses.end()) {
                 value += coeff * it->second;
@@ -510,7 +457,8 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
             ptr += 3;
             remaining -= 3;
 
-            std::vector<uint8_t> coeff = fr_to_bytes(coeff_state[coeff_reg]);
+            std::vector<uint8_t> coeff(32);
+            fr::serialize_to_buffer(coeff_state[coeff_reg], &coeff[0]);
             Acir::Witness w1, w2;
             w1.value = w1_idx;
             w2.value = w2_idx;
@@ -533,7 +481,8 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
             }
             prev_witness = w_idx;
 
-            std::vector<uint8_t> coeff = fr_to_bytes(coeff_state[coeff_reg]);
+            std::vector<uint8_t> coeff(32);
+            fr::serialize_to_buffer(coeff_state[coeff_reg], &coeff[0]);
             Acir::Witness w;
             w.value = w_idx;
             expr.linear_combinations.push_back(std::make_tuple(coeff, w));
@@ -544,7 +493,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
             uint8_t const_reg = ptr[0] % INTERNAL_STATE_SIZE;
             ptr++;
             remaining--;
-            expr.q_c = fr_to_bytes(coeff_state[const_reg]);
+            fr::serialize_to_buffer(coeff_state[const_reg], &expr.q_c[0]);
         } else {
             expr.q_c = std::vector<uint8_t>(32, 0);
         }
@@ -667,11 +616,11 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
 
                 for (const auto& expr : expressions) {
                     bool is_assert_equal_pattern = expr.mul_terms.empty() && expr.linear_combinations.size() == 2 &&
-                                                   bytes_to_fr(expr.q_c) == fr::zero();
+                                                   fr::serialize_from_buffer(&expr.q_c[0]) == fr::zero();
 
                     if (is_assert_equal_pattern) {
-                        fr coeff1 = bytes_to_fr(std::get<0>(expr.linear_combinations[0]));
-                        fr coeff2 = bytes_to_fr(std::get<0>(expr.linear_combinations[1]));
+                        fr coeff1 = fr::serialize_from_buffer(&std::get<0>(expr.linear_combinations[0])[0]);
+                        fr coeff2 = fr::serialize_from_buffer(&std::get<0>(expr.linear_combinations[1])[0]);
                         if (coeff1 == -coeff2 && coeff1 != fr::zero()) {
                             // This is an assert_equal pattern (w1 - w2 = 0)
                             uint32_t w1 = std::get<1>(expr.linear_combinations[0]).value;
@@ -726,7 +675,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
     // Generate range constraints for witnesses
     // Uses range_constraint_byte to control which witnesses get constraints and what bit widths
     std::vector<std::pair<uint32_t, uint32_t>> range_constraints; // (witness_idx, num_bits)
-    std::map<uint32_t, uint32_t> minimal_range;                   // Track minimal range for each witness
+    std::map<uint32_t, uint32_t> minimal_range; // Track tightest constraint per witness (for test setup)
     bool should_violate_range = false;
     uint32_t violated_witness_idx = 0;
     uint32_t violated_range_bits = 0;
@@ -757,7 +706,6 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
         num_range_constraints = std::min(num_range_constraints, num_witnesses - 1);
 
         // Add range constraints for random witnesses
-        // Allow multiple constraints per witness to test the minimal_range optimization
         for (uint32_t i = 0; i < num_range_constraints; ++i) {
             uint32_t witness_idx =
                 disable_sanitization ? range_constraint_byte + i : (range_constraint_byte + i) % num_witnesses;
@@ -785,8 +733,6 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
                 num_bits = 0; // Edge case: must be zero
             }
 
-            range_constraints.push_back({ witness_idx, num_bits });
-
             // Track minimal range for each witness
             auto it = minimal_range.find(witness_idx);
             if (it == minimal_range.end() || num_bits < it->second) {
@@ -796,8 +742,11 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
 
         // Check if any existing witnesses violate their MINIMAL range constraints
         // This tests that witnesses satisfy the tightest constraint
+        // and creates a single range constraint as the minimal one
         bool has_accidental_violation = false;
         for (const auto& [witness_idx, min_bits] : minimal_range) {
+            range_constraints.push_back({ witness_idx, min_bits });
+
             auto it = solved_witnesses.find(witness_idx);
             if (it != solved_witnesses.end()) {
                 if (!satisfies_range(it->second, min_bits)) {
@@ -807,7 +756,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
             }
         }
 
-        // Decide if we should intentionally violate a range constraint (30% chance)
+        // Decide if we should intentionally violate a range constraint (25% chance)
         // But only if we don't already have an accidental violation
         if (!has_accidental_violation && (range_constraint_byte & 0x10) != 0 && !minimal_range.empty()) {
             // Pick a witness with range constraints to violate
@@ -902,62 +851,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
         // This exercises the core conversion logic without serialization issues
         AcirFormat acir_format = circuit_serde_to_acir_format(circuit);
 
-        // ========== TEST MANUAL CONSTRUCTION PATH ==========
-        // Randomly corrupt minimal_range to test the buggy code path where
-        // range constraints are silently dropped if minimal_range is not populated.
-        // This simulates manually constructed AcirFormat (like in tests).
-        bool corrupted_minimal_range = false;
-        std::map<uint32_t, uint32_t> original_minimal_range;
-
-        if (!range_constraints.empty() && (range_constraint_byte & 0x01) != 0) {
-            // Save original minimal_range
-            original_minimal_range = acir_format.minimal_range;
-
-            // Randomly choose corruption strategy
-            uint8_t corruption_type = (range_constraint_byte >> 1) & 0x3;
-
-            if (corruption_type == 0 && !acir_format.minimal_range.empty()) {
-                // Clear entire minimal_range (simulates fully manual construction)
-                acir_format.minimal_range.clear();
-                corrupted_minimal_range = true;
-            } else if (corruption_type == 1 && !acir_format.minimal_range.empty()) {
-                // Remove random witness from minimal_range
-                auto it = acir_format.minimal_range.begin();
-                std::advance(it, range_constraint_byte % acir_format.minimal_range.size());
-                acir_format.minimal_range.erase(it);
-                corrupted_minimal_range = true;
-            } else if (corruption_type == 2 && acir_format.minimal_range.size() > 1) {
-                // Remove half of minimal_range entries
-                std::vector<uint32_t> to_remove;
-                size_t count = 0;
-                for (const auto& [witness, bits] : acir_format.minimal_range) {
-                    if ((count++ % 2) == 0) {
-                        to_remove.push_back(witness);
-                    }
-                }
-                for (uint32_t w : to_remove) {
-                    acir_format.minimal_range.erase(w);
-                }
-                corrupted_minimal_range = !to_remove.empty();
-            }
-            // corruption_type == 3: Don't corrupt (normal path)
-
-            // If we corrupted minimal_range, force a witness to violate its dropped constraint
-            if (corrupted_minimal_range) {
-                for (const auto& [witness_idx, min_bits] : original_minimal_range) {
-                    // Find a witness that was removed from minimal_range
-                    if (!acir_format.minimal_range.contains(witness_idx) && min_bits < 254) {
-                        // Set this witness to violate its range (2^num_bits)
-                        fr violation_value = fr(1);
-                        for (uint32_t b = 0; b < min_bits; ++b) {
-                            violation_value = violation_value + violation_value;
-                        }
-                        solved_witnesses[witness_idx] = violation_value;
-                        break; // Only violate one witness
-                    }
-                }
-            }
-        }
+        // ========== BUILD CIRCUIT FROM ACIR FORMAT ==========
 
         // Create witness vector
         WitnessVector witness_vec;
@@ -989,37 +883,6 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
 
         bool circuit_valid = CircuitChecker::check(builder);
 
-        // SOUNDNESS CHECK: Corrupted minimal_range (range constraints silently dropped)
-        if (corrupted_minimal_range && circuit_valid) {
-            // Check if any witness violates a range constraint that was dropped
-            for (const auto& [witness_idx, min_bits] : original_minimal_range) {
-                // Was this witness removed from minimal_range?
-                if (!acir_format.minimal_range.contains(witness_idx)) {
-                    // Check if witness violates its intended range
-                    auto it = solved_witnesses.find(witness_idx);
-                    if (it != solved_witnesses.end()) {
-                        if (!satisfies_range(it->second, min_bits)) {
-                            // Witness violates dropped constraint and circuit passed!
-                            std::cerr << "\n=== CRITICAL SOUNDNESS BUG: RANGE CONSTRAINT SILENTLY DROPPED ==="
-                                      << std::endl;
-                            std::cerr << "Witness w" << witness_idx << " should be constrained to " << min_bits
-                                      << " bits but constraint was dropped!" << std::endl;
-                            std::cerr << "Witness value: " << it->second << std::endl;
-                            std::cerr << "Circuit passed verification despite violated range constraint!" << std::endl;
-                            std::cerr << "This happens when minimal_range is not populated (manual construction)."
-                                      << std::endl;
-                            std::cerr << "\nNum witnesses: " << num_witnesses
-                                      << ", Num expressions: " << expressions.size()
-                                      << ", Num range constraints: " << range_constraints.size() << std::endl;
-                            print_expressions_and_witnesses(expressions, solved_witnesses);
-                            print_acir_format_gates(acir_format);
-                            abort();
-                        }
-                    }
-                }
-            }
-        }
-
         // SOUNDNESS CHECK: Corrupted witnesses or range violations should fail
         if (witnesses_corrupted || should_violate_range) {
             if (circuit_valid) {
@@ -1043,8 +906,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
         }
 
         // COMPLETENESS CHECK
-        // Skip this check if we corrupted minimal_range, since we intentionally violated constraints
-        if (!circuit_valid && !corrupted_minimal_range) {
+        if (!circuit_valid) {
             std::cerr << "\n=== COMPLETENESS BUG ===" << std::endl;
             std::cerr << "Valid witnesses failed CircuitChecker verification!" << std::endl;
             std::cerr << "Num witnesses: " << num_witnesses << ", Num expressions: " << expressions.size() << std::endl;

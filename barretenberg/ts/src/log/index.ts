@@ -1,1 +1,1 @@
-export { initLogger, createDebugLogger, logOptions } from './node/index.js';
+export { createDebugLogger } from './logger.js';

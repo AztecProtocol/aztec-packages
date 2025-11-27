@@ -2,6 +2,7 @@ import { Body, L2Block } from '@aztec/aztec.js/block';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -182,8 +183,13 @@ describe('sequencer', () => {
     l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
 
     epochCache = mockDeep<EpochCache>();
-    epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1000n, now: 1000n }));
-    epochCache.getCommittee.mockResolvedValue({ committee } as EpochCommitteeInfo);
+    epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({
+      epoch: EpochNumber(1),
+      slot: 1n,
+      ts: 1000n,
+      now: 1000n,
+    }));
+    epochCache.getCommittee.mockResolvedValue({ committee, seed: 1n, epoch: EpochNumber(1) } as EpochCommitteeInfo);
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
@@ -194,7 +200,7 @@ describe('sequencer', () => {
     publisher.enqueueSlashingActions.mockResolvedValue(true);
     publisher.canProposeAtNextEthBlock.mockResolvedValue({
       slot: BigInt(newSlotNumber),
-      blockNumber: BigInt(newBlockNumber),
+      checkpointNumber: BigInt(newBlockNumber),
       timeOfNextL1Slot: 1000n,
     });
 
@@ -376,7 +382,7 @@ describe('sequencer', () => {
       // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
       publisher.canProposeAtNextEthBlock.mockResolvedValue({
         slot: block.header.globalVariables.slotNumber.toBigInt(),
-        blockNumber: BigInt(block.header.globalVariables.blockNumber),
+        checkpointNumber: BigInt(block.header.globalVariables.blockNumber),
         timeOfNextL1Slot: 1000n,
       });
 
@@ -564,7 +570,7 @@ describe('sequencer', () => {
         publisher.enqueueSlashingActions.mockResolvedValue(true);
         publisher.canProposeAtNextEthBlock.mockResolvedValue({
           slot: BigInt(newSlotNumber),
-          blockNumber: BigInt(newBlockNumber),
+          checkpointNumber: BigInt(newBlockNumber),
           timeOfNextL1Slot: 1000n,
         });
         return publisher;

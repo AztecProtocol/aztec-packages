@@ -29,17 +29,6 @@ using namespace bb;
 
 /// ========= HELPERS ========= ///
 
-uint256_t from_big_endian_bytes(std::vector<uint8_t> const& bytes)
-{
-    BB_ASSERT_EQ(bytes.size(), 32U, "uint256 constructed from bytes array with invalid length");
-    uint256_t result = 0;
-    for (uint8_t byte : bytes) {
-        result <<= 8;
-        result |= byte;
-    }
-    return result;
-}
-
 WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
 {
     WitnessOrConstant<bb::fr> result = std::visit(
@@ -54,7 +43,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
             } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
                 return WitnessOrConstant<bb::fr>{
                     .index = bb::stdlib::IS_CONSTANT,
-                    .value = from_big_endian_bytes(e.value),
+                    .value = fr::serialize_from_buffer(&e.value[0]),
                     .is_constant = true,
                 };
             } else {
@@ -135,7 +124,6 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
     // NOTE: We want to deterministically visit this map, so unordered_map should not be used.
     std::map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
 
-    bool has_brillig = false;
     for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
         const auto& gate = circuit.opcodes[i];
         std::visit(
@@ -154,10 +142,10 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
                     if (block == block_id_to_block_constraint.end()) {
                         throw_or_abort("unitialized MemoryOp");
                     }
-                    handle_memory_op(arg, af, block->second.first);
+                    handle_memory_op(arg, block->second.first);
                     block->second.second.push_back(i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
-                    has_brillig = true;
+                    // This is a no-op in Barretenberg
                 } else {
                     bb::assert_failure("circuit_serde_to_acir_format: Unrecognized Acir Opcode.");
                 }
@@ -173,10 +161,6 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
         }
     }
 
-    if (has_brillig) {
-        vinfo("acir_format:circuit_serde_to_acir_format: Encountered unhadled BrilligCall during circuit "
-              "deserialization. Barretenberg treats this as a no-op.");
-    }
     return af;
 }
 
@@ -241,7 +225,7 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
             witness_vector.emplace_back(0);
             index++;
         }
-        witness_vector.emplace_back(from_big_endian_bytes(e.second));
+        witness_vector.emplace_back(fr::serialize_from_buffer(&e.second[0]));
         index++;
     }
 
@@ -281,7 +265,7 @@ arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
     if (!arg.mul_terms.empty()) {
         const auto& mul_term = arg.mul_terms[0];
-        pt.q_m = from_big_endian_bytes(std::get<0>(mul_term));
+        pt.q_m = fr::serialize_from_buffer(&(std::get<0>(mul_term)[0]));
         pt.a = std::get<1>(mul_term).value;
         pt.b = std::get<2>(mul_term).value;
         a_set = true;
@@ -291,7 +275,7 @@ arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
     BB_ASSERT_LTE(arg.linear_combinations.size(), 3U, "We can only accommodate 3 linear terms");
     for (const auto& linear_term : arg.linear_combinations) {
-        fr selector_value(from_big_endian_bytes(std::get<0>(linear_term)));
+        fr selector_value = fr::serialize_from_buffer(&(std::get<0>(linear_term)[0]));
         uint32_t witness_idx = std::get<1>(linear_term).value;
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
@@ -323,7 +307,7 @@ arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     }
 
     // Set constant value q_c
-    pt.q_c = from_big_endian_bytes(arg.q_c);
+    pt.q_c = fr::serialize_from_buffer(&arg.q_c[0]);
     return pt;
 }
 
@@ -352,7 +336,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
             .b = std::get<2>(mul_term).value,
             .c = bb::stdlib::IS_CONSTANT,
             .d = bb::stdlib::IS_CONSTANT,
-            .mul_scaling = fr(from_big_endian_bytes(std::get<0>(mul_term))),
+            .mul_scaling = fr::serialize_from_buffer(&(std::get<0>(mul_term)[0])),
             .a_scaling = fr::zero(),
             .b_scaling = fr::zero(),
             .c_scaling = fr::zero(),
@@ -382,7 +366,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
 
         if (is_first_gate) {
             // First gate contains the constant term and uses all four wires
-            mul_quad.const_scaling = fr(from_big_endian_bytes(arg.q_c));
+            mul_quad.const_scaling = fr::serialize_from_buffer(&arg.q_c[0]);
             if (!linear_terms.empty()) {
                 add_linear_term_and_erase(mul_quad.d, mul_quad.d_scaling, linear_terms);
             }
@@ -416,7 +400,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         }
         if (is_first_gate) {
             // First gate contains the constant term and uses all four wires
-            mul_quad.const_scaling = fr(from_big_endian_bytes(arg.q_c));
+            mul_quad.const_scaling = fr::serialize_from_buffer(&arg.q_c[0]);
             if (!linear_terms.empty()) {
                 add_linear_term_and_erase(mul_quad.d, mul_quad.d_scaling, linear_terms);
             }
@@ -425,6 +409,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         result.emplace_back(mul_quad);
     }
 
+    result.shrink_to_fit();
     return result;
 }
 
@@ -450,25 +435,6 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
     if (is_single_gate) {
         BB_ASSERT_EQ(mul_quads.size(), 1U, "acir_format::handle_arithmetic: expected a single gate.");
         auto mul_quad = mul_quads[0];
-
-        // AUDITTODO(federico): evaluate this logic and if it is needed
-        if (is_assert_equal(mul_quad) && (mul_quad.a != 0)) {
-            if (mul_quad.a != mul_quad.b) {
-                // minimal_range of a witness is the smallest range of the witness and the witness that are
-                // 'assert_equal' to it
-                if (af.minimal_range.contains(mul_quad.b) && af.minimal_range.contains(mul_quad.a)) {
-                    if (af.minimal_range[mul_quad.a] < af.minimal_range[mul_quad.b]) {
-                        af.minimal_range[mul_quad.a] = af.minimal_range[mul_quad.b];
-                    } else {
-                        af.minimal_range[mul_quad.b] = af.minimal_range[mul_quad.a];
-                    }
-                } else if (af.minimal_range.contains(mul_quad.b)) {
-                    af.minimal_range[mul_quad.a] = af.minimal_range[mul_quad.b];
-                } else if (af.minimal_range.contains(mul_quad.a)) {
-                    af.minimal_range[mul_quad.b] = af.minimal_range[mul_quad.a];
-                }
-            }
-        }
 
         af.quad_constraints.push_back(mul_quad);
         af.original_opcode_indices.quad_constraints.push_back(opcode_index);
@@ -517,13 +483,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .num_bits = arg.num_bits,
                 });
                 af.original_opcode_indices.range_constraints.push_back(opcode_index);
-                if (af.minimal_range.contains(witness_input)) {
-                    if (af.minimal_range[witness_input] > arg.num_bits) {
-                        af.minimal_range[witness_input] = arg.num_bits;
-                    }
-                } else {
-                    af.minimal_range[witness_input] = arg.num_bits;
-                }
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::AES128Encrypt>) {
                 af.aes128_constraints.push_back(AES128Constraint{
                     .inputs = transform::map(arg.inputs, [](auto& e) { return parse_input(e); }),
@@ -723,7 +682,7 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
 bool is_rom(Acir::MemOp const& mem_op)
 {
     return mem_op.operation.mul_terms.empty() && mem_op.operation.linear_combinations.empty() &&
-           from_big_endian_bytes(mem_op.operation.q_c) == 0;
+           fr::serialize_from_buffer(&mem_op.operation.q_c[0]) == fr::zero();
 }
 
 uint32_t poly_to_witness(const arithmetic_triple poly)
@@ -734,7 +693,7 @@ uint32_t poly_to_witness(const arithmetic_triple poly)
     return 0;
 }
 
-void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, BlockConstraint& block)
+void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
 {
     uint8_t access_type = 1;
     if (is_rom(mem_op.op)) {
@@ -748,30 +707,6 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, Bloc
 
     // Update the ranges of the index using the array length
     arithmetic_triple index = serialize_arithmetic_gate(mem_op.op.index);
-    int bit_range = std::bit_width(block.init.size());
-    uint32_t index_witness = poly_to_witness(index);
-    if (index_witness != 0 && bit_range > 0) {
-        unsigned int u_bit_range = static_cast<unsigned int>(bit_range);
-        // Updates both af.minimal_range and af.index_range with u_bit_range when it is lower.
-        // By doing so, we keep these invariants:
-        // - minimal_range contains the smallest possible range for a witness
-        // - index_range constains the smallest range for a witness implied by any array operation
-        if (af.minimal_range.contains(index_witness)) {
-            if (af.minimal_range[index_witness] > u_bit_range) {
-                af.minimal_range[index_witness] = u_bit_range;
-            }
-        } else {
-            af.minimal_range[index_witness] = u_bit_range;
-        }
-        if (af.index_range.contains(index_witness)) {
-            if (af.index_range[index_witness] > u_bit_range) {
-                af.index_range[index_witness] = u_bit_range;
-            }
-        } else {
-            af.index_range[index_witness] = u_bit_range;
-        }
-    }
-
     MemOp acir_mem_op =
         MemOp{ .access_type = access_type, .index = index, .value = serialize_arithmetic_gate(mem_op.op.value) };
     block.trace.push_back(acir_mem_op);
@@ -830,7 +765,7 @@ std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr)
 {
     std::map<uint32_t, bb::fr> linear_terms;
     for (const auto& linear_term : expr.linear_combinations) {
-        fr selector_value = from_big_endian_bytes(std::get<0>(linear_term));
+        fr selector_value = fr::serialize_from_buffer(&(std::get<0>(linear_term)[0]));
         uint32_t witness_idx = std::get<1>(linear_term).value;
         if (linear_terms.contains(witness_idx)) {
             linear_terms[witness_idx] += selector_value; // Accumulate coefficients for duplicate witnesses

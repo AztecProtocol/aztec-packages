@@ -135,8 +135,8 @@ describe('full_prover', () => {
       await cheatCodes.rollup.advanceToNextEpoch();
 
       const rewardsBeforeCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
-      const rewardsBeforeProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
-      const oldProvenBlockNumber = await rollup.getProvenBlockNumber();
+      const rewardsBeforeProver = await rollup.getSpecificProverRewardsForEpoch(BigInt(epoch), t.proverAddress);
+      const oldProvenBlockNumber = await rollup.getProvenCheckpointNumber();
 
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
@@ -147,18 +147,18 @@ describe('full_prover', () => {
         }),
       );
 
-      const newProvenBlockNumber = await rollup.getProvenBlockNumber();
+      const newProvenBlockNumber = await rollup.getProvenCheckpointNumber();
       expect(newProvenBlockNumber).toBeGreaterThan(oldProvenBlockNumber);
-      expect(await rollup.getBlockNumber()).toBe(newProvenBlockNumber);
+      expect(await rollup.getCheckpointNumber()).toBe(newProvenBlockNumber);
 
       logger.info(`checking rewards for coinbase: ${COINBASE_ADDRESS.toString()}`);
       const rewardsAfterCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
       expect(rewardsAfterCoinbase).toBeGreaterThan(rewardsBeforeCoinbase);
 
-      const rewardsAfterProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
+      const rewardsAfterProver = await rollup.getSpecificProverRewardsForEpoch(BigInt(epoch), t.proverAddress);
       expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
 
-      const blockReward = await rollup.getBlockReward();
+      const blockReward = await rollup.getCheckpointReward();
       const fees = (
         await Promise.all([
           t.aztecNode.getBlock(Number(newProvenBlockNumber - 1n)),

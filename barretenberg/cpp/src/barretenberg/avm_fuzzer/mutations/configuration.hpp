@@ -241,9 +241,10 @@ enum class InstructionGenerationOptions {
     NULLIFIEREXISTS,
     EMITNOTEHASH,
     NOTEHASHEXISTS,
+    CALLDATACOPY,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 41>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 42>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
@@ -285,8 +286,9 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::GETENVVAR, 1 },
     { InstructionGenerationOptions::EMITNULLIFIER, 1 },
     { InstructionGenerationOptions::NULLIFIEREXISTS, 1 },
-    { InstructionGenerationOptions::EMITNOTEHASH, 0 },
-    { InstructionGenerationOptions::NOTEHASHEXISTS, 0 },
+    { InstructionGenerationOptions::EMITNOTEHASH, 1 },
+    { InstructionGenerationOptions::NOTEHASHEXISTS, 1 },
+    { InstructionGenerationOptions::CALLDATACOPY, 1 },
 });
 
 enum class SStoreMutationOptions { src_offset_index, slot_offset, slot };
@@ -341,6 +343,18 @@ constexpr NoteHashExistsMutationConfig BASIC_NOTEHASHEXISTS_MUTATION_CONFIGURATI
     { NoteHashExistsMutationOptions::leaf_index_offset, 1 },
     { NoteHashExistsMutationOptions::result_offset, 1 },
 });
+
+enum class CalldataCopyMutationOptions { dst_offset, copy_size, copy_size_offset, cd_start, cd_start_offset };
+using CalldataCopyMutationConfig = WeightedSelectionConfig<CalldataCopyMutationOptions, 5>;
+
+constexpr CalldataCopyMutationConfig BASIC_CALLDATACOPY_MUTATION_CONFIGURATION = CalldataCopyMutationConfig({
+    { CalldataCopyMutationOptions::dst_offset, 1 },
+    { CalldataCopyMutationOptions::copy_size, 1 },
+    { CalldataCopyMutationOptions::copy_size_offset, 1 },
+    { CalldataCopyMutationOptions::cd_start, 1 },
+    { CalldataCopyMutationOptions::cd_start_offset, 1 },
+});
+
 enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };
 
 using ReturnOptionsMutationConfig = WeightedSelectionConfig<ReturnOptionsMutationOptions, 3>;
@@ -364,7 +378,7 @@ constexpr FuzzerDataMutationConfig BASIC_FUZZER_DATA_MUTATION_CONFIGURATION = Fu
     { FuzzerDataMutationOptions::InstructionMutation, 20 },
     { FuzzerDataMutationOptions::ControlFlowCommandMutation, 1 },
     { FuzzerDataMutationOptions::ReturnOptionsMutation, 1 },
-    { FuzzerDataMutationOptions::CalldataMutation, 0 },
+    { FuzzerDataMutationOptions::CalldataMutation, 5 },
 });
 
 enum class JumpIfMutationOptions {
@@ -388,19 +402,21 @@ enum class CFGInstructionGenerationOptions {
     JumpIfToBlock,
     FinalizeWithReturn,
     SwitchToNonTerminatedBlock,
+    InsertInternalCall,
 };
 
-using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 7>;
+using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 8>;
 
 constexpr CFGInstructionGenerationConfig BASIC_CFG_INSTRUCTION_GENERATION_CONFIGURATION =
     CFGInstructionGenerationConfig({
-        { CFGInstructionGenerationOptions::InsertSimpleInstructionBlock, 6 },
-        { CFGInstructionGenerationOptions::JumpToNewBlock, 2 },
-        { CFGInstructionGenerationOptions::JumpIfToNewBlock, 2 },
-        { CFGInstructionGenerationOptions::JumpToBlock, 1 },
-        { CFGInstructionGenerationOptions::JumpIfToBlock, 1 },
-        { CFGInstructionGenerationOptions::FinalizeWithReturn, 1 },
-        { CFGInstructionGenerationOptions::SwitchToNonTerminatedBlock, 1 },
+        { CFGInstructionGenerationOptions::InsertSimpleInstructionBlock, 60 },
+        { CFGInstructionGenerationOptions::JumpToNewBlock, 20 },
+        { CFGInstructionGenerationOptions::JumpIfToNewBlock, 20 },
+        { CFGInstructionGenerationOptions::JumpToBlock, 15 },
+        { CFGInstructionGenerationOptions::JumpIfToBlock, 15 },
+        { CFGInstructionGenerationOptions::FinalizeWithReturn, 7 },
+        { CFGInstructionGenerationOptions::SwitchToNonTerminatedBlock, 8 },
+        { CFGInstructionGenerationOptions::InsertInternalCall, 3 },
     });
 
 enum class JumpIfToBlockMutationOptions { target_then_block_idx, target_else_block_idx, condition_offset_index };

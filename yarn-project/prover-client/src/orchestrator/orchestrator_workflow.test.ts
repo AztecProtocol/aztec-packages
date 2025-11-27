@@ -1,4 +1,5 @@
 import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -83,7 +84,7 @@ describe('prover/orchestrator', () => {
         });
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
@@ -131,7 +132,7 @@ describe('prover/orchestrator', () => {
         } = await context.makeCheckpoint(numBlocks);
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
@@ -168,7 +169,7 @@ describe('prover/orchestrator', () => {
         });
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
@@ -216,7 +217,7 @@ describe('prover/orchestrator', () => {
         );
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
+        context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
 
         // Start checkpoint in reverse order.
         for (let checkpointIndex = numCheckpoints - 1; checkpointIndex >= 0; checkpointIndex--) {
@@ -253,7 +254,7 @@ describe('prover/orchestrator', () => {
         );
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
+        context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
 
         await Promise.all(
           checkpoints.map(async (checkpoint, checkpointIndex) => {

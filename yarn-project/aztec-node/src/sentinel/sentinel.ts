@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { countWhile, filterAsync, fromEntries, getEntries, mapValues } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -134,7 +135,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     await this.handleProvenPerformance(epoch, performance);
   }
 
-  protected async computeProvenPerformance(epoch: bigint): Promise<ValidatorsEpochPerformance> {
+  protected async computeProvenPerformance(epoch: EpochNumber): Promise<ValidatorsEpochPerformance> {
     const [fromSlot, toSlot] = getSlotRangeForEpoch(epoch, this.epochCache.getL1Constants());
     const { committee } = await this.epochCache.getCommittee(fromSlot);
     if (!committee) {
@@ -165,7 +166,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    */
   protected async checkPastInactivity(
     validator: EthAddress,
-    currentEpoch: bigint,
+    currentEpoch: EpochNumber,
     requiredConsecutiveEpochs: number,
   ): Promise<boolean> {
     if (requiredConsecutiveEpochs === 0) {
@@ -175,23 +176,24 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     // Get all historical performance for this validator
     const allPerformance = await this.store.getProvenPerformance(validator);
 
+    // Sort by epoch descending to get most recent first, keep only epochs strictly before the current one, and get the first N
+    const pastEpochs = allPerformance.sort((a, b) => Number(b.epoch - a.epoch)).filter(p => p.epoch < currentEpoch);
+
     // If we don't have enough historical data, don't slash
-    if (allPerformance.length < requiredConsecutiveEpochs) {
+    if (pastEpochs.length < requiredConsecutiveEpochs) {
       this.logger.debug(
         `Not enough historical data for slashing ${validator} for inactivity (${allPerformance.length} epochs < ${requiredConsecutiveEpochs} required)`,
       );
       return false;
     }
 
-    // Sort by epoch descending to get most recent first, keep only epochs strictly before the current one, and get the first N
-    return allPerformance
-      .sort((a, b) => Number(b.epoch - a.epoch))
-      .filter(p => p.epoch < currentEpoch)
+    // Check that we have at least requiredConsecutiveEpochs and that all of them are above the inactivity threshold
+    return pastEpochs
       .slice(0, requiredConsecutiveEpochs)
       .every(p => p.missed / p.total >= this.config.slashInactivityTargetPercentage);
   }
 
-  protected async handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
+  protected async handleProvenPerformance(epoch: EpochNumber, performance: ValidatorsEpochPerformance) {
     if (this.config.slashInactivityPenalty === 0n) {
       return;
     }
@@ -215,7 +217,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       validator: EthAddress.fromString(address),
       amount: this.config.slashInactivityPenalty,
       offenseType: OffenseType.INACTIVITY,
-      epochOrSlot: epoch,
+      epochOrSlot: BigInt(epoch),
     }));
 
     if (criminals.length > 0) {
@@ -310,7 +312,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   }
 
   /** Computes activity for a given slot. */
-  protected async getSlotActivity(slot: bigint, epoch: bigint, proposer: EthAddress, committee: EthAddress[]) {
+  protected async getSlotActivity(slot: bigint, epoch: EpochNumber, proposer: EthAddress, committee: EthAddress[]) {
     this.logger.debug(`Computing stats for slot ${slot} at epoch ${epoch}`, { slot, epoch, proposer, committee });
 
     // Check if there is an L2 block in L1 for this L2 slot
@@ -432,11 +434,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       effectiveFromSlot,
       effectiveToSlot,
     );
-    const allTimeProvenPerformance = await this.store.getProvenPerformance(validatorAddress);
 
     return {
       validator,
-      allTimeProvenPerformance,
+      allTimeProvenPerformance: await this.store.getProvenPerformance(validatorAddress),
       lastProcessedSlot: this.lastProcessedSlot,
       initialSlot: this.initialSlot,
       slotWindow: this.store.getHistoryLength(),

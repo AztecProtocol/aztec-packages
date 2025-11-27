@@ -1,3 +1,4 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
@@ -35,7 +36,11 @@ describe('ProverAgentApiSchema', () => {
     },
     {
       status: 'proving',
-      jobId: makeProvingJobId(42, ProvingRequestType.PUBLIC_TX_BASE_ROLLUP, randomBytes(64).toString('hex')),
+      jobId: makeProvingJobId(
+        EpochNumber(42),
+        ProvingRequestType.PUBLIC_TX_BASE_ROLLUP,
+        randomBytes(64).toString('hex'),
+      ),
       proofType: ProvingRequestType.PUBLIC_TX_BASE_ROLLUP,
       startedAtISO: new Date().toISOString(),
     },
