@@ -1,3 +1,4 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields';
 import type { TxHash } from '@aztec/stdlib/tx';
 
@@ -17,7 +18,7 @@ export class AttestationTimeoutError extends ValidatorError {
   constructor(
     public readonly collectedCount: number,
     public readonly requiredCount: number,
-    public readonly slot: bigint,
+    public readonly slot: SlotNumber,
   ) {
     super(`Timeout collecting attestations for slot ${slot}: ${collectedCount}/${requiredCount}`);
   }

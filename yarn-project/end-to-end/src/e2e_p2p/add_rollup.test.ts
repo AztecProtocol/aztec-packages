@@ -16,7 +16,7 @@ import {
   deployL1Contract,
   deployRollupForUpgrade,
 } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import {
@@ -139,9 +139,9 @@ describe('e2e_p2p_add_rollup', () => {
       });
     };
 
-    const nextRoundTimestamp = await rollup.getTimestampForSlot(
-      ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
-    );
+    const currentSlot = await rollup.getSlotNumber();
+    const nextRoundSlot = SlotNumber.fromBigInt((BigInt(currentSlot) / roundSize) * roundSize + roundSize);
+    const nextRoundTimestamp = await rollup.getTimestampForSlot(nextRoundSlot);
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
     // Now that we have passed on the registry, we can deploy the new rollup.
@@ -196,7 +196,7 @@ describe('e2e_p2p_add_rollup', () => {
     const govInfo = async () => {
       const bn = await t.ctx.cheatCodes.eth.blockNumber();
       const slot = await rollup.getSlotNumber();
-      const round = await governanceProposer.read.computeRound([slot]);
+      const round = await governanceProposer.read.computeRound([BigInt(slot)]);
 
       const info = await governanceProposer.read.getRoundData([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
@@ -392,9 +392,9 @@ describe('e2e_p2p_add_rollup', () => {
       await sleep(t.ctx.aztecNodeConfig.ethereumSlotDuration * t.ctx.aztecNodeConfig.aztecSlotDuration * 1000);
     }
 
-    const nextRoundTimestamp2 = await rollup.getTimestampForSlot(
-      ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
-    );
+    const currentSlot2 = await rollup.getSlotNumber();
+    const nextRoundSlot2 = SlotNumber.fromBigInt((BigInt(currentSlot2) / roundSize) * roundSize + roundSize);
+    const nextRoundTimestamp2 = await rollup.getTimestampForSlot(nextRoundSlot2);
     t.logger.info(`Warpping to ${nextRoundTimestamp2}`);
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
 
@@ -482,9 +482,8 @@ describe('e2e_p2p_add_rollup', () => {
     // With all down, we make a time jump such that we ensure that we will be at a point where epochs are non-empty
     // This is to avoid conflicts when the checkpoints are looking further back.
     const futureEpoch = EpochNumber.fromBigInt(500n + BigInt(await newRollup.getCurrentEpochNumber()));
-    const time = await newRollup.getTimestampForSlot(
-      BigInt(futureEpoch) * BigInt(t.ctx.aztecNodeConfig.aztecEpochDuration),
-    );
+    const futureSlot = SlotNumber.fromBigInt(BigInt(futureEpoch) * BigInt(t.ctx.aztecNodeConfig.aztecEpochDuration));
+    const time = await newRollup.getTimestampForSlot(futureSlot);
     if (time > BigInt(await t.ctx.cheatCodes.eth.timestamp())) {
       await t.ctx.cheatCodes.eth.warp(Number(time));
       await waitL1Block();

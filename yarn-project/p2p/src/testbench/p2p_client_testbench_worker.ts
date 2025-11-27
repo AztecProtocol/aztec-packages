@@ -5,7 +5,7 @@
  */
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -84,16 +84,16 @@ function mockEpochCache(): EpochCacheInterface {
   return {
     getCommittee: () => Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO }),
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
-    getEpochAndSlotNow: () => ({ epoch: EpochNumber.ZERO, slot: 0n, ts: 0n }),
+    getEpochAndSlotNow: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n }),
     computeProposerIndex: () => 0n,
     getProposerAttesterAddressInCurrentOrNextSlot: () =>
       Promise.resolve({
         currentProposer: EthAddress.ZERO,
         nextProposer: EthAddress.ZERO,
-        currentSlot: 0n,
-        nextSlot: 0n,
+        currentSlot: SlotNumber.ZERO,
+        nextSlot: SlotNumber.ZERO,
       }),
-    getEpochAndSlotInNextL1Slot: () => ({ epoch: EpochNumber.ZERO, slot: 0n, ts: 0n, now: 0n }),
+    getEpochAndSlotInNextL1Slot: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, now: 0n }),
     isInCommittee: () => Promise.resolve(false),
     getRegisteredValidators: () => Promise.resolve([]),
     filterInCommittee: () => Promise.resolve([]),

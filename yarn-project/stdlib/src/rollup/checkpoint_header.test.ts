@@ -1,4 +1,5 @@
 import { CHECKPOINT_HEADER_SIZE_IN_BYTES } from '@aztec/constants';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
@@ -37,7 +38,7 @@ describe('CheckpointHeader', () => {
       lastArchiveRoot: new Fr(123),
       blockHeadersHash: new Fr(456),
       contentCommitment: new ContentCommitment(new Fr(77), new Fr(88), new Fr(99)),
-      slotNumber: new Fr(1234),
+      slotNumber: SlotNumber(1234),
       timestamp: BigInt(5678),
       coinbase: EthAddress.fromField(new Fr(9090)),
       feeRecipient: AztecAddress.fromField(new Fr(101010)),

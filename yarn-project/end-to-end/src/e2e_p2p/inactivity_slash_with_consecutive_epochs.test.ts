@@ -1,4 +1,5 @@
 import type { EthAddress } from '@aztec/aztec.js/addresses';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { unique } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import { OffenseType } from '@aztec/slasher';
@@ -39,7 +40,7 @@ describe('e2e_p2p_inactivity_slash_with_consecutive_epochs', () => {
 
     const initialEpoch = Number(test.test.monitor.l2EpochNumber) + 1;
     test.logger.warn(`Waiting until end of epoch ${initialEpoch} to reenable validator ${reenabledValidator}`);
-    await test.test.monitor.waitUntilL2Slot(initialEpoch * aztecEpochDuration);
+    await test.test.monitor.waitUntilL2Slot(SlotNumber(initialEpoch * aztecEpochDuration));
 
     test.logger.warn(`Re-enabling offline validator ${reenabledValidator}`);
     const reenabledNode = test.nodes.at(-1)!;
@@ -72,7 +73,7 @@ describe('e2e_p2p_inactivity_slash_with_consecutive_epochs', () => {
       (slashingExecutionDelayInRounds + slashingOffsetInRounds) * slashingRoundSizeInEpochs +
       5;
     test.logger.warn(`Waiting until slot ${aztecEpochDuration * targetEpoch} (epoch ${targetEpoch}) for slash`);
-    await test.test.monitor.waitUntilL2Slot(aztecEpochDuration * targetEpoch);
+    await test.test.monitor.waitUntilL2Slot(SlotNumber(aztecEpochDuration * targetEpoch));
     expect(unique(slashed.map(addr => addr.toString()))).toEqual([offlineValidator.toString()]);
   });
 });

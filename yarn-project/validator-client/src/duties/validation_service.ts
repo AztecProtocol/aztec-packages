@@ -54,7 +54,7 @@ export class ValidationService {
     // For testing: change the new archive to trigger state_mismatch validation failure
     if (options.broadcastInvalidBlockProposal) {
       archive = Fr.random();
-      this.log.warn(`Creating INVALID block proposal for slot ${header.slotNumber.toBigInt()}`);
+      this.log.warn(`Creating INVALID block proposal for slot ${header.slotNumber}`);
     }
 
     return BlockProposal.createProposalFromSigner(

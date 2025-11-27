@@ -21,7 +21,7 @@ export const ValidatorStatusInSlotSchema = z.enum([
 
 export const ValidatorStatusHistorySchema = z.array(
   z.object({
-    slot: schemas.BigInt,
+    slot: schemas.SlotNumber,
     status: ValidatorStatusInSlotSchema,
   }),
 ) satisfies ZodFor<ValidatorStatusHistory>;
@@ -32,7 +32,7 @@ export const ValidatorStatusHistorySchemaMap = z.record(ValidatorStatusHistorySc
 
 const ValidatorTimeStatSchema = z.object({
   timestamp: schemas.BigInt,
-  slot: schemas.BigInt,
+  slot: schemas.SlotNumber,
   date: z.string(),
 });
 
@@ -55,8 +55,8 @@ export const ValidatorStatsSchema = z.object({
 
 export const ValidatorsStatsSchema = z.object({
   stats: z.record(ValidatorStatsSchema),
-  lastProcessedSlot: schemas.BigInt.optional(),
-  initialSlot: schemas.BigInt.optional(),
+  lastProcessedSlot: schemas.SlotNumber.optional(),
+  initialSlot: schemas.SlotNumber.optional(),
   slotWindow: schemas.Integer,
 }) satisfies ZodFor<ValidatorsStats>;
 
@@ -69,7 +69,7 @@ export const SingleValidatorStatsSchema = z.object({
       epoch: schemas.EpochNumber,
     }),
   ),
-  lastProcessedSlot: schemas.BigInt.optional(),
-  initialSlot: schemas.BigInt.optional(),
+  lastProcessedSlot: schemas.SlotNumber.optional(),
+  initialSlot: schemas.SlotNumber.optional(),
   slotWindow: schemas.Integer,
 }) satisfies ZodFor<SingleValidatorStats>;
