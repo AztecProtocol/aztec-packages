@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+NARGO=${NARGO:-nargo}
+
 for arg in "$@"; do
   if [ "$arg" == "--help" ] || [ "$arg" == "-h" ]; then
     cat << 'EOF'
@@ -26,7 +28,7 @@ EOF
 done
 
 echo "Initializing Noir project..."
-nargo init "$@"
+$NARGO init "$@"
 
 if [ "${IS_CONTRACT:-1}" -eq 1 ]; then
   $(dirname "$0")/setup_project.sh

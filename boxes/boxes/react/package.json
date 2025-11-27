@@ -6,15 +6,12 @@
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
+    "build": "yarn clean && yarn compile && yarn codegen && webpack --mode production",
+    "clean": "rm -rf ./dist .tsbuildinfo ./codegenCache.json ./artifacts ./src/contracts/target",
     "compile": "cd src/contracts && ${AZTEC:-aztec} compile --silence-warnings",
     "codegen": "${AZTEC:-aztec} codegen src/contracts/target -o artifacts",
-    "clean": "rm -rf ./dist .tsbuildinfo ./codegenCache.json ./artifacts ./src/contracts/target",
-    "prep": "yarn clean && yarn compile && yarn codegen",
-    "dev": "yarn prep && webpack serve --mode development",
-    "build": "yarn prep && webpack",
     "serve": "webpack serve --no-open --mode development --watch-files ./src/*",
-    "formatting": "prettier --check ./src && eslint ./src",
-    "formatting:fix": "prettier -w ./src",
+    "lint": "prettier --check ./src && eslint ./src",
     "test": "playwright test"
   },
   "jest": {

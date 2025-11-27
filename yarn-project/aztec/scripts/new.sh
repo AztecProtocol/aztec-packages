@@ -3,6 +3,7 @@ set -euo pipefail
 
 PROJECT_PATH=${1:-}
 
+NARGO=${NARGO:-nargo}
 script_path=$(realpath $(dirname "$0"))
 
 # Check if PATH was provided
@@ -40,7 +41,7 @@ EOF
 done
 
 echo "Creating new Noir project at $PROJECT_PATH..."
-nargo new "$@"
+$NARGO new "$@"
 
 if [ "${IS_CONTRACT:-1}" -eq 1 ]; then
   cd $PROJECT_PATH
