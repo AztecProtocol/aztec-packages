@@ -76,17 +76,18 @@ pub fn bb_supports_msgpack() -> bool {
     }
 }
 
-/// Skip test if BB binary is not available or doesn't support msgpack API
+/// Require BB binary with msgpack support.
+/// Panics if BB binary is not found or doesn't support msgpack API.
 #[macro_export]
 macro_rules! require_bb_binary {
     () => {
         if !$crate::utils::bb_binary_exists() {
-            eprintln!("Skipping test: BB binary not found at {}", $crate::utils::get_bb_binary_path());
-            return;
+            panic!("BB binary not found at {}. Build it with `./bootstrap.sh` or set BB_BINARY_PATH.",
+                   $crate::utils::get_bb_binary_path());
         }
         if !$crate::utils::bb_supports_msgpack() {
-            eprintln!("Skipping test: BB binary at {} does not support msgpack API", $crate::utils::get_bb_binary_path());
-            return;
+            panic!("BB binary at {} does not support msgpack API. Rebuild with latest code.",
+                   $crate::utils::get_bb_binary_path());
         }
     };
 }
