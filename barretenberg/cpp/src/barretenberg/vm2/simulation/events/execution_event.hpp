@@ -1,18 +1,13 @@
 #pragma once
 
 #include <cstdint>
-#include <exception>
 #include <vector>
 
-#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
-#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
-#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
-#include "barretenberg/vm2/simulation/events/internal_call_stack_event.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
@@ -33,8 +28,8 @@ struct ExecutionEvent {
     Instruction wire_instruction;
 
     // Inputs and Outputs for a gadget/subtrace used when allocating registers in the execution trace.
-    std::vector<TaggedValue> inputs;
-    TaggedValue output;
+    std::vector<MemoryValue> inputs;
+    MemoryValue output;
 
     // Context Id for the next context.
     uint32_t next_context_id;

@@ -1,34 +1,27 @@
 #include "barretenberg/vm2/simulation/gadgets/execution.hpp"
 
-#include <algorithm>
-#include <concepts>
-#include <cstdint>
-#include <functional>
 #include <stdexcept>
 #include <string>
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
-
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
+#include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
-#include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
+#include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
-#include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
-#include "barretenberg/vm2/simulation/gadgets/context.hpp"
-#include "barretenberg/vm2/simulation/gadgets/gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/interfaces/addressing.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/internal_call_stack_manager.hpp"
+#include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 #include "barretenberg/vm2/simulation/interfaces/alu.hpp"
 #include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
 #include "barretenberg/vm2/simulation/interfaces/call_stack_metadata_collector.hpp"
@@ -300,45 +293,45 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
 
     get_gas_tracker().consume_gas();
 
-    TaggedValue result;
+    MemoryValue result;
 
     EnvironmentVariable env_var = static_cast<EnvironmentVariable>(var_enum);
     switch (env_var) {
     case EnvironmentVariable::ADDRESS:
-        result = TaggedValue::from<FF>(context.get_address());
+        result = MemoryValue::from<FF>(context.get_address());
         break;
     case EnvironmentVariable::SENDER:
-        result = TaggedValue::from<FF>(context.get_msg_sender());
+        result = MemoryValue::from<FF>(context.get_msg_sender());
         break;
     case EnvironmentVariable::TRANSACTIONFEE:
-        result = TaggedValue::from<FF>(context.get_transaction_fee());
+        result = MemoryValue::from<FF>(context.get_transaction_fee());
         break;
     case EnvironmentVariable::CHAINID:
-        result = TaggedValue::from<FF>(context.get_globals().chain_id);
+        result = MemoryValue::from<FF>(context.get_globals().chain_id);
         break;
     case EnvironmentVariable::VERSION:
-        result = TaggedValue::from<FF>(context.get_globals().version);
+        result = MemoryValue::from<FF>(context.get_globals().version);
         break;
     case EnvironmentVariable::BLOCKNUMBER:
-        result = TaggedValue::from<uint32_t>(context.get_globals().block_number);
+        result = MemoryValue::from<uint32_t>(context.get_globals().block_number);
         break;
     case EnvironmentVariable::TIMESTAMP:
-        result = TaggedValue::from<uint64_t>(context.get_globals().timestamp);
+        result = MemoryValue::from<uint64_t>(context.get_globals().timestamp);
         break;
     case EnvironmentVariable::BASEFEEPERL2GAS:
-        result = TaggedValue::from<uint128_t>(context.get_globals().gas_fees.fee_per_l2_gas);
+        result = MemoryValue::from<uint128_t>(context.get_globals().gas_fees.fee_per_l2_gas);
         break;
     case EnvironmentVariable::BASEFEEPERDAGAS:
-        result = TaggedValue::from<uint128_t>(context.get_globals().gas_fees.fee_per_da_gas);
+        result = MemoryValue::from<uint128_t>(context.get_globals().gas_fees.fee_per_da_gas);
         break;
     case EnvironmentVariable::ISSTATICCALL:
-        result = TaggedValue::from<uint1_t>(context.get_is_static() ? 1 : 0);
+        result = MemoryValue::from<uint1_t>(context.get_is_static() ? 1 : 0);
         break;
     case EnvironmentVariable::L2GASLEFT:
-        result = TaggedValue::from<uint32_t>(context.gas_left().l2_gas);
+        result = MemoryValue::from<uint32_t>(context.gas_left().l2_gas);
         break;
     case EnvironmentVariable::DAGASLEFT:
-        result = TaggedValue::from<uint32_t>(context.gas_left().da_gas);
+        result = MemoryValue::from<uint32_t>(context.gas_left().da_gas);
         break;
     default:
         throw OpcodeExecutionException("Invalid environment variable enum value");
@@ -806,7 +799,7 @@ void Execution::nullifier_exists(ContextInterface& context,
 
     // Write result to memory
     // (assigns tag u1 to result)
-    TaggedValue result = TaggedValue::from<uint1_t>(exists ? 1 : 0);
+    MemoryValue result = MemoryValue::from<uint1_t>(exists ? 1 : 0);
     memory.set(exists_offset, result);
     set_output(opcode, result);
 }
@@ -1315,7 +1308,7 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
 
     // TODO: consider doing this even before the dispatch.
     inputs = {};
-    output = TaggedValue::from<FF>(0);
+    output = MemoryValue::from<FF>(0);
 
     debug("Dispatching opcode: ", opcode, " (", static_cast<uint32_t>(opcode), ")");
     switch (opcode) {
@@ -1480,7 +1473,7 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
 
 // Sets the register inputs and validates the tags.
 // The tag information is taken from the instruction info database (exec spec).
-void Execution::set_and_validate_inputs(ExecutionOpCode opcode, std::vector<TaggedValue> inputs)
+void Execution::set_and_validate_inputs(ExecutionOpCode opcode, std::vector<MemoryValue> inputs)
 {
     const auto& register_info = instruction_info_db.get(opcode).register_info;
     assert(inputs.size() == register_info.num_inputs());
@@ -1497,7 +1490,7 @@ void Execution::set_and_validate_inputs(ExecutionOpCode opcode, std::vector<Tagg
     }
 }
 
-void Execution::set_output(ExecutionOpCode opcode, TaggedValue output)
+void Execution::set_output(ExecutionOpCode opcode, MemoryValue output)
 {
     const auto& register_info = instruction_info_db.get(opcode).register_info;
     (void)register_info; // To please GCC.

@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <span>
 #include <stack>
 #include <vector>
 
@@ -10,13 +9,27 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
-#include "barretenberg/vm2/common/tagged_value.hpp"
+#include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
-#include "barretenberg/vm2/simulation/events/gas_event.hpp"
+#include "barretenberg/vm2/simulation/interfaces/alu.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
+#include "barretenberg/vm2/simulation/interfaces/context_provider.hpp"
+#include "barretenberg/vm2/simulation/interfaces/data_copy.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/ecc.hpp"
+#include "barretenberg/vm2/simulation/interfaces/emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
+#include "barretenberg/vm2/simulation/interfaces/execution_components.hpp"
 #include "barretenberg/vm2/simulation/interfaces/gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/interfaces/get_contract_instance.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/interfaces/sha256.hpp"
+#include "barretenberg/vm2/simulation/interfaces/to_radix.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -249,8 +262,8 @@ class Execution : public ExecutionInterface {
     ExecutionResult exec_result;
 
     std::stack<std::unique_ptr<ContextInterface>> external_call_stack;
-    std::vector<TaggedValue> inputs;
-    TaggedValue output;
+    std::vector<MemoryValue> inputs;
+    MemoryValue output;
     std::unique_ptr<GasTrackerInterface> gas_tracker;
 };
 
