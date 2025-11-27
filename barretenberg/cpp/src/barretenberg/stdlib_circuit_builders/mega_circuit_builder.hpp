@@ -83,7 +83,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * generally on the backend used to process acir).
      *
      */
-    void initialize_from_acir_data(const std::vector<FF>& witness_values, const std::vector<uint32_t>& public_inputs)
+    void initialize_from_acir_data(uint32_t max_witness_index,
+                                   const std::vector<FF>& witness_values,
+                                   const std::vector<uint32_t>& public_inputs)
     {
         BB_ASSERT_EQ(this->num_gates(),
                      ACIR_OFFSET,
@@ -91,8 +93,19 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
                                                   << " gates when initializing from ACIR data, expected " << ACIR_OFFSET
                                                   << " gates.");
 
-        for (const auto& value : witness_values) {
-            this->add_variable(value);
+        if (!witness_values.empty()) {
+            BB_ASSERT_EQ(witness_values.size() + ACIR_OFFSET,
+                         max_witness_index + 1,
+                         "MegaCircuitBuilder: ACIR witness size (" << witness_values.size()
+                                                                   << ") plus offset does not match max witness index ("
+                                                                   << max_witness_index << ").");
+            for (const auto& value : witness_values) {
+                this->add_variable(value);
+            }
+        } else {
+            for (size_t idx = 0; idx < max_witness_index + 1; ++idx) {
+                this->add_variable(FF::zero());
+            }
         }
 
         this->initialize_public_inputs(public_inputs);

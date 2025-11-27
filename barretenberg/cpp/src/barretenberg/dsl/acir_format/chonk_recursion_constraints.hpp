@@ -12,13 +12,10 @@
 
 namespace acir_format {
 
-using Builder = bb::UltraCircuitBuilder; // Builder is always Ultra
-
 using namespace bb;
 
-[[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintOutput<Builder>
-create_chonk_recursion_constraints(Builder& builder,
-                                   const RecursionConstraint& input,
-                                   bool has_valid_witness_assignments);
+[[nodiscard(
+    "IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintOutput<bb::UltraCircuitBuilder>
+create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const RecursionConstraint& input);
 
 } // namespace acir_format

@@ -3,13 +3,10 @@
 #include "acir_format_mocks.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 
-#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
-
 #include <gtest/gtest.h>
 #include <vector>
 
 namespace acir_format::tests {
-using curve_ct = bb::stdlib::secp256k1<Builder>;
 
 class Sha256Tests : public ::testing::Test {
   protected:
@@ -21,20 +18,30 @@ TEST_F(Sha256Tests, TestSha256Compression)
 
     std::array<WitnessOrConstant<bb::fr>, 16> inputs;
     for (size_t i = 0; i < 16; ++i) {
-        inputs[i] = WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 1));
+        inputs[i] =
+            WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 1 + UltraCircuitBuilder::ACIR_OFFSET));
     }
     std::array<WitnessOrConstant<bb::fr>, 8> hash_values;
     for (size_t i = 0; i < 8; ++i) {
-        hash_values[i] = WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 17));
+        hash_values[i] =
+            WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 17 + UltraCircuitBuilder::ACIR_OFFSET));
     }
     Sha256Compression sha256_compression{
         .inputs = inputs,
         .hash_values = hash_values,
-        .result = { 25, 26, 27, 28, 29, 30, 31, 32 },
+        .result = { 25 + UltraCircuitBuilder::ACIR_OFFSET,
+                    26 + UltraCircuitBuilder::ACIR_OFFSET,
+                    27 + UltraCircuitBuilder::ACIR_OFFSET,
+                    28 + UltraCircuitBuilder::ACIR_OFFSET,
+                    29 + UltraCircuitBuilder::ACIR_OFFSET,
+                    30 + UltraCircuitBuilder::ACIR_OFFSET,
+                    31 + UltraCircuitBuilder::ACIR_OFFSET,
+                    32 + UltraCircuitBuilder::ACIR_OFFSET },
     };
 
     AcirFormat constraint_system{
-
+        .max_witness_index = 33 + UltraCircuitBuilder::ACIR_OFFSET - 1,
+        .acir_gates_offset = UltraCircuitBuilder::ACIR_OFFSET,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .sha256_compression = { sha256_compression },
@@ -77,7 +84,7 @@ TEST_F(Sha256Tests, TestSha256Compression)
                            static_cast<uint32_t>(3481642555) };
 
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 } // namespace acir_format::tests

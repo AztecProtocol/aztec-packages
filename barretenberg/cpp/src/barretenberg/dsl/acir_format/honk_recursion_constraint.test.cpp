@@ -131,7 +131,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             witness = {}; // set it all to 0
         }
         AcirProgram program{ constraint_system, witness };
-        BuilderType outer_circuit = create_circuit<BuilderType>(program, metadata);
+        auto outer_circuit = create_circuit<BuilderType>(program, metadata);
 
         return outer_circuit;
     }
@@ -326,7 +326,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
     layer_b_2_circuits.push_back(TestFixture::create_inner_circuit());
     info("created second inner circuit");
 
-    std::vector<Builder> layer_2_circuits;
+    std::vector<typename TestFixture::InnerBuilder> layer_2_circuits;
     layer_2_circuits.push_back(
         TestFixture::template create_outer_circuit<typename TestFixture::InnerBuilder>(layer_b_1_circuits,
                                                                                        /*dummy_witnesses=*/false,
@@ -408,6 +408,8 @@ TYPED_TEST(AcirHonkRecursionConstraint, GateCountSingleHonkRecursion)
     honk_recursion_constraints.push_back(honk_recursion_constraint);
 
     AcirFormat constraint_system{};
+    constraint_system.acir_gates_offset = OuterBuilder::ACIR_OFFSET;
+    constraint_system.max_witness_index = static_cast<uint32_t>(witness.size() + OuterBuilder::ACIR_OFFSET - 1);
     constraint_system.num_acir_opcodes = 1;
     constraint_system.honk_recursion_constraints = honk_recursion_constraints;
     constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
@@ -417,7 +419,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, GateCountSingleHonkRecursion)
     ProgramMetadata metadata{ .has_ipa_claim = has_ipa_claim, .collect_gates_per_opcode = true };
 
     AcirProgram program{ constraint_system, witness };
-    OuterBuilder outer_circuit = create_circuit<OuterBuilder>(program, metadata);
+    auto outer_circuit = create_circuit<OuterBuilder>(program, metadata);
 
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);

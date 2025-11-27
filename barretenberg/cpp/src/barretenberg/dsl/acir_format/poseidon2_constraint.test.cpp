@@ -27,16 +27,17 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
     Poseidon2Constraint
         poseidon2_constraint{
             .state = {
-                WitnessOrConstant<bb::fr>::from_index(1),
-                WitnessOrConstant<bb::fr>::from_index(2),
-                WitnessOrConstant<bb::fr>::from_index(3),
-                WitnessOrConstant<bb::fr>::from_index(4),
+                WitnessOrConstant<bb::fr>::from_index(1 + UltraCircuitBuilder::ACIR_OFFSET),
+                WitnessOrConstant<bb::fr>::from_index(2 + UltraCircuitBuilder::ACIR_OFFSET),
+                WitnessOrConstant<bb::fr>::from_index(3 + UltraCircuitBuilder::ACIR_OFFSET),
+                WitnessOrConstant<bb::fr>::from_index(4 + UltraCircuitBuilder::ACIR_OFFSET),
  },
-            .result = { 5, 6, 7, 8, },
+            .result = { 5 + UltraCircuitBuilder::ACIR_OFFSET, 6 + UltraCircuitBuilder::ACIR_OFFSET, 7 + UltraCircuitBuilder::ACIR_OFFSET, 8 + UltraCircuitBuilder::ACIR_OFFSET },
         };
 
     AcirFormat constraint_system{
-
+        .max_witness_index = 9 + UltraCircuitBuilder::ACIR_OFFSET - 1,
+        .acir_gates_offset = UltraCircuitBuilder::ACIR_OFFSET,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .poseidon2_constraints = { poseidon2_constraint },
@@ -57,7 +58,7 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
     };
 
     AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit(program);
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

@@ -39,23 +39,36 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input, [[maybe_unused]
  */
 uint32_t get_witness_from_function_input(Acir::FunctionInput input, AcirFormat& af);
 
+/**
+ * @brief Update max_witness_index by processing all witnesses in an Acir::Expression.
+ *
+ * This function extracts witness indices from both multiplication terms and linear combinations
+ * in an expression, applying the acir_gates_offset and updating af.max_witness_index.
+ *
+ * @param expr The ACIR expression containing witness indices
+ * @param af The AcirFormat containing acir_gates_offset and max_witness_index
+ */
+void update_max_witness_from_expression(Acir::Expression const& expr, AcirFormat& af);
+
 /// ========= BYTES TO BARRETENBERG'S REPRESENTATION  ========= ///
 
-/// The functions below handle the transition from serialized ACIR formats (msgpack and bincode), which is the output of
-/// compiling a Noir program, to Barretenberg's internal formats.
+/// The functions below handle the transition from serialized ACIR formats (msgpack and bincode), which is the
+/// output of compiling a Noir program, to Barretenberg's internal formats.
 ///
 /// The flow is as follows:
-/// - A buffer of bytes is deserialised according to either msgpack or bincode into an Acir::Circuit, which is just the
-///   representation of a function in terms of Acir::Opcodes, Acir::Witness, Acir::PublicInputs. As of now (Nov 2025)
-///   only bincode is supported.
+/// - A buffer of bytes is deserialised according to either msgpack or bincode into an Acir::Circuit, which is just
+/// the
+///   representation of a function in terms of Acir::Opcodes, Acir::Witness, Acir::PublicInputs. As of now (Nov
+///   2025) only bincode is supported.
 /// - The Acir::Circuit is transformed into AcirFormat, which is Barretenberg's internal representation of the Acir
 ///   constraints that have to be added to the Builder.
-/// - A buffer of bytes is deserialised into a WitnessVector, which is the list of witness values known at the time of
+/// - A buffer of bytes is deserialised into a WitnessVector, which is the list of witness values known at the time
+/// of
 ///   noir program execution. This conversion takes a WitnessMap (which is a list of couples (witness_index,
 ///   witness_value)) and converts it to a vector of bb::fr elements. ACIR optimizes away some witnesses, so the
-///   WitnessMap may have holes: witness indices go up, but not necessarily by one. The conversion accounts for these
-///   holes and fills them with zeros. NOTE: The witness vector does NOT contain all the witnesses that will be present
-///   in the builder by the end of circuit construction.
+///   WitnessMap may have holes: witness indices go up, but not necessarily by one. The conversion accounts for
+///   these holes and fills them with zeros. NOTE: The witness vector does NOT contain all the witnesses that will
+///   be present in the builder by the end of circuit construction.
 /// - The AcirFormat structure and the WitnessVector are passed to acir_format::create_circuit,
 ///   which constructs a barretenberg circuit by adding the relevant constraints and witnesses to a Builder
 
@@ -63,10 +76,11 @@ uint32_t get_witness_from_function_input(Acir::FunctionInput input, AcirFormat& 
  * @brief Deserialize `buf` either based on the first byte interpreted as a Noir serialization format byte, or
  * falling back to `bincode` if the format cannot be recognized. Currently only `bincode` is expected.
  *
- * @note The function is written so that it can deserialize either `msgpack` or `bincode` depending on the first byte
- * of the buffer. However, at the moment only `bincode` is supported, so we fail in case `msgpack` is encountered. Note
- * that due to the lack of exception handling available in Wasm, the code cannot be structured to try `bincode` and
- * fall back to `msgpack` if that fails. Therefore, we look at the first byte and commit to a format based on that.
+ * @note The function is written so that it can deserialize either `msgpack` or `bincode` depending on the first
+ * byte of the buffer. However, at the moment only `bincode` is supported, so we fail in case `msgpack` is
+ * encountered. Note that due to the lack of exception handling available in Wasm, the code cannot be structured to
+ * try `bincode` and fall back to `msgpack` if that fails. Therefore, we look at the first byte and commit to a
+ * format based on that.
  */
 template <typename T>
 T deserialize_any_format(std::vector<uint8_t>&& buf,
@@ -98,6 +112,17 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf);
 
 /// ========= ACIR OPCODE HANDLERS ========= ///
 /// AUDITTODO(federico): Restructure the functions below so that it is clear how they are used
+
+/**
+ * @brief Handle BrilligCall opcode to update max_witness_index.
+ *
+ * BrilligCall is a no-op in Barretenberg (Brillig bytecode is not executed in the prover),
+ * but we need to parse it to track all witness indices used in inputs and outputs.
+ *
+ * @param arg The BrilligCall opcode containing inputs, outputs, and optional predicate
+ * @param af The AcirFormat to update with max_witness_index
+ */
+void handle_brillig_call(Acir::Opcode::BrilligCall const& arg, AcirFormat& af);
 
 /// ========= ARITHMETIC =================== ///
 

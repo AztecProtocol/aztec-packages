@@ -82,6 +82,20 @@ uint32_t get_witness_from_function_input(Acir::FunctionInput input, AcirFormat& 
     return transform_witness_index(std::get<Acir::FunctionInput::Witness>(input.value).value.value, af);
 }
 
+void update_max_witness_from_expression(Acir::Expression const& expr, AcirFormat& af)
+{
+    // Process multiplication terms: each term has two witness indices
+    for (const auto& mul_term : expr.mul_terms) {
+        transform_witness_index(std::get<1>(mul_term).value, af);
+        transform_witness_index(std::get<2>(mul_term).value, af);
+    }
+
+    // Process linear combinations: each term has one witness index
+    for (const auto& linear_term : expr.linear_combinations) {
+        transform_witness_index(std::get<1>(linear_term).value, af);
+    }
+}
+
 /// ========= BYTES TO BARRETENBERG'S REPRESENTATION  ========= ///
 
 template <typename T>
@@ -165,7 +179,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, uint32_t a
                     handle_memory_op(arg, block->second.first, af);
                     block->second.second.push_back(i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
-                    // This is a no-op in Barretenberg
+                    handle_brillig_call(arg, af);
                 } else {
                     bb::assert_failure("circuit_serde_to_acir_format: Unrecognized Acir Opcode.");
                 }
@@ -253,6 +267,48 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
 }
 
 /// ========= ACIR OPCODE HANDLERS ========= ///
+
+void handle_brillig_call(Acir::Opcode::BrilligCall const& arg, AcirFormat& af)
+{
+    // Process inputs
+    for (const auto& input : arg.inputs) {
+        std::visit(
+            [&](auto&& e) {
+                using T = std::decay_t<decltype(e)>;
+                if constexpr (std::is_same_v<T, Acir::BrilligInputs::Single>) {
+                    update_max_witness_from_expression(e.value, af);
+                } else if constexpr (std::is_same_v<T, Acir::BrilligInputs::Array>) {
+                    for (const auto& expr : e.value) {
+                        update_max_witness_from_expression(expr, af);
+                    }
+                } else if constexpr (std::is_same_v<T, Acir::BrilligInputs::MemoryArray>) {
+                    // MemoryArray contains a BlockId, no direct witnesses to track
+                }
+            },
+            input.value);
+    }
+
+    // Process outputs
+    for (const auto& output : arg.outputs) {
+        std::visit(
+            [&](auto&& e) {
+                using T = std::decay_t<decltype(e)>;
+                if constexpr (std::is_same_v<T, Acir::BrilligOutputs::Simple>) {
+                    transform_witness_index(e.value.value, af);
+                } else if constexpr (std::is_same_v<T, Acir::BrilligOutputs::Array>) {
+                    for (const auto& witness : e.value) {
+                        transform_witness_index(witness.value, af);
+                    }
+                }
+            },
+            output.value);
+    }
+
+    // Process optional predicate
+    if (arg.predicate.has_value()) {
+        update_max_witness_from_expression(arg.predicate.value(), af);
+    }
+}
 
 /**
  * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation

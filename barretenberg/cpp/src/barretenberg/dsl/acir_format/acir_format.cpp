@@ -79,15 +79,13 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
 };
 
 template <typename Builder>
-void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata)
+void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramMetadata& metadata)
 {
     using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>;
-    bool has_valid_witness_assignments = !program.witness.empty();
     bool collect_gates_per_opcode = metadata.collect_gates_per_opcode;
-    AcirFormat& constraint_system = program.constraints;
 
     if (collect_gates_per_opcode) {
-        constraint_system.gates_per_opcode.resize(constraint_system.num_acir_opcodes, 0);
+        constraints.gates_per_opcode.resize(constraints.num_acir_opcodes, 0);
     }
 
     GateCounter gate_counter{ &builder, collect_gates_per_opcode };
@@ -96,135 +94,134 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // AUDITTODO(federico): remove poly_triple_constraints
     for (const auto& [constraint, opcode_idx] :
-         zip_view(constraint_system.arithmetic_triple_constraints,
-                  constraint_system.original_opcode_indices.arithmetic_triple_constraints)) {
+         zip_view(constraints.arithmetic_triple_constraints,
+                  constraints.original_opcode_indices.arithmetic_triple_constraints)) {
         builder.create_arithmetic_gate(constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add standard width-4 Ultra arithmetic gates
     for (auto [constraint, opcode_idx] :
-         zip_view(constraint_system.quad_constraints, constraint_system.original_opcode_indices.quad_constraints)) {
+         zip_view(constraints.quad_constraints, constraints.original_opcode_indices.quad_constraints)) {
         create_quad_constraint(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // When an expression doesn't fit into a single width-4 gate, we split it across multiple gates and we leverage
     // w4_shift to use the least possible number of intermediate witnesses. See the documentation of
     // split_into_mul_quad_gates for more information.
-    for (auto [big_constraint, opcode_idx] : zip_view(constraint_system.big_quad_constraints,
-                                                      constraint_system.original_opcode_indices.big_quad_constraints)) {
+    for (auto [big_constraint, opcode_idx] :
+         zip_view(constraints.big_quad_constraints, constraints.original_opcode_indices.big_quad_constraints)) {
         create_big_quad_constraint(builder, big_constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add logic constraint
     for (const auto& [constraint, opcode_idx] :
-         zip_view(constraint_system.logic_constraints, constraint_system.original_opcode_indices.logic_constraints)) {
+         zip_view(constraints.logic_constraints, constraints.original_opcode_indices.logic_constraints)) {
         create_logic_gate(
             builder, constraint.a, constraint.b, constraint.result, constraint.num_bits, constraint.is_xor_gate);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add range constraint
     for (const auto& [constraint, opcode_idx] :
-         zip_view(constraint_system.range_constraints, constraint_system.original_opcode_indices.range_constraints)) {
+         zip_view(constraints.range_constraints, constraints.original_opcode_indices.range_constraints)) {
         if (builder.has_dummy_witnesses()) {
             // Fill witnesses if we are in a write vk scenario
             builder.set_variable(constraint.witness, Builder::FF::zero());
         }
         builder.create_range_constraint(constraint.witness, constraint.num_bits, "");
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add aes128 constraints
     for (const auto& [constraint, opcode_idx] :
-         zip_view(constraint_system.aes128_constraints, constraint_system.original_opcode_indices.aes128_constraints)) {
+         zip_view(constraints.aes128_constraints, constraints.original_opcode_indices.aes128_constraints)) {
         create_aes128_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add sha256 constraints
     for (const auto& [constraint, opcode_idx] :
-         zip_view(constraint_system.sha256_compression, constraint_system.original_opcode_indices.sha256_compression)) {
+         zip_view(constraints.sha256_compression, constraints.original_opcode_indices.sha256_compression)) {
         create_sha256_compression_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add ECDSA k1 constraints
-    for (const auto& [constraint, opcode_idx] : zip_view(
-             constraint_system.ecdsa_k1_constraints, constraint_system.original_opcode_indices.ecdsa_k1_constraints)) {
-        create_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(builder, constraint, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraints.ecdsa_k1_constraints, constraints.original_opcode_indices.ecdsa_k1_constraints)) {
+        create_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(builder, constraint);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add ECDSA r1 constraints
-    for (const auto& [constraint, opcode_idx] : zip_view(
-             constraint_system.ecdsa_r1_constraints, constraint_system.original_opcode_indices.ecdsa_r1_constraints)) {
-        create_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(builder, constraint, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraints.ecdsa_r1_constraints, constraints.original_opcode_indices.ecdsa_r1_constraints)) {
+        create_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(builder, constraint);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add blake2s constraints
-    for (const auto& [constraint, opcode_idx] : zip_view(
-             constraint_system.blake2s_constraints, constraint_system.original_opcode_indices.blake2s_constraints)) {
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraints.blake2s_constraints, constraints.original_opcode_indices.blake2s_constraints)) {
         create_blake2s_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add blake3 constraints
     for (const auto& [constraint, opcode_idx] :
-         zip_view(constraint_system.blake3_constraints, constraint_system.original_opcode_indices.blake3_constraints)) {
+         zip_view(constraints.blake3_constraints, constraints.original_opcode_indices.blake3_constraints)) {
         create_blake3_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add keccak permutations
-    for (const auto& [constraint, opcode_idx] : zip_view(
-             constraint_system.keccak_permutations, constraint_system.original_opcode_indices.keccak_permutations)) {
+    for (const auto& [constraint, opcode_idx] :
+         zip_view(constraints.keccak_permutations, constraints.original_opcode_indices.keccak_permutations)) {
         create_keccak_permutations_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     for (const auto& [constraint, opcode_idx] :
-         zip_view(constraint_system.poseidon2_constraints,
-                  constraint_system.original_opcode_indices.poseidon2_constraints)) {
+         zip_view(constraints.poseidon2_constraints, constraints.original_opcode_indices.poseidon2_constraints)) {
         create_poseidon2_permutations_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add multi scalar mul constraints
     for (const auto& [constraint, opcode_idx] :
-         zip_view(constraint_system.multi_scalar_mul_constraints,
-                  constraint_system.original_opcode_indices.multi_scalar_mul_constraints)) {
-        create_multi_scalar_mul_constraint(builder, constraint, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+         zip_view(constraints.multi_scalar_mul_constraints,
+                  constraints.original_opcode_indices.multi_scalar_mul_constraints)) {
+        create_multi_scalar_mul_constraint(builder, constraint);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add ec add constraints
     for (const auto& [constraint, opcode_idx] :
-         zip_view(constraint_system.ec_add_constraints, constraint_system.original_opcode_indices.ec_add_constraints)) {
-        create_ec_add_constraint(builder, constraint, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+         zip_view(constraints.ec_add_constraints, constraints.original_opcode_indices.ec_add_constraints)) {
+        create_ec_add_constraint(builder, constraint);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     // Add block constraints
     for (const auto& [constraint, opcode_indices] :
-         zip_view(constraint_system.block_constraints, constraint_system.original_opcode_indices.block_constraints)) {
+         zip_view(constraints.block_constraints, constraints.original_opcode_indices.block_constraints)) {
         create_block_constraints(builder, constraint);
         if (collect_gates_per_opcode) {
             size_t avg_gates_per_opcode = gate_counter.compute_diff() / opcode_indices.size();
             for (size_t opcode_index : opcode_indices) {
-                constraint_system.gates_per_opcode[opcode_index] = avg_gates_per_opcode;
+                constraints.gates_per_opcode[opcode_index] = avg_gates_per_opcode;
             }
         }
     }
 
     // RecursionConstraints
-    bool has_honk_recursion_constraints = !constraint_system.honk_recursion_constraints.empty();
-    bool has_avm_recursion_constraints = !constraint_system.avm_recursion_constraints.empty();
-    bool has_hn_recursion_constraints = !constraint_system.hn_recursion_constraints.empty();
-    bool has_chonk_recursion_constraints = !constraint_system.chonk_recursion_constraints.empty();
+    bool has_honk_recursion_constraints = !constraints.honk_recursion_constraints.empty();
+    bool has_avm_recursion_constraints = !constraints.avm_recursion_constraints.empty();
+    bool has_hn_recursion_constraints = !constraints.hn_recursion_constraints.empty();
+    bool has_chonk_recursion_constraints = !constraints.chonk_recursion_constraints.empty();
 
     if constexpr (IsMegaBuilder<Builder>) {
         // We shouldn't have both honk recursion constraints and HN recursion constraints.
@@ -238,16 +235,15 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
 
         if (has_honk_recursion_constraints) {
-            HonkRecursionConstraintsOutput<Builder> output = process_honk_recursion_constraints(
-                builder, constraint_system, has_valid_witness_assignments, gate_counter);
+            HonkRecursionConstraintsOutput<Builder> output =
+                process_honk_recursion_constraints(builder, constraints, gate_counter);
 
             // Propagate pairing points
             stdlib::recursion::honk::DefaultIO<Builder> inputs;
             inputs.pairing_inputs = output.points_accumulator;
             inputs.set_public();
         } else if (has_hn_recursion_constraints) {
-            process_pg_recursion_constraints(
-                builder, constraint_system, metadata.ivc, has_valid_witness_assignments, gate_counter);
+            process_hypernova_recursion_constraints(builder, constraints, metadata.ivc, gate_counter);
         } else {
             // If its an app circuit that has no recursion constraints, add default pairing points to public inputs.
             stdlib::recursion::honk::AppIO::add_default(builder);
@@ -280,18 +276,16 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         HonkRecursionConstraintsOutput<Builder> honk_output;
 
         if (has_honk_recursion_constraints) {
-            honk_output = process_honk_recursion_constraints(
-                builder, constraint_system, has_valid_witness_assignments, gate_counter);
+            honk_output = process_honk_recursion_constraints(builder, constraints, gate_counter);
         }
 
         if (has_chonk_recursion_constraints) {
-            honk_output = process_chonk_recursion_constraints(
-                builder, constraint_system, has_valid_witness_assignments, gate_counter);
+            honk_output = process_chonk_recursion_constraints(builder, constraints, gate_counter);
         }
 
         if (has_avm_recursion_constraints) {
-            HonkRecursionConstraintsOutput<Builder> avm_output = process_avm_recursion_constraints(
-                builder, constraint_system, has_valid_witness_assignments, gate_counter);
+            HonkRecursionConstraintsOutput<Builder> avm_output =
+                process_avm_recursion_constraints(builder, constraints, gate_counter);
 
             // Update honk_output: append (potentially 0) ipa claims and proofs.
             // If honk output has points accumulator, aggregate it with the one coming from the avm. Otherwise, override
@@ -429,30 +423,26 @@ std::pair<OpeningClaim<stdlib::grumpkin<Builder>>, HonkProof> handle_IPA_accumul
 
 template <typename Builder>
 [[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
-process_honk_recursion_constraints(Builder& builder,
-                                   AcirFormat& constraint_system,
-                                   bool has_valid_witness_assignments,
-                                   GateCounter<Builder>& gate_counter)
+process_honk_recursion_constraints(Builder& builder, AcirFormat& constraints, GateCounter<Builder>& gate_counter)
 {
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
-    for (const auto& [constraint, opcode_idx] :
-         zip_view(constraint_system.honk_recursion_constraints,
-                  constraint_system.original_opcode_indices.honk_recursion_constraints)) {
+    for (const auto& [constraint, opcode_idx] : zip_view(
+             constraints.honk_recursion_constraints, constraints.original_opcode_indices.honk_recursion_constraints)) {
         HonkRecursionConstraintOutput<Builder> honk_recursion_constraint;
 
         if (constraint.proof_type == HONK_ZK) {
-            honk_recursion_constraint = create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(
-                builder, constraint, has_valid_witness_assignments);
+            honk_recursion_constraint =
+                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(builder, constraint);
         } else if (constraint.proof_type == HONK) {
-            honk_recursion_constraint = create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
-                builder, constraint, has_valid_witness_assignments);
+            honk_recursion_constraint =
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(builder, constraint);
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
             if constexpr (!IsUltraBuilder<Builder>) {
                 throw_or_abort("Rollup Honk proof type not supported on MegaBuilder");
             } else {
-                honk_recursion_constraint = create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
-                    builder, constraint, has_valid_witness_assignments);
+                honk_recursion_constraint =
+                    create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(builder, constraint);
             }
         } else {
             throw_or_abort("Invalid Honk proof type");
@@ -464,18 +454,17 @@ process_honk_recursion_constraints(Builder& builder,
                           constraint.proof_type == ROOT_ROLLUP_HONK);
         output.is_root_rollup = constraint.proof_type == ROOT_ROLLUP_HONK;
 
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
     BB_ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
               "Root rollup must accumulate two IPA proofs.");
     return output;
 }
 
-void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
-                                      AcirFormat& constraints,
-                                      std::shared_ptr<IVCBase> ivc_base,
-                                      bool has_valid_witness_assignments,
-                                      GateCounter<MegaCircuitBuilder>& gate_counter)
+void process_hypernova_recursion_constraints(MegaCircuitBuilder& builder,
+                                             AcirFormat& constraints,
+                                             std::shared_ptr<IVCBase> ivc_base,
+                                             GateCounter<MegaCircuitBuilder>& gate_counter)
 {
     using StdlibVerificationKey = Chonk::RecursiveVerificationKey;
     using StdlibVKAndHash = Chonk::RecursiveVKAndHash;
@@ -490,7 +479,7 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
 
         // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
         // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
-        if (!has_valid_witness_assignments) {
+        if (builder.has_dummy_witnesses()) {
             // Create stdlib representations of each {proof, vkey} pair to be recursively verified
             for (auto [constraint, queue_entry] :
                  zip_view(constraints.hn_recursion_constraints, ivc->verification_queue)) {
@@ -552,47 +541,44 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
     }
 }
 
-[[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
-process_chonk_recursion_constraints(Builder& builder,
-                                    AcirFormat& constraint_system,
-                                    bool has_valid_witness_assignments,
-                                    GateCounter<Builder>& gate_counter)
+[[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<UltraCircuitBuilder>
+process_chonk_recursion_constraints(UltraCircuitBuilder& builder,
+                                    AcirFormat& constraints,
+                                    GateCounter<UltraCircuitBuilder>& gate_counter)
 {
-    HonkRecursionConstraintsOutput<Builder> output;
+    HonkRecursionConstraintsOutput<UltraCircuitBuilder> output;
     // Add recursion constraints
     for (const auto& [constraint, opcode_idx] :
-         zip_view(constraint_system.chonk_recursion_constraints,
-                  constraint_system.original_opcode_indices.chonk_recursion_constraints)) {
-        HonkRecursionConstraintOutput<Builder> honk_output =
-            create_chonk_recursion_constraints(builder, constraint, has_valid_witness_assignments);
+         zip_view(constraints.chonk_recursion_constraints,
+                  constraints.original_opcode_indices.chonk_recursion_constraints)) {
+        HonkRecursionConstraintOutput<UltraCircuitBuilder> honk_output =
+            create_chonk_recursion_constraints(builder, constraint);
 
         // Update the output
         output.update(honk_output, /*update_ipa_data=*/true);
 
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
     return output;
 }
 
-[[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
-process_avm_recursion_constraints(Builder& builder,
-                                  AcirFormat& constraint_system,
-                                  bool has_valid_witness_assignments,
-                                  GateCounter<Builder>& gate_counter)
+[[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<UltraCircuitBuilder>
+process_avm_recursion_constraints(UltraCircuitBuilder& builder,
+                                  AcirFormat& constraints,
+                                  GateCounter<UltraCircuitBuilder>& gate_counter)
 {
-    HonkRecursionConstraintsOutput<Builder> output;
+    HonkRecursionConstraintsOutput<UltraCircuitBuilder> output;
     // Add recursion constraints
-    for (const auto& [constraint, opcode_idx] :
-         zip_view(constraint_system.avm_recursion_constraints,
-                  constraint_system.original_opcode_indices.avm_recursion_constraints)) {
-        HonkRecursionConstraintOutput<Builder> avm2_recursion_output =
-            create_avm2_recursion_constraints_goblin(builder, constraint, has_valid_witness_assignments);
+    for (const auto& [constraint, opcode_idx] : zip_view(
+             constraints.avm_recursion_constraints, constraints.original_opcode_indices.avm_recursion_constraints)) {
+        HonkRecursionConstraintOutput<UltraCircuitBuilder> avm2_recursion_output =
+            create_avm2_recursion_constraints_goblin(builder, constraint);
 
         // Update the output
         output.update(avm2_recursion_output, /*update_ipa_data=*/true);
 
-        gate_counter.track_diff(constraint_system.gates_per_opcode, opcode_idx);
+        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
     return output;
 }
@@ -610,16 +596,12 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
     WitnessVector& witness = program.witness;
 
     UltraCircuitBuilder builder{ metadata.size_hint, witness.empty() };
-    builder.initialize_from_acir_data(witness, constraints.public_inputs);
-    if (witness.empty()) {
-        for (size_t idx = 0; idx < program.constraints.max_witness_index + 1; ++idx) {
-            builder.add_variable(UltraCircuitBuilder::FF::zero());
-        }
-    }
+    builder.initialize_from_acir_data(constraints.max_witness_index, witness, constraints.public_inputs);
 
-    build_constraints(builder, program, metadata);
+    // Populate constraints in the builder
+    build_constraints(builder, constraints, metadata);
 
-    vinfo("created circuit");
+    vinfo("Created circuit");
 
     return builder;
 };
@@ -640,19 +622,17 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
     MegaCircuitBuilder builder{ metadata.size_hint, op_queue, witness.empty() };
-    builder.initialize_from_acir_data(witness, constraints.public_inputs);
-    if (witness.empty()) {
-        for (size_t idx = 0; idx < program.constraints.max_witness_index + 1; ++idx) {
-            builder.add_variable(MegaCircuitBuilder::FF::zero());
-        }
-    }
+    builder.initialize_from_acir_data(constraints.max_witness_index, witness, constraints.public_inputs);
 
-    // Populate constraints in the builder via the data in constraint_system
-    build_constraints(builder, program, metadata);
+    // Populate constraints in the builder
+    build_constraints(builder, constraints, metadata);
+
+    vinfo("Created circuit");
 
     return builder;
 };
 
-template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirProgram&, const ProgramMetadata&);
+template void build_constraints<UltraCircuitBuilder>(UltraCircuitBuilder&, AcirFormat&, const ProgramMetadata&);
+template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, const ProgramMetadata&);
 
 } // namespace acir_format

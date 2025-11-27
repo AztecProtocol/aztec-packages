@@ -239,7 +239,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * generally on the backend used to process acir).
      *
      */
-    void initialize_from_acir_data(const std::vector<FF>& witness_values, const std::vector<uint32_t>& public_inputs)
+    void initialize_from_acir_data(uint32_t max_witness_index,
+                                   std::vector<fr>& witness_values,
+                                   const std::vector<uint32_t>& public_inputs)
     {
         BB_ASSERT_EQ(this->num_gates(),
                      ACIR_OFFSET,
@@ -247,8 +249,19 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                          << this->num_gates() << " gates when initializing from ACIR data, expected " << ACIR_OFFSET
                          << " gates.");
 
-        for (const auto& value : witness_values) {
-            this->add_variable(value);
+        if (!witness_values.empty()) {
+            BB_ASSERT_EQ(witness_values.size() + ACIR_OFFSET,
+                         max_witness_index + 1,
+                         "UltraCircuitBuilder: ACIR witness size ("
+                             << witness_values.size() << ") plus offset does not match max witness index ("
+                             << max_witness_index << ").");
+            for (const auto& value : witness_values) {
+                this->add_variable(value);
+            }
+        } else {
+            for (size_t idx = 0; idx < max_witness_index + 1; ++idx) {
+                this->add_variable(FF::zero());
+            }
         }
 
         this->initialize_public_inputs(public_inputs);

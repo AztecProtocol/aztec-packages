@@ -142,7 +142,7 @@ using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
 struct AcirProgram {
     AcirFormat constraints;
-    WitnessVector witness = {};
+    WitnessVector witness;
 };
 
 /**
@@ -189,11 +189,11 @@ struct ProgramMetadata {
 };
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
-template <typename Builder = bb::UltraCircuitBuilder>
+template <typename Builder>
 Builder create_circuit(AcirProgram& program, const ProgramMetadata& metadata = ProgramMetadata{});
 
 template <typename Builder>
-void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata);
+void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramMetadata& metadata);
 
 /**
  * @brief Utility class for tracking the gate count of acir constraints
