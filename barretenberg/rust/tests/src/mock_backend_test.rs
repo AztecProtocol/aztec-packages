@@ -1,42 +1,15 @@
 //! Mock backend tests to verify infrastructure without BB binary
+//!
+//! These tests use the MockBackend from barretenberg-rs to verify
+//! that the API infrastructure works without requiring the BB binary.
 
 #[cfg(test)]
 mod tests {
     use barretenberg_rs::{
-        backend::Backend,
-        error::Result,
-        generated_types::*,
-        BarretenbergApi,
+        generated_types::{Blake2s, Command},
+        mock_backend::MockBackend,
+        BarretenbergApi, Fr,
     };
-
-    /// Mock backend for testing without BB binary
-    struct MockBackend {
-        call_count: usize,
-    }
-
-    impl MockBackend {
-        fn new() -> Self {
-            Self { call_count: 0 }
-        }
-    }
-
-    impl Backend for MockBackend {
-        fn call(&mut self, _input: &[u8]) -> Result<Vec<u8>> {
-            self.call_count += 1;
-
-            // Return a mock Blake2s response
-            let response = Response::Blake2sResponse(Blake2sResponse {
-                hash: vec![0u8; 32],
-            });
-
-            rmp_serde::to_vec(&response)
-                .map_err(|e| barretenberg_rs::error::BarretenbergError::Serialization(e.to_string()))
-        }
-
-        fn destroy(&mut self) -> Result<()> {
-            Ok(())
-        }
-    }
 
     #[test]
     fn test_mock_backend_infrastructure() {
@@ -54,8 +27,6 @@ mod tests {
 
     #[test]
     fn test_fr_type() {
-        use barretenberg_rs::Fr;
-
         let fr = Fr::from_u64(42);
         assert_eq!(fr.to_buffer().len(), 32);
 

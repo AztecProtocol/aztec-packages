@@ -159,7 +159,8 @@ impl Backend for MockBackend {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::MockBackend;
+    use crate::backend::Backend;
     use crate::generated_types::{Blake2s, Command};
     use crate::BarretenbergApi;
 
