@@ -408,7 +408,9 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         result.emplace_back(mul_quad);
     }
 
+    BB_ASSERT(!result.empty(), "split_into_mul_quad_gates: resulted in zero gates.");
     result.shrink_to_fit();
+
     return result;
 }
 
@@ -678,17 +680,13 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
 
 void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
 {
-    // Lambda to convert the Acir::Expression representing a memory operation into a mul_quad_ gate
-    auto serialize_mul_quad_gate = [](const Acir::Expression& expr) {
-        std::map<uint32_t, bb::fr> linear_terms = process_linear_terms(expr);
-        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(expr, linear_terms);
-        BB_ASSERT_EQ(mul_quads.size(), 1U, "MemoryOp expression must fit in a single mul_quad_ gate");
-        return mul_quads[0];
-    };
-
     // Lambda to convert an Acir::Expression to a witness index
     auto acir_expression_to_witness_or_constant = [&](const Acir::Expression& expr) {
-        mul_quad_<fr> quad = serialize_mul_quad_gate(expr);
+        std::map<uint32_t, bb::fr> linear_terms = process_linear_terms(expr);
+        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(expr, linear_terms);
+
+        BB_ASSERT_EQ(mul_quads.size(), 1U, "MemoryOp expression should result in a single mul_quad_ gate");
+        mul_quad_<fr> quad = mul_quads.front();
 
         // Noir gives us witnesses or constants for read/write operations. We use the following assertions to ensure
         // that the data coming from Noir is in the correct form.
@@ -712,15 +710,15 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& blo
     auto is_read_operation = [&](const Acir::Expression& expr) {
         bool is_read = true;
 
-        mul_quad_<fr> quad = serialize_mul_quad_gate(expr);
+        BB_ASSERT(expr.mul_terms.empty(), "MemoryOp expression should not have multiplication terms");
+        BB_ASSERT(expr.linear_combinations.empty(), "MemoryOp expression should not have linear terms");
 
-        // A ROM operation is given by a zero Expression
-        is_read &= quad.mul_scaling == fr::zero();
-        is_read &= quad.a_scaling == fr::zero();
-        is_read &= quad.b_scaling == fr::zero();
-        is_read &= quad.c_scaling == fr::zero();
-        is_read &= quad.d_scaling == fr::zero();
-        is_read &= quad.const_scaling == fr::zero();
+        fr const_term = fr::serialize_from_buffer(&expr.q_c[0]);
+
+        // A read operation is given by a zero Expression
+        BB_ASSERT((const_term == fr::one()) || (const_term == fr::zero()),
+                  "MemoryOp expression should be either zero or a constant");
+        is_read &= const_term == fr::zero();
 
         return is_read;
     };
