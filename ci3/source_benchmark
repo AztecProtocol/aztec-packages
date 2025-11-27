@@ -1,6 +1,8 @@
 # CI benchmark instrumentation functions.
 # Source this file to get benchmark timing utilities for bootstrap scripts.
 #
+# Benchmarks are only recorded when CI_FULL=1.
+#
 # This file shadows cache_download, cache_upload, and echo_header to automatically
 # track build timings:
 #   - cache_download: On cache miss, starts a benchmark timer
@@ -21,7 +23,11 @@ export __BENCH_TRAP_SET="${__BENCH_TRAP_SET:-}"
 
 # Start timing a benchmark.
 # Args: <bench_name> - Name for the benchmark (will be prefixed with "ci/")
+# Only starts if CI_FULL=1.
 function start_bench {
+  if [[ "${CI_FULL:-0}" != "1" ]]; then
+    return 0
+  fi
   local bench_name="$1"
   export __BENCH_NAME="$bench_name"
   export __BENCH_START_TIME=$(date +%s)
