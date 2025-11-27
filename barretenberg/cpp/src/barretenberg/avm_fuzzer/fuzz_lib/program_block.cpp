@@ -785,9 +785,11 @@ void ProgramBlock::process_calldatacopy_instruction(CALLDATACOPY_Instruction ins
                                         .operand(instruction.dst_offset)
                                         .build();
     instructions.push_back(calldatacopy_instruction);
-    for (uint16_t calldata_addr = instruction.dst_offset;
-         calldata_addr < instruction.dst_offset + instruction.copy_size;
-         calldata_addr++) {
+
+    // setting calldata_addr to u32 to avoid overflows
+    auto loop_upper_bound =
+        static_cast<uint16_t>(std::min(static_cast<uint32_t>(instruction.dst_offset) + instruction.copy_size, 65535U));
+    for (uint16_t calldata_addr = instruction.dst_offset; calldata_addr < loop_upper_bound; calldata_addr++) {
         memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, calldata_addr);
     }
 }
