@@ -58,12 +58,12 @@ function build_native_objects {
 # Build all native binaries, including bb, bb-avm, tests, benches and napi lib.
 function build_native {
   set -eu
-  if ! cache_download_or_start_bench "barretenberg/cpp/build_native" barretenberg-$native_preset-$hash.zst; then
+  if ! cache_download barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
     build_preset $native_preset
     inject_version build/bin/bb
     [ -f build/bin/bb-avm ] && inject_version build/bin/bb-avm
-    cache_upload_and_end_bench barretenberg-$native_preset-$hash.zst build/{bin,lib}
+    cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
   fi
 }
 
@@ -85,51 +85,51 @@ function build_cross {
   set -eu
   target=$1
   is_macos=${2:-false}
-  if ! cache_download_or_start_bench "barretenberg/cpp/build_cross_$target" barretenberg-$target-$hash.zst; then
+  if ! cache_download barretenberg-$target-$hash.zst; then
     build_preset zig-$target --target bb --target nodejs_module
     inject_version build-zig-$target/bin/bb
     if [ "$is_macos" == "true" ]; then
       ldid -S build-zig-$target/bin/bb
     fi
-    cache_upload_and_end_bench barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
+    cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
   fi
 }
 
 # Selectively build components with address sanitizer (with optimizations)
 function build_asan_fast {
   set -eu
-  if ! cache_download_or_start_bench "barretenberg/cpp/build_asan_fast" barretenberg-asan-fast-$hash.zst; then
+  if ! cache_download barretenberg-asan-fast-$hash.zst; then
     # Pass the keys from asan_tests to the build_preset function.
     local bins="commitment_schemes_recursion_tests chonk_tests ultra_honk_tests dsl_tests"
     build_preset asan-fast --target $bins
     # We upload only the binaries specified in --target in build-asan-fast/bin
-    cache_upload_and_end_bench barretenberg-asan-fast-$hash.zst $(printf "build-asan-fast/bin/%s " $bins)
+    cache_upload barretenberg-asan-fast-$hash.zst $(printf "build-asan-fast/bin/%s " $bins)
   fi
 }
 
 # Build single threaded wasm. Needed when no shared mem available.
 function build_wasm {
   set -eu
-  if ! cache_download_or_start_bench "barretenberg/cpp/build_wasm" barretenberg-wasm-$hash.zst; then
+  if ! cache_download barretenberg-wasm-$hash.zst; then
     build_preset wasm
-    cache_upload_and_end_bench barretenberg-wasm-$hash.zst build-wasm/bin
+    cache_upload barretenberg-wasm-$hash.zst build-wasm/bin
   fi
 }
 
 # Build multi-threaded wasm. Requires shared memory.
 function build_wasm_threads {
   set -eu
-  if ! cache_download_or_start_bench "barretenberg/cpp/build_wasm_threads" barretenberg-wasm-threads-$hash.zst; then
+  if ! cache_download barretenberg-wasm-threads-$hash.zst; then
     build_preset wasm-threads
-    cache_upload_and_end_bench barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
+    cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
   fi
 }
 
 function build_wasm_threads_benches {
   set -eu
-  if ! cache_download_or_start_bench "barretenberg/cpp/build_wasm_threads_benches" barretenberg-wasm-threads-benches-$hash.zst; then
+  if ! cache_download barretenberg-wasm-threads-benches-$hash.zst; then
     build_preset wasm-threads --target ultra_honk_bench chonk_bench bb
-    cache_upload_and_end_bench barretenberg-wasm-threads-benches-$hash.zst build-wasm-threads/bin/{ultra_honk_bench,chonk_bench,bb}
+    cache_upload barretenberg-wasm-threads-benches-$hash.zst build-wasm-threads/bin/{ultra_honk_bench,chonk_bench,bb}
   fi
 }
 
@@ -141,12 +141,11 @@ function build_gcc_syntax_check_only {
   if cache_download barretenberg-gcc-$hash.zst; then
     return
   fi
-  start_bench "barretenberg/cpp/build_gcc_syntax_check"
   cmake --preset gcc -DSYNTAX_ONLY=1
   cmake --build --preset gcc --target bb
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-gcc/syntax-check-success.flag
-  cache_upload_and_end_bench barretenberg-gcc-$hash.zst build-gcc/syntax-check-success.flag
+  cache_upload barretenberg-gcc-$hash.zst build-gcc/syntax-check-success.flag
 }
 
 # Do basic tests that the fuzzing preset still compiles (does not do optimization or create object files).
@@ -155,12 +154,11 @@ function build_fuzzing_syntax_check_only {
   if cache_download barretenberg-fuzzing-$hash.zst; then
     return
   fi
-  start_bench "barretenberg/cpp/build_fuzzing_syntax_check"
   cmake --preset fuzzing -DSYNTAX_ONLY=1
   cmake --build --preset fuzzing
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-fuzzing/syntax-check-success.flag
-  cache_upload_and_end_bench barretenberg-fuzzing-$hash.zst build-fuzzing/syntax-check-success.flag
+  cache_upload barretenberg-fuzzing-$hash.zst build-fuzzing/syntax-check-success.flag
 }
 
 # Do basic tests that the smt preset still compiles and runs
@@ -169,7 +167,6 @@ function build_smt_verification {
   if cache_download barretenberg-smt-$hash.zst; then
     return
   fi
-  start_bench "barretenberg/cpp/build_smt_verification"
 
   if ! dpkg -l python3-pip python3-venv m4 bison >/dev/null 2>&1; then
     sudo apt update && sudo apt install -y python3-pip python3-venv m4 bison
@@ -186,7 +183,7 @@ function build_smt_verification {
   fi
 
   cmake --build build-smt --target smt_verification_tests
-  cache_upload_and_end_bench barretenberg-smt-$hash.zst build-smt
+  cache_upload barretenberg-smt-$hash.zst build-smt
 }
 
 function build_release_dir {
@@ -317,12 +314,12 @@ function test {
 
 function build_bench {
   set -eu
-  if ! cache_download_or_start_bench "barretenberg/cpp/build_bench" barretenberg-benchmarks-$hash.zst; then
+  if ! cache_download barretenberg-benchmarks-$hash.zst; then
     # Run builds in parallel with different targets per preset
     parallel --line-buffered denoise ::: \
       "build_preset $native_preset --target ultra_honk_bench --target chonk_bench --target bb --target honk_solidity_proof_gen" \
       "build_preset wasm-threads --target ultra_honk_bench --target chonk_bench --target bb"
-    cache_upload_and_end_bench barretenberg-benchmarks-$hash.zst \
+    cache_upload barretenberg-benchmarks-$hash.zst \
       {build,build-wasm-threads}/bin/{ultra_honk_bench,chonk_bench,bb}
   fi
 }
