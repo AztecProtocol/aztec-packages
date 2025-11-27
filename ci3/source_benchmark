@@ -9,7 +9,9 @@
 #   end_bench                             - End the current benchmark and write to bench-out/
 #   cache_download_or_start_bench <bench_name> <artifact_name> - Download cache or start benchmark
 #   cache_upload_and_end_bench <artifact_name> <paths...>      - Upload cache and end benchmark
-#   echo_header_bench <header_text>       - Print header and start/end benchmarks based on headers
+#
+# Note: echo_header automatically manages benchmarks - it ends the previous
+# benchmark and starts a new one based on the header text.
 #
 # Exit traps are automatically initialized when this file is sourced, so any
 # in-progress benchmark will be recorded on successful script exit.
@@ -87,21 +89,18 @@ function cache_upload_and_end_bench {
   end_bench
 }
 
-# Print a header (like echo_header) and manage benchmarks.
-# When called, ends any in-progress benchmark and starts a new one.
-# The bench name is derived from the header text (spaces replaced with underscores, lowercased).
-# Args: <header_text> - The header text to display
-function echo_header_bench {
-  local header_text="$*"
-
+# Wrapper for echo_header that also manages benchmarks.
+# Ends any in-progress benchmark and starts a new one based on the header text.
+# This function shadows the echo_header script when source_benchmark is sourced.
+function echo_header {
   # End any in-progress benchmark first
   end_bench
 
-  # Print the header using echo_header
-  echo_header "$header_text"
+  # Print the header (call the actual script via command to bypass function)
+  command echo_header "$@"
 
-  # Derive bench name from header: lowercase and replace spaces with underscores
-  local bench_name=$(echo "$header_text" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
+  # Start new benchmark: derive name from header (lowercase, spaces to underscores)
+  local bench_name=$(echo "$*" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
   start_bench "$bench_name"
 }
 
@@ -127,7 +126,7 @@ function __bench_exit_handler {
   fi
 }
 
-export -f start_bench end_bench cache_download_or_start_bench cache_upload_and_end_bench echo_header_bench init_bench_traps __bench_exit_handler
+export -f start_bench end_bench cache_download_or_start_bench cache_upload_and_end_bench echo_header init_bench_traps __bench_exit_handler
 
 # Automatically initialize bench traps when sourced
 init_bench_traps

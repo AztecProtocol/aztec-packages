@@ -84,6 +84,7 @@ function compile_all {
   if cache_download yarn-project-$hash.tar.gz; then
     return
   fi
+  start_bench "yarn-project/compile_all"
 
   compile_project ::: constants foundation stdlib blob-lib builder ethereum l1-artifacts
 
@@ -118,7 +119,9 @@ function compile_all {
   cat joblog.txt
 
   if [ "$CI" -eq 1 ]; then
-    cache_upload "yarn-project-$hash.tar.gz" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
+    cache_upload_and_end_bench "yarn-project-$hash.tar.gz" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
+  else
+    end_bench
   fi
 }
 
