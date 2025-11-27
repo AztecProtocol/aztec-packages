@@ -57,8 +57,8 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::add");
     constexpr auto opcode = ExecutionOpCode::ADD;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const MemoryValue& a = memory.get(a_addr);
+    const auto& b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -77,8 +77,8 @@ void Execution::sub(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::sub");
     constexpr auto opcode = ExecutionOpCode::SUB;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const auto& a = memory.get(a_addr);
+    const auto& b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -97,8 +97,8 @@ void Execution::mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::mul");
     constexpr auto opcode = ExecutionOpCode::MUL;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const auto& a = memory.get(a_addr);
+    const auto& b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -117,7 +117,7 @@ void Execution::div(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::div");
     constexpr auto opcode = ExecutionOpCode::DIV;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
+    const auto& a = memory.get(a_addr);
     MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
@@ -137,8 +137,8 @@ void Execution::fdiv(ContextInterface& context, MemoryAddress a_addr, MemoryAddr
     BB_BENCH_NAME("Execution::fdiv");
     constexpr auto opcode = ExecutionOpCode::FDIV;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const auto& a = memory.get(a_addr);
+    const auto& b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -157,8 +157,8 @@ void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
     BB_BENCH_NAME("Execution::eq");
     constexpr auto opcode = ExecutionOpCode::EQ;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const auto& a = memory.get(a_addr);
+    const auto& b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -177,8 +177,8 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
     BB_BENCH_NAME("Execution::lt");
     constexpr auto opcode = ExecutionOpCode::LT;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const auto& a = memory.get(a_addr);
+    const auto& b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -197,8 +197,8 @@ void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::lte");
     constexpr auto opcode = ExecutionOpCode::LT;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const auto& a = memory.get(a_addr);
+    const auto& b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -217,7 +217,7 @@ void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, Memory
     BB_BENCH_NAME("Execution::op_not");
     constexpr auto opcode = ExecutionOpCode::NOT;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(src_addr);
+    const auto& a = memory.get(src_addr);
     set_and_validate_inputs(opcode, { a });
 
     get_gas_tracker().consume_gas();
@@ -236,8 +236,8 @@ void Execution::shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::shl");
     constexpr auto opcode = ExecutionOpCode::SHL;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const auto& a = memory.get(a_addr);
+    const auto& b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -256,8 +256,8 @@ void Execution::shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::shr");
     constexpr auto opcode = ExecutionOpCode::SHR;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const auto& a = memory.get(a_addr);
+    const auto& b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -276,7 +276,7 @@ void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAd
     BB_BENCH_NAME("Execution::cast");
     constexpr auto opcode = ExecutionOpCode::CAST;
     auto& memory = context.get_memory();
-    auto val = memory.get(src_addr);
+    const auto& val = memory.get(src_addr);
     set_and_validate_inputs(opcode, { val });
 
     get_gas_tracker().consume_gas();
@@ -358,7 +358,7 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
     BB_BENCH_NAME("Execution::mov");
     constexpr auto opcode = ExecutionOpCode::MOV;
     auto& memory = context.get_memory();
-    auto v = memory.get(src_addr);
+    const auto& v = memory.get(src_addr);
     set_and_validate_inputs(opcode, { v });
 
     get_gas_tracker().consume_gas();
@@ -453,8 +453,8 @@ void Execution::cd_copy(ContextInterface& context,
     BB_BENCH_NAME("Execution::cd_copy");
     constexpr auto opcode = ExecutionOpCode::CALLDATACOPY;
     auto& memory = context.get_memory();
-    auto cd_copy_size = memory.get(cd_size_offset); // Tag check u32
-    auto cd_offset_read = memory.get(cd_offset);    // Tag check u32
+    const auto& cd_copy_size = memory.get(cd_size_offset); // Tag check u32
+    const auto& cd_offset_read = memory.get(cd_offset);    // Tag check u32
     set_and_validate_inputs(opcode, { cd_copy_size, cd_offset_read });
 
     get_gas_tracker().consume_gas({ .l2_gas = cd_copy_size.as<uint32_t>(), .da_gas = 0 });
@@ -474,8 +474,8 @@ void Execution::rd_copy(ContextInterface& context,
     BB_BENCH_NAME("Execution::rd_copy");
     constexpr auto opcode = ExecutionOpCode::RETURNDATACOPY;
     auto& memory = context.get_memory();
-    auto rd_copy_size = memory.get(rd_size_offset); // Tag check u32
-    auto rd_offset_read = memory.get(rd_offset);    // Tag check u32
+    const auto& rd_copy_size = memory.get(rd_size_offset); // Tag check u32
+    const auto& rd_offset_read = memory.get(rd_offset);    // Tag check u32
     set_and_validate_inputs(opcode, { rd_copy_size, rd_offset_read });
 
     get_gas_tracker().consume_gas({ .l2_gas = rd_copy_size.as<uint32_t>(), .da_gas = 0 });
@@ -506,7 +506,7 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
     BB_BENCH_NAME("Execution::ret");
     constexpr auto opcode = ExecutionOpCode::RETURN;
     auto& memory = context.get_memory();
-    auto rd_size = memory.get(ret_size_offset);
+    const auto& rd_size = memory.get(ret_size_offset);
     set_and_validate_inputs(opcode, { rd_size });
 
     get_gas_tracker().consume_gas();
@@ -526,7 +526,7 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
     BB_BENCH_NAME("Execution::revert");
     constexpr auto opcode = ExecutionOpCode::REVERT;
     auto& memory = context.get_memory();
-    auto rev_size = memory.get(rev_size_offset);
+    const auto& rev_size = memory.get(rev_size_offset);
     set_and_validate_inputs(opcode, { rev_size });
 
     get_gas_tracker().consume_gas();
@@ -555,7 +555,7 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
     constexpr auto opcode = ExecutionOpCode::JUMPI;
     auto& memory = context.get_memory();
 
-    auto resolved_cond = memory.get(cond_addr);
+    const auto& resolved_cond = memory.get(cond_addr);
     set_and_validate_inputs(opcode, { resolved_cond });
 
     get_gas_tracker().consume_gas();
@@ -640,8 +640,8 @@ void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     BB_BENCH_NAME("Execution::and_op");
     constexpr auto opcode = ExecutionOpCode::AND;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const auto& a = memory.get(a_addr);
+    const auto& b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
@@ -662,8 +662,8 @@ void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAdd
     BB_BENCH_NAME("Execution::or_op");
     constexpr auto opcode = ExecutionOpCode::OR;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const auto& a = memory.get(a_addr);
+    const auto& b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
@@ -684,8 +684,8 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     BB_BENCH_NAME("Execution::xor_op");
     constexpr auto opcode = ExecutionOpCode::XOR;
     auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const auto& a = memory.get(a_addr);
+    const auto& b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
@@ -708,7 +708,7 @@ void Execution::sload(ContextInterface& context, MemoryAddress slot_addr, Memory
 
     auto& memory = context.get_memory();
 
-    auto slot = memory.get(slot_addr);
+    const auto& slot = memory.get(slot_addr);
     set_and_validate_inputs(opcode, { slot });
 
     get_gas_tracker().consume_gas();
@@ -726,8 +726,8 @@ void Execution::sstore(ContextInterface& context, MemoryAddress src_addr, Memory
 
     auto& memory = context.get_memory();
 
-    auto slot = memory.get(slot_addr);
-    auto value = memory.get(src_addr);
+    const auto& slot = memory.get(slot_addr);
+    const auto& value = memory.get(src_addr);
     set_and_validate_inputs(opcode, { value, slot });
 
     bool was_slot_written_before = merkle_db.was_storage_written(context.get_address(), slot.as_ff());
@@ -756,8 +756,8 @@ void Execution::note_hash_exists(ContextInterface& context,
     constexpr auto opcode = ExecutionOpCode::NOTEHASHEXISTS;
 
     auto& memory = context.get_memory();
-    auto unique_note_hash = memory.get(unique_note_hash_addr);
-    auto leaf_index = memory.get(leaf_index_addr);
+    const auto& unique_note_hash = memory.get(unique_note_hash_addr);
+    const auto& leaf_index = memory.get(leaf_index_addr);
     set_and_validate_inputs(opcode, { unique_note_hash, leaf_index });
 
     get_gas_tracker().consume_gas();
@@ -787,8 +787,8 @@ void Execution::nullifier_exists(ContextInterface& context,
     constexpr auto opcode = ExecutionOpCode::NULLIFIEREXISTS;
     auto& memory = context.get_memory();
 
-    auto nullifier = memory.get(nullifier_offset);
-    auto address = memory.get(address_offset);
+    const auto& nullifier = memory.get(nullifier_offset);
+    const auto& address = memory.get(address_offset);
     set_and_validate_inputs(opcode, { nullifier, address });
 
     get_gas_tracker().consume_gas();
@@ -810,7 +810,7 @@ void Execution::emit_nullifier(ContextInterface& context, MemoryAddress nullifie
     constexpr auto opcode = ExecutionOpCode::EMITNULLIFIER;
 
     auto& memory = context.get_memory();
-    MemoryValue nullifier = memory.get(nullifier_addr);
+    const auto& nullifier = memory.get(nullifier_addr);
     set_and_validate_inputs(opcode, { nullifier });
 
     get_gas_tracker().consume_gas();
@@ -842,7 +842,7 @@ void Execution::get_contract_instance(ContextInterface& context,
     auto& memory = context.get_memory();
 
     // Execution can still handle address memory read and tag checking
-    auto address_value = memory.get(address_offset);
+    const auto& address_value = memory.get(address_offset);
     AztecAddress contract_address = address_value.as<AztecAddress>();
     set_and_validate_inputs(opcode, { address_value });
 
@@ -865,7 +865,7 @@ void Execution::emit_note_hash(ContextInterface& context, MemoryAddress note_has
     constexpr auto opcode = ExecutionOpCode::EMITNOTEHASH;
 
     auto& memory = context.get_memory();
-    auto note_hash = memory.get(note_hash_addr);
+    const auto& note_hash = memory.get(note_hash_addr);
     set_and_validate_inputs(opcode, { note_hash });
 
     get_gas_tracker().consume_gas();
@@ -891,8 +891,8 @@ void Execution::l1_to_l2_message_exists(ContextInterface& context,
     constexpr auto opcode = ExecutionOpCode::L1TOL2MSGEXISTS;
 
     auto& memory = context.get_memory();
-    auto msg_hash = memory.get(msg_hash_addr);
-    auto leaf_index = memory.get(leaf_index_addr);
+    const auto& msg_hash = memory.get(msg_hash_addr);
+    const auto& leaf_index = memory.get(leaf_index_addr);
     set_and_validate_inputs(opcode, { msg_hash, leaf_index });
 
     get_gas_tracker().consume_gas();
@@ -938,13 +938,13 @@ void Execution::ecc_add(ContextInterface& context,
     auto& memory = context.get_memory();
 
     // Read the points from memory.
-    const MemoryValue& p_x = memory.get(p_x_addr);
-    const MemoryValue& p_y = memory.get(p_y_addr);
-    const MemoryValue& p_inf = memory.get(p_inf_addr);
+    const auto& p_x = memory.get(p_x_addr);
+    const auto& p_y = memory.get(p_y_addr);
+    const auto& p_inf = memory.get(p_inf_addr);
 
-    const MemoryValue& q_x = memory.get(q_x_addr);
-    const MemoryValue& q_y = memory.get(q_y_addr);
-    const MemoryValue& q_inf = memory.get(q_inf_addr);
+    const auto& q_x = memory.get(q_x_addr);
+    const auto& q_y = memory.get(q_y_addr);
+    const auto& q_inf = memory.get(q_inf_addr);
 
     set_and_validate_inputs(opcode, { p_x, p_y, p_inf, q_x, q_y, q_inf });
     get_gas_tracker().consume_gas();
@@ -972,10 +972,10 @@ void Execution::to_radix_be(ContextInterface& context,
     constexpr auto opcode = ExecutionOpCode::TORADIXBE;
     auto& memory = context.get_memory();
 
-    const MemoryValue& value = memory.get(value_addr);                   // Field
-    const MemoryValue& radix = memory.get(radix_addr);                   // U32
-    const MemoryValue& num_limbs = memory.get(num_limbs_addr);           // U32
-    const MemoryValue& is_output_bits = memory.get(is_output_bits_addr); // U1
+    const auto& value = memory.get(value_addr);                   // Field
+    const auto& radix = memory.get(radix_addr);                   // U32
+    const auto& num_limbs = memory.get(num_limbs_addr);           // U32
+    const auto& is_output_bits = memory.get(is_output_bits_addr); // U1
 
     // Tag check the inputs
     {
@@ -1026,7 +1026,7 @@ void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress lo
     constexpr auto opcode = ExecutionOpCode::EMITUNENCRYPTEDLOG;
     auto& memory = context.get_memory();
 
-    const MemoryValue& log_size = memory.get(log_size_offset);
+    const auto& log_size = memory.get(log_size_offset);
     set_and_validate_inputs(opcode, { log_size });
     uint32_t log_size_int = log_size.as<uint32_t>();
 
@@ -1047,8 +1047,8 @@ void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recip
     constexpr auto opcode = ExecutionOpCode::SENDL2TOL1MSG;
     auto& memory = context.get_memory();
 
-    const MemoryValue& recipient = memory.get(recipient_addr);
-    const MemoryValue& content = memory.get(content_addr);
+    const auto& recipient = memory.get(recipient_addr);
+    const auto& content = memory.get(content_addr);
     set_and_validate_inputs(opcode, { recipient, content });
 
     get_gas_tracker().consume_gas();
@@ -1480,11 +1480,11 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
 
 // Sets the register inputs and validates the tags.
 // The tag information is taken from the instruction info database (exec spec).
-void Execution::set_and_validate_inputs(ExecutionOpCode opcode, std::vector<MemoryValue> inputs)
+void Execution::set_and_validate_inputs(ExecutionOpCode opcode, const std::vector<MemoryValue>& inputs)
 {
     const auto& register_info = instruction_info_db.get(opcode).register_info;
     assert(inputs.size() == register_info.num_inputs());
-    this->inputs = std::move(inputs);
+    this->inputs = inputs;
     for (size_t i = 0; i < register_info.num_inputs(); i++) {
         if (register_info.expected_tag(i) && register_info.expected_tag(i) != this->inputs.at(i).get_tag()) {
             throw RegisterValidationException(format("Input ",
@@ -1497,12 +1497,12 @@ void Execution::set_and_validate_inputs(ExecutionOpCode opcode, std::vector<Memo
     }
 }
 
-void Execution::set_output(ExecutionOpCode opcode, MemoryValue output)
+void Execution::set_output(ExecutionOpCode opcode, const MemoryValue& output)
 {
     const auto& register_info = instruction_info_db.get(opcode).register_info;
     (void)register_info; // To please GCC.
     assert(register_info.num_outputs() == 1);
-    this->output = std::move(output);
+    this->output = output;
 }
 
 } // namespace bb::avm2::simulation
