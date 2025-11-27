@@ -6,7 +6,7 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 - [**`l1-contracts`**](/l1-contracts): Solidity code for the Ethereum contracts that process rollups
 - [**`noir-projects`**](/noir-projects): Noir code for Aztec contracts and protocol circuits.
 - [**`yarn-project`**](/yarn-project): Typescript code for client and backend
-- [**`docs`**](/docs): Documentation source for the docs site
+- [**docs**](/docs): Documentation source for the [Aztec documentation site](https://docs.aztec.network)
 
 ## Popular packages
 
