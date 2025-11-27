@@ -786,13 +786,10 @@ void ProgramBlock::process_calldatacopy_instruction(CALLDATACOPY_Instruction ins
                                         .build();
     instructions.push_back(calldatacopy_instruction);
 
-    // filter case if dst.offset + copy_size is greater than uint16_t max value
-    uint16_t loop_upper_bound = static_cast<uint16_t>(
-        std::min(static_cast<uint32_t>(instruction.dst_offset) + static_cast<uint32_t>(instruction.copy_size), 65535U)
-    );
-    for (uint16_t calldata_addr = instruction.dst_offset;
-         calldata_addr < loop_upper_bound;
-         calldata_addr++) {
+    // setting calldata_addr to u32 to avoid overflows
+    auto loop_upper_bound =
+        static_cast<uint16_t>(std::min(static_cast<uint32_t>(instruction.dst_offset) + instruction.copy_size, 65535U));
+    for (uint16_t calldata_addr = instruction.dst_offset; calldata_addr < loop_upper_bound; calldata_addr++) {
         memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, calldata_addr);
     }
 }
