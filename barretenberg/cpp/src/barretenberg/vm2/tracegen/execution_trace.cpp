@@ -47,6 +47,7 @@
 using C = bb::avm2::Column;
 using bb::avm2::simulation::AddressingEventError;
 using bb::avm2::simulation::ExecutionError;
+using bb::avm2::simulation::Operand;
 
 namespace bb::avm2::tracegen {
 namespace {
@@ -477,8 +478,8 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         // Note that if addressing did not fail, register reading will not fail.
-        std::array<TaggedValue, AVM_MAX_REGISTERS> registers;
-        std::ranges::fill(registers.begin(), registers.end(), TaggedValue::from<FF>(0));
+        std::array<MemoryValue, AVM_MAX_REGISTERS> registers;
+        std::ranges::fill(registers.begin(), registers.end(), MemoryValue::from<FF>(0));
         bool should_process_registers = instruction_fetching_success && !addressing_failed;
         bool register_processing_failed = ex_event.error == ExecutionError::REGISTER_READ;
         if (should_process_registers) {
@@ -599,7 +600,7 @@ void ExecutionTraceBuilder::process(
                 assert(ex_event.addressing_event.resolution_info.size() == 2 &&
                        "GETENVVAR should have exactly two resolved operands (envvar enum and output)");
                 // rop[1] is the envvar enum
-                TaggedValue envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
+                Operand envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
                 process_get_env_var_opcode(envvar_enum, ex_event.output, trace, row);
             } else if (exec_opcode == ExecutionOpCode::INTERNALRETURN) {
                 trace.set(C::execution_internal_call_return_id_inv,
@@ -791,7 +792,7 @@ void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction
     // At this point we can assume instruction fetching succeeded.
     auto operands = instruction.operands;
     assert(operands.size() <= AVM_MAX_OPERANDS);
-    operands.resize(AVM_MAX_OPERANDS, simulation::Operand::from<FF>(0));
+    operands.resize(AVM_MAX_OPERANDS, Operand::from<FF>(0));
 
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
         trace.set(OPERAND_COLUMNS[i], row, operands.at(i));
@@ -885,8 +886,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     resolution_info_vec.resize(AVM_MAX_OPERANDS,
                                {
                                    // This is the default we want: both tag and value 0.
-                                   .after_relative = simulation::Operand::from<FF>(0),
-                                   .resolved_operand = simulation::Operand::from<FF>(0),
+                                   .after_relative = Operand::from<FF>(0),
+                                   .resolved_operand = Operand::from<FF>(0),
                                });
 
     std::array<bool, AVM_MAX_OPERANDS> should_apply_indirection{};
@@ -1035,9 +1036,9 @@ void ExecutionTraceBuilder::invert_columns(TraceContainer& trace)
 }
 
 void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
-                                              const std::vector<TaggedValue>& inputs,
-                                              const TaggedValue& output,
-                                              std::span<TaggedValue> registers,
+                                              const std::vector<MemoryValue>& inputs,
+                                              const MemoryValue& output,
+                                              std::span<MemoryValue> registers,
                                               TraceContainer& trace,
                                               uint32_t row)
 {
@@ -1054,7 +1055,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
                 registers[i] = output;
             } else {
                 // If this is a read operation, we need to get the value from the input.
-                auto input = inputs.size() > input_counter ? inputs.at(input_counter) : TaggedValue::from<FF>(0);
+                auto input = inputs.size() > input_counter ? inputs.at(input_counter) : MemoryValue::from<FF>(0);
                 registers[i] = input;
                 input_counter++;
             }
@@ -1118,8 +1119,8 @@ void ExecutionTraceBuilder::process_registers_write(ExecutionOpCode exec_opcode,
     }
 }
 
-void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
-                                                       TaggedValue output,
+void ExecutionTraceBuilder::process_get_env_var_opcode(Operand envvar_enum,
+                                                       MemoryValue output,
                                                        TraceContainer& trace,
                                                        uint32_t row)
 {

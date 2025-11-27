@@ -30,14 +30,17 @@ class ExecutionTraceBuilder final {
     void invert_columns(TraceContainer& trace);
     // Sets global register information and reads.
     void process_registers(ExecutionOpCode exec_opcode,
-                           const std::vector<TaggedValue>& inputs,
-                           const TaggedValue& output,
-                           std::span<TaggedValue> registers,
+                           const std::vector<MemoryValue>& inputs,
+                           const MemoryValue& output,
+                           std::span<MemoryValue> registers,
                            TraceContainer& trace,
                            uint32_t row);
     // Sets the writes.
     void process_registers_write(ExecutionOpCode exec_opcode, TraceContainer& trace, uint32_t row);
-    void process_get_env_var_opcode(TaggedValue envvar_enum, TaggedValue output, TraceContainer& trace, uint32_t row);
+    void process_get_env_var_opcode(simulation::Operand envvar_enum,
+                                    MemoryValue output,
+                                    TraceContainer& trace,
+                                    uint32_t row);
 
     static const InteractionDefinition interactions;
 };
