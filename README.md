@@ -38,6 +38,10 @@ Releases are driven by [release-please](https://github.com/googleapis/release-pl
 ## Contribute
 
 There are many ways you can participate and help build high quality software. Check out the [contribution guide](CONTRIBUTING.md)!
+If you're new to the project, start by looking for issues labelled 
+["good first issue"](https://github.com/AztecProtocol/aztec-packages/labels/good%20first%20issue)
+on our issue tracker. These tasks are scoped for newcomers and help you get familiar with the codebase.
+
 
 ## Syncing noir
 
