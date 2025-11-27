@@ -27,11 +27,23 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
+enum class TerminatorType {
+  RETURN,
+  JUMP,
+  JUMP_IF,
+  NONE,
+};
+
 class ProgramBlock {
   private:
     MemoryManager memory_manager;
     std::vector<bb::avm2::simulation::Instruction> instructions;
     uint16_t condition_offset_index = 0;
+
+    // At first we insert INTERNALCALL instruction with 0 offset, because we don't know the resulting block offsets
+    // when we insert instruction. On the step 3 of build bytecode we calculate the actual offsets, which will be used
+    // for step 4 to patch the INTERNALCALL instruction with the actual offset.
+    std::map<size_t, ProgramBlock*> internal_call_instruction_indicies_to_patch;
 
     void process_add_8_instruction(ADD_8_Instruction instruction);
     void process_sub_8_instruction(SUB_8_Instruction instruction);
@@ -83,7 +95,11 @@ class ProgramBlock {
   public:
     std::vector<ProgramBlock*> successors;
     std::vector<ProgramBlock*> predecessors;
-    bool terminated = false;
+
+    /// @brief the block that called this block by INTERNALCALL
+    /// This field is copied to predecessors on every CFG instructions
+    ProgramBlock* caller = nullptr;
+    TerminatorType terminator_type = TerminatorType::NONE;
     int offset = -1;
 
     ProgramBlock() = default;
@@ -114,8 +130,15 @@ class ProgramBlock {
                                uint16_t condition_offset,
                                bool copy_memory_manager = true);
 
+    /// @brief insert INTERNALCALL instruction with 0 offset
+    void insert_internal_call(ProgramBlock* target_block);
+
     std::optional<uint16_t> get_terminating_condition_value();
     std::vector<bb::avm2::simulation::Instruction> get_instructions();
 
     bool is_memory_address_set(uint16_t address);
+
+    /// @brief in `insert_internal_call`  we insert INTERNALCALL instruction with 0 offset, because we don't know the resulting block offsets
+    /// this method patches the INTERNALCALL instructions with the actual offset
+    void patch_internal_calls();
 };

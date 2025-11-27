@@ -30,6 +30,11 @@ void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng)
             break;
         case FuzzerDataMutationOptions::CalldataMutation:
             mutate_calldata_vec(fuzzer_data.calldata, rng);
+            if (fuzzer_data.calldata.size() > 0) {
+                // For ts simulator, Selector must fit in 4 bytes (1st calldata element is perceived as the selector)
+                // just setting it to 0
+                fuzzer_data.calldata[0] = bb::avm2::FF(0);
+            }
             break;
         }
     }
