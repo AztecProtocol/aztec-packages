@@ -951,20 +951,17 @@ TEST(fuzz, CopyCalldataThenReturnData)
 // call internal function overwrites memory address
 TEST(fuzz, InternalCall)
 {
-    auto set_field_instruction =
-        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 1337 };
+    auto set_field_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 1337 };
     auto set_field_instruction2 =
         SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .offset = 0, .value = 313373 };
     auto internal_call_instruction = InsertInternalCall{ .target_program_block_instruction_block_idx = 1 };
-    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{
-        { set_field_instruction, set_field_instruction2 }
-    };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ { set_field_instruction, set_field_instruction2 } };
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     control_flow.process_cfg_instruction(internal_call_instruction);
-    auto bytecode = control_flow.build_bytecode(ReturnOptions{ .return_size = 1,
-                                                                .return_value_tag = bb::avm2::MemoryTag::FF,
-                                                                .return_value_offset_index = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
     auto cpp_simulator = CppSimulator();
     auto result = cpp_simulator.simulate(bytecode, {});
     EXPECT_EQ(result.output.at(0), 313373);
