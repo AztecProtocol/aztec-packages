@@ -27,12 +27,12 @@ function setup_environment {
     target_branch="${GITHUB_REF_NAME:-}"
   fi
   target_branch="${target_branch#refs/heads/}"
-  TARGET_BRANCH=$target_branch
+  export TARGET_BRANCH=$target_branch
   echo "TARGET_BRANCH=$TARGET_BRANCH" >> $GITHUB_ENV
   echo "Target branch: $TARGET_BRANCH"
   # To allow full concurrency, we set instance postfix for merge-train PRs
   if [[ "${PR_HEAD_REF:-}" == merge-train/* ]]; then
-    INSTANCE_POSTFIX=${PR_COMMITS:-}
+    export INSTANCE_POSTFIX=${PR_COMMITS:-}
     echo "INSTANCE_POSTFIX=$INSTANCE_POSTFIX" >> $GITHUB_ENV
     echo "Instance postfix set to: $INSTANCE_POSTFIX"
   fi
