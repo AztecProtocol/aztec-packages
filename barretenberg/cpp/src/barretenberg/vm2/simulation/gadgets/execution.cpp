@@ -19,11 +19,9 @@
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/interfaces/addressing.hpp"
-#include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
-#include "barretenberg/vm2/simulation/interfaces/internal_call_stack_manager.hpp"
-#include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 #include "barretenberg/vm2/simulation/interfaces/alu.hpp"
 #include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/interfaces/call_stack_metadata_collector.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context_provider.hpp"
 #include "barretenberg/vm2/simulation/interfaces/data_copy.hpp"
@@ -33,24 +31,30 @@
 #include "barretenberg/vm2/simulation/interfaces/execution_components.hpp"
 #include "barretenberg/vm2/simulation/interfaces/get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/interfaces/gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/interfaces/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/interfaces/sha256.hpp"
 #include "barretenberg/vm2/simulation/interfaces/to_radix.hpp"
 #include "barretenberg/vm2/simulation/lib/call_stack_metadata_collector.hpp"
+#include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 
 namespace bb::avm2::simulation {
 
-// For every opcode execution method (e.g. Execution::add(), Execution::sub(), etc), it is crucial to preserve the
-// following order of operations (temporality groups 3,4,5,6):
-// 1. Temporality group 3 (Register read): Set the inputs and validate them. (RegisterValidationException might be
-// thrown.)
-// 2. Temporality group 4 (Gas): Consume gas. (OutOfGasException might be thrown.)
-// 3. Temporality group 5 (Opcode execution): Execute the opcode. (OpcodeExecutionException might be thrown.)
-// 4. Temporality group 6 (Register write): Set the output.
-
-// This order is crucial for the completeness of the circuit. In tracegen, we rely on this order to correctly
-// populate the execution trace. In particular, we stop processing if any of the above exceptions are thrown.
+/**
+ *   IMPORTANT NOTE FOR OPCODE EXECUTION METHODS:
+ *
+ * For every opcode execution method (e.g. Execution::add(), Execution::sub(), etc), it is crucial to preserve
+ * the following order of operations (temporality groups 3,4,5,6):
+ * 1. Temporality group 3 (Register read): Set the inputs and validate them. (RegisterValidationException might be
+ * thrown.)
+ * 2. Temporality group 4 (Gas): Consume gas. (OutOfGasException might be thrown.)
+ * 3. Temporality group 5 (Opcode execution): Execute the opcode. (OpcodeExecutionException might be thrown.)
+ * 4. Temporality group 6 (Register write): Set the output.
+ *
+ * This order is crucial for the completeness of the circuit. In tracegen, we rely on this order to correctly
+ * populate the execution trace. In particular, we stop processing if any of the above exceptions are thrown.
+ */
 
 /**
  * @brief ADD execution opcode handler: Add two values.
@@ -1697,8 +1701,16 @@ void Execution::sha256_compression(ContextInterface& context,
     }
 }
 
-// This context interface is a top-level enqueued one.
-// NOTE: For the moment this trace is not returning the context back.
+/**
+ * @brief Execute a top-level enqueued call.
+ *
+ * @param enqueued_call_context The unique pointer to a top-level enqueued call context.
+ * This context interface is a top-level enqueued call context.
+ *
+ * @return EnqueuedCallResult: The result of the execution.
+ *
+ * NOTE: For the moment this trace is not returning the context back.
+ */
 EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
 {
     BB_BENCH_NAME("Execution::execute");
@@ -1823,9 +1835,17 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
     return {
         .success = result.success,
         .gas_used = result.gas_used,
+        .output = std::nullopt, // The gadgets do not need to return data.
     };
 }
 
+/**
+ * @brief Handle the entering of a call. This is called when a call is made from a context. This is a helper
+ *        function for the CALL and STATICCALL opcodes.
+ *
+ * @param parent_context The parent context.
+ * @param child_context The child context.
+ */
 void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context)
 {
     const auto& side_effects = parent_context.get_side_effect_tracker().get_side_effects();
@@ -1862,6 +1882,9 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
     external_call_stack.push(std::move(child_context));
 }
 
+/**
+ * @brief Handle the exiting of a call. This is called when a call returns or reverts.
+ */
 void Execution::handle_exit_call()
 {
     BB_BENCH_NAME("Execution::handle_exit_call");
@@ -1913,6 +1936,13 @@ void Execution::handle_exit_call()
     // Else: was top level. ExecutionResult is already set and that will be returned.
 }
 
+/**
+ * @brief Handle the exceptional halt of a context. This is called when an exception is thrown during the execution
+ *        of a context.
+ *
+ * @param context The context.
+ * @param halting_message The halting message.
+ */
 void Execution::handle_exceptional_halt(ContextInterface& context, const std::string& halting_message)
 {
     context.set_gas_used(context.get_gas_limit()); // Consume all gas.
@@ -1927,6 +1957,14 @@ void Execution::handle_exceptional_halt(ContextInterface& context, const std::st
     });
 }
 
+/**
+ * @brief Dispatch an opcode. This is the main function that dispatches the opcode to the appropriate handler.
+ *
+ * @param opcode The opcode to dispatch.
+ * @param context The context.
+ * @param resolved_operands The resolved operands.
+ *
+ */
 void Execution::dispatch_opcode(ExecutionOpCode opcode,
                                 ContextInterface& context,
                                 const std::vector<Operand>& resolved_operands)
@@ -2080,8 +2118,15 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     }
 }
 
-// Some template magic to dispatch the opcode by deducing the number of arguments and types,
-// and making the appropriate checks and casts.
+/**
+ * @brief Call with operands. This is a template magic function to dispatch
+ *        the opcode by deducing the number of arguments and types,
+ *        and making the appropriate checks and casts.
+ *
+ * @param f The function to call.
+ * @param context The context.
+ * @param resolved_operands The resolved operands.
+ */
 template <typename... Ts>
 inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&, Ts...),
                                           ContextInterface& context,
@@ -2094,8 +2139,13 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
     }(operand_indices);
 }
 
-// Sets the register inputs and validates the tags.
-// The tag information is taken from the instruction info database (exec spec).
+/**
+ * @brief Set the register inputs and validate the tags. The tag information
+ *        is taken from the instruction info database.
+ *
+ * @param opcode The opcode.
+ * @param inputs The inputs.
+ */
 void Execution::set_and_validate_inputs(ExecutionOpCode opcode, const std::vector<MemoryValue>& inputs)
 {
     const auto& register_info = instruction_info_db.get(opcode).register_info;
@@ -2113,6 +2163,12 @@ void Execution::set_and_validate_inputs(ExecutionOpCode opcode, const std::vecto
     }
 }
 
+/**
+ * @brief Set the output register.
+ *
+ * @param opcode The opcode.
+ * @param output The output.
+ */
 void Execution::set_output(ExecutionOpCode opcode, const MemoryValue& output)
 {
     const auto& register_info = instruction_info_db.get(opcode).register_info;
