@@ -157,10 +157,9 @@ describe('Native World State: benchmarks', () => {
     op: (treeId: MerkleTreeId, value: Buffer | Fr, fork: MerkleTreeReadOperations) => Promise<any>,
   ) => {
     const fork = await worldState.fork();
-    const treeInfo = await fork.getTreeInfo(treeId);
-    const indices = Array.from({ length: numRetrievals }, () =>
-      Math.floor(Math.random() * Number(treeInfo.size - 1n)),
-    ).map(m => BigInt(m));
+    const indices = Array.from({ length: numRetrievals }, () => Math.floor(Math.random() * values.length)).map(m =>
+      BigInt(m),
+    );
 
     const startTime = performance.now();
 

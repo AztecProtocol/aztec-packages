@@ -194,7 +194,7 @@ export class TxEffect {
 
   static async random({
     numNoteHashes,
-    numNullifiers,
+    numNullifiers = 1,
     numL2ToL1Msgs,
     numPublicDataWrites,
     numPrivateLogs,
@@ -213,6 +213,9 @@ export class TxEffect {
     numContractClassLogs?: number;
     maxEffects?: number;
   } = {}): Promise<TxEffect> {
+    if (numNullifiers < 1) {
+      throw new Error(`A tx effect must have at least one nullifier. Only ${numNullifiers} got requested.`);
+    }
     const count = (max: number, num?: number) => num ?? Math.min(maxEffects ?? randomInt(max), max);
     return new TxEffect(
       RevertCode.random(),
