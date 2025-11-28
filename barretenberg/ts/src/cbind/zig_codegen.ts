@@ -25,6 +25,7 @@ export class ZigCodegen {
           case 'f64': return 'f64';
           case 'string': return '[]const u8';
           case 'bytes': return '[]const u8';
+          case 'field2': return '[2][]const u8';  // Extension field (Fq2)
         }
         break;
 

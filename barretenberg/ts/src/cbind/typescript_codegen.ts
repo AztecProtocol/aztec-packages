@@ -30,6 +30,7 @@ export class TypeScriptCodegen {
           case 'f64': return 'number';
           case 'string': return 'string';
           case 'bytes': return 'Uint8Array';
+          case 'field2': return '[Uint8Array, Uint8Array]';  // Extension field (Fq2)
         }
         break;
 

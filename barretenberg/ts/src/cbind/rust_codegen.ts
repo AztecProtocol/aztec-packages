@@ -25,6 +25,7 @@ export class RustCodegen {
           case 'f64': return 'f64';
           case 'string': return 'String';
           case 'bytes': return 'Vec<u8>';
+          case 'field2': return '[Vec<u8>; 2]';  // Extension field (Fq2) - pair of 32-byte field elements
         }
         break;
 

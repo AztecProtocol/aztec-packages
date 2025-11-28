@@ -8,7 +8,7 @@
  *   - Output is "compiled schema" with resolved types
  */
 
-export type PrimitiveType = 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'f64' | 'string' | 'bytes';
+export type PrimitiveType = 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'f64' | 'string' | 'bytes' | 'field2';
 
 export interface Type {
   kind: 'primitive' | 'vector' | 'array' | 'optional' | 'struct';
@@ -201,6 +201,7 @@ export class SchemaVisitor {
       'double': 'f64',
       'string': 'string',
       'bin32': 'bytes',
+      'field2': 'field2',  // Extension field (Fq2) - pair of field elements
     };
 
     const primitive = primitiveMap[name];

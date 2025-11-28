@@ -20,11 +20,11 @@
 use crate::backend::Backend;
 use crate::error::{BarretenbergError, Result};
 use crate::generated_types::{
-    AffineElement, Blake2sResponse, Blake2sToFieldResponse, CircuitComputeVkResponse,
-    CircuitInfoResponse, CircuitProveResponse, CircuitVerifyResponse, PedersenCommitResponse,
-    PedersenHashBufferResponse, PedersenHashResponse, Poseidon2HashAccumulateResponse,
-    Poseidon2HashResponse, Response, ShutdownResponse, SrsInitGrumpkinSrsResponse,
-    SrsInitSrsResponse,
+    Blake2sResponse, Blake2sToFieldResponse, CircuitComputeVkResponse,
+    CircuitInfoResponse, CircuitProveResponse, CircuitVerifyResponse, GrumpkinPoint,
+    PedersenCommitResponse, PedersenHashBufferResponse, PedersenHashResponse,
+    Poseidon2HashAccumulateResponse, Poseidon2HashResponse, Response, ShutdownResponse,
+    SrsInitGrumpkinSrsResponse, SrsInitSrsResponse,
 };
 
 /// A mock backend for testing without the BB binary.
@@ -82,7 +82,7 @@ impl MockBackend {
                 hash: vec![0u8; 32],
             }),
             "PedersenCommit" => Response::PedersenCommitResponse(PedersenCommitResponse {
-                point: AffineElement {
+                point: GrumpkinPoint {
                     x: vec![0u8; 32],
                     y: vec![0u8; 32],
                 },
