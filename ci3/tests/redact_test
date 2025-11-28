@@ -1,0 +1,85 @@
+#!/bin/bash
+# Tests for the redact script
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REDACT="$SCRIPT_DIR/../redact"
+
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+NC=$'\033[0m'
+
+TESTS_PASSED=0
+TESTS_FAILED=0
+CLEAN_PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+pass() { echo "${GREEN}✓${NC} $1"; ((TESTS_PASSED++)) || true; }
+fail() {
+  echo "${RED}✗${NC} $1"
+  echo "  Expected: '$2'"
+  echo "  Actual:   '$3'"
+  ((TESTS_FAILED++)) || true
+}
+
+# Test helper - args: name expected input env_vars...
+T() {
+  local name=$1 expected=$2 input=$3
+  shift 3
+  local actual
+  actual=$(env -i PATH="$CLEAN_PATH" "$@" bash -c "printf '%s\n' '$input' | '$REDACT'" 2>&1) || true
+  [[ "$actual" == "$expected" ]] && pass "$name" || fail "$name" "$expected" "$actual"
+}
+
+echo "=== Redact Tests ==="
+
+echo "--- Basic ---"
+T "Simple secret" "pw is ***" "pw is supersecret1" "MY_PASSWORD=supersecret1"
+T "Multiple occurrences" "a *** b ***" "a secretval b secretval" "API_SECRET=secretval"
+T "Two secrets" "a=*** b=***" "a=apikey123 b=token456" "API_KEY=apikey123" "AUTH_TOKEN=token456"
+
+echo "--- Var Names ---"
+T "KEY match" "x ***" "x myapikey9" "API_KEY=myapikey9"
+T "TOKEN match" "x ***" "x mytoken99" "AUTH_TOKEN=mytoken99"
+T "PASSWORD match" "x ***" "x secretpw1" "DB_PASSWORD=secretpw1"
+T "SECRET match" "x ***" "x topsecret" "MY_SECRET=topsecret"
+T "MNEMONIC match" "x ***" "x mnemonic1" "WALLET_MNEMONIC=mnemonic1"
+T "No match passthrough" "x notsecret" "x notsecret" "MY_DATA=notsecret"
+
+echo "--- Special Chars ---"
+T "Dots" "x ***" "x a.b.c.d.e" "API_KEY=a.b.c.d.e"
+T "Slashes" "x ***" "x /a/b/c/d" "SECRET_PATH=/a/b/c/d"
+T "Plus" "x ***" "x a+b+c+d+e" "API_KEY=a+b+c+d+e"
+T "Equals" "x ***" "x abc123==" "API_KEY=abc123=="
+
+echo "--- Edge Cases ---"
+T "Empty not redacted" "x here" "x here" "API_KEY="
+T "Short secret redacted" "x ***" "x abc" "API_KEY=abc"
+T "Single char redacted" "x ***" "x Z" "API_KEY=Z"
+
+echo "--- No Secrets ---"
+T "No matching vars" "plain text" "plain text" "MY_VAR=value"
+
+echo "--- Binary-like ---"
+T "Base64" "x ***" "x SGVsbG9Xb3JsZA==" "API_KEY=SGVsbG9Xb3JsZA=="
+T "Hex" "x ***" "x deadbeef1234" "API_KEY=deadbeef1234"
+
+echo "--- Substring ---"
+T "Secret in middle" "pre***suf" "presecret99suf" "API_KEY=secret99"
+
+echo "--- Multiline Secret ---"
+T "Line 1 redacted" "x ***" "x firstline" $'MULTI_SECRET=firstline\nsecondline'
+T "Line 2 redacted" "x ***" "x secondline" $'MULTI_SECRET=firstline\nsecondline'
+
+echo "--- Regex Special Chars ---"
+T "Asterisk" "x ***" "x sec*ret99" "API_KEY=sec*ret99"
+T "Backslash" "x ***" 'x sec\ret99' 'API_KEY=sec\ret99'
+T "Caret" "x ***" "x sec^ret99" "API_KEY=sec^ret99"
+T "Dollar" "x ***" 'x sec$ret99' 'API_KEY=sec$ret99'
+T "Parens" "x ***" "x sec(ret)9" "API_KEY=sec(ret)9"
+T "Brackets" "x ***" "x sec[ret]9" "API_KEY=sec[ret]9"
+T "Pipe" "x ***" "x sec|ret99" "API_KEY=sec|ret99"
+T "Question" "x ***" "x sec?ret99" "API_KEY=sec?ret99"
+
+echo
+echo "=== Results: ${GREEN}$TESTS_PASSED passed${NC}, ${RED}$TESTS_FAILED failed${NC} ==="
+[[ $TESTS_FAILED -eq 0 ]]
