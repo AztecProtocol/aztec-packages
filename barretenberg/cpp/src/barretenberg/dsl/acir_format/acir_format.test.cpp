@@ -1108,60 +1108,25 @@ TYPED_TEST(OpcodeGateCountTests, EcAdd)
 
 TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
 {
+    WitnessVector witness{ 0, 10, 20, 0, 10 };
+
     // Create a simple ROM block with 2 elements and 1 read
-    std::vector<arithmetic_triple> init;
-    init.push_back(arithmetic_triple{
-        .a = 1,
-        .b = 0,
-        .c = 0,
-        .q_m = 0,
-        .q_l = 1,
-        .q_r = 0,
-        .q_o = 0,
-        .q_c = 0,
-    });
-    init.push_back(arithmetic_triple{
-        .a = 2,
-        .b = 0,
-        .c = 0,
-        .q_m = 0,
-        .q_l = 1,
-        .q_r = 0,
-        .q_o = 0,
-        .q_c = 0,
-    });
+    std::vector<uint32_t> init;
+    init.push_back(1); // 10
+    init.push_back(2); // 20
 
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
-        .access_type = 0, // READ
-        .index =
-            arithmetic_triple{
-                .a = 3,
-                .b = 0,
-                .c = 0,
-                .q_m = 0,
-                .q_l = 1,
-                .q_r = 0,
-                .q_o = 0,
-                .q_c = 0,
-            },
-        .value =
-            arithmetic_triple{
-                .a = 4,
-                .b = 0,
-                .c = 0,
-                .q_m = 0,
-                .q_l = 1,
-                .q_r = 0,
-                .q_o = 0,
-                .q_c = 0,
-            },
+        .access_type = AccessType::Read,
+        .index = WitnessOrConstant<bb::fr>::from_index(3), // 0
+        .value = WitnessOrConstant<bb::fr>::from_index(4), // 10
     });
 
     BlockConstraint block_constraint{
         .init = init,
         .trace = trace,
         .type = BlockType::ROM,
+        .calldata_id = CallDataType::None,
     };
 
     AcirFormat constraint_system{
@@ -1173,11 +1138,197 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
     };
     mock_opcode_indices(constraint_system);
 
-    WitnessVector witness{ 0, 10, 20, 0, 10 };
-
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
 
     EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLOCK_ROM_READ<TypeParam> }));
+}
+
+TYPED_TEST(OpcodeGateCountTests, BlockRamRead)
+{
+    WitnessVector witness{ 0, 10, 20, 0, 10 };
+
+    // Create a simple RAM block with 2 elements and 1 read
+    std::vector<uint32_t> init;
+    init.push_back(1); // 10
+    init.push_back(2); // 20
+
+    std::vector<MemOp> trace;
+    trace.push_back(MemOp{
+        .access_type = AccessType::Read,
+        .index = WitnessOrConstant<bb::fr>::from_index(3), // 0
+        .value = WitnessOrConstant<bb::fr>::from_index(4), // 10
+    });
+
+    BlockConstraint block_constraint{
+        .init = init,
+        .trace = trace,
+        .type = BlockType::RAM,
+        .calldata_id = CallDataType::None,
+    };
+
+    AcirFormat constraint_system{
+        .varnum = 5,
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .block_constraints = { block_constraint },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    AcirProgram program{ constraint_system, witness };
+    const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
+    auto builder = create_circuit<TypeParam>(program, metadata);
+
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLOCK_RAM_READ<TypeParam> }));
+}
+
+TYPED_TEST(OpcodeGateCountTests, BlockRamWrite)
+{
+    WitnessVector witness{ 0, 10, 20, 0, 10 };
+
+    // Create a simple RAM block with 2 elements and 1 read
+    std::vector<uint32_t> init;
+    init.push_back(1); // 10
+    init.push_back(2); // 20
+
+    std::vector<MemOp> trace;
+    trace.push_back(MemOp{
+        .access_type = AccessType::Read,
+        .index = WitnessOrConstant<bb::fr>::from_index(3), // 0
+        .value = WitnessOrConstant<bb::fr>::from_index(4), // 10
+    });
+
+    BlockConstraint block_constraint{
+        .init = init,
+        .trace = trace,
+        .type = BlockType::RAM,
+        .calldata_id = CallDataType::None,
+    };
+
+    AcirFormat constraint_system{
+        .varnum = 5,
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .block_constraints = { block_constraint },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    AcirProgram program{ constraint_system, witness };
+    const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
+    auto builder = create_circuit<TypeParam>(program, metadata);
+
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLOCK_RAM_WRITE<TypeParam> }));
+}
+
+TYPED_TEST(OpcodeGateCountTests, BlockCallData)
+{
+    if constexpr (!IsMegaBuilder<TypeParam>) {
+        GTEST_SKIP() << "CallData only supported on MegaCircuitBuilder";
+    }
+
+    WitnessVector witness{ 0, 10, 20, 0, 10 };
+
+    // Create a simple CallData block with 2 elements and 1 read
+    std::vector<uint32_t> init;
+    init.push_back(1); // 10
+    init.push_back(2); // 20
+
+    std::vector<MemOp> trace;
+    trace.push_back(MemOp{
+        .access_type = AccessType::Read,
+        .index = WitnessOrConstant<bb::fr>::from_index(3), // 0
+        .value = WitnessOrConstant<bb::fr>::from_index(4), // 10
+    });
+
+    // Primary calldata
+    {
+        BlockConstraint block_constraint{
+            .init = init,
+            .trace = trace,
+            .type = BlockType::CallData,
+            .calldata_id = CallDataType::Primary,
+        };
+
+        AcirFormat constraint_system{
+            .varnum = 5,
+            .num_acir_opcodes = 1,
+            .public_inputs = {},
+            .block_constraints = { block_constraint },
+            .original_opcode_indices = create_empty_original_opcode_indices(),
+        };
+        mock_opcode_indices(constraint_system);
+
+        AcirProgram program{ constraint_system, witness };
+        const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
+        auto builder = create_circuit<TypeParam>(program, metadata);
+
+        EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLOCK_CALLDATA<TypeParam> }));
+    }
+
+    // Secondary calldata
+    {
+        BlockConstraint block_constraint{
+            .init = init,
+            .trace = trace,
+            .type = BlockType::CallData,
+            .calldata_id = CallDataType::Secondary,
+        };
+
+        AcirFormat constraint_system{
+            .varnum = 5,
+            .num_acir_opcodes = 1,
+            .public_inputs = {},
+            .block_constraints = { block_constraint },
+            .original_opcode_indices = create_empty_original_opcode_indices(),
+        };
+        mock_opcode_indices(constraint_system);
+
+        AcirProgram program{ constraint_system, witness };
+        const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
+        auto builder = create_circuit<TypeParam>(program, metadata);
+
+        EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLOCK_CALLDATA<TypeParam> }));
+    }
+}
+
+TYPED_TEST(OpcodeGateCountTests, BlockReturnData)
+{
+    if constexpr (!IsMegaBuilder<TypeParam>) {
+        GTEST_SKIP() << "ReturnData only supported on MegaCircuitBuilder";
+    }
+
+    WitnessVector witness{ 0, 10, 20 };
+
+    // Create a simple ReturnData block with 2 elements
+    std::vector<uint32_t> init;
+    init.push_back(1); // 10
+    init.push_back(2); // 20
+
+    BlockConstraint block_constraint{
+        .init = init,
+        .trace = {},
+        .type = BlockType::ReturnData,
+        .calldata_id = CallDataType::None,
+    };
+
+    AcirFormat constraint_system{
+        .varnum = 3,
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .block_constraints = { block_constraint },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    AcirProgram program{ constraint_system, witness };
+    const ProgramMetadata metadata{
+        .collect_gates_per_opcode = false
+    }; // We need to set it to false because ReturnData BlockConstraints do not have any trace, so we would be dividing
+       // by zero, and this would throw an error.
+    auto builder = create_circuit<TypeParam>(program, metadata);
+
+    EXPECT_EQ(builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false), BLOCK_RETURNDATA<TypeParam>);
 }
