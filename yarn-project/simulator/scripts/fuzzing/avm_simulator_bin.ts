@@ -1,4 +1,5 @@
-var { GasFees } = require('@aztec/stdlib/gas');
+var { GasFees, Gas, GasSettings } = require('@aztec/stdlib/gas');
+var { deserializeFromMessagePack, PublicSimulatorConfig, RevertCode } = require('@aztec/stdlib/avm');
 
 var { createInstrumenter } = require('istanbul-lib-instrument');
 var { hookRequire } = require('istanbul-lib-hook');
@@ -16,12 +17,23 @@ hookRequire(
     return newCode;
   },
 );
-var { DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT } = require('@aztec/constants');
 var { Fr } = require('@aztec/foundation/fields');
 var { AztecAddress } = require('@aztec/stdlib/aztec-address');
-var { GlobalVariables } = require('@aztec/stdlib/tx');
-var { UInt64 } = require('@aztec/stdlib/types');
+var { GlobalVariables, Tx, TxHash, HashedValues } = require('@aztec/stdlib/tx');
+var { EthAddress } = require('@aztec/foundation/eth-address');
 var { NativeWorldStateService } = require('@aztec/world-state');
+var { WorldStateRevision } = require('@aztec/stdlib/world-state');
+// Import internal facade for direct fork access
+var { MerkleTreesForkFacade } = require('@aztec/world-state/native/merkle_trees_facade');
+var {
+  PrivateKernelTailCircuitPublicInputs,
+  TxConstantData,
+  TxContext,
+  PrivateToPublicAccumulatedData,
+  PublicCallRequest,
+} = require('@aztec/stdlib/kernel');
+var { PartialPrivateTailPublicInputsForPublic } = require('@aztec/stdlib/kernel');
+var { ChonkProof } = require('@aztec/stdlib/proofs');
 
 var { createInterface } = require('readline');
 var { writeSync } = require('fs');
@@ -31,6 +43,8 @@ var { SimpleContractDataSource } = require('../../public/fixtures/simple_contrac
 var { PublicContractsDB, PublicTreesDB } = require('../../public/public_db_sources.js');
 var { SideEffectTrace } = require('../../public/side_effect_trace.js');
 var { PublicPersistableStateManager } = require('../../public/state_manager/state_manager.js');
+var { PublicTxSimulator } = require('../../public/public_tx_simulator/public_tx_simulator.js');
+var { AvmTxHint } = require('../../public/fuzzer/avm_tx_hint.js');
 
 // Type declaration for Istanbul coverage
 interface CoverageStatement {
@@ -72,7 +86,157 @@ function stringArrayToFields(arr: string[]): (typeof Fr)[] {
   return arr.map(stringToField);
 }
 
-const DEFAULT_TIMESTAMP: typeof UInt64 = 1000000;
+/**
+ * Creates a TypeScript Tx object from a deserialized C++ Tx (AvmTxHint-like structure).
+ * This allows using PublicTxSimulator.simulate() with fuzzer-generated transactions.
+ *
+ * @param cppTx - Deserialized C++ Tx from msgpack (matches AvmTxHint structure)
+ * @returns A TypeScript Tx suitable for PublicTxSimulator
+ */
+function createFuzzerTx(cppTx: typeof AvmTxHint): typeof Tx {
+  // Create TxHash from the C++ tx hash string
+  const txHash = TxHash.fromString(cppTx.hash);
+
+  // Build PrivateToPublicAccumulatedData for non-revertible
+  const nonRevertibleAccumulatedData = new PrivateToPublicAccumulatedData(
+    cppTx.nonRevertibleAccumulatedData.noteHashes || [],
+    cppTx.nonRevertibleAccumulatedData.nullifiers || [],
+    cppTx.nonRevertibleAccumulatedData.l2ToL1Messages || [],
+    [], // privateLogs
+    [], // contractClassLogsHashes
+    cppTx.setupEnqueuedCalls || [], // publicCallRequests - setup calls go here
+  );
+
+  // Build PrivateToPublicAccumulatedData for revertible
+  const revertibleAccumulatedData = new PrivateToPublicAccumulatedData(
+    cppTx.revertibleAccumulatedData.noteHashes || [],
+    cppTx.revertibleAccumulatedData.nullifiers || [],
+    cppTx.revertibleAccumulatedData.l2ToL1Messages || [],
+    [], // privateLogs
+    [], // contractClassLogsHashes
+    cppTx.appLogicEnqueuedCalls || [], // publicCallRequests - app logic calls go here
+  );
+
+  // Build teardown call request (if exists)
+  const teardownCallRequest = cppTx.teardownEnqueuedCall
+    ? new PublicCallRequest(
+        new AztecAddress(cppTx.teardownEnqueuedCall.request.msgSender),
+        new AztecAddress(cppTx.teardownEnqueuedCall.request.contractAddress),
+        cppTx.teardownEnqueuedCall.request.isStaticCall,
+        new Fr(cppTx.teardownEnqueuedCall.request.calldataHash || 0),
+      )
+    : PublicCallRequest.empty();
+
+  // Create forPublic structure
+  const forPublic = new PartialPrivateTailPublicInputsForPublic(
+    nonRevertibleAccumulatedData,
+    revertibleAccumulatedData,
+    teardownCallRequest,
+  );
+
+  // Build GasSettings from C++ tx
+  const gasSettings = new GasSettings(
+    new Gas(Number(cppTx.gasSettings.gasLimits.l2Gas), Number(cppTx.gasSettings.gasLimits.daGas)),
+    new Gas(
+      Number(cppTx.gasSettings.teardownGasLimits?.l2Gas || 0),
+      Number(cppTx.gasSettings.teardownGasLimits?.daGas || 0),
+    ),
+    new GasFees(
+      Number(cppTx.gasSettings.maxFeesPerGas?.feePerDaGas || 0),
+      Number(cppTx.gasSettings.maxFeesPerGas?.feePerL2Gas || 0),
+    ),
+    new GasFees(
+      Number(cppTx.gasSettings.maxPriorityFeesPerGas?.feePerDaGas || 0),
+      Number(cppTx.gasSettings.maxPriorityFeesPerGas?.feePerL2Gas || 0),
+    ),
+  );
+
+  // Build TxContext
+  const txContext = new TxContext(
+    Fr.ZERO, // chainId - will be overridden by globalVariables
+    Fr.ZERO, // version - will be overridden by globalVariables
+    gasSettings,
+  );
+
+  // Build TxConstantData
+  const constants = new TxConstantData(
+    Fr.ZERO, // historicalHeader (unused in simulation)
+    txContext,
+    Fr.ZERO, // vkTreeRoot
+    Fr.ZERO, // protocolContractTreeRoot
+    Fr.ZERO, // globalVariablesHash
+  );
+
+  // Build PrivateKernelTailCircuitPublicInputs
+  const gasUsedByPrivate = new Gas(
+    Number(cppTx.gasUsedByPrivate?.l2Gas || 0),
+    Number(cppTx.gasUsedByPrivate?.daGas || 0),
+  );
+
+  const data = new PrivateKernelTailCircuitPublicInputs(
+    constants,
+    gasUsedByPrivate,
+    new AztecAddress(cppTx.feePayer),
+    0n, // includeByTimestamp
+    forPublic,
+    undefined, // forRollup - not needed for public simulation
+  );
+
+  // Build publicFunctionCalldata from all enqueued calls
+  const publicFunctionCalldata: (typeof HashedValues)[] = [];
+
+  // Add setup calls
+  for (const call of cppTx.setupEnqueuedCalls || []) {
+    publicFunctionCalldata.push(new HashedValues(call.calldata || []));
+  }
+
+  // Add app logic calls
+  for (const call of cppTx.appLogicEnqueuedCalls || []) {
+    publicFunctionCalldata.push(new HashedValues(call.calldata || []));
+  }
+
+  // Add teardown call if present
+  if (cppTx.teardownEnqueuedCall) {
+    publicFunctionCalldata.push(new HashedValues(cppTx.teardownEnqueuedCall.calldata || []));
+  }
+
+  // Create the Tx
+  return new Tx(
+    txHash,
+    data,
+    ChonkProof.empty(), // No real proof needed for simulation
+    [], // contractClassLogFields - empty for fuzzer
+    publicFunctionCalldata,
+  );
+}
+
+const DEFAULT_TIMESTAMP = 1000000;
+
+// Cache for opened world state services by data directory path
+const worldStateCache: Map<string, typeof NativeWorldStateService> = new Map();
+
+// Open an existing WorldState database created by C++
+async function openExistingWorldState(dataDir: string, mapSizeKb: number): Promise<typeof NativeWorldStateService> {
+  // Check cache first
+  let ws = worldStateCache.get(dataDir);
+  if (ws) {
+    return ws;
+  }
+
+  // Open the existing database with matching map sizes
+  const worldStateTreeMapSizes = {
+    archiveTreeMapSizeKb: mapSizeKb,
+    nullifierTreeMapSizeKb: mapSizeKb,
+    noteHashTreeMapSizeKb: mapSizeKb,
+    messageTreeMapSizeKb: mapSizeKb,
+    publicDataTreeMapSizeKb: mapSizeKb,
+  };
+
+  ws = await NativeWorldStateService.new(EthAddress.ZERO, dataDir, worldStateTreeMapSizes);
+
+  worldStateCache.set(dataDir, ws);
+  return ws;
+}
 
 let STATE_MANAGER: typeof PublicPersistableStateManager | undefined;
 
@@ -136,6 +300,14 @@ async function getSimulator(calldata: (typeof Fr)[]) {
   globalVariables.feeRecipient = AztecAddress.ZERO;
   globalVariables.gasFees = new GasFees(1, 1);
 
+  const config = PublicSimulatorConfig.from({
+    skipFeeEnforcement: true,
+    collectDebugLogs: false,
+    collectHints: false,
+    collectStatistics: false,
+    collectCallMetadata: false,
+  });
+
   const simulator = await AvmSimulator.create(
     STATE_MANAGER,
     AztecAddress.fromNumber(42), // address
@@ -145,8 +317,82 @@ async function getSimulator(calldata: (typeof Fr)[]) {
     false, // is static call
     calldata,
     { l2Gas: 1000000, daGas: 1000000 },
+    config,
   );
   return simulator;
+}
+
+/**
+ * Execute a transaction using PublicTxSimulator.
+ * This is the full transaction simulation path that matches the C++ AVM simulator.
+ *
+ * @param dataDir - World state data directory
+ * @param mapSizeKb - World state map size in KB
+ * @param forkId - The fork ID to use (from C++ FuzzerWorldStateManager)
+ * @param bytecode - AVM bytecode to execute
+ * @param cppTx - Deserialized C++ Tx from msgpack
+ * @param cppGlobals - Deserialized C++ GlobalVariables from msgpack
+ * @returns Simulation result with reverted status and output
+ */
+async function simulateWithPublicTxSimulator(
+  dataDir: string,
+  mapSizeKb: number,
+  forkId: number,
+  bytecode: Buffer,
+  cppTx: typeof AvmTxHint,
+  cppGlobals: typeof GlobalVariables,
+): Promise<{ reverted: boolean; output: (typeof Fr)[]; revertReason?: string }> {
+  // Open the existing WorldState database created by C++
+  const worldStateService = await openExistingWorldState(dataDir, mapSizeKb);
+  // Use the same fork as C++ by creating facade directly with the fork ID
+  const revision = new WorldStateRevision(forkId, 0, true);
+  const merkleTrees = new MerkleTreesForkFacade(worldStateService.instance, worldStateService.initialHeader, revision);
+
+  // FIXME: This only works while we have a single app logic call
+  // Get contract address from the app logic call
+  const appLogicCall = cppTx.appLogicEnqueuedCalls[0];
+  const contractAddress = new AztecAddress(appLogicCall.request.contractAddress);
+  // Create contract data source and register bytecode
+  const contractDataSource = new SimpleContractDataSource();
+  // Register the bytecode at the contract address
+  await contractDataSource.addContractWithBytecode(contractAddress, bytecode);
+
+  // Create the contracts DB
+  const contractsDb = new PublicContractsDB(contractDataSource);
+
+  // Build GlobalVariables from deserialized msgpack data
+  const globalVariables = cppGlobals;
+
+  // Create the PublicTxSimulator
+  const config = {
+    skipFeeEnforcement: true,
+    collectDebugLogs: false,
+    collectHints: false,
+    collectStatistics: false,
+    collectCallMetadata: false,
+  };
+  const publicTxSimulator = new PublicTxSimulator(merkleTrees, contractsDb, globalVariables, config);
+
+  // Create a TypeScript Tx from the C++ Tx
+  const tx = createFuzzerTx(cppTx);
+
+  // Simulate the transaction
+  const result = await publicTxSimulator.simulate(tx);
+
+  // Extract output from appLogicReturnValues
+  const output: (typeof Fr)[] = [];
+  for (const returnValues of result.appLogicReturnValues) {
+    if (returnValues.values) {
+      for (const value of returnValues.values) {
+        output.push(value);
+      }
+    }
+  }
+
+  const reverted = !result.revertCode.isOK();
+  const revertReason = result.revertReason?.message;
+
+  return { reverted, output, revertReason };
 }
 
 const FLATTENED_COVERAGE_MAP: Map<string, number> = new Map();
@@ -258,7 +504,30 @@ async function executeFromJson(jsonLine: string): Promise<void> {
     }
     const calldata = stringArrayToFields(input.inputs);
 
-    const result = await executeBytecodeBase64(input.bytecode, calldata);
+    let result;
+    if (input.ws_data_dir && input.ws_map_size_kb && input.ws_fork_id && input.tx && input.globals) {
+      // Use PublicTxSimulator with the existing WorldState database created by C++
+      const bytecode = Buffer.from(input.bytecode, 'base64');
+
+      // Decode base64 and deserialize msgpack for tx and globals
+      const txBuffer = Buffer.from(input.tx, 'base64');
+      const globalsBuffer = Buffer.from(input.globals, 'base64');
+      const tx = deserializeFromMessagePack(txBuffer);
+      const globals = deserializeFromMessagePack(globalsBuffer);
+
+      // Use the new PublicTxSimulator path with the same fork ID as C++
+      result = await simulateWithPublicTxSimulator(
+        input.ws_data_dir,
+        input.ws_map_size_kb,
+        input.ws_fork_id,
+        bytecode,
+        tx,
+        globals,
+      );
+    } else {
+      // Fallback to the default behavior with a temporary WorldState
+      result = await executeBytecodeBase64(input.bytecode, calldata);
+    }
 
     const coverage = Object.fromEntries(report_and_reset_coverage());
 

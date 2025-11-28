@@ -1,8 +1,11 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
 
+#include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
 #include "barretenberg/common/log.hpp"
+
+using namespace bb::avm2::fuzzer;
 
 void log_result(const SimulatorResult& result)
 {
@@ -28,30 +31,28 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
     auto cpp_simulator = CppSimulator();
     JsSimulator* js_simulator = JsSimulator::getInstance();
     SimulatorResult cpp_result;
+
+    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
+    ws_mgr->register_contract_address(CONTRACT_ADDRESS);
     try {
-        cpp_result = cpp_simulator.simulate(bytecode, fuzzer_data.calldata);
+        ws_mgr->checkpoint();
+        cpp_result = cpp_simulator.simulate(*ws_mgr, bytecode, fuzzer_data.calldata);
+        ws_mgr->revert();
     } catch (const std::exception& e) {
-        std::cout << "Error simulating with CppSimulator: " << e.what() << std::endl;
+        info("CppSimulator failed with error: ", e.what());
         throw std::runtime_error("Error simulating with CppSimulator");
     }
 
-    auto js_result = js_simulator->simulate(bytecode, fuzzer_data.calldata);
+    ws_mgr->checkpoint();
+    auto js_result = js_simulator->simulate(*ws_mgr, bytecode, fuzzer_data.calldata);
 
     // If the results does not match
     if (!compare_simulator_results(cpp_result, js_result)) {
-        // we restart the js simulator, becuase it works on the same worldstate for every run
-        // while cpp simulator works on a new worldstate for every run
-        JsSimulator::restart_simulator();
-        js_simulator = JsSimulator::getInstance();
-        js_result = js_simulator->simulate(bytecode, fuzzer_data.calldata);
-        // if the bug is persistent on "cleared" worldstate, we throw an error
-        if (!compare_simulator_results(cpp_result, js_result)) {
-            info("CppSimulator result: ");
-            log_result(cpp_result);
-            info("JsSimulator result: ");
-            log_result(js_result);
-            throw std::runtime_error("Simulator results are different");
-        }
+        info("CppSimulator result: ");
+        log_result(cpp_result);
+        info("JsSimulator result: ");
+        log_result(js_result);
+        throw std::runtime_error("Simulator results are different");
     }
     if (logging_enabled) {
         info("Simulator results match successfully");

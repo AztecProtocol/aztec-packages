@@ -7,6 +7,7 @@
 
 using namespace bb::avm2::simulation;
 using namespace bb::crypto::merkle_tree;
+using namespace bb::world_state;
 
 // TODO(ilyas): implement other methods as needed
 namespace bb::avm2::fuzzer {
@@ -119,7 +120,7 @@ simulation::IndexedLeaf<NullifierLeafValue> FuzzerLowLevelDB::get_leaf_preimage_
     return simulation::IndexedLeaf<NullifierLeafValue>(leaf_value, next_index, next_value);
 }
 
-SequentialInsertionResult<PublicDataLeafValue> FuzzerLowLevelDB::insert_indexed_leaves_public_data_tree(
+simulation::SequentialInsertionResult<PublicDataLeafValue> FuzzerLowLevelDB::insert_indexed_leaves_public_data_tree(
     const PublicDataLeafValue& leaf_value)
 {
     // Add to map
@@ -138,7 +139,7 @@ SequentialInsertionResult<PublicDataLeafValue> FuzzerLowLevelDB::insert_indexed_
     return {};
 }
 
-SequentialInsertionResult<NullifierLeafValue> FuzzerLowLevelDB::insert_indexed_leaves_nullifier_tree(
+simulation::SequentialInsertionResult<NullifierLeafValue> FuzzerLowLevelDB::insert_indexed_leaves_nullifier_tree(
     const NullifierLeafValue& leaf_value)
 {
     // Add to map
@@ -235,5 +236,59 @@ void FuzzerContractDB::add_contracts([[maybe_unused]] const ContractDeploymentDa
 void FuzzerContractDB::create_checkpoint() {}
 void FuzzerContractDB::commit_checkpoint() {}
 void FuzzerContractDB::revert_checkpoint() {}
+
+////////////////////////////////////
+/// FuzzerWorldStateManager methods
+////////////////////////////////////
+
+// Static instance definition
+FuzzerWorldStateManager* FuzzerWorldStateManager::instance = nullptr;
+
+void FuzzerWorldStateManager::initialize_world_state()
+{
+    std::unordered_map<simulation::MerkleTreeId, uint32_t> tree_heights{
+        { simulation::MerkleTreeId::NULLIFIER_TREE, NULLIFIER_TREE_HEIGHT },
+        { simulation::MerkleTreeId::NOTE_HASH_TREE, NOTE_HASH_TREE_HEIGHT },
+        { simulation::MerkleTreeId::PUBLIC_DATA_TREE, PUBLIC_DATA_TREE_HEIGHT },
+        { simulation::MerkleTreeId::L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_TREE_HEIGHT },
+        { simulation::MerkleTreeId::ARCHIVE, ARCHIVE_HEIGHT },
+    };
+    std::unordered_map<simulation::MerkleTreeId, index_t> tree_prefill{
+        { simulation::MerkleTreeId::NULLIFIER_TREE, 128 },
+        { simulation::MerkleTreeId::PUBLIC_DATA_TREE, 128 },
+    };
+    uint32_t initial_header_generator_point = 28; // GeneratorIndex.BLOCK_HASH
+    ws = std::make_unique<world_state::WorldState>(
+        /*thread_pool_size=*/4, DATA_DIR, MAP_SIZE_KB, tree_heights, tree_prefill, initial_header_generator_point);
+
+    fork_ids.push(ws->create_fork(std::nullopt));
+}
+
+WorldStateRevision FuzzerWorldStateManager::get_current_revision() const
+{
+    return WorldStateRevision{ .forkId = fork_ids.top(), .blockNumber = 0, .includeUncommitted = true };
+}
+
+WorldStateRevision FuzzerWorldStateManager::fork()
+{
+    auto fork_id = ws->create_fork(std::nullopt);
+    fork_ids.push(fork_id);
+    return WorldStateRevision{ .forkId = fork_id, .blockNumber = 0, .includeUncommitted = true };
+}
+void FuzzerWorldStateManager::reset_world_state()
+{
+    // We keep the initial fork, so pop until only one remains
+    while (fork_ids.size() != 1) {
+        ws->delete_fork(fork_ids.top());
+        fork_ids.pop();
+    }
+}
+void FuzzerWorldStateManager::register_contract_address(const AztecAddress& contract_address)
+{
+    NullifierLeafValue contract_nullifier =
+        unconstrained_silo_nullifier(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, contract_address);
+    auto fork_id = fork_ids.top();
+    ws->insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { contract_nullifier }, fork_id);
+}
 
 } // namespace bb::avm2::fuzzer

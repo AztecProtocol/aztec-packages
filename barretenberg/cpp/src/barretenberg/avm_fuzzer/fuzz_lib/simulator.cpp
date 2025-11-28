@@ -1,5 +1,6 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <libdeflate.h>
@@ -20,16 +21,24 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
+#include "barretenberg/world_state/types.hpp"
+#include "barretenberg/world_state/world_state.hpp"
 
 using bb::avm2::GlobalVariables;
 using namespace bb::avm2;
 using namespace bb::avm2::simulation;
 using namespace bb::avm2::fuzzer;
+using namespace bb::world_state;
 using json = nlohmann::json;
 
-// Helper function to serialize bytecode and calldata to JSON and print to stdout
-std::string serialize_bytecode_and_calldata(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
+// Helper function to serialize bytecode, calldata, tx, and globals to JSON
+std::string serialize_simulation_request(fuzzer::FuzzerWorldStateManager& ws,
+                                         const std::vector<uint8_t>& bytecode,
+                                         const std::vector<FF>& calldata,
+                                         const Tx& tx,
+                                         const GlobalVariables& globals)
 {
     json j;
     j["bytecode"] = base64_encode(bytecode.data(), bytecode.size());
@@ -41,6 +50,22 @@ std::string serialize_bytecode_and_calldata(const std::vector<uint8_t>& bytecode
         calldata_strings.push_back(field_to_string(field));
     }
     j["inputs"] = calldata_strings;
+
+    // Pass WorldState database path and configuration for TypeScript to open the same DB
+    // Note: TypeScript expects the parent directory and adds "world_state/" subdirectory itself
+    j["ws_data_dir"] = "/tmp/avm_fuzzer_ws";
+    j["ws_map_size_kb"] = FuzzerWorldStateManager::get_map_size_kb();
+    j["ws_fork_id"] = ws.get_current_revision().forkId;
+
+    // Serialize Tx using msgpack and base64 encode
+    auto [tx_buffer, tx_size] = msgpack_encode_buffer(tx);
+    j["tx"] = base64_encode(tx_buffer, tx_size);
+    delete[] tx_buffer;
+
+    // Serialize GlobalVariables using msgpack and base64 encode
+    auto [globals_buffer, globals_size] = msgpack_encode_buffer(globals);
+    j["globals"] = base64_encode(globals_buffer, globals_size);
+    delete[] globals_buffer;
 
     return j.dump();
 }
@@ -104,41 +129,26 @@ Tx create_default_tx(const AztecAddress& contract_address,
     };
 }
 
-class TestSimulator {
-  protected:
-    FuzzerSimulationHelper helper;
-    AztecAddress contract_address{ CONTRACT_ADDRESS };
-    AztecAddress sender_address{ MSG_SENDER };
-    FF transaction_fee = TRANSACTION_FEE;
-    GlobalVariables globals = create_default_globals();
-    bool is_static_call = IS_STATIC_CALL;
-    Gas gas_limit = GAS_LIMIT; // Large gas limit for tests
-  public:
-    TxSimulationResult simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
-    {
-        FuzzerContractDB minimal_contract_db(bytecode);
-        FuzzerLowLevelDB minimal_low_level_db;
-
-        const PublicSimulatorConfig config{ .collect_call_metadata = true };
-
-        // This is needed so that the contract existence check passes in simulation
-        minimal_low_level_db.insert_contract_address(contract_address);
-        ProtocolContracts protocol_contracts{};
-
-        return helper.simulate_fast(
-            minimal_contract_db,
-            minimal_low_level_db,
-            config,
-            create_default_tx(contract_address, sender_address, calldata, transaction_fee, is_static_call, gas_limit),
-            globals,
-            protocol_contracts);
-    }
-};
-
-SimulatorResult CppSimulator::simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
+SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
+                                       const std::vector<uint8_t>& bytecode,
+                                       const std::vector<FF>& calldata)
 {
-    TestSimulator simulator;
-    TxSimulationResult result = simulator.simulate(bytecode, calldata);
+    FuzzerContractDB minimal_contract_db(bytecode);
+
+    const PublicSimulatorConfig config{ .collect_call_metadata = true };
+
+    ProtocolContracts protocol_contracts{};
+
+    auto globals = create_default_globals();
+
+    Tx tx = create_default_tx(CONTRACT_ADDRESS, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
+
+    WorldState& ws = ws_mgr.get_world_state();
+    WorldStateRevision ws_rev = ws_mgr.get_current_revision();
+
+    AvmSimulationHelper helper;
+    TxSimulationResult result =
+        helper.simulate_fast_with_existing_ws(minimal_contract_db, ws_rev, ws, config, tx, globals, protocol_contracts);
     bool reverted = result.revert_code != RevertCode::OK;
     // Just process the top level call's output
     vinfo(
@@ -149,13 +159,13 @@ SimulatorResult CppSimulator::simulate(const std::vector<uint8_t>& bytecode, con
             values.push_back(output);
         }
     }
-    return { .reverted = reverted, .output = values };
+    return { .reverted = reverted, .output = values, .tree_snapshots = result.public_inputs.end_tree_snapshots };
 }
 
 JsSimulator* JsSimulator::instance = nullptr;
 JsSimulator::JsSimulator(std::string& simulator_path)
     : simulator_path(simulator_path)
-    , process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
+    , process("LOG_LEVEL=silent node " + simulator_path) // + " 2>/dev/null")
 {}
 
 void JsSimulator::restart_simulator_process()
@@ -239,10 +249,17 @@ void JsSimulator::initialize(std::string& simulator_path)
     instance = new JsSimulator(simulator_path);
 }
 
-SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
+SimulatorResult JsSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
+                                      const std::vector<uint8_t>& bytecode,
+                                      const std::vector<FF>& calldata)
 {
     bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
-    std::string serialized = serialize_bytecode_and_calldata(bytecode, calldata);
+
+    // Create tx and globals to match C++ simulator
+    auto globals = create_default_globals();
+    Tx tx = create_default_tx(CONTRACT_ADDRESS, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
+
+    std::string serialized = serialize_simulation_request(ws_mgr, bytecode, calldata, tx, globals);
     if (logging_enabled) {
         info("Sending request to simulator: ", serialized);
     }
@@ -252,7 +269,7 @@ SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, cons
     std::string response = process.read_line();
     while (response.empty()) {
         std::cout << "Empty response, reading again" << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         response = process.read_line();
     }
     // Remove the newline character
@@ -269,7 +286,7 @@ SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, cons
         std::cout << "Response: " << response << std::endl;
         restart_simulator_process();
 
-        return simulate(bytecode, calldata);
+        return simulate(ws_mgr, bytecode, calldata);
     }
 
     std::string response_string(decoded_response.begin(), decoded_response.end());
@@ -290,5 +307,6 @@ SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, cons
 
 bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2)
 {
+    // add: result1.tree_snapshots == result2.tree_snapshots;
     return result1.reverted == result2.reverted && result1.output == result2.output;
 }
