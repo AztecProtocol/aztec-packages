@@ -2,7 +2,6 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
 # Hash depends on ts because ts generates the Rust bindings
 hash=$(hash_str $(../ts/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
