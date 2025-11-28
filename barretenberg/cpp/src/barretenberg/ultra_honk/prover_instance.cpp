@@ -85,14 +85,13 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selec
 
     // Define gate selectors over the block they are isolated to
     if constexpr (IsLightZKFlavor<Flavor>) {
-        // LightZKFlavor only uses a subset of gate selectors (q_arith, q_delta_range, q_elliptic, q_nnf)
+        // LightZKFlavor only uses a subset of gate selectors (q_arith, q_delta_range, q_nnf)
+        // No q_elliptic since EllipticRelation is not used
         // Manually map to the corresponding blocks
         polynomials.q_arith =
             Polynomial(circuit.blocks.arithmetic.size(), dyadic_size(), circuit.blocks.arithmetic.trace_offset());
         polynomials.q_delta_range =
             Polynomial(circuit.blocks.delta_range.size(), dyadic_size(), circuit.blocks.delta_range.trace_offset());
-        polynomials.q_elliptic =
-            Polynomial(circuit.blocks.elliptic.size(), dyadic_size(), circuit.blocks.elliptic.trace_offset());
         polynomials.q_nnf = Polynomial(circuit.blocks.nnf.size(), dyadic_size(), circuit.blocks.nnf.trace_offset());
     } else {
         for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {

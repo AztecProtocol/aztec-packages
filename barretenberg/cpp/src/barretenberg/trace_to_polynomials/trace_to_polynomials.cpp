@@ -88,9 +88,10 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
             // LightZKFlavor has a reduced set of selectors. Manually map from block selectors to flavor selectors.
             // Block selector order: q_m, q_c, q_1, q_2, q_3, q_4, q_busread, q_lookup, q_arith, q_delta_range,
             //                       q_elliptic, q_memory, q_nnf, q_poseidon2_external, q_poseidon2_internal
-            // Flavor selector order: q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_delta_range, q_elliptic, q_nnf
-            // Mapping: 0->0, 1->1, 2->2, 3->3, 4->4, 5->5, 8->6, 9->7, 10->8, 12->9
-            constexpr std::array<size_t, 10> block_to_flavor_idx = { 0, 1, 2, 3, 4, 5, 8, 9, 10, 12 };
+            // Flavor selector order: q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_delta_range, q_nnf
+            // (q_elliptic removed - EllipticRelation not used in LightZK)
+            // Mapping: 0->0, 1->1, 2->2, 3->3, 4->4, 5->5, 8->6, 9->7, 12->8
+            constexpr std::array<size_t, 9> block_to_flavor_idx = { 0, 1, 2, 3, 4, 5, 8, 9, 12 };
             for (size_t flavor_idx = 0; flavor_idx < selectors.size(); flavor_idx++) {
                 size_t block_idx = block_to_flavor_idx[flavor_idx];
                 auto& block_selector = block_selectors[block_idx];

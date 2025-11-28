@@ -15,7 +15,6 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
-#include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/non_native_field_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
@@ -30,7 +29,7 @@ namespace bb {
  * @details Uses MegaCircuitBuilder but without lookups, databus, poseidon2, or memory relations.
  * This significantly reduces the number of polynomials and proof size.
  *
- * Relations: Arithmetic, Permutation, DeltaRange, Elliptic, NNF, EccOpQueue
+ * Relations: Arithmetic, Permutation, DeltaRange, NNF, EccOpQueue
  *
  * Polynomials removed from Mega:
  * - Precomputed: q_busread, q_lookup, q_memory, q_poseidon2_*, table_1-4, databus_id
@@ -58,11 +57,11 @@ class LightZKFlavor {
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
     // Entity counts (significantly reduced from Mega's 60/31/24)
-    // PrecomputedEntities: 21 (selectors + sigmas + ids + lagranges)
+    // PrecomputedEntities: 20 (selectors + sigmas + ids + lagranges, no q_elliptic)
     // WitnessEntities: 9 (4 wires + z_perm + 4 ecc_op_wires)
     // MaskingEntities: 1 (gemini_masking_poly for ZK)
     // ShiftedEntities: 5 (w_l, w_r, w_o, w_4, z_perm shifts)
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 21;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 20;
     static constexpr size_t NUM_WITNESS_ENTITIES = 9;
     static constexpr size_t NUM_MASKING_ENTITIES = 1;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
@@ -75,12 +74,11 @@ class LightZKFlavor {
     // Empty repeated commitments - no optimization for shifted polynomials
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData();
 
-    // Relations - no lookups, databus, poseidon2, or memory
+    // Relations - no lookups, databus, poseidon2, memory, or elliptic
     template <typename FF>
     using Relations_ = std::tuple<bb::ArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
-                                  bb::EllipticRelation<FF>,
                                   bb::NonNativeFieldRelation<FF>,
                                   bb::EccOpQueueRelation<FF>>;
     using Relations = Relations_<FF>;
@@ -133,22 +131,21 @@ class LightZKFlavor {
                               q_4,             // column 5
                               q_arith,         // column 6
                               q_delta_range,   // column 7
-                              q_elliptic,      // column 8
-                              q_nnf,           // column 9
-                              sigma_1,         // column 10
-                              sigma_2,         // column 11
-                              sigma_3,         // column 12
-                              sigma_4,         // column 13
-                              id_1,            // column 14
-                              id_2,            // column 15
-                              id_3,            // column 16
-                              id_4,            // column 17
-                              lagrange_first,  // column 18
-                              lagrange_last,   // column 19
-                              lagrange_ecc_op) // column 20
+                              q_nnf,           // column 8
+                              sigma_1,         // column 9
+                              sigma_2,         // column 10
+                              sigma_3,         // column 11
+                              sigma_4,         // column 12
+                              id_1,            // column 13
+                              id_2,            // column 14
+                              id_3,            // column 15
+                              id_4,            // column 16
+                              lagrange_first,  // column 17
+                              lagrange_last,   // column 18
+                              lagrange_ecc_op) // column 19
 
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; };
-        auto get_gate_selectors() { return RefArray{ q_arith, q_delta_range, q_elliptic, q_nnf }; }
+        auto get_gate_selectors() { return RefArray{ q_arith, q_delta_range, q_nnf }; }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
 
         auto get_sigmas() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };

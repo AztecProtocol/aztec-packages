@@ -687,3 +687,186 @@ TEST_F(BigfieldTranslatorTest, BatchSizeAnalysis)
         info("");
     }
 }
+
+/**
+ * @brief Analyze the polynomial structure for LightZK flavor across different op counts
+ *
+ * This test helps understand how non-zero value positions depend on the number of ops.
+ * The structure is expected to be [ops, many 0 for padding, hiding ops].
+ */
+TEST_F(BigfieldTranslatorTest, PolynomialStructureAnalysis)
+{
+    // Test with different numbers of ops to find the relationship
+    std::vector<size_t> op_counts = { 10, 50, 100, 500, 1000 };
+
+    using Flavor = LightZKFlavor;
+    using ProverInstance = ProverInstance_<Flavor>;
+
+    info("=== Polynomial Structure Analysis (varying op counts) ===\n");
+    info("op_count | ecc_op_rows | dyadic_size | trace_size | w_l_last_nonzero | q_m_last_nonzero | "
+         "qArith_last_nonzero");
+    info("---------|-------------|-------------|------------|------------------|------------------|-------------------"
+         "-");
+
+    for (size_t num_ops : op_counts) {
+        auto op_queue = create_test_op_queue(num_ops);
+        const size_t ecc_op_rows = op_queue->get_ultra_ops().size();
+
+        Builder builder;
+        BigfieldTranslator::populate_ecc_op_block(builder, op_queue);
+
+        Fq x_native = Fq::random_element();
+        Fq v_native = Fq::random_element();
+
+        fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
+        fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
+
+        fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v);
+        (void)result;
+
+        stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
+
+        auto prover_instance = std::make_shared<ProverInstance>(builder);
+
+        const size_t dyadic_size = prover_instance->dyadic_size();
+        const size_t trace_size = prover_instance->trace_active_range_size();
+
+        // Find last non-zero in w_l
+        const auto& w_l = prover_instance->polynomials.w_l;
+        size_t w_l_last_nonzero = 0;
+        for (size_t i = 0; i < w_l.end_index(); i++) {
+            if (!w_l[i].is_zero()) {
+                w_l_last_nonzero = i;
+            }
+        }
+
+        // Find last non-zero in q_m
+        const auto& q_m = prover_instance->polynomials.q_m;
+        size_t q_m_last_nonzero = 0;
+        for (size_t i = 0; i < q_m.end_index(); i++) {
+            if (!q_m[i].is_zero()) {
+                q_m_last_nonzero = i;
+            }
+        }
+
+        // Find last non-zero in q_arith
+        const auto& q_arith = prover_instance->polynomials.q_arith;
+        size_t q_arith_last_nonzero = 0;
+        for (size_t i = 0; i < q_arith.end_index(); i++) {
+            if (!q_arith[i].is_zero()) {
+                q_arith_last_nonzero = i;
+            }
+        }
+
+        info(num_ops,
+             "     | ",
+             ecc_op_rows,
+             "       | ",
+             dyadic_size,
+             "      | ",
+             trace_size,
+             "     | ",
+             w_l_last_nonzero,
+             "            | ",
+             q_m_last_nonzero,
+             "            | ",
+             q_arith_last_nonzero);
+    }
+
+    // Now do detailed analysis for one case to understand the structure
+    info("\n=== Detailed Analysis for 100 ops ===\n");
+
+    auto op_queue = create_test_op_queue(100);
+    const size_t ecc_op_rows = op_queue->get_ultra_ops().size();
+
+    Builder builder;
+    BigfieldTranslator::populate_ecc_op_block(builder, op_queue);
+
+    // Before compute_accumulator - capture block sizes (trace_offset not available before finalization)
+    info("Block sizes BEFORE compute_accumulator:");
+    info("  ecc_op:       ", builder.blocks.ecc_op.size());
+    info("  arithmetic:   ", builder.blocks.arithmetic.size());
+    info("  delta_range:  ", builder.blocks.delta_range.size());
+    info("  elliptic:     ", builder.blocks.elliptic.size());
+    info("  nnf:          ", builder.blocks.nnf.size());
+
+    Fq x_native = Fq::random_element();
+    Fq v_native = Fq::random_element();
+
+    fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
+    fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
+
+    fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v);
+    (void)result;
+
+    stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
+
+    info("\nBlock sizes AFTER compute_accumulator and add_default:");
+    info("  ecc_op:       ", builder.blocks.ecc_op.size());
+    info("  arithmetic:   ", builder.blocks.arithmetic.size());
+    info("  delta_range:  ", builder.blocks.delta_range.size());
+    info("  elliptic:     ", builder.blocks.elliptic.size());
+    info("  nnf:          ", builder.blocks.nnf.size());
+    info("  cached_partial_non_native_field_multiplications: ",
+         builder.cached_partial_non_native_field_multiplications.size());
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+
+    const size_t dyadic_size = prover_instance->dyadic_size();
+    const size_t trace_size = prover_instance->trace_active_range_size();
+
+    info("\nProver instance:");
+    info("  Dyadic size: ", dyadic_size, " (log2: ", prover_instance->log_dyadic_size(), ")");
+    info("  Trace active range: ", trace_size);
+    info("  ecc_op rows in op_queue: ", ecc_op_rows);
+
+    // Analyze each gate selector to find their ranges
+    info("\nGate selector ranges (only non-zero regions):");
+
+    auto analyze_selector = [&](const auto& selector, const char* name) {
+        size_t first_nonzero = dyadic_size;
+        size_t last_nonzero = 0;
+        size_t nonzero_count = 0;
+        for (size_t i = 0; i < selector.end_index(); i++) {
+            if (!selector[i].is_zero()) {
+                if (first_nonzero == dyadic_size)
+                    first_nonzero = i;
+                last_nonzero = i;
+                nonzero_count++;
+            }
+        }
+        if (nonzero_count > 0) {
+            info("  ",
+                 name,
+                 ": [",
+                 first_nonzero,
+                 ", ",
+                 last_nonzero,
+                 "], count: ",
+                 nonzero_count,
+                 ", end_index: ",
+                 selector.end_index());
+        } else {
+            info("  ", name, ": (all zero), end_index: ", selector.end_index());
+        }
+    };
+
+    analyze_selector(prover_instance->polynomials.q_arith, "q_arith");
+    analyze_selector(prover_instance->polynomials.q_delta_range, "q_delta_range");
+    // q_elliptic removed from LightZKFlavor - EllipticRelation not used
+    analyze_selector(prover_instance->polynomials.q_nnf, "q_nnf");
+
+    info("\nNon-gate selector ranges:");
+    analyze_selector(prover_instance->polynomials.q_m, "q_m");
+    analyze_selector(prover_instance->polynomials.q_l, "q_l");
+    analyze_selector(prover_instance->polynomials.q_r, "q_r");
+    analyze_selector(prover_instance->polynomials.q_o, "q_o");
+    analyze_selector(prover_instance->polynomials.q_4, "q_4");
+    analyze_selector(prover_instance->polynomials.q_c, "q_c");
+
+    info("\nWire polynomial ranges:");
+    analyze_selector(prover_instance->polynomials.w_l, "w_l");
+    analyze_selector(prover_instance->polynomials.w_r, "w_r");
+    analyze_selector(prover_instance->polynomials.w_o, "w_o");
+    analyze_selector(prover_instance->polynomials.w_4, "w_4");
+}
