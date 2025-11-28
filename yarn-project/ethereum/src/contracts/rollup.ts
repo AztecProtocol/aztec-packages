@@ -83,22 +83,6 @@ export type ViemGasFees = {
   feePerL2Gas: bigint;
 };
 
-export type ViemStateReference = {
-  l1ToL2MessageTree: ViemAppendOnlyTreeSnapshot;
-  partialStateReference: ViemPartialStateReference;
-};
-
-export type ViemPartialStateReference = {
-  noteHashTree: ViemAppendOnlyTreeSnapshot;
-  nullifierTree: ViemAppendOnlyTreeSnapshot;
-  publicDataTree: ViemAppendOnlyTreeSnapshot;
-};
-
-export type ViemAppendOnlyTreeSnapshot = {
-  root: `0x${string}`;
-  nextAvailableLeafIndex: number;
-};
-
 export enum SlashingProposerType {
   None = 0,
   Tally = 1,

@@ -277,7 +277,6 @@ describe('SequencerPublisher', () => {
       {
         header: header.toViem(),
         archive: toHex(archive),
-        stateReference: l2Block.header.state.toViem(),
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },

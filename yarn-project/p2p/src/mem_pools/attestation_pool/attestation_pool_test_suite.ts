@@ -42,7 +42,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
   const mockBlockProposal = (signer: Secp256k1Signer, slotNumber: number, archive: Fr = Fr.random()): BlockProposal => {
     const header = makeL2BlockHeader(1, 2, slotNumber);
-    const payload = new ConsensusPayload(header.toCheckpointHeader(), archive, header.state);
+    const payload = new ConsensusPayload(header.toCheckpointHeader(), archive);
 
     const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
     const signature = signer.sign(hash);

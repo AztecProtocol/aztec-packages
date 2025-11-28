@@ -543,12 +543,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       header.gasFees.feePerL2Gas = manaBaseFee;
     }
 
-    ree.proposeArgs = ProposeArgs({
-      header: header,
-      archive: full.checkpoint.archive,
-      stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0)
-    });
+    ree.proposeArgs = ProposeArgs({header: header, archive: full.checkpoint.archive, oracleInput: OracleInput(0)});
 
     skipBlobCheck(address(rollup));
 
@@ -557,7 +552,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       ree.attestationsCount = _attestationCount;
       ree.proposePayload = ProposePayload({
         archive: ree.proposeArgs.archive,
-        stateReference: ree.proposeArgs.stateReference,
         oracleInput: ree.proposeArgs.oracleInput,
         headerHash: ProposedHeaderLib.hash(header)
       });
