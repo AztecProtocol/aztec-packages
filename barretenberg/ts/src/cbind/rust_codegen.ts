@@ -206,7 +206,11 @@ ${deserializeCases}
 
   // Generate Response enum
   private generateResponseEnum(schema: CompiledSchema): string {
-    const responseTypes = Array.from(new Set(schema.commands.map(c => c.responseType)));
+    // Include all response types from commands plus ErrorResponse if it exists
+    const commandResponseTypes = Array.from(new Set(schema.commands.map(c => c.responseType)));
+    const responseTypes = schema.responses.has('ErrorResponse')
+      ? [...commandResponseTypes, 'ErrorResponse']
+      : commandResponseTypes;
     const variants = responseTypes
       .map(name => {
         const rustName = toPascalCase(name);
@@ -388,6 +392,9 @@ ${this.generateResponseEnum(schema)}
         let cmd = Command::${cmdRustName}(${cmdRustName}::new(${paramConversions}));
         match self.execute(cmd)? {
             Response::${respRustName}(resp) => Ok(resp),
+            Response::ErrorResponse(err) => Err(BarretenbergError::Backend(
+                err.message
+            )),
             _ => Err(BarretenbergError::InvalidResponse(
                 "Expected ${command.responseType}".to_string()
             )),

@@ -63,20 +63,24 @@ export class SchemaVisitor {
     const commandPairs = commandsSchema[1] as Array<[string, any]>;
     const responsePairs = responsesSchema[1] as Array<[string, any]>;
 
-    // Visit all commands and responses
-    for (let i = 0; i < commandPairs.length; i++) {
-      const [cmdName, cmdSchema] = commandPairs[i];
-      const [respName, respSchema] = responsePairs[i];
-
-      // Discover command structure
-      const cmdStruct = this.visitStruct(cmdName, cmdSchema);
-      this.structs.set(cmdName, cmdStruct);
-
-      // Discover response structure (if not a reference)
+    // First, visit all response types (including ErrorResponse)
+    for (const [respName, respSchema] of responsePairs) {
       if (typeof respSchema !== 'string') {
         const respStruct = this.visitStruct(respName, respSchema);
         this.responses.set(respName, respStruct);
       }
+    }
+
+    // Visit all commands and pair with responses
+    for (let i = 0; i < commandPairs.length; i++) {
+      const [cmdName, cmdSchema] = commandPairs[i];
+      // Find matching response (skip ErrorResponse which is always last)
+      const normalResponses = responsePairs.filter(([name]: [string, any]) => name !== 'ErrorResponse');
+      const [respName] = normalResponses[i];
+
+      // Discover command structure
+      const cmdStruct = this.visitStruct(cmdName, cmdSchema);
+      this.structs.set(cmdName, cmdStruct);
 
       // Create command mapping
       commands.push({

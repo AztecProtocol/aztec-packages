@@ -85,7 +85,11 @@ ${variants}
 
   // Generate Response tagged union
   private generateResponseUnion(schema: CompiledSchema): string {
-    const responseTypes = Array.from(new Set(schema.commands.map(c => c.responseType)));
+    // Include all response types from commands plus ErrorResponse if it exists
+    const commandResponseTypes = Array.from(new Set(schema.commands.map(c => c.responseType)));
+    const responseTypes = schema.responses.has('ErrorResponse')
+      ? [...commandResponseTypes, 'ErrorResponse']
+      : commandResponseTypes;
     const variants = responseTypes
       .map(name => {
         const snakeName = toSnakeCase(name);
@@ -148,6 +152,9 @@ ${this.generateResponseUnion(schema)}
     pub fn ${methodName}(self: *Self, ${params}) !types.${toPascalCase(command.responseType)} {
         const cmd = types.Command{ .${cmdSnakeName} = ${fieldInitBlock} };
         const resp = try self.execute(cmd);
+        if (resp == .error_response) {
+            return error.BackendError;
+        }
         return resp.${respSnakeName};
     }`;
   }
