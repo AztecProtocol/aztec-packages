@@ -143,6 +143,13 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
 
     /**
      * @brief General purpose testing function. It generates the test based on the predicate and invalidation target.
+     *
+     * @details This function tests the full ACIR flow by:
+     * 1. Generating a constraint and witness values
+     * 2. Converting the constraint to an Acir::Opcode
+     * 3. Building an Acir::Circuit with that opcode
+     * 4. Passing the circuit through circuit_serde_to_acir_format to get an AcirFormat
+     * 5. Building the circuit from the AcirFormat and checking it
      */
     static std::tuple<bool, bool, std::string> test_constraints(const PredicateTestCase& test_case,
                                                                 const InvalidWitnessTarget& invalid_witness_target)
@@ -151,16 +158,9 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
                                                       .invalid_witness = invalid_witness_target };
         auto [constraint, witness_values] = generate_constraints(predicate);
 
-        AcirFormat constraint_system = {
-            .varnum = static_cast<uint32_t>(witness_values.size()),
-            .num_acir_opcodes = 1,
-            .public_inputs = {},
-            .original_opcode_indices = create_empty_original_opcode_indices(),
-        };
-
-        add_constraint_to_acir_format(constraint_system, constraint);
-
-        mock_opcode_indices(constraint_system);
+        // Use the full ACIR flow: constraint -> Acir::Opcode -> Acir::Circuit -> circuit_serde_to_acir_format
+        AcirFormat constraint_system =
+            constraint_to_acir_format(constraint, static_cast<uint32_t>(witness_values.size()));
 
         AcirProgram program{ constraint_system, witness_values };
         auto builder = create_circuit<Builder>(program);
@@ -170,6 +170,9 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
 
     /**
      * @brief Test vk generation is independent of the witness values supplied.
+     *
+     * @details This function tests that the verification key is deterministic and independent
+     * of the witness values by going through the full ACIR flow.
      *
      * @tparam Flavor
      */
@@ -189,16 +192,9 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
                                                           .invalid_witness = InvalidWitnessTarget::None };
             auto [constraint, witness_values] = generate_constraints(predicate);
 
-            AcirFormat constraint_system = {
-                .varnum = static_cast<uint32_t>(witness_values.size()),
-                .num_acir_opcodes = 1,
-                .public_inputs = {},
-                .original_opcode_indices = create_empty_original_opcode_indices(),
-            };
-
-            add_constraint_to_acir_format(constraint_system, constraint);
-
-            mock_opcode_indices(constraint_system);
+            // Use the full ACIR flow
+            AcirFormat constraint_system =
+                constraint_to_acir_format(constraint, static_cast<uint32_t>(witness_values.size()));
 
             // Construct the vks
             std::shared_ptr<VerificationKey> vk_from_witness;
