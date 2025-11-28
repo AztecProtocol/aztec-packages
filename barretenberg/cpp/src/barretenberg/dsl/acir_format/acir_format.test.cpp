@@ -627,18 +627,18 @@ TYPED_TEST(OpcodeGateCountTests, EcAdd)
 
 TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
 {
-    WitnessVector witness{ 0, 10, 20, 0, 10 };
+    WitnessVector witness{ 10, 20, 0, 10 };
 
     // Create a simple ROM block with 2 elements and 1 read
     std::vector<uint32_t> init;
-    init.push_back(1); // 10
-    init.push_back(2); // 20
+    init.push_back(TypeParam::ACIR_OFFSET);     // 10
+    init.push_back(1 + TypeParam::ACIR_OFFSET); // 20
 
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(3), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(4), // 10
+        .index = WitnessOrConstant<bb::fr>::from_index(2 + TypeParam::ACIR_OFFSET), // 0
+        .value = WitnessOrConstant<bb::fr>::from_index(3 + TypeParam::ACIR_OFFSET), // 10
     });
 
     BlockConstraint block_constraint{
@@ -649,7 +649,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
     };
 
     AcirFormat constraint_system{
-        .varnum = 5,
+        .max_witness_index = static_cast<uint32_t>(witness.size()) + TypeParam::ACIR_OFFSET - 1,
+        .acir_gates_offset = TypeParam::ACIR_OFFSET,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .block_constraints = { block_constraint },
@@ -665,18 +666,18 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
 
 TYPED_TEST(OpcodeGateCountTests, BlockRamRead)
 {
-    WitnessVector witness{ 0, 10, 20, 0, 10 };
+    WitnessVector witness{ 10, 20, 0, 10 };
 
-    // Create a simple RAM block with 2 elements and 1 read
+    // Create a simple ROM block with 2 elements and 1 read
     std::vector<uint32_t> init;
-    init.push_back(1); // 10
-    init.push_back(2); // 20
+    init.push_back(TypeParam::ACIR_OFFSET);     // 10
+    init.push_back(1 + TypeParam::ACIR_OFFSET); // 20
 
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(3), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(4), // 10
+        .index = WitnessOrConstant<bb::fr>::from_index(2 + TypeParam::ACIR_OFFSET), // 0
+        .value = WitnessOrConstant<bb::fr>::from_index(3 + TypeParam::ACIR_OFFSET), // 10
     });
 
     BlockConstraint block_constraint{
@@ -687,7 +688,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamRead)
     };
 
     AcirFormat constraint_system{
-        .varnum = 5,
+        .max_witness_index = static_cast<uint32_t>(witness.size()) + TypeParam::ACIR_OFFSET - 1,
+        .acir_gates_offset = TypeParam::ACIR_OFFSET,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .block_constraints = { block_constraint },
@@ -698,29 +700,46 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamRead)
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
-});
-
-BlockConstraint block_constraint{
-    .init = init,
-    .trace = trace,
-    .type = BlockType::RAM,
-    .calldata_id = CallDataType::None,
 };
 
-AcirFormat constraint_system{
-    .varnum = 5,
-    .num_acir_opcodes = 1,
-    .public_inputs = {},
-    .block_constraints = { block_constraint },
-    .original_opcode_indices = create_empty_original_opcode_indices(),
-};
-mock_opcode_indices(constraint_system);
+TYPED_TEST(OpcodeGateCountTests, BlockRamWrite)
+{
+    WitnessVector witness{ 10, 20, 0, 10 };
 
-AcirProgram program{ constraint_system, witness };
-const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
-auto builder = create_circuit<TypeParam>(program, metadata);
+    // Create a simple ROM block with 2 elements and 1 read
+    std::vector<uint32_t> init;
+    init.push_back(TypeParam::ACIR_OFFSET);     // 10
+    init.push_back(1 + TypeParam::ACIR_OFFSET); // 20
 
-EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLOCK_RAM_WRITE<TypeParam> }));
+    std::vector<MemOp> trace;
+    trace.push_back(MemOp{
+        .access_type = AccessType::Write,
+        .index = WitnessOrConstant<bb::fr>::from_index(2 + TypeParam::ACIR_OFFSET), // 0
+        .value = WitnessOrConstant<bb::fr>::from_index(3 + TypeParam::ACIR_OFFSET), // 10
+    });
+
+    BlockConstraint block_constraint{
+        .init = init,
+        .trace = trace,
+        .type = BlockType::RAM,
+        .calldata_id = CallDataType::None,
+    };
+
+    AcirFormat constraint_system{
+        .max_witness_index = static_cast<uint32_t>(witness.size()) + TypeParam::ACIR_OFFSET - 1,
+        .acir_gates_offset = TypeParam::ACIR_OFFSET,
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .block_constraints = { block_constraint },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    AcirProgram program{ constraint_system, witness };
+    const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
+    auto builder = create_circuit<TypeParam>(program, metadata);
+
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLOCK_RAM_WRITE<TypeParam> }));
 }
 
 TYPED_TEST(OpcodeGateCountTests, BlockCallData)
@@ -729,18 +748,18 @@ TYPED_TEST(OpcodeGateCountTests, BlockCallData)
         GTEST_SKIP() << "CallData only supported on MegaCircuitBuilder";
     }
 
-    WitnessVector witness{ 0, 10, 20, 0, 10 };
+    WitnessVector witness{ 10, 20, 0, 10 };
 
     // Create a simple CallData block with 2 elements and 1 read
     std::vector<uint32_t> init;
-    init.push_back(1); // 10
-    init.push_back(2); // 20
+    init.push_back(TypeParam::ACIR_OFFSET);     // 10
+    init.push_back(1 + TypeParam::ACIR_OFFSET); // 20
 
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
-        .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(3), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(4), // 10
+        .access_type = AccessType::Write,
+        .index = WitnessOrConstant<bb::fr>::from_index(2 + TypeParam::ACIR_OFFSET), // 0
+        .value = WitnessOrConstant<bb::fr>::from_index(3 + TypeParam::ACIR_OFFSET), // 10
     });
 
     // Primary calldata
@@ -753,7 +772,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockCallData)
         };
 
         AcirFormat constraint_system{
-            .varnum = 5,
+            .max_witness_index = static_cast<uint32_t>(witness.size()) + TypeParam::ACIR_OFFSET - 1,
+            .acir_gates_offset = TypeParam::ACIR_OFFSET,
             .num_acir_opcodes = 1,
             .public_inputs = {},
             .block_constraints = { block_constraint },
@@ -778,7 +798,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockCallData)
         };
 
         AcirFormat constraint_system{
-            .varnum = 5,
+            .max_witness_index = static_cast<uint32_t>(witness.size()) + TypeParam::ACIR_OFFSET - 1,
+            .acir_gates_offset = TypeParam::ACIR_OFFSET,
             .num_acir_opcodes = 1,
             .public_inputs = {},
             .block_constraints = { block_constraint },
@@ -800,12 +821,12 @@ TYPED_TEST(OpcodeGateCountTests, BlockReturnData)
         GTEST_SKIP() << "ReturnData only supported on MegaCircuitBuilder";
     }
 
-    WitnessVector witness{ 0, 10, 20 };
+    WitnessVector witness{ 10, 20 };
 
     // Create a simple ReturnData block with 2 elements
     std::vector<uint32_t> init;
-    init.push_back(1); // 10
-    init.push_back(2); // 20
+    init.push_back(TypeParam::ACIR_OFFSET);     // 10
+    init.push_back(1 + TypeParam::ACIR_OFFSET); // 20
 
     BlockConstraint block_constraint{
         .init = init,
@@ -815,7 +836,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockReturnData)
     };
 
     AcirFormat constraint_system{
-        .varnum = 3,
+        .max_witness_index = static_cast<uint32_t>(witness.size()) + TypeParam::ACIR_OFFSET - 1,
+        .acir_gates_offset = TypeParam::ACIR_OFFSET,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .block_constraints = { block_constraint },

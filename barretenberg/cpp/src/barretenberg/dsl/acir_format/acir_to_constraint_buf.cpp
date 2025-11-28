@@ -298,83 +298,6 @@ void handle_brillig_call(Acir::Opcode::BrilligCall const& arg, AcirFormat& af)
     }
 }
 
-/**
- * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation
- *
- * @param arg acir representation of an 3-wire arithmetic operation
- * @return arithmetic_triple
- * @note In principle Acir::Expression can accommodate arbitrarily many quadratic and linear terms but in practice
- * the ones processed here have a max of 1 and 3 respectively, in accordance with the standard width-3 arithmetic gate.
- */
-arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg)
-{
-    arithmetic_triple pt{
-        .a = 0,
-        .b = 0,
-        .c = 0,
-        .q_m = 0,
-        .q_l = 0,
-        .q_r = 0,
-        .q_o = 0,
-        .q_c = 0,
-    };
-
-    // Flags indicating whether each witness index for the present poly_tuple has been set
-    bool a_set = false;
-    bool b_set = false;
-    bool c_set = false;
-
-    // If necessary, set values for quadratic term (q_m * w_l * w_r)
-    BB_ASSERT_LTE(arg.mul_terms.size(), 1U, "We can only accommodate 1 quadratic term");
-    // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
-    if (!arg.mul_terms.empty()) {
-        const auto& mul_term = arg.mul_terms[0];
-        pt.q_m = fr::serialize_from_buffer(&(std::get<0>(mul_term)[0]));
-        pt.a = std::get<1>(mul_term).value;
-        pt.b = std::get<2>(mul_term).value;
-        a_set = true;
-        b_set = true;
-    }
-
-    // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
-    BB_ASSERT_LTE(arg.linear_combinations.size(), 3U, "We can only accommodate 3 linear terms");
-    for (const auto& linear_term : arg.linear_combinations) {
-        fr selector_value = fr::serialize_from_buffer(&(std::get<0>(linear_term)[0]));
-        uint32_t witness_idx = std::get<1>(linear_term).value;
-
-        // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
-        // index and the corresponding selector value.
-        if (!a_set || pt.a == witness_idx) { // q_l * w_l
-            pt.a = witness_idx;
-            pt.q_l += selector_value; // Accumulate coefficients for duplicate witnesses
-            a_set = true;
-        } else if (!b_set || pt.b == witness_idx) { // q_r * w_r
-            pt.b = witness_idx;
-            pt.q_r += selector_value; // Accumulate coefficients for duplicate witnesses
-            b_set = true;
-        } else if (!c_set || pt.c == witness_idx) { // q_o * w_o
-            pt.c = witness_idx;
-            pt.q_o += selector_value; // Accumulate coefficients for duplicate witnesses
-            c_set = true;
-        } else {
-            return arithmetic_triple{
-                .a = 0,
-                .b = 0,
-                .c = 0,
-                .q_m = 0,
-                .q_l = 0,
-                .q_r = 0,
-                .q_o = 0,
-                .q_c = 0,
-            };
-        }
-    }
-
-    // Set constant value q_c
-    pt.q_c = fr::serialize_from_buffer(&arg.q_c[0]);
-    return pt;
-}
-
 std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg,
                                                      std::map<uint32_t, bb::fr>& linear_terms,
                                                      AcirFormat& af)
@@ -498,13 +421,6 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         update_terms_with_offset_and_track_max_witness_index(mul_quad);
     }
     return result;
-}
-
-bool is_assert_equal(mul_quad_<fr> const& mul_quad)
-{
-    return mul_quad.mul_scaling == bb::fr::zero() && mul_quad.a_scaling == -mul_quad.b_scaling &&
-           mul_quad.a_scaling != bb::fr::zero() && mul_quad.const_scaling == bb::fr::zero() &&
-           mul_quad.c_scaling == bb::fr::zero() && mul_quad.d_scaling == bb::fr::zero();
 }
 
 void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
@@ -723,7 +639,7 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init, Aci
     };
 
     for (const auto& init : mem_init.init) {
-        block.init.push_back(init.value);
+        block.init.push_back(transform_witness_index(init.value, af));
     }
 
     // Databus is only supported for Goblin, non Goblin builders will treat call_data and return_data as normal
@@ -741,12 +657,12 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init, Aci
     return block;
 }
 
-void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
+void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block, AcirFormat& af)
 {
     // Lambda to convert an Acir::Expression to a witness index
     auto acir_expression_to_witness_or_constant = [&](const Acir::Expression& expr) {
         std::map<uint32_t, bb::fr> linear_terms = process_linear_terms(expr);
-        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(expr, linear_terms);
+        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(expr, linear_terms, af);
 
         BB_ASSERT_EQ(mul_quads.size(), 1U, "MemoryOp expression should result in a single mul_quad_ gate");
         mul_quad_<fr> quad = mul_quads.front();

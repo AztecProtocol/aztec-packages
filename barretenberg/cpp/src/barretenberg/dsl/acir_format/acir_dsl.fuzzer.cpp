@@ -849,7 +849,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
 
         // *** Go through acir_to_constraint_buf pipeline directly ***
         // This exercises the core conversion logic without serialization issues
-        AcirFormat acir_format = circuit_serde_to_acir_format(circuit);
+        AcirFormat acir_format = circuit_serde_to_acir_format(circuit, UltraCircuitBuilder::ACIR_OFFSET);
 
         // ========== BUILD CIRCUIT FROM ACIR FORMAT ==========
 
@@ -868,10 +868,10 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
         // Build circuit using the proper constructor that initializes witnesses
         // NOTE: Must use the witness-aware constructor, not default constructor!
         // The default constructor leaves witnesses uninitialized, causing false negatives.
-        UltraCircuitBuilder builder{ /*size_hint*/ 0, witness_vec, acir_format.public_inputs };
+        UltraCircuitBuilder builder{ /*size_hint*/ 0 };
+        builder.initialize_from_acir_data(acir_format.max_witness_index, witness_vec, acir_format.public_inputs);
 
-        AcirProgram acir_program = { acir_format, witness_vec };
-        build_constraints(builder, acir_program, ProgramMetadata{});
+        build_constraints(builder, acir_format, ProgramMetadata{});
 
         // Check if the builder is in a failed state (e.g., from assert_equal with unequal values)
         if (builder.failed()) {
