@@ -1,0 +1,37 @@
+{{- if .Values.networkPartition.enabled }}
+{{- $targetNamespace := .Values.global.targetNamespace | required ".Values.global.targetNamespace is required" }}
+{{- $groupAStr := .Values.networkPartition.groupA | default "" }}
+{{- $groupBStr := .Values.networkPartition.groupB | default "" }}
+{{- $groupA := splitList "," $groupAStr | compact }}
+{{- $groupB := splitList "," $groupBStr | compact }}
+{{- if and (gt (len $groupA) 0) (gt (len $groupB) 0) }}
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: {{ include "aztec-chaos-scenarios.fullname" . }}-network-partition-explicit
+  labels:
+    {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}
+spec:
+  action: partition
+  mode: all
+  direction: both
+  duration: {{ .Values.networkPartition.duration }}
+  selector:
+    pods:
+      {{ $targetNamespace }}:
+{{- range $groupA }}
+        - {{ . | trim }}
+{{- end }}
+  target:
+    mode: all
+    selector:
+      pods:
+        {{ $targetNamespace }}:
+{{- range $groupB }}
+          - {{ . | trim }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+

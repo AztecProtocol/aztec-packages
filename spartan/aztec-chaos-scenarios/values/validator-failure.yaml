@@ -1,0 +1,9 @@
+global:
+  namespace: "scenario"
+
+validatorFailure:
+  enabled: true
+  podsCsv: ""
+  duration: "300s"
+
+
