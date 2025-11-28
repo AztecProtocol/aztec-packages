@@ -17,7 +17,7 @@ import type { IFullNodeBlockBuilder, Validator, ValidatorClientFullConfig } from
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
-import type { StateReference, Tx } from '@aztec/stdlib/tx';
+import type { Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -404,7 +404,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     blockNumber: number,
     header: CheckpointHeader,
     archive: Fr,
-    stateReference: StateReference,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
@@ -414,14 +413,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return Promise.resolve(undefined);
     }
 
-    const newProposal = await this.validationService.createBlockProposal(
-      header,
-      archive,
-      stateReference,
-      txs,
-      proposerAddress,
-      { ...options, broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal },
-    );
+    const newProposal = await this.validationService.createBlockProposal(header, archive, txs, proposerAddress, {
+      ...options,
+      broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
+    });
     this.previousProposal = newProposal;
     return newProposal;
   }

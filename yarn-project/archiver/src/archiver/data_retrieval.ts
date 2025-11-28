@@ -12,7 +12,6 @@ import type {
   ViemCommitteeAttestations,
   ViemHeader,
   ViemPublicClient,
-  ViemStateReference,
 } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
@@ -46,7 +45,6 @@ import type { L1PublishedData } from './structs/published.js';
 export type RetrievedCheckpoint = {
   checkpointNumber: number;
   archiveRoot: Fr;
-  stateReference: StateReference;
   header: CheckpointHeader;
   checkpointBlobData: CheckpointBlobData;
   l1: L1PublishedData;
@@ -58,7 +56,6 @@ export type RetrievedCheckpoint = {
 export async function retrievedToPublishedCheckpoint({
   checkpointNumber,
   archiveRoot,
-  stateReference,
   header: checkpointHeader,
   checkpointBlobData,
   l1,
@@ -133,12 +130,6 @@ export async function retrievedToPublishedCheckpoint({
   }
 
   const lastBlock = l2Blocks.at(-1)!;
-  if (!lastBlock.header.state.equals(stateReference)) {
-    throw new Error(
-      'The claimed state reference submitted to L1 does not match the state reference of the last block.',
-    );
-  }
-
   const checkpoint = Checkpoint.from({
     archive: new AppendOnlyTreeSnapshot(archiveRoot, lastBlock.number + 1),
     header: checkpointHeader,
@@ -371,7 +362,6 @@ async function getCheckpointFromRollupTx(
   const [decodedArgs, packedAttestations, _signers, _blobInput] = rollupArgs! as readonly [
     {
       archive: Hex;
-      stateReference: ViemStateReference;
       oracleInput: {
         feeAssetPriceModifier: bigint;
       };
@@ -389,7 +379,6 @@ async function getCheckpointFromRollupTx(
   logger.trace(`Recovered propose calldata from tx ${txHash}`, {
     checkpointNumber,
     archive: decodedArgs.archive,
-    stateReference: decodedArgs.stateReference,
     header: decodedArgs.header,
     l1BlockHash: blockHash,
     blobHashes,
@@ -419,12 +408,9 @@ async function getCheckpointFromRollupTx(
 
   const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
 
-  const stateReference = StateReference.fromViem(decodedArgs.stateReference);
-
   return {
     checkpointNumber,
     archiveRoot,
-    stateReference,
     header,
     checkpointBlobData,
     attestations,

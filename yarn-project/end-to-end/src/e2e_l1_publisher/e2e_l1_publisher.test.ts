@@ -485,7 +485,6 @@ describe('L1Publisher integration', () => {
             {
               header: block.getCheckpointHeader().toViem(),
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
-              stateReference: block.header.state.toViem(),
               oracleInput: {
                 feeAssetPriceModifier: 0n,
               },

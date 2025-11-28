@@ -4,7 +4,6 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { unfreeze } from '@aztec/foundation/types';
 import type { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import {
   BlockAttestation,
@@ -14,8 +13,7 @@ import {
   SignatureDomainSeparator,
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { StateReference, type Tx } from '@aztec/stdlib/tx';
+import type { Tx } from '@aztec/stdlib/tx';
 
 import type { ValidatorKeyStore } from '../key_store/interface.js';
 
@@ -38,7 +36,6 @@ export class ValidationService {
   async createBlockProposal(
     header: CheckpointHeader,
     archive: Fr,
-    stateReference: StateReference,
     txs: Tx[],
     proposerAttesterAddress: EthAddress | undefined,
     options: BlockProposalOptions,
@@ -54,14 +51,14 @@ export class ValidationService {
     // TODO: check if this is calculated earlier / can not be recomputed
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
-    // For testing: corrupt the state reference to trigger state_mismatch validation failure
+    // For testing: change the new archive to trigger state_mismatch validation failure
     if (options.broadcastInvalidBlockProposal) {
-      unfreeze(stateReference.partial).noteHashTree = AppendOnlyTreeSnapshot.random();
+      archive = Fr.random();
       this.log.warn(`Creating INVALID block proposal for slot ${header.slotNumber.toBigInt()}`);
     }
 
     return BlockProposal.createProposalFromSigner(
-      new ConsensusPayload(header, archive, stateReference),
+      new ConsensusPayload(header, archive),
       txHashes,
       options.publishFullTxs ? txs : undefined,
       payloadSigner,

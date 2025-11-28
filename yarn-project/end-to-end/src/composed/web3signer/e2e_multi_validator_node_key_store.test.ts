@@ -19,7 +19,7 @@ import type { Sequencer, SequencerClient, SequencerPublisherFactory } from '@azt
 import type { TestSequencer, TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
-import type { StateReference, Tx } from '@aztec/stdlib/tx';
+import type { Tx } from '@aztec/stdlib/tx';
 import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 
 import { jest } from '@jest/globals';
@@ -365,7 +365,6 @@ describe('e2e_multi_validator_node', () => {
       blockNumber: number,
       header: CheckpointHeader,
       archive: Fr,
-      stateReference: StateReference,
       txs: Tx[],
       proposerAddress: EthAddress | undefined,
       options: BlockProposalOptions,
@@ -381,7 +380,7 @@ describe('e2e_multi_validator_node', () => {
         );
       }
 
-      return originalCreateProposal(blockNumber, header, archive, stateReference, txs, proposerAddress, options);
+      return originalCreateProposal(blockNumber, header, archive, txs, proposerAddress, options);
     };
     validatorClient.createBlockProposal = jest.fn(createBlockProposal);
 

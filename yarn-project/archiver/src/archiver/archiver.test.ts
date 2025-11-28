@@ -1171,7 +1171,6 @@ describe('Archiver', () => {
     const header = checkpoint.header.toViem();
     const blobInput = getPrefixedEthBlobCommitments(getBlobsPerL1Block(checkpoint.toBlobFields()));
     const archive = toHex(checkpoint.archive.root.toBuffer());
-    const stateReference = checkpoint.getState().toViem();
     const attestationsAndSigners = new CommitteeAttestationsAndSigners(
       attestations.map(attestation => CommitteeAttestation.fromViem(attestation)),
     );
@@ -1187,7 +1186,6 @@ describe('Archiver', () => {
         {
           header,
           archive,
-          stateReference,
           oracleInput: { feeAssetPriceModifier: 0n },
         },
         attestationsAndSigners.getPackedAttestations(),
