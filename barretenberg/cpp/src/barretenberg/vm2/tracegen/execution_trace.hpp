@@ -1,10 +1,15 @@
 #pragma once
 
-#include <memory>
-#include <optional>
+#include <cstdint>
+#include <span>
+#include <vector>
 
+#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
+#include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"

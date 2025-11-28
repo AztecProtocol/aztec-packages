@@ -3,23 +3,17 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
 #include <numeric>
 #include <ranges>
 #include <stdexcept>
-#include <sys/types.h>
-#include <unordered_map>
 
-#include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/common/addressing.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
-#include "barretenberg/vm2/common/tagged_value.hpp"
-
+#include "barretenberg/vm2/common/set.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_context.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_notehash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_nullifier.hpp"
@@ -34,15 +28,9 @@
 #include "barretenberg/vm2/generated/relations/lookups_send_l2_to_l1_msg.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
-#include "barretenberg/vm2/generated/relations/perms_data_copy.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
-#include "barretenberg/vm2/simulation/events/addressing_event.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/execution_event.hpp"
-#include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_env_var_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 using C = bb::avm2::Column;
 using bb::avm2::simulation::AddressingEventError;
@@ -201,7 +189,7 @@ struct FailingContexts {
     bool teardown_failure = false;
     uint32_t app_logic_exit_context_id = 0;
     uint32_t teardown_exit_context_id = 0;
-    std::unordered_set<uint32_t> does_context_fail;
+    unordered_flat_set<uint32_t> does_context_fail;
 };
 
 /**
@@ -950,7 +938,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
 
     // Tag check after indirection.
     bool some_final_check_failed =
-        std::any_of(addr_event.resolution_info.begin(), addr_event.resolution_info.end(), [](const auto& info) {
+        std::ranges::any_of(addr_event.resolution_info.begin(), addr_event.resolution_info.end(), [](const auto& info) {
             return info.error.has_value() && *info.error == AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
         });
     FF batched_tags_diff_inv = 0;
