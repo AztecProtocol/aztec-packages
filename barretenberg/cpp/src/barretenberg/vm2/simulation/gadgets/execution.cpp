@@ -1100,6 +1100,11 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
         // we'll always use this in the loop.
         auto& context = *external_call_stack.top();
 
+        // Default inputs and output initialization. This properly resets the values between two
+        // opcode executions as well.
+        inputs = {};
+        output = MemoryValue::from<FF>(0);
+
         // Members of the execution event which are set in the try block.
         Instruction instruction;
         AddressingEvent addressing_event;
@@ -1179,7 +1184,8 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
         context.set_pc(context.get_next_pc());
         execution_id_manager.increment_execution_id();
 
-        // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
+        // TODO: We set the inputs and outputs here and into the execution event,
+        //       but maybe there's a better way to do this.
         events.emit({
             .error = error,
             .wire_instruction = instruction,
@@ -1312,10 +1318,6 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
                                 const std::vector<Operand>& resolved_operands)
 {
     BB_BENCH_NAME("Execution::dispatch_opcode");
-
-    // TODO: consider doing this even before the dispatch.
-    inputs = {};
-    output = MemoryValue::from<FF>(0);
 
     debug("Dispatching opcode: ", opcode, " (", static_cast<uint32_t>(opcode), ")");
     switch (opcode) {
