@@ -9,6 +9,7 @@
  */
 
 import type { CompiledSchema, Type, Struct, Field } from './schema_visitor.js';
+import { toSnakeCase, toPascalCase } from './naming.js';
 
 export class RustCodegen {
   // Type mapping: Schema type -> Rust type
@@ -40,25 +41,10 @@ export class RustCodegen {
 
       case 'struct':
         // Convert struct names to PascalCase for Rust conventions
-        return this.toPascalCase(type.struct!.name);
+        return toPascalCase(type.struct!.name);
     }
 
     return 'Unknown';
-  }
-
-  // Convert field name to snake_case
-  private toSnakeCase(name: string): string {
-    return name.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
-  }
-
-  // Convert type name to PascalCase
-  private toPascalCase(name: string): string {
-    if (!name.includes('_') && name[0] === name[0].toUpperCase()) {
-      return name;
-    }
-    return name.split('_').map(part =>
-      part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
-    ).join('');
   }
 
   // Check if field needs serde(with = "serde_bytes")
@@ -73,7 +59,7 @@ export class RustCodegen {
 
   // Generate struct field
   private generateField(field: Field): string {
-    const rustName = this.toSnakeCase(field.name);
+    const rustName = toSnakeCase(field.name);
     const rustType = this.mapType(field.type);
     let attrs = '';
 
@@ -94,7 +80,7 @@ export class RustCodegen {
 
   // Generate a struct definition
   private generateStruct(struct: Struct, isCommand: boolean): string {
-    const rustName = this.toPascalCase(struct.name);
+    const rustName = toPascalCase(struct.name);
     const fields = struct.fields.map(f => this.generateField(f)).join('\n');
 
     // Add serde rename if struct name changed
@@ -120,12 +106,12 @@ ${typenameField}${fields}
   // Generate constructor for command structs
   private generateConstructor(struct: Struct, rustName: string): string {
     const params = struct.fields.map(f =>
-      `${this.toSnakeCase(f.name)}: ${this.mapType(f.type)}`
+      `${toSnakeCase(f.name)}: ${this.mapType(f.type)}`
     ).join(', ');
 
     const fieldInits = [
       `            type_name: "${struct.name}".to_string(),`,
-      ...struct.fields.map(f => `            ${this.toSnakeCase(f.name)},`),
+      ...struct.fields.map(f => `            ${toSnakeCase(f.name)},`),
     ].join('\n');
 
     return `
@@ -144,14 +130,14 @@ ${fieldInits}
     const names = Array.from(schema.structs.keys());
     const variants = names
       .map(name => {
-        const rustName = this.toPascalCase(name);
+        const rustName = toPascalCase(name);
         return `    ${rustName}(${rustName}),`;
       })
       .join('\n');
 
     const serializeCases = names
       .map(name => {
-        const rustName = this.toPascalCase(name);
+        const rustName = toPascalCase(name);
         return `            Command::${rustName}(data) => {
                 tuple.serialize_element("${name}")?;
                 tuple.serialize_element(data)?;
@@ -161,7 +147,7 @@ ${fieldInits}
 
     const deserializeCases = names
       .map(name => {
-        const rustName = this.toPascalCase(name);
+        const rustName = toPascalCase(name);
         return `                    "${name}" => {
                         let data = seq.next_element()?
                             .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
@@ -223,14 +209,14 @@ ${deserializeCases}
     const responseTypes = Array.from(new Set(schema.commands.map(c => c.responseType)));
     const variants = responseTypes
       .map(name => {
-        const rustName = this.toPascalCase(name);
+        const rustName = toPascalCase(name);
         return `    ${rustName}(${rustName}),`;
       })
       .join('\n');
 
     const serializeCases = responseTypes
       .map(name => {
-        const rustName = this.toPascalCase(name);
+        const rustName = toPascalCase(name);
         return `            Response::${rustName}(data) => {
                 tuple.serialize_element("${name}")?;
                 tuple.serialize_element(data)?;
@@ -240,7 +226,7 @@ ${deserializeCases}
 
     const deserializeCases = responseTypes
       .map(name => {
-        const rustName = this.toPascalCase(name);
+        const rustName = toPascalCase(name);
         return `                    "${name}" => {
                         let data = seq.next_element()?
                             .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
@@ -376,19 +362,19 @@ ${this.generateResponseEnum(schema)}
 
   // Generate API method
   private generateApiMethod(command: {name: string, fields: Field[], responseType: string}): string {
-    const methodName = this.toSnakeCase(command.name);
-    const cmdRustName = this.toPascalCase(command.name);
-    const respRustName = this.toPascalCase(command.responseType);
+    const methodName = toSnakeCase(command.name);
+    const cmdRustName = toPascalCase(command.name);
+    const respRustName = toPascalCase(command.responseType);
 
     const params = command.fields.map(f => {
       const rustType = this.mapType(f.type);
       // Only convert simple Vec<u8> to &[u8], not nested types
       const apiType = rustType === 'Vec<u8>' ? '&[u8]' : rustType;
-      return `${this.toSnakeCase(f.name)}: ${apiType}`;
+      return `${toSnakeCase(f.name)}: ${apiType}`;
     }).join(', ');
 
     const paramConversions = command.fields.map(f => {
-      const name = this.toSnakeCase(f.name);
+      const name = toSnakeCase(f.name);
       const rustType = this.mapType(f.type);
       // Only convert slices back to Vec
       if (rustType === 'Vec<u8>') {
