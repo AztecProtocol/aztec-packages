@@ -96,7 +96,7 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
     std::vector<field_ct> proof_fields = RecursionConstraint::fields_from_witnesses(builder, proof_indices);
     field_ct vk_hash = field_ct::from_witness_index(&builder, input.key_hash);
 
-    if (builder.has_dummy_witnesses()) {
+    if (builder.is_write_vk_mode()) {
         size_t total_pub_inputs_size = input.public_inputs.size() + IO::PUBLIC_INPUTS_SIZE;
         size_t proof_size_without_pub_inputs = input.proof.size() - IO::PUBLIC_INPUTS_SIZE;
 

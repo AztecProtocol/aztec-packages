@@ -117,7 +117,7 @@ void place_holder_proof_and_vk(typename Flavor::CircuitBuilder& builder,
                                   stdlib::recursion::honk::RollupIO,
                                   stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>>;
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
-    if (builder.has_dummy_witnesses()) {
+    if (builder.is_write_vk_mode()) {
         // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
         // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
         size_t size_of_proof_with_no_pub_inputs = proof_size - IO::PUBLIC_INPUTS_SIZE;

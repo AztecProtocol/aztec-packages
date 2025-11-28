@@ -138,7 +138,7 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     const auto public_inputs_flattened = RecursionConstraint::fields_from_witnesses(builder, input.public_inputs);
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
-    if (builder.has_dummy_witnesses()) {
+    if (builder.is_write_vk_mode()) {
         create_dummy_vkey_and_proof(builder, input.proof.size(), key_fields, proof_fields);
     }
 

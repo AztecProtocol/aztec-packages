@@ -475,7 +475,7 @@ void process_hypernova_recursion_constraints(MegaCircuitBuilder& builder,
 
         // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
         // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
-        if (builder.has_dummy_witnesses()) {
+        if (builder.is_write_vk_mode()) {
             // Create stdlib representations of each {proof, vkey} pair to be recursively verified
             for (auto [constraint, queue_entry] :
                  zip_view(constraints.hn_recursion_constraints, ivc->verification_queue)) {

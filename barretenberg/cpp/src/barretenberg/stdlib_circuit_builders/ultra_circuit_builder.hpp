@@ -212,8 +212,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void process_non_native_field_multiplications();
 
-    UltraCircuitBuilder_(const size_t size_hint = 0, bool has_dummy_witnesses = false)
-        : CircuitBuilderBase<FF>(size_hint, has_dummy_witnesses)
+    UltraCircuitBuilder_(const size_t size_hint = 0, bool is_write_vk_mode = false)
+        : CircuitBuilderBase<FF>(size_hint, is_write_vk_mode)
     {
         this->set_zero_idx(put_constant_variable(FF::zero()));
         this->_tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this

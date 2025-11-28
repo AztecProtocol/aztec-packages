@@ -52,8 +52,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
   public:
     MegaCircuitBuilder_(const size_t size_hint = 0,
                         std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),
-                        bool has_dummy_witnesses = false)
-        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint, has_dummy_witnesses)
+                        bool is_write_vk_mode = false)
+        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint, is_write_vk_mode)
         , op_queue(std::move(op_queue_in))
     {
         BB_BENCH();

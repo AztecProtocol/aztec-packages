@@ -59,7 +59,7 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder, const Ecd
     field_ct result_field = field_ct::from_witness_index(&builder, input.result);
     bool_ct predicate(to_field_ct(input.predicate, builder)); // Constructor enforces predicate = 0 or 1
 
-    if (builder.has_dummy_witnesses()) {
+    if (builder.is_write_vk_mode()) {
         // Fill builder variables in case of empty witness assignment
         create_dummy_ecdsa_constraint<Curve>(
             builder, hashed_message_fields, r_fields, s_fields, pub_x_fields, pub_y_fields, result_field);

@@ -48,7 +48,7 @@ template <typename Builder> void create_ec_add_constraint(Builder& builder, cons
     field_ct input_result_y = field_ct::from_witness_index(&builder, input.result_y);
     bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.result_infinite));
 
-    if (builder.has_dummy_witnesses()) {
+    if (builder.is_write_vk_mode()) {
         builder.set_variable(input_result_x.get_witness_index(), bb::grumpkin::g1::affine_one.x);
         builder.set_variable(input_result_y.get_witness_index(), bb::grumpkin::g1::affine_one.y);
         builder.set_variable(input_result_infinite.get_witness_index(), bb::fr(0));

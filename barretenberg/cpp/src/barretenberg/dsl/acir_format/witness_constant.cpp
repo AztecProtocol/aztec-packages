@@ -51,7 +51,7 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<typen
     // non-constant since otherwise no variable indices exist. Note that there is no need to assign the infinite flag
     // because native on-curve checks will always pass as long x and y coordinates correspond to a valid point on
     // Grumpkin.
-    if (builder.has_dummy_witnesses() && !constant_coordinates) {
+    if (builder.is_write_vk_mode() && !constant_coordinates) {
         builder.set_variable(input_x.index, bb::grumpkin::g1::affine_one.x);
         builder.set_variable(input_y.index, bb::grumpkin::g1::affine_one.y);
     }
@@ -118,7 +118,7 @@ typename bb::stdlib::cycle_group<Builder>::cycle_scalar to_grumpkin_scalar(
     // If a witness is not provided (we are in a write_vk scenario) we ensure the scalar is valid.
     // We only do this if the limbs are non-constant since otherwise no variable indices exist.
     // Note: the two limbs may have different constancy, e.g. if the scalar is a witness known to be <= 128 bits.
-    if (builder.has_dummy_witnesses()) {
+    if (builder.is_write_vk_mode()) {
         if (!scalar_lo.is_constant) {
             builder.set_variable(scalar_lo.index, bb::fr(1));
         }

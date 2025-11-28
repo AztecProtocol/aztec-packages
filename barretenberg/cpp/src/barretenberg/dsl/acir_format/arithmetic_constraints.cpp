@@ -40,7 +40,7 @@ void check_mul_add_gate(Builder& builder,
     result += builder.get_variable(mul_quad.c) * mul_quad.c_scaling;
     result += builder.get_variable(mul_quad.d) * mul_quad.d_scaling;
 
-    if (result != FF::zero() && !builder.failed() && !builder.has_dummy_witnesses()) {
+    if (result != FF::zero() && !builder.failed() && !builder.is_write_vk_mode()) {
         builder.failure("mul_add_gate");
     }
 }
