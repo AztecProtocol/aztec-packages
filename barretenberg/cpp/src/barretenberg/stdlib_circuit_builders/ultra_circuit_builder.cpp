@@ -1525,7 +1525,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 }
 
 /**
- * @brief Compute the limb-multiplication part of a non native field mul
+ * @brief Queue the addition of gates constraining the limb-multiplication part of a non native field mul
  * @details i.e. compute the low 204 and high 204 bit components of `a * b` where `a, b` are nnf elements composed of 4
  * limbs with size DEFAULT_NON_NATIVE_FIELD_LIMB_BITS
  *
@@ -1622,7 +1622,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
 
     /**
      * We want to impose the following five constraints:
-     *   Limb constraints: z.i = x.i * x_mulconst.i + y.i * y_mulconst.i + addconst.i
+     *   Limb constraints: z.i = x.i * x_mulconst.i + y.i * y_mulconst.i + addconst.i, for i in [0, 3]
      *   Prime basis limb constraint: z.p = x.p + y.p + addconstp
      *
      *   Wire layout for non-native field addition (z = x + y)
@@ -1634,13 +1634,12 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
      *   | x.2 | y.2 | z.2 | z.1 |    1    |
      *   | x.3 | y.3 | z.3 | --- |    1    |
      *
-     *   Row 0 (q_arith=3): Two subrelations
-     *     - Subrelation 1: constrains z.0 via w_4_shift (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
-     *     - Subrelation 2: constrains z.p via w_1 + w_4 - w_1_shift + q_m = 0
-     *       i.e., y.p + x.p - z.p + addconstp = 0
-     *   Row 1 (q_arith=2): constrains z.1 via w_4_shift (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
-     *   Row 2 (q_arith=1): constrains z.2 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
-     *   Row 3 (q_arith=1): constrains z.3 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
+     *   Row 0:
+     *     - x.0 * x_mulconst.0 + y.0 * y_mulconst.0 - z.0 + addconst.0 = 0 (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
+     *     - x.p + y.p - z.p + addconstp = 0 (w_1 + w_4 - w_1_shift + q_m = 0)
+     *   Row 1: x.1 * x_mulconst.1 + y.1 * y_mulconst.1 - z.1 + addconst.1 = 0 (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
+     *   Row 2: x.2 * x_mulconst.2 + y.2 * y_mulconst.2 - z.2 + addconst.2 = 0 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
+     *   Row 3: x.3 * x_mulconst.3 + y.3 * y_mulconst.3 - z.3 + addconst.3 = 0 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
      **/
     auto& block = blocks.arithmetic;
     block.populate_wires(y_p, x_0, y_0, x_p);
@@ -1745,7 +1744,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
 
     /**
      * We want to impose the following five constraints:
-     *   Limb constraints: z.i = x.i * x_mulconst.i - y.i * y_mulconst.i + addconst.i
+     *   Limb constraints: z.i = x.i * x_mulconst.i - y.i * y_mulconst.i + addconst.i, for i in [0, 3]
      *   Prime basis limb constraint: z.p = x.p - y.p + addconstp
      *
      *   Wire layout for non-native field subtraction (z = x - y)
@@ -1760,13 +1759,12 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
      * Note: The positions of z.p and x.p are swapped compared to the corresponding addition method. This is necessary
      * to achieve the desired constraint since the scaler on w_1_shift is fixed to -1 in the relation implementation.
      *
-     *   Row 0 (q_arith=3): Two subrelations
-     *     - Subrelation 1: constrains z.0 via w_4_shift (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
-     *     - Subrelation 2: constrains z.p via w_1 + w_4 - w_1_shift + q_m = 0
-     *       i.e., y.p + z.p - x.p + (-addconstp) = 0
-     *   Row 1 (q_arith=2): constrains z.1 via w_4_shift (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
-     *   Row 2 (q_arith=1): constrains z.2 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
-     *   Row 3 (q_arith=1): constrains z.3 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
+     *   Row 0:
+     *     - x.0 * x_mulconst.0 - y.0 * y_mulconst.0 - z.0 + addconst.0 = 0 (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
+     *     - x.p - y.p - z.p + addconstp = 0 (w_1 + w_4 - w_1_shift + q_m = 0)
+     *   Row 1: x.1 * x_mulconst.1 - y.1 * y_mulconst.1 - z.1 + addconst.1 = 0 (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
+     *   Row 2: x.2 * x_mulconst.2 - y.2 * y_mulconst.2 - z.2 + addconst.2 = 0 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
+     *   Row 3: x.3 * x_mulconst.3 - y.3 * y_mulconst.3 - z.3 + addconst.3 = 0 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
      **/
     auto& block = blocks.arithmetic;
     block.populate_wires(y_p, x_0, y_0, z_p);
