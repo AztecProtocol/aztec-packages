@@ -12,18 +12,6 @@ struct AppendOnlyTreeSnapshot {
   uint32 nextAvailableLeafIndex;
 }
 
-struct PartialStateReference {
-  AppendOnlyTreeSnapshot noteHashTree;
-  AppendOnlyTreeSnapshot nullifierTree;
-  AppendOnlyTreeSnapshot publicDataTree;
-}
-
-struct StateReference {
-  AppendOnlyTreeSnapshot l1ToL2MessageTree;
-  // Note: Can't use "partial" name here as in protocol specs because it is a reserved solidity keyword
-  PartialStateReference partialStateReference;
-}
-
 struct GasFees {
   uint128 feePerDaGas;
   uint128 feePerL2Gas;
