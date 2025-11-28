@@ -756,7 +756,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
             privateLog.firstNullifierInTx,
           );
         } else {
-          null;
+          return null;
         }
       }),
     );

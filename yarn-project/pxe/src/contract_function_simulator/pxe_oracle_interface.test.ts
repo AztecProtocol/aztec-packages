@@ -184,7 +184,7 @@ describe('PXEOracleInterface', () => {
       }
       aztecNode.getLogsByTags.mockReset();
       aztecNode.getTxEffect.mockResolvedValue({
-        ...randomInBlock(await TxEffect.random()),
+        ...randomInBlock(await TxEffect.random({ numNullifiers: 1 })),
         txIndexInBlock: 0,
       });
     });
