@@ -45,8 +45,10 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
     //  -----------------------  =  ------------------------
     //   ∏ᵢ (γ + W⁰ᵢ + β⋅σ⁰ᵢ )        ∏ᵢ (γ + xᵢ - β⋅(i+1) )
 
-    // At the start of the loop for each xᵢ where i = 0, 1, …, m-1,
-    // we have
+    // The RHS is often referred to as the "grand product delta". Note that the products on the RHS is only over the
+    // public input indices, while the products on the LHS are over the entire circuit.
+    //
+    // At the start of the loop for each xᵢ where i = 0, 1, …, m-1, we have
     //      numerator_acc   = γ + β⋅(n+i) = γ + β⋅n + β⋅i
     //      denominator_acc = γ - β⋅(1+i) = γ - β   - β⋅i
     // at the end of the loop, add and subtract β to each term respectively to
