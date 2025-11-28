@@ -249,11 +249,13 @@ class ArithmeticConstraintsTestingFunctions {
         }
 
         if constexpr (IS_BIG_QUAD) {
+            // We need to reset the offset that handle_arithmetic has added to the indices otherwise it gets added twice
             for (auto& mul_quad : dummy_acir_format.big_quad_constraints[0]) {
                 reset_indices(mul_quad);
             }
             arithmetic_constraint = dummy_acir_format.big_quad_constraints[0];
         } else {
+            // We need to reset the offset that handle_arithmetic has added to the indices otherwise it gets added twice
             reset_indices(dummy_acir_format.quad_constraints[0]);
             arithmetic_constraint = dummy_acir_format.quad_constraints[0];
         }

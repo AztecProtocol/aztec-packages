@@ -29,17 +29,6 @@ using namespace bb;
 
 /// ========= HELPERS ========= ///
 
-/**
- * @brief Transform a witness index by applying the acir_gates_offset and updating max_witness_index.
- *
- * This function provides a uniform way to:
- * 1. Apply the acir_gates_offset to a witness index
- * 2. Update af.max_witness_index to track the maximum witness index seen
- *
- * @param witness_idx The original witness index to transform
- * @param af The AcirFormat containing acir_gates_offset and max_witness_index
- * @return The transformed witness index (witness_idx + acir_gates_offset)
- */
 uint32_t transform_witness_index(uint32_t witness_idx, AcirFormat& af)
 {
     BB_ASSERT_GT(
@@ -549,7 +538,6 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
 
 void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index)
 {
-    // Reusable transformers for mapping inputs/outputs
     auto to_witness_or_constant = [&](auto& e) { return parse_input(e, af); };
     auto to_witness = [&](auto& e) { return transform_witness_index(e.value, af); };
     auto to_witness_from_input = [&](auto& e) { return get_witness_from_function_input(e, af); };
