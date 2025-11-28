@@ -20,22 +20,12 @@ using namespace bb;
 using namespace bb::stdlib;
 
 /**
- * @brief Serialize a field element to a byte vector (32 bytes, big-endian).
- */
-inline std::vector<uint8_t> fr_to_bytes(const bb::fr& value)
-{
-    std::vector<uint8_t> bytes(32);
-    bb::fr::serialize_to_buffer(value, bytes.data());
-    return bytes;
-}
-
-/**
  * @brief Convert a WitnessOrConstant back to an Acir::FunctionInput.
  */
 inline Acir::FunctionInput witness_or_constant_to_function_input(const WitnessOrConstant<bb::fr>& input)
 {
     if (input.is_constant) {
-        return Acir::FunctionInput{ .value = Acir::FunctionInput::Constant{ .value = fr_to_bytes(input.value) } };
+        return Acir::FunctionInput{ .value = Acir::FunctionInput::Constant{ .value = input.value.to_buffer() } };
     }
     return Acir::FunctionInput{ .value =
                                     Acir::FunctionInput::Witness{ .value = Acir::Witness{ .value = input.index } } };
@@ -51,43 +41,160 @@ inline Acir::FunctionInput witness_to_function_input(uint32_t witness_index)
 }
 
 /**
- * @brief Convert a constraint to an Acir::Opcode.
+ * @brief Convert a WitnessOrConstant to an Acir::Expression.
+ *
+ * @details For a witness, creates an expression with a single linear term (coefficient 1).
+ * For a constant, creates an expression with only the constant term.
+ */
+inline Acir::Expression witness_or_constant_to_expression(const WitnessOrConstant<bb::fr>& input)
+{
+    Acir::Expression expr{
+        .mul_terms = {},
+        .linear_combinations = {},
+        .q_c = bb::fr::zero().to_buffer(),
+    };
+
+    if (input.is_constant) {
+        expr.q_c = input.value.to_buffer();
+    } else {
+        // Linear term with coefficient 1
+        expr.linear_combinations.push_back(
+            std::make_tuple(bb::fr::one().to_buffer(), Acir::Witness{ .value = input.index }));
+    }
+
+    return expr;
+}
+
+/**
+ * @brief Convert an AccessType to an Acir::Expression representing the operation type.
+ *
+ * @details Read operations are represented by Expression with constant 0,
+ * Write operations are represented by Expression with constant 1.
+ */
+inline Acir::Expression access_type_to_expression(AccessType access_type)
+{
+    bb::fr value = (access_type == AccessType::Write) ? bb::fr::one() : bb::fr::zero();
+    return Acir::Expression{
+        .mul_terms = {},
+        .linear_combinations = {},
+        .q_c = value.to_buffer(),
+    };
+}
+
+/**
+ * @brief Convert an acir_format::MemOp to an Acir::MemOp.
+ */
+inline Acir::MemOp mem_op_to_acir_mem_op(const MemOp& mem_op)
+{
+    return Acir::MemOp{
+        .operation = access_type_to_expression(mem_op.access_type),
+        .index = witness_or_constant_to_expression(mem_op.index),
+        .value = witness_or_constant_to_expression(mem_op.value),
+    };
+}
+
+/**
+ * @brief Convert an acir_format::BlockType to an Acir::BlockType.
+ */
+inline Acir::BlockType block_type_to_acir_block_type(BlockType type, CallDataType calldata_id)
+{
+    switch (type) {
+    case BlockType::ROM:
+    case BlockType::RAM:
+        // ROM and RAM both map to Memory in ACIR
+        return Acir::BlockType{ .value = Acir::BlockType::Memory{} };
+    case BlockType::CallData: {
+        uint32_t id = (calldata_id == CallDataType::Primary) ? 0 : 1;
+        return Acir::BlockType{ .value = Acir::BlockType::CallData{ .value = id } };
+    }
+    case BlockType::ReturnData:
+        return Acir::BlockType{ .value = Acir::BlockType::ReturnData{} };
+    default:
+        throw_or_abort("Unknown BlockType");
+    }
+}
+
+/**
+ * @brief Convert a BlockConstraint to a vector of Acir::Opcodes.
+ *
+ * @details A BlockConstraint generates:
+ * 1. One MemoryInit opcode containing the initial values and block type
+ * 2. Multiple MemoryOp opcodes, one for each memory operation in the trace
+ *
+ * @param constraint The BlockConstraint to convert
+ * @param block_id The block ID to use for the memory operations
+ * @return std::vector<Acir::Opcode> The corresponding ACIR opcodes
+ */
+inline std::vector<Acir::Opcode> block_constraint_to_acir_opcodes(const BlockConstraint& constraint,
+                                                                  uint32_t block_id = 0)
+{
+    std::vector<Acir::Opcode> opcodes;
+
+    // Create the MemoryInit opcode
+    std::vector<Acir::Witness> init_witnesses;
+    for (const auto& init_val : constraint.init) {
+        init_witnesses.push_back(Acir::Witness{ .value = init_val });
+    }
+
+    Acir::Opcode::MemoryInit mem_init{
+        .block_id = Acir::BlockId{ .value = block_id },
+        .init = std::move(init_witnesses),
+        .block_type = block_type_to_acir_block_type(constraint.type, constraint.calldata_id),
+    };
+    opcodes.push_back(Acir::Opcode{ .value = mem_init });
+
+    // Create MemoryOp opcodes for each operation in the trace
+    for (const auto& mem_op : constraint.trace) {
+        Acir::Opcode::MemoryOp acir_mem_op{
+            .block_id = Acir::BlockId{ .value = block_id },
+            .op = mem_op_to_acir_mem_op(mem_op),
+        };
+        opcodes.push_back(Acir::Opcode{ .value = acir_mem_op });
+    }
+
+    return opcodes;
+}
+
+/**
+ * @brief Convert a constraint to a vector of Acir::Opcodes.
  *
  * @details This function converts barretenberg constraint types back to their corresponding Acir::Opcode
  * representation. This enables testing the full ACIR flow by going through circuit_serde_to_acir_format.
+ * Most constraint types produce a single opcode, but BlockConstraint produces multiple opcodes
+ * (one MemoryInit and multiple MemoryOp opcodes).
  *
  * @param constraint The constraint to convert
- * @return Acir::Opcode The corresponding ACIR opcode
+ * @return std::vector<Acir::Opcode> The corresponding ACIR opcodes
  */
-template <typename ConstraintType> Acir::Opcode constraint_to_acir_opcode(const ConstraintType& constraint)
+template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_opcode(const ConstraintType& constraint)
 {
     if constexpr (std::is_same_v<ConstraintType, LogicConstraint>) {
         // LogicConstraint maps to either AND or XOR BlackBoxFuncCall
         if (constraint.is_xor_gate) {
-            return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                     .value = Acir::BlackBoxFuncCall{
-                                         .value = Acir::BlackBoxFuncCall::XOR{
-                                             .lhs = witness_or_constant_to_function_input(constraint.a),
-                                             .rhs = witness_or_constant_to_function_input(constraint.b),
-                                             .num_bits = constraint.num_bits,
-                                             .output = Acir::Witness{ .value = constraint.result },
-                                         } } } };
+            return { Acir::Opcode{
+                .value = Acir::Opcode::BlackBoxFuncCall{
+                    .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::XOR{
+                                                         .lhs = witness_or_constant_to_function_input(constraint.a),
+                                                         .rhs = witness_or_constant_to_function_input(constraint.b),
+                                                         .num_bits = constraint.num_bits,
+                                                         .output = Acir::Witness{ .value = constraint.result },
+                                                     } } } } };
         }
-        return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                 .value = Acir::BlackBoxFuncCall{
-                                     .value = Acir::BlackBoxFuncCall::AND{
-                                         .lhs = witness_or_constant_to_function_input(constraint.a),
-                                         .rhs = witness_or_constant_to_function_input(constraint.b),
-                                         .num_bits = constraint.num_bits,
-                                         .output = Acir::Witness{ .value = constraint.result },
-                                     } } } };
+        return { Acir::Opcode{
+            .value = Acir::Opcode::BlackBoxFuncCall{
+                .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::AND{
+                                                     .lhs = witness_or_constant_to_function_input(constraint.a),
+                                                     .rhs = witness_or_constant_to_function_input(constraint.b),
+                                                     .num_bits = constraint.num_bits,
+                                                     .output = Acir::Witness{ .value = constraint.result },
+                                                 } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, RangeConstraint>) {
-        return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                 .value =
-                                     Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::RANGE{
-                                                                 .input = witness_to_function_input(constraint.witness),
-                                                                 .num_bits = constraint.num_bits,
-                                                             } } } };
+        return { Acir::Opcode{
+            .value = Acir::Opcode::BlackBoxFuncCall{
+                .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::RANGE{
+                                                     .input = witness_to_function_input(constraint.witness),
+                                                     .num_bits = constraint.num_bits,
+                                                 } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, AES128Constraint>) {
         std::vector<Acir::FunctionInput> inputs;
         for (const auto& input : constraint.inputs) {
@@ -105,13 +212,13 @@ template <typename ConstraintType> Acir::Opcode constraint_to_acir_opcode(const 
         for (const auto& out : constraint.outputs) {
             outputs.push_back(Acir::Witness{ .value = out });
         }
-        return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                 .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::AES128Encrypt{
-                                                                      .inputs = std::move(inputs),
-                                                                      .iv = iv,
-                                                                      .key = key,
-                                                                      .outputs = std::move(outputs),
-                                                                  } } } };
+        return { Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
+                                   .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::AES128Encrypt{
+                                                                        .inputs = std::move(inputs),
+                                                                        .iv = iv,
+                                                                        .key = key,
+                                                                        .outputs = std::move(outputs),
+                                                                    } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, Sha256Compression>) {
         auto inputs = std::make_shared<std::array<Acir::FunctionInput, 16>>();
         for (size_t i = 0; i < 16; ++i) {
@@ -125,12 +232,12 @@ template <typename ConstraintType> Acir::Opcode constraint_to_acir_opcode(const 
         for (size_t i = 0; i < 8; ++i) {
             (*outputs)[i] = Acir::Witness{ .value = constraint.result[i] };
         }
-        return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                 .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::Sha256Compression{
-                                                                      .inputs = inputs,
-                                                                      .hash_values = hash_values,
-                                                                      .outputs = outputs,
-                                                                  } } } };
+        return { Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
+                                   .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::Sha256Compression{
+                                                                        .inputs = inputs,
+                                                                        .hash_values = hash_values,
+                                                                        .outputs = outputs,
+                                                                    } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, EcdsaConstraint>) {
         auto hashed_message = std::make_shared<std::array<Acir::FunctionInput, 32>>();
         for (size_t i = 0; i < 32; ++i) {
@@ -150,27 +257,27 @@ template <typename ConstraintType> Acir::Opcode constraint_to_acir_opcode(const 
         }
         auto predicate = witness_or_constant_to_function_input(constraint.predicate);
         if (constraint.type == bb::CurveType::SECP256K1) {
-            return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                     .value = Acir::BlackBoxFuncCall{
-                                         .value = Acir::BlackBoxFuncCall::EcdsaSecp256k1{
-                                             .public_key_x = public_key_x,
-                                             .public_key_y = public_key_y,
-                                             .signature = signature,
-                                             .hashed_message = hashed_message,
-                                             .predicate = predicate,
-                                             .output = Acir::Witness{ .value = constraint.result },
-                                         } } } };
+            return { Acir::Opcode{
+                .value = Acir::Opcode::BlackBoxFuncCall{
+                    .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::EcdsaSecp256k1{
+                                                         .public_key_x = public_key_x,
+                                                         .public_key_y = public_key_y,
+                                                         .signature = signature,
+                                                         .hashed_message = hashed_message,
+                                                         .predicate = predicate,
+                                                         .output = Acir::Witness{ .value = constraint.result },
+                                                     } } } } };
         }
-        return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                 .value =
-                                     Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::EcdsaSecp256r1{
-                                                                 .public_key_x = public_key_x,
-                                                                 .public_key_y = public_key_y,
-                                                                 .signature = signature,
-                                                                 .hashed_message = hashed_message,
-                                                                 .predicate = predicate,
-                                                                 .output = Acir::Witness{ .value = constraint.result },
-                                                             } } } };
+        return { Acir::Opcode{
+            .value = Acir::Opcode::BlackBoxFuncCall{
+                .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::EcdsaSecp256r1{
+                                                     .public_key_x = public_key_x,
+                                                     .public_key_y = public_key_y,
+                                                     .signature = signature,
+                                                     .hashed_message = hashed_message,
+                                                     .predicate = predicate,
+                                                     .output = Acir::Witness{ .value = constraint.result },
+                                                 } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, Blake2sConstraint>) {
         std::vector<Acir::FunctionInput> inputs;
         for (const auto& input : constraint.inputs) {
@@ -180,11 +287,11 @@ template <typename ConstraintType> Acir::Opcode constraint_to_acir_opcode(const 
         for (size_t i = 0; i < 32; ++i) {
             (*outputs)[i] = Acir::Witness{ .value = constraint.result[i] };
         }
-        return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                 .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::Blake2s{
-                                                                      .inputs = std::move(inputs),
-                                                                      .outputs = outputs,
-                                                                  } } } };
+        return { Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
+                                   .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::Blake2s{
+                                                                        .inputs = std::move(inputs),
+                                                                        .outputs = outputs,
+                                                                    } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, Blake3Constraint>) {
         std::vector<Acir::FunctionInput> inputs;
         for (const auto& input : constraint.inputs) {
@@ -194,11 +301,11 @@ template <typename ConstraintType> Acir::Opcode constraint_to_acir_opcode(const 
         for (size_t i = 0; i < 32; ++i) {
             (*outputs)[i] = Acir::Witness{ .value = constraint.result[i] };
         }
-        return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                 .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::Blake3{
-                                                                      .inputs = std::move(inputs),
-                                                                      .outputs = outputs,
-                                                                  } } } };
+        return { Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
+                                   .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::Blake3{
+                                                                        .inputs = std::move(inputs),
+                                                                        .outputs = outputs,
+                                                                    } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, Keccakf1600>) {
         auto inputs = std::make_shared<std::array<Acir::FunctionInput, 25>>();
         for (size_t i = 0; i < 25; ++i) {
@@ -208,11 +315,11 @@ template <typename ConstraintType> Acir::Opcode constraint_to_acir_opcode(const 
         for (size_t i = 0; i < 25; ++i) {
             (*outputs)[i] = Acir::Witness{ .value = constraint.result[i] };
         }
-        return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                 .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::Keccakf1600{
-                                                                      .inputs = inputs,
-                                                                      .outputs = outputs,
-                                                                  } } } };
+        return { Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
+                                   .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::Keccakf1600{
+                                                                        .inputs = inputs,
+                                                                        .outputs = outputs,
+                                                                    } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, Poseidon2Constraint>) {
         std::vector<Acir::FunctionInput> inputs;
         for (const auto& input : constraint.state) {
@@ -222,11 +329,12 @@ template <typename ConstraintType> Acir::Opcode constraint_to_acir_opcode(const 
         for (const auto& out : constraint.result) {
             outputs.push_back(Acir::Witness{ .value = out });
         }
-        return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                 .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::Poseidon2Permutation{
-                                                                      .inputs = std::move(inputs),
-                                                                      .outputs = std::move(outputs),
-                                                                  } } } };
+        return { Acir::Opcode{
+            .value = Acir::Opcode::BlackBoxFuncCall{
+                .value = Acir::BlackBoxFuncCall{ .value = Acir::BlackBoxFuncCall::Poseidon2Permutation{
+                                                     .inputs = std::move(inputs),
+                                                     .outputs = std::move(outputs),
+                                                 } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, MultiScalarMul>) {
         std::vector<Acir::FunctionInput> points;
         for (const auto& pt : constraint.points) {
@@ -240,14 +348,14 @@ template <typename ConstraintType> Acir::Opcode constraint_to_acir_opcode(const 
         (*outputs)[0] = Acir::Witness{ .value = constraint.out_point_x };
         (*outputs)[1] = Acir::Witness{ .value = constraint.out_point_y };
         (*outputs)[2] = Acir::Witness{ .value = constraint.out_point_is_infinite };
-        return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                 .value = Acir::BlackBoxFuncCall{
-                                     .value = Acir::BlackBoxFuncCall::MultiScalarMul{
-                                         .points = std::move(points),
-                                         .scalars = std::move(scalars),
-                                         .predicate = witness_or_constant_to_function_input(constraint.predicate),
-                                         .outputs = outputs,
-                                     } } } };
+        return { Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
+                                   .value = Acir::BlackBoxFuncCall{
+                                       .value = Acir::BlackBoxFuncCall::MultiScalarMul{
+                                           .points = std::move(points),
+                                           .scalars = std::move(scalars),
+                                           .predicate = witness_or_constant_to_function_input(constraint.predicate),
+                                           .outputs = outputs,
+                                       } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, EcAdd>) {
         auto input1 = std::make_shared<std::array<Acir::FunctionInput, 3>>();
         (*input1)[0] = witness_or_constant_to_function_input(constraint.input1_x);
@@ -261,14 +369,14 @@ template <typename ConstraintType> Acir::Opcode constraint_to_acir_opcode(const 
         (*outputs)[0] = Acir::Witness{ .value = constraint.result_x };
         (*outputs)[1] = Acir::Witness{ .value = constraint.result_y };
         (*outputs)[2] = Acir::Witness{ .value = constraint.result_infinite };
-        return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                 .value = Acir::BlackBoxFuncCall{
-                                     .value = Acir::BlackBoxFuncCall::EmbeddedCurveAdd{
-                                         .input1 = input1,
-                                         .input2 = input2,
-                                         .predicate = witness_or_constant_to_function_input(constraint.predicate),
-                                         .outputs = outputs,
-                                     } } } };
+        return { Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
+                                   .value = Acir::BlackBoxFuncCall{
+                                       .value = Acir::BlackBoxFuncCall::EmbeddedCurveAdd{
+                                           .input1 = input1,
+                                           .input2 = input2,
+                                           .predicate = witness_or_constant_to_function_input(constraint.predicate),
+                                           .outputs = outputs,
+                                       } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, RecursionConstraint>) {
         std::vector<Acir::FunctionInput> verification_key;
         for (const auto& key_idx : constraint.key) {
@@ -282,18 +390,18 @@ template <typename ConstraintType> Acir::Opcode constraint_to_acir_opcode(const 
         for (const auto& pub_input_idx : constraint.public_inputs) {
             public_inputs.push_back(witness_to_function_input(pub_input_idx));
         }
-        return Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
-                                 .value = Acir::BlackBoxFuncCall{
-                                     .value = Acir::BlackBoxFuncCall::RecursiveAggregation{
-                                         .verification_key = std::move(verification_key),
-                                         .proof = std::move(proof),
-                                         .public_inputs = std::move(public_inputs),
-                                         .key_hash = witness_to_function_input(constraint.key_hash),
-                                         .proof_type = constraint.proof_type,
-                                         .predicate = witness_or_constant_to_function_input(constraint.predicate),
-                                     } } } };
+        return { Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
+                                   .value = Acir::BlackBoxFuncCall{
+                                       .value = Acir::BlackBoxFuncCall::RecursiveAggregation{
+                                           .verification_key = std::move(verification_key),
+                                           .proof = std::move(proof),
+                                           .public_inputs = std::move(public_inputs),
+                                           .key_hash = witness_to_function_input(constraint.key_hash),
+                                           .proof_type = constraint.proof_type,
+                                           .predicate = witness_or_constant_to_function_input(constraint.predicate),
+                                       } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, BlockConstraint>) {
-        throw_or_abort("BlockConstraint conversion to Acir::Opcode is not currently supported.");
+        return block_constraint_to_acir_opcodes(constraint);
     } else if constexpr (std::is_same_v<ConstraintType, AcirFormat::ArithTripleConstraint>) {
         throw_or_abort("ArithTripleConstraint conversion to Acir::Opcode is not currently supported.");
     } else if constexpr (std::is_same_v<ConstraintType, bb::mul_quad_<bb::curve::BN254::ScalarField>>) {
@@ -306,18 +414,18 @@ template <typename ConstraintType> Acir::Opcode constraint_to_acir_opcode(const 
 }
 
 /**
- * @brief Build an Acir::Circuit from a single opcode and witness count.
+ * @brief Build an Acir::Circuit from opcodes and witness count.
  *
- * @param opcode The ACIR opcode to include in the circuit
+ * @param opcodes The ACIR opcodes to include in the circuit
  * @param varnum The number of witnesses in the circuit
  * @return Acir::Circuit The constructed circuit
  */
-inline Acir::Circuit build_acir_circuit(const Acir::Opcode& opcode, uint32_t varnum)
+inline Acir::Circuit build_acir_circuit(const std::vector<Acir::Opcode>& opcodes, uint32_t varnum)
 {
     return Acir::Circuit{
         .function_name = "test_circuit",
         .current_witness_index = varnum > 0 ? varnum - 1 : 0,
-        .opcodes = { opcode },
+        .opcodes = opcodes,
         .private_parameters = {},
         .public_parameters = Acir::PublicInputs{ .value = {} },
         .return_values = Acir::PublicInputs{ .value = {} },
@@ -329,8 +437,8 @@ inline Acir::Circuit build_acir_circuit(const Acir::Opcode& opcode, uint32_t var
  * @brief Convert an AcirConstraint to AcirFormat by going through the full ACIR serde flow.
  *
  * @details This function:
- * 1. Converts the constraint to an Acir::Opcode
- * 2. Builds an Acir::Circuit with that opcode
+ * 1. Converts the constraint to Acir::Opcodes
+ * 2. Builds an Acir::Circuit with those opcodes
  * 3. Passes the circuit through circuit_serde_to_acir_format
  *
  * @param constraint The constraint to convert
@@ -340,8 +448,8 @@ inline Acir::Circuit build_acir_circuit(const Acir::Opcode& opcode, uint32_t var
 template <typename ConstraintType>
 AcirFormat constraint_to_acir_format(const ConstraintType& constraint, uint32_t varnum)
 {
-    Acir::Opcode opcode = constraint_to_acir_opcode(constraint);
-    Acir::Circuit circuit = build_acir_circuit(opcode, varnum);
+    std::vector<Acir::Opcode> opcodes = constraint_to_acir_opcode(constraint);
+    Acir::Circuit circuit = build_acir_circuit(opcodes, varnum);
     return circuit_serde_to_acir_format(circuit);
 }
 
