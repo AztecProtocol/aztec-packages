@@ -708,19 +708,16 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& blo
 
     // Lambda to determine whether a memory operation is a read or write operation
     auto is_read_operation = [&](const Acir::Expression& expr) {
-        bool is_read = true;
-
         BB_ASSERT(expr.mul_terms.empty(), "MemoryOp expression should not have multiplication terms");
         BB_ASSERT(expr.linear_combinations.empty(), "MemoryOp expression should not have linear terms");
 
-        fr const_term = fr::serialize_from_buffer(&expr.q_c[0]);
+        const fr const_term = fr::serialize_from_buffer(&expr.q_c[0]);
+
+        BB_ASSERT((const_term == fr::one()) || (const_term == fr::zero()),
+                  "MemoryOp expression should be either zero or one");
 
         // A read operation is given by a zero Expression
-        BB_ASSERT((const_term == fr::one()) || (const_term == fr::zero()),
-                  "MemoryOp expression should be either zero or a constant");
-        is_read &= const_term == fr::zero();
-
-        return is_read;
+        return const_term == fr::zero();
     };
 
     AccessType access_type = is_read_operation(mem_op.op.operation) ? AccessType::Read : AccessType::Write;
