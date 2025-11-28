@@ -652,20 +652,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     {
         return boomerang_utils.get_all_aes128_witnesses();
     }
-    void update_tmp_marked_logic_witnesses(uint32_t var_idx)
-    {
-        boomerang_utils.update_tmp_marked_logic_witnesses(var_idx);
-    }
-    std::unordered_set<uint32_t> get_tmp_marked_logic_witnesses() const
-    {
-        return boomerang_utils.get_tmp_marked_logic_witnesses();
-    }
-    void save_and_clear_tmp_marked_logic_witnesses() { boomerang_utils.save_and_clear_tmp_marked_logic_witnesses(); }
-    const std::vector<std::unordered_set<uint32_t>>& get_all_tmp_logic_witnesses() const
-    {
-        return boomerang_utils.get_all_tmp_logic_witnesses();
-    }
-
     // ========================================================================================
 
     msgpack::sbuffer export_circuit() override;
