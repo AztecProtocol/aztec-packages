@@ -170,7 +170,7 @@ describe('Basic Barretenberg Example', () => {
     this.timeout(60000);
 
     // docs:start:low_level_api
-    const api = await Barretenberg.new({ threads: 1 });
+    const api = await Barretenberg.new({ threads: 1, logger: console.log });
 
     // Blake2s hashing
     const input = Buffer.from('hello world!');

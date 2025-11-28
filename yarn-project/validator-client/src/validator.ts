@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
@@ -16,7 +17,7 @@ import type { IFullNodeBlockBuilder, Validator, ValidatorClientFullConfig } from
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
-import type { StateReference, Tx } from '@aztec/stdlib/tx';
+import type { Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -53,7 +54,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   // Used to check if we are sending the same proposal twice
   private previousProposal?: BlockProposal;
 
-  private lastEpochForCommitteeUpdateLoop: bigint | undefined;
+  private lastEpochForCommitteeUpdateLoop: EpochNumber | undefined;
   private epochCacheUpdateLoop: RunningPromise;
 
   private proposersOfInvalidBlocks: Set<string> = new Set();
@@ -228,14 +229,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     const myAddresses = this.getValidatorAddresses();
     const inCommittee = await this.epochCache.filterInCommittee('now', myAddresses);
+    this.log.info(`Started validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
     if (inCommittee.length > 0) {
-      this.log.info(
-        `Started validator with addresses in current validator committee: ${inCommittee
-          .map(a => a.toString())
-          .join(', ')}`,
-      );
-    } else {
-      this.log.info(`Started validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
+      this.log.info(`Addresses in current validator committee: ${inCommittee.map(a => a.toString()).join(', ')}`);
     }
     this.epochCacheUpdateLoop.start();
 
@@ -408,7 +404,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     blockNumber: number,
     header: CheckpointHeader,
     archive: Fr,
-    stateReference: StateReference,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
@@ -418,14 +413,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return Promise.resolve(undefined);
     }
 
-    const newProposal = await this.validationService.createBlockProposal(
-      header,
-      archive,
-      stateReference,
-      txs,
-      proposerAddress,
-      { ...options, broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal },
-    );
+    const newProposal = await this.validationService.createBlockProposal(header, archive, txs, proposerAddress, {
+      ...options,
+      broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
+    });
     this.previousProposal = newProposal;
     return newProposal;
   }

@@ -186,7 +186,8 @@ export class TestContext {
     }
 
     const checkpointIndex = this.nextCheckpointIndex++;
-    const slotNumber = checkpointIndex + 1;
+    const checkpointNumber = checkpointIndex + 1;
+    const slotNumber = checkpointNumber * 15; // times an arbitrary number to make it different to the checkpoint number
 
     const constants = makeCheckpointConstants(slotNumber, constantOpts);
 
@@ -238,7 +239,12 @@ export class TestContext {
     });
 
     const cleanFork = await this.worldState.fork();
-    const builder = await LightweightCheckpointBuilder.startNewCheckpoint(constants, l1ToL2Messages, cleanFork);
+    const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
+      checkpointNumber,
+      constants,
+      l1ToL2Messages,
+      cleanFork,
+    );
 
     // Add tx effects to db and build block headers.
     const blocks = [];

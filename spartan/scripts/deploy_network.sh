@@ -14,6 +14,13 @@ err() { echo "[ERROR] $(date -Is) - $*" >&2; }
 die() { err "$*"; exit 1; }
 
 ########################
+# TIMING INSTRUMENTATION
+########################
+# Capture deployment timings for CI benchmarks
+DEPLOY_START_TIME=$(date +%s)
+declare -A STAGE_TIMINGS
+
+########################
 # GLOBAL VARIABLES
 ########################
 NAMESPACE=${NAMESPACE} # required
@@ -213,6 +220,7 @@ L1_CONSENSUS_HOST_API_KEY_HEADERS_JSON="[]"
 
 if [[ "${CREATE_ETH_DEVNET}" == "true" ]]; then
   log "CREATE_ETH_DEVNET=true - deploying Ethereum devnet"
+  ETH_DEVNET_START=$(date +%s)
 
   DEPLOY_ETH_DEVNET_DIR="${SCRIPT_DIR}/../terraform/deploy-eth-devnet"
   cat > "${DEPLOY_ETH_DEVNET_DIR}/terraform.tfvars" << EOF
@@ -235,6 +243,7 @@ EOF
 
   L1_RPC_URL=$(terraform -chdir="${DEPLOY_ETH_DEVNET_DIR}" output -raw eth_execution_rpc_url)
   L1_CONSENSUS_HOST_URL=$(terraform -chdir="${DEPLOY_ETH_DEVNET_DIR}" output -raw eth_beacon_api_url)
+  STAGE_TIMINGS[eth_devnet]=$(($(date +%s) - ETH_DEVNET_START))
   [[ -n "${L1_RPC_URL}" ]] || die "Failed to fetch eth_execution_rpc_url"
   [[ -n "${L1_CONSENSUS_HOST_URL}" ]] || die "Failed to fetch eth_beacon_api_url"
 
@@ -264,6 +273,7 @@ fi
 # -------------------------------
 # Deploy rollup contracts
 # -------------------------------
+ROLLUP_CONTRACTS_START=$(date +%s)
 DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
 "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts/${SALT}"
 
@@ -327,6 +337,7 @@ for pod in $(kubectl get pods -n "${NAMESPACE}" -l "job-name=${JOB_NAME}" \
   kubectl logs -n "${NAMESPACE}" "$pod" 2>/dev/null || true
 done
 
+STAGE_TIMINGS[rollup_contracts]=$(($(date +%s) - ROLLUP_CONTRACTS_START))
 log "Deployed rollup contracts"
 
 if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
@@ -353,6 +364,7 @@ fi
 # -------------------------------
 # Deploy Aztec infra
 # -------------------------------
+AZTEC_INFRA_START=$(date +%s)
 DEPLOY_AZTEC_INFRA_DIR="${SCRIPT_DIR}/../terraform/deploy-aztec-infra"
 "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_AZTEC_INFRA_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-aztec-infra/${SALT}"
 
@@ -461,5 +473,31 @@ FISHERMAN_LOG_LEVEL = "${FISHERMAN_LOG_LEVEL}"
 EOF
 
 tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}"
+STAGE_TIMINGS[aztec_infra]=$(($(date +%s) - AZTEC_INFRA_START))
 log "Deployed aztec infra"
+
+# Calculate total deployment time
+DEPLOY_END_TIME=$(date +%s)
+TOTAL_DEPLOY_TIME=$((DEPLOY_END_TIME - DEPLOY_START_TIME))
+
+# Output benchmark JSON for CI benchmarks
+mkdir -p "${SCRIPT_DIR}/../bench-out"
+BENCH_OUTPUT="${SCRIPT_DIR}/../bench-out/network_deploy.bench.json"
+
+# Build benchmark JSON array
+BENCH_JSON='['
+BENCH_JSON+='{"name": "ci/network_deploy/total", "value": '"${TOTAL_DEPLOY_TIME}"', "unit": "seconds"}'
+
+if [[ -n "${STAGE_TIMINGS[eth_devnet]:-}" ]]; then
+  BENCH_JSON+=',{"name": "ci/network_deploy/eth_devnet", "value": '"${STAGE_TIMINGS[eth_devnet]}"', "unit": "seconds"}'
+fi
+
+BENCH_JSON+=',{"name": "ci/network_deploy/rollup_contracts", "value": '"${STAGE_TIMINGS[rollup_contracts]}"', "unit": "seconds"}'
+BENCH_JSON+=',{"name": "ci/network_deploy/aztec_infra", "value": '"${STAGE_TIMINGS[aztec_infra]}"', "unit": "seconds"}'
+BENCH_JSON+=']'
+
+echo "${BENCH_JSON}" | jq '.' > "${BENCH_OUTPUT}"
+log "Benchmark JSON written to ${BENCH_OUTPUT}"
+
+log "Total deployment time: ${TOTAL_DEPLOY_TIME} seconds"
 

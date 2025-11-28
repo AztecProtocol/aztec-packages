@@ -1,4 +1,5 @@
 import { InboxContract, type RollupContract } from '@aztec/ethereum/contracts';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -13,7 +14,7 @@ export type ChainMonitorEventMap = {
   checkpoint: [{ checkpointNumber: number; l1BlockNumber: number; l2SlotNumber: number; timestamp: bigint }];
   'checkpoint-proven': [{ provenCheckpointNumber: number; l1BlockNumber: number; timestamp: bigint }];
   'l2-messages': [{ totalL2Messages: number; l1BlockNumber: number }];
-  'l2-epoch': [{ l2EpochNumber: number; timestamp: bigint; committee: EthAddress[] | undefined }];
+  'l2-epoch': [{ l2EpochNumber: EpochNumber; timestamp: bigint; committee: EthAddress[] | undefined }];
   'l2-slot': [{ l2SlotNumber: number; timestamp: bigint }];
 };
 
@@ -38,7 +39,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   /** Total number of L2 messages pushed into the Inbox */
   public totalL2Messages: number = 0;
   /** Current L2 epoch number */
-  public l2EpochNumber!: bigint;
+  public l2EpochNumber!: EpochNumber;
   /** Current L2 slot number */
   public l2SlotNumber!: bigint;
 
@@ -153,7 +154,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     if (l2Epoch !== this.l2EpochNumber) {
       this.l2EpochNumber = l2Epoch;
       committee = (await this.rollup.getCurrentEpochCommittee())?.map(addr => EthAddress.fromString(addr));
-      this.emit('l2-epoch', { l2EpochNumber: Number(l2Epoch), timestamp, committee });
+      this.emit('l2-epoch', { l2EpochNumber: l2Epoch, timestamp, committee });
       msg += ` starting new epoch ${this.l2EpochNumber} `;
     }
 

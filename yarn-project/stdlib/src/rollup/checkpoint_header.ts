@@ -136,18 +136,19 @@ export class CheckpointHeader {
     });
   }
 
-  static random(): CheckpointHeader {
-    return new CheckpointHeader(
-      Fr.random(),
-      Fr.random(),
-      ContentCommitment.random(),
-      new Fr(BigInt(Math.floor(Math.random() * 1000) + 1)),
-      BigInt(Math.floor(Date.now() / 1000)),
-      EthAddress.random(),
-      new AztecAddress(Fr.random()),
-      GasFees.random(),
-      new Fr(BigInt(Math.floor(Math.random() * 1000000))),
-    );
+  static random(overrides: Partial<FieldsOf<CheckpointHeader>> = {}): CheckpointHeader {
+    return CheckpointHeader.from({
+      lastArchiveRoot: Fr.random(),
+      blockHeadersHash: Fr.random(),
+      contentCommitment: ContentCommitment.random(),
+      slotNumber: new Fr(BigInt(Math.floor(Math.random() * 1000) + 1)),
+      timestamp: BigInt(Math.floor(Date.now() / 1000)),
+      coinbase: EthAddress.random(),
+      feeRecipient: new AztecAddress(Fr.random()),
+      gasFees: GasFees.random(),
+      totalManaUsed: new Fr(BigInt(Math.floor(Math.random() * 1000000))),
+      ...overrides,
+    });
   }
 
   isEmpty(): boolean {

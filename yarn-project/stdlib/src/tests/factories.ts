@@ -1,4 +1,9 @@
-import { makeBatchedBlobAccumulator, makeSpongeBlob } from '@aztec/blob-lib/testing';
+import {
+  makeBlobAccumulator,
+  makeFinalBlobAccumulator,
+  makeFinalBlobBatchingChallenges,
+  makeSpongeBlob,
+} from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
@@ -77,7 +82,7 @@ import {
 import { PublicDataRead } from '../avm/public_data_read.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { L2BlockHeader } from '../block/index.js';
+import { L2BlockHeader } from '../block/l2_block_header.js';
 import {
   type ContractClassPublic,
   ContractDeploymentData,
@@ -296,7 +301,12 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 }
 
 function makeTxConstantData(seed = 1) {
-  return new TxConstantData(makeHeader(seed), makeTxContext(seed + 0x100), new Fr(seed + 0x200), new Fr(seed + 0x201));
+  return new TxConstantData(
+    makeBlockHeader(seed),
+    makeTxContext(seed + 0x100),
+    new Fr(seed + 0x200),
+    new Fr(seed + 0x201),
+  );
 }
 
 function makePaddedTuple<T, N extends number>(
@@ -673,7 +683,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     endSideEffectCounter: fr(seed + 0x850),
     expectedNonRevertibleSideEffectCounter: fr(seed + 0x860),
     expectedRevertibleSideEffectCounter: fr(seed + 0x861),
-    anchorBlockHeader: makeHeader(seed + 0xd00, undefined),
+    anchorBlockHeader: makeBlockHeader(seed + 0xd00),
     txContext: makeTxContext(seed + 0x1400),
     isFeePayer: false,
   });
@@ -825,16 +835,15 @@ export function makeBlockRollupPublicInputs(seed = 0): BlockRollupPublicInputs {
 }
 
 export function makeCheckpointRollupPublicInputs(seed = 0) {
-  const startBlobAccumulator = makeBatchedBlobAccumulator(seed);
   return new CheckpointRollupPublicInputs(
     makeEpochConstantData(seed),
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
-    startBlobAccumulator.toBlobAccumulator(),
-    makeBatchedBlobAccumulator(seed + 1).toBlobAccumulator(),
-    startBlobAccumulator.finalBlobChallenges,
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x400),
+    makeBlobAccumulator(seed + 0x500),
+    makeBlobAccumulator(seed + 0x600),
+    makeFinalBlobBatchingChallenges(seed + 0x700),
   );
 }
 
@@ -869,7 +878,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
-    makeBatchedBlobAccumulator(seed).toFinalBlobAccumulator(),
+    makeFinalBlobAccumulator(seed + 0x700),
   );
 }
 
@@ -880,23 +889,15 @@ export function makeContentCommitment(seed = 0): ContentCommitment {
   return new ContentCommitment(fr(seed + 0x100), fr(seed + 0x200), fr(seed + 0x300));
 }
 
-/**
- * Makes header.
- */
-export function makeHeader(
+export function makeBlockHeader(
   seed = 0,
-  blockNumber: number | undefined = undefined,
-  slotNumber: number | undefined = undefined,
-  overrides: Partial<FieldsOf<BlockHeader>> = {},
+  overrides: Partial<FieldsOf<Omit<BlockHeader, 'globalVariables'>>> & Partial<FieldsOf<GlobalVariables>> = {},
 ): BlockHeader {
   return BlockHeader.from({
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x100),
     state: makeStateReference(seed + 0x200),
     spongeBlobHash: fr(seed + 0x300),
-    globalVariables: makeGlobalVariables((seed += 0x700), {
-      ...(blockNumber ? { blockNumber } : {}),
-      ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
-    }),
+    globalVariables: makeGlobalVariables((seed += 0x700), overrides),
     totalFees: fr(seed + 0x800),
     totalManaUsed: fr(seed + 0x900),
     ...overrides,

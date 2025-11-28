@@ -5,7 +5,12 @@ import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { GlobalVariables } from '@aztec/aztec.js/tx';
-import { BatchedBlob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
+import {
+  BatchedBlob,
+  BatchedBlobAccumulator,
+  getBlobsPerL1Block,
+  getPrefixedEthBlobCommitments,
+} from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
@@ -22,6 +27,7 @@ import {
 import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
@@ -428,7 +434,7 @@ describe('L1Publisher integration', () => {
         blobFieldsPerCheckpoint.push(checkpointBlobFields);
 
         // Batch the blobs so far, so they can be used in the L1 unit tests:
-        currentBatch = await BatchedBlob.batch(blobFieldsPerCheckpoint);
+        currentBatch = await BatchedBlobAccumulator.batch(blobFieldsPerCheckpoint);
 
         await writeJson(
           `${jsonFileNamePrefix}_${block.number}`,
@@ -456,8 +462,8 @@ describe('L1Publisher integration', () => {
         const thisBlockNumber = BigInt(block.header.globalVariables.blockNumber);
         const isFirstBlockOfEpoch =
           thisBlockNumber == 1n ||
-          (await rollup.getEpochNumberForCheckpoint(thisBlockNumber)) >
-            (await rollup.getEpochNumberForCheckpoint(thisBlockNumber - 1n));
+          BigInt(await rollup.getEpochNumberForCheckpoint(thisBlockNumber)) >
+            BigInt(await rollup.getEpochNumberForCheckpoint(thisBlockNumber - 1n));
         // If we are at the first blob of the epoch, we must initialize the hash:
         prevBlobAccumulatorHash = isFirstBlockOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
         const currentBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
@@ -479,7 +485,6 @@ describe('L1Publisher integration', () => {
             {
               header: block.getCheckpointHeader().toViem(),
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
-              stateReference: block.header.state.toViem(),
               oracleInput: {
                 feeAssetPriceModifier: 0n,
               },
@@ -682,7 +687,7 @@ describe('L1Publisher integration', () => {
         block: block.toBlockInfo(),
         attestors: [],
         attestations: badAttestations,
-        epoch: 1n,
+        epoch: EpochNumber(1),
         seed: 1n,
         reason: 'insufficient-attestations',
       });
@@ -702,7 +707,9 @@ describe('L1Publisher integration', () => {
       await expect(publisher.validateBlockHeader(block.getCheckpointHeader())).rejects.toThrow(
         /Rollup__InvalidArchive/,
       );
-      await publisher.validateBlockHeader(block.getCheckpointHeader(), { forcePendingBlockNumber });
+      await publisher.validateBlockHeader(block.getCheckpointHeader(), {
+        forcePendingBlockNumber: forcePendingBlockNumber ?? 0,
+      });
 
       // At this point I'm gonna need to propose the correct signature ye? So confused actually here.
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
@@ -715,7 +722,7 @@ describe('L1Publisher integration', () => {
       logger.warn('Enqueuing requests to invalidate and propose the block');
       publisher.enqueueInvalidateBlock(invalidateRequest);
       await publisher.enqueueProposeL2Block(block, attestationsAndSigners, attestationsAndSignersSignature, {
-        forcePendingBlockNumber,
+        forcePendingBlockNumber: forcePendingBlockNumber ?? 0,
       });
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);

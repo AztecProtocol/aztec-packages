@@ -1,3 +1,4 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
@@ -80,22 +81,6 @@ export type ViemContentCommitment = {
 export type ViemGasFees = {
   feePerDaGas: bigint;
   feePerL2Gas: bigint;
-};
-
-export type ViemStateReference = {
-  l1ToL2MessageTree: ViemAppendOnlyTreeSnapshot;
-  partialStateReference: ViemPartialStateReference;
-};
-
-export type ViemPartialStateReference = {
-  noteHashTree: ViemAppendOnlyTreeSnapshot;
-  nullifierTree: ViemAppendOnlyTreeSnapshot;
-  publicDataTree: ViemAppendOnlyTreeSnapshot;
-};
-
-export type ViemAppendOnlyTreeSnapshot = {
-  root: `0x${string}`;
-  nextAvailableLeafIndex: number;
 };
 
 export enum SlashingProposerType {
@@ -387,8 +372,8 @@ export class RollupContract {
     return this.rollup.read.getCurrentSampleSeed();
   }
 
-  getCurrentEpoch() {
-    return this.rollup.read.getCurrentEpoch();
+  async getCurrentEpoch(): Promise<EpochNumber> {
+    return EpochNumber.fromBigInt(await this.rollup.read.getCurrentEpoch());
   }
 
   async getCurrentEpochCommittee(): Promise<readonly `0x${string}`[] | undefined> {
@@ -451,16 +436,16 @@ export class RollupContract {
     return this.rollup.read.getAvailableValidatorFlushes();
   }
 
-  getNextFlushableEpoch() {
-    return this.rollup.read.getNextFlushableEpoch();
+  async getNextFlushableEpoch(): Promise<EpochNumber> {
+    return EpochNumber.fromBigInt(await this.rollup.read.getNextFlushableEpoch());
   }
 
-  getCurrentEpochNumber(): Promise<bigint> {
-    return this.rollup.read.getCurrentEpoch();
+  async getCurrentEpochNumber(): Promise<EpochNumber> {
+    return EpochNumber.fromBigInt(await this.rollup.read.getCurrentEpoch());
   }
 
-  getEpochNumberForCheckpoint(checkpointNumber: bigint) {
-    return this.rollup.read.getEpochForCheckpoint([BigInt(checkpointNumber)]);
+  async getEpochNumberForCheckpoint(checkpointNumber: bigint): Promise<EpochNumber> {
+    return EpochNumber.fromBigInt(await this.rollup.read.getEpochForCheckpoint([BigInt(checkpointNumber)]));
   }
 
   async getRollupAddresses(): Promise<L1RollupContractAddresses> {
@@ -500,8 +485,8 @@ export class RollupContract {
     return EthAddress.fromString(await this.rollup.read.getFeeAssetPortal());
   }
 
-  public async getEpochNumberForSlotNumber(slotNumber: bigint): Promise<bigint> {
-    return await this.rollup.read.getEpochAtSlot([slotNumber]);
+  public async getEpochNumberForSlotNumber(slotNumber: bigint): Promise<EpochNumber> {
+    return EpochNumber.fromBigInt(await this.rollup.read.getEpochAtSlot([slotNumber]));
   }
 
   getEpochProofPublicInputs(
@@ -641,7 +626,7 @@ export class RollupContract {
   }
 
   /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
-  public getHasSubmittedProof(epochNumber: number, numberOfCheckpointsInEpoch: number, prover: Hex | EthAddress) {
+  public getHasSubmittedProof(epochNumber: EpochNumber, numberOfCheckpointsInEpoch: number, prover: Hex | EthAddress) {
     if (prover instanceof EthAddress) {
       prover = prover.toString();
     }
