@@ -52,6 +52,17 @@ namespace bb::avm2::simulation {
 // This order is crucial for the completeness of the circuit. In tracegen, we rely on this order to correctly
 // populate the execution trace. In particular, we stop processing if any of the above exceptions are thrown.
 
+/**
+ * @brief ADD execution opcode handler: Add two values.
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value.
+ * @param b_addr The resolved address of the second input value.
+ * @param dst_addr The resolved address of the output value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the tags of both inputs do not match.
+ */
 void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::add");
@@ -72,6 +83,17 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     }
 }
 
+/**
+ * @brief SUB execution opcode handler: Subtract two values.
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value.
+ * @param b_addr The resolved address of the second input value (subtrahend).
+ * @param dst_addr The resolved address of the output value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the tags of both inputs do not match.
+ */
 void Execution::sub(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::sub");
@@ -92,6 +114,17 @@ void Execution::sub(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     }
 }
 
+/**
+ * @brief MUL execution opcode handler: Multiply two values.
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value.
+ * @param b_addr The resolved address of the second input value.
+ * @param dst_addr The resolved address of the output value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the tags of both inputs do not match.
+ */
 void Execution::mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::mul");
@@ -112,6 +145,20 @@ void Execution::mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     }
 }
 
+/**
+ * @brief DIV execution opcode handler: Divide two values.
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value.
+ * @param b_addr The resolved address of the second input value (divisor).
+ * @param dst_addr The resolved address of the output value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the division operation fails:
+ *        - the tags of both inputs do not match
+ *        - the divisor is zero
+ *        - both inputs are field elements
+ */
 void Execution::div(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::div");
@@ -132,6 +179,20 @@ void Execution::div(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     }
 }
 
+/**
+ * @brief FDIV execution opcode handler: Divide two field values.
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value.
+ * @param b_addr The resolved address of the second input value (divisor).
+ * @param dst_addr The resolved address of the output value.
+ *
+ * @throws RegisterValidationException if one of the input tag is not a field element
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the field division operation fails:
+ *        - the tags of both inputs do not match
+ *        - the divisor is zero
+ */
 void Execution::fdiv(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::fdiv");
@@ -152,6 +213,17 @@ void Execution::fdiv(ContextInterface& context, MemoryAddress a_addr, MemoryAddr
     }
 }
 
+/**
+ * @brief EQ execution opcode handler: Check if two values are equal.
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value.
+ * @param b_addr The resolved address of the second input value.
+ * @param dst_addr The resolved address of the output value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the tags of both inputs do not match
+ */
 void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::eq");
@@ -172,6 +244,17 @@ void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
     }
 }
 
+/**
+ * @brief LT execution opcode handler: Check if the first value is less than the second.
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value. (left operand)
+ * @param b_addr The resolved address of the second input value (right operand).
+ * @param dst_addr The resolved address of the output value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the tags of both inputs do not match
+ */
 void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::lt");
@@ -192,6 +275,17 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
     }
 }
 
+/**
+ * @brief LTE execution opcode handler: Check if the first value is less than or equal to the second.
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value. (left operand)
+ * @param b_addr The resolved address of the second input value (right operand).
+ * @param dst_addr The resolved address of the output value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the tags of both inputs do not match
+ */
 void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::lte");
@@ -212,6 +306,16 @@ void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     }
 }
 
+/**
+ * @brief NOT execution opcode handler: Perform bitwise NOT operation on a value.
+ *
+ * @param context The context.
+ * @param src_addr The resolved address of the input value.
+ * @param dst_addr The resolved address of the output value. (same tag as src_addr)
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the tag of the input value is FF (field element).
+ */
 void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::op_not");
@@ -231,7 +335,20 @@ void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, Memory
     }
 }
 
-void Execution::shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr)
+/**
+ * @brief SHL execution opcode handler: Perform left shift operation on a value.
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value. (left operand)
+ * @param b_addr The resolved address of the second input value (right operand).
+ * @param dst_addr The resolved address of the output value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the left shift operation fails:
+ *        - the tags of both inputs do not match
+ *        - both inputs are field elements
+ */
+void Execution::shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::shl");
     constexpr auto opcode = ExecutionOpCode::SHL;
@@ -244,14 +361,27 @@ void Execution::shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
 
     try {
         MemoryValue c = alu.shl(a, b);
-        memory.set(c_addr, c);
+        memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (const AluException& e) {
         throw OpcodeExecutionException("SHL Exception: " + std::string(e.what()));
     }
 }
 
-void Execution::shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr)
+/**
+ * @brief SHR execution opcode handler: Perform right shift operation on a value.
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value. (left operand)
+ * @param b_addr The resolved address of the second input value (right operand).
+ * @param dst_addr The resolved address of the output value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the right shift operation fails:
+ *        - the tags of both inputs do not match
+ *        - both inputs are field elements
+ */
+void Execution::shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::shr");
     constexpr auto opcode = ExecutionOpCode::SHR;
@@ -264,13 +394,23 @@ void Execution::shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
 
     try {
         MemoryValue c = alu.shr(a, b);
-        memory.set(c_addr, c);
+        memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (const AluException& e) {
         throw OpcodeExecutionException("SHR Exception: " + std::string(e.what()));
     }
 }
 
+/**
+ * @brief CAST execution opcode handler: Cast a value to a different tag.
+ *
+ * @param context The context.
+ * @param src_addr The resolved address of the input value.
+ * @param dst_addr The resolved address of the output value.
+ * @param dst_tag The target memory tag to cast to.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag)
 {
     BB_BENCH_NAME("Execution::cast");
@@ -285,6 +425,16 @@ void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAd
     set_output(opcode, truncated);
 }
 
+/**
+ * @brief GETENVVAR execution opcode handler: Get the value of an environment variable.
+ *
+ * @param context The context.
+ * @param dst_addr The resolved address of the output value.
+ * @param var_enum The enum value of the environment variable to get.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the enum value is invalid.
+ */
 void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
 {
     BB_BENCH_NAME("Execution::get_env_var");
@@ -341,18 +491,38 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
     set_output(opcode, result);
 }
 
+/**
+ * @brief SET execution opcode handler: Set the value at a memory location.
+ *        If the value does not fit in the target tag, it is truncated (like CAST operation).
+ *
+ * @param context The context.
+ * @param dst_addr The resolved address of the output memory value.
+ * @param dst_tag The destination tag of the value to set. (as an uint8_t)
+ * @param value The source value to set. (might get truncated)
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
-void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, const FF& value)
+void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t dst_tag, const FF& value)
 {
     BB_BENCH_NAME("Execution::set");
     get_gas_tracker().consume_gas();
 
     constexpr auto opcode = ExecutionOpCode::SET;
-    MemoryValue truncated = alu.truncate(value, static_cast<MemoryTag>(tag));
+    MemoryValue truncated = alu.truncate(value, static_cast<MemoryTag>(dst_tag));
     context.get_memory().set(dst_addr, truncated);
     set_output(opcode, truncated);
 }
 
+/**
+ * @brief MOV execution opcode handler: Move a memory value from one memory location to another.
+ *
+ * @param context The context.
+ * @param src_addr The resolved address of the source memory value.
+ * @param dst_addr The resolved address of the output memory value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::mov");
@@ -367,6 +537,27 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
     set_output(opcode, v);
 }
 
+/**
+ * @brief CALL execution opcode handler: Call a contract.
+ *        Creates a new (nested) execution context and triggers execution within that context.
+ *        Execution proceeds in the nested context until it reaches a halt at which point
+ *        execution resumes in the current/calling context.
+ *        A non-existent contract or one with no code will return success.
+ *
+ * @param context The context.
+ * @param l2_gas_offset The resolved address of the allocated L2 gas value.
+ * @param da_gas_offset The resolved address of the allocated DA gas value.
+ * @param addr The resolved address of the contract address.
+ * @param cd_size_offset The resolved address of the calldata size value.
+ * @param cd_offset The resolved address of the calldata offset value.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - l2_gas_offset memory value tag: U32
+ *        - da_gas_offset memory value tag: U32
+ *        - addr memory value tag: FF
+ *        - cd_size_offset memory value tag: U32
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::call(ContextInterface& context,
                      MemoryAddress l2_gas_offset,
                      MemoryAddress da_gas_offset,
@@ -406,6 +597,27 @@ void Execution::call(ContextInterface& context,
     handle_enter_call(context, std::move(nested_context));
 }
 
+/**
+ * @brief STATICCALL execution opcode handler: Call a contract in a static context.
+ *        Creates a new (nested) execution context and triggers execution within that context.
+ *        Execution proceeds in the nested context until it reaches a halt at which point
+ *        execution resumes in the current/calling context.
+ *        The created nested context is forced to be static (contrary to CALL where it is inherited).
+ *
+ * @param context The context.
+ * @param l2_gas_offset The resolved address of the allocated L2 gas value.
+ * @param da_gas_offset The resolved address of the allocated DA gas value.
+ * @param addr The resolved address of the contract address.
+ * @param cd_size_offset The resolved address of the calldata size value.
+ * @param cd_offset The resolved address of the calldata offset value.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - l2_gas_offset memory value tag: U32
+ *        - da_gas_offset memory value tag: U32
+ *        - addr memory value tag: FF
+ *        - cd_size_offset memory value tag: U32
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::static_call(ContextInterface& context,
                             MemoryAddress l2_gas_offset,
                             MemoryAddress da_gas_offset,
@@ -414,7 +626,7 @@ void Execution::static_call(ContextInterface& context,
                             MemoryAddress cd_offset)
 {
     BB_BENCH_NAME("Execution::static_call");
-    constexpr auto opcode = ExecutionOpCode::CALL;
+    constexpr auto opcode = ExecutionOpCode::STATICCALL;
     auto& memory = context.get_memory();
 
     // NOTE: these reads cannot fail due to addressing guarantees.
@@ -445,6 +657,22 @@ void Execution::static_call(ContextInterface& context,
     handle_enter_call(context, std::move(nested_context));
 }
 
+/**
+ * @brief CALLDATACOPY execution opcode handler: Copy calldata from the parent context to the current context.
+ *        The calldata is copied to the current context's memory at the specified offset.
+ *
+ * @param context The context.
+ * @param cd_size_offset The resolved address of the calldata size value.
+ * @param cd_offset The resolved address of the calldata offset value.
+ * @param dst_addr The resolved address of the destination memory location.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - cd_size_offset memory value tag: U32
+ *        - cd_offset memory value tag: U32
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the data copy operation fails:
+ *        - a read or write memory access is out of bounds.
+ */
 void Execution::cd_copy(ContextInterface& context,
                         MemoryAddress cd_size_offset,
                         MemoryAddress cd_offset,
@@ -466,6 +694,21 @@ void Execution::cd_copy(ContextInterface& context,
     }
 }
 
+/**
+ * @brief RETURNDATACOPY execution opcode handler: Copy return data from the current context to the parent context.
+ *
+ * @param context The context.
+ * @param rd_size_offset The resolved address of the return data size value.
+ * @param rd_offset The resolved address of the return data offset value.
+ * @param dst_addr The resolved address of the destination memory location.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - rd_size_offset memory value tag: U32
+ *        - rd_offset memory value tag: U32
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the data copy operation fails:
+ *        - a read or write memory access is out of bounds.
+ */
 void Execution::rd_copy(ContextInterface& context,
                         MemoryAddress rd_size_offset,
                         MemoryAddress rd_offset,
@@ -487,6 +730,14 @@ void Execution::rd_copy(ContextInterface& context,
     }
 }
 
+/**
+ * @brief RETURNDATASIZE execution opcode handler: Get the size of the return data.
+ *
+ * @param context The context.
+ * @param dst_addr The resolved address of the output memory value (return data size).
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::rd_size(ContextInterface& context, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::rd_size");
@@ -501,6 +752,19 @@ void Execution::rd_size(ContextInterface& context, MemoryAddress dst_addr)
     set_output(opcode, rd_size);
 }
 
+/**
+ * @brief RETURN execution opcode handler: Return from a contract.
+ *        Sets the execution result to the return data size and offset, and halts the execution.
+ *        The execution result is marked as successful.
+ *
+ * @param context The context.
+ * @param ret_size_offset The resolved address of the return data size value.
+ * @param ret_offset The resolved address of the return data offset value.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - ret_size_offset memory value tag: U32
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)
 {
     BB_BENCH_NAME("Execution::ret");
@@ -521,6 +785,19 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
     context.halt();
 }
 
+/**
+ * @brief REVERT execution opcode handler: Revert from a contract.
+ *        Sets the execution result to the revert data size and offset, and halts the execution.
+ *        The execution result is marked as unsuccessful.
+ *
+ * @param context The context.
+ * @param rev_size_offset The resolved address of the revert data size value.
+ * @param rev_offset The resolved address of the revert data offset value.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - rev_size_offset memory value tag: U32
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset)
 {
     BB_BENCH_NAME("Execution::revert");
@@ -541,6 +818,15 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
     context.halt();
 }
 
+/**
+ * @brief JUMP execution opcode handler: Jump to a new program counter.
+ *        Next instruction will be executed at the new program counter.
+ *
+ * @param context The context.
+ * @param loc The new program counter.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::jump(ContextInterface& context, uint32_t loc)
 {
     BB_BENCH_NAME("Execution::jump");
@@ -549,6 +835,18 @@ void Execution::jump(ContextInterface& context, uint32_t loc)
     context.set_next_pc(loc);
 }
 
+/**
+ * @brief JUMPI execution opcode handler: Jump to a new program counter conditionally.
+ *        Next instruction will be executed at the new program counter if the condition is true.
+ *
+ * @param context The context.
+ * @param cond_addr The resolved address of the condition value.
+ * @param loc The new program counter.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - cond_addr memory value tag: U1
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc)
 {
     BB_BENCH_NAME("Execution::jumpi");
@@ -565,6 +863,16 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
     }
 }
 
+/**
+ * @brief INTERNALCALL execution opcode handler: Call a function in the current context.
+ *        Pushes the current program counter onto the internal call stack and jumps to
+ *        the target location to call the function at.
+ *
+ * @param context The context.
+ * @param loc The target location to call the function at.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::internal_call(ContextInterface& context, uint32_t loc)
 {
     BB_BENCH_NAME("Execution::internal_call");
@@ -576,6 +884,15 @@ void Execution::internal_call(ContextInterface& context, uint32_t loc)
     context.set_next_pc(loc);
 }
 
+/**
+ * @brief INTERNALRETURN execution opcode handler: Return from a function in the current context.
+ *        Pops the current program counter from the internal call stack and jumps to the popped location.
+ *
+ * @param context The context.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the internal call stack is empty.
+ */
 void Execution::internal_return(ContextInterface& context)
 {
     BB_BENCH_NAME("Execution::internal_return");
@@ -591,6 +908,18 @@ void Execution::internal_return(ContextInterface& context)
     }
 }
 
+/**
+ * @brief KECCAKF1600 execution opcode handler: Perform a Keccak permutation on the data.
+ *
+ * @param context The context.
+ * @param dst_addr The resolved address of the destination memory location.
+ * @param src_addr The resolved address of the source memory location.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the Keccak permutation fails:
+ *        - a read or write memory access is out of bounds.
+ *        - a tag error is detected.
+ */
 void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr)
 {
     BB_BENCH_NAME("Execution::keccak_permutation");
@@ -603,6 +932,20 @@ void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_
     }
 }
 
+/**
+ * @brief DEBUGLOG execution opcode handler: Log a debug message.
+ *        Logs a debug message to the debug logger if the level is enabled.
+ *        Otherwise, it is a no-op.
+ *
+ * @param context The context.
+ * @param level_offset The resolved address of the log level value.
+ * @param message_offset The resolved address of the log message value.
+ * @param fields_offset The resolved address of the log fields value.
+ * @param fields_size_offset The resolved address of the log fields size value.
+ * @param message_size The size of the log message.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::debug_log(ContextInterface& context,
                           MemoryAddress level_offset,
                           MemoryAddress message_offset,
@@ -622,6 +965,14 @@ void Execution::debug_log(ContextInterface& context,
                                   fields_size_offset);
 }
 
+/**
+ * @brief SUCCESSCOPY execution opcode handler: Copy the success flag to the destination memory location.
+ *
+ * @param context The context.
+ * @param dst_addr The resolved address of the destination memory location.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::success_copy");
@@ -635,6 +986,19 @@ void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
     set_output(opcode, success);
 }
 
+/**
+ * @brief AND execution opcode handler: Perform a bitwise AND operation on the two input values.
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value.
+ * @param b_addr The resolved address of the second input value.
+ * @param dst_addr The resolved address of the output memory value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the bitwise AND operation fails:
+ *        - the tags of both inputs do not match
+ *        - both inputs are field elements
+ */
 void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::and_op");
@@ -657,6 +1021,21 @@ void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     }
 }
 
+/**
+ * @brief OR execution opcode handler: Perform a bitwise OR operation on the two input values.
+ *
+ *
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value.
+ * @param b_addr The resolved address of the second input value.
+ * @param dst_addr The resolved address of the output memory value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the bitwise OR operation fails:
+ *        - the tags of both inputs do not match
+ *        - both inputs are field elements
+ */
 void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::or_op");
@@ -679,6 +1058,19 @@ void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAdd
     }
 }
 
+/**
+ * @brief XOR execution opcode handler: Perform a bitwise XOR operation on the two input values.
+ *
+ * @param context The context.
+ * @param a_addr The resolved address of the first input value.
+ * @param b_addr The resolved address of the second input value.
+ * @param dst_addr The resolved address of the output memory value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the bitwise XOR operation fails:
+ *        - the tags of both inputs do not match
+ *        - both inputs are field elements
+ */
 void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::xor_op");
@@ -701,6 +1093,19 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     }
 }
 
+/**
+ * @brief SLOAD execution opcode handler: Load a value from the public data tree.
+ *        Loads a value from the public data tree at the specified slot.
+ *        The value is read from the public data tree and written to the destination memory address.
+ *
+ * @param context The context.
+ * @param slot_addr The resolved address of the slot value.
+ * @param dst_addr The resolved address of the output memory value.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - the slot tag is not FF.
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::sload");
@@ -719,6 +1124,21 @@ void Execution::sload(ContextInterface& context, MemoryAddress slot_addr, Memory
     set_output(opcode, value);
 }
 
+/**
+ * @brief SSTORE execution opcode handler: Store a value in the public data tree.
+ *
+ * @param context The context.
+ * @param src_addr The resolved address of the source memory value.
+ * @param slot_addr The resolved address of the slot value.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - tag of the memory value at src_addr is not FF.
+ *        - tag of the memory value at slot_addr is not FF.
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the storage write operation fails:
+ *        - the context is static.
+ *        - the maximum number of public data writes has been reached.
+ */
 void Execution::sstore(ContextInterface& context, MemoryAddress src_addr, MemoryAddress slot_addr)
 {
     BB_BENCH_NAME("Execution::sstore");
@@ -747,6 +1167,21 @@ void Execution::sstore(ContextInterface& context, MemoryAddress src_addr, Memory
     merkle_db.storage_write(context.get_address(), slot.as_ff(), value.as_ff(), false);
 }
 
+/**
+ * @brief NOTEHASHEXISTS execution opcode handler: Check if a note hash exists
+ *        in the note hash tree at the specified leaf index.
+ *        The result (boolean value) is written to the destination memory address.
+ *
+ * @param context The context.
+ * @param unique_note_hash_addr The resolved address of the unique note hash value.
+ * @param leaf_index_addr The resolved address of the leaf index value.
+ * @param dst_addr The resolved address of the output memory value.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - tag of the memory value at unique_note_hash_addr is not FF.
+ *        - tag of the memory value at leaf_index_addr is not U64.
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::note_hash_exists(ContextInterface& context,
                                  MemoryAddress unique_note_hash_addr,
                                  MemoryAddress leaf_index_addr,
@@ -778,6 +1213,19 @@ void Execution::note_hash_exists(ContextInterface& context,
     set_output(opcode, value);
 }
 
+/**
+ * @brief NULLIFIEREXISTS execution opcode handler: Check if a nullifier exists in the nullifier tree.
+ *
+ * @param context The context.
+ * @param nullifier_offset The resolved address of the nullifier value.
+ * @param address_offset The resolved address of the address value.
+ * @param dst_addr The resolved address of the output memory value (boolean value U1).
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - tag of the memory value at nullifier_offset is not FF.
+ *        - tag of the memory value at address_offset is not FF.
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::nullifier_exists(ContextInterface& context,
                                  MemoryAddress nullifier_offset,
                                  MemoryAddress address_offset,
@@ -804,6 +1252,20 @@ void Execution::nullifier_exists(ContextInterface& context,
     set_output(opcode, result);
 }
 
+/**
+ * @brief EMITNULLIFIER execution opcode handler: Emit a nullifier to the nullifier tree.
+ *
+ * @param context The context.
+ * @param nullifier_addr The resolved address of the nullifier value.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - tag of the memory value at nullifier_addr is not FF.
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the nullifier write operation fails:
+ *        - the context is static.
+ *        - the maximum number of nullifiers has been reached.
+ *        - the nullifier already exists (collision).
+ */
 void Execution::emit_nullifier(ContextInterface& context, MemoryAddress nullifier_addr)
 {
     BB_BENCH_NAME("Execution::emit_nullifier");
@@ -832,6 +1294,23 @@ void Execution::emit_nullifier(ContextInterface& context, MemoryAddress nullifie
     }
 }
 
+/**
+ * @brief GETCONTRACTINSTANCE execution opcode handler: Get a contract instance.
+ *        Gets a contract instance from the contract instance manager.
+ *        The result is written to the destination memory address.
+ *
+ * @param context The context.
+ * @param address_offset The resolved address of the contract address value.
+ * @param dst_offset The resolved address of the output (2 memory values: exists flag U1 and member value FF).
+ * @param member_enum The enum value of the member to get.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - tag of the memory value at address_offset is not FF.
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the contract instance retrieval operation fails:
+ *        - memory write out of bounds.
+ *        - invalid member enum.
+ */
 void Execution::get_contract_instance(ContextInterface& context,
                                       MemoryAddress address_offset,
                                       MemoryAddress dst_offset,
@@ -859,6 +1338,19 @@ void Execution::get_contract_instance(ContextInterface& context,
     // No `set_output` here since the dedicated component handles memory writes.
 }
 
+/**
+ * @brief EMITNOTEHASH execution opcode handler: Emit a note hash to the note hash tree.
+ *
+ * @param context The context.
+ * @param note_hash_addr The resolved address of the note hash value.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - tag of the memory value at note_hash_addr is not FF.
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the note hash write operation fails:
+ *        - the context is static.
+ *        - the maximum number of note hashes has been reached.
+ */
 void Execution::emit_note_hash(ContextInterface& context, MemoryAddress note_hash_addr)
 {
     BB_BENCH_NAME("Execution::emit_note_hash");
@@ -882,6 +1374,21 @@ void Execution::emit_note_hash(ContextInterface& context, MemoryAddress note_has
     merkle_db.note_hash_write(context.get_address(), note_hash.as<FF>());
 }
 
+/**
+ * @brief L1TOL2MSGEXISTS execution opcode handler: Check if a L2 to L1 message exists in the
+ *        L1 to L2 message tree at the specified leaf index.
+ *        The result (boolean value) is written to the destination memory address.
+ *
+ * @param context The context.
+ * @param msg_hash_addr The resolved address of the message hash value.
+ * @param leaf_index_addr The resolved address of the leaf index value.
+ * @param dst_addr The resolved address of the output memory value (boolean value U1).
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - tag of the memory value at msg_hash_addr is not FF.
+ *        - tag of the memory value at leaf_index_addr is not U64.
+ * @throws OutOfGasException if the gas limit is exceeded.
+ */
 void Execution::l1_to_l2_message_exists(ContextInterface& context,
                                         MemoryAddress msg_hash_addr,
                                         MemoryAddress leaf_index_addr,
@@ -913,6 +1420,19 @@ void Execution::l1_to_l2_message_exists(ContextInterface& context,
     set_output(opcode, value);
 }
 
+/**
+ * @brief POSEIDON2PERMUTATION execution opcode handler: Perform a Poseidon2 permutation on the input value.
+ *        The result is written to the destination memory address.
+ *
+ * @param context The context.
+ * @param src_addr The resolved address of the input value.
+ * @param dst_addr The resolved address of the output value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the Poseidon2 permutation operation fails:
+ *        - memory write out of bounds.
+ *        - invalid input tags (not FF).
+ */
 void Execution::poseidon2_permutation(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::poseidon2_permutation");
@@ -924,6 +1444,31 @@ void Execution::poseidon2_permutation(ContextInterface& context, MemoryAddress s
     }
 }
 
+/**
+ * @brief ECADD execution opcode handler: Perform an elliptic curve addition and
+ *        write the result to the destination memory address.
+ *
+ * @param context The context.
+ * @param p_x_addr The resolved address of the x coordinate of the first point.
+ * @param p_y_addr The resolved address of the y coordinate of the first point.
+ * @param p_inf_addr The resolved address of the infinity flag of the first point.
+ * @param q_x_addr The resolved address of the x coordinate of the second point.
+ * @param q_y_addr The resolved address of the y coordinate of the second point.
+ * @param q_inf_addr The resolved address of the infinity flag of the second point.
+ * @param dst_addr The resolved address of the destination memory address.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - tag of the memory value at p_x_addr is not FF.
+ *        - tag of the memory value at p_y_addr is not FF.
+ *        - tag of the memory value at p_inf_addr is not U1.
+ *        - tag of the memory value at q_x_addr is not FF.
+ *        - tag of the memory value at q_y_addr is not FF.
+ *        - tag of the memory value at q_inf_addr is not U1.
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the elliptic curve addition operation fails:
+ *        - memory write out of bounds.
+ *        - one of the input points is not on the curve.
+ */
 void Execution::ecc_add(ContextInterface& context,
                         MemoryAddress p_x_addr,
                         MemoryAddress p_y_addr,
@@ -961,6 +1506,30 @@ void Execution::ecc_add(ContextInterface& context,
     }
 }
 
+/**
+ * @brief TORADIXBE execution opcode handler: Convert a value to a radix-based representation.
+ *        The result is written to the destination memory address.
+ *
+ * @param context The context.
+ * @param value_addr The resolved address of the value value.
+ * @param radix_addr The resolved address of the radix value.
+ * @param num_limbs_addr The resolved address of the number of limbs value.
+ * @param is_output_bits_addr The resolved address of the output bits value.
+ * @param dst_addr The resolved address of the output memory values.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - tag of the memory value at value_addr is not FF.
+ *        - tag of the memory value at radix_addr is not U32.
+ *        - tag of the memory value at num_limbs_addr is not U32.
+ *        - tag of the memory value at is_output_bits_addr is not U1.
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the radix-based conversion operation fails:
+ *        - memory write out of bounds.
+ *        - invalid radix value (not within the valid range [2, 256]).
+ *        - invalid number of limbs value (if num_limbs is zero, but the value is not zero).
+ *        - invalid output bits value. (if is_output_bits is true, but the radix is not 2).
+ *        - truncation error. (if the value cannot be decomposed into the requested number of limbs).
+ */
 void Execution::to_radix_be(ContextInterface& context,
                             MemoryAddress value_addr,
                             MemoryAddress radix_addr,
@@ -1020,6 +1589,22 @@ void Execution::to_radix_be(ContextInterface& context,
     }
 }
 
+/**
+ * @brief EMITUNENCRYPTEDLOG execution opcode handler: Emit an unencrypted log.
+ *
+ * @param context The context.
+ * @param log_size_offset The resolved address of the log size value.
+ * @param log_offset The resolved address of the log field values.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - tag of the memory value at log_size_offset is not U32.
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the unencrypted log emission operation fails:
+ *        - memory read out of bounds.
+ *        - number of log fields exceeds the maximum allowed.
+ *        - tags of the log memory values are not FF.
+ *        - The current context is static.
+ */
 void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress log_size_offset, MemoryAddress log_offset)
 {
     BB_BENCH_NAME("Execution::emit_unencrypted_log");
@@ -1041,6 +1626,21 @@ void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress lo
     }
 }
 
+/**
+ * @brief SENDL2TOL1MSG execution opcode handler: Send a L2 to L1 message.
+ *
+ * @param context The context.
+ * @param recipient_addr The resolved address of the recipient value.
+ * @param content_addr The resolved address of the content value.
+ *
+ * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
+ *        - tag of the memory value at recipient_addr is not FF.
+ *        - tag of the memory value at content_addr is not FF.
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the L2 to L1 message send operation fails:
+ *        - the maximum number of L2 to L1 messages has been reached.
+ *        - the current context is static.
+ */
 void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recipient_addr, MemoryAddress content_addr)
 {
     BB_BENCH_NAME("Execution::send_l2_to_l1_msg");
@@ -1068,6 +1668,20 @@ void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recip
     side_effect_tracker.add_l2_to_l1_message(context.get_address(), EthAddress(recipient.as_ff()), content.as_ff());
 }
 
+/**
+ * @brief SHA256COMPRESSION execution opcode handler: Perform a SHA256 compression
+ *        on the input and state values. The result is written to the output memory address.
+ *
+ * @param context The context.
+ * @param output_addr The resolved address of the output memory values.
+ * @param state_addr The resolved address of the state value.
+ * @param input_addr The resolved address of the input value.
+ *
+ * @throws OutOfGasException if the gas limit is exceeded.
+ * @throws OpcodeExecutionException if the SHA256 compression operation fails:
+ *        - memory read or write out of bounds (state, input, or output).
+ *        - invalid state or input tags (not U32).
+ */
 void Execution::sha256_compression(ContextInterface& context,
                                    MemoryAddress output_addr,
                                    MemoryAddress state_addr,

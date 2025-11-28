@@ -197,8 +197,8 @@ class Execution : public ExecutionInterface {
                             MemoryAddress output_addr,
                             MemoryAddress state_addr,
                             MemoryAddress input_addr);
-    void shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
-    void shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
+    void shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
 
   protected:
     // The result of a nested call execution.
