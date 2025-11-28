@@ -98,7 +98,7 @@ describe('Recursive Aggregation Example', () => {
 
     // docs:start:recursive_inputs
     // Convert proof and VK to fields for recursive circuit
-    const barretenbergAPI = await Barretenberg.new({ threads: 1, logger: console.log });
+    const barretenbergAPI = await Barretenberg.new({ threads: 1 });
     const vkAsFields = (await barretenbergAPI.acirVkAsFieldsUltraHonk(new RawBuffer(mainVerificationKey))).map(field =>
       field.toString(),
     );

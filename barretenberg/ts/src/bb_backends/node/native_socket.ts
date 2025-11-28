@@ -41,10 +41,6 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private responseBuffer: Buffer | null = null;
   private responseBytesRead: number = 0;
 
-  // Readline interfaces for stdout/stderr - stored so we can close them on destroy
-  private stdoutReader: readline.Interface | null = null;
-  private stderrReader: readline.Interface | null = null;
-
   constructor(bbBinaryPath: string, threads?: number, logger?: (msg: string) => void) {
     // Create a unique socket path in temp directory
     this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${Date.now()}.sock`);
@@ -80,10 +76,8 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
     if (logger) {
       logger("Logger attached to bb process. DON'T FORGET TO DESTROY THE BACKEND to allow Node.js to exit.");
-      this.stdoutReader = readline.createInterface({ input: this.process.stdout! });
-      this.stderrReader = readline.createInterface({ input: this.process.stderr! });
-      this.stdoutReader.on('line', logger);
-      this.stderrReader.on('line', logger);
+      readline.createInterface({ input: this.process.stdout! }).on('line', logger);
+      readline.createInterface({ input: this.process.stderr! }).on('line', logger);
     }
 
     this.process.on('error', err => {
@@ -325,11 +319,6 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   }
 
   async destroy(): Promise<void> {
-    // Close readline interfaces first to prevent "Cannot log after tests are done" warnings
-    // This stops forwarding bb's shutdown logs to the logger after Jest has finished
-    this.stdoutReader?.close();
-    this.stderrReader?.close();
-
     this.cleanup();
     this.process.kill('SIGTERM');
     this.process.removeAllListeners();
