@@ -80,7 +80,7 @@ constexpr std::array<C, AVM_MAX_OPERANDS> OPERAND_IS_RELATIVE_VALID_BASE_COLUMNS
     C::execution_sel_op_do_overflow_check_6_,
 };
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
-static_assert(AVM_MAX_OPERANDS * 2 <= TOTAL_INDIRECT_BITS);
+static_assert(static_cast<size_t>(AVM_MAX_OPERANDS) * 2 <= TOTAL_INDIRECT_BITS);
 constexpr std::array<C, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_RELATIVE_WIRE_COLUMNS = {
     C::execution_sel_op_is_relative_wire_0_, C::execution_sel_op_is_relative_wire_1_,
     C::execution_sel_op_is_relative_wire_2_, C::execution_sel_op_is_relative_wire_3_,
@@ -263,11 +263,18 @@ uint32_t dying_context_for_phase(TransactionPhase phase, const FailingContexts& 
            "Execution events must have app logic or teardown phase");
 
     switch (phase) {
-    case TransactionPhase::APP_LOGIC:
+    case TransactionPhase::APP_LOGIC: {
+        if (failures.app_logic_failure) {
+            return failures.app_logic_exit_context_id;
+        }
+
         // Note that app logic also gets discarded if teardown failures
-        return failures.app_logic_failure  ? failures.app_logic_exit_context_id
-               : failures.teardown_failure ? failures.teardown_exit_context_id
-                                           : 0;
+        if (failures.teardown_failure) {
+            return failures.teardown_exit_context_id;
+        }
+
+        return 0;
+    }
     case TransactionPhase::TEARDOWN:
         return failures.teardown_failure ? failures.teardown_exit_context_id : 0;
     default:
@@ -467,7 +474,7 @@ void ExecutionTraceBuilder::process(
 
         // Note that if addressing did not fail, register reading will not fail.
         std::array<MemoryValue, AVM_MAX_REGISTERS> registers;
-        std::ranges::fill(registers.begin(), registers.end(), MemoryValue::from<FF>(0));
+        std::ranges::fill(registers, MemoryValue::from<FF>(0));
         bool should_process_registers = instruction_fetching_success && !addressing_failed;
         bool register_processing_failed = ex_event.error == ExecutionError::REGISTER_READ;
         if (should_process_registers) {
@@ -658,7 +665,7 @@ void ExecutionTraceBuilder::process(
                           { { { C::execution_sel_l2_to_l1_msg_limit_error, remaining_l2_to_l1_msgs == 0 },
                               { C::execution_remaining_l2_to_l1_msgs_inv,
                                 remaining_l2_to_l1_msgs }, // Will be inverted in batch later.
-                              { C::execution_sel_write_l2_to_l1_msg, !opcode_execution_failed && !discard },
+                              { C::execution_sel_write_l2_to_l1_msg, !opcode_execution_failed && discard == 0 },
                               {
                                   C::execution_public_inputs_index,
                                   AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
@@ -937,26 +944,24 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                                                         : 0; // Will be inverted in batch later.
 
     // Tag check after indirection.
-    bool some_final_check_failed =
-        std::ranges::any_of(addr_event.resolution_info.begin(), addr_event.resolution_info.end(), [](const auto& info) {
-            return info.error.has_value() && *info.error == AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
-        });
+    bool some_final_check_failed = std::ranges::any_of(addr_event.resolution_info, [](const auto& info) {
+        return info.error.has_value() && *info.error == AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
+    });
     FF batched_tags_diff_inv = 0;
     if (some_final_check_failed) {
         FF batched_tags_diff = 0;
         FF power_of_2 = 1;
         for (size_t i = 0; i < AVM_MAX_OPERANDS; ++i) {
             batched_tags_diff +=
-                FF(is_indirect_effective[i]) * power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
+                FF(is_indirect_effective[i] ? 1 : 0) * power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
             power_of_2 *= 8; // 2^3
         }
         batched_tags_diff_inv = batched_tags_diff; // Will be inverted in batch later.
     }
 
     // Collect addressing errors. See PIL file for reference.
-    bool addressing_failed = std::any_of(addr_event.resolution_info.begin(),
-                                         addr_event.resolution_info.end(),
-                                         [](const auto& info) { return info.error.has_value(); });
+    bool addressing_failed =
+        std::ranges::any_of(addr_event.resolution_info, [](const auto& info) { return info.error.has_value(); });
     FF addressing_error_collection_inv =
         addressing_failed
             ? FF(
