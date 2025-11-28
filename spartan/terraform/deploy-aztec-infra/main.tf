@@ -270,7 +270,14 @@ locals {
             }
           }
         }
-      })] : []
+        })] : [yamlencode({
+        service = {
+          rpc = {
+            enabled = true
+            type    = "LoadBalancer"
+          }
+        }
+      })]
 
       custom_settings = merge({
         "nodeType"                                    = "rpc"
@@ -337,7 +344,8 @@ locals {
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
-      wait                 = true
+      // this Helm app will have lots of replicas, if we wait for all to come online we'll surely time out.
+      wait = false
     } : null
 
     archive = var.DEPLOY_ARCHIVAL_NODE ? {

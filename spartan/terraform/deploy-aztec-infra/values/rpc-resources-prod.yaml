@@ -25,10 +25,6 @@ statefulSet:
             storage: 16Gi
 
 service:
-  # rpc:
-  #   type: LoadBalancer
-  #   annotations:
-  #     networking.gke.io/load-balancer-type: "External"
   p2p:
     enabled: true
     nodePortEnabled: false

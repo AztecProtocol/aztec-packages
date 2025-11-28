@@ -22,6 +22,8 @@ networkShaping:
       components:
         - sequencer-node
         - prover-node
+        - full-node
+        - rpc-node
         - node
       delay:
         # Base latency of all network traffic
@@ -44,6 +46,8 @@ networkShaping:
       components:
         - sequencer-node
         - prover-node
+        - full-node
+        - rpc-node
         - node
 
     packetLoss:
@@ -62,6 +66,8 @@ networkShaping:
       components:
         - sequencer-node
         - prover-node
+        - full-node
+        - rpc-node
         - node
 
     isolatePeers:
@@ -69,6 +75,7 @@ networkShaping:
       components:
         - sequencer-node
         - prover-node
+        - rpc-node
 
 proverFailure:
   enabled: false

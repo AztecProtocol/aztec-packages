@@ -16,7 +16,6 @@ affinity:
         namespaceSelector: {}
 
 replicaCount: 1
-hostNetwork: true
 
 node:
   resources:
