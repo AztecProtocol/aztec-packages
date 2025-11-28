@@ -79,7 +79,7 @@ pub mod generated_types;
 
 pub use backend::Backend;
 pub use types::{Fr, Point};
-pub use generated_types::{Command, Response};
+pub use generated_types::{Command, Response, AffineElement};
 pub use api::BarretenbergApi;
 pub use error::{BarretenbergError, Result};
 

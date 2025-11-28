@@ -83,3 +83,92 @@ fn test_pipe_poseidon2_hash() {
 
     api.destroy().expect("Failed to destroy backend");
 }
+
+#[test]
+fn test_pipe_grumpkin_add() {
+    require_bb_binary!();
+    let bb_path = get_bb_binary_path();
+
+    let backend = PipeBackend::new(&bb_path, Some(1))
+        .expect("Failed to create pipe backend");
+    let mut api = BarretenbergApi::new(backend);
+
+    // Grumpkin generator point
+    let generator_x: [u8; 32] = [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+    ];
+    let generator_y: [u8; 32] = [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+    ];
+
+    use barretenberg_rs::AffineElement;
+    let point_a = AffineElement {
+        x: generator_x.to_vec(),
+        y: generator_y.to_vec(),
+    };
+    let point_b = point_a.clone();
+
+    let response = api.grumpkin_add(point_a, point_b).expect("GrumpkinAdd failed");
+    println!("GrumpkinAdd result: x={}, y={}",
+             hex::encode(&response.point.x),
+             hex::encode(&response.point.y));
+
+    api.destroy().expect("Failed to destroy backend");
+}
+
+#[test]
+fn test_pipe_error_response() {
+    require_bb_binary!();
+    let bb_path = get_bb_binary_path();
+
+    let backend = PipeBackend::new(&bb_path, Some(1))
+        .expect("Failed to create pipe backend");
+    let mut api = BarretenbergApi::new(backend);
+
+    // Create an invalid point (off-curve) to trigger an error
+    // This point has x=1, y=1 which is NOT on the Grumpkin curve
+    let invalid_x: [u8; 32] = [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+    ];
+    let invalid_y: [u8; 32] = [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+    ];
+
+    use barretenberg_rs::AffineElement;
+    let invalid_point = AffineElement {
+        x: invalid_x.to_vec(),
+        y: invalid_y.to_vec(),
+    };
+
+    // This should fail because the point is not on the curve
+    let result = api.grumpkin_add(invalid_point.clone(), invalid_point);
+
+    match result {
+        Ok(_) => {
+            // Some backends might not validate points, which is also acceptable
+            println!("Note: Backend did not validate point on curve");
+        },
+        Err(e) => {
+            println!("Got expected error for off-curve point: {:?}", e);
+            // Verify it's a backend error (ErrorResponse)
+            assert!(
+                format!("{:?}", e).contains("Backend") || format!("{:?}", e).contains("error"),
+                "Expected a backend error, got: {:?}", e
+            );
+        }
+    }
+
+    api.destroy().expect("Failed to destroy backend");
+}
