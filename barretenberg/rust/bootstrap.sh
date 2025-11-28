@@ -9,19 +9,14 @@ function build {
   echo_header "barretenberg-rs build"
 
   if ! cache_download barretenberg-rs-$hash.tar.gz; then
-    # Ensure Cargo is in PATH
-    if [ -f "$HOME/.cargo/env" ]; then
-      source "$HOME/.cargo/env"
-    fi
-
-    # Clean previous build artifacts
-    cargo clean
+    # Generate Rust bindings from msgpack schema (uses ts-node, no build needed)
+    (cd ../ts && yarn generate)
 
     # Build all targets
     cargo build --release
 
-    # Upload build artifacts to cache
-    cache_upload barretenberg-rs-$hash.tar.gz target/release
+    # Upload build artifacts and generated source files to cache
+    cache_upload barretenberg-rs-$hash.tar.gz target/release barretenberg-rs/src/generated_types.rs barretenberg-rs/src/api.rs
   fi
 }
 

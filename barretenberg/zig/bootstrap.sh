@@ -2,7 +2,6 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
 # Hash depends on ts because ts generates the Zig bindings
 hash=$(hash_str $(../ts/bootstrap.sh hash) $(cache_content_hash .))
 
@@ -10,11 +9,14 @@ function build {
   echo_header "barretenberg-zig build"
 
   if ! cache_download barretenberg-zig-$hash.tar.gz; then
+    # Generate Zig bindings from msgpack schema (uses ts-node, no build needed)
+    (cd ../ts && yarn generate)
+
     # Build the library
     zig build
 
-    # Upload build artifacts to cache
-    cache_upload barretenberg-zig-$hash.tar.gz .zig-cache zig-out 2>/dev/null || true
+    # Upload build artifacts and generated source files to cache
+    cache_upload barretenberg-zig-$hash.tar.gz .zig-cache zig-out src/generated_types.zig src/api.zig
   fi
 }
 
