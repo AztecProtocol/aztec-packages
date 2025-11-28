@@ -1,7 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
-import { BatchedBlob, Blob, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
+import { BatchedBlob, Blob, getEthBlobEvaluationInputs, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { writeFile } from 'fs/promises';
@@ -46,7 +46,7 @@ export async function writeJson(
       // This should not be a problem for testing as long as the values are not larger than u32.
       archive: asHex(block.archive.root),
       blobCommitments: getPrefixedEthBlobCommitments(blobs),
-      batchedBlobInputs: batchedBlob.getEthBlobEvaluationInputs(),
+      batchedBlobInputs: getEthBlobEvaluationInputs(batchedBlob),
       checkpointNumber: block.number,
       body: `0x${block.body.toBuffer().toString('hex')}`,
       header: {

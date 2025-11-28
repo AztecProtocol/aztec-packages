@@ -1,4 +1,5 @@
 import type { L1ContractAddresses } from '@aztec/ethereum';
+import { EpochNumberSchema } from '@aztec/foundation/branded-types';
 import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -94,10 +95,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
   getL2SlotNumber: z.function().args().returns(schemas.BigInt.optional()),
-  getL2EpochNumber: z.function().args().returns(schemas.BigInt.optional()),
-  getBlocksForEpoch: z.function().args(schemas.BigInt).returns(z.array(L2Block.schema)),
-  getBlockHeadersForEpoch: z.function().args(schemas.BigInt).returns(z.array(BlockHeader.schema)),
-  isEpochComplete: z.function().args(schemas.BigInt).returns(z.boolean()),
+  getL2EpochNumber: z.function().args().returns(EpochNumberSchema.optional()),
+  getBlocksForEpoch: z.function().args(EpochNumberSchema).returns(z.array(L2Block.schema)),
+  getBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),
+  isEpochComplete: z.function().args(EpochNumberSchema).returns(z.boolean()),
   getL2Tips: z.function().args().returns(L2TipsSchema),
   getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
   getLogsByTags: z

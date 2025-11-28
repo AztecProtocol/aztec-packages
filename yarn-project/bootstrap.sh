@@ -138,6 +138,9 @@ function test_cmds {
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
+    # Skip benchmarks here.
+    [[ "$test" =~ \.bench\.test\.ts$ ]] && continue
+
     local prefix=$hash
     local cmd_env=""
 

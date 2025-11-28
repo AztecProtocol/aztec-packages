@@ -82,25 +82,9 @@ function prep_vars {
 }
 
 case "$cmd" in
-  "fast")
-    export JOB_ID="x1-fast"
-    bootstrap_ec2 "./bootstrap.sh ci-fast"
-    ;;
-  "full")
-    export JOB_ID="x1-full"
-    bootstrap_ec2 "./bootstrap.sh ci-full"
-    ;;
-  "full-no-test-cache")
-    export JOB_ID="x1-full-no-test-cache"
-    bootstrap_ec2 "./bootstrap.sh ci-full-no-test-cache"
-    ;;
-  "docs")
-    export JOB_ID="x1-docs"
-    bootstrap_ec2 "./bootstrap.sh ci-docs"
-    ;;
-  "barretenberg")
-    export JOB_ID="x1-barretenberg"
-    bootstrap_ec2 "./bootstrap.sh ci-barretenberg"
+  fast|full|full-no-test-cache|full-no-test-cache-makefile|docs|barretenberg)
+    export JOB_ID="x1-$cmd"
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   "grind")
     prep_vars
@@ -122,8 +106,8 @@ case "$cmd" in
     parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full-no-test-cache' \
       'run x2-full amd64 ci-full-no-test-cache' \
-      'run x3-full amd64 ci-full-no-test-cache' \
-      'run x4-full amd64 ci-full-no-test-cache' \
+      'run x3-full amd64 ci-full-no-test-cache-makefile' \
+      'run x4-full amd64 ci-full-no-test-cache-makefile' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
   "network-deploy")
@@ -217,34 +201,6 @@ case "$cmd" in
     [ ! -t 0 ] && pager=cat
     redis_getz $1 | $pager
     ;;
-  "tlog")
-    if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
-      echo "No redis available for test query."
-      exit 1
-    fi
-    pager=${PAGER:-less}
-    key=$(hash_str "$1")
-    log_key=$(redis_cli --raw GET $key)
-    if [ -n "$log_key" ]; then
-      redis_getz $log_key | $pager
-    else
-      echo "No test log found for: $key"
-      exit 1
-    fi
-    ;;
-  "tilog")
-    # Given a test cmd, tail it's a live log.
-    ./ci.sh llog $(hash_str "$1")
-  ;;
-  "llog")
-    # If the log file exists locally, tail it, otherwise assume it's remote.
-    key=$1
-    if [ -f /tmp/$key ]; then
-      tail -F -n +1 /tmp/$key
-    else
-      ./ci.sh shell tail -F -n +1 /tmp/$key
-    fi
-  ;;
   "kill")
     existing_instance=$(aws ec2 describe-instances \
       --region us-east-2 \

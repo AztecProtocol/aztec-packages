@@ -37,9 +37,16 @@ export function getAttestationInfoFromPublishedL2Block(block: {
   block: L2Block;
 }): AttestationInfo[] {
   const payload = ConsensusPayload.fromBlock(block.block);
+  return getAttestationInfoFromPayload(payload, block.attestations);
+}
+
+export function getAttestationInfoFromPayload(
+  payload: ConsensusPayload,
+  attestations: CommitteeAttestation[],
+): AttestationInfo[] {
   const hashedPayload = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
 
-  return block.attestations.map(attestation => {
+  return attestations.map(attestation => {
     // If signature is empty, check if we have an address directly
     if (attestation.signature.isEmpty()) {
       if (attestation.address.isZero()) {

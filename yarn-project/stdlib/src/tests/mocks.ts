@@ -17,10 +17,12 @@ import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { CommitteeAttestation, L1PublishedData, L2BlockHeader } from '../block/index.js';
+import { CommitteeAttestation, L2BlockHeader } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { CommitteeAttestationsAndSigners } from '../block/proposal/attestations_and_signers.js';
 import { PublishedL2Block } from '../block/published_l2_block.js';
+import type { Checkpoint } from '../checkpoint/checkpoint.js';
+import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
 import { computeContractAddressFromInstance } from '../contract/contract_address.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { SerializableContractInstance } from '../contract/contract_instance.js';
@@ -67,9 +69,9 @@ import { TxHash } from '../tx/tx_hash.js';
 import {
   makeAvmCircuitInputs,
   makeAztecAddress,
+  makeBlockHeader,
   makeGas,
   makeGlobalVariables,
-  makeHeader,
   makeL2BlockHeader,
   makePrivateToPublicAccumulatedData,
   makePrivateToRollupAccumulatedData,
@@ -211,7 +213,7 @@ export async function mockProcessedTx({
   privateOnly?: boolean;
 } & Parameters<typeof mockTx>[1] = {}) {
   seed *= 0x1000; // Avoid clashing with the previous mock values if seed only increases by 1.
-  anchorBlockHeader ??= db?.getInitialHeader() ?? makeHeader(seed);
+  anchorBlockHeader ??= db?.getInitialHeader() ?? makeBlockHeader(seed);
   feePayer ??= makeAztecAddress(seed + 0x100);
   feePaymentPublicDataWrite ??= makePublicDataWrite(seed + 0x200);
 
@@ -448,15 +450,15 @@ export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockP
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
-export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): BlockAttestation => {
-  const header = options?.header ?? makeL2BlockHeader(1);
+export const makeBlockAttestation = (options: MakeConsensusPayloadOptions = {}): BlockAttestation => {
+  const header = options.header ?? makeL2BlockHeader(1);
   const {
     signer,
-    attesterSigner = signer ?? Secp256k1Signer.random(),
-    proposerSigner = signer ?? Secp256k1Signer.random(),
+    attesterSigner = signer,
+    proposerSigner = signer,
     archive = Fr.random(),
     stateReference = header.state,
-  } = options ?? {};
+  } = options;
 
   const payload = ConsensusPayload.fromFields({
     header: header.toCheckpointHeader(),
@@ -464,15 +466,25 @@ export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): Blo
     stateReference,
   });
 
-  // Sign as attester
-  const attestationHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
-  const attestationSignature = attesterSigner.sign(attestationHash);
+  return makeBlockAttestationFromPayload(payload, attesterSigner, proposerSigner);
+};
 
-  // Sign as proposer
-  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
-  const proposerSignature = proposerSigner.sign(proposalHash);
+export const makeAttestationFromCheckpoint = (
+  checkpoint: Checkpoint,
+  attesterSigner?: Secp256k1Signer,
+  proposerSigner?: Secp256k1Signer,
+): BlockAttestation => {
+  const header = checkpoint.header;
+  const archive = checkpoint.archive.root;
+  const stateReference = checkpoint.blocks.at(-1)!.header.state;
 
-  return new BlockAttestation(payload, attestationSignature, proposerSignature);
+  const payload = ConsensusPayload.fromFields({
+    header,
+    archive,
+    stateReference,
+  });
+
+  return makeBlockAttestationFromPayload(payload, attesterSigner, proposerSigner);
 };
 
 export const makeBlockAttestationFromBlock = (
@@ -490,6 +502,14 @@ export const makeBlockAttestationFromBlock = (
     stateReference,
   });
 
+  return makeBlockAttestationFromPayload(payload, attesterSigner, proposerSigner);
+};
+
+export const makeBlockAttestationFromPayload = (
+  payload: ConsensusPayload,
+  attesterSigner?: Secp256k1Signer,
+  proposerSigner?: Secp256k1Signer,
+): BlockAttestation => {
   // Sign as attester
   const attestationHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
   const attestationSigner = attesterSigner ?? Secp256k1Signer.random();

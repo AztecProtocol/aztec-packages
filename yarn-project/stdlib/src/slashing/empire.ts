@@ -1,3 +1,5 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
+
 import { getRoundForSlot, getRoundsForEpoch } from './helpers.js';
 import type { Offense, OffenseIdentifier, SlashPayload, SlashPayloadRound, ValidatorSlash } from './types.js';
 import { OffenseType } from './types.js';
@@ -66,7 +68,7 @@ export function getFirstEligibleRoundForOffense(
     // Inactivity is detected at the end of the epoch, so we flag it as detected in the first fresh round for the next epoch
     case OffenseType.INACTIVITY: {
       const epoch = offense.epochOrSlot;
-      const detectedEpoch = epoch + 1n;
+      const detectedEpoch = EpochNumber.fromBigInt(epoch + 1n);
       return getRoundsForEpoch(detectedEpoch, constants)[0] + 1n;
     }
     // These offenses are detected once an epoch is pruned, which happens after the proof submission window
@@ -74,7 +76,7 @@ export function getFirstEligibleRoundForOffense(
     case OffenseType.DATA_WITHHOLDING: {
       // TODO(palla/slash): Check for off-by-ones especially here
       const epoch = offense.epochOrSlot;
-      const detectedEpoch = epoch + BigInt(constants.proofSubmissionEpochs);
+      const detectedEpoch = EpochNumber.fromBigInt(epoch + BigInt(constants.proofSubmissionEpochs));
       return getRoundsForEpoch(detectedEpoch, constants)[0] + 1n;
     }
     // These offenses are detected immediately in the slot they occur, so we assume they are detected in the first round for the following slot
@@ -89,7 +91,7 @@ export function getFirstEligibleRoundForOffense(
     // Assume these are epoch-based offenses, even though we should never have to process these
     case OffenseType.UNKNOWN: {
       const epoch = offense.epochOrSlot;
-      const detectedEpoch = epoch + 1n;
+      const detectedEpoch = EpochNumber.fromBigInt(epoch + 1n);
       return getRoundsForEpoch(detectedEpoch, constants)[0] + 1n;
     }
     default: {

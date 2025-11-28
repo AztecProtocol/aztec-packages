@@ -1,5 +1,5 @@
 import { BLOCK_HEADER_LENGTH, GeneratorIndex } from '@aztec/constants';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
@@ -159,6 +159,18 @@ export class BlockHeader {
 
   hash(): Promise<Fr> {
     return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
+  }
+
+  static random(overrides: Partial<FieldsOf<BlockHeader>> & Partial<FieldsOf<GlobalVariables>> = {}): BlockHeader {
+    return BlockHeader.from({
+      lastArchive: AppendOnlyTreeSnapshot.random(),
+      state: StateReference.random(),
+      spongeBlobHash: Fr.random(),
+      globalVariables: GlobalVariables.random(overrides),
+      totalFees: new Fr(randomInt(100_000)),
+      totalManaUsed: new Fr(randomInt(100_000_000)),
+      ...overrides,
+    });
   }
 
   toInspect() {

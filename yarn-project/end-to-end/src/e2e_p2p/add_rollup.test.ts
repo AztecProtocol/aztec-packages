@@ -16,6 +16,7 @@ import {
   deployL1Contract,
   deployRollupForUpgrade,
 } from '@aztec/ethereum';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import {
@@ -480,8 +481,10 @@ describe('e2e_p2p_add_rollup', () => {
 
     // With all down, we make a time jump such that we ensure that we will be at a point where epochs are non-empty
     // This is to avoid conflicts when the checkpoints are looking further back.
-    const futureEpoch = 500n + (await newRollup.getCurrentEpochNumber());
-    const time = await newRollup.getTimestampForSlot(futureEpoch * BigInt(t.ctx.aztecNodeConfig.aztecEpochDuration));
+    const futureEpoch = EpochNumber.fromBigInt(500n + BigInt(await newRollup.getCurrentEpochNumber()));
+    const time = await newRollup.getTimestampForSlot(
+      BigInt(futureEpoch) * BigInt(t.ctx.aztecNodeConfig.aztecEpochDuration),
+    );
     if (time > BigInt(await t.ctx.cheatCodes.eth.timestamp())) {
       await t.ctx.cheatCodes.eth.warp(Number(time));
       await waitL1Block();
