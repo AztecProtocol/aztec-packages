@@ -15,32 +15,37 @@ class Sha256Tests : public ::testing::Test {
 
 TEST_F(Sha256Tests, TestSha256Compression)
 {
+    Sha256Compression sha256_compression;
 
-    std::array<WitnessOrConstant<bb::fr>, 16> inputs;
     for (size_t i = 0; i < 16; ++i) {
-        inputs[i] =
-            WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 1 + UltraCircuitBuilder::ACIR_OFFSET));
+        sha256_compression.inputs[i] =
+            WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + UltraCircuitBuilder::ACIR_OFFSET));
     }
-    std::array<WitnessOrConstant<bb::fr>, 8> hash_values;
     for (size_t i = 0; i < 8; ++i) {
-        hash_values[i] =
-            WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 17 + UltraCircuitBuilder::ACIR_OFFSET));
+        sha256_compression.hash_values[i] =
+            WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 16 + UltraCircuitBuilder::ACIR_OFFSET));
     }
-    Sha256Compression sha256_compression{
-        .inputs = inputs,
-        .hash_values = hash_values,
-        .result = { 25 + UltraCircuitBuilder::ACIR_OFFSET,
-                    26 + UltraCircuitBuilder::ACIR_OFFSET,
-                    27 + UltraCircuitBuilder::ACIR_OFFSET,
-                    28 + UltraCircuitBuilder::ACIR_OFFSET,
-                    29 + UltraCircuitBuilder::ACIR_OFFSET,
-                    30 + UltraCircuitBuilder::ACIR_OFFSET,
-                    31 + UltraCircuitBuilder::ACIR_OFFSET,
-                    32 + UltraCircuitBuilder::ACIR_OFFSET },
-    };
+    for (size_t i = 0; i < 8; ++i) {
+        sha256_compression.result[i] = static_cast<uint32_t>(i + 24 + UltraCircuitBuilder::ACIR_OFFSET);
+    }
+
+    std::vector<uint8_t> inputs_as_bits(64);
+    std::array<uint32_t, 8> hash_values = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                                            0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+    std::array<uint8_t, 32> result = bb::crypto::sha256_block(inputs_as_bits);
+
+    WitnessVector witness(32, 0);
+    for (size_t idx = 16; idx < 24; idx++) {
+        witness[idx] = hash_values[idx - 16];
+    }
+    for (size_t idx = 0; idx < 8; idx++) {
+        witness[24 + idx] =
+            (static_cast<uint32_t>(result[idx * 4]) << 24) | (static_cast<uint32_t>(result[idx * 4 + 1]) << 16) |
+            (static_cast<uint32_t>(result[idx * 4 + 2]) << 8) | static_cast<uint32_t>(result[idx * 4 + 3]);
+    }
 
     AcirFormat constraint_system{
-        .max_witness_index = 33 + UltraCircuitBuilder::ACIR_OFFSET - 1,
+        .max_witness_index = static_cast<uint32_t>(witness.size()) + UltraCircuitBuilder::ACIR_OFFSET - 1,
         .acir_gates_offset = UltraCircuitBuilder::ACIR_OFFSET,
         .num_acir_opcodes = 1,
         .public_inputs = {},
@@ -49,42 +54,9 @@ TEST_F(Sha256Tests, TestSha256Compression)
     };
     mock_opcode_indices(constraint_system);
 
-    WitnessVector witness{ 0,
-                           0,
-                           1,
-                           2,
-                           3,
-                           4,
-                           5,
-                           6,
-                           7,
-                           8,
-                           9,
-                           10,
-                           11,
-                           12,
-                           13,
-                           14,
-                           15,
-                           0,
-                           1,
-                           2,
-                           3,
-                           4,
-                           5,
-                           6,
-                           7,
-                           static_cast<uint32_t>(3349900789),
-                           1645852969,
-                           static_cast<uint32_t>(3630270619),
-                           1004429770,
-                           739824817,
-                           static_cast<uint32_t>(3544323979),
-                           557795688,
-                           static_cast<uint32_t>(3481642555) };
-
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
     EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_FALSE(builder.failed());
 }
 } // namespace acir_format::tests

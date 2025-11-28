@@ -24,19 +24,28 @@ using fr = field<Bn254FrParams>;
  */
 TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
 {
-    Poseidon2Constraint
-        poseidon2_constraint{
-            .state = {
-                WitnessOrConstant<bb::fr>::from_index(1 + UltraCircuitBuilder::ACIR_OFFSET),
-                WitnessOrConstant<bb::fr>::from_index(2 + UltraCircuitBuilder::ACIR_OFFSET),
-                WitnessOrConstant<bb::fr>::from_index(3 + UltraCircuitBuilder::ACIR_OFFSET),
-                WitnessOrConstant<bb::fr>::from_index(4 + UltraCircuitBuilder::ACIR_OFFSET),
- },
-            .result = { 5 + UltraCircuitBuilder::ACIR_OFFSET, 6 + UltraCircuitBuilder::ACIR_OFFSET, 7 + UltraCircuitBuilder::ACIR_OFFSET, 8 + UltraCircuitBuilder::ACIR_OFFSET },
-        };
+    using PoseidonPermutation = stdlib::Poseidon2Permutation<UltraCircuitBuilder>;
+    using NativePoseidonPermutation = PoseidonPermutation::NativePermutation;
+
+    static constexpr size_t state_size = PoseidonPermutation::Params::t;
+
+    Poseidon2Constraint poseidon2_constraint;
+    for (size_t idx = 0; idx < state_size; idx++) {
+        poseidon2_constraint.state.emplace_back(static_cast<uint32_t>(idx + UltraCircuitBuilder::ACIR_OFFSET));
+        poseidon2_constraint.result.emplace_back(
+            static_cast<uint32_t>(idx + state_size + UltraCircuitBuilder::ACIR_OFFSET));
+    }
+
+    auto native_state = NativePoseidonPermutation::State({ 1, 1, 1, 1 });
+    auto native_result = NativePoseidonPermutation::permutation(native_state);
+    WitnessVector witness(2 * state_size, 0);
+    for (size_t idx = 0; idx < state_size; idx++) {
+        witness[idx] = native_state[idx];
+        witness[idx + state_size] = native_result[idx];
+    }
 
     AcirFormat constraint_system{
-        .max_witness_index = 9 + UltraCircuitBuilder::ACIR_OFFSET - 1,
+        .max_witness_index = static_cast<uint32_t>(witness.size()) + UltraCircuitBuilder::ACIR_OFFSET - 1,
         .acir_gates_offset = UltraCircuitBuilder::ACIR_OFFSET,
         .num_acir_opcodes = 1,
         .public_inputs = {},
@@ -45,22 +54,11 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
     };
     mock_opcode_indices(constraint_system);
 
-    WitnessVector witness{
-        1,
-        0,
-        1,
-        2,
-        3,
-        fr(std::string("0x01bd538c2ee014ed5141b29e9ae240bf8db3fe5b9a38629a9647cf8d76c01737")),
-        fr(std::string("0x239b62e7db98aa3a2a8f6a0d2fa1709e7a35959aa6c7034814d9daa90cbac662")),
-        fr(std::string("0x04cbb44c61d928ed06808456bf758cbf0c18d1e15a7b6dbc8245fa7515d5e3cb")),
-        fr(std::string("0x2e11c5cff2a22c64d01304b778d78f6998eff1ab73163a35603f54794c30847a")),
-    };
-
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_FALSE(builder.failed());
 }
 
 } // namespace acir_format::tests
