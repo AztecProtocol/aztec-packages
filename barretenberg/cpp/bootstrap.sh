@@ -10,6 +10,7 @@ export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
+# Uses a sentinel prefix to reliably find the version location, enabling re-injection on cached binaries.
 function inject_version {
   local binary=$1
   if semver check "$REF_NAME"; then
@@ -18,18 +19,21 @@ function inject_version {
     # Otherwise, use the commit hash as the version.
     local version=$(git rev-parse --short HEAD)
   fi
-  local placeholder='00000000.00000000.00000000'
-  if [ ${#version} -gt ${#placeholder} ]; then
-    echo_stderr "Error: version ($version) is longer than placeholder. Cannot update bb binaries."
+  local sentinel='BARRETENBERG_VERSION_SENTINEL'
+  local version_space='00000000.00000000.00000000'
+  if [ ${#version} -gt ${#version_space} ]; then
+    echo "Error: version ($version) is longer than available space. Cannot update bb binaries." >&2
     exit 1
   fi
-  # Try to find the default placeholder first
-  local offset=$(grep -aobF "$placeholder" $binary | head -n 1 | cut -d: -f1)
-  if [ -z "$offset" ]; then
-    echo "Placeholder not found in $binary, maybe it's already been added, skipping."
-    exit 0
+  # Find the sentinel and write version at the offset after it
+  local sentinel_offset=$(grep -aobF "$sentinel" "$binary" 2>/dev/null | head -n 1 | cut -d: -f1)
+  if [ -z "$sentinel_offset" ]; then
+    echo "Warning: sentinel not found in $binary - skipping version injection (binary may be from old build)" >&2
+    return 0
   fi
-  printf "$version\0" | dd of=$binary bs=1 seek=$offset conv=notrunc 2>/dev/null
+  # Version starts immediately after the sentinel
+  local version_offset=$((sentinel_offset + ${#sentinel}))
+  printf "$version\0" | dd of="$binary" bs=1 seek=$version_offset conv=notrunc 2>/dev/null
 }
 
 # Define build commands for each preset
@@ -62,9 +66,12 @@ function build_native {
   if ! cache_download barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
     build_preset $native_preset
-    inject_version build/bin/bb
-    [ -f build/bin/bb-avm ] && inject_version build/bin/bb-avm
     cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
+  fi
+  # Always inject version (even for cached binaries) to ensure correct version on release
+  inject_version build/bin/bb
+  if [ -f build/bin/bb-avm ]; then
+    inject_version build/bin/bb-avm
   fi
 }
 
@@ -88,11 +95,13 @@ function build_cross {
   is_macos=${2:-false}
   if ! cache_download barretenberg-$target-$hash.zst; then
     build_preset zig-$target --target bb --target nodejs_module
-    inject_version build-zig-$target/bin/bb
-    if [ "$is_macos" == "true" ]; then
-      ldid -S build-zig-$target/bin/bb
-    fi
     cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
+  fi
+  # Always inject version (even for cached binaries) to ensure correct version on release
+  inject_version build-zig-$target/bin/bb
+  # Code sign for macOS after version injection (must be last modification to binary)
+  if [ "$is_macos" == "true" ]; then
+    ldid -S build-zig-$target/bin/bb
   fi
 }
 
@@ -192,7 +201,7 @@ function build_release_dir {
   rm -rf build-release
   mkdir build-release
 
-  # Note: Version already injected in build_native
+  # Version is injected in build_native/build_cross (always, even for cached binaries)
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build/bin bb
   tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build/bin bb-avm
 
@@ -201,7 +210,6 @@ function build_release_dir {
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-  # Note: version already injected in build_cross
   # Package arm64-linux
   tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-zig-arm64-linux/bin bb
 
