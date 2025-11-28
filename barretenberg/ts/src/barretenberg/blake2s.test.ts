@@ -6,7 +6,7 @@ describe('blake2s async', () => {
 
   beforeAll(async () => {
     // We're going to test over a worker backend to cover more code paths.
-    api = await Barretenberg.new({ threads: 1, backend: BackendType.WasmWorker, logger: console.log });
+    api = await Barretenberg.new({ threads: 1, backend: BackendType.WasmWorker });
   });
 
   afterAll(async () => {
@@ -41,7 +41,7 @@ describe('blake2s sync', () => {
   let api: BarretenbergSync;
 
   beforeAll(async () => {
-    api = await BarretenbergSync.initSingleton({ logger: console.log });
+    api = await BarretenbergSync.initSingleton();
   });
 
   it('blake2s', () => {

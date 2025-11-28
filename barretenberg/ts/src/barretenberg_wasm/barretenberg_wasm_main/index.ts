@@ -5,7 +5,6 @@ import { createThreadWorker } from '../barretenberg_wasm_thread/factory/node/ind
 import { type BarretenbergWasmThreadWorker } from '../barretenberg_wasm_thread/index.js';
 import { BarretenbergWasmBase } from '../barretenberg_wasm_base/index.js';
 import { HeapAllocator } from './heap_allocator.js';
-import { createDebugLogger } from '../../log/index.js';
 
 /**
  * This is the "main thread" implementation of BarretenbergWasm.
@@ -41,7 +40,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   ) {
     // Track whether a custom logger was provided so workers know whether to postMessage logs
     this.useCustomLogger = logger !== undefined;
-    this.logger = logger ?? createDebugLogger('bb_wasm');
+    this.logger = logger ?? (() => {});
 
     const initialMb = (initial * 2 ** 16) / (1024 * 1024);
     const maxMb = (maximum * 2 ** 16) / (1024 * 1024);

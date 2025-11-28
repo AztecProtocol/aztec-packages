@@ -1,5 +1,4 @@
 import { Crs, GrumpkinCrs } from '../crs/index.js';
-import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
 import { SyncApi } from '../cbind/generated/sync.js';
 import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../bb_backends/interface.js';
@@ -35,7 +34,7 @@ export class Barretenberg extends AsyncApi {
    *   2. WasmWorker (in browser) or Wasm (in Node.js)
    */
   static async new(options: BackendOptions = {}) {
-    const logger = options.logger ?? createDebugLogger('bb_async');
+    const logger = options.logger ?? (() => {});
 
     if (options.backend) {
       // Explicit backend required - no fallback
@@ -167,7 +166,7 @@ export class BarretenbergSync extends SyncApi {
    * Not supported: WasmWorker (no workers in sync), NativeUnixSocket (async only)
    */
   static async new(options: BackendOptions = {}) {
-    const logger = options.logger ?? createDebugLogger('bb_sync');
+    const logger = options.logger ?? (() => {});
 
     if (options.backend) {
       return await createSyncBackend(options.backend, options, logger);
