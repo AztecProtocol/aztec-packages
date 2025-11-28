@@ -656,6 +656,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
         .block_constraints = { block_constraint },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+    mock_opcode_indices(constraint_system);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -668,7 +669,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamRead)
 {
     WitnessVector witness{ 10, 20, 0, 10 };
 
-    // Create a simple ROM block with 2 elements and 1 read
+    // Create a simple RAM block with 2 elements and 1 read
     std::vector<uint32_t> init;
     init.push_back(TypeParam::ACIR_OFFSET);     // 10
     init.push_back(1 + TypeParam::ACIR_OFFSET); // 20
@@ -706,7 +707,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamWrite)
 {
     WitnessVector witness{ 10, 20, 0, 10 };
 
-    // Create a simple ROM block with 2 elements and 1 read
+    // Create a simple RAM block with 2 elements and 1 read
     std::vector<uint32_t> init;
     init.push_back(TypeParam::ACIR_OFFSET);     // 10
     init.push_back(1 + TypeParam::ACIR_OFFSET); // 20
@@ -757,7 +758,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockCallData)
 
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
-        .access_type = AccessType::Write,
+        .access_type = AccessType::Read,
         .index = WitnessOrConstant<bb::fr>::from_index(2 + TypeParam::ACIR_OFFSET), // 0
         .value = WitnessOrConstant<bb::fr>::from_index(3 + TypeParam::ACIR_OFFSET), // 10
     });
