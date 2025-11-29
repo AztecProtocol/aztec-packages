@@ -1306,18 +1306,17 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_nati
 }
 
 /**
- * @brief Queue up non-native field multiplication data.
+ * @brief Create gates for a full non-native field multiplication identity a * b = q * p + r
  *
- * @details The data queued represents a non-native field multiplication identity a * b = q * p + r,
- * where a, b, q, r are all emulated non-native field elements that are each split across 4 distinct witness variables.
- *
- * Without this queue some functions, such as bb::stdlib::element::multiple_montgomery_ladder, would
- * duplicate non-native field operations, which can be quite expensive. We queue up these operations, and remove
- * duplicates during circuit finalization.
+ * @details Creates gates to constrain the non-native field multiplication identity a * b = q * p + r, where a, b, q, r
+ * are all emulated non-native field elements that are each split across 4 distinct witness variables.
  *
  * The non-native field modulus, p, is a circuit constant
  *
- * The return values are the witness indices of the two remainder limbs `lo_1, hi_2`
+ * This method creates 8 gates total: 4 non-native field gates to check the limb multiplications, plus 4 arithmetic
+ * gates (3 big add gates + 1 unconstrained gate) to validate the quotient and remainder terms.
+ *
+ * The return values are the witness indices of the two remainder limbs `lo_1, hi_3`
  *
  * N.B.: This method does NOT evaluate the prime field component of non-native field multiplications.
  **/
@@ -1353,15 +1352,15 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     constexpr FF LIMB_RSHIFT = FF(1) / FF(uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     constexpr FF LIMB_RSHIFT_2 = FF(1) / FF(uint256_t(1) << (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
 
-    FF lo_0 = a[0] * b[0] - r[0] + (a[1] * b[0] + a[0] * b[1]) * LIMB_SHIFT;
+    FF lo_0 = a[0] * b[0] - r[0] + ((a[1] * b[0] + a[0] * b[1]) * LIMB_SHIFT);
     FF lo_1 = (lo_0 + q[0] * input.neg_modulus[0] +
                (q[1] * input.neg_modulus[0] + q[0] * input.neg_modulus[1] - r[1]) * LIMB_SHIFT) *
               LIMB_RSHIFT_2;
 
-    FF hi_0 = a[2] * b[0] + a[0] * b[2] + (a[0] * b[3] + a[3] * b[0] - r[3]) * LIMB_SHIFT;
-    FF hi_1 = hi_0 + a[1] * b[1] - r[2] + (a[1] * b[2] + a[2] * b[1]) * LIMB_SHIFT;
-    FF hi_2 = (hi_1 + lo_1 + q[2] * input.neg_modulus[0] +
-               (q[3] * input.neg_modulus[0] + q[2] * input.neg_modulus[1]) * LIMB_SHIFT);
+    FF hi_0 = a[2] * b[0] + a[0] * b[2] + ((a[0] * b[3] + a[3] * b[0] - r[3]) * LIMB_SHIFT);
+    FF hi_1 = hi_0 + a[1] * b[1] - r[2] + ((a[1] * b[2] + a[2] * b[1]) * LIMB_SHIFT);
+    FF hi_2 = (hi_1 + lo_1 + (q[2] * input.neg_modulus[0]) +
+               ((q[3] * input.neg_modulus[0] + q[2] * input.neg_modulus[1]) * LIMB_SHIFT));
     FF hi_3 = (hi_2 + (q[0] * input.neg_modulus[3] + q[1] * input.neg_modulus[2]) * LIMB_SHIFT +
                (q[0] * input.neg_modulus[2] + q[1] * input.neg_modulus[1])) *
               LIMB_RSHIFT_2;
@@ -1373,7 +1372,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     const uint32_t hi_2_idx = this->add_variable(hi_2);
     const uint32_t hi_3_idx = this->add_variable(hi_3);
 
-    // product gate 1
+    // Gate 1: big_add_gate to validate lo_1
     // (lo_0 + q_0(p_0 + p_1*2^b) + q_1(p_0*2^b) - (r_1)2^b)2^-2b - lo_1 = 0
     // This constraint requires two rows in the trace: an arithmetic gate plus an unconstrained arithmetic gate
     // containing lo_0 in wire 4 so that the previous gate can access it via shifts. (We cannot use the next nnf gate
@@ -1388,21 +1387,22 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
                           -LIMB_SHIFT.sqr(),
                           0 },
                         /*include_next_gate_w_4*/ true);
+    // Gate 2: unconstrained gate to provide lo_0 via w_4_shift for gate 1
     create_unconstrained_gate(blocks.arithmetic, this->zero_idx(), this->zero_idx(), this->zero_idx(), lo_0_idx);
 
     //
     // a = (a3 || a2 || a1 || a0) = (a3 * 2^b + a2) * 2^b + (a1 * 2^b + a0)
     // b = (b3 || b2 || b1 || b0) = (b3 * 2^b + b2) * 2^b + (b1 * 2^b + b0)
     //
-    // Check if lo_0 was computed correctly.
+    // Gate 3: NNF gate to check if lo_0 was computed correctly
     // The gate structure for the nnf gates is as follows:
     //
-    // | a1 | b1 | r0 | lo_0 | <-- product gate 1: check lo_0
+    // | a1 | b1 | r0 | lo_0 | <-- Gate 3: check lo_0
     // | a0 | b0 | a3 | b3   |
     // | a2 | b2 | r3 | hi_0 |
     // | a1 | b1 | r2 | hi_1 |
     //
-    // Constaint: lo_0 = (a1 * b0 + a0 * b1) * 2^b  +  (a0 * b0) - r0
+    // Constraint: lo_0 = (a1 * b0 + a0 * b1) * 2^b  +  (a0 * b0) - r0
     //              w4 = (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2) - w3
     //
     blocks.nnf.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
@@ -1410,48 +1410,48 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     this->increment_num_gates();
 
     //
-    // Check if hi_0 was computed correctly.
+    // Gate 4: NNF gate to check if hi_0 was computed correctly
     //
     // | a1 | b1 | r0 | lo_0 |
-    // | a0 | b0 | a3 | b3   | <-- product gate 2: check hi_0
+    // | a0 | b0 | a3 | b3   | <-- Gate 4: check hi_0
     // | a2 | b2 | r3 | hi_0 |
     // | a1 | b1 | r2 | hi_1 |
     //
-    // Constaint: hi_0 = (a0 * b3 + a3 * b0 - r3) * 2^b + (a0 * b2 + a2 * b0) - r2
-    //             w'4 = (w1 * w4 + w2 * w3 - w'3) * 2^b + (w1 * w'2 + w'1 * w2) - w'3
+    // Constraint: hi_0 = (a0 * b3 + a3 * b0 - r3) * 2^b + (a0 * b2 + a2 * b0)
+    //             w'4 = (w1 * w4 + w2 * w3 - w'3) * 2^b + (w1 * w'2 + w'1 * w2)
     //
     blocks.nnf.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
     apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_2);
     this->increment_num_gates();
 
     //
-    // Check if hi_1 was computed correctly.
+    // Gate 5: NNF gate to check if hi_1 was computed correctly
     //
     // | a1 | b1 | r0 | lo_0 |
     // | a0 | b0 | a3 | b3   |
-    // | a2 | b2 | r3 | hi_0 | <-- product gate 3: check hi_1
+    // | a2 | b2 | r3 | hi_0 | <-- Gate 5: check hi_1
     // | a1 | b1 | r2 | hi_1 |
     //
-    // Constaint: hi_1 = hi_0 + (a2 * b1 + a1 * b2) * 2^b + (a1 * b1)
-    //             w'4 = w4 + (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2)
+    // Constraint: hi_1 = hi_0 + (a2 * b1 + a1 * b2) * 2^b + (a1 * b1) - r2
+    //             w'4 = w4 + (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2) - w'3
     //
     blocks.nnf.populate_wires(input.a[2], input.b[2], input.r[3], hi_0_idx);
     apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_3);
     this->increment_num_gates();
 
     //
-    // Does nothing, but is used by the previous gate to read the hi_1 limb.
+    // Gate 6: NNF gate with no constraints (q_nnf=0, truly unconstrained)
+    // Provides values a[1], b[1], r[2], hi_1 to Gate 5 via shifts (w'1, w'2, w'3, w'4)
     //
     blocks.nnf.populate_wires(input.a[1], input.b[1], input.r[2], hi_1_idx);
     apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
     this->increment_num_gates();
 
-    /**
-     * product gate 6
-     *
-     * hi_2 - hi_1 - lo_1 - q[2](p[1].2^b + p[0]) - q[3](p[0].2^b) = 0
-     *
-     **/
+    //
+    // Gate 7: big_add_gate to validate hi_2
+    //
+    // hi_2 - hi_1 - lo_1 - q[2](p[1].2^b + p[0]) - q[3](p[0].2^b) = 0
+    //
     create_big_add_gate(
         {
             input.q[2],
@@ -1466,11 +1466,11 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
         },
         /*include_next_gate_w_4*/ true);
 
-    /**
-     * product gate 7
-     *
-     * hi_3 - (hi_2 - q[0](p[3].2^b + p[2]) - q[1](p[2].2^b + p[1])).2^-2b
-     **/
+    //
+    // Gate 8: big_add_gate to validate hi_3 (provides hi_2 in w_4 for gate 7)
+    //
+    // hi_3 - (hi_2 - q[0](p[3].2^b + p[2]) - q[1](p[2].2^b + p[1])).2^-2b = 0
+    //
     create_big_add_gate({
         hi_3_idx,
         input.q[0],
