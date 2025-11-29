@@ -18,12 +18,10 @@ fi
 AZTEC_PATH="${AZTEC_PATH:-$HOME/.aztec}"
 BIN_PATH=${BIN_PATH:-$AZTEC_PATH/bin}
 
-# Define version if specified, otherwise set to "latest".
 # For testing you can override the INSTALL_URI to point to a file uri e.g. file:///home/user/aztec-packages/aztec-up/bin
-VERSION=${VERSION:-"latest"}
 if [ -z "$INSTALL_URI" ]; then
   INSTALL_URI=https://install.aztec.network
-  if [ "$VERSION" != "latest" ]; then
+  if [ -z "${VERSION:-}" ]; then
     INSTALL_URI+="/$VERSION"
   fi
 fi
@@ -49,13 +47,13 @@ function title() {
   echo -e "Welcome to the ${bold}${b}Aztec${r} installer! Your journey into blockchain privacy begins... ${bold}${p}now${r}."
   echo
   echo -e "This install script will install the following and update your PATH if necessary:"
-  echo -e "  ${bold}${g}noir${r}         - the version of the noir programming language compatible with this version of aztec."
+  echo -e "  ${bold}${g}nargo${r}        - the version of the noir programming language compatible with this version of aztec."
   echo -e "  ${bold}${g}bb${r}           - the version of the barretenberg proving backend compatible with this version of aztec."
   echo -e "  ${bold}${g}aztec${r}        - a collection of tools to compile and test contracts, to launch subsystems and interact with the aztec network."
   echo -e "  ${bold}${g}aztec-up${r}     - a tool to upgrade the aztec toolchain to the latest, or specific versions."
   echo -e "  ${bold}${g}aztec-wallet${r} - our minimalistic CLI wallet"
   echo
-  read -p "Do you wish to continue? (y/n)" -n 1 -r
+  read -p "Do you wish to continue? (y/n) " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
@@ -76,20 +74,23 @@ function echo_purple {
 
 function dump_fail {
   output=$(mktemp)
-  trap "rm $output" EXIT
 
-  $1 &>$output
+  set +e
+  ($1) &>$output
   status=$?
+  set -e
 
   # 0 or SIGTERM considered a success.
   if [ "$status" -ne 0 ] && [ "$status" -ne 143 ]; then
     {
       echo
-      echo -e "${red}command failed${reset}: $1 (exit: $status)"
-      echo -e "${blue}--- output ---${reset}"
+      echo -e "${y}command failed${r}: $1 (exit: $status)"
+      echo -e "${b}--- output ---${r}"
       cat $output
     } >&2
   fi
+
+  rm $output
 
   return $status
 }
@@ -122,44 +123,29 @@ function install_bin {
 
 # Updates appropriate shell script to ensure the bin path is in the PATH.
 function update_path_env_var {
-  TARGET_DIR="${1}"
+  local target_dir=$BIN_PATH
   # Check if the target directory is in the user's PATH.
-  if [[ ":$PATH:" != *":$TARGET_DIR:"* ]]; then
-    # Determine the user's shell.
-    SHELL_PROFILE=""
-    case $SHELL in
-    */bash)
-      SHELL_PROFILE="$HOME/.bash_profile"
-      ;;
-    */zsh)
-      SHELL_PROFILE="$HOME/.zshrc"
-      ;;
-    # Add other shells as needed
-    *)
-      echo "Unsupported shell: $SHELL"
-      return
-      ;;
-    esac
-
-    if [ "$NON_INTERACTIVE" -eq 0 ]; then
-      # Inform the user about the change and ask for confirmation
-      echo_yellow "The directory $TARGET_DIR is not in your PATH."
-      read -p "Add it to $SHELL_PROFILE to make the aztec binaries accessible? (y/n)" -n 1 -r
-      echo
-      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo_yellow "Skipped updating PATH. You might need to add $TARGET_DIR to your PATH manually to use the binary."
-        return
-      fi
-    fi
-
-    # Add the target directory to the user's PATH in their profile.
-    echo "export PATH=\"\$PATH:$TARGET_DIR\"" >>"$SHELL_PROFILE"
-
-    if [ "$NON_INTERACTIVE" -eq 0 ] && [ "${NO_NEW_SHELL:-0}" -eq 0 ]; then
-      info "Done! Starting fresh shell..."
-      exec $SHELL
-    fi
+  if [[ ":$PATH:" == *":$target_dir:"* ]]; then
+    return
   fi
+
+  # Determine the user's shell.
+  local shell_profile=""
+  case $SHELL in
+  */bash)
+    shell_profile="$HOME/.bashrc"
+    ;;
+  */zsh)
+    shell_profile="$HOME/.zshrc"
+    ;;
+  *)
+    echo "Unsupported shell: $SHELL"
+    return
+    ;;
+  esac
+
+  # Add the target directory to the user's PATH in their profile.
+  echo "export PATH=\"\$PATH:$target_dir\"" >>"$shell_profile"
 }
 
 function install_jq {
@@ -194,32 +180,26 @@ function install_jq {
 }
 
 function install_aztec_up {
-  set -euo pipefail
   rm -rf $BIN_PATH && mkdir -p $BIN_PATH
   install_bin aztec-up
   install_file versions
-  echo "$VERSION" > $AZTEC_PATH/default_version
-  update_path_env_var $BIN_PATH
+  update_path_env_var
 }
 
 function install_noir {
-  set -euo pipefail
   curl -Ls https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
   $HOME/.nargo/bin/noirup -v $(cat $AZTEC_PATH/versions | grep noir | cut -d' ' -f2)
 }
 
 function install_foundry {
-  set -euo pipefail
   curl -L https://foundry.paradigm.xyz | bash
   $HOME/.foundry/bin/foundryup -i $(cat $AZTEC_PATH/versions | grep foundry | cut -d' ' -f2)
 }
 
 function install_aztec_packages {
-  set -euo pipefail
-  npm i -g @aztec/aztec@$VERSION @aztec/cli-wallet@$VERSION @aztec/bb.js@$VERSION
+  local version=$(cat $AZTEC_PATH/versions | grep aztec | cut -d' ' -f2)
+  npm i -g @aztec/aztec@$version @aztec/cli-wallet@$version @aztec/bb.js@$version
 }
-
-export -f install_aztec_up install_noir install_foundry install_aztec_packages
 
 function main {
   # Show title if we're in a terminal.
@@ -228,18 +208,18 @@ function main {
   echo
   check_toolchains
 
-  # Install aztec-up
-  echo -n "Installing aztec-up... "
-  dump_fail install_aztec_up
-  echo_green "done."
-
   # Install jq
   echo -n "Installing jq... "
   dump_fail install_jq
   echo_green "done."
 
+  # Install aztec-up
+  echo -n "Installing aztec-up... "
+  dump_fail install_aztec_up
+  echo_green "done."
+
   # Install noir
-  echo -n "Installing noir... "
+  echo -n "Installing nargo... "
   dump_fail install_noir
   echo_green "done."
 
@@ -252,6 +232,14 @@ function main {
   echo -n "Installing aztec packages... "
   dump_fail install_aztec_packages
   echo_green "done."
+
+  if [ "$NON_INTERACTIVE" -eq 0 ] && [ "${NO_NEW_SHELL:-0}" -eq 0 ]; then
+    echo_green "Done! Starting fresh shell..."
+    exec $SHELL
+  else
+    echo_green "Done! You'll need a fresh shell to see PATH updates."
+  fi
 }
 
-main
+cmd="${1:-main}";
+$cmd
