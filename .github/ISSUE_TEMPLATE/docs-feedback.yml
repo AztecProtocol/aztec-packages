@@ -1,0 +1,63 @@
+name: Documentation feedback
+description: Share feedback or report issues related to the Aztec documentation.
+title: "[Docs] <short summary>"
+labels:
+  - documentation
+  - docs-feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to provide feedback on the Aztec docs.
+        The documentation is built from the ./docs directory in this repo
+        and published to https://docs.aztec.network.
+
+        Please fill in the details below so we can understand and address
+        the issue more effectively.
+
+  - type: input
+    id: docs-url
+    attributes:
+      label: Docs URL or page title
+      description: Link to the page on docs.aztec.network or the path under ./docs.
+      placeholder: "Example: https://docs.aztec.network/guides/getting-started"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: feedback-type
+    attributes:
+      label: Type of feedback
+      options:
+        - Incorrect or outdated information
+        - Missing content or gaps
+        - Confusing structure or wording
+        - Broken link or image
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-is-wrong
+    attributes:
+      label: What is wrong or missing?
+      description: Describe what you noticed and why it is a problem.
+      placeholder: "Explain what is incorrect, outdated, or unclear."
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-improvement
+    attributes:
+      label: Suggested improvement
+      description: If you have an idea for how to fix or improve the docs, describe it here.
+      placeholder: "Optional, but very helpful: propose new wording, examples, or structure."
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Tell us how you encountered the issue (for example, while running a devnet, writing a contract, etc.).
+      placeholder: "Any additional background that helps understand your use case."
