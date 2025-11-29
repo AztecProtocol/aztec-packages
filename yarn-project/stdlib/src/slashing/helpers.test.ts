@@ -1,4 +1,4 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 
 import {
   getEpochForOffense,
@@ -20,27 +20,27 @@ describe('SlashingHelpers', () => {
 
   describe('getRoundForSlot', () => {
     it('returns correct round and voting slot for slot 0', () => {
-      const result = getRoundForSlot(0n, constants);
+      const result = getRoundForSlot(SlotNumber(0), constants);
       expect(result.round).toEqual(0n);
-      expect(result.votingSlot).toEqual(0n);
+      expect(result.votingSlot).toEqual(SlotNumber(0));
     });
 
     it('returns correct round and voting slot for slot within first round', () => {
-      const result = getRoundForSlot(7n, constants);
+      const result = getRoundForSlot(SlotNumber(7), constants);
       expect(result.round).toEqual(0n);
-      expect(result.votingSlot).toEqual(7n);
+      expect(result.votingSlot).toEqual(SlotNumber(7));
     });
 
     it('returns correct round and voting slot for slot in second round', () => {
-      const result = getRoundForSlot(15n, constants);
+      const result = getRoundForSlot(SlotNumber(15), constants);
       expect(result.round).toEqual(1n);
-      expect(result.votingSlot).toEqual(5n);
+      expect(result.votingSlot).toEqual(SlotNumber(5));
     });
 
     it('returns correct round and voting slot for exact round boundary', () => {
-      const result = getRoundForSlot(20n, constants);
+      const result = getRoundForSlot(SlotNumber(20), constants);
       expect(result.round).toEqual(2n);
-      expect(result.votingSlot).toEqual(0n);
+      expect(result.votingSlot).toEqual(SlotNumber(0));
     });
   });
 
@@ -95,7 +95,7 @@ describe('SlashingHelpers', () => {
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       };
       const slot = getSlotForOffense(offense, constants);
-      expect(slot).toEqual(25n);
+      expect(slot).toEqual(SlotNumber(25));
     });
 
     it('returns first slot of epoch for epoch-based offenses', () => {
@@ -104,7 +104,7 @@ describe('SlashingHelpers', () => {
         offenseType: OffenseType.INACTIVITY,
       };
       const slot = getSlotForOffense(offense, constants);
-      expect(slot).toEqual(20n); // epoch 5 * epochDuration 4 = slot 20
+      expect(slot).toEqual(SlotNumber(20)); // epoch 5 * epochDuration 4 = slot 20
     });
   });
 

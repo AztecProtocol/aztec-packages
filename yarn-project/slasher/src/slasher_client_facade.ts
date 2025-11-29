@@ -1,6 +1,7 @@
 import { EpochCache } from '@aztec/epoch-cache';
 import type { ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -73,7 +74,7 @@ export class SlasherClientFacade implements SlasherClientInterface {
     return this.client?.getPendingOffenses() ?? Promise.reject(new Error('Slasher client not initialized'));
   }
 
-  public getProposerActions(slotNumber: bigint): Promise<ProposerSlashAction[]> {
+  public getProposerActions(slotNumber: SlotNumber): Promise<ProposerSlashAction[]> {
     return this.client?.getProposerActions(slotNumber) ?? Promise.reject(new Error('Slasher client not initialized'));
   }
 

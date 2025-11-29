@@ -1,5 +1,5 @@
 import type { EpochAndSlot, EpochCacheInterface, EpochCommitteeInfo, SlotTag } from '@aztec/epoch-cache';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
@@ -18,7 +18,7 @@ export class MockEpochCache implements EpochCacheInterface {
   getEpochAndSlotNow(): EpochAndSlot {
     return {
       epoch: EpochNumber.ZERO,
-      slot: 0n,
+      slot: SlotNumber(0),
       ts: 0n,
     };
   }
@@ -26,31 +26,31 @@ export class MockEpochCache implements EpochCacheInterface {
   getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
     return {
       epoch: EpochNumber.ZERO,
-      slot: 0n,
+      slot: SlotNumber(0),
       ts: 0n,
       now: 0n,
     };
   }
 
-  getProposerIndexEncoding(_epoch: EpochNumber, _slot: bigint, _seed: bigint): `0x${string}` {
+  getProposerIndexEncoding(_epoch: EpochNumber, _slot: SlotNumber, _seed: bigint): `0x${string}` {
     return '0x00';
   }
 
-  computeProposerIndex(_slot: bigint, _epoch: EpochNumber, _seed: bigint, _size: bigint): bigint {
+  computeProposerIndex(_slot: SlotNumber, _epoch: EpochNumber, _seed: bigint, _size: bigint): bigint {
     return 0n;
   }
 
   getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
     currentProposer: EthAddress | undefined;
     nextProposer: EthAddress | undefined;
-    currentSlot: bigint;
-    nextSlot: bigint;
+    currentSlot: SlotNumber;
+    nextSlot: SlotNumber;
   }> {
     return Promise.resolve({
       currentProposer: undefined,
       nextProposer: undefined,
-      currentSlot: 0n,
-      nextSlot: 0n,
+      currentSlot: SlotNumber(0),
+      nextSlot: SlotNumber(0),
     });
   }
 

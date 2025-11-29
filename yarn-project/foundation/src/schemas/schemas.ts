@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { EpochNumber, EpochNumberSchema } from '../branded-types/epoch.js';
+import { SlotNumber, SlotNumberSchema } from '../branded-types/slot.js';
 import { Buffer32 } from '../buffer/buffer32.js';
 import { SecretValue } from '../config/secret_value.js';
 import { EthAddress } from '../eth-address/index.js';
@@ -12,6 +13,9 @@ import { bufferSchema, hexSchema } from './utils.js';
 export const schemas = {
   /** Accepts a number, bigint, or string as an EpochNumber. */
   EpochNumber: EpochNumberSchema,
+
+  /** Accepts a number, bigint, or string as a SlotNumber. */
+  SlotNumber: SlotNumberSchema,
 
   /** Accepts a hex string. */
   EthAddress: EthAddress.schema,
@@ -75,4 +79,4 @@ export const schemas = {
 };
 
 // These are needed to avoid errors such as: "The inferred type of 'YourClassSchema' cannot be named without a reference to..."
-export type { EpochNumber, EthAddress, Fq, Fr, Point };
+export type { EpochNumber, EthAddress, Fq, Fr, Point, SlotNumber };

@@ -94,7 +94,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
   getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
-  getL2SlotNumber: z.function().args().returns(schemas.BigInt.optional()),
+  getL2SlotNumber: z.function().args().returns(schemas.SlotNumber.optional()),
   getL2EpochNumber: z.function().args().returns(EpochNumberSchema.optional()),
   getBlocksForEpoch: z.function().args(EpochNumberSchema).returns(z.array(L2Block.schema)),
   getBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),

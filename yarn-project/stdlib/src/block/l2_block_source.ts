@@ -1,4 +1,4 @@
-import type { EpochNumber } from '@aztec/foundation/branded-types';
+import type { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
@@ -113,7 +113,7 @@ export interface L2BlockSource {
   /**
    * Returns the current L2 slot number based on the currently synced L1 timestamp.
    */
-  getL2SlotNumber(): Promise<bigint | undefined>;
+  getL2SlotNumber(): Promise<SlotNumber | undefined>;
 
   /**
    * Returns the current L2 epoch number based on the currently synced L1 timestamp.
@@ -232,7 +232,7 @@ export enum L2BlockSourceEvents {
 export type L2BlockProvenEvent = {
   type: 'l2BlockProven';
   blockNumber: bigint;
-  slotNumber: bigint;
+  slotNumber: SlotNumber;
   epochNumber: EpochNumber;
 };
 

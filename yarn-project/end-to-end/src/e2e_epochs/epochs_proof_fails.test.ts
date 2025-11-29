@@ -4,7 +4,7 @@ import { BatchedBlob } from '@aztec/blob-lib/types';
 import type { ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import type { ProverNodePublisher } from '@aztec/prover-node';
@@ -82,7 +82,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // Next sequencer to publish a block should trigger a rollback to block 1
     await waitUntilL1Timestamp(l1Client, epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
     expect(await rollup.getCheckpointNumber()).toEqual(1n);
-    expect(await rollup.getSlotNumber()).toEqual(BigInt(2 * test.epochDuration));
+    expect(await rollup.getSlotNumber()).toEqual(SlotNumber(2 * test.epochDuration));
 
     // The prover tx should have been rejected, and mined strictly before the one that triggered the rollback
     const lastProverTxHash = proverDelayer.getSentTxHashes().at(-1);

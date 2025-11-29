@@ -1,4 +1,5 @@
 import { type BlockBlobData, encodeBlockBlobData, encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -117,7 +118,7 @@ export class L2Block {
     return this.header.getBlockNumber();
   }
 
-  get slot(): bigint {
+  get slot(): SlotNumber {
     return this.header.getSlot();
   }
 

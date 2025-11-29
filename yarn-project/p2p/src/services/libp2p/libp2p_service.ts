@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
@@ -192,7 +193,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     this.blockReceivedCallback = async (block: BlockProposal): Promise<BlockAttestation[] | undefined> => {
       this.logger.debug(
-        `Handler not yet registered: Block received callback not set. Received block for slot ${block.slotNumber.toNumber()} from peer.`,
+        `Handler not yet registered: Block received callback not set. Received block for slot ${block.slotNumber} from peer.`,
         { p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier() },
       );
       return undefined;
@@ -814,7 +815,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
       let canAdd = true;
       if (isValid && !exists) {
-        const slot = attestation.payload.header.slotNumber.toBigInt();
+        const slot = attestation.payload.header.slotNumber;
         const { committee } = await this.epochCache.getCommittee(slot);
         const committeeSize = committee?.length ?? 0;
         canAdd = await pool.canAddAttestation(attestation, committeeSize);
@@ -856,10 +857,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
 
     this.logger.debug(
-      `Received attestation for slot ${attestation.slotNumber.toNumber()} from external peer ${source.toString()}`,
+      `Received attestation for slot ${attestation.slotNumber} from external peer ${source.toString()}`,
       {
         p2pMessageIdentifier: await attestation.p2pMessageLoggingIdentifier(),
-        slot: attestation.slotNumber.toNumber(),
+        slot: attestation.slotNumber,
         archive: attestation.archive.toString(),
         source: source.toString(),
       },
@@ -920,16 +921,16 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
   @trackSpan('Libp2pService.processValidBlockProposal', async block => ({
-    [Attributes.SLOT_NUMBER]: block.slotNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: block.slotNumber,
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.P2P_ID]: await block.p2pMessageLoggingIdentifier().then(i => i.toString()),
   }))
   private async processValidBlockProposal(block: BlockProposal, sender: PeerId) {
-    const slot = block.slotNumber.toBigInt();
-    const previousSlot = slot - 1n;
+    const slot = block.slotNumber;
+    const previousSlot = SlotNumber(slot - 1);
     this.logger.verbose(`Received block proposal for slot ${slot} from external peer ${sender.toString()}.`, {
       p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier(),
-      slot: block.slotNumber.toNumber(),
+      slot: block.slotNumber,
       archive: block.archive.toString(),
       source: sender.toString(),
     });
@@ -945,7 +946,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       // Drop proposals if we hit per-slot cap in the attestation pool; rethrow unknown errors
       if (err instanceof ProposalSlotCapExceededError) {
         this.logger.warn(`Dropping block proposal due to per-slot proposal cap`, {
-          slot: slot.toString(),
+          slot: String(slot),
           archive: block.archive.toString(),
           error: (err as Error).message,
         });
@@ -960,9 +961,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // The attestation can be undefined if no handler is registered / the validator deems the block invalid / in fisherman mode
     if (attestations?.length) {
       for (const attestation of attestations) {
-        this.logger.verbose(`Broadcasting attestation for slot ${attestation.slotNumber.toNumber()}`, {
+        this.logger.verbose(`Broadcasting attestation for slot ${attestation.slotNumber}`, {
           p2pMessageIdentifier: await attestation.p2pMessageLoggingIdentifier(),
-          slot: attestation.slotNumber.toNumber(),
+          slot: attestation.slotNumber,
           archive: attestation.archive.toString(),
         });
         await this.broadcastAttestation(attestation);
@@ -975,7 +976,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param attestation - The attestation to broadcast.
    */
   @trackSpan('Libp2pService.broadcastAttestation', async attestation => ({
-    [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber,
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageLoggingIdentifier().then(i => i.toString()),
   }))
@@ -1371,7 +1372,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns True if the attestation is valid, false otherwise.
    */
   @trackSpan('Libp2pService.validateAttestation', async (_, attestation) => ({
-    [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber,
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageLoggingIdentifier().then(i => i.toString()),
   }))

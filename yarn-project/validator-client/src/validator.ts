@@ -260,7 +260,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> {
-    const slotNumber = proposal.slotNumber.toBigInt();
+    const slotNumber = proposal.slotNumber;
     const proposer = proposal.getSender();
 
     // Reject proposals with invalid signatures
@@ -395,7 +395,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         validator: proposer,
         amount: this.config.slashBroadcastedInvalidBlockPenalty,
         offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
-        epochOrSlot: proposal.slotNumber.toBigInt(),
+        epochOrSlot: BigInt(proposal.slotNumber),
       },
     ]);
   }
@@ -408,7 +408,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined> {
-    if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
+    if (this.previousProposal?.slotNumber === header.slotNumber) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
       return Promise.resolve(undefined);
     }
@@ -433,7 +433,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   async collectOwnAttestations(proposal: BlockProposal): Promise<BlockAttestation[]> {
-    const slot = proposal.payload.header.slotNumber.toBigInt();
+    const slot = proposal.payload.header.slotNumber;
     const inCommittee = await this.epochCache.filterInCommittee(slot, this.getValidatorAddresses());
     this.log.debug(`Collecting ${inCommittee.length} self-attestations for slot ${slot}`, { inCommittee });
     const attestations = await this.createBlockAttestationsFromProposal(proposal, inCommittee);
@@ -449,7 +449,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   async collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClient's attestation pool for this block until we have enough attestations
-    const slot = proposal.payload.header.slotNumber.toBigInt();
+    const slot = proposal.payload.header.slotNumber;
     this.log.debug(`Collecting ${required} attestations for slot ${slot} with deadline ${deadline.toISOString()}`);
 
     if (+deadline < this.dateProvider.now()) {
