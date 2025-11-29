@@ -2,7 +2,7 @@ import { L2Block } from '@aztec/aztec.js/block';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { omit, pick } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -62,7 +62,7 @@ export type SequencerEvents = {
     oldState: SequencerState;
     newState: SequencerState;
     secondsIntoSlot?: number;
-    slotNumber?: bigint;
+    slotNumber?: SlotNumber;
   }) => void;
   ['proposer-rollup-check-failed']: (args: { reason: string }) => void;
   ['tx-count-check-failed']: (args: { minTxs: number; availableTxs: number }) => void;
@@ -101,10 +101,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private governanceProposerPayload: EthAddress | undefined;
 
   /** The last slot for which we attempted to vote when sync failed, to prevent duplicate attempts. */
-  private lastSlotForVoteWhenSyncFailed: bigint | undefined;
+  private lastSlotForVoteWhenSyncFailed: SlotNumber | undefined;
 
   /** The last slot for which we built a validation block in fisherman mode, to prevent duplicate attempts. */
-  private lastSlotForValidationBlock: bigint | undefined;
+  private lastSlotForValidationBlock: SlotNumber | undefined;
 
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;
@@ -466,7 +466,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   /** Tries building a block proposal, and if successful, enqueues it for publishing. */
   private async tryBuildBlockAndEnqueuePublish(
-    slot: bigint,
+    slot: SlotNumber,
     proposer: EthAddress | undefined,
     newBlockNumber: number,
     publisher: SequencerPublisher,
@@ -554,13 +554,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * @param slotNumber - The current slot number.
    * @param force - Whether to force the transition even if the sequencer is stopped.
    */
-  setState(proposedState: SequencerStateWithSlot, slotNumber: bigint, opts?: { force?: boolean }): void;
+  setState(proposedState: SequencerStateWithSlot, slotNumber: SlotNumber, opts?: { force?: boolean }): void;
   setState(
     proposedState: Exclude<SequencerState, SequencerStateWithSlot>,
     slotNumber?: undefined,
     opts?: { force?: boolean },
   ): void;
-  setState(proposedState: SequencerState, slotNumber: bigint | undefined, opts: { force?: boolean } = {}): void {
+  setState(proposedState: SequencerState, slotNumber: SlotNumber | undefined, opts: { force?: boolean } = {}): void {
     if (this.state === SequencerState.STOPPING && proposedState !== SequencerState.STOPPED && !opts.force) {
       this.log.warn(`Cannot set sequencer to ${proposedState} as it is stopping.`);
       throw new SequencerInterruptedError();
@@ -601,7 +601,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     await this.p2pClient.deleteTxs(failedTxHashes);
   }
 
-  protected getBlockBuilderOptions(slot: number): PublicProcessorLimits {
+  protected getBlockBuilderOptions(slot: SlotNumber): PublicProcessorLimits {
     // Deadline for processing depends on whether we're proposing a block
     const secondsIntoSlot = this.getSecondsIntoSlot(slot);
     const processingEndTimeWithinSlot = this.timetable.getBlockProposalExecTimeEnd(secondsIntoSlot);
@@ -644,14 +644,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     await publisher.validateBlockHeader(proposalHeader, invalidateBlock);
 
     const blockNumber = newGlobalVariables.blockNumber;
-    const slot = proposalHeader.slotNumber.toBigInt();
+    const slot = proposalHeader.slotNumber;
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
 
     const workTimer = new Timer();
     this.setState(SequencerState.CREATING_BLOCK, slot);
 
     try {
-      const blockBuilderOptions = this.getBlockBuilderOptions(Number(slot));
+      const blockBuilderOptions = this.getBlockBuilderOptions(slot);
       const buildBlockRes = await this.blockBuilder.buildBlock(
         pendingTxs,
         l1ToL2Messages,
@@ -767,7 +767,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const numberOfRequiredAttestations = Math.floor((committee.length * 2) / 3) + 1;
 
-    const slotNumber = block.header.globalVariables.slotNumber.toBigInt();
+    const slotNumber = block.header.globalVariables.slotNumber;
     this.setState(SequencerState.COLLECTING_ATTESTATIONS, slotNumber);
 
     this.log.debug('Creating block proposal for validators');
@@ -779,7 +779,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       block.header.globalVariables.blockNumber,
       block.getCheckpointHeader(),
       block.archive.root,
-      block.header.state,
       txs,
       proposerAddress,
       blockProposalOptions,
@@ -897,10 +896,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     publisher: SequencerPublisher,
   ): Promise<void> {
     // Publishes new block to the network and awaits the tx to be mined
-    this.setState(SequencerState.PUBLISHING_BLOCK, block.header.globalVariables.slotNumber.toBigInt());
+    this.setState(SequencerState.PUBLISHING_BLOCK, block.header.globalVariables.slotNumber);
 
     // Time out tx at the end of the slot
-    const slot = block.header.globalVariables.slotNumber.toNumber();
+    const slot = block.header.globalVariables.slotNumber;
     const txTimeoutAt = new Date((this.getSlotStartBuildTimestamp(slot) + this.aztecSlotDuration) * 1000);
 
     const enqueued = await publisher.enqueueProposeL2Block(
@@ -922,7 +921,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Returns whether all dependencies have caught up.
    * We don't check against the previous block submitted since it may have been reorg'd out.
    */
-  protected async checkSync(args: { ts: bigint; slot: bigint }): Promise<
+  protected async checkSync(args: { ts: bigint; slot: SlotNumber }): Promise<
     | {
         block?: L2Block;
         blockNumber: number;
@@ -1008,7 +1007,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   protected enqueueGovernanceAndSlashingVotes(
     publisher: SequencerPublisher,
     attestorAddress: EthAddress,
-    slot: bigint,
+    slot: SlotNumber,
     timestamp: bigint,
   ): [Promise<boolean> | undefined, Promise<boolean> | undefined] {
     try {
@@ -1057,7 +1056,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Checks if we are the proposer for the next slot.
    * @returns True if we can propose, and the proposer address (undefined if anyone can propose)
    */
-  protected async checkCanPropose(slot: bigint): Promise<[boolean, EthAddress | undefined]> {
+  protected async checkCanPropose(slot: SlotNumber): Promise<[boolean, EthAddress | undefined]> {
     let proposer: EthAddress | undefined;
 
     try {
@@ -1095,7 +1094,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Tries to vote on slashing actions and governance when the sync check fails but we're past the max time for initializing a proposal.
    * This allows the sequencer to participate in governance/slashing votes even when it cannot build blocks.
    */
-  protected async tryVoteWhenSyncFails(args: { slot: bigint; ts: bigint }): Promise<void> {
+  protected async tryVoteWhenSyncFails(args: { slot: SlotNumber; ts: bigint }): Promise<void> {
     const { slot, ts } = args;
 
     // Prevent duplicate attempts in the same slot
@@ -1162,7 +1161,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   protected async considerInvalidatingBlock(
     syncedTo: NonNullable<Awaited<ReturnType<Sequencer['checkSync']>>>,
-    currentSlot: bigint,
+    currentSlot: SlotNumber,
   ): Promise<void> {
     const { pendingChainValidationStatus, l1Timestamp } = syncedTo;
     if (pendingChainValidationStatus.valid) {
@@ -1232,11 +1231,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
   }
 
-  private getSlotStartBuildTimestamp(slotNumber: number | bigint): number {
+  private getSlotStartBuildTimestamp(slotNumber: SlotNumber): number {
     return getSlotStartBuildTimestamp(slotNumber, this.l1Constants);
   }
 
-  private getSecondsIntoSlot(slotNumber: number | bigint): number {
+  private getSecondsIntoSlot(slotNumber: SlotNumber): number {
     const slotStartTimestamp = this.getSlotStartBuildTimestamp(slotNumber);
     return Number((this.dateProvider.now() / 1000 - slotStartTimestamp).toFixed(3));
   }

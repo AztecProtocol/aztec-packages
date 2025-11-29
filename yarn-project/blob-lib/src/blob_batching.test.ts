@@ -10,7 +10,7 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
 import { Blob } from './blob.js';
-import { BatchedBlob } from './blob_batching.js';
+import { BatchedBlobAccumulator } from './blob_batching.js';
 import { getBlobsPerL1Block } from './blob_utils.js';
 import { encodeCheckpointEndMarker } from './encoding/checkpoint_end_marker.js';
 import { computeBlobFieldsHash } from './hash.js';
@@ -51,7 +51,7 @@ describe('Blob Batching', () => {
     const onlyBlob = blobs[0];
 
     // Challenge for the final opening (z)
-    const finalChallenges = await BatchedBlob.precomputeBatchedBlobChallenges([blobFields]);
+    const finalChallenges = await BatchedBlobAccumulator.precomputeBatchedBlobChallenges([blobFields]);
     const finalZ = finalChallenges.z;
     const finalGamma = finalChallenges.gamma;
 
@@ -72,14 +72,12 @@ describe('Blob Batching', () => {
     const expectedFinalGamma = BLS12Fr.fromBN254Fr(await poseidon2Hash([hashedEval, finalZ]));
     expect(finalGamma).toEqual(expectedFinalGamma);
 
-    const batchedBlob = await BatchedBlob.batch([blobFields]);
+    const batchedBlob = await BatchedBlobAccumulator.batch([blobFields], true /* verifyProof */);
     expect(batchedBlob.commitment).toEqual(commitment);
     expect(batchedBlob.q).toEqual(q);
     expect(batchedBlob.z).toEqual(finalZ);
     expect(batchedBlob.y).toEqual(y);
     expect(batchedBlob.blobCommitmentsHash).toEqual(finalBlobCommitmentsHash);
-
-    expect(batchedBlob.verify()).toBe(true);
 
     // If the snapshot has changed, update the noir test data as well.
     expect(y.toString()).toMatchInlineSnapshot(`"0x27842c004486b1796de6f1403c71acdba4fc33eee32e4cfe0cb39ef7578a85c6"`);
@@ -136,7 +134,7 @@ describe('Blob Batching', () => {
       const blobs = getBlobsPerL1Block(blobFields);
       expect(blobs.length).toBe(numBlobs);
 
-      const finalChallenges = await BatchedBlob.precomputeBatchedBlobChallenges([blobFields]);
+      const finalChallenges = await BatchedBlobAccumulator.precomputeBatchedBlobChallenges([blobFields]);
 
       // Challenge for the final opening (z)
       const blobFieldsHash = await computeBlobFieldsHash(blobFields);
@@ -182,14 +180,12 @@ describe('Blob Batching', () => {
         finalBlobCommitmentsHash = sha256ToField([finalBlobCommitmentsHash, blobs[i].commitment]).toBuffer();
       }
 
-      const batchedBlob = await BatchedBlob.batch([blobFields]);
+      const batchedBlob = await BatchedBlobAccumulator.batch([blobFields], true /* verifyProof */);
       expect(batchedBlob.commitment).toEqual(batchedC);
       expect(batchedBlob.q).toEqual(batchedQ);
       expect(batchedBlob.z).toEqual(finalZ);
       expect(batchedBlob.y).toEqual(finalY);
       expect(batchedBlob.blobCommitmentsHash.toBuffer()).toEqual(finalBlobCommitmentsHash);
-
-      expect(batchedBlob.verify()).toBe(true);
 
       // If the snapshot has changed, update the noir test data as well.
       expect(finalY.toString()).toMatchInlineSnapshot(`"${expectedFinalY}"`);
@@ -260,22 +256,21 @@ describe('Blob Batching', () => {
       ),
     );
 
-    const batchedBlob = await BatchedBlob.batch(blobFieldsPerCheckpoint);
-    expect(batchedBlob.verify()).toBe(true);
+    await BatchedBlobAccumulator.batch(blobFieldsPerCheckpoint, true /* verifyProof */);
   });
 });
 
 describe('BatchedBlobAccumulator', () => {
   it('clones correctly', async () => {
     const blobFields = Array.from({ length: FIELDS_PER_BLOB }, (_, i) => new Fr(i + 999));
-    const original = await BatchedBlob.newAccumulator([blobFields]);
+    const original = await BatchedBlobAccumulator.fromBlobFields([blobFields]);
 
     // Correctly clone the original.
     const clone = original.clone();
     expect(clone).toEqual(original);
 
     // Make sure we didn't modify the original during the clone.
-    const duplicate = await BatchedBlob.newAccumulator([blobFields]);
+    const duplicate = await BatchedBlobAccumulator.fromBlobFields([blobFields]);
     expect(original).toEqual(duplicate);
 
     const modified = await clone.accumulateFields(blobFields);

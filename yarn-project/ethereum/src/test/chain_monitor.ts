@@ -1,5 +1,5 @@
 import { InboxContract, type RollupContract } from '@aztec/ethereum/contracts';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -11,11 +11,11 @@ import type { ViemClient } from '../types.js';
 
 export type ChainMonitorEventMap = {
   'l1-block': [{ l1BlockNumber: number; timestamp: bigint }];
-  checkpoint: [{ checkpointNumber: number; l1BlockNumber: number; l2SlotNumber: number; timestamp: bigint }];
+  checkpoint: [{ checkpointNumber: number; l1BlockNumber: number; l2SlotNumber: SlotNumber; timestamp: bigint }];
   'checkpoint-proven': [{ provenCheckpointNumber: number; l1BlockNumber: number; timestamp: bigint }];
   'l2-messages': [{ totalL2Messages: number; l1BlockNumber: number }];
   'l2-epoch': [{ l2EpochNumber: EpochNumber; timestamp: bigint; committee: EthAddress[] | undefined }];
-  'l2-slot': [{ l2SlotNumber: number; timestamp: bigint }];
+  'l2-slot': [{ l2SlotNumber: SlotNumber; timestamp: bigint }];
 };
 
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
@@ -41,7 +41,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   /** Current L2 epoch number */
   public l2EpochNumber!: EpochNumber;
   /** Current L2 slot number */
-  public l2SlotNumber!: bigint;
+  public l2SlotNumber!: SlotNumber;
 
   constructor(
     private readonly rollup: RollupContract,
@@ -124,7 +124,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
       this.emit('checkpoint', {
         checkpointNumber: newCheckpointNumber,
         l1BlockNumber: newL1BlockNumber,
-        l2SlotNumber: Number(l2SlotNumber),
+        l2SlotNumber,
         timestamp,
       });
     }
@@ -160,7 +160,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
 
     if (l2SlotNumber !== this.l2SlotNumber) {
       this.l2SlotNumber = l2SlotNumber;
-      this.emit('l2-slot', { l2SlotNumber: Number(l2SlotNumber), timestamp });
+      this.emit('l2-slot', { l2SlotNumber, timestamp });
     }
 
     this.logger.info(msg, {
@@ -178,14 +178,13 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     return this;
   }
 
-  public waitUntilL2Slot(slot: number | bigint): Promise<void> {
-    const targetSlot = typeof slot === 'bigint' ? slot.valueOf() : slot;
-    if (this.l2SlotNumber >= targetSlot) {
+  public waitUntilL2Slot(slot: SlotNumber): Promise<void> {
+    if (this.l2SlotNumber >= slot) {
       return Promise.resolve();
     }
     return new Promise(resolve => {
-      const listener = (data: { l2SlotNumber: number; timestamp: bigint }) => {
-        if (data.l2SlotNumber >= targetSlot) {
+      const listener = (data: { l2SlotNumber: SlotNumber; timestamp: bigint }) => {
+        if (data.l2SlotNumber >= slot) {
           this.off('l2-slot', listener);
           resolve();
         }

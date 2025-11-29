@@ -17,7 +17,7 @@ import type { IFullNodeBlockBuilder, Validator, ValidatorClientFullConfig } from
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
-import type { StateReference, Tx } from '@aztec/stdlib/tx';
+import type { Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -260,7 +260,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> {
-    const slotNumber = proposal.slotNumber.toBigInt();
+    const slotNumber = proposal.slotNumber;
     const proposer = proposal.getSender();
 
     // Reject proposals with invalid signatures
@@ -395,7 +395,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         validator: proposer,
         amount: this.config.slashBroadcastedInvalidBlockPenalty,
         offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
-        epochOrSlot: proposal.slotNumber.toBigInt(),
+        epochOrSlot: BigInt(proposal.slotNumber),
       },
     ]);
   }
@@ -404,24 +404,19 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     blockNumber: number,
     header: CheckpointHeader,
     archive: Fr,
-    stateReference: StateReference,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined> {
-    if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
+    if (this.previousProposal?.slotNumber === header.slotNumber) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
       return Promise.resolve(undefined);
     }
 
-    const newProposal = await this.validationService.createBlockProposal(
-      header,
-      archive,
-      stateReference,
-      txs,
-      proposerAddress,
-      { ...options, broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal },
-    );
+    const newProposal = await this.validationService.createBlockProposal(header, archive, txs, proposerAddress, {
+      ...options,
+      broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
+    });
     this.previousProposal = newProposal;
     return newProposal;
   }
@@ -438,7 +433,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   async collectOwnAttestations(proposal: BlockProposal): Promise<BlockAttestation[]> {
-    const slot = proposal.payload.header.slotNumber.toBigInt();
+    const slot = proposal.payload.header.slotNumber;
     const inCommittee = await this.epochCache.filterInCommittee(slot, this.getValidatorAddresses());
     this.log.debug(`Collecting ${inCommittee.length} self-attestations for slot ${slot}`, { inCommittee });
     const attestations = await this.createBlockAttestationsFromProposal(proposal, inCommittee);
@@ -454,7 +449,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   async collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClient's attestation pool for this block until we have enough attestations
-    const slot = proposal.payload.header.slotNumber.toBigInt();
+    const slot = proposal.payload.header.slotNumber;
     this.log.debug(`Collecting ${required} attestations for slot ${slot} with deadline ${deadline.toISOString()}`);
 
     if (+deadline < this.dateProvider.now()) {

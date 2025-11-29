@@ -1,4 +1,4 @@
-import { BatchedBlob } from '@aztec/blob-lib';
+import { BatchedBlob } from '@aztec/blob-lib/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';

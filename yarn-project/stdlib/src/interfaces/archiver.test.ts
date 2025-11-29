@@ -1,4 +1,4 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -143,7 +143,7 @@ describe('ArchiverApiSchema', () => {
 
   it('getL2SlotNumber', async () => {
     const result = await context.client.getL2SlotNumber();
-    expect(result).toBe(1n);
+    expect(result).toBe(SlotNumber(1));
   });
 
   it('getL2EpochNumber', async () => {
@@ -368,8 +368,8 @@ class MockArchiver implements ArchiverApi {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  getL2SlotNumber(): Promise<bigint> {
-    return Promise.resolve(1n);
+  getL2SlotNumber(): Promise<SlotNumber> {
+    return Promise.resolve(SlotNumber(1));
   }
   getL2EpochNumber(): Promise<EpochNumber | undefined> {
     return Promise.resolve(EpochNumber(1));

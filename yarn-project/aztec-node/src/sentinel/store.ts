@@ -1,4 +1,4 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BufferReader, numToUInt8, numToUInt32BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -76,7 +76,7 @@ export class SentinelStore {
     await this.provenMap.set(who.toString(), this.serializePerformance(performanceToKeep));
   }
 
-  public async updateValidators(slot: bigint, statuses: Record<`0x${string}`, ValidatorStatusInSlot | undefined>) {
+  public async updateValidators(slot: SlotNumber, statuses: Record<`0x${string}`, ValidatorStatusInSlot | undefined>) {
     await this.store.transactionAsync(async () => {
       for (const [who, status] of Object.entries(statuses)) {
         if (status) {
@@ -88,7 +88,7 @@ export class SentinelStore {
 
   private async pushValidatorStatusForSlot(
     who: EthAddress,
-    slot: bigint,
+    slot: SlotNumber,
     status: 'block-mined' | 'block-proposed' | 'block-missed' | 'attestation-sent' | 'attestation-missed',
   ) {
     await this.store.transactionAsync(async () => {
@@ -140,7 +140,7 @@ export class SentinelStore {
     const reader = new BufferReader(buffer);
     const history: ValidatorStatusHistory = [];
     while (!reader.isEmpty()) {
-      const slot = BigInt(reader.readNumber());
+      const slot = SlotNumber(reader.readNumber());
       const status = this.statusFromNumber(reader.readUInt8());
       history.push({ slot, status });
     }

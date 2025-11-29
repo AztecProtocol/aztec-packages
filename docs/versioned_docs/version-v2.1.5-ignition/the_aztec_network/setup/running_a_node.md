@@ -24,7 +24,7 @@ These requirements are subject to change as the network throughput increases.
 
 **Before proceeding:** Ensure you've reviewed and completed the [prerequisites](../prerequisites.md) for your chosen deployment method.
 
-Both setup methods below include only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
+Both setup methods below include only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
 
 ## Setup with CLI
 
@@ -39,7 +39,7 @@ mkdir aztec-node && cd ./aztec-node
 Set the required configuration options. You can use environment variables or pass values directly to the command:
 
 ```bash
-export AZTEC_NODE_NETWORK=testnet
+export AZTEC_NODE_NETWORK=mainnet
 export AZTEC_NODE_P2P_IP=[your external IP]
 export AZTEC_NODE_ETH_HOSTS=[execution endpoint]
 export AZTEC_NODE_CONSENSUS_HOSTS=[consensus endpoint]
@@ -119,7 +119,7 @@ services:
       start
       --node
       --archiver
-      --network testnet
+      --network mainnet
     networks:
       - aztec
     restart: always

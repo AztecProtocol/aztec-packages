@@ -160,7 +160,7 @@ services:
       start
       --prover-node
       --archiver
-      --network testnet
+      --network mainnet
     depends_on:
       prover-broker:
         condition: service_started
@@ -192,7 +192,7 @@ services:
       /usr/src/yarn-project/aztec/dest/bin/index.js
       start
       --prover-broker
-      --network testnet
+      --network mainnet
     environment:
       DATA_DIRECTORY: /var/lib/data
       ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
@@ -218,7 +218,7 @@ docker exec -it prover-node curl -X POST http://localhost:8880 \
 
 **Important:** The broker exposes port 8080 via `ports: - ${PROVER_BROKER_PORT}:8080`, making it accessible to external prover agents. Ensure this port is reachable from your agent machines.
 
-This configuration includes only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
+This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
 
 #### Step 4: Start Node and Broker
 
@@ -272,7 +272,7 @@ services:
       /usr/src/yarn-project/aztec/dest/bin/index.js
       start
       --prover-agent
-      --network testnet
+      --network mainnet
     environment:
       PROVER_AGENT_COUNT: ${PROVER_AGENT_COUNT}
       PROVER_AGENT_POLL_INTERVAL_MS: ${PROVER_AGENT_POLL_INTERVAL_MS}

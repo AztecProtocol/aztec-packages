@@ -47,7 +47,7 @@ export async function buildBlock(
 ): Promise<BuildBlockResult> {
   const blockBuildingTimer = new Timer();
   const blockNumber = newGlobalVariables.blockNumber;
-  const slot = newGlobalVariables.slotNumber.toBigInt();
+  const slot = newGlobalVariables.slotNumber;
   const msgCount = l1ToL2Messages.length;
   const stateReference = await worldStateFork.getStateReference();
   const archiveTree = await worldStateFork.getTreeInfo(MerkleTreeId.ARCHIVE);

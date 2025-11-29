@@ -1,4 +1,4 @@
-import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import type { EpochNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';

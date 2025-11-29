@@ -1,3 +1,4 @@
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -61,7 +62,7 @@ describe('KV Attestation Pool', () => {
 
       // We should now be at cap
       expect(
-        await kvAttestationPool.hasReachedAttestationCap(BigInt(slotNumber), archive.toString(), committeeSize),
+        await kvAttestationPool.hasReachedAttestationCap(SlotNumber(slotNumber), archive.toString(), committeeSize),
       ).toBe(true);
 
       // A new attestation from a new signer should not be accepted (per validation helper semantics)

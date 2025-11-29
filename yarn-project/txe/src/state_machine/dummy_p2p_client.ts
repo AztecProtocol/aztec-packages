@@ -1,3 +1,4 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type {
   AuthRequest,
   ENR,
@@ -117,7 +118,7 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getTxsByHash"');
   }
 
-  public getAttestationsForSlot(_slot: bigint, _proposalId?: string): Promise<BlockAttestation[]> {
+  public getAttestationsForSlot(_slot: SlotNumber, _proposalId?: string): Promise<BlockAttestation[]> {
     throw new Error('DummyP2P does not implement "getAttestationForSlot"');
   }
 

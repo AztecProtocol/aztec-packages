@@ -1,4 +1,4 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
@@ -81,22 +81,6 @@ export type ViemContentCommitment = {
 export type ViemGasFees = {
   feePerDaGas: bigint;
   feePerL2Gas: bigint;
-};
-
-export type ViemStateReference = {
-  l1ToL2MessageTree: ViemAppendOnlyTreeSnapshot;
-  partialStateReference: ViemPartialStateReference;
-};
-
-export type ViemPartialStateReference = {
-  noteHashTree: ViemAppendOnlyTreeSnapshot;
-  nullifierTree: ViemAppendOnlyTreeSnapshot;
-  publicDataTree: ViemAppendOnlyTreeSnapshot;
-};
-
-export type ViemAppendOnlyTreeSnapshot = {
-  root: `0x${string}`;
-  nextAvailableLeafIndex: number;
 };
 
 export enum SlashingProposerType {
@@ -209,8 +193,8 @@ export class RollupContract {
   }
 
   @memoize
-  getSlotDuration() {
-    return this.rollup.read.getSlotDuration();
+  async getSlotDuration(): Promise<number> {
+    return Number(await this.rollup.read.getSlotDuration());
   }
 
   @memoize
@@ -301,7 +285,7 @@ export class RollupContract {
     return {
       l1StartBlock,
       l1GenesisTime,
-      slotDuration: Number(slotDuration),
+      slotDuration,
       epochDuration: Number(epochDuration),
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
     };
@@ -350,8 +334,8 @@ export class RollupContract {
     return this.rollup.read.getProvenCheckpointNumber();
   }
 
-  getSlotNumber() {
-    return this.rollup.read.getCurrentSlot();
+  async getSlotNumber(): Promise<SlotNumber> {
+    return SlotNumber.fromBigInt(await this.rollup.read.getCurrentSlot());
   }
 
   getL1FeesAt(timestamp: bigint) {
@@ -440,8 +424,8 @@ export class RollupContract {
     return this.rollup.read.getTips();
   }
 
-  getTimestampForSlot(slot: bigint) {
-    return this.rollup.read.getTimestampForSlot([slot]);
+  getTimestampForSlot(slot: SlotNumber) {
+    return this.rollup.read.getTimestampForSlot([BigInt(slot)]);
   }
 
   getEntryQueueLength() {
@@ -501,8 +485,8 @@ export class RollupContract {
     return EthAddress.fromString(await this.rollup.read.getFeeAssetPortal());
   }
 
-  public async getEpochNumberForSlotNumber(slotNumber: bigint): Promise<EpochNumber> {
-    return EpochNumber.fromBigInt(await this.rollup.read.getEpochAtSlot([slotNumber]));
+  public async getEpochNumberForSlotNumber(slotNumber: SlotNumber): Promise<EpochNumber> {
+    return EpochNumber.fromBigInt(await this.rollup.read.getEpochAtSlot([BigInt(slotNumber)]));
   }
 
   getEpochProofPublicInputs(
@@ -552,14 +536,11 @@ export class RollupContract {
   public async canProposeAtNextEthBlock(
     archive: Buffer,
     account: `0x${string}` | Account,
-    slotDuration: bigint | number,
+    slotDuration: number,
     opts: { forcePendingCheckpointNumber?: number } = {},
-  ): Promise<{ slot: bigint; checkpointNumber: bigint; timeOfNextL1Slot: bigint }> {
-    if (typeof slotDuration === 'number') {
-      slotDuration = BigInt(slotDuration);
-    }
+  ): Promise<{ slot: SlotNumber; checkpointNumber: bigint; timeOfNextL1Slot: bigint }> {
     const latestBlock = await this.client.getBlock();
-    const timeOfNextL1Slot = latestBlock.timestamp + slotDuration;
+    const timeOfNextL1Slot = latestBlock.timestamp + BigInt(slotDuration);
     const who = typeof account === 'string' ? account : account.address;
 
     try {
@@ -574,7 +555,7 @@ export class RollupContract {
         stateOverride: await this.makePendingCheckpointNumberOverride(opts.forcePendingCheckpointNumber),
       });
 
-      return { slot, checkpointNumber, timeOfNextL1Slot };
+      return { slot: SlotNumber.fromBigInt(slot), checkpointNumber, timeOfNextL1Slot };
     } catch (err: unknown) {
       throw formatViemError(err);
     }
@@ -653,8 +634,8 @@ export class RollupContract {
     return this.rollup.read.getManaBaseFeeAt([timestamp, inFeeAsset]);
   }
 
-  getSlotAt(timestamp: bigint) {
-    return this.rollup.read.getSlotAt([timestamp]);
+  async getSlotAt(timestamp: bigint): Promise<SlotNumber> {
+    return SlotNumber.fromBigInt(await this.rollup.read.getSlotAt([timestamp]));
   }
 
   async status(checkpointNumber: bigint, options?: { blockNumber?: bigint }) {

@@ -1,4 +1,4 @@
-import { BatchedBlob, FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlob, FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib/types';
 import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
@@ -214,7 +214,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     const constants = checkpointProvingState.constants;
-    logger.info(`Starting block ${blockNumber} for slot ${constants.slotNumber.toNumber()}.`);
+    logger.info(`Starting block ${blockNumber} for slot ${constants.slotNumber}.`);
 
     // Fork the db only when it's not already set. The db for the first block is set in `startNewCheckpoint`.
     if (!this.dbs.has(blockNumber)) {

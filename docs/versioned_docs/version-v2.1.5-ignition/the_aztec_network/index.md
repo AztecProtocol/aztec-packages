@@ -78,7 +78,7 @@ For optimal performance and reliability, it's highly recommended to run your own
 **Requirements:**
 - Access to both execution and consensus client endpoints
 - Endpoints must support high throughput
-- Must be connected to Sepolia testnet for Aztec testnet
+- Must be connected to Ethereum Mainnet
 
 See [Eth Docker's guide](https://ethdocker.com/Usage/QuickStart) for setting up your own L1 node.
 

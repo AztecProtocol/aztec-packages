@@ -1,5 +1,5 @@
 import type { RollupContract, ViemPublicClient } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -159,7 +159,7 @@ describe('EpochCache', () => {
     rollupContract.getCommitteeAt.mockResolvedValue(expectedCommittee.map(v => v.toString()));
     rollupContract.getSampleSeedAt.mockResolvedValue(expectedSeed);
 
-    await epochCache.getCommittee(targetSlot);
+    await epochCache.getCommittee(SlotNumber.fromBigInt(targetSlot));
 
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledWith(epochStartTimestamp);
@@ -185,8 +185,8 @@ describe('EpochCache', () => {
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1); // Called again for new epoch
     rollupContract.getCommitteeAt.mockClear();
 
-    // Should return the previous epoch still cached (1n is a slot number, not an epoch)
-    const { committee: initialCommitteeRerequested } = await epochCache.getCommittee(1n);
+    // Should return the previous epoch still cached (SlotNumber(1) is a slot number, not an epoch)
+    const { committee: initialCommitteeRerequested } = await epochCache.getCommittee(SlotNumber(1));
     expect(initialCommitteeRerequested).toEqual(testCommittee);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0); // Cached
   });
@@ -201,7 +201,7 @@ describe('EpochCache', () => {
     // Seed the cache with 3 epochs worth of data
     for (let i = 0; i < 3; i++) {
       rollupContract.getCommitteeAt.mockResolvedValue(committees[i].map(v => v.toString()));
-      const { committee: actual } = await epochCache.getCommittee(BigInt(i * EPOCH_DURATION));
+      const { committee: actual } = await epochCache.getCommittee(SlotNumber(i * EPOCH_DURATION));
       expect(actual).toEqual(committees[i]);
       expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(i); // Epoch 0 is already initialized
     }
@@ -209,21 +209,21 @@ describe('EpochCache', () => {
     // Requesting any of them should not call the contract again
     rollupContract.getCommitteeAt.mockClear();
     for (let i = 0; i < 3; i++) {
-      const { committee: actual } = await epochCache.getCommittee(BigInt(i * EPOCH_DURATION));
+      const { committee: actual } = await epochCache.getCommittee(SlotNumber(i * EPOCH_DURATION));
       expect(actual).toEqual(committees[i]);
       expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0);
     }
 
     // Requesting another epoch should cause the oldest to be purged
     rollupContract.getCommitteeAt.mockResolvedValue(committees[3].map(v => v.toString()));
-    const { committee: fourth } = await epochCache.getCommittee(BigInt(3 * EPOCH_DURATION));
+    const { committee: fourth } = await epochCache.getCommittee(SlotNumber(3 * EPOCH_DURATION));
     expect(fourth).toEqual(committees[3]);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
     rollupContract.getCommitteeAt.mockClear();
 
     // So when going back to the first epoch, it should be re-requested from the contract
     rollupContract.getCommitteeAt.mockResolvedValue(committees[0].map(v => v.toString()));
-    const { committee: first } = await epochCache.getCommittee(BigInt(0 * EPOCH_DURATION));
+    const { committee: first } = await epochCache.getCommittee(SlotNumber(0 * EPOCH_DURATION));
     expect(first).toEqual(committees[0]);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
   });
@@ -267,7 +267,7 @@ describe('EpochCache', () => {
     const futureSlot = futureEpoch * BigInt(epochDuration);
 
     // Attempt to get committee for this future slot should throw
-    await expect(epochCache.getCommittee(futureSlot)).rejects.toThrow(
+    await expect(epochCache.getCommittee(SlotNumber.fromBigInt(futureSlot))).rejects.toThrow(
       /Cannot query committee for future epoch.*with timestamp.*\(current L1 time is/,
     );
   });
