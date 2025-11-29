@@ -17,6 +17,7 @@ import {
   createEthereumChain,
   getPublicClient,
 } from '@aztec/ethereum';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -1243,8 +1244,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public getValidatorStats(
     validatorAddress: EthAddress,
-    fromSlot?: bigint,
-    toSlot?: bigint,
+    fromSlot?: SlotNumber,
+    toSlot?: SlotNumber,
   ): Promise<SingleValidatorStats | undefined> {
     return this.validatorsSentinel?.getValidatorStats(validatorAddress, fromSlot, toSlot) ?? Promise.resolve(undefined);
   }

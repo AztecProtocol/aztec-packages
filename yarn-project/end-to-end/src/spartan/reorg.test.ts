@@ -101,7 +101,7 @@ describe('reorg test', () => {
     const stdout = await applyProverFailure({
       namespace: config.NAMESPACE,
       spartanDir,
-      durationSeconds: Number(epochDuration * slotDuration) * 2,
+      durationSeconds: Number(BigInt(epochDuration) * BigInt(slotDuration)) * 2,
       logger: debugLogger,
     });
     debugLogger.info(stdout);
@@ -109,7 +109,7 @@ describe('reorg test', () => {
     // We only need 2 epochs for a reorg to be triggered, but 3 gives time for the bot to be restarted and the chain to re-stabilize
     // TODO(#9613): why do we need to wait for 3 epochs?
     debugLogger.info(`Waiting for 3 epochs to pass`);
-    await sleep(Number(epochDuration * slotDuration) * 3 * 1000);
+    await sleep(Number(BigInt(epochDuration) * BigInt(slotDuration)) * 3 * 1000);
 
     // TODO(#9327): begin delete
     // The bot must be restarted because the PXE does not handle reorgs without a restart.

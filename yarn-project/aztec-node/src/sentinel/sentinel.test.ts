@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -42,7 +42,7 @@ describe('sentinel', () => {
 
   let sentinel: TestSentinel;
 
-  let slot: bigint;
+  let slot: SlotNumber;
   let epoch: EpochNumber;
   let ts: bigint;
   let l1Constants: L1RollupConstants;
@@ -64,7 +64,7 @@ describe('sentinel', () => {
     kvStore = await openTmpStore('sentinel-test');
     store = new SentinelStore(kvStore, { historyLength: 10, historicProvenPerformanceLength: 5 });
 
-    slot = 10n;
+    slot = SlotNumber(10);
     epoch = EpochNumber(0);
     ts = BigInt(Math.ceil(Date.now() / 1000));
     l1Constants = {
@@ -221,12 +221,12 @@ describe('sentinel', () => {
 
     it('computes stats correctly', () => {
       const stats = sentinel.computeStatsForValidator(validator, [
-        { slot: 1n, status: 'block-mined' },
-        { slot: 2n, status: 'block-proposed' },
-        { slot: 3n, status: 'block-missed' },
-        { slot: 4n, status: 'block-missed' },
-        { slot: 5n, status: 'attestation-sent' },
-        { slot: 6n, status: 'attestation-missed' },
+        { slot: SlotNumber(1), status: 'block-mined' },
+        { slot: SlotNumber(2), status: 'block-proposed' },
+        { slot: SlotNumber(3), status: 'block-missed' },
+        { slot: SlotNumber(4), status: 'block-missed' },
+        { slot: SlotNumber(5), status: 'attestation-sent' },
+        { slot: SlotNumber(6), status: 'attestation-missed' },
       ]);
 
       expect(stats.address.toString()).toEqual(validator);
@@ -234,23 +234,23 @@ describe('sentinel', () => {
       expect(stats.missedProposals.count).toEqual(2);
       expect(stats.missedProposals.currentStreak).toEqual(2);
       expect(stats.missedProposals.rate).toEqual(0.5);
-      expect(stats.lastProposal?.slot).toEqual(2n);
+      expect(stats.lastProposal?.slot).toEqual(SlotNumber(2));
       expect(stats.missedAttestations.count).toEqual(1);
       expect(stats.missedAttestations.currentStreak).toEqual(1);
       expect(stats.missedAttestations.rate).toEqual(0.5);
-      expect(stats.lastAttestation?.slot).toEqual(5n);
+      expect(stats.lastAttestation?.slot).toEqual(SlotNumber(5));
     });
 
     it('resets streaks correctly', () => {
       const stats = sentinel.computeStatsForValidator(validator, [
-        { slot: 1n, status: 'block-mined' },
-        { slot: 2n, status: 'block-missed' },
-        { slot: 3n, status: 'block-mined' },
-        { slot: 4n, status: 'block-missed' },
-        { slot: 5n, status: 'attestation-sent' },
-        { slot: 6n, status: 'attestation-missed' },
-        { slot: 7n, status: 'attestation-sent' },
-        { slot: 8n, status: 'attestation-missed' },
+        { slot: SlotNumber(1), status: 'block-mined' },
+        { slot: SlotNumber(2), status: 'block-missed' },
+        { slot: SlotNumber(3), status: 'block-mined' },
+        { slot: SlotNumber(4), status: 'block-missed' },
+        { slot: SlotNumber(5), status: 'attestation-sent' },
+        { slot: SlotNumber(6), status: 'attestation-missed' },
+        { slot: SlotNumber(7), status: 'attestation-sent' },
+        { slot: SlotNumber(8), status: 'attestation-missed' },
       ]);
 
       expect(stats.address.toString()).toEqual(validator);
@@ -264,8 +264,8 @@ describe('sentinel', () => {
     });
 
     it('considers only latest slots', () => {
-      const history = times(20, i => ({ slot: BigInt(i), status: 'block-missed' }) as const);
-      const stats = sentinel.computeStatsForValidator(validator, history, 15n);
+      const history = times(20, i => ({ slot: SlotNumber(i), status: 'block-missed' }) as const);
+      const stats = sentinel.computeStatsForValidator(validator, history, SlotNumber(15));
 
       expect(stats.address.toString()).toEqual(validator);
       expect(stats.totalSlots).toEqual(5);
@@ -273,8 +273,8 @@ describe('sentinel', () => {
     });
 
     it('filters history by toSlot parameter', () => {
-      const history = times(20, i => ({ slot: BigInt(i), status: 'block-missed' }) as const);
-      const stats = sentinel.computeStatsForValidator(validator, history, 5n, 10n);
+      const history = times(20, i => ({ slot: SlotNumber(i), status: 'block-missed' }) as const);
+      const stats = sentinel.computeStatsForValidator(validator, history, SlotNumber(5), SlotNumber(10));
 
       expect(stats.address.toString()).toEqual(validator);
       expect(stats.totalSlots).toEqual(6); // Slots 5-10 inclusive
@@ -290,48 +290,48 @@ describe('sentinel', () => {
       validator = EthAddress.random();
       jest.spyOn(store, 'getHistoryLength').mockReturnValue(10);
       jest.spyOn(store, 'getHistory').mockResolvedValue([
-        { slot: 1n, status: 'block-mined' },
-        { slot: 2n, status: 'attestation-sent' },
+        { slot: SlotNumber(1), status: 'block-mined' },
+        { slot: SlotNumber(2), status: 'attestation-sent' },
       ]);
       jest.spyOn(store, 'getHistories').mockResolvedValue({
         [validator.toString()]: [
-          { slot: 1n, status: 'block-mined' },
-          { slot: 2n, status: 'attestation-sent' },
+          { slot: SlotNumber(1), status: 'block-mined' },
+          { slot: SlotNumber(2), status: 'attestation-sent' },
         ],
       });
     });
 
     describe('getValidatorStats', () => {
       it('should throw when slot range exceeds history length', async () => {
-        await expect(sentinel.getValidatorStats(validator, 1n, 16n)).rejects.toThrow(
+        await expect(sentinel.getValidatorStats(validator, SlotNumber(1), SlotNumber(16))).rejects.toThrow(
           'Slot range (15) exceeds history length (10). Requested range: 1 to 16.',
         );
       });
 
       it('should not throw when slot range equals history length', async () => {
-        await expect(sentinel.getValidatorStats(validator, 1n, 11n)).resolves.toBeDefined();
+        await expect(sentinel.getValidatorStats(validator, SlotNumber(1), SlotNumber(11))).resolves.toBeDefined();
       });
 
       it('should not throw when slot range is less than history length', async () => {
-        await expect(sentinel.getValidatorStats(validator, 1n, 6n)).resolves.toBeDefined();
+        await expect(sentinel.getValidatorStats(validator, SlotNumber(1), SlotNumber(6))).resolves.toBeDefined();
       });
 
       it('should return undefined when validator has no history', async () => {
         jest.spyOn(store, 'getHistory').mockResolvedValue(undefined);
-        const result = await sentinel.getValidatorStats(validator, 1n, 6n);
+        const result = await sentinel.getValidatorStats(validator, SlotNumber(1), SlotNumber(6));
         expect(result).toBeUndefined();
       });
 
       it('should return undefined when validator has empty history', async () => {
         jest.spyOn(store, 'getHistory').mockResolvedValue([]);
-        const result = await sentinel.getValidatorStats(validator, 1n, 6n);
+        const result = await sentinel.getValidatorStats(validator, SlotNumber(1), SlotNumber(6));
         expect(result).toBeUndefined();
       });
 
       it('should return expected mocked data structure', async () => {
         const mockHistory: ValidatorStatusHistory = [
-          { slot: 1n, status: 'block-mined' },
-          { slot: 2n, status: 'attestation-sent' },
+          { slot: SlotNumber(1), status: 'block-mined' },
+          { slot: SlotNumber(2), status: 'attestation-sent' },
         ];
         const mockProvenPerformance = [
           { epoch: EpochNumber(1), missed: 2, total: 10 },
@@ -348,7 +348,7 @@ describe('sentinel', () => {
           history: mockHistory,
         });
 
-        const result = await sentinel.getValidatorStats(validator, 1n, 6n);
+        const result = await sentinel.getValidatorStats(validator, SlotNumber(1), SlotNumber(6));
 
         expect(result).toEqual({
           validator: {
@@ -366,7 +366,7 @@ describe('sentinel', () => {
       });
 
       it('should call computeStatsForValidator with correct parameters', async () => {
-        const mockHistory: ValidatorStatusHistory = [{ slot: 5n, status: 'block-mined' }];
+        const mockHistory: ValidatorStatusHistory = [{ slot: SlotNumber(5), status: 'block-mined' }];
         jest.spyOn(store, 'getHistory').mockResolvedValue(mockHistory);
         jest.spyOn(store, 'getProvenPerformance').mockResolvedValue([]);
         const computeStatsSpy = jest.spyOn(sentinel, 'computeStatsForValidator').mockReturnValue({
@@ -377,13 +377,13 @@ describe('sentinel', () => {
           history: mockHistory,
         });
 
-        await sentinel.getValidatorStats(validator, 3n, 8n);
+        await sentinel.getValidatorStats(validator, SlotNumber(3), SlotNumber(8));
 
-        expect(computeStatsSpy).toHaveBeenCalledWith(validator.toString(), mockHistory, 3n, 8n);
+        expect(computeStatsSpy).toHaveBeenCalledWith(validator.toString(), mockHistory, SlotNumber(3), SlotNumber(8));
       });
 
       it('should use default slot range when not provided', async () => {
-        const mockHistory: ValidatorStatusHistory = [{ slot: 5n, status: 'block-mined' }];
+        const mockHistory: ValidatorStatusHistory = [{ slot: SlotNumber(5), status: 'block-mined' }];
         jest.spyOn(store, 'getHistory').mockResolvedValue(mockHistory);
         jest.spyOn(store, 'getProvenPerformance').mockResolvedValue([]);
         const computeStatsSpy = jest.spyOn(sentinel, 'computeStatsForValidator').mockReturnValue({
@@ -396,11 +396,44 @@ describe('sentinel', () => {
 
         await sentinel.getValidatorStats(validator);
 
-        expect(computeStatsSpy).toHaveBeenCalledWith(validator.toString(), mockHistory, slot - BigInt(10), slot);
+        expect(computeStatsSpy).toHaveBeenCalledWith(
+          validator.toString(),
+          mockHistory,
+          SlotNumber(slot - 10),
+          SlotNumber(slot),
+        );
+      });
+
+      it('should not produce negative slot numbers when historyLength exceeds lastProcessedSlot', async () => {
+        const mockHistory: ValidatorStatusHistory = [{ slot: SlotNumber(2), status: 'block-mined' }];
+        jest.spyOn(store, 'getHistory').mockResolvedValue(mockHistory);
+        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue([]);
+        jest.spyOn(store, 'getHistoryLength').mockReturnValue(1000); // Large history length
+
+        // Set lastProcessedSlot to a small value
+        sentinel.setLastProcessedSlot(SlotNumber(5));
+
+        const computeStatsSpy = jest.spyOn(sentinel, 'computeStatsForValidator').mockReturnValue({
+          address: validator,
+          totalSlots: 1,
+          missedProposals: { count: 0, currentStreak: 0, rate: 0, total: 0 },
+          missedAttestations: { count: 0, currentStreak: 0, rate: 0, total: 0 },
+          history: mockHistory,
+        });
+
+        await sentinel.getValidatorStats(validator);
+
+        // Should use SlotNumber(0) instead of negative value (5 - 1000 = -995)
+        expect(computeStatsSpy).toHaveBeenCalledWith(
+          validator.toString(),
+          mockHistory,
+          SlotNumber(0), // Math.max((5 - 1000), 0) = 0
+          SlotNumber(5),
+        );
       });
 
       it('should return proven performance data from store', async () => {
-        const mockHistory: ValidatorStatusHistory = [{ slot: 1n, status: 'block-mined' }];
+        const mockHistory: ValidatorStatusHistory = [{ slot: SlotNumber(1), status: 'block-mined' }];
         const mockProvenPerformance = [
           { epoch: EpochNumber(5), missed: 3, total: 12 },
           { epoch: EpochNumber(6), missed: 0, total: 15 },
@@ -424,6 +457,59 @@ describe('sentinel', () => {
         expect(result?.allTimeProvenPerformance).toEqual(mockProvenPerformance);
       });
     });
+
+    describe('computeStats', () => {
+      beforeEach(() => {
+        jest.spyOn(store, 'getHistoryLength').mockReturnValue(10);
+      });
+
+      it('should not produce negative slot numbers when historyLength exceeds lastProcessedSlot', async () => {
+        const validator = EthAddress.random();
+        const mockHistories = {
+          [validator.toString()]: [{ slot: SlotNumber(2), status: 'block-mined' as const }],
+        };
+        jest.spyOn(store, 'getHistories').mockResolvedValue(mockHistories);
+        jest.spyOn(store, 'getHistoryLength').mockReturnValue(1000); // Large history length
+
+        // Set lastProcessedSlot to a small value
+        sentinel.setLastProcessedSlot(SlotNumber(5));
+
+        const result = await sentinel.computeStats({});
+
+        // The fromSlot should be 0 (Math.max(5 - 1000, 0) = 0), not negative
+        expect(result.stats[validator.toString()]).toBeDefined();
+        expect(result.lastProcessedSlot).toEqual(SlotNumber(5));
+
+        // Verify the validator stats were computed with the correct slot range
+        const validatorStats = result.stats[validator.toString()];
+        expect(validatorStats.totalSlots).toBe(1); // Only slot 2 falls in range [0, 5]
+      });
+
+      it('should use default fromSlot when lastProcessedSlot minus historyLength is positive', async () => {
+        const validator = EthAddress.random();
+        const mockHistories = {
+          [validator.toString()]: [
+            { slot: SlotNumber(95), status: 'block-mined' as const },
+            { slot: SlotNumber(100), status: 'attestation-sent' as const },
+          ],
+        };
+        jest.spyOn(store, 'getHistories').mockResolvedValue(mockHistories);
+        jest.spyOn(store, 'getHistoryLength').mockReturnValue(10);
+
+        // Set lastProcessedSlot to a value where subtraction is positive
+        sentinel.setLastProcessedSlot(SlotNumber(100));
+
+        const result = await sentinel.computeStats({});
+
+        // The fromSlot should be 90 (100 - 10 = 90)
+        expect(result.stats[validator.toString()]).toBeDefined();
+        expect(result.lastProcessedSlot).toEqual(SlotNumber(100));
+
+        // Both slots 95 and 100 should be included in range [90, 100]
+        const validatorStats = result.stats[validator.toString()];
+        expect(validatorStats.totalSlots).toBe(2);
+      });
+    });
   });
 
   describe('handleChainProven', () => {
@@ -436,9 +522,14 @@ describe('sentinel', () => {
       const validator1 = EthAddress.random();
       const validator2 = EthAddress.random();
       const validator3 = EthAddress.random();
-      const headerSlots = times(l1Constants.epochDuration, i => slot - BigInt(i)).reverse();
+      const headerSlots = times(l1Constants.epochDuration, i => SlotNumber(slot - i)).reverse();
 
-      epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: epochNumber, slot, ts, now: ts });
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: epochNumber,
+        slot,
+        ts,
+        now: ts,
+      });
       archiver.getBlock.calledWith(blockNumber).mockResolvedValue(mockBlock.block);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
       epochCache.getL1Constants.mockReturnValue(l1Constants);
@@ -478,7 +569,7 @@ describe('sentinel', () => {
           },
         },
         lastProcessedSlot: slot,
-        initialSlot: 0n,
+        initialSlot: SlotNumber(0),
         slotWindow: 15,
       };
       const computeStatsSpy = jest.spyOn(sentinel, 'computeStats').mockResolvedValue(statsResult);
@@ -706,15 +797,15 @@ class TestSentinel extends Sentinel {
     return Promise.resolve();
   }
 
-  public override getSlotActivity(slot: bigint, epoch: EpochNumber, proposer: EthAddress, committee: EthAddress[]) {
+  public override getSlotActivity(slot: SlotNumber, epoch: EpochNumber, proposer: EthAddress, committee: EthAddress[]) {
     return super.getSlotActivity(slot, epoch, proposer, committee);
   }
 
   public override computeStatsForValidator(
     address: `0x${string}`,
     history: ValidatorStatusHistory,
-    fromSlot?: bigint,
-    toSlot?: bigint,
+    fromSlot?: SlotNumber,
+    toSlot?: SlotNumber,
   ): ValidatorStats {
     return super.computeStatsForValidator(address, history, fromSlot, toSlot);
   }
@@ -723,7 +814,7 @@ class TestSentinel extends Sentinel {
     return super.handleChainProven(event);
   }
 
-  public override computeStats(opts: { fromSlot?: bigint; toSlot?: bigint }) {
+  public override computeStats(opts: { fromSlot?: SlotNumber; toSlot?: SlotNumber }) {
     return super.computeStats(opts);
   }
 
@@ -731,12 +822,16 @@ class TestSentinel extends Sentinel {
     return super.handleProvenPerformance(epoch, performance);
   }
 
-  public override getValidatorStats(validatorAddress: EthAddress, fromSlot?: bigint, toSlot?: bigint) {
+  public override getValidatorStats(validatorAddress: EthAddress, fromSlot?: SlotNumber, toSlot?: SlotNumber) {
     return super.getValidatorStats(validatorAddress, fromSlot, toSlot);
   }
 
   public getLastProcessedSlot() {
     return this.lastProcessedSlot;
+  }
+
+  public setLastProcessedSlot(slot: SlotNumber) {
+    this.lastProcessedSlot = slot;
   }
 
   public getInitialSlot() {

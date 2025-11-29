@@ -9,7 +9,7 @@ import {
   createEthereumChain,
 } from '@aztec/ethereum';
 import { maxBigint } from '@aztec/foundation/bigint';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { merge, pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -472,7 +472,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         throw new Error(`Missing checkpoint header ${pruneFrom}`);
       }
 
-      const pruneFromSlotNumber = header.slotNumber.toBigInt();
+      const pruneFromSlotNumber = header.slotNumber;
       const pruneFromEpochNumber: EpochNumber = getEpochAtSlot(pruneFromSlotNumber, this.l1constants);
 
       const checkpointsToUnwind = localPendingCheckpointNumber - provenCheckpointNumber;
@@ -742,7 +742,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
           this.log.info(`Updated proven chain to checkpoint ${provenCheckpointNumber}`, {
             provenCheckpointNumber,
           });
-          const provenSlotNumber = localCheckpointForDestinationProvenCheckpointNumber.header.slotNumber.toBigInt();
+          const provenSlotNumber = localCheckpointForDestinationProvenCheckpointNumber.header.slotNumber;
           const provenEpochNumber: EpochNumber = getEpochAtSlot(provenSlotNumber, this.l1constants);
 
           this.emit(L2BlockSourceEvents.L2BlockProven, {
@@ -1070,7 +1070,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return Promise.resolve(this.l1Timestamp);
   }
 
-  public getL2SlotNumber(): Promise<bigint | undefined> {
+  public getL2SlotNumber(): Promise<SlotNumber | undefined> {
     return Promise.resolve(
       this.l1Timestamp === undefined ? undefined : getSlotAtTimestamp(this.l1Timestamp, this.l1constants),
     );
@@ -1089,7 +1089,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     // Walk the list of blocks backwards and filter by slots matching the requested epoch.
     // We'll typically ask for blocks for a very recent epoch, so we shouldn't need an index here.
     let block = await this.getBlock(await this.store.getSynchedL2BlockNumber());
-    const slot = (b: L2Block) => b.header.globalVariables.slotNumber.toBigInt();
+    const slot = (b: L2Block) => b.header.globalVariables.slotNumber;
     while (block && slot(block) >= start) {
       if (slot(block) <= end) {
         blocks.push(block);
@@ -1108,7 +1108,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     // We'll typically ask for blocks for a very recent epoch, so we shouldn't need an index here.
     let number = await this.store.getSynchedL2BlockNumber();
     let header = await this.getBlockHeader(number);
-    const slot = (b: BlockHeader) => b.globalVariables.slotNumber.toBigInt();
+    const slot = (b: BlockHeader) => b.globalVariables.slotNumber;
     while (header && slot(header) >= start) {
       if (slot(header) <= end) {
         blocks.push(header);
@@ -1121,7 +1121,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   public async isEpochComplete(epochNumber: EpochNumber): Promise<boolean> {
     // The epoch is complete if the current L2 block is the last one in the epoch (or later)
     const header = await this.getBlockHeader('latest');
-    const slot = header?.globalVariables.slotNumber.toBigInt();
+    const slot = header ? header.globalVariables.slotNumber : undefined;
     const [_startSlot, endSlot] = getSlotRangeForEpoch(epochNumber, this.l1constants);
     if (slot && slot >= endSlot) {
       return true;

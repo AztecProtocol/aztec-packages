@@ -15,7 +15,7 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -140,7 +140,7 @@ describe('SequencerPublisher', () => {
     slashFactoryContract = mock<SlashFactoryContract>();
 
     const epochCache = mock<EpochCache>();
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: 2n, ts: 3n, now: 3n });
+    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 3n, now: 3n });
     epochCache.getCommittee.mockResolvedValue({ committee: [], seed: 1n, epoch: EpochNumber(1) });
 
     publisher = new SequencerPublisher(config, {
@@ -225,7 +225,7 @@ describe('SequencerPublisher', () => {
     const govPayload = EthAddress.random();
     const voteSig = Signature.random();
     governanceProposerContract.getRoundInfo.mockResolvedValue({
-      lastSignalSlot: 1n,
+      lastSignalSlot: SlotNumber(1),
       payloadWithMostSignals: govPayload.toString(),
       executed: false,
     });
@@ -257,7 +257,7 @@ describe('SequencerPublisher', () => {
     expect(
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
-        2n,
+        SlotNumber(2),
         1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
@@ -411,7 +411,7 @@ describe('SequencerPublisher', () => {
           args: [EthAddress.random().toString()],
         }),
       },
-      lastValidL2Slot: 1n,
+      lastValidL2Slot: SlotNumber(1),
       checkSuccess: () => true,
     });
 

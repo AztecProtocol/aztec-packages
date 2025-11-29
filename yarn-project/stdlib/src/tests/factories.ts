@@ -43,6 +43,7 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
 import { Grumpkin, SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -694,7 +695,7 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
     chainId: new Fr(seed),
     version: new Fr(seed + 1),
     blockNumber: seed + 2,
-    slotNumber: new Fr(seed + 3),
+    slotNumber: SlotNumber(seed + 3),
     timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
     feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
@@ -775,7 +776,7 @@ function makeCheckpointConstantData(seed = 1) {
     fr(seed + 2),
     fr(seed + 3),
     fr(seed + 4),
-    fr(seed + 5),
+    SlotNumber(seed + 5),
     makeEthAddress(seed + 6),
     makeAztecAddress(seed + 7),
     makeGasFees(seed + 8),
@@ -916,7 +917,7 @@ export function makeL2BlockHeader(
     overrides?.state ?? makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
       ...(blockNumber ? { blockNumber } : {}),
-      ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
+      ...(slotNumber ? { slotNumber: SlotNumber(slotNumber) } : {}),
     }),
     new Fr(seed + 0x800),
     new Fr(seed + 0x900),
@@ -930,7 +931,7 @@ export function makeCheckpointHeader(seed = 0) {
     lastArchiveRoot: fr(seed + 0x100),
     blockHeadersHash: fr(seed + 0x150),
     contentCommitment: makeContentCommitment(seed + 0x200),
-    slotNumber: new Fr(seed + 0x300),
+    slotNumber: SlotNumber(seed + 0x300),
     timestamp: BigInt(seed + 0x400),
     coinbase: makeEthAddress(seed + 0x500),
     feeRecipient: makeAztecAddress(seed + 0x600),

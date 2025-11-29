@@ -1,4 +1,5 @@
 import { EpochCache } from '@aztec/epoch-cache';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
@@ -121,7 +122,7 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
           validator: attestor,
           amount: this.config.slashAttestDescendantOfInvalidPenalty,
           offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
-          epochOrSlot: BigInt(block.slotNumber),
+          epochOrSlot: BigInt(SlotNumber(block.slotNumber)),
         })),
       );
     }
@@ -130,7 +131,7 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
   private slashProposer(validationResult: ValidateBlockNegativeResult) {
     const { reason, block } = validationResult;
     const blockNumber = block.blockNumber;
-    const slot = BigInt(block.slotNumber);
+    const slot = SlotNumber(block.slotNumber);
     const proposer = this.epochCache.getProposerFromEpochCommittee(validationResult, slot);
 
     if (!proposer) {
@@ -144,7 +145,7 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
       validator: proposer,
       amount,
       offenseType: offense,
-      epochOrSlot: slot,
+      epochOrSlot: BigInt(slot),
     };
 
     this.log.info(`Want to slash proposer of block ${blockNumber} due to ${reason}`, {

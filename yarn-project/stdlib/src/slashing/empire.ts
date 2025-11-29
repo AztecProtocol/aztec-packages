@@ -1,4 +1,4 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 
 import { getRoundForSlot, getRoundsForEpoch } from './helpers.js';
 import type { Offense, OffenseIdentifier, SlashPayload, SlashPayloadRound, ValidatorSlash } from './types.js';
@@ -85,7 +85,7 @@ export function getFirstEligibleRoundForOffense(
     case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
     case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL: {
       const slot = offense.epochOrSlot;
-      const detectedSlot = slot + 1n;
+      const detectedSlot = SlotNumber.fromBigInt(slot + 1n);
       return getRoundForSlot(detectedSlot, constants).round + 1n;
     }
     // Assume these are epoch-based offenses, even though we should never have to process these

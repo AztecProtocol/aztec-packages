@@ -90,7 +90,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       this.log.warn(`No validators found for epoch ${epochNumber} (cannot slash for ${getOffenseTypeName(offense)})`);
       return;
     }
-    const args = this.validatorsToSlashingArgs(validators, offense, BigInt(epochNumber));
+    const args = this.validatorsToSlashingArgs(validators, offense, epochNumber);
     this.log.verbose(`Created slash for ${getOffenseTypeName(offense)} at epoch ${epochNumber}`, args);
     this.emit(WANT_TO_SLASH_EVENT, args);
   }
@@ -177,7 +177,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   private validatorsToSlashingArgs(
     validators: EthAddress[],
     offenseType: OffenseType,
-    epochOrSlot: bigint,
+    epochOrSlot: EpochNumber,
   ): WantToSlashArgs[] {
     const penalty =
       offenseType === OffenseType.DATA_WITHHOLDING
@@ -187,7 +187,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       validator: v,
       amount: penalty,
       offenseType,
-      epochOrSlot,
+      epochOrSlot: BigInt(epochOrSlot),
     }));
   }
 }
