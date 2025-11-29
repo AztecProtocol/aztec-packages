@@ -6,7 +6,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/aztec.js/protocol';
 import type { Operator } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -121,13 +121,14 @@ describe('e2e_epochs/epochs_first_slot', () => {
 
     // Check that the first two slots of the epoch have a block
     const [firstSlot] = getSlotRangeForEpoch(EPOCH, test.constants);
-    logger.warn(`Waiting until blocks are synced for slots ${firstSlot} and ${firstSlot + 1n}`);
+    const secondSlot = SlotNumber(firstSlot + 1);
+    logger.warn(`Waiting until blocks are synced for slots ${firstSlot} and ${secondSlot}`);
     await retryUntil(
       async () => {
         const blocks = await nodes[0].getBlocks(INITIAL_L2_BLOCK_NUM, 10);
         const slots = blocks.map(block => block.header.getSlot());
         logger.info(`Fetched blocks ${blocks.map(b => b.number).join(', ')} with slots ${slots.join(', ')}`);
-        return slots.includes(firstSlot) && slots.includes(firstSlot + 1n);
+        return slots.includes(firstSlot) && slots.includes(secondSlot);
       },
       'waiting for blocks',
       20,

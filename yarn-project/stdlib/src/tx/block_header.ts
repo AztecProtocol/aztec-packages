@@ -1,4 +1,5 @@
 import { BLOCK_HEADER_LENGTH, GeneratorIndex } from '@aztec/constants';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
@@ -61,8 +62,8 @@ export class BlockHeader {
     return new BlockHeader(...BlockHeader.getFields(fields));
   }
 
-  getSlot() {
-    return this.globalVariables.slotNumber.toBigInt();
+  getSlot(): SlotNumber {
+    return this.globalVariables.slotNumber;
   }
 
   getBlockNumber() {

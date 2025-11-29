@@ -5,7 +5,7 @@ import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig, InboxContract, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
@@ -763,7 +763,7 @@ describe('Archiver', () => {
 
     logger.info(`Syncing checkpoint on slot ${notLastL2SlotInEpoch} mined in L1 block ${l1BlockForCheckpoint}`);
     const checkpoint = checkpoints[0];
-    checkpoint.header.slotNumber = new Fr(notLastL2SlotInEpoch);
+    checkpoint.header.slotNumber = SlotNumber(notLastL2SlotInEpoch);
     checkpoints = [checkpoint];
     const blobHashes = makeVersionedBlobHashes(checkpoint);
 
@@ -801,7 +801,7 @@ describe('Archiver', () => {
 
     logger.info(`Syncing checkpoint on slot ${lastL2SlotInEpoch} mined in L1 block ${l1BlockForCheckpoint}`);
     const checkpoint = checkpoints[0];
-    checkpoint.header.slotNumber = new Fr(lastL2SlotInEpoch);
+    checkpoint.header.slotNumber = SlotNumber(lastL2SlotInEpoch);
     checkpoints = [checkpoint];
     const blobHashes = makeVersionedBlobHashes(checkpoint);
 
@@ -867,7 +867,7 @@ describe('Archiver', () => {
 
     logger.info(`Syncing epoch 0 with checkpoint on slot ${l2Slot} mined in L1 block ${l1BlockForCheckpoint}`);
     const checkpoint = checkpoints[0];
-    checkpoint.header.slotNumber = new Fr(l2Slot);
+    checkpoint.header.slotNumber = SlotNumber(l2Slot);
     checkpoints = [checkpoint];
     const blobHashes = makeVersionedBlobHashes(checkpoint);
 

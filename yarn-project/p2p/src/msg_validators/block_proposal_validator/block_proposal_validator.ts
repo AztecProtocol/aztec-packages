@@ -51,15 +51,15 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
         await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
 
       // Check that the attestation is for the current or next slot
-      const slotNumberBigInt = block.payload.header.slotNumber.toBigInt();
-      if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
-        this.logger.debug(`Penalizing peer for invalid slot number ${slotNumberBigInt}`, { currentSlot, nextSlot });
+      const slotNumber = block.payload.header.slotNumber;
+      if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
+        this.logger.debug(`Penalizing peer for invalid slot number ${slotNumber}`, { currentSlot, nextSlot });
         return PeerErrorSeverity.HighToleranceError;
       }
 
       // Check that the block proposal is from the current or next proposer
-      if (slotNumberBigInt === currentSlot && currentProposer !== undefined && !proposer.equals(currentProposer)) {
-        this.logger.debug(`Penalizing peer for invalid proposer for current slot ${slotNumberBigInt}`, {
+      if (slotNumber === currentSlot && currentProposer !== undefined && !proposer.equals(currentProposer)) {
+        this.logger.debug(`Penalizing peer for invalid proposer for current slot ${slotNumber}`, {
           currentProposer,
           nextProposer,
           proposer: proposer.toString(),
@@ -67,8 +67,8 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
         return PeerErrorSeverity.MidToleranceError;
       }
 
-      if (slotNumberBigInt === nextSlot && nextProposer !== undefined && !proposer.equals(nextProposer)) {
-        this.logger.debug(`Penalizing peer for invalid proposer for next slot ${slotNumberBigInt}`, {
+      if (slotNumber === nextSlot && nextProposer !== undefined && !proposer.equals(nextProposer)) {
+        this.logger.debug(`Penalizing peer for invalid proposer for next slot ${slotNumber}`, {
           currentProposer,
           nextProposer,
           proposer: proposer.toString(),
@@ -80,7 +80,7 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       if (!(await Promise.all(block.txs?.map(tx => tx.validateTxHash()) ?? [])).every(v => v)) {
         this.logger.warn(`Penalizing peer for invalid tx hashes in block proposal`, {
           proposer,
-          slotNumber: slotNumberBigInt,
+          slotNumber,
         });
         return PeerErrorSeverity.LowToleranceError;
       }

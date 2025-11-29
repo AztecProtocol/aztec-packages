@@ -27,7 +27,7 @@ import {
 import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
@@ -148,10 +148,11 @@ describe('L1Publisher integration', () => {
   let rpcUrl: string;
   let anvil: Anvil;
 
-  const progressTimeBySlot = async (slotsToJump = 1n) => {
+  const progressTimeBySlot = async (slotsToJump = 1) => {
     const currentTime = (await l1Client.getBlock()).timestamp;
     const currentSlot = await rollup.getSlotNumber();
-    const timestamp = await rollup.getTimestampForSlot(currentSlot + slotsToJump);
+    const targetSlot = SlotNumber(currentSlot + slotsToJump);
+    const timestamp = await rollup.getTimestampForSlot(targetSlot);
     if (timestamp > currentTime) {
       await ethCheatCodes.warp(Number(timestamp), { resetBlockInterval: true });
     }
@@ -282,7 +283,7 @@ describe('L1Publisher integration', () => {
     baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
 
     // We jump two epochs such that the committee can be setup.
-    await rollupCheatCodes.advanceToEpoch(BigInt(config.lagInEpochsForValidatorSet + 1));
+    await rollupCheatCodes.advanceToEpoch(EpochNumber(config.lagInEpochsForValidatorSet + 1));
     await rollupCheatCodes.setupEpoch();
 
     ({ committee } = await epochCache.getCommittee());
@@ -330,7 +331,7 @@ describe('L1Publisher integration', () => {
       new Fr(chainId),
       new Fr(version),
       opts.blockNumber ?? 1,
-      new Fr(slot),
+      slot,
       timestamp,
       coinbase,
       feeRecipient,
@@ -401,7 +402,7 @@ describe('L1Publisher integration', () => {
           new Fr(chainId),
           new Fr(version),
           i + 1, // block number
-          new Fr(slot),
+          slot,
           timestamp,
           coinbase,
           feeRecipient,
@@ -785,12 +786,14 @@ describe('L1Publisher integration', () => {
 
       await ethCheatCodes.setAutomine(false);
       await ethCheatCodes.setBlockInterval(config.ethereumSlotDuration);
-      initialL2Slot = await rollup.getSlotNumber();
+      initialL2Slot = BigInt(await rollup.getSlotNumber());
     });
 
     const getProposeTxTimeoutAt = (block: L2Block) => {
       const { slotDuration: aztecSlotDuration } = l1Constants;
-      const txTimeoutAt = new Date((getSlotStartBuildTimestamp(block.slot, l1Constants) + aztecSlotDuration) * 1000);
+      const txTimeoutAt = new Date(
+        (Number(getSlotStartBuildTimestamp(block.slot, l1Constants)) + Number(aztecSlotDuration)) * 1000,
+      );
       logger.warn(`Setting tx timeout at ${txTimeoutAt.toISOString()} (${txTimeoutAt.getTime()})`);
       return txTimeoutAt;
     };
@@ -916,7 +919,7 @@ describe('L1Publisher integration', () => {
 
       // Now we should be able to send a second proposal
       const block2 = await buildSingleBlock({ blockNumber: 1 });
-      expect(block2.slot).toEqual(initialL2Slot + 1n);
+      expect(BigInt(block2.slot)).toEqual(initialL2Slot + 1n);
       sendRequestsResult = undefined;
       await enqueueProposeL2Block(block2);
       await sendRequests();
@@ -937,7 +940,7 @@ describe('L1Publisher integration', () => {
       expect(sendRequestsResult!.failedActions).toEqual([]);
       expect(await rollup.getCheckpointNumber()).toEqual(BigInt(block2.number));
       const rollupBlock = await rollup.getCheckpoint(block2.number);
-      expect(rollupBlock.slotNumber).toEqual(block2.slot);
+      expect(SlotNumber.fromBigInt(rollupBlock.slotNumber)).toEqual(block2.slot);
     });
   });
 });

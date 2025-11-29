@@ -3,6 +3,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { type ExtendedViemWalletClient, type Operator, RollupContract } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -299,8 +300,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Disable validation and attestation gathering for the proposers of two consecutive slots
     // Note that we dont do this on the immediate next slot in case it has already started being built
     const badProposers = await Promise.all([
-      test.epochCache.getProposerAttesterAddressInSlot(initialSlot + 2n),
-      test.epochCache.getProposerAttesterAddressInSlot(initialSlot + 3n),
+      test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(initialSlot + 2)),
+      test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(initialSlot + 3)),
     ]);
 
     const badNodes = [];
@@ -327,18 +328,20 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // We should see two invalid blocks being proposed by the bad proposers in those two slots
     const firstBlockPromise = promiseWithResolvers<number>();
     const secondBlockPromise = promiseWithResolvers<number>();
+    const expectedFirstSlot = Number(BigInt(initialSlot) + 2n);
+    const expectedSecondSlot = Number(BigInt(initialSlot) + 3n);
     test.monitor.on('checkpoint', ({ checkpointNumber, l2SlotNumber }) => {
       logger.warn(`L2 block ${checkpointNumber} at slot ${l2SlotNumber} has been mined`);
-      if (l2SlotNumber === Number(initialSlot + 2n)) {
+      if (l2SlotNumber === expectedFirstSlot) {
         firstBlockPromise.resolve(checkpointNumber);
       }
-      if (l2SlotNumber === Number(initialSlot + 3n)) {
+      if (l2SlotNumber === expectedSecondSlot) {
         secondBlockPromise.resolve(checkpointNumber);
       }
     });
 
     // Wait for both blocks to be mined
-    logger.warn(`Waiting for two blocks to be mined on slots ${initialSlot + 2n} and ${initialSlot + 3n}`);
+    logger.warn(`Waiting for two blocks to be mined on slots ${expectedFirstSlot} and ${expectedSecondSlot}`);
     const [firstBlock, secondBlock] = await Promise.race([
       await Promise.all([firstBlockPromise.promise, secondBlockPromise.promise]),
       timeoutPromise(test.L2_SLOT_DURATION_IN_S * 8 * 1000).then(() => [0, 0]),

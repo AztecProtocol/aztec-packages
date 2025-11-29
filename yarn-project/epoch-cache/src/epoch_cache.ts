@@ -1,5 +1,5 @@
 import { NoCommitteeError, RollupContract, createEthereumChain } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -19,7 +19,7 @@ import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 
 export type EpochAndSlot = {
   epoch: EpochNumber;
-  slot: bigint;
+  slot: SlotNumber;
   ts: bigint;
 };
 
@@ -29,19 +29,19 @@ export type EpochCommitteeInfo = {
   epoch: EpochNumber;
 };
 
-export type SlotTag = 'now' | 'next' | bigint;
+export type SlotTag = 'now' | 'next' | SlotNumber;
 
 export interface EpochCacheInterface {
   getCommittee(slot: SlotTag | undefined): Promise<EpochCommitteeInfo>;
   getEpochAndSlotNow(): EpochAndSlot;
   getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint };
-  getProposerIndexEncoding(epoch: EpochNumber, slot: bigint, seed: bigint): `0x${string}`;
-  computeProposerIndex(slot: bigint, epoch: EpochNumber, seed: bigint, size: bigint): bigint;
+  getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}`;
+  computeProposerIndex(slot: SlotNumber, epoch: EpochNumber, seed: bigint, size: bigint): bigint;
   getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
     currentProposer: EthAddress | undefined;
     nextProposer: EthAddress | undefined;
-    currentSlot: bigint;
-    nextSlot: bigint;
+    currentSlot: SlotNumber;
+    nextSlot: SlotNumber;
   }>;
   getRegisteredValidators(): Promise<EthAddress[]>;
   isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean>;
@@ -144,7 +144,7 @@ export class EpochCache implements EpochCacheInterface {
     return BigInt(Math.floor(this.dateProvider.now() / 1000));
   }
 
-  private getEpochAndSlotAtSlot(slot: bigint): EpochAndSlot {
+  private getEpochAndSlotAtSlot(slot: SlotNumber): EpochAndSlot {
     const epoch = getEpochAtSlot(slot, this.l1constants);
     const ts = getTimestampRangeForEpoch(epoch, this.l1constants)[0];
     return { epoch, ts, slot };
@@ -228,18 +228,18 @@ export class EpochCache implements EpochCacheInterface {
   /**
    * Get the ABI encoding of the proposer index - see ValidatorSelectionLib.sol computeProposerIndex
    */
-  getProposerIndexEncoding(epoch: EpochNumber, slot: bigint, seed: bigint): `0x${string}` {
+  getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}` {
     return encodeAbiParameters(
       [
         { type: 'uint256', name: 'epoch' },
         { type: 'uint256', name: 'slot' },
         { type: 'uint256', name: 'seed' },
       ],
-      [BigInt(epoch), slot, seed],
+      [BigInt(epoch), BigInt(slot), seed],
     );
   }
 
-  public computeProposerIndex(slot: bigint, epoch: EpochNumber, seed: bigint, size: bigint): bigint {
+  public computeProposerIndex(slot: SlotNumber, epoch: EpochNumber, seed: bigint, size: bigint): bigint {
     // if committe size is 0, then mod 1 is 0
     if (size === 0n) {
       return 0n;
@@ -254,8 +254,8 @@ export class EpochCache implements EpochCacheInterface {
    * which can be the next slot. If this is the case, then it will send proposals early.
    */
   public async getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
-    currentSlot: bigint;
-    nextSlot: bigint;
+    currentSlot: SlotNumber;
+    nextSlot: SlotNumber;
     currentProposer: EthAddress | undefined;
     nextProposer: EthAddress | undefined;
   }> {
@@ -275,7 +275,7 @@ export class EpochCache implements EpochCacheInterface {
    * @returns The proposer attester address. If the committee does not exist, we throw a NoCommitteeError.
    * If the committee is empty (i.e. target committee size is 0, and anyone can propose), we return undefined.
    */
-  public getProposerAttesterAddressInSlot(slot: bigint): Promise<EthAddress | undefined> {
+  public getProposerAttesterAddressInSlot(slot: SlotNumber): Promise<EthAddress | undefined> {
     const epochAndSlot = this.getEpochAndSlotAtSlot(slot);
     return this.getProposerAttesterAddressAt(epochAndSlot);
   }
@@ -309,7 +309,10 @@ export class EpochCache implements EpochCacheInterface {
     return committee[Number(proposerIndex)];
   }
 
-  public getProposerFromEpochCommittee(epochCommitteeInfo: EpochCommitteeInfo, slot: bigint): EthAddress | undefined {
+  public getProposerFromEpochCommittee(
+    epochCommitteeInfo: EpochCommitteeInfo,
+    slot: SlotNumber,
+  ): EthAddress | undefined {
     if (!epochCommitteeInfo.committee || epochCommitteeInfo.committee.length === 0) {
       return undefined;
     }

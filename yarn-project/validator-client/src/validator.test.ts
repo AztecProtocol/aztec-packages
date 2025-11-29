@@ -1,5 +1,6 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
@@ -159,7 +160,7 @@ describe('ValidatorClient', () => {
         makeBlockAttestation({ signer: attestor2, archive, txHashes }),
       ];
       p2pClient.getAttestationsForSlot.mockImplementation((slot, proposalId) => {
-        if (slot === proposal.payload.header.slotNumber.toBigInt() && proposalId === proposal.archive.toString()) {
+        if (proposal.payload.header.slotNumber === slot && proposalId === proposal.archive.toString()) {
           return Promise.resolve(expectedAttestations);
         }
         return Promise.resolve([]);
@@ -205,7 +206,7 @@ describe('ValidatorClient', () => {
       const invalidAttestation = makeBlockAttestation({ signer: attestor2, archive: Fr.random(), txHashes });
 
       p2pClient.getAttestationsForSlot.mockImplementation((slot, proposalId) =>
-        slot === proposal.payload.header.slotNumber.toBigInt() && proposalId === proposal.archive.toString()
+        proposal.payload.header.slotNumber === slot && proposalId === proposal.archive.toString()
           ? Promise.resolve([validAttestation, invalidAttestation])
           : Promise.resolve([]),
       );
@@ -241,7 +242,7 @@ describe('ValidatorClient', () => {
       proposal = makeBlockProposal({ header: blockHeader });
       // Set the current time to the start of the slot of the proposal
       const genesisTime = 1n;
-      const slotTime = genesisTime + proposal.slotNumber.toBigInt() * BigInt(blockBuilder.getConfig().slotDuration);
+      const slotTime = genesisTime + BigInt(proposal.slotNumber) * BigInt(blockBuilder.getConfig().slotDuration);
       dateProvider.setTime(Number(slotTime * 1000n));
       sender = { toString: () => 'proposal-sender-peer-id' } as PeerId;
 
@@ -260,15 +261,15 @@ describe('ValidatorClient', () => {
       epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
         currentProposer: proposal.getSender(),
         nextProposer: proposal.getSender(),
-        currentSlot: proposal.slotNumber.toBigInt(),
-        nextSlot: proposal.slotNumber.toBigInt() + 1n,
+        currentSlot: proposal.slotNumber,
+        nextSlot: SlotNumber(proposal.slotNumber + 1),
       });
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
 
       // Return parent block when requested
       blockSource.getBlockHeaderByArchive.mockResolvedValue({
         getBlockNumber: () => blockNumber - 1,
-        getSlot: () => blockHeader.getSlot() - 1n,
+        getSlot: () => blockHeader.getSlot() - SlotNumber(1),
       } as BlockHeader);
 
       blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
@@ -425,8 +426,8 @@ describe('ValidatorClient', () => {
         Promise.resolve({
           currentProposer: EthAddress.random(),
           nextProposer: EthAddress.random(),
-          currentSlot: proposal.slotNumber.toBigInt(),
-          nextSlot: proposal.slotNumber.toBigInt() + 1n,
+          currentSlot: proposal.slotNumber,
+          nextSlot: SlotNumber(proposal.slotNumber + 1),
         }),
       );
 
@@ -447,8 +448,8 @@ describe('ValidatorClient', () => {
       epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
         currentProposer: proposal.getSender(),
         nextProposer: proposal.getSender(),
-        currentSlot: proposal.slotNumber.toBigInt() + 20n,
-        nextSlot: proposal.slotNumber.toBigInt() + 21n,
+        currentSlot: SlotNumber(proposal.slotNumber + 20),
+        nextSlot: SlotNumber(proposal.slotNumber + 21),
       });
 
       const attestation = await validatorClient.attestToProposal(proposal, sender);

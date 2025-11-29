@@ -1,4 +1,4 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { BlockHeader } from '@aztec/stdlib/tx';
@@ -39,7 +39,10 @@ describe('EpochMonitor', () => {
         return Promise.resolve(
           slot === undefined
             ? undefined
-            : mock<BlockHeader>({ getSlot: () => slot, toString: () => `0x${slot.toString(16)}` }),
+            : mock<BlockHeader>({
+                getSlot: () => SlotNumber.fromBigInt(slot),
+                toString: () => `0x${slot.toString(16)}`,
+              }),
         );
       },
       getProvenBlockNumber() {

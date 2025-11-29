@@ -41,7 +41,7 @@ export async function validateCheckpointAttestations(
   const { checkpoint, attestations } = publishedCheckpoint;
   const headerHash = checkpoint.header.hash();
   const archiveRoot = checkpoint.archive.root.toString();
-  const slot = checkpoint.header.slotNumber.toBigInt();
+  const slot = checkpoint.header.slotNumber;
   const epoch: EpochNumber = getEpochAtSlot(slot, constants);
   const { committee, seed } = await epochCache.getCommitteeForEpoch(epoch);
   const logData = { checkpointNumber: checkpoint.number, slot, epoch, headerHash, archiveRoot };

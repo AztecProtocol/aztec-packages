@@ -1,3 +1,4 @@
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256, tryRecoverAddress } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -65,13 +66,13 @@ export class BlockProposal extends Gossipable {
     return this.payload.archive;
   }
 
-  get slotNumber(): Fr {
+  get slotNumber(): SlotNumber {
     return this.payload.header.slotNumber;
   }
 
   toBlockInfo(): Omit<L2BlockInfo, 'blockNumber'> {
     return {
-      slotNumber: this.slotNumber.toNumber(),
+      slotNumber: this.slotNumber,
       lastArchive: this.payload.header.lastArchiveRoot,
       timestamp: this.payload.header.timestamp,
       archive: this.archive,
