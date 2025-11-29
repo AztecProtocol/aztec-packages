@@ -312,6 +312,8 @@ export type SetupOptions = {
   anvilPort?: number;
   /** Key to use for publishing L1 contracts */
   l1PublisherKey?: SecretValue<`0x${string}`>;
+  /** Whether to use forge scripts for L1 contract deployment (default: false) */
+  useForgeDeployment?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */

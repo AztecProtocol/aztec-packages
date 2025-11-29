@@ -25,6 +25,7 @@ import { tryRmDir } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
+import { TestERC20Abi } from '@aztec/l1-artifacts';
 import type { ProverNode } from '@aztec/prover-node';
 import { getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -40,14 +41,14 @@ import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';
 import path, { join } from 'path';
-import type { Hex } from 'viem';
+import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { MNEMONIC, TEST_MAX_TX_POOL_SIZE, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
-import { setupL1Contracts } from './setup_l1_contracts.js';
+import { setupL1Contracts, setupL1ContractsWithForge } from './setup_l1_contracts.js';
 import {
   type SetupOptions,
   createAndSyncProverNode,
@@ -365,14 +366,42 @@ async function setupFromFresh(
 
   await deployMulticall3(l1Client, logger);
 
-  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
-    ...getL1ContractsConfigEnvVars(),
-    genesisArchiveRoot,
-    feeJuicePortalInitialBalance: fundingNeeded,
-    salt: opts.salt,
-    ...deployL1ContractsArgs,
-    initialValidators: opts.initialValidators,
-  });
+  // Deploy L1 contracts using either forge or TypeScript deployment
+  let deployL1ContractsValues;
+  if (opts.useForgeDeployment) {
+    logger.info('Using forge script for L1 contract deployment');
+    const privateKeyHex = `0x${publisherPrivKey!.toString('hex')}` as `0x${string}`;
+    deployL1ContractsValues = await setupL1ContractsWithForge(
+      aztecNodeConfig.l1RpcUrls[0],
+      privateKeyHex,
+      logger,
+      genesisArchiveRoot.toString() as `0x${string}`,
+    );
+
+    // Fund the fee juice portal after forge deployment
+    if (fundingNeeded > 0n) {
+      const feeJuiceAddress = deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress;
+      const feeJuicePortalAddress = deployL1ContractsValues.l1ContractAddresses.feeJuicePortalAddress;
+      const feeJuiceToken = getContract({
+        abi: TestERC20Abi,
+        address: feeJuiceAddress.toString(),
+        client: deployL1ContractsValues.l1Client,
+      });
+      logger.info(`Funding fee juice portal at ${feeJuicePortalAddress} with ${fundingNeeded}`);
+      const mintHash = await feeJuiceToken.write.mint([feeJuicePortalAddress.toString(), fundingNeeded]);
+      await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: mintHash });
+      logger.info(`Fee juice portal funded`);
+    }
+  } else {
+    deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
+      ...getL1ContractsConfigEnvVars(),
+      genesisArchiveRoot,
+      feeJuicePortalInitialBalance: fundingNeeded,
+      salt: opts.salt,
+      ...deployL1ContractsArgs,
+      initialValidators: opts.initialValidators,
+    });
+  }
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.rollupVersion = deployL1ContractsValues.rollupVersion;
 
