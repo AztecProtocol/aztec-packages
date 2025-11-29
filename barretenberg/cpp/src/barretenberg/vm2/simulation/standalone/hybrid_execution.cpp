@@ -2,13 +2,8 @@
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/vm2/simulation/events/addressing_event.hpp"
-#include "barretenberg/vm2/simulation/events/gas_event.hpp"
-#include "barretenberg/vm2/simulation/interfaces/addressing.hpp"
 #include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
-#include "barretenberg/vm2/simulation/interfaces/execution_components.hpp"
-#include "barretenberg/vm2/simulation/interfaces/gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/lib/call_stack_metadata_collector.hpp"
 
 namespace bb::avm2::simulation {
@@ -50,14 +45,13 @@ EnqueuedCallResult HybridExecution::execute(std::unique_ptr<ContextInterface> en
 
             //// Temporality group 4 starts ////
 
-            // Resolve the operands.
-            AddressingEvent addressing_event; // FIXME(fcarreiro): shouldn't need this.
-            auto addressing = execution_components.make_addressing(addressing_event);
-            std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
+            // Resolve the operands using reusable addressing (avoids heap allocation).
+            std::vector<Operand> resolved_operands = reusable_addressing.resolve(instruction, context.get_memory());
 
             //// Temporality group 5+ starts ////
-            GasEvent gas_event; // FIXME(fcarreiro): shouldn't need this.
-            gas_tracker = execution_components.make_gas_tracker(gas_event, instruction, context);
+            // Initialize the reusable gas tracker for this instruction (avoids heap allocation).
+            reusable_gas_tracker.init(instruction, context);
+
             dispatch_opcode(instruction.get_exec_opcode(), context, resolved_operands);
         }
         // TODO(fcarreiro): handle this in a better way.

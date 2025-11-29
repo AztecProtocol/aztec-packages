@@ -776,6 +776,23 @@ SequentialInsertionResult<NullifierLeafValue> PureRawMerkleDB::insert_indexed_le
     return result;
 }
 
+void PureRawMerkleDB::batch_insert_indexed_leaves_nullifier_tree(const std::vector<NullifierLeafValue>& leaves)
+{
+    if (!leaves.empty()) {
+        // Use WorldState's true batch insert - this is much faster than inserting one by one.
+        ws_instance.insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, leaves, ws_revision.forkId);
+    }
+}
+
+void PureRawMerkleDB::batch_insert_indexed_leaves_public_data_tree(const std::vector<PublicDataLeafValue>& leaves)
+{
+    if (!leaves.empty()) {
+        // Use WorldState's true batch insert - this is much faster than inserting one by one.
+        ws_instance.insert_indexed_leaves<PublicDataLeafValue>(
+            MerkleTreeId::PUBLIC_DATA_TREE, leaves, ws_revision.forkId);
+    }
+}
+
 // This method currently returns a vector of intermediate roots and sibling paths, but in practice we might only
 // need or care about the last one for simulation, this would simplify how we append in this function.
 // todo(ilyas): Given this function says append, perhaps we just want to restrict to NoteHash?
@@ -808,6 +825,33 @@ void PureRawMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
     }
     default:
         throw std::runtime_error("Padding not supported for tree " + std::to_string(static_cast<uint64_t>(tree_id)));
+    }
+}
+
+void PureRawMerkleDB::flush_and_pad_nullifier_tree(const std::vector<NullifierLeafValue>& leaves, size_t padding_count)
+{
+    // Combine data and padding into a single batch insert.
+    std::vector<NullifierLeafValue> combined;
+    combined.reserve(leaves.size() + padding_count);
+    combined.insert(combined.end(), leaves.begin(), leaves.end());
+    combined.insert(combined.end(), padding_count, NullifierLeafValue::empty());
+
+    if (!combined.empty()) {
+        ws_instance.batch_insert_indexed_leaves(
+            MerkleTreeId::NULLIFIER_TREE, combined, NULLIFIER_SUBTREE_HEIGHT, ws_revision.forkId);
+    }
+}
+
+void PureRawMerkleDB::flush_and_pad_note_hash_tree(const std::vector<FF>& leaves, size_t padding_count)
+{
+    // Combine data and padding into a single append_leaves call.
+    std::vector<FF> combined;
+    combined.reserve(leaves.size() + padding_count);
+    combined.insert(combined.end(), leaves.begin(), leaves.end());
+    combined.insert(combined.end(), padding_count, FF(0));
+
+    if (!combined.empty()) {
+        ws_instance.append_leaves(MerkleTreeId::NOTE_HASH_TREE, combined, ws_revision.forkId);
     }
 }
 

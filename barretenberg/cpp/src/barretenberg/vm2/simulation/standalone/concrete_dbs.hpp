@@ -1,5 +1,9 @@
 #pragma once
 
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
@@ -11,7 +15,7 @@ namespace bb::avm2::simulation {
 // Forward declaration.
 class WrittenPublicDataSlotsInterface;
 
-// Does not generate events.
+// Does not generate events. Simple passthrough to underlying contract DB.
 class PureContractDB final : public ContractDBInterface {
   public:
     PureContractDB(ContractDBInterface& raw_contract_db)
@@ -35,6 +39,8 @@ class PureContractDB final : public ContractDBInterface {
 };
 
 // Does not generate events.
+// This class defers merkle tree insertions until flush_pending() or pad_trees() is called.
+// This avoids expensive per-operation merkle hashing during simulation.
 class PureMerkleDB final : public HighLevelMerkleDBInterface {
   public:
     PureMerkleDB(const FF& first_nullifier,
@@ -70,7 +76,7 @@ class PureMerkleDB final : public HighLevelMerkleDBInterface {
     bool note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const override;
     void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) override;
     void siloed_note_hash_write(const FF& note_hash) override;
-    void unique_note_hash_write(const FF& note_hash) override;
+    void unique_note_hash_write(const FF& unique_note_hash) override;
     bool l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) const override;
 
     void pad_trees() override;
@@ -97,6 +103,23 @@ class PureMerkleDB final : public HighLevelMerkleDBInterface {
     std::stack<TreeCounters> tree_counters_stack{
         { { .note_hash_counter = 0, .nullifier_counter = 0, .l2_to_l1_msg_counter = 0 } }
     };
+
+    // ========== Pending data structures for deferred merkle operations ==========
+
+    // Pending note hashes (unique note hashes ready for insertion).
+    // Stack of vectors for checkpoint support.
+    std::stack<std::vector<FF>> pending_note_hashes_stack{ { {} } };
+
+    // Pending nullifiers (siloed nullifiers ready for insertion).
+    // Stack of vectors for checkpoint support.
+    std::stack<std::vector<FF>> pending_nullifiers_stack{ { {} } };
+    // Set of pending nullifiers for fast existence check.
+    std::unordered_set<uint256_t> pending_nullifiers_set;
+
+    // Pending public data writes.
+    // Map from leaf_slot to value for the current pending writes.
+    // Stack of maps for checkpoint support.
+    std::stack<std::unordered_map<uint256_t, FF>> pending_public_data_stack{ { {} } };
 };
 
 } // namespace bb::avm2::simulation

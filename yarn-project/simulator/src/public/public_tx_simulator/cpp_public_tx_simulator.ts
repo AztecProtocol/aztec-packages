@@ -1,4 +1,5 @@
 import { type Logger, createLogger, logLevel } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import { avmSimulate } from '@aztec/native';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import {
@@ -68,6 +69,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     this.log.trace(`Running C++ simulation with world state revision ${JSON.stringify(wsRevision)}`);
 
     // Create the fast simulation inputs
+    const prepTimer = new Timer();
     const txHint = AvmTxHint.fromTx(tx, this.globalVariables.gasFees);
     const protocolContracts = ProtocolContractsList;
     const fastSimInputs = new AvmFastSimulationInputs(
@@ -83,24 +85,34 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
 
     // Serialize to msgpack and call the C++ simulator
     this.log.trace(`Serializing fast simulation inputs to msgpack...`);
+    const serializeTimer = new Timer();
     const inputBuffer = fastSimInputs.serializeWithMessagePack();
+    const serializeMs = serializeTimer.ms();
 
     let resultBuffer: Buffer;
+    const cppTimer = new Timer();
     try {
       this.log.debug(`Calling C++ simulator for tx ${txHash}`);
       resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsCppHandle, logLevel);
     } catch (error: any) {
       throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
     }
+    const cppMs = cppTimer.ms();
 
     // If we've reached this point, C++ succeeded during simulation,
 
     // Deserialize the msgpack result
+    const deserializeTimer = new Timer();
     this.log.trace(`Deserializing C++ from buffer (size: ${resultBuffer.length})...`);
     const cppResultJSON: object = deserializeFromMessagePack(resultBuffer);
     this.log.trace(`Deserializing C++ result to PublicTxResult...`);
     const cppResult = PublicTxResult.fromPlainObject(cppResultJSON);
+    const deserializeMs = deserializeTimer.ms();
+    const prepMs = prepTimer.ms() - serializeMs - cppMs - deserializeMs;
 
+    this.log.verbose(
+      `C++ simulation timing: prep=${prepMs}ms, serialize=${serializeMs}ms, cpp=${cppMs}ms, deserialize=${deserializeMs}ms`,
+    );
     this.log.trace(`C++ simulation completed for tx ${txHash}`, {
       txHash,
       reverted: !cppResult.revertCode.isOK(),

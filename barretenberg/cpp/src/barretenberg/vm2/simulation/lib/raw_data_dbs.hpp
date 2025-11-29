@@ -133,8 +133,14 @@ class PureRawMerkleDB final : public LowLevelMerkleDBInterface {
         const PublicDataLeafValue& leaf_value) override;
     SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
         const NullifierLeafValue& leaf_value) override;
+    // True batch insert methods that use WorldState's batch APIs.
+    void batch_insert_indexed_leaves_nullifier_tree(const std::vector<NullifierLeafValue>& leaves) override;
+    void batch_insert_indexed_leaves_public_data_tree(const std::vector<PublicDataLeafValue>& leaves) override;
     std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) override;
     void pad_tree(MerkleTreeId tree_id, size_t num_leaves) override;
+    // Combined flush + pad methods for single tree write.
+    void flush_and_pad_nullifier_tree(const std::vector<NullifierLeafValue>& leaves, size_t padding_count) override;
+    void flush_and_pad_note_hash_tree(const std::vector<FF>& leaves, size_t padding_count) override;
 
     void create_checkpoint() override;
     void commit_checkpoint() override;

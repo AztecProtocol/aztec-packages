@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -92,46 +93,48 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     // Insert non-revertibles. This can throw if there is a nullifier collision or the maximum number of
     // nullifiers, note hashes, or L2 to L1 messages is reached.
     // That would result in an unprovable tx.
-    insert_non_revertibles(tx);
+    AVM_TRACK_TIME("simulation/tx/insert_non_revertibles", insert_non_revertibles(tx));
 
     // Setup.
-    if (tx.setup_enqueued_calls.empty()) {
-        emit_empty_phase(TransactionPhase::SETUP);
-    } else {
-        for (const auto& call : tx.setup_enqueued_calls) {
-            vinfo("[SETUP] Executing enqueued call to ",
-                  call.request.contract_address,
-                  "::",
-                  get_debug_function_name(call.request.contract_address, call.calldata));
-            const TxContextEvent state_before = tx_context.serialize_tx_context_event();
-            const Gas start_gas =
-                tx_context.gas_used; // Do not use a const reference as tx_context.gas_used will be modified.
-            auto context = context_provider.make_enqueued_context(call.request.contract_address,
-                                                                  call.request.msg_sender,
-                                                                  /*transaction_fee=*/FF(0),
-                                                                  call.calldata,
-                                                                  call.request.is_static_call,
-                                                                  gas_limit,
-                                                                  start_gas,
-                                                                  TransactionPhase::SETUP);
-            // This call should not throw unless it's an unexpected unrecoverable failure.
-            EnqueuedCallResult result = call_execution.execute(std::move(context));
-            tx_context.gas_used = result.gas_used;
-            emit_public_call_request(call,
-                                     TransactionPhase::SETUP,
-                                     /*transaction_fee=*/FF(0),
-                                     result.success,
-                                     start_gas,
-                                     tx_context.gas_used,
-                                     state_before,
-                                     tx_context.serialize_tx_context_event());
-            if (!result.success) {
-                // This will result in an unprovable tx.
-                throw TxExecutionException(
-                    format("[SETUP] UNRECOVERABLE ERROR! Enqueued call to ", call.request.contract_address, " failed"));
+    Stats::get().time("simulation/tx/setup_ms", [&]() {
+        if (tx.setup_enqueued_calls.empty()) {
+            emit_empty_phase(TransactionPhase::SETUP);
+        } else {
+            for (const auto& call : tx.setup_enqueued_calls) {
+                vinfo("[SETUP] Executing enqueued call to ",
+                      call.request.contract_address,
+                      "::",
+                      get_debug_function_name(call.request.contract_address, call.calldata));
+                const TxContextEvent state_before = tx_context.serialize_tx_context_event();
+                const Gas start_gas =
+                    tx_context.gas_used; // Do not use a const reference as tx_context.gas_used will be modified.
+                auto context = context_provider.make_enqueued_context(call.request.contract_address,
+                                                                      call.request.msg_sender,
+                                                                      /*transaction_fee=*/FF(0),
+                                                                      call.calldata,
+                                                                      call.request.is_static_call,
+                                                                      gas_limit,
+                                                                      start_gas,
+                                                                      TransactionPhase::SETUP);
+                // This call should not throw unless it's an unexpected unrecoverable failure.
+                EnqueuedCallResult result = call_execution.execute(std::move(context));
+                tx_context.gas_used = result.gas_used;
+                emit_public_call_request(call,
+                                         TransactionPhase::SETUP,
+                                         /*transaction_fee=*/FF(0),
+                                         result.success,
+                                         start_gas,
+                                         tx_context.gas_used,
+                                         state_before,
+                                         tx_context.serialize_tx_context_event());
+                if (!result.success) {
+                    // This will result in an unprovable tx.
+                    throw TxExecutionException(format(
+                        "[SETUP] UNRECOVERABLE ERROR! Enqueued call to ", call.request.contract_address, " failed"));
+                }
             }
         }
-    }
+    });
 
     // The checkpoint we should go back to if anything from now on reverts.
     merkle_db.create_checkpoint();
@@ -146,52 +149,54 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         // We catch separately here to record the revert reason in call stack metadata,
         // since no calls have populated the metadata yet at this point.
         try {
-            insert_revertibles(tx);
+            AVM_TRACK_TIME("simulation/tx/insert_revertibles", insert_revertibles(tx));
         } catch (const TxExecutionException& e) {
             call_stack_metadata_collector.notify_tx_revert(e.what());
             throw;
         }
 
-        // App Logic.
-        if (tx.app_logic_enqueued_calls.empty()) {
-            emit_empty_phase(TransactionPhase::APP_LOGIC);
-        } else {
-            for (const auto& call : tx.app_logic_enqueued_calls) {
-                vinfo("[APP_LOGIC] Executing enqueued call to ",
-                      call.request.contract_address,
-                      "::",
-                      get_debug_function_name(call.request.contract_address, call.calldata));
-                const TxContextEvent state_before = tx_context.serialize_tx_context_event();
-                const Gas start_gas =
-                    tx_context.gas_used; // Do not use a const reference as tx_context.gas_used will be modified.
+        // App logic.
+        Stats::get().time("simulation/tx/app_logic_ms", [&]() {
+            if (tx.app_logic_enqueued_calls.empty()) {
+                emit_empty_phase(TransactionPhase::APP_LOGIC);
+            } else {
+                for (const auto& call : tx.app_logic_enqueued_calls) {
+                    vinfo("[APP_LOGIC] Executing enqueued call to ",
+                          call.request.contract_address,
+                          "::",
+                          get_debug_function_name(call.request.contract_address, call.calldata));
+                    const TxContextEvent state_before = tx_context.serialize_tx_context_event();
+                    const Gas start_gas =
+                        tx_context.gas_used; // Do not use a const reference as tx_context.gas_used will be modified.
 
-                auto context = context_provider.make_enqueued_context(call.request.contract_address,
-                                                                      call.request.msg_sender,
-                                                                      /*transaction_fee=*/FF(0),
-                                                                      call.calldata,
-                                                                      call.request.is_static_call,
-                                                                      gas_limit,
-                                                                      start_gas,
-                                                                      TransactionPhase::APP_LOGIC);
-                // This call should not throw unless it's an unexpected unrecoverable failure.
-                EnqueuedCallResult result = call_execution.execute(std::move(context));
-                tx_context.gas_used = result.gas_used;
+                    auto context = context_provider.make_enqueued_context(call.request.contract_address,
+                                                                          call.request.msg_sender,
+                                                                          /*transaction_fee=*/FF(0),
+                                                                          call.calldata,
+                                                                          call.request.is_static_call,
+                                                                          gas_limit,
+                                                                          start_gas,
+                                                                          TransactionPhase::APP_LOGIC);
+                    // This call should not throw unless it's an unexpected unrecoverable failure.
+                    EnqueuedCallResult result = call_execution.execute(std::move(context));
+                    tx_context.gas_used = result.gas_used;
 
-                emit_public_call_request(call,
-                                         TransactionPhase::APP_LOGIC,
-                                         /*transaction_fee=*/FF(0),
-                                         result.success,
-                                         start_gas,
-                                         tx_context.gas_used,
-                                         state_before,
-                                         tx_context.serialize_tx_context_event());
-                if (!result.success) {
-                    // This exception should be handled, and the tx should be provable.
-                    throw TxExecutionException(
-                        format("[APP_LOGIC] Enqueued call to ", call.request.contract_address, " failed"));
+                    emit_public_call_request(call,
+                                             TransactionPhase::APP_LOGIC,
+                                             /*transaction_fee=*/FF(0),
+                                             result.success,
+                                             start_gas,
+                                             tx_context.gas_used,
+                                             state_before,
+                                             tx_context.serialize_tx_context_event());
+                    if (!result.success) {
+                        // This exception should be handled and the tx be provable.
+                        throw TxExecutionException(
+                            format("[APP_LOGIC] Enqueued call to ", call.request.contract_address, " failed"));
+                    }
                 }
             }
-        }
+        });
     } catch (const TxExecutionException& e) {
         vinfo("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
         tx_context.revert_code = RevertCode::APP_LOGIC_REVERTED;
@@ -216,43 +221,45 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
 
     // Teardown.
     try {
-        if (!tx.teardown_enqueued_call.has_value()) {
-            emit_empty_phase(TransactionPhase::TEARDOWN);
-        } else {
-            const auto& teardown_enqueued_call = tx.teardown_enqueued_call.value();
-            vinfo("[TEARDOWN] Executing enqueued call to ",
-                  teardown_enqueued_call.request.contract_address,
-                  "::",
-                  get_debug_function_name(teardown_enqueued_call.request.contract_address,
-                                          teardown_enqueued_call.calldata));
-            // Teardown has its own gas limit and usage.
-            constexpr Gas start_gas = { 0, 0 };
-            const TxContextEvent state_before = tx_context.serialize_tx_context_event();
-            auto context = context_provider.make_enqueued_context(teardown_enqueued_call.request.contract_address,
-                                                                  teardown_enqueued_call.request.msg_sender,
-                                                                  fee,
-                                                                  teardown_enqueued_call.calldata,
-                                                                  teardown_enqueued_call.request.is_static_call,
-                                                                  teardown_gas_limit,
-                                                                  start_gas,
-                                                                  TransactionPhase::TEARDOWN);
-            // This call should not throw unless it's an unexpected unrecoverable failure.
-            EnqueuedCallResult result = call_execution.execute(std::move(context));
-            gas_used_by_teardown = result.gas_used;
-            emit_public_call_request(teardown_enqueued_call,
-                                     TransactionPhase::TEARDOWN,
-                                     fee,
-                                     result.success,
-                                     start_gas,
-                                     result.gas_used,
-                                     state_before,
-                                     tx_context.serialize_tx_context_event());
-            if (!result.success) {
-                // This exception should be handled, and the tx should be provable.
-                throw TxExecutionException(
-                    format("[TEARDOWN] Enqueued call to ", teardown_enqueued_call.request.contract_address, " failed"));
+        Stats::get().time("simulation/tx/teardown_ms", [&]() {
+            if (!tx.teardown_enqueued_call.has_value()) {
+                emit_empty_phase(TransactionPhase::TEARDOWN);
+            } else {
+                const auto& teardown_enqueued_call = tx.teardown_enqueued_call.value();
+                vinfo("[TEARDOWN] Executing enqueued call to ",
+                      teardown_enqueued_call.request.contract_address,
+                      "::",
+                      get_debug_function_name(teardown_enqueued_call.request.contract_address,
+                                              teardown_enqueued_call.calldata));
+                // Teardown has its own gas limit and usage.
+                constexpr Gas start_gas = { 0, 0 };
+                const TxContextEvent state_before = tx_context.serialize_tx_context_event();
+                auto context = context_provider.make_enqueued_context(teardown_enqueued_call.request.contract_address,
+                                                                      teardown_enqueued_call.request.msg_sender,
+                                                                      fee,
+                                                                      teardown_enqueued_call.calldata,
+                                                                      teardown_enqueued_call.request.is_static_call,
+                                                                      teardown_gas_limit,
+                                                                      start_gas,
+                                                                      TransactionPhase::TEARDOWN);
+                // This call should not throw unless it's an unexpected unrecoverable failure.
+                EnqueuedCallResult result = call_execution.execute(std::move(context));
+                gas_used_by_teardown = result.gas_used;
+                emit_public_call_request(teardown_enqueued_call,
+                                         TransactionPhase::TEARDOWN,
+                                         fee,
+                                         result.success,
+                                         start_gas,
+                                         result.gas_used,
+                                         state_before,
+                                         tx_context.serialize_tx_context_event());
+                if (!result.success) {
+                    // This exception should be handled and the tx be provable.
+                    throw TxExecutionException(format(
+                        "[TEARDOWN] Enqueued call to ", teardown_enqueued_call.request.contract_address, " failed"));
+                }
             }
-        }
+        });
 
         // We commit the forked state and we are done.
         merkle_db.commit_checkpoint();
@@ -268,11 +275,11 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     }
 
     // Fee payment
-    pay_fee(tx.fee_payer, fee, fee_per_da_gas, fee_per_l2_gas);
+    AVM_TRACK_TIME("simulation/tx/pay_fee", pay_fee(tx.fee_payer, fee, fee_per_da_gas, fee_per_l2_gas));
 
-    pad_trees();
+    AVM_TRACK_TIME("simulation/tx/pad_trees", pad_trees());
 
-    cleanup();
+    AVM_TRACK_TIME("simulation/tx/cleanup", cleanup());
 
     return {
         .gas_used = {

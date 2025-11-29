@@ -82,6 +82,7 @@
 #include "barretenberg/vm2/simulation/standalone/pure_alu.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_bitwise.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_execution_components.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
@@ -394,8 +395,9 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
 
     InstructionInfoDB instruction_info_db;
 
-    ContractInstanceManager contract_instance_manager(
-        contract_db, merkle_db, update_check, field_gt, protocol_contracts, contract_instance_retrieval_emitter);
+    // Use PureContractInstanceManager for fast simulation - it caches results and skips
+    // unnecessary nullifier checks/event emission that are only needed for trace generation.
+    PureContractInstanceManager contract_instance_manager(contract_db);
 
     PureTxBytecodeManager bytecode_manager(contract_db, contract_instance_manager);
     PureExecutionComponentsProvider execution_components(greater_than, instruction_info_db);

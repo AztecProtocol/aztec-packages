@@ -61,6 +61,12 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     retrieved_class_ids.insert(current_class_id);
 
+    // Check if we've already processed this class - avoid redundant contract DB calls
+    auto cached_bytecode_id = class_id_to_bytecode_id.find(current_class_id);
+    if (cached_bytecode_id != class_id_to_bytecode_id.end()) {
+        return cached_bytecode_id->second;
+    }
+
     // Contract class retrieval and class ID validation
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarantees
@@ -69,16 +75,15 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     auto& klass = maybe_klass.value();
     debug("Bytecode for ", address, " successfully retrieved!");
 
-    // TODO(dbanks12): in TS, the PublicContractsDB will hash the bytecode if it has never been hashed there before.
-    // After that, it caches it. It should only happen once per contract class, but when we are making a callback
-    // to the TS cache to hash the bytecode there, it might be unnecessarily slow, in which case we could do the same
-    // hashing and caching here in C++ and avoid callbacks to TS.
-    std::optional<FF> maybe_bytecode_commitment = contract_db.get_bytecode_commitment(current_class_id);
-    // If we reach this point, class ID and instance both exist which means bytecode commitment must exist.
-    assert(maybe_bytecode_commitment.has_value());
-    BytecodeId bytecode_id = maybe_bytecode_commitment.value();
+    // For fast simulation, we use the class_id as the bytecode_id instead of computing the
+    // expensive bytecode commitment hash. This is safe because class_id uniquely identifies
+    // the bytecode. The actual commitment is only needed for trace generation / witgen.
+    BytecodeId bytecode_id = current_class_id;
 
-    // Check if we've already processed this bytecode.
+    // Cache the mapping from class_id to bytecode_id
+    class_id_to_bytecode_id[current_class_id] = bytecode_id;
+
+    // Check if we've already processed this bytecode (different class can have same bytecode).
     if (bytecodes.contains(bytecode_id)) {
         return bytecode_id;
     }

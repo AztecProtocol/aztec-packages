@@ -67,10 +67,40 @@ class LowLevelMerkleDBInterface {
     virtual SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
         const NullifierLeafValue& leaf_value) = 0;
 
+    // Batch insert methods for indexed trees. These provide true batch insertion when
+    // supported by the underlying implementation (e.g., WorldState).
+    // Default implementations loop over single inserts for backwards compatibility.
+    virtual void batch_insert_indexed_leaves_nullifier_tree(const std::vector<NullifierLeafValue>& leaves)
+    {
+        for (const auto& leaf : leaves) {
+            insert_indexed_leaves_nullifier_tree(leaf);
+        }
+    }
+    virtual void batch_insert_indexed_leaves_public_data_tree(const std::vector<PublicDataLeafValue>& leaves)
+    {
+        for (const auto& leaf : leaves) {
+            insert_indexed_leaves_public_data_tree(leaf);
+        }
+    }
+
     // todo(ilyas): does this need to be a vector of appendLeafResult? We should only care abou the end of appendings
     virtual std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) = 0;
 
     virtual void pad_tree(MerkleTreeId tree_id, size_t num_leaves) = 0;
+
+    // Combined flush + pad methods: insert data AND padding in a single underlying tree write.
+    // These avoid the overhead of separate insert and pad operations.
+    // Default implementations do separate operations for backwards compatibility.
+    virtual void flush_and_pad_nullifier_tree(const std::vector<NullifierLeafValue>& leaves, size_t padding_count)
+    {
+        batch_insert_indexed_leaves_nullifier_tree(leaves);
+        pad_tree(MerkleTreeId::NULLIFIER_TREE, padding_count);
+    }
+    virtual void flush_and_pad_note_hash_tree(const std::vector<FF>& leaves, size_t padding_count)
+    {
+        append_leaves(MerkleTreeId::NOTE_HASH_TREE, leaves);
+        pad_tree(MerkleTreeId::NOTE_HASH_TREE, padding_count);
+    }
 
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;

@@ -42,6 +42,8 @@ class PureTxBytecodeManager : public TxBytecodeManagerInterface {
 
     unordered_flat_map<BytecodeId, std::shared_ptr<std::vector<uint8_t>>> bytecodes;
     unordered_flat_set<ContractClassId> retrieved_class_ids;
+    // Cache mapping from class_id to bytecode_id to avoid redundant contract DB calls
+    unordered_flat_map<ContractClassId, BytecodeId> class_id_to_bytecode_id;
     using InstructionIdentifier = std::tuple</*bytecode_vector*/ void*, /*pc*/ uint32_t>;
     unordered_flat_map<InstructionIdentifier, Instruction> instruction_cache;
 };
