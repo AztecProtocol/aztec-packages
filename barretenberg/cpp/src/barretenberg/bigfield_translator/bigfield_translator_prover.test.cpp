@@ -10,21 +10,6 @@
 #include "bigfield_translator_verifier.hpp"
 #include <gtest/gtest.h>
 
-#ifdef __linux__
-#include <fstream>
-
-inline size_t get_current_rss_mib()
-{
-    std::ifstream statm("/proc/self/statm");
-    size_t size, resident;
-    statm >> size >> resident;
-    return (resident * 4096) / (1024 * 1024);
-}
-#define LOG_CURRENT_MEM(msg) info(msg, " [current RSS: ", get_current_rss_mib(), " MiB]")
-#else
-#define LOG_CURRENT_MEM(msg) info(msg)
-#endif
-
 using namespace bb;
 
 class BigfieldTranslatorProverTest : public ::testing::Test {
@@ -64,31 +49,24 @@ TEST_F(BigfieldTranslatorProverTest, ProveAndVerify)
     constexpr size_t NUM_OPS = 400;
 
     auto op_queue = create_test_op_queue(NUM_OPS);
-    info("Op queue has ", op_queue->get_ultra_ops().size(), " rows");
 
     Fq x_native = Fq::random_element();
     Fq v_native = Fq::random_element();
 
     // Create prover and construct proof
-    LOG_CURRENT_MEM("Creating BigfieldTranslatorProver...");
     BigfieldTranslatorProver prover(op_queue, x_native, v_native);
-    LOG_CURRENT_MEM("Prover created, constructing proof...");
-
     auto proof = prover.construct_proof();
-    info("Proof size: ", proof.size(), " elements");
 
     // Get verification key and accumulated result from prover
     auto verification_key = prover.get_verification_key();
     auto accumulated_result = prover.get_accumulated_result();
 
     // Verify the proof
-    LOG_CURRENT_MEM("Creating BigfieldTranslatorVerifier...");
     auto transcript = std::make_shared<NativeTranscript>();
     BigfieldTranslatorVerifier verifier(verification_key, transcript);
 
     bool verified = verifier.verify_proof(proof, x_native, v_native, accumulated_result);
     EXPECT_TRUE(verified) << "BigfieldTranslator proof verification failed";
-    LOG_CURRENT_MEM("Proof verified successfully!");
 }
 
 /**
@@ -213,8 +191,6 @@ TEST_F(BigfieldTranslatorProverTest, VKIndependentOfOpCount)
 
         BigfieldTranslatorProver prover(op_queue, x_native, v_native);
         verification_keys.push_back(prover.get_verification_key());
-
-        info("Created VK for ", num_ops, " ops (op queue size: ", op_queue->get_ultra_ops().size(), ")");
     }
 
     // Compare all VKs - they should be identical
@@ -241,6 +217,4 @@ TEST_F(BigfieldTranslatorProverTest, VKIndependentOfOpCount)
                 << "Commitment " << j << " mismatch for " << op_counts[i] << " ops vs " << op_counts[0] << " ops";
         }
     }
-
-    info("All VKs are identical across different op counts!");
 }
