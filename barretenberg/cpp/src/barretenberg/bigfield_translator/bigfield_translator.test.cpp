@@ -432,31 +432,6 @@ TEST_F(BigfieldTranslatorTest, LightZKProveAndVerify)
 
     info("Op queue has ", op_queue->get_ultra_ops().size(), " rows");
 
-    // Create builder and populate ecc_op block from op_queue
-    Builder builder;
-    BigfieldTranslator::populate_ecc_op_block(builder, op_queue);
-
-    // Create the evaluation and batching challenges (in real flow, these come from ECCVM)
-    Fq x_native = Fq::random_element();
-    Fq v_native = Fq::random_element();
-
-    // Create circuit witnesses for challenges
-    fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
-    fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
-
-    // Compute the accumulator in-circuit
-    fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v);
-
-    // Verify circuit correctness matches native
-    Fq expected = BigfieldTranslator::compute_accumulator_native(x_native, v_native, op_queue);
-    Fq result_native = Fq(result.get_value().lo);
-    EXPECT_EQ(result_native, expected);
-
-    // Add default public inputs required by DefaultIO
-    stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
-
-    info("Circuit has ", builder.get_num_finalized_gates_inefficient(), " finalized gates");
-
     // Now prove and verify using LightZKFlavor (minimal ZK flavor for BigfieldTranslator)
     using Flavor = LightZKFlavor;
     using Prover = UltraProver_<Flavor>;
@@ -464,45 +439,67 @@ TEST_F(BigfieldTranslatorTest, LightZKProveAndVerify)
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
 
-    // Create prover instance and verification key
-    info("Memory before LightZK prover instance creation");
-    auto prover_instance = std::make_shared<ProverInstance>(builder);
-    info("Memory after LightZK prover instance creation");
-    info("Dyadic size: ", prover_instance->dyadic_size(), " (log2 = ", prover_instance->log_dyadic_size(), ")");
-    info("Trace active range size: ", prover_instance->trace_active_range_size());
-    info("VIRTUAL_LOG_N: ", Flavor::VIRTUAL_LOG_N);
-    info("USE_PADDING: ", Flavor::USE_PADDING);
-    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    std::shared_ptr<ProverInstance> prover_instance;
+    std::shared_ptr<VerificationKey> verification_key;
 
-    // First check that relations are satisfied
-    info("Checking relation correctness...");
-    EXPECT_TRUE(CircuitChecker::check(builder)) << "Circuit check failed before proving";
+    { // Scope to free builder memory after prover instance creation
+        // Create builder and populate ecc_op block from op_queue
+        Builder builder;
+        BigfieldTranslator::populate_ecc_op_block(builder, op_queue);
+
+        // Create the evaluation and batching challenges (in real flow, these come from ECCVM)
+        Fq x_native = Fq::random_element();
+        Fq v_native = Fq::random_element();
+
+        // Create circuit witnesses for challenges
+        fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
+        fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
+
+        // Compute the accumulator in-circuit
+        fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v);
+
+        // Verify circuit correctness matches native
+        Fq expected = BigfieldTranslator::compute_accumulator_native(x_native, v_native, op_queue);
+        Fq result_native = Fq(result.get_value().lo);
+        EXPECT_EQ(result_native, expected);
+
+        // Add default public inputs required by DefaultIO
+        stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
+
+        info("Circuit has ", builder.get_num_finalized_gates_inefficient(), " finalized gates");
+
+        // Check circuit before creating prover instance
+        EXPECT_TRUE(CircuitChecker::check(builder)) << "Circuit check failed before proving";
+
+        // Create prover instance and verification key
+        LOG_CURRENT_MEM("Memory before prover instance creation");
+        prover_instance = std::make_shared<ProverInstance>(builder);
+        LOG_CURRENT_MEM("Memory after LightZK prover instance creation");
+        info("Dyadic size: ", prover_instance->dyadic_size(), " (log2 = ", prover_instance->log_dyadic_size(), ")");
+        info("Trace active range size: ", prover_instance->trace_active_range_size());
+        verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    } // Builder is freed here
+
+    LOG_CURRENT_MEM("Memory after builder freed");
 
     // Debug: check entity counts
     info("NUM_PRECOMPUTED_ENTITIES: ", Flavor::NUM_PRECOMPUTED_ENTITIES);
     info("NUM_WITNESS_ENTITIES: ", Flavor::NUM_WITNESS_ENTITIES);
-    info("NUM_MASKING_ENTITIES: ", Flavor::NUM_MASKING_ENTITIES);
-    info("NUM_SHIFTED_ENTITIES: ", Flavor::NUM_SHIFTED_ENTITIES);
-    info("NUM_UNSHIFTED_ENTITIES: ", Flavor::NUM_UNSHIFTED_ENTITIES);
     info("NUM_ALL_ENTITIES: ", Flavor::NUM_ALL_ENTITIES);
-    info("get_to_be_shifted size: ", prover_instance->polynomials.get_to_be_shifted().size());
-    info("get_shifted size: ", prover_instance->polynomials.get_shifted().size());
-    info("get_unshifted size: ", prover_instance->polynomials.get_unshifted().size());
-    info("get_all size: ", prover_instance->polynomials.get_all().size());
 
-    info("Creating LightZK proof...");
+    LOG_CURRENT_MEM("Creating LightZK proof...");
     Prover prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
 
     info("LightZK Proof size: ", proof.size(), " elements");
 
     // Verify the proof
-    info("Verifying LightZK proof...");
+    LOG_CURRENT_MEM("Verifying LightZK proof...");
     Verifier verifier(verification_key);
     bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
 
     EXPECT_TRUE(verified) << "LightZK proof verification failed";
-    info("LightZK proof verified successfully!");
+    LOG_CURRENT_MEM("LightZK proof verified successfully!");
 }
 
 /**

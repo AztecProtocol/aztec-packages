@@ -79,11 +79,92 @@ Bigfield defers constraints to enable batching and deduplication:
 |----------|-------------|---------------|-------------|
 | **Translator VM** | 2^17 | 91 (sparse) | **247 MB** |
 | **Bigfield + MegaZK** | 2^19 | 25 | 1,090 MB |
-| **Bigfield + LightZK** | 2^19 | 9 | **717 MB** |
+| **Bigfield + LightZK** | 2^19 | 9+1 | **543 MB** (measured, builder freed) |
+| **Bigfield + LightZK (greedy)** | 2^19 | 9+1 | **~340 MB** (estimated) |
 
-LightZK is a minimal flavor with only arithmetic, permutation, delta_range, elliptic, NNF, and ECC op queue relations (no lookups, databus, poseidon2, memory).
+LightZK is a minimal flavor with only arithmetic, permutation, delta_range, NNF, and ECC op queue relations (no lookups, databus, poseidon2, memory, elliptic). The "+1" is the gemini_masking_poly for ZK.
 
-**Result: Bigfield approach uses 2.9x more memory than Translator**
+**Result: Bigfield approach uses ~1.3x more memory than Translator (with greedy allocation)**
+
+### LightZK with Greedy Allocation
+
+By shifting ZK masking to positions ~310K (right after the trace) instead of the end of the 2^19 dyadic domain, we can allocate polynomials greedily:
+
+| Polynomial Category | Count | Current Size | Greedy Size | Savings |
+|--------------------|-------|--------------|-------------|---------|
+| Non-gate selectors (q_m, q_c, q_l, q_r, q_o, q_4) | 6 | 524K | 310K | 41% |
+| Wires (w_l, w_r, w_o, w_4) | 4 | 524K | 310K | 41% |
+| z_perm | 1 | 524K | 310K | 41% |
+| Sigmas/IDs | 8 | 310K | 310K | 0% |
+| Gate selectors | 3 | block-sized | block-sized | 0% |
+| ECC op wires + lagrange_ecc_op | 5 | 8K | 8K | 0% |
+| lagrange_first, lagrange_last | 2 | 1 elem | 1 elem | 0% |
+
+**Detailed Memory Breakdown (4096 ops, trace_size ≈ 310K, dyadic = 524K):**
+
+```
+CURRENT LightZK (masking at end of 2^19):
+-----------------------------------------
+Precomputed (20 polys):
+  - Non-gate selectors: 6 × 524K × 32B = 100.7 MB  (full dyadic size)
+  - Gate selectors:     3 × block_size × 32B ≈ 5 MB (sparse, ~50K total)
+  - Sigmas (4):         4 × 310K × 32B =  39.7 MB  (trace_size)
+  - IDs (4):            4 × 310K × 32B =  39.7 MB  (trace_size)
+  - lagrange_first/last: 2 × 1 × 32B  ≈  0 MB     (single element each)
+  - lagrange_ecc_op:    1 × 8K × 32B  =   0.3 MB  (ecc_op block size)
+  Subtotal: 185.4 MB
+
+Witness (9 polys):
+  - Wires (4):          4 × 524K × 32B = 67.1 MB  (full dyadic for ZK)
+  - z_perm:             1 × 524K × 32B = 16.8 MB  (full dyadic for ZK)
+  - ECC op wires (4):   4 × 8K × 32B   =  1.0 MB  (ecc_op block size)
+  Subtotal: 84.9 MB
+
+Masking (1 poly):
+  - gemini_masking_poly: 1 × 524K × 32B = 16.8 MB  (full dyadic for Gemini ZK)
+
+Commitment key (SRS): 524K × 64B = 34 MB  (G1 affine points)
+
+Partially evaluated multivariates (peak at sumcheck round 1):
+  - 35 polys × 262K × 32B = 294 MB  (NUM_ALL_ENTITIES at dyadic/2)
+
+TOTAL PROVER POLYNOMIALS: ~287 MB
+PEAK MEMORY (measured, builder freed): 543 MB
+
+GREEDY LightZK (masking at ~310K):
+----------------------------------
+Precomputed (20 polys):
+  - Non-gate selectors: 6 × 310K × 32B = 59.5 MB  (saved 41.2 MB)
+  - Gate selectors:     3 × block_size × 32B ≈ 5 MB
+  - Sigmas + IDs:       8 × 310K × 32B = 79.4 MB  (unchanged)
+  - Lagranges:          ≈ 0.3 MB                  (unchanged)
+  Subtotal: 144.2 MB (saved 41.2 MB)
+
+Witness (9 polys):
+  - Wires (4):          4 × 310K × 32B = 39.7 MB  (saved 27.4 MB)
+  - z_perm:             1 × 310K × 32B =  9.9 MB  (saved 6.9 MB)
+  - ECC op wires (4):   4 × 8K × 32B   =  1.0 MB  (unchanged)
+  Subtotal: 50.6 MB (saved 34.3 MB)
+
+Masking (1 poly):
+  - gemini_masking_poly: 1 × 310K × 32B =  9.9 MB  (saved 6.9 MB)
+
+Commitment key (SRS): unchanged at 34 MB (still need full 2^19 SRS)
+
+Partially evaluated multivariates (peak at sumcheck round 1):
+  - 35 polys × 155K × 32B = 174 MB  (NUM_ALL_ENTITIES at trace_size/2)
+
+TOTAL PROVER POLYNOMIALS: ~195 MB
+PEAK MEMORY (estimated): ~340 MB
+
+SAVINGS FROM GREEDY: ~203 MB (37% reduction in peak memory)
+```
+
+The greedy allocation requires:
+1. Shifting ZK masking to indices ~310K instead of 524K-4
+2. Modifying the row disabling polynomial for sumcheck to match
+3. Ensuring the prover and verifier agree on the disabled row indices
+4. Allocating non-gate selectors at trace_size instead of dyadic_size
 
 ## Why The Gap Cannot Be Closed
 
