@@ -61,7 +61,7 @@ class BigfieldTranslatorProverTest : public ::testing::Test {
  */
 TEST_F(BigfieldTranslatorProverTest, ProveAndVerify)
 {
-    constexpr size_t NUM_OPS = 10;
+    constexpr size_t NUM_OPS = 400;
 
     auto op_queue = create_test_op_queue(NUM_OPS);
     info("Op queue has ", op_queue->get_ultra_ops().size(), " rows");
@@ -186,4 +186,61 @@ TEST_F(BigfieldTranslatorProverTest, VerifyTranslation)
 
     bool translation_verified = verifier.verify_translation(translation_evaluations, masking_term);
     EXPECT_TRUE(translation_verified) << "Translation verification failed";
+}
+
+/**
+ * @brief Test that the verification key is independent of the number of actual ops in the fixed-size op queue.
+ *
+ * This is critical for the protocol: the VK must be constant regardless of how many operations
+ * are actually used, since the op queue is always padded to OP_QUEUE_SIZE.
+ */
+TEST_F(BigfieldTranslatorProverTest, VKIndependentOfOpCount)
+{
+    // Use same challenges for all provers to ensure deterministic circuit structure
+    Fq x_native = Fq::random_element();
+    Fq v_native = Fq::random_element();
+
+    // Create provers with different numbers of actual ops (all padded to same OP_QUEUE_SIZE)
+    std::vector<size_t> op_counts = { 1, 10, 100, 500 };
+    std::vector<std::shared_ptr<LightZKFlavor::VerificationKey>> verification_keys;
+
+    // All op queues should have the same fixed size
+    const size_t expected_size = create_test_op_queue(1)->get_ultra_ops().size();
+
+    for (size_t num_ops : op_counts) {
+        auto op_queue = create_test_op_queue(num_ops);
+        ASSERT_EQ(op_queue->get_ultra_ops().size(), expected_size) << "Op queue should be padded to fixed size";
+
+        BigfieldTranslatorProver prover(op_queue, x_native, v_native);
+        verification_keys.push_back(prover.get_verification_key());
+
+        info("Created VK for ", num_ops, " ops (op queue size: ", op_queue->get_ultra_ops().size(), ")");
+    }
+
+    // Compare all VKs - they should be identical
+    auto reference_vk = verification_keys[0];
+    for (size_t i = 1; i < verification_keys.size(); i++) {
+        auto& vk = verification_keys[i];
+
+        // Compare VK metadata
+        EXPECT_EQ(reference_vk->log_circuit_size, vk->log_circuit_size)
+            << "log_circuit_size mismatch for " << op_counts[i] << " ops";
+        EXPECT_EQ(reference_vk->num_public_inputs, vk->num_public_inputs)
+            << "num_public_inputs mismatch for " << op_counts[i] << " ops";
+        EXPECT_EQ(reference_vk->pub_inputs_offset, vk->pub_inputs_offset)
+            << "pub_inputs_offset mismatch for " << op_counts[i] << " ops";
+
+        // Compare all precomputed commitments
+        auto ref_commitments = reference_vk->get_all();
+        auto vk_commitments = vk->get_all();
+
+        ASSERT_EQ(ref_commitments.size(), vk_commitments.size()) << "Commitment count mismatch";
+
+        for (size_t j = 0; j < ref_commitments.size(); j++) {
+            EXPECT_EQ(ref_commitments[j], vk_commitments[j])
+                << "Commitment " << j << " mismatch for " << op_counts[i] << " ops vs " << op_counts[0] << " ops";
+        }
+    }
+
+    info("All VKs are identical across different op counts!");
 }

@@ -151,7 +151,7 @@ TEST_F(BigfieldTranslatorTest, CircuitMatchesNative)
 TEST_F(BigfieldTranslatorTest, GateCountMeasurement)
 {
     // Create op queue with 4096 rows (standard size)
-    constexpr size_t NUM_OPS = 100;
+    constexpr size_t NUM_OPS = 3000;
 
     auto op_queue = create_test_op_queue(NUM_OPS);
 
@@ -172,7 +172,7 @@ TEST_F(BigfieldTranslatorTest, GateCountMeasurement)
     fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v);
     (void)result;
 
-    size_t gates_after = builder.num_gates();
+    size_t gates_after = builder.get_num_finalized_gates_inefficient();
     size_t total_gates = gates_after - gates_before;
 
     info("=== BigfieldTranslator Gate Count ===");
@@ -425,7 +425,7 @@ TEST_F(BigfieldTranslatorTest, MegaZKProveAndVerify)
  */
 TEST_F(BigfieldTranslatorTest, LightZKProveAndVerify)
 {
-    constexpr size_t NUM_OPS = 10;
+    constexpr size_t NUM_OPS = 3000;
 
     // Create and populate the op_queue
     auto op_queue = create_test_op_queue(NUM_OPS);

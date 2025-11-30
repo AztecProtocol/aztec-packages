@@ -211,17 +211,18 @@ void BigfieldTranslator::populate_ecc_op_block(Builder& builder, const std::shar
         uint32_t z1_idx = builder.add_variable(ultra_op.z_1);
         uint32_t z2_idx = builder.add_variable(ultra_op.z_2);
 
-        // Get the op code witness index
-        uint32_t op_idx = builder.get_ecc_op_idx(ultra_op.op_code);
-
-        // Set the indices for the op values for each of the two rows
-        uint32_t op_val_idx_1 = op_idx;             // genuine op code value
-        uint32_t op_val_idx_2 = builder.zero_idx(); // second row value always set to 0
+        // Get the op code witness index.
+        // IMPORTANT: We create a FRESH witness for each row to ensure deterministic circuit structure.
+        // Using shared indices (like builder.get_ecc_op_idx()) causes NNF multiplication deduplication
+        // to depend on which rows have the same op code, leading to non-constant VK.
+        using FF = typename Builder::FF;
+        uint32_t op_val_idx_1 = builder.add_variable(FF(ultra_op.op_code.value()));
+        uint32_t op_val_idx_2 = builder.add_variable(FF(0)); // second row value always set to 0
 
         // If this is a random operation, the op values are randomized
         if (ultra_op.op_code.is_random_op) {
-            op_val_idx_1 = builder.add_variable(ultra_op.op_code.random_value_1);
-            op_val_idx_2 = builder.add_variable(ultra_op.op_code.random_value_2);
+            op_val_idx_1 = builder.add_variable(FF(ultra_op.op_code.random_value_1));
+            op_val_idx_2 = builder.add_variable(FF(ultra_op.op_code.random_value_2));
         }
 
         // Row 2i: (op, x_lo, x_hi, y_lo)
