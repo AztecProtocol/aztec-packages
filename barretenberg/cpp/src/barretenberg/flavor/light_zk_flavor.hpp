@@ -46,7 +46,6 @@ class LightZKFlavor {
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using TraceBlocks = MegaExecutionTraceBlocks;
     using Transcript = NativeTranscript;
 
     // BigfieldTranslator circuit finalizes to ~301K gates -> 2^19 dyadic
