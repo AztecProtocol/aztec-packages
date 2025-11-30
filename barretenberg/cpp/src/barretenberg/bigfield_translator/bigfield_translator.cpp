@@ -10,15 +10,14 @@
 
 namespace bb {
 
-BigfieldTranslator::fq_ct BigfieldTranslator::compute_column_sum(Builder& builder,
-                                                                 const std::vector<fq_ct>& column,
+BigfieldTranslator::fq_ct BigfieldTranslator::compute_column_sum(const std::vector<fq_ct>& column,
                                                                  const std::vector<fq_ct>& x_powers_base,
                                                                  const std::vector<fq_ct>& batch_multipliers,
                                                                  size_t num_rows)
 {
     const size_t num_batches = (num_rows + BATCH_SIZE - 1) / BATCH_SIZE;
 
-    fq_ct total_sum = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0));
+    fq_ct total_sum = fq_ct::zero();
 
     for (size_t batch = 0; batch < num_batches; batch++) {
         const size_t batch_start = batch * BATCH_SIZE;
@@ -57,7 +56,7 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& build
     const size_t num_rows = ecc_op_block_size / 2;
 
     if (num_rows == 0) {
-        return fq_ct::create_from_u512_as_witness(&builder, uint512_t(0));
+        return fq_ct::zero();
     }
 
     // Op queue size must be a power of two
@@ -69,7 +68,7 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& build
 
     // Step 1: Compute BATCH_SIZE sequential powers (x^0 to x^{BATCH_SIZE-1})
     std::vector<fq_ct> x_powers_base(BATCH_SIZE);
-    x_powers_base[0] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(1));
+    x_powers_base[0] = fq_ct::one();
     x_powers_base[1] = evaluation_challenge_x;
     for (size_t i = 2; i < BATCH_SIZE; i++) {
         x_powers_base[i] = x_powers_base[i - 1] * evaluation_challenge_x;
@@ -81,7 +80,7 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& build
     // For descending order, batch 0 gets the largest power, batch num_batches-1 gets x^0
 
     std::vector<fq_ct> batch_multipliers(num_batches);
-    batch_multipliers[num_batches - 1] = fq_ct::create_from_u512_as_witness(&builder, uint512_t(1)); // x^0
+    batch_multipliers[num_batches - 1] = fq_ct::one(); // x^0
 
     if (num_batches > 1) {
         // Compute x^BATCH_SIZE, x^{2*BATCH_SIZE}, x^{4*BATCH_SIZE}, ... via repeated squaring
@@ -98,7 +97,7 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& build
         // batch_multipliers[i] = x^{(num_batches - 1 - i) * BATCH_SIZE}
         for (size_t i = 0; i < num_batches - 1; i++) {
             size_t exponent = num_batches - 1 - i; // How many BATCH_SIZE units
-            fq_ct mult = fq_ct::create_from_u512_as_witness(&builder, uint512_t(1));
+            fq_ct mult = fq_ct::one();
             for (size_t bit = 0; bit < log_num_batches; bit++) {
                 if ((exponent >> bit) & 1) {
                     mult = mult * powers_of_two[bit];
@@ -180,11 +179,11 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& build
     fq_ct v4 = v3 * v;
 
     // Step 5: Compute column sums using vertical batching
-    fq_ct op_sum = compute_column_sum(builder, ops, x_powers_base, batch_multipliers, num_rows);
-    fq_ct px_sum = compute_column_sum(builder, pxs, x_powers_base, batch_multipliers, num_rows);
-    fq_ct py_sum = compute_column_sum(builder, pys, x_powers_base, batch_multipliers, num_rows);
-    fq_ct z1_sum = compute_column_sum(builder, z1s, x_powers_base, batch_multipliers, num_rows);
-    fq_ct z2_sum = compute_column_sum(builder, z2s, x_powers_base, batch_multipliers, num_rows);
+    fq_ct op_sum = compute_column_sum(ops, x_powers_base, batch_multipliers, num_rows);
+    fq_ct px_sum = compute_column_sum(pxs, x_powers_base, batch_multipliers, num_rows);
+    fq_ct py_sum = compute_column_sum(pys, x_powers_base, batch_multipliers, num_rows);
+    fq_ct z1_sum = compute_column_sum(z1s, x_powers_base, batch_multipliers, num_rows);
+    fq_ct z2_sum = compute_column_sum(z2s, x_powers_base, batch_multipliers, num_rows);
 
     // Step 6: Combine with batching challenge
     // result = op_sum + v*px_sum + v²*py_sum + v³*z1_sum + v⁴*z2_sum
@@ -212,12 +211,14 @@ void BigfieldTranslator::populate_ecc_op_block(Builder& builder, const std::shar
         uint32_t z2_idx = builder.add_variable(ultra_op.z_2);
 
         // Get the op code witness index.
-        // IMPORTANT: We create a FRESH witness for each row to ensure deterministic circuit structure.
+        // IMPORTANT: We create a FRESH witness for the first row's op value to ensure deterministic circuit structure.
         // Using shared indices (like builder.get_ecc_op_idx()) causes NNF multiplication deduplication
         // to depend on which rows have the same op code, leading to non-constant VK.
+        // However, the second row's first wire (op_val_idx_2) is NOT used in accumulator computation,
+        // so we can safely reuse builder.zero_idx() for it (matching MegaCircuitBuilder behavior).
         using FF = typename Builder::FF;
         uint32_t op_val_idx_1 = builder.add_variable(FF(ultra_op.op_code.value()));
-        uint32_t op_val_idx_2 = builder.add_variable(FF(0)); // second row value always set to 0
+        uint32_t op_val_idx_2 = builder.zero_idx(); // second row value always 0, not used in computation
 
         // If this is a random operation, the op values are randomized
         if (ultra_op.op_code.is_random_op) {

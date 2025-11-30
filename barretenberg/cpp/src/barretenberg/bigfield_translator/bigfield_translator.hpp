@@ -95,15 +95,13 @@ class BigfieldTranslator {
      * For column values c_0, c_1, ..., c_{N-1}, computes:
      *   sum = c_0 * x^{N-1} + c_1 * x^{N-2} + ... + c_{N-1} * x^0
      *
-     * @param builder The circuit builder
      * @param column The column values (as bigfield witnesses)
      * @param x_powers_base The base powers x^0, x^1, ..., x^{BATCH_SIZE-1}
      * @param batch_multipliers The batch scaling factors x^{k*BATCH_SIZE}
      * @param num_rows Total number of rows
      * @return fq_ct The weighted sum
      */
-    static fq_ct compute_column_sum(Builder& builder,
-                                    const std::vector<fq_ct>& column,
+    static fq_ct compute_column_sum(const std::vector<fq_ct>& column,
                                     const std::vector<fq_ct>& x_powers_base,
                                     const std::vector<fq_ct>& batch_multipliers,
                                     size_t num_rows);
