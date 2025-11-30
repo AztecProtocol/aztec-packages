@@ -194,15 +194,37 @@ One idea: range-constrain op queue limbs in each kernel (at `batch_mul`) to avoi
 
 ## Conclusion
 
-**Keep the existing Translator VM.**
+**Bigfield + Greedy LightZK is a viable replacement for the Translator VM.**
 
-| Factor | Translator | Bigfield |
-|--------|------------|----------|
-| Memory | 247 MB | 717 MB |
-| Code complexity | High (custom relations) | Low (reuses bigfield) |
-| Auditability | Harder | Easier |
+| Factor | Translator | Bigfield + LightZK | Bigfield + Greedy LightZK |
+|--------|------------|-------------------|---------------------------|
+| Memory | 247 MB | 543 MB | ~340 MB (estimated) |
+| Code complexity | High (custom relations) | Low (reuses bigfield) | Low (reuses bigfield) |
+| Auditability | Harder | Easier | Easier |
 
-The Translator's complexity is justified by 3x better memory usage. This gap is architectural and cannot be bridged with incremental optimizations. Memory is the primary constraint in client-side proving.
+The Bigfield approach trades ~40% more memory for significantly simpler code that reuses existing bigfield primitives. This trade-off is acceptable because:
+
+1. **Tolerable memory overhead**: 340 MB vs 247 MB (~93 MB difference) is modest in absolute terms
+2. **Scales reasonably**: Even with 2x op queue size (8192 ops), the bigfield approach remains practical at ~680 MB estimated
+3. **Simpler codebase**: Eliminates 7 custom relation types and 139 subrelations in favor of standard bigfield operations
+4. **Easier auditing**: The bigfield approach requires auditing:
+   - ~400 lines of circuit creation logic (bigfield_translator.cpp/hpp)
+   - One new bigfield method to create from a single 136-bit limb
+   - Row disabling polynomial for ZK sumcheck (modular, mostly prover-side; verifier only computes the disabling polynomial evaluation)
+
+   Compare to Translator VM's ~7,000 lines (4,600 in translator_vm/ + 2,300 in relations/translator_vm/)
+5. **Simpler PCS**: No interleaving trick required; standard Honk PCS flow
+6. **Better ZK properties**:
+   - Accumulated result can be a full 254-bit random scalar (vs constrained values in Translator)
+   - No special masking tail handling needed in ECCVM since bigfield circuit operates on random Fr elements
+7. **Smaller proof size**: LightZK produces 295 Fr fields vs Translator's 586 Fr fields (50% smaller)
+   - LightZK: 9 witness commitments, 35 sumcheck evaluations, 19 rounds
+   - Translator: 88 witness commitments, 188 sumcheck evaluations, 17 rounds
+   - Fewer witness polynomials outweighs 2 extra sumcheck rounds
+8. **Recursive verifier circuit**: Significantly smaller due to ~2x smaller MSM
+   - KZG verifier MSM: LightZK **58 points** vs Translator **119 points** (measured)
+   - MSM dominates recursive verifier cost; 2x fewer points ≈ 2x fewer biggroup scalar muls
+   - Note: LightZKRecursiveFlavor not yet implemented; estimate based on MSM size reduction
 
 ---
 
