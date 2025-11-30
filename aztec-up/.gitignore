@@ -2,3 +2,4 @@
 .terraform*
 .DS_Store
 bin/versions
+verdaccio-storage

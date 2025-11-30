@@ -12,22 +12,68 @@ if [ "$(whoami)" != "ubuntu" ]; then
   exit 1
 fi
 
-export npm_config_registry="http://localhost:4873"
+# Install required node version.
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+cd ~
 source ~/.nvm/nvm.sh
-node_version=$(grep node aztec-packages/aztec-up/bin/versions | cut -d' ' -f2)
+cd aztec-packages
+node_version=$(grep node ./aztec-up/bin/versions | cut -d' ' -f2)
+echo $node_version
 nvm install $node_version
 nvm alias default $node_version
 
+# Create Verdaccio config.
+cat > /tmp/verdaccio-config.yaml <<EOF
+storage: /home/ubuntu/verdaccio-storage
+max_body_size: 1000mb
+
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+
+packages:
+  "@*/*":
+    access: \$all
+    publish: \$all
+    unpublish: \$all
+    proxy: npmjs
+
+  "**":
+    access: \$all
+    publish: \$all
+    unpublish: \$all
+    proxy: npmjs
+
+logs: { type: stdout, format: pretty, level: warn }
+EOF
+echo 'testuser:$2y$05$R1tRwE1mM3iT1dJ8hG16fOCTq7tFhFJ0IWrZ1bMCGJ6W9unQF3H3K' > /tmp/htpasswd
+
+# Start verdaccio local npm registry.
+npm i -g verdaccio
+verdaccio --config /tmp/verdaccio-config.yaml --listen 0.0.0.0:4873 &>/dev/null &
+while ! nc -z localhost 4873 &>/dev/null; do sleep 1; done
+
+# Configure npm client to use local registry.
+export npm_config_registry="http://localhost:4873"
+export npm_config_userconfig=$(mktemp)
+cat > "$npm_config_userconfig" <<'EOF'
+max_body_size=1000mb
+registry=http://localhost:4873/
+//localhost:4873/:username=testuser
+//localhost:4873/:_password=dGVzdHBhc3M=
+//localhost:4873/:email=test@example.com
+//localhost:4873/:always-auth=true
+EOF
+
+# Install aztec.
 export NO_NEW_SHELL=1
 export INSTALL_URI=file:///home/ubuntu/aztec-packages/aztec-up/bin
-
 if [ -t 0 ]; then
   bash_args="-i"
 else
   export NON_INTERACTIVE=1
 fi
-
 bash ${bash_args:-} <(curl -s $INSTALL_URI/aztec-install)
 
-bash -i ./aztec-packages/aztec-up/test/$1.sh
+# Run test. Force interactive to parse .bashrc.
+bash -i ./aztec-up/test/$1.sh
