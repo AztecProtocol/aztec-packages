@@ -1,83 +1,121 @@
 #!/usr/bin/env bash
 
-fuzzer=''
-verbosity='0'
-timeout='2592000' # 1 month
-mode='fuzzing'
-asm='on'
-cpus='8'
-mem="16G"
-jobs_="$cpus"
-workers='0'
+# Default Configuration Variables
+FUZZER=''
+VERBOSITY='0'
+TIMEOUT='2592000' # Default: 1 month (in seconds)
+MODE='fuzzing'
+ASM_ENABLED='on'
+CPUS='8'
+MEM="16G"
+# Set default jobs equal to CPUs. Note the underscore to avoid conflict with the 'jobs' builtin.
+JOBS_="$CPUS"
+WORKERS='0'
+IMAGE_NAME='barretenberg-fuzzer'
 
+# --- Functions ---
 
+# Function to display usage information.
 show_help() {
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
-    echo "  -v, --verbose               Enable fuzzer's verbose mode (default: $verbosity)"
-    echo "  -f, --fuzzer <fuzzer_name>  Specify the fuzzer to use (current: $fuzzer)"
-    echo "  -t, --timeout <timeout>     Set the maximum total time for fuzzing in seconds (default: $timeout - 1 month)"
-    echo "  -c, --cpus <cpus>           Set the amount of CPUs for container to use (default: $cpus)"
-    echo "  --mem <memory>              Set the amount of memory for container to use (default: $mem)"
-    echo "  -m, --mode <mode>           Set the mode of operation (fuzzing or coverage) (default: $mode)"
-    echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs_)"
-    echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
-    echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage or regress-only) (default: $mode)"
-    echo "  -a, --asm <mode>            Set the flag to enable/disable asm instrucitons (on/off) (default: $asm)"
+    echo "  -v, --verbose               Enable fuzzer's verbose output (default: $VERBOSITY)"
+    echo "  -f, --fuzzer <fuzzer_name>  Specify the fuzzer to use (current: $FUZZER)"
+    echo "  -t, --timeout <timeout>     Set the maximum total time for fuzzing in seconds (default: $TIMEOUT - 1 month)"
+    echo "  -c, --cpus <cpus>           Set the amount of CPUs for the container to use (default: $CPUS)"
+    echo "  --mem <memory>              Set the amount of memory for the container to use (default: $MEM)"
+    echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage, or regress-only) (default: $MODE)"
+    echo "  -j, --jobs <N>              Set the amount of parallel fuzzing processes to run (default: $JOBS_)"
+    echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $WORKERS)"
+    echo "  -a, --asm <mode>            Set the flag to enable/disable ASM instructions (on/off) (default: $ASM_ENABLED)"
     echo "  -h, --help                  Display this help and exit"
     echo "  --show-fuzzers              Display the available fuzzers"
     echo ""
-    echo "This script handles fuzzing testing with specified parameters, managing crash reports,"
-    echo "and coverage testing based on the mode specified."
+    echo "This script manages fuzzing, crash reports, and coverage testing using a Docker container."
 }
 
+# Function to execute the fuzzer inside the Docker container.
+run_fuzzer_container() {
+    local verbose_flag=""
+    if [[ "$VERBOSITY" == '1' ]]; then
+        verbose_flag="--verbose"
+    fi
+
+    # Using 'root' user is required here to ensure write permissions to mounted volumes 
+    # are universally granted inside the container, but generally using a less privileged 
+    # user is preferred for security if permissions can be managed.
+    docker run -it --rm \
+        --user root \
+        -v "$(pwd)/crash-reports:/home/fuzzer/crash-reports:rw" \
+        -v "$(pwd)/output:/home/fuzzer/output:rw" \
+        -v "$(pwd)/corpus:/home/fuzzer/corpus:rw" \
+        -v "$(pwd)/coverage:/home/fuzzer/coverage:rw" \
+        --cpus="$CPUS" \
+        -m "$MEM" \
+        --entrypoint "./entrypoint.sh" \
+        "$IMAGE_NAME" \
+        "$verbose_flag" \
+        --fuzzer "$FUZZER" \
+        --mode "$MODE" \
+        --asm "$ASM_ENABLED" \
+        --timeout "$TIMEOUT" \
+        --workers "$WORKERS" \
+        --jobs "$JOBS_"
+}
+
+
+# --- Argument Parsing ---
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -v|--verbose)
-            verbosity='1'
+            VERBOSITY='1'
             shift
             ;;
         -f|--fuzzer)
-            fuzzer="$2"
+            FUZZER="$2"
             shift 2
             ;;
         --show-fuzzers)
-            mode="show-fuzzers"
+            MODE="show-fuzzers"
             shift
             ;;
         -t|--timeout)
-            timeout="$2"
+            TIMEOUT="$2"
             shift 2
             ;;
         -w|--workers)
-            workers="$2"
+            WORKERS="$2"
             shift 2
             ;;
         -j|--jobs)
-            jobs_="$2"
+            JOBS_="$2"
             shift 2
             ;;
         -m|--mode)
-            mode="$2";
-            shift 2;
+            MODE="$2"
+            shift 2
             ;;
         -a|--asm)
-            asm="$2";
-            shift 2;
+            ASM_ENABLED="$2"
+            shift 2
             ;;
         -c|--cpus)
-            cpus="$2";
-            shift 2;
+            CPUS="$2"
+            # Update JOBS_ default if CPUS is specified before JOBS_
+            if [[ "$JOBS_" == "$CPUS" ]]; then
+                JOBS_="$CPUS"
+            fi
+            shift 2
             ;;
         --mem)
-            mem="$2"
-            shift 2;
+            MEM="$2"
+            shift 2
             ;;
         -h|--help)
-            show_help;
-            exit 0;
+            show_help
+            exit 0
             ;;
         --)
             shift
@@ -93,65 +131,35 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-image_name=barretenberg-fuzzer
+# --- Main Execution ---
 
-docker build src/ -t "$image_name":latest
+# 1. Build the Docker image.
+docker build src/ -t "$IMAGE_NAME":latest
 if [[ $? -ne 0 ]]; then
-    exit 1;
+    echo "Error: Docker image build failed." >&2
+    exit 1
 fi
 
-if [[ "$mode" == "show-fuzzers" ]]; then
-    docker run -it --rm                                      \
-        --entrypoint "./entrypoint.sh"                       \
-        "$image_name"                                        \
-        --show-fuzzers                                        
-    exit 0;
+# 2. Handle 'show-fuzzers' mode separately (it doesn't need persistent volumes).
+if [[ "$MODE" == "show-fuzzers" ]]; then
+    docker run -it --rm \
+        --entrypoint "./entrypoint.sh" \
+        "$IMAGE_NAME" \
+        --show-fuzzers
+    exit 0
 fi
 
-if [ -z "${fuzzer}" ]; then
-    echo "err: No fuzzer was provided";
+# 3. Check for required arguments.
+if [ -z "${FUZZER}" ]; then
+    echo "Error: No fuzzer was provided." >&2
     echo
     show_help
-    exit 1;
+    exit 1
 fi
 
-[[ -d crash-reports ]] || mkdir crash-reports;
-[[ -d crash-reports/unsorted ]] || mkdir crash-reports/unsorted;
-[[ -d output ]] || mkdir output;
-[[ -d corpus ]] || mkdir corpus;
-[[ -d coverage ]] || mkdir coverage;
+# 4. Create necessary local directories for output/state.
+# The 'coverage' directory creation was missing in the original logic.
+mkdir -p crash-reports/unsorted output corpus coverage
 
-if [[ $verbosity == '1' ]]; then
-    docker run -it --rm                                         \
-        --user root                                             \
-        -v "$(pwd)/crash-reports:/home/fuzzer/crash-reports:rw" \
-        -v "$(pwd)/output:/home/fuzzer/output:rw"               \
-        -v "$(pwd)/corpus:/home/fuzzer/corpus:rw"               \
-        --cpus="$cpus"                                          \
-        -m "$mem"                                               \
-        --entrypoint "./entrypoint.sh"                          \
-        "$image_name"                                           \
-        --verbose                                               \
-        --fuzzer "$fuzzer"                                      \
-        --mode "$mode"                                          \
-        --asm "$asm"                                            \
-        --timeout "$timeout"                                    \
-        --workers "$workers"                                    \
-        --jobs "$jobs_"
-else
-    docker run -it --rm                                         \
-        --user root                                             \
-        -v "$(pwd)/crash-reports:/home/fuzzer/crash-reports"    \
-        -v "$(pwd)/output:/home/fuzzer/output"                  \
-        -v "$(pwd)/corpus:/home/fuzzer/corpus:rw"               \
-        --cpus="$cpus"                                          \
-        -m "$mem"                                               \
-        --entrypoint "./entrypoint.sh"                          \
-        "$image_name"                                           \
-        --fuzzer "$fuzzer"                                      \
-        --mode "$mode"                                          \
-        --asm "$asm"                                            \
-        --timeout "$timeout"                                    \
-        --workers "$workers"                                    \
-        --jobs "$jobs_"
-fi
+# 5. Execute the main fuzzer container function.
+run_fuzzer_container
