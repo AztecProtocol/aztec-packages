@@ -56,7 +56,7 @@ function title() {
   read -p "Do you wish to continue? (y/n) " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    exit 0
+    exit 1
   fi
 }
 
@@ -208,14 +208,14 @@ function main {
   echo
   check_toolchains
 
-  # Install jq
-  echo -n "Installing jq... "
-  dump_fail install_jq
-  echo_green "done."
-
   # Install aztec-up
   echo -n "Installing aztec-up... "
   dump_fail install_aztec_up
+  echo_green "done."
+
+  # Install jq
+  echo -n "Installing jq... "
+  dump_fail install_jq
   echo_green "done."
 
   # Install noir
@@ -237,7 +237,8 @@ function main {
     echo_green "Done! Starting fresh shell..."
     exec $SHELL
   else
-    echo_green "Done! You'll need a fresh shell to see PATH updates."
+    echo
+    echo -e "${g}Done!${r} You'll need to start a fresh shell to see PATH updates."
   fi
 }
 
