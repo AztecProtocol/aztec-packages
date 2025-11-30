@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(dirname "$(realpath "$0")")"
+
 function aztec {
-  local script_dir="$(dirname "$(realpath "$0")")"
   node --no-warnings $script_dir/../dest/bin/index.js "$@"
 }
 
@@ -13,8 +14,8 @@ case $cmd in
   test)
     export LOG_LEVEL="${LOG_LEVEL:-info}"
     aztec start --txe --port 8081 &
-    local server_pid=$!
-    trap 'kill $server_pid &>/dev/null' EXIT
+    server_pid=$!
+    trap 'kill $server_pid &>/dev/null || true' EXIT
     while ! nc -z 127.0.0.1 8081 &>/dev/null; do sleep 0.2; done
     export NARGO_FOREIGN_CALL_TIMEOUT=300000
     nargo test --silence-warnings --pedantic-solving --oracle-resolver http://127.0.0.1:8081 "$@"
@@ -45,7 +46,7 @@ case $cmd in
     aztec start "$@"
     ;;
   compile|new|init)
-    $(dirname "$0")/${cmd}.sh "$@"
+    $script_dir/${cmd}.sh "$@"
     ;;
   fmt|check|lsp)
     # TODO: These should be removed, just use nargo directly.

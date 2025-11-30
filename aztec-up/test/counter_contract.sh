@@ -4,7 +4,7 @@ set -euo pipefail
 export LOG_LEVEL=silent
 
 # Execute commands as per: https://docs.aztec.network/tutorials/codealong/contract_tutorials/counter_contract
-aztec new --contract counter_contract
+aztec new counter_contract
 if [ ! -f counter_contract/Nargo.toml ] || [ ! -f counter_contract/src/main.nr ]; then
   echo "Failed to create contract."
   exit 1

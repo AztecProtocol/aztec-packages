@@ -19,12 +19,14 @@ fi
 
 echo "Running test $name..."
 docker run --rm ${args:-} \
+  -e FORCE_COLOR=1 \
   --name $name \
   -v$(git rev-parse --show-toplevel):/home/ubuntu/aztec-packages:ro \
   -v$HOME/.bb-crs:/home/ubuntu/.bb-crs \
-  -w/home/ubuntu/aztec-packages \
+  -w/home/ubuntu \
   --user ubuntu:ubuntu \
   aztecprotocol/aztec-release-test \
   bash -c "
-    ./aztec-up/scripts/run_isolated_test.sh $name ${fail_shell:-}
-  "
+    aztec-packages/aztec-up/scripts/run_isolated_test.sh $name ${fail_shell:-}
+  " &
+wait $!
