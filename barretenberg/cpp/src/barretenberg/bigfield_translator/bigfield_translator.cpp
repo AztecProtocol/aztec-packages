@@ -17,9 +17,8 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_column_sum(const std::vect
 {
     const size_t num_batches = (num_rows + BATCH_SIZE - 1) / BATCH_SIZE;
 
-    fq_ct total_sum = fq_ct::zero();
-
-    for (size_t batch = 0; batch < num_batches; batch++) {
+    // Helper lambda to compute batch_sum for a given batch
+    auto compute_batch_sum = [&](size_t batch) {
         const size_t batch_start = batch * BATCH_SIZE;
         const size_t batch_end = std::min(batch_start + BATCH_SIZE, num_rows);
         const size_t actual_batch_size = batch_end - batch_start;
@@ -31,14 +30,31 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_column_sum(const std::vect
             const size_t row_idx = batch_start + j;
             left[j] = column[row_idx];
             // Within this batch, use descending powers from x^{BATCH_SIZE-1} down to x^{BATCH_SIZE-actual_batch_size}
-            // For the last (potentially partial) batch, we still use the same x_powers_base indexing
             right[j] = x_powers_base[BATCH_SIZE - 1 - j];
         }
 
-        fq_ct batch_sum = fq_ct::mult_madd(left, right, {});
-        // Scale by batch multiplier and add to total
+        return fq_ct::mult_madd(left, right, {});
+    };
+
+    // Handle edge case of single batch
+    if (num_batches == 1) {
+        // batch_multipliers[0] is one(), so just return the batch sum directly
+        return compute_batch_sum(0);
+    }
+
+    // For multiple batches, handle first batch specially (avoid adding to zero)
+    // and last batch specially (avoid multiplying by one)
+    fq_ct total_sum = compute_batch_sum(0) * batch_multipliers[0];
+
+    // Middle batches: multiply by batch_multiplier and add
+    for (size_t batch = 1; batch < num_batches - 1; batch++) {
+        fq_ct batch_sum = compute_batch_sum(batch);
         total_sum = total_sum + batch_sum * batch_multipliers[batch];
     }
+
+    // Last batch: batch_multipliers[num_batches-1] is one(), so just add batch_sum directly
+    fq_ct last_batch_sum = compute_batch_sum(num_batches - 1);
+    total_sum = total_sum + last_batch_sum;
 
     return total_sum;
 }
@@ -64,7 +80,6 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& build
     BB_ASSERT(num_rows >= BATCH_SIZE, "Op queue size must be at least BATCH_SIZE");
 
     const size_t num_batches = num_rows / BATCH_SIZE;
-    const size_t log_num_batches = numeric::get_msb(num_batches);
 
     // Step 1: Compute BATCH_SIZE sequential powers (x^0 to x^{BATCH_SIZE-1})
     std::vector<fq_ct> x_powers_base(BATCH_SIZE);
@@ -74,8 +89,7 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& build
         x_powers_base[i] = x_powers_base[i - 1] * evaluation_challenge_x;
     }
 
-    // Step 2: Compute batch multipliers via repeated squaring
-    // x^BATCH_SIZE = x^{BATCH_SIZE-1} * x, then square repeatedly
+    // Step 2: Compute batch multipliers via repeated multiplication
     // We need: x^0, x^BATCH_SIZE, x^{2*BATCH_SIZE}, ..., x^{(num_batches-1)*BATCH_SIZE}
     // For descending order, batch 0 gets the largest power, batch num_batches-1 gets x^0
 
@@ -83,27 +97,15 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& build
     batch_multipliers[num_batches - 1] = fq_ct::one(); // x^0
 
     if (num_batches > 1) {
-        // Compute x^BATCH_SIZE, x^{2*BATCH_SIZE}, x^{4*BATCH_SIZE}, ... via repeated squaring
-        fq_ct x_batch = x_powers_base[BATCH_SIZE - 1] * evaluation_challenge_x; // x^BATCH_SIZE
+        // Compute x^BATCH_SIZE = x^{BATCH_SIZE-1} * x
+        fq_ct x_batch = x_powers_base[BATCH_SIZE - 1] * evaluation_challenge_x;
 
-        // powers_of_two[i] = x^{BATCH_SIZE * 2^i}
-        std::vector<fq_ct> powers_of_two(log_num_batches);
-        powers_of_two[0] = x_batch;
-        for (size_t i = 1; i < log_num_batches; i++) {
-            powers_of_two[i] = powers_of_two[i - 1].sqr();
-        }
-
-        // Build batch multipliers in descending order
+        // Build batch multipliers by repeated multiplication (more efficient than binary exponentiation)
         // batch_multipliers[i] = x^{(num_batches - 1 - i) * BATCH_SIZE}
-        for (size_t i = 0; i < num_batches - 1; i++) {
-            size_t exponent = num_batches - 1 - i; // How many BATCH_SIZE units
-            fq_ct mult = fq_ct::one();
-            for (size_t bit = 0; bit < log_num_batches; bit++) {
-                if ((exponent >> bit) & 1) {
-                    mult = mult * powers_of_two[bit];
-                }
-            }
-            batch_multipliers[i] = mult;
+        // Start from the second-to-last (x^BATCH_SIZE) and multiply by x^BATCH_SIZE each step
+        batch_multipliers[num_batches - 2] = x_batch; // x^BATCH_SIZE
+        for (size_t i = num_batches - 2; i > 0; i--) {
+            batch_multipliers[i - 1] = batch_multipliers[i] * x_batch;
         }
     }
 
