@@ -1,1 +1,1 @@
-barretenberg_module(bigfield_translator stdlib_primitives op_queue)
+barretenberg_module(bigfield_translator stdlib_primitives op_queue ultra_honk)
