@@ -315,5 +315,5 @@ docs-tests: docs
 aztec-up: yarn-project
 	$(call build,$@,aztec-up)
 
-aztec-up-tests: aztec-up release-image
+aztec-up-tests: aztec-up
 	$(call test,$@,aztec-up)

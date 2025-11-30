@@ -14,10 +14,8 @@ fi
 
 # Install required node version.
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-cd ~
 source ~/.nvm/nvm.sh
-cd aztec-packages
-node_version=$(grep node ./aztec-up/bin/versions | cut -d' ' -f2)
+node_version=$(grep node aztec-packages/aztec-up/bin/versions | cut -d' ' -f2)
 echo $node_version
 nvm install $node_version
 nvm alias default $node_version
@@ -76,4 +74,4 @@ fi
 bash ${bash_args:-} <(curl -s $INSTALL_URI/aztec-install)
 
 # Run test. Force interactive to parse .bashrc.
-bash -i ./aztec-up/test/$1.sh
+bash -i aztec-packages/aztec-up/test/$1.sh

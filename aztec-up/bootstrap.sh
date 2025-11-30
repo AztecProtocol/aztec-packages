@@ -40,6 +40,7 @@ EOF
     npm i -g verdaccio
   fi
 
+  rm -rf verdaccio-storage
   verdaccio --config /tmp/verdaccio-config.yaml --listen 4873 &>/dev/null &
   verdaccio_pid=$!
   trap 'kill $verdaccio_pid &>/dev/null || true' EXIT
@@ -67,18 +68,6 @@ EOF
   } | parallel --tag -k --line-buffer --halt now,fail=1 "dump_fail 'cd {} && deploy_npm latest $version' >/dev/null"
 
   docker build -t aztecprotocol/aztec-release-test .
-}
-
-function update_manifest {
-  # We update the manifest to point to the latest arch specific images, pushed above.
-  local image=aztecprotocol/dind:latest
-  # Remove any old local manifest if present.
-  docker manifest rm $image || true
-  # Create new manifest and push.
-  docker manifest create $image \
-    --amend aztecprotocol/dind:latest-amd64 \
-    --amend aztecprotocol/dind:latest-arm64
-  docker manifest push $image
 }
 
 function test_cmds {

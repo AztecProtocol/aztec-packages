@@ -4,7 +4,7 @@ set -euo pipefail
 # Start local network and wait for port to open.
 aztec start --local-network &
 local_network=$!
-trap 'echo "Sending kill to pid $local_network"; kill $local_network &>/dev/null; wait $local_network' EXIT
+trap 'set +e; kill $local_network_pid &>/dev/null; wait $local_network_pid' EXIT
 while ! curl -fs localhost:8080/status &>/dev/null; do sleep 1; done
 
 # Execute wallet commands as per: https://docs.aztec.network/guides/getting_started
