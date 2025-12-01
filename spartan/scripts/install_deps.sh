@@ -3,6 +3,11 @@ echo "Installing dependencies..."
 source $(git rev-parse --show-toplevel)/ci3/source
 echo "Source loaded"
 
+# Define die if not provided by sourced environment
+if ! declare -f die >/dev/null 2>&1; then
+  die() { echo "$*" >&2; exit 1; }
+fi
+
 # if kubectl is not installed, install it
 if ! command -v kubectl &> /dev/null; then
   echo "Installing kubectl..."
@@ -22,17 +27,46 @@ fi
 function get_helm_from_cache {
   helm_artifact="$1"
 
-  if cache_download "$helm_artifact" >/dev/null; then
-    if [ -f helm ]; then
-      sudo mv helm /usr/local/bin/helm
+  if cache_download "$helm_artifact" >/dev/null 2>&1; then
+    # If we have a tarball (expected), extract it and install the helm binary.
+    if [ -f "$helm_artifact" ]; then
+      tar -xzf "$helm_artifact" || true
+    fi
+    # Common locations after extraction or cache materialization
+    if [ -f linux-amd64/helm ]; then
+      if command -v sudo >/dev/null 2>&1; then
+        sudo mv linux-amd64/helm /usr/local/bin/helm
+        sudo chmod +x /usr/local/bin/helm
+      else
+        mv linux-amd64/helm /usr/local/bin/helm
+        chmod +x /usr/local/bin/helm
+      fi
+      return 0
+    elif [ -f helm ]; then
+      if command -v sudo >/dev/null 2>&1; then
+        sudo mv helm /usr/local/bin/helm
+        sudo chmod +x /usr/local/bin/helm
+      else
+        mv helm /usr/local/bin/helm
+        chmod +x /usr/local/bin/helm
+      fi
+      return 0
     elif [ -f ./usr/local/bin/helm ]; then
-      sudo mv ./usr/local/bin/helm /usr/local/bin/helm
-    else 
+      if command -v sudo >/dev/null 2>&1; then
+        sudo mv ./usr/local/bin/helm /usr/local/bin/helm
+        sudo chmod +x /usr/local/bin/helm
+      else
+        mv ./usr/local/bin/helm /usr/local/bin/helm
+        chmod +x /usr/local/bin/helm
+      fi
+      return 0
+    else
       echo "Could not extract helm from cache"
       return 1
     fi
-    sudo chmod +x /usr/local/bin/helm
-    return 0
+  else
+    # Cache miss
+    return 1
   fi
 }
 
@@ -51,7 +85,7 @@ if ! command -v helm &> /dev/null; then
     # Download and run the official Helm installer script
     curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
     chmod +x get_helm.sh
-    sudo ./get_helm.sh
+    if command -v sudo >/dev/null 2>&1; then sudo ./get_helm.sh; else ./get_helm.sh; fi
 
     if [ -f /usr/local/bin/helm ]; then
       ( cd /usr/local/bin && cache_upload "$helm_artifact" helm )
@@ -60,6 +94,8 @@ if ! command -v helm &> /dev/null; then
     # Clean up installer script
     rm get_helm.sh
   fi
+  # Verify helm is now installed
+  command -v helm >/dev/null 2>&1 || die "Helm install failed; helm not on PATH"
 fi
 
 if ! command -v stern &> /dev/null; then
@@ -122,6 +158,7 @@ require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Required command not fou
 require_cmd git
 require_cmd kubectl
 require_cmd terraform
+require_cmd helm
 require_cmd sed
 require_cmd xargs
 require_cmd tr

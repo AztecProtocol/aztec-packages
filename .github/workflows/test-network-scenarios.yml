@@ -4,6 +4,9 @@
 name: Test Network Scenarios
 
 on:
+  schedule:
+    # Run nightly at 04:00 UTC (after nightly tag creation)
+    - cron: "0 4 * * *"
   workflow_run:
     workflows: ["CI3"]
     types:
@@ -17,12 +20,14 @@ on:
         default: next
       docker_image:
         description: Complete docker image to use (e.g., aztecprotocol/aztec:some-tag)
-        required: true
+        required: false
         type: string
+        default: ""
       namespace:
         description: Kubernetes namespace to use (will be sanitized for k8s naming)
-        required: true
+        required: false
         type: string
+        default: ""
       env_file:
         description: Environment file to use from spartan/environments/
         required: false
@@ -62,9 +67,11 @@ jobs:
   deploy-and-test-scenarios:
     needs: check-should-run
     if: |
-      always() &&
-      ((github.event_name == 'workflow_run' && needs.check-should-run.outputs.should_run == 'true') ||
-      (github.event_name == 'workflow_dispatch'))
+      always() && (
+        (github.event_name == 'workflow_run' && needs.check-should-run.outputs.should_run == 'true') ||
+        (github.event_name == 'workflow_dispatch') ||
+        (github.event_name == 'schedule')
+      )
     runs-on: ubuntu-latest
     env:
       NETWORK_ENV_FILE: /tmp/network.env
@@ -97,14 +104,55 @@ jobs:
           echo "SEMVER=$semver" >> $GITHUB_ENV
           echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
 
-      # For dispatch, set the dockerimage and the namespace from provided inputs
-      - name: Set docker image from input
+      - name: Resolve docker image
+        run: |
+          current_version=$(jq -r '."."' .release-please-manifest.json)
+          today="$(date -u +%Y%m%d)"
+          nightly_tag="${current_version}-nightly.${today}-amd64"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.docker_image }}" ]; then
+            docker_image="${{ inputs.docker_image }}"
+            echo "Using provided docker image: $docker_image"
+          else
+            echo "Trying exact nightly tag: ${nightly_tag}"
+            if curl -fsS "https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags/${nightly_tag}" >/dev/null; then
+              docker_image="aztecprotocol/aztec:${nightly_tag}"
+              echo "Using nightly image (exact amd64): $docker_image"
+            else
+              prefix="${nightly_tag%-amd64}"
+              echo "Falling back to duplicate tags: $prefix"
+              candidate=$(curl -s "https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags?page_size=10&name=${prefix}" \
+                | jq -r --arg p "$prefix" '.results[].name | select(test("^" + $p + "(\\.[0-9]+)?-amd64$"))' \
+                | head -n1)
+              if [[ -n "$candidate" ]]; then
+                docker_image="aztecprotocol/aztec:${candidate}"
+                echo "Using nightly image (fallback list amd64): $docker_image"
+              else
+                echo "Error: No nightly docker image found for $prefix"
+                exit 1
+              fi
+            fi
+          fi
+          echo "DOCKER_IMAGE=$docker_image" >> $GITHUB_ENV
+
+      - name: Resolve scheduled nightly docker image and namespace
+        if: github.event_name == 'schedule'
+        run: |
+          echo "Using resolved nightly image: ${{ env.DOCKER_IMAGE }}"
+          echo "DOCKER_IMAGE=$DOCKER_IMAGE" >> $GITHUB_ENV
+          echo "NAMESPACE=nightly-scenario" >> $GITHUB_ENV
+
+      - name: Resolve workflow_dispatch docker image and namespace
         if: github.event_name == 'workflow_dispatch'
         run: |
-          docker_image="${{ inputs.docker_image }}"
-          # Use the provided namespace, sanitized for k8s naming
-          namespace_id=$(echo "${{ inputs.namespace }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
-          echo "DOCKER_IMAGE=$docker_image" >> $GITHUB_ENV
+          echo "Using resolved docker image: ${{ env.DOCKER_IMAGE }}"
+          echo "DOCKER_IMAGE=${{ env.DOCKER_IMAGE }}" >> $GITHUB_ENV
+
+          # Determine namespace: prefer provided input; else default to nightly-scenario
+          raw_ns="${{ inputs.namespace }}"
+          if [ -z "$raw_ns" ]; then
+            raw_ns="nightly-scenario"
+          fi
+          namespace_id=$(echo "$raw_ns" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
           echo "NAMESPACE_ID=$namespace_id" >> $GITHUB_ENV
 
       - name: Setup
@@ -159,6 +207,66 @@ jobs:
           echo "AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" >> ${{ env.NETWORK_ENV_FILE }}
           echo "Copied network environment file ${ENV_FILE} to ${{ env.NETWORK_ENV_FILE }}"
 
+      - name: Setup gcloud and install GKE auth plugin (for Chaos Mesh install)
+        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: "gke-gcloud-auth-plugin"
+
+      - name: Setup Terraform
+        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+
+      - name: Install Foundry
+        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install Chaos Mesh for scenario
+        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
+        run: |
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+          CLUSTER=$(grep '^CLUSTER=' "$NETWORK_ENV_FILE" | sed 's/CLUSTER=//')
+          REGION=$(grep '^GCP_REGION=' "$NETWORK_ENV_FILE" | sed 's/GCP_REGION=//')
+          if [[ -z "$CLUSTER" || -z "$REGION" ]]; then
+            echo "Missing CLUSTER or GCP_REGION in $NETWORK_ENV_FILE"
+            exit 1
+          fi
+          gcloud container clusters get-credentials "$CLUSTER" --region "$REGION" --project "$GCP_PROJECT_ID"
+          export CLUSTER="$CLUSTER"
+          cd spartan
+          # If Chaos Mesh is already installed (cluster-scoped resources present), skip install
+          if kubectl get clusterrole chaos-chaos-dashboard-cluster-level >/dev/null 2>&1; then
+            echo "Chaos Mesh already installed; skipping install step."
+          else
+            # Install into the dedicated chaos-mesh namespace to avoid ownership conflicts
+            NAMESPACE=chaos-mesh ./scripts/deploy_chaos_mesh.sh
+          fi
+
+      - name: Install Metrics for scenario
+        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
+        run: |
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+          CLUSTER=$(grep '^CLUSTER=' "$NETWORK_ENV_FILE" | sed 's/CLUSTER=//')
+          REGION=$(grep '^GCP_REGION=' "$NETWORK_ENV_FILE" | sed 's/GCP_REGION=//')
+          if [[ -z "$CLUSTER" || -z "$REGION" ]]; then
+            echo "Missing CLUSTER or GCP_REGION in $NETWORK_ENV_FILE"
+            exit 1
+          fi
+          gcloud container clusters get-credentials "$CLUSTER" --region "$REGION" --project "$GCP_PROJECT_ID"
+          export CLUSTER="$CLUSTER"
+          cd spartan
+          ./bootstrap.sh metrics-prod
+
       - name: Check CI Cache
         id: ci_cache
         if: env.SEMVER != '' && github.event_name == 'workflow_run'
@@ -184,6 +292,7 @@ jobs:
           REF_NAME: ${{ (github.event_name == 'workflow_run' && format('v{0}', env.SEMVER)) || (github.event_name == 'workflow_dispatch' && inputs.ref) }}
           AWS_SHUTDOWN_TIME: 360 # 6 hours as we are running tests that may take a while
           NO_SPOT: 1
+          SPARTAN_ALL_TESTS: "1"
         run: |
           # the network env file and gcp credentials file are mounted into the ec2 instance
           # see ci3/bootstrap_ec2
@@ -221,6 +330,22 @@ jobs:
           comment-on-alert: false
           fail-on-alert: false
           max-items-in-chart: 100
+
+      - name: Cleanup namespace (nightly)
+        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          NAMESPACE: ${{ env.NAMESPACE }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          # Auth and delete namespace created for nightly scenario
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+          CLUSTER=$(grep '^CLUSTER=' "spartan/environments/next-scenario.env" | sed 's/CLUSTER=//')
+          GCP_REGION=$(grep '^GCP_REGION=' "spartan/environments/next-scenario.env" | sed 's/GCP_REGION=//')
+          gcloud components install gke-gcloud-auth-plugin -q || true
+          gcloud container clusters get-credentials "$CLUSTER" --region "$GCP_REGION" --project "$GCP_PROJECT_ID"
+          kubectl delete namespace "$NAMESPACE" --ignore-not-found=true
 
       - name: Notify Slack on failure
         if: failure() && github.event_name == 'workflow_run'

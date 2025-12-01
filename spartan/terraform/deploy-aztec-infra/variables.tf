@@ -629,3 +629,17 @@ variable "WS_NUM_HISTORIC_BLOCKS" {
   nullable    = true
   default     = null
 }
+
+# Controls whether nodes announce public IPs for P2P (true for GKE; set false for kind/local)
+variable "P2P_PUBLIC_IP" {
+  description = "Announce public IP for P2P (set false in kind/local to use pod IPs)"
+  type        = bool
+  default     = true
+}
+
+# Controls whether to expose P2P via NodePort instead of hostPort. Recommended true for KIND/local.
+variable "P2P_NODEPORT_ENABLED" {
+  description = "Enable NodePort for P2P service (true for KIND/local, false for GKE by default)"
+  type        = bool
+  default     = false
+}
