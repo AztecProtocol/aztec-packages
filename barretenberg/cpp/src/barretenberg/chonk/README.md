@@ -98,7 +98,7 @@ The commitment batching *can* be slightly optimized to use short scalars (Fiat-S
 
 ### Adding Goblin: EC Operation Delegation
 
-Goblin improves this by delegating non-native EC operations to a separate ECCVM circuit. Instead of performing scalar muls directly in-circuit (expensive), we:
+Goblin improves the naive approach by delegating non-native EC operations to a separate ECCVM circuit. Instead of performing scalar muls directly in-circuit (expensive), we:
 
 1. Record EC operations in an **op queue**
 2. Prove correct execution via ECCVM (native Grumpkin operations)
