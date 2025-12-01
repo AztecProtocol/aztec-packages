@@ -11,6 +11,7 @@ void log_result(const SimulatorResult& result)
 {
     info("Reverted: ", result.reverted);
     info("Output: ", result.output);
+    info("Reason: ", result.revert_reason);
 }
 
 SimulatorResult fuzz(FuzzerData& fuzzer_data)
@@ -34,6 +35,7 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
 
     FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
     ws_mgr->register_contract_address(CONTRACT_ADDRESS);
+
     try {
         ws_mgr->checkpoint();
         cpp_result = cpp_simulator.simulate(*ws_mgr, bytecode, fuzzer_data.calldata);

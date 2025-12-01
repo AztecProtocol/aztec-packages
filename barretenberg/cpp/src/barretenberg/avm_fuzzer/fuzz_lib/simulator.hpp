@@ -15,6 +15,7 @@ struct SimulatorResult {
     bool reverted;
     std::vector<FF> output;
     TreeSnapshots tree_snapshots;
+    std::string revert_reason;
 };
 
 class Simulator {
@@ -47,8 +48,6 @@ class JsSimulator : public Simulator {
     JsSimulator(std::string& simulator_path);
     Process process;
 
-    void restart_simulator_process();
-
   public:
     JsSimulator(JsSimulator& other) = delete;
     void operator=(const JsSimulator&) = delete;
@@ -58,7 +57,6 @@ class JsSimulator : public Simulator {
 
     static JsSimulator* getInstance();
     static void initialize(std::string& simulator_path);
-    static void restart_simulator();
 
     SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
                              const std::vector<uint8_t>& bytecode,

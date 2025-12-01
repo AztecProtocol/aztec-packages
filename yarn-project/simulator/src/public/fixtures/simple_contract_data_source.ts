@@ -1,5 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -16,146 +16,146 @@ import { getFunctionSelector } from '../avm/fixtures/utils.js';
  * This class does not include any real merkle trees & merkle operations.
  */
 export class SimpleContractDataSource implements ContractDataSource {
-    public logger = createLogger('simple-contract-data-source');
+  public logger = createLogger('simple-contract-data-source');
 
-    // maps contract class ID to class
-    private contractClasses: Map<string, ContractClassPublic> = new Map();
-    // maps contract instance address to instance
-    private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
-    // maps contract instance address to address
-    private contractArtifacts: Map<string, ContractArtifact> = new Map();
-    // maps `${classID}:${fnSelector}` to name
-    private debugFunctionName: Map<string, string> = new Map();
+  // maps contract class ID to class
+  private contractClasses: Map<string, ContractClassPublic> = new Map();
+  // maps contract instance address to instance
+  private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
+  // maps contract instance address to address
+  private contractArtifacts: Map<string, ContractArtifact> = new Map();
+  // maps `${classID}:${fnSelector}` to name
+  private debugFunctionName: Map<string, string> = new Map();
 
-    /////////////////////////////////////////////////////////////
-    // Helper functions not in the contract data source interface
-    /**
-     * Derive the contract class and instance with some seed.
-     * Add both to the contract data source along with the contract artifact.
-     */
-    async addNewContract(
-        contractArtifact: ContractArtifact,
-        contractClass: ContractClassPublic,
-        contractInstance: ContractInstanceWithAddress,
-    ) {
-        await this.addContractArtifact(contractClass.id, contractArtifact);
-        await this.addContractClass(contractClass);
-        await this.addContractInstance(contractInstance);
+  /////////////////////////////////////////////////////////////
+  // Helper functions not in the contract data source interface
+  /**
+   * Derive the contract class and instance with some seed.
+   * Add both to the contract data source along with the contract artifact.
+   */
+  async addNewContract(
+    contractArtifact: ContractArtifact,
+    contractClass: ContractClassPublic,
+    contractInstance: ContractInstanceWithAddress,
+  ) {
+    await this.addContractArtifact(contractClass.id, contractArtifact);
+    await this.addContractClass(contractClass);
+    await this.addContractInstance(contractInstance);
+  }
+
+  async addContractArtifact(classId: Fr, artifact: ContractArtifact) {
+    this.contractArtifacts.set(classId.toString(), artifact);
+    const classIdStr = classId.toString();
+    const publicFns = artifact.nonDispatchPublicFunctions;
+    if (publicFns.length !== 0) {
+      for (const fn of publicFns) {
+        const actualFnName = `${fn.name}`;
+        const fnSelector = await getFunctionSelector(actualFnName, artifact);
+        const key = `${classIdStr}:${fnSelector.toString()}`;
+
+        const longFnName = `${artifact.name}.${actualFnName}`;
+        this.debugFunctionName.set(key, longFnName);
+      }
     }
+  }
 
-    async addContractArtifact(classId: Fr, artifact: ContractArtifact) {
-        this.contractArtifacts.set(classId.toString(), artifact);
-        const classIdStr = classId.toString();
-        const publicFns = artifact.nonDispatchPublicFunctions;
-        if (publicFns.length !== 0) {
-            for (const fn of publicFns) {
-                const actualFnName = `${fn.name}`;
-                const fnSelector = await getFunctionSelector(actualFnName, artifact);
-                const key = `${classIdStr}:${fnSelector.toString()}`;
+  /////////////////////////////////////////////////////////////
+  // ContractDataSource function implementations
+  getBlockNumber(): Promise<BlockNumber> {
+    throw new Error('Method not implemented.');
+  }
 
-                const longFnName = `${artifact.name}.${actualFnName}`;
-                this.debugFunctionName.set(key, longFnName);
-            }
-        }
+  getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    return Promise.resolve(this.contractClasses.get(id.toString()));
+  }
+
+  getBytecodeCommitment(_id: Fr): Promise<Fr | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return Promise.resolve(this.contractInstances.get(address.toString()));
+  }
+
+  getContractClassIds(): Promise<Fr[]> {
+    throw new Error('Method not implemented.');
+  }
+
+  async getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
+    const contractInstance = await this.getContract(address);
+    if (!contractInstance) {
+      this.logger.warn(`Contract not found at address: ${address}`);
+      return undefined;
     }
+    this.logger.debug(`Retrieved contract artifact for address: ${address}`);
+    this.logger.debug(`Contract class ID: ${contractInstance.currentContractClassId}`);
+    return this.contractArtifacts.get(contractInstance!.currentContractClassId.toString());
+  }
 
-    /////////////////////////////////////////////////////////////
-    // ContractDataSource function implementations
-    getBlockNumber(): Promise<BlockNumber> {
-        throw new Error('Method not implemented.');
+  async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    const contractInstance = await this.getContract(address);
+    if (!contractInstance) {
+      this.logger.warn(`Couldn't get fn name for debugging. Contract not in tester's ContractDataSource.`);
+      return undefined;
     }
-
-    getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-        return Promise.resolve(this.contractClasses.get(id.toString()));
+    const key = `${contractInstance.currentContractClassId.toString()}:${selector.toString()}`;
+    const fnName = this.debugFunctionName.get(key);
+    if (!fnName) {
+      this.logger.warn(`Couldn't get fn name for debugging...`);
+      return undefined;
     }
+    return fnName;
+  }
 
-    getBytecodeCommitment(_id: Fr): Promise<Fr | undefined> {
-        return Promise.resolve(undefined);
-    }
+  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
+    return Promise.resolve();
+  }
 
-    getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-        return Promise.resolve(this.contractInstances.get(address.toString()));
-    }
+  addContractClass(contractClass: ContractClassPublic): Promise<void> {
+    this.contractClasses.set(contractClass.id.toString(), contractClass);
+    return Promise.resolve();
+  }
 
-    getContractClassIds(): Promise<Fr[]> {
-        throw new Error('Method not implemented.');
-    }
+  addContractInstance(contractInstance: ContractInstanceWithAddress): Promise<void> {
+    this.contractInstances.set(contractInstance.address.toString(), contractInstance);
+    return Promise.resolve();
+  }
 
-    async getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-        const contractInstance = await this.getContract(address);
-        if (!contractInstance) {
-            this.logger.warn(`Contract not found at address: ${address}`);
-            return undefined;
-        }
-        this.logger.debug(`Retrieved contract artifact for address: ${address}`);
-        this.logger.debug(`Contract class ID: ${contractInstance.currentContractClassId}`);
-        return this.contractArtifacts.get(contractInstance!.currentContractClassId.toString());
-    }
+  /**
+   * FIXME: This is temporary
+   * Helper method for fuzzer: registers a contract with raw bytecode at a given address.
+   * Creates a minimal ContractClassPublic and ContractInstanceWithAddress.
+   * @param address - The contract address
+   * @param bytecode - The raw AVM bytecode
+   */
+  async addContractWithBytecode(address: AztecAddress, bytecode: Buffer): Promise<void> {
+    // Generate a deterministic class ID from the bytecode
+    const classId = Fr.fromBufferReduce(bytecode.subarray(0, 32));
 
-    async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-        const contractInstance = await this.getContract(address);
-        if (!contractInstance) {
-            this.logger.warn(`Couldn't get fn name for debugging. Contract not in tester's ContractDataSource.`);
-            return undefined;
-        }
-        const key = `${contractInstance.currentContractClassId.toString()}:${selector.toString()}`;
-        const fnName = this.debugFunctionName.get(key);
-        if (!fnName) {
-            this.logger.warn(`Couldn't get fn name for debugging...`);
-            return undefined;
-        }
-        return fnName;
-    }
+    // Create minimal ContractClassPublic
+    const contractClass: ContractClassPublic = {
+      id: classId,
+      version: 1 as const,
+      artifactHash: Fr.ZERO,
+      privateFunctionsRoot: Fr.ZERO,
+      privateFunctions: [],
+      utilityFunctions: [],
+      packedBytecode: bytecode,
+    };
 
-    registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
-        return Promise.resolve();
-    }
+    // Create minimal ContractInstanceWithAddress
+    const contractInstance: ContractInstanceWithAddress = {
+      address,
+      version: 1 as const,
+      salt: Fr.ZERO,
+      deployer: address, // Use the contract address as deployer
+      currentContractClassId: classId,
+      originalContractClassId: classId,
+      initializationHash: Fr.ZERO,
+      publicKeys: PublicKeys.default(),
+    };
 
-    addContractClass(contractClass: ContractClassPublic): Promise<void> {
-        this.contractClasses.set(contractClass.id.toString(), contractClass);
-        return Promise.resolve();
-    }
-
-    addContractInstance(contractInstance: ContractInstanceWithAddress): Promise<void> {
-        this.contractInstances.set(contractInstance.address.toString(), contractInstance);
-        return Promise.resolve();
-    }
-
-    /**
-     * FIXME: This is temporary until we have a proper contract calss / instance mechanism in tests.
-     * Helper method for fuzzer: registers a contract with raw bytecode at a given address.
-     * Creates a minimal ContractClassPublic and ContractInstanceWithAddress.
-     * @param address - The contract address
-     * @param bytecode - The raw AVM bytecode
-     */
-    async addContractWithBytecode(address: AztecAddress, bytecode: Buffer): Promise<void> {
-        // Generate a deterministic class ID from the bytecode
-        const classId = Fr.fromBufferReduce(bytecode.subarray(0, 32));
-
-        // Create minimal ContractClassPublic
-        const contractClass: ContractClassPublic = {
-            id: classId,
-            version: 1 as const,
-            artifactHash: Fr.ZERO,
-            privateFunctionsRoot: Fr.ZERO,
-            privateFunctions: [],
-            utilityFunctions: [],
-            packedBytecode: bytecode,
-        };
-
-        // Create minimal ContractInstanceWithAddress
-        const contractInstance: ContractInstanceWithAddress = {
-            address,
-            version: 1 as const,
-            salt: Fr.ZERO,
-            deployer: address, // Use the contract address as deployer
-            currentContractClassId: classId,
-            originalContractClassId: classId,
-            initializationHash: Fr.ZERO,
-            publicKeys: PublicKeys.default(),
-        };
-
-        await this.addContractClass(contractClass);
-        await this.addContractInstance(contractInstance);
-    }
+    await this.addContractClass(contractClass);
+    await this.addContractInstance(contractInstance);
+  }
 }

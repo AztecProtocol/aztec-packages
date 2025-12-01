@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
-#include <libdeflate.h>
 #include <nlohmann/json.hpp>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -14,7 +13,6 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/common/base64.hpp"
-#include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -53,7 +51,7 @@ std::string serialize_simulation_request(fuzzer::FuzzerWorldStateManager& ws,
 
     // Pass WorldState database path and configuration for TypeScript to open the same DB
     // Note: TypeScript expects the parent directory and adds "world_state/" subdirectory itself
-    j["ws_data_dir"] = "/tmp/avm_fuzzer_ws";
+    j["ws_data_dir"] = FuzzerWorldStateManager::get_data_dir();
     j["ws_map_size_kb"] = FuzzerWorldStateManager::get_map_size_kb();
     j["ws_fork_id"] = ws.get_current_revision().forkId;
 
@@ -135,7 +133,7 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
 {
     FuzzerContractDB minimal_contract_db(bytecode);
 
-    const PublicSimulatorConfig config{ .collect_call_metadata = true };
+    const PublicSimulatorConfig config{ .collect_call_metadata = true, .collect_public_inputs = true };
 
     ProtocolContracts protocol_contracts{};
 
@@ -159,78 +157,18 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
             values.push_back(output);
         }
     }
-    return { .reverted = reverted, .output = values, .tree_snapshots = result.public_inputs.end_tree_snapshots };
+    if (result.public_inputs.has_value()) {
+        return { .reverted = reverted, .output = values, .tree_snapshots = result.public_inputs->end_tree_snapshots };
+    }
+    return { .reverted = reverted, .output = values };
 }
 
 JsSimulator* JsSimulator::instance = nullptr;
 JsSimulator::JsSimulator(std::string& simulator_path)
     : simulator_path(simulator_path)
-    , process("LOG_LEVEL=silent node " + simulator_path) // + " 2>/dev/null")
+    , process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
 {}
 
-void JsSimulator::restart_simulator_process()
-{
-    if (instance == nullptr) {
-        throw std::runtime_error("JsSimulator should be initialized before restarting");
-    }
-    std::cout << "Restarting JsSimulator process" << std::endl;
-    std::string simulator_path = instance->simulator_path;
-    delete instance;
-    instance = new JsSimulator(simulator_path);
-}
-
-void JsSimulator::restart_simulator()
-{
-    bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
-    if (logging_enabled) {
-        info("Restarting JsSimulator");
-    }
-    if (instance == nullptr) {
-        throw std::runtime_error("JsSimulator should be initialized before restarting");
-    }
-    instance->process.write_line("{\"restart\":1}");
-
-    std::string response = instance->process.read_line();
-    while (response.empty()) {
-        std::cout << "Empty response, reading again" << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        response = instance->process.read_line();
-    }
-    response.erase(response.find_last_not_of('\n') + 1);
-
-    try {
-        std::vector<uint8_t> decoded_response = decode_bytecode(response);
-        std::string response_string(decoded_response.begin(), decoded_response.end());
-        if (logging_enabled) {
-            info("Received restart response: ", response_string);
-        }
-        json response_json = json::parse(response_string);
-
-        // Check if this is actually a restart response (has "restarted" field)
-        if (response_json.contains("reverted")) {
-            if (logging_enabled) {
-                info("Discarding stale simulation response, reading restart response");
-            }
-            response = instance->process.read_line();
-            response.erase(response.find_last_not_of('\n') + 1);
-            decoded_response = decode_bytecode(response);
-            response_string = std::string(decoded_response.begin(), decoded_response.end());
-            if (logging_enabled) {
-                info("Received restart response: ", response_string);
-            }
-            response_json = json::parse(response_string);
-        }
-
-        bool restarted = response_json["restarted"];
-        if (!restarted) {
-            std::string error = response_json.value("error", "Unknown error");
-            throw std::runtime_error("Restart failed: " + error);
-        }
-    } catch (const std::exception& e) {
-        std::cout << "Error processing restart response: " << e.what() << "Response: " << response << std::endl;
-        throw std::runtime_error("Failed to restart simulator: " + std::string(e.what()));
-    }
-}
 JsSimulator* JsSimulator::getInstance()
 {
     if (instance == nullptr) {
@@ -269,39 +207,28 @@ SimulatorResult JsSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
     std::string response = process.read_line();
     while (response.empty()) {
         std::cout << "Empty response, reading again" << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
         response = process.read_line();
     }
     // Remove the newline character
     response.erase(response.find_last_not_of('\n') + 1);
 
-    std::vector<uint8_t> decoded_response;
-    // for some reason, the typescript simulator responds with an empty response (invalid gzip) one time in ~500k runs
-    // restarting the process if this happens
-    try {
-        // HACK: decode_bytecode decodes base64 and ungzips it
-        decoded_response = decode_bytecode(response);
-    } catch (const std::exception& e) {
-        std::cout << "Error decoding response: " << e.what() << std::endl;
-        std::cout << "Response: " << response << std::endl;
-        restart_simulator_process();
-
-        return simulate(ws_mgr, bytecode, calldata);
-    }
-
-    std::string response_string(decoded_response.begin(), decoded_response.end());
+    // Response is plain JSON (no longer gzipped/base64 encoded)
     if (logging_enabled) {
-        info("Received response from simulator: ", response_string);
+        info("Received response from simulator: ", response);
     }
-    json response_json = json::parse(response_string);
+    json response_json = json::parse(response);
     bool reverted = response_json["reverted"];
     std::vector<std::string> output = response_json["output"];
+    std::string revert_reason = response_json.value("revertReason", "");
     std::vector<FF> output_fields;
     output_fields.reserve(output.size());
     for (const auto& field : output) {
         output_fields.push_back(FF(field));
     }
-    SimulatorResult result = { .reverted = reverted, .output = output_fields };
+    SimulatorResult result = {
+        .reverted = reverted, .output = output_fields, .tree_snapshots = {}, .revert_reason = revert_reason
+    };
     return result;
 }
 
