@@ -167,6 +167,53 @@ TEST_F(BigfieldTranslatorProverTest, VerifyTranslation)
 }
 
 /**
+ * @brief Debug test to check gate counts and range constraint breakdown.
+ */
+TEST_F(BigfieldTranslatorProverTest, DebugGateCounts)
+{
+    using fq_ct = stdlib::bigfield<Builder, bb::Bn254FqParams>;
+
+    auto op_queue = create_test_op_queue(100);
+
+    Builder builder;
+    BigfieldTranslator::populate_ecc_op_block(builder, op_queue);
+
+    Fq x_native = Fq::random_element();
+    Fq v_native = Fq::random_element();
+    fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
+    fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
+    fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v);
+    (void)result;
+
+    // Print range list stats before finalization
+    info("=== Range lists (before finalization) ===");
+    size_t total_range_vars = 0;
+    for (const auto& [range, list] : builder.range_lists) {
+        info("Range ", range, " (", std::log2(range + 1), " bits): ", list.variable_indices.size(), " variables");
+        total_range_vars += list.variable_indices.size();
+    }
+    info("Total range-constrained variables: ", total_range_vars);
+
+    size_t pre_finalize = builder.blocks.get_total_content_size();
+    builder.finalize_circuit(false);
+    size_t post_finalize = builder.blocks.get_total_content_size();
+
+    info("\n=== Gate counts ===");
+    info("ecc_op:       ", builder.blocks.ecc_op.size());
+    info("arithmetic:   ", builder.blocks.arithmetic.size());
+    info("delta_range:  ", builder.blocks.delta_range.size());
+    info("nnf:          ", builder.blocks.nnf.size());
+    info("Pre-finalize: ", pre_finalize);
+    info("Post-finalize:", post_finalize);
+
+    size_t dyadic = 1;
+    while (dyadic < post_finalize + 5) {
+        dyadic <<= 1;
+    }
+    info("Dyadic size:  ", dyadic, " (2^", std::log2(dyadic), ")");
+}
+
+/**
  * @brief Test that the verification key is independent of the number of actual ops in the fixed-size op queue.
  *
  * This is critical for the protocol: the VK must be constant regardless of how many operations

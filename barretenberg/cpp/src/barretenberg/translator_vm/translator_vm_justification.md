@@ -55,11 +55,10 @@ All batch sizes result in **2^19 dyadic size** - changing batch size cannot redu
 
 | Component | Gates | Notes |
 |-----------|-------|-------|
-| Limb decomposition | ~82,000 | 136-bit op queue limbs → 68-bit bigfield limbs |
-| Power computation | ~7,700 | x^0 to x^255 sequentially |
-| Batch multipliers | ~1,200 | x^256, x^512, ... via binary exp |
-| Column sums | ~46,000 | 16 batches × 5 columns × ~580 gates |
-| **Before finalization** | **~167,000** | |
+| ECC op block | 8,192 | 4096 UltraOps × 2 rows each |
+| Arithmetic (pre-finalize) | ~86,000 | Limb decomposition, powers, column sums |
+| NNF (pre-finalize) | ~81,000 | Queued NNF multiplications |
+| **Before finalization** | **~175,000** | Including ecc_op block |
 
 ### Finalization Overhead
 
@@ -67,11 +66,11 @@ Bigfield defers constraints to enable batching and deduplication:
 
 | Deferred Operation | Gates Added | Mechanism |
 |--------------------|-------------|-----------|
-| NNF multiplications | ~67,000 | 20K cached → 17K unique after dedup → 4 gates each |
-| Range constraints | ~67,000 | 268K variables sorted → delta_range (4 vars/gate) |
-| **Total finalization** | **~134,000** | |
+| NNF multiplications | ~82,000 | ~20K unique multiplications × 4 gates each |
+| Range constraints | ~68,000 | ~270K variables sorted → delta_range (4 vars/gate) |
+| **Total finalization** | **~150,000** | |
 
-**After finalization: ~301,000 gates → 2^19 dyadic size**
+**After finalization: ~324,000 gates → 2^19 dyadic size**
 
 ## Memory Comparison
 
@@ -80,27 +79,53 @@ Bigfield defers constraints to enable batching and deduplication:
 | **Translator VM** | 2^17 | 91 (sparse) | **247 MB** |
 | **Bigfield + MegaZK** | 2^19 | 25 | 1,090 MB |
 | **Bigfield + LightZK** | 2^19 | 9+1 | **543 MB** (measured, builder freed) |
-| **Bigfield + LightZK (greedy)** | 2^19 | 9+1 | **~340 MB** (estimated) |
+| **Bigfield + LightZK (greedy)** | 2^19 | 9+1 | **~360 MB** (estimated) |
 
 LightZK is a minimal flavor with only arithmetic, permutation, delta_range, NNF, and ECC op queue relations (no lookups, databus, poseidon2, memory, elliptic). The "+1" is the gemini_masking_poly for ZK.
 
-**Result: Bigfield approach uses ~1.3x more memory than Translator (with greedy allocation)**
+**Result: Bigfield approach uses ~1.5x more memory than Translator (with greedy allocation)**
+
+## Proving Time Comparison
+
+Benchmarks run on 16-core EC2 instance (idle system, 3 repetitions):
+
+| Approach | Proving Time | Relative |
+|----------|--------------|----------|
+| **Translator VM** | ~1,230 ms | 1.0x (baseline) |
+| **Bigfield + MegaFlavor** | ~2,610 ms | 2.1x slower |
+| **Bigfield + LightZKFlavor** | ~3,330 ms | 2.7x slower |
+
+
+### Breakdown (BB_BENCH=1, 4096 ops)
+
+| Component | LightZK | MegaFlavor | Notes |
+|-----------|---------|------------|-------|
+| **Circuit construction** | 370 ms | 370 ms | Identical (same circuit) |
+| **ProverInstance creation** | 348 ms | 344 ms | Similar (polynomial allocation + trace) |
+| **OinkProver (commitments)** | 814 ms | 552 ms | Mega 32% faster (no ZK overhead) |
+| **Sumcheck** | 392 ms | 274 ms | Mega 30% faster (fewer relations) |
+| **Total commitments** | 1,320 ms | 1,020 ms | Mega 23% faster |
+
+The proving time difference comes from:
+1. **Circuit size**: 2^19 (bigfield) vs 2^17 (Translator) = 4x more rows
+2. **Commitment cost**: Dominates proving time; scales with polynomial size
+3. **ZK overhead**: LightZK adds masking polynomial and related computation
 
 ### LightZK with Greedy Allocation
 
-By shifting ZK masking to positions ~310K (right after the trace) instead of the end of the 2^19 dyadic domain, we can allocate polynomials greedily:
+By shifting ZK masking to positions ~325K (right after the trace) instead of the end of the 2^19 dyadic domain, we can allocate polynomials greedily:
 
 | Polynomial Category | Count | Current Size | Greedy Size | Savings |
 |--------------------|-------|--------------|-------------|---------|
-| Non-gate selectors (q_m, q_c, q_l, q_r, q_o, q_4) | 6 | 524K | 310K | 41% |
-| Wires (w_l, w_r, w_o, w_4) | 4 | 524K | 310K | 41% |
-| z_perm | 1 | 524K | 310K | 41% |
-| Sigmas/IDs | 8 | 310K | 310K | 0% |
+| Non-gate selectors (q_m, q_c, q_l, q_r, q_o, q_4) | 6 | 524K | 325K | 38% |
+| Wires (w_l, w_r, w_o, w_4) | 4 | 524K | 325K | 38% |
+| z_perm | 1 | 524K | 325K | 38% |
+| Sigmas/IDs | 8 | 325K | 325K | 0% |
 | Gate selectors | 3 | block-sized | block-sized | 0% |
 | ECC op wires + lagrange_ecc_op | 5 | 8K | 8K | 0% |
 | lagrange_first, lagrange_last | 2 | 1 elem | 1 elem | 0% |
 
-**Detailed Memory Breakdown (4096 ops, trace_size ≈ 310K, dyadic = 524K):**
+**Detailed Memory Breakdown (4096 ops, trace_size ≈ 325K, dyadic = 524K):**
 
 ```
 CURRENT LightZK (masking at end of 2^19):
@@ -108,11 +133,11 @@ CURRENT LightZK (masking at end of 2^19):
 Precomputed (20 polys):
   - Non-gate selectors: 6 × 524K × 32B = 100.7 MB  (full dyadic size)
   - Gate selectors:     3 × block_size × 32B ≈ 5 MB (sparse, ~50K total)
-  - Sigmas (4):         4 × 310K × 32B =  39.7 MB  (trace_size)
-  - IDs (4):            4 × 310K × 32B =  39.7 MB  (trace_size)
+  - Sigmas (4):         4 × 325K × 32B =  41.6 MB  (trace_size)
+  - IDs (4):            4 × 325K × 32B =  41.6 MB  (trace_size)
   - lagrange_first/last: 2 × 1 × 32B  ≈  0 MB     (single element each)
   - lagrange_ecc_op:    1 × 8K × 32B  =   0.3 MB  (ecc_op block size)
-  Subtotal: 185.4 MB
+  Subtotal: 189.2 MB
 
 Witness (9 polys):
   - Wires (4):          4 × 524K × 32B = 67.1 MB  (full dyadic for ZK)
@@ -128,40 +153,40 @@ Commitment key (SRS): 524K × 64B = 34 MB  (G1 affine points)
 Partially evaluated multivariates (peak at sumcheck round 1):
   - 35 polys × 262K × 32B = 294 MB  (NUM_ALL_ENTITIES at dyadic/2)
 
-TOTAL PROVER POLYNOMIALS: ~287 MB
+TOTAL PROVER POLYNOMIALS: ~291 MB
 PEAK MEMORY (measured, builder freed): 543 MB
 
-GREEDY LightZK (masking at ~310K):
+GREEDY LightZK (masking at ~325K):
 ----------------------------------
 Precomputed (20 polys):
-  - Non-gate selectors: 6 × 310K × 32B = 59.5 MB  (saved 41.2 MB)
+  - Non-gate selectors: 6 × 325K × 32B = 62.4 MB  (saved 38.3 MB)
   - Gate selectors:     3 × block_size × 32B ≈ 5 MB
-  - Sigmas + IDs:       8 × 310K × 32B = 79.4 MB  (unchanged)
+  - Sigmas + IDs:       8 × 325K × 32B = 83.2 MB  (unchanged)
   - Lagranges:          ≈ 0.3 MB                  (unchanged)
-  Subtotal: 144.2 MB (saved 41.2 MB)
+  Subtotal: 150.9 MB (saved 38.3 MB)
 
 Witness (9 polys):
-  - Wires (4):          4 × 310K × 32B = 39.7 MB  (saved 27.4 MB)
-  - z_perm:             1 × 310K × 32B =  9.9 MB  (saved 6.9 MB)
+  - Wires (4):          4 × 325K × 32B = 41.6 MB  (saved 25.5 MB)
+  - z_perm:             1 × 325K × 32B = 10.4 MB  (saved 6.4 MB)
   - ECC op wires (4):   4 × 8K × 32B   =  1.0 MB  (unchanged)
-  Subtotal: 50.6 MB (saved 34.3 MB)
+  Subtotal: 53.0 MB (saved 31.9 MB)
 
 Masking (1 poly):
-  - gemini_masking_poly: 1 × 310K × 32B =  9.9 MB  (saved 6.9 MB)
+  - gemini_masking_poly: 1 × 325K × 32B = 10.4 MB  (saved 6.4 MB)
 
 Commitment key (SRS): unchanged at 34 MB (still need full 2^19 SRS)
 
 Partially evaluated multivariates (peak at sumcheck round 1):
-  - 35 polys × 155K × 32B = 174 MB  (NUM_ALL_ENTITIES at trace_size/2)
+  - 35 polys × 163K × 32B = 183 MB  (NUM_ALL_ENTITIES at trace_size/2)
 
-TOTAL PROVER POLYNOMIALS: ~195 MB
-PEAK MEMORY (estimated): ~340 MB
+TOTAL PROVER POLYNOMIALS: ~214 MB
+PEAK MEMORY (estimated): ~360 MB
 
-SAVINGS FROM GREEDY: ~203 MB (37% reduction in peak memory)
+SAVINGS FROM GREEDY: ~183 MB (34% reduction in peak memory)
 ```
 
 The greedy allocation requires:
-1. Shifting ZK masking to indices ~310K instead of 524K-4
+1. Shifting ZK masking to indices ~325K instead of 524K-4
 2. Modifying the row disabling polynomial for sumcheck to match
 3. Ensuring the prover and verifier agree on the disabled row indices
 4. Allocating non-gate selectors at trace_size instead of dyadic_size
@@ -170,7 +195,7 @@ The greedy allocation requires:
 
 ### 1. Pre-finalization gates already exceed 2^17
 
-Even before finalization adds ~134K gates, the circuit has ~167K gates. This already exceeds Translator's 2^17 = 131K ceiling. Eliminating all deferred constraints would still yield 2^18 dyadic size (2x worse).
+Even before finalization adds ~150K gates, the circuit has ~175K gates. This already exceeds Translator's 2^17 = 131K ceiling. Eliminating all deferred constraints would still yield 2^18 dyadic size (2x worse).
 
 ### 2. Translator's interleaving is the key optimization
 
@@ -198,14 +223,14 @@ One idea: range-constrain op queue limbs in each kernel (at `batch_mul`) to avoi
 
 | Factor | Translator | Bigfield + LightZK | Bigfield + Greedy LightZK |
 |--------|------------|-------------------|---------------------------|
-| Memory | 247 MB | 543 MB | ~340 MB (estimated) |
+| Memory | 247 MB | 543 MB | ~360 MB (estimated) |
 | Code complexity | High (custom relations) | Low (reuses bigfield) | Low (reuses bigfield) |
 | Auditability | Harder | Easier | Easier |
 
-The Bigfield approach trades ~40% more memory for significantly simpler code that reuses existing bigfield primitives. This trade-off is acceptable because:
+The Bigfield approach trades ~46% more memory for significantly simpler code that reuses existing bigfield primitives. This trade-off is acceptable because:
 
-1. **Tolerable memory overhead**: 340 MB vs 247 MB (~93 MB difference) is modest in absolute terms
-2. **Scales reasonably**: Even with 2x op queue size (8192 ops), the bigfield approach remains practical at ~680 MB estimated
+1. **Tolerable memory overhead**: 360 MB vs 247 MB (~113 MB difference) is modest in absolute terms
+2. **Scales reasonably**: Even with 2x op queue size (8192 ops), the bigfield approach remains practical at ~720 MB estimated
 3. **Simpler codebase**: Eliminates 7 custom relation types and 139 subrelations in favor of standard bigfield operations
 4. **Easier auditing**: The bigfield approach requires auditing:
    - ~400 lines of circuit creation logic (bigfield_translator.cpp/hpp)
@@ -239,8 +264,10 @@ Bigfield caches partial NNF multiplications during circuit construction via `que
 3. 4 NNF gates are created per unique multiplication
 
 ```
-Cached: 20,403 → After dedup: ~16,700 → Gates: ~66,800
+Cached: ~20,400 → After dedup: ~20,400 → Gates: ~81,600
 ```
+
+Note: In the bigfield translator circuit, deduplication has minimal effect because each row's bigfield operations use unique witness indices from the ecc_op block.
 
 ### Range Constraint Batching
 
@@ -248,14 +275,14 @@ All range constraints are collected in `range_lists` keyed by target range:
 
 | Range | Variables | Source |
 |-------|-----------|--------|
-| 16383 (14-bit) | 212,837 | 68-bit limb decomposition (5×14-bit sublimbs) |
-| 4095 (12-bit) | 36,947 | Partial limbs |
-| 255 (8-bit) | 8,821 | Small constraints |
-| 15 (4-bit) | 8,201 | Nibble constraints |
-| **Total** | **268,079** | |
+| 16383 (14-bit) | ~213,000 | 68-bit limb decomposition (5×14-bit sublimbs) |
+| 4095 (12-bit) | ~37,000 | Partial limbs |
+| 255 (8-bit) | ~9,000 | Small constraints |
+| 15 (4-bit) | ~8,500 | Nibble constraints (4-bit op codes) |
+| **Total** | **~270,000** | |
 
 At finalization, variables are sorted by value and verified via delta_range gates. The relation checks `D(D-1)(D-2)(D-3)=0` where D is the difference between adjacent sorted values, ensuring all values are in [0, target_range].
 
 ```
-Gates: 268,079 / 4 ≈ 67,000
+Gates: ~270,000 / 4 ≈ 68,000
 ```
