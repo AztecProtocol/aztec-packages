@@ -301,7 +301,7 @@ Each wire contributes at most 7 observable values, and hence totalling at most 2
     - Degree check polynomial $G(X) = X^{\ell - 1} \cdot \sum_{j=1}^4 \alpha_j L_j(X^{-1})$:
         - Commitment: $[G]$
         - Evaluation: $G(\kappa^{-1})$
-        - Consistency check: $\sum_i \alpha_i L_i(\kappa) = G(\kappa^{-1}) \cdot \kappa^{\ell-1}$ (not new constraint, asserts linear dependence between $L_i(\kappa)$ and \(G(\kappa^{-1}) \) )
+        - Consistency check: $\sum_i \alpha_i L_i(\kappa) = G(\kappa^{-1}) \cdot \kappa^{\ell-1}$ (not new constraint, asserts linear dependence between $L_i(\kappa)$ and \(G(\kappa^{-1})\) )
 
     - Shplonk batching (Batches all 13 opening claims ($4 \times 3$ for $L, R, M$ plus $G$)):
         - Quotient commitment: $[Q]$
