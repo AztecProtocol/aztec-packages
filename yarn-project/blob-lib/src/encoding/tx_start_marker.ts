@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { BlobDeserializationError } from '../errors.js';
 
-// Must match the implementation in `noir-protocol-circuits/crates/rollup-lib/src/tx_base/components/tx_blob_data.nr`.
+// Must match the implementation in `noir-protocol-circuits/crates/types/src/blob_data/tx_blob_data.nr`.
 
 const NUM_BLOB_FIELDS_BIT_SIZE = 32n;
 const REVERT_CODE_BIT_SIZE = 8n;

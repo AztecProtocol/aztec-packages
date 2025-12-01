@@ -92,6 +92,7 @@ dlazy
 Dlazy
 DLAZY
 donʼt
+downsampling
 dstsize
 ECADD
 ECCVM
@@ -266,6 +267,7 @@ Returndata
 revertdata
 rollupʼs
 RSSH
+rustc
 sendl
 SENDL
 serde

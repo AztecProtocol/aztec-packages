@@ -33,7 +33,7 @@ template <class Flavor> class TraceToPolynomials {
      *
      * @param builder
      */
-    static void populate(Builder& builder, ProverPolynomials&, ActiveRegionData&);
+    static void populate(Builder& builder, ProverPolynomials&);
 
   private:
     /**
@@ -41,8 +41,7 @@ template <class Flavor> class TraceToPolynomials {
      * @return std::vector<CyclicPermutation> copy cycles describing the copy constraints in the circuit
      */
     static std::vector<CyclicPermutation> populate_wires_and_selectors_and_compute_copy_cycles(Builder& builder,
-                                                                                               ProverPolynomials&,
-                                                                                               ActiveRegionData&);
+                                                                                               ProverPolynomials&);
 
     /**
      * @brief Construct and add the goblin ecc op wires to the proving key

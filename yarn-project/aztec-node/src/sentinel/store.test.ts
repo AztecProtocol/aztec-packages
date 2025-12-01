@@ -1,3 +1,4 @@
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -25,7 +26,7 @@ describe('sentinel-store', () => {
   });
 
   it('inserts new validators with all statuses', async () => {
-    const slot = 1n;
+    const slot = SlotNumber(1);
     const validators: `0x${string}`[] = times(5, () => EthAddress.random().toString());
     const statuses: ValidatorStatusInSlot[] = [
       'block-mined',
@@ -55,11 +56,14 @@ describe('sentinel-store', () => {
     const newValidators: `0x${string}`[] = times(2, () => EthAddress.random().toString());
 
     // Insert existing validators with initial statuses
-    await store.updateValidators(1n, Object.fromEntries(existingValidators.map(v => [v, 'block-mined'] as const)));
+    await store.updateValidators(
+      SlotNumber(1),
+      Object.fromEntries(existingValidators.map(v => [v, 'block-mined'] as const)),
+    );
 
     // Insert new validators with their statuses, and append history to existing ones
     await store.updateValidators(
-      2n,
+      SlotNumber(2),
       Object.fromEntries([
         ...newValidators.map(v => [v, 'block-proposed'] as const),
         ...existingValidators.map(v => [v, 'block-missed'] as const),
@@ -70,52 +74,52 @@ describe('sentinel-store', () => {
     expect(Object.keys(histories)).toHaveLength(4);
 
     expect(histories[existingValidators[0]]).toEqual([
-      { slot: 1n, status: 'block-mined' },
-      { slot: 2n, status: 'block-missed' },
+      { slot: SlotNumber(1), status: 'block-mined' },
+      { slot: SlotNumber(2), status: 'block-missed' },
     ]);
 
     expect(histories[existingValidators[1]]).toEqual([
-      { slot: 1n, status: 'block-mined' },
-      { slot: 2n, status: 'block-missed' },
+      { slot: SlotNumber(1), status: 'block-mined' },
+      { slot: SlotNumber(2), status: 'block-missed' },
     ]);
 
-    expect(histories[newValidators[0]]).toEqual([{ slot: 2n, status: 'block-proposed' }]);
-    expect(histories[newValidators[1]]).toEqual([{ slot: 2n, status: 'block-proposed' }]);
+    expect(histories[newValidators[0]]).toEqual([{ slot: SlotNumber(2), status: 'block-proposed' }]);
+    expect(histories[newValidators[1]]).toEqual([{ slot: SlotNumber(2), status: 'block-proposed' }]);
   });
 
   it('trims history to the specified length', async () => {
-    const slot = 1n;
+    const slot = 1;
     const validator = EthAddress.random().toString();
 
     for (let i = 0; i < 10; i++) {
-      await store.updateValidators(slot + BigInt(i), { [validator]: 'block-mined' });
+      await store.updateValidators(SlotNumber(slot + i), { [validator]: 'block-mined' });
     }
 
     const histories = await store.getHistories();
     expect(histories[validator]).toHaveLength(historyLength);
     expect(histories[validator]).toEqual([
-      { slot: 7n, status: 'block-mined' },
-      { slot: 8n, status: 'block-mined' },
-      { slot: 9n, status: 'block-mined' },
-      { slot: 10n, status: 'block-mined' },
+      { slot: SlotNumber(7), status: 'block-mined' },
+      { slot: SlotNumber(8), status: 'block-mined' },
+      { slot: SlotNumber(9), status: 'block-mined' },
+      { slot: SlotNumber(10), status: 'block-mined' },
     ]);
   });
 
   it('updates proven performance', async () => {
     const validator = EthAddress.random();
-    await store.updateProvenPerformance(1n, { [validator.toString()]: { missed: 2, total: 10 } });
+    await store.updateProvenPerformance(EpochNumber(1), { [validator.toString()]: { missed: 2, total: 10 } });
     const provenPerformance = await store.getProvenPerformance(validator);
-    expect(provenPerformance).toEqual([{ epoch: 1n, missed: 2, total: 10 }]);
+    expect(provenPerformance).toEqual([{ epoch: EpochNumber(1), missed: 2, total: 10 }]);
 
-    await store.updateProvenPerformance(1n, { [validator.toString()]: { missed: 3, total: 10 } });
+    await store.updateProvenPerformance(EpochNumber(1), { [validator.toString()]: { missed: 3, total: 10 } });
     const provenPerformance2 = await store.getProvenPerformance(validator);
-    expect(provenPerformance2).toEqual([{ epoch: 1n, missed: 3, total: 10 }]);
+    expect(provenPerformance2).toEqual([{ epoch: EpochNumber(1), missed: 3, total: 10 }]);
 
-    await store.updateProvenPerformance(2n, { [validator.toString()]: { missed: 4, total: 10 } });
+    await store.updateProvenPerformance(EpochNumber(2), { [validator.toString()]: { missed: 4, total: 10 } });
     const provenPerformance3 = await store.getProvenPerformance(validator);
     expect(provenPerformance3).toEqual([
-      { epoch: 1n, missed: 3, total: 10 },
-      { epoch: 2n, missed: 4, total: 10 },
+      { epoch: EpochNumber(1), missed: 3, total: 10 },
+      { epoch: EpochNumber(2), missed: 4, total: 10 },
     ]);
   });
 
@@ -124,7 +128,7 @@ describe('sentinel-store', () => {
 
     // Add 5 epochs worth of proven performance data (more than historicProvenPerformanceLength = 3)
     for (let i = 1; i <= 5; i++) {
-      await store.updateProvenPerformance(BigInt(i), { [validator.toString()]: { missed: i, total: 10 } });
+      await store.updateProvenPerformance(EpochNumber(i), { [validator.toString()]: { missed: i, total: 10 } });
     }
 
     const provenPerformance = await store.getProvenPerformance(validator);
@@ -132,9 +136,9 @@ describe('sentinel-store', () => {
     // Should only keep the most recent 3 entries (epochs 3, 4, 5)
     expect(provenPerformance).toHaveLength(historicProvenPerformanceLength);
     expect(provenPerformance).toEqual([
-      { epoch: 3n, missed: 3, total: 10 },
-      { epoch: 4n, missed: 4, total: 10 },
-      { epoch: 5n, missed: 5, total: 10 },
+      { epoch: EpochNumber(3), missed: 3, total: 10 },
+      { epoch: EpochNumber(4), missed: 4, total: 10 },
+      { epoch: EpochNumber(5), missed: 5, total: 10 },
     ]);
   });
 
@@ -155,7 +159,7 @@ describe('sentinel-store', () => {
     // Add 2k entries
     for (let i = 1; i <= totalEntries; i++) {
       const addStart = Date.now();
-      await store.updateProvenPerformance(BigInt(i), {
+      await store.updateProvenPerformance(EpochNumber(i), {
         [validator.toString()]: { missed: i % 10, total: 10 },
       });
       const addEnd = Date.now();
@@ -190,8 +194,8 @@ describe('sentinel-store', () => {
 
       // Verify we kept the most recent entries
       const expectedStartEpoch = totalEntries - historicProvenPerformanceLength + 1;
-      expect(performance[0].epoch).toBe(BigInt(expectedStartEpoch));
-      expect(performance[performance.length - 1].epoch).toBe(BigInt(totalEntries));
+      expect(performance[0].epoch).toBe(EpochNumber(expectedStartEpoch));
+      expect(performance[performance.length - 1].epoch).toBe(EpochNumber(totalEntries));
     }
 
     const avgRetrievalTime = retrievalTimes.reduce((a, b) => a + b, 0) / retrievalTimes.length;
@@ -200,7 +204,9 @@ describe('sentinel-store', () => {
 
   it('does not allow insertion of invalid validator addresses', async () => {
     const validator = '0x123';
-    await expect(store.updateProvenPerformance(1n, { [validator]: { missed: 2, total: 10 } })).rejects.toThrow();
-    await expect(store.updateValidators(1n, { [validator]: 'block-mined' })).rejects.toThrow();
+    await expect(
+      store.updateProvenPerformance(EpochNumber(1), { [validator]: { missed: 2, total: 10 } }),
+    ).rejects.toThrow();
+    await expect(store.updateValidators(SlotNumber(1), { [validator]: 'block-mined' })).rejects.toThrow();
   });
 });

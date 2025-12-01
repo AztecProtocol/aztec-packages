@@ -367,6 +367,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * It can be used in subsequent calls (or transactions when chaining txs is possible).
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
+   * @param randomness - The randomness injected into the note.
    * @param noteTypeId - The type ID of the note.
    * @param noteItems - The items to be included in a Note.
    * @param noteHash - A hash of the new note.
@@ -374,6 +375,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    */
   public privateNotifyCreatedNote(
     storageSlot: Fr,
+    randomness: Fr,
     noteTypeId: NoteSelector,
     noteItems: Fr[],
     noteHash: Fr,
@@ -382,6 +384,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.log.debug(`Notified of new note with inner hash ${noteHash}`, {
       contractAddress: this.callContext.contractAddress,
       storageSlot,
+      randomness,
       noteTypeId,
       counter,
     });
@@ -391,6 +394,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       {
         contractAddress: this.callContext.contractAddress,
         storageSlot,
+        randomness,
         noteNonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
@@ -398,7 +402,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       },
       counter,
     );
-    this.newNotes.push(new NoteAndSlot(note, storageSlot, noteTypeId));
+    this.newNotes.push(NoteAndSlot.from({ note, storageSlot, randomness, noteTypeId }));
   }
 
   /**

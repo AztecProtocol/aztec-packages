@@ -1,6 +1,5 @@
 use aztec::{
     macros::notes::note,
-    oracle::random::random,
     protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
 };
 
@@ -11,19 +10,12 @@ use aztec::{
 #[note]
 pub struct CardNote {
     points: u8,
-    randomness: Field,
     owner: AztecAddress,
 }
 
 impl CardNote {
     pub fn new(points: u8, owner: AztecAddress) -> Self {
-        // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
-        // so a malicious sender could use non-random values to make the note less private. But they already know
-        // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
-        // information. We can therefore assume that the sender will cooperate in the random value generation.
-        let randomness = unsafe { random() };
-
-        CardNote { points, randomness, owner }
+        CardNote { points, owner }
     }
 
     pub fn get_points(self) -> u8 {

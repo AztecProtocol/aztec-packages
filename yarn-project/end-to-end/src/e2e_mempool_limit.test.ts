@@ -6,8 +6,6 @@ import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { TestWallet } from '@aztec/test-wallet/server';
 import { proveInteraction } from '@aztec/test-wallet/server';
 
-import { jest } from '@jest/globals';
-
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_mempool_limit', () => {
@@ -21,7 +19,9 @@ describe('e2e_mempool_limit', () => {
       aztecNodeAdmin,
       wallet,
       accounts: [defaultAccountAddress],
-    } = await setup(1));
+    } = await setup(1, {
+      proverTestVerificationDelayMs: undefined,
+    }));
 
     if (!aztecNodeAdmin) {
       throw new Error('Aztec node admin API must be available for this test');
@@ -65,14 +65,20 @@ describe('e2e_mempool_limit', () => {
     await expect(sentTx1.getReceipt()).resolves.toEqual(expect.objectContaining({ status: TxStatus.PENDING }));
     await expect(sentTx2.getReceipt()).resolves.toEqual(expect.objectContaining({ status: TxStatus.PENDING }));
 
-    const sendSpy = jest.spyOn(tx3, 'getTxHash');
     const sentTx3 = tx3.send();
 
-    // this retry is needed because tx3 is sent asynchronously and we need to wait for the event loop to fully drain
-    await retryUntil(() => sendSpy.mock.results[0]?.value);
+    const txDropped = await retryUntil(
+      async () => {
+        // one of the txs will be dropped. Which one is picked is somewhat random because all three will have the same fee
+        const receipts = await Promise.all([sentTx1.getReceipt(), sentTx2.getReceipt(), sentTx3.getReceipt()]);
+        const numPending = receipts.reduce((count, r) => (r.status === TxStatus.PENDING ? count + 1 : count), 0);
+        return numPending < 3;
+      },
+      'Waiting for one of the txs to be evicted from the mempool',
+      60,
+      1,
+    );
 
-    // one of the txs will be dropped. Which one is picked is somewhat random because all three will have the same fee
-    const receipts = await Promise.all([sentTx1.getReceipt(), sentTx2.getReceipt(), sentTx3.getReceipt()]);
-    expect(receipts.reduce((count, r) => (r.status === TxStatus.PENDING ? count + 1 : count), 0)).toBeLessThan(3);
+    expect(txDropped).toBe(true);
   });
 });

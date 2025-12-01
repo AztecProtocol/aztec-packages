@@ -5,6 +5,7 @@ import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { NativeWorldStateService } from '@aztec/world-state';
@@ -22,6 +23,14 @@ describe('Public TX simulator apps tests: benchmarks', () => {
   const logger = createLogger('public-tx-apps-tests-bench');
 
   const metrics = new TestExecutorMetrics();
+  // choose options for speed as we are benchmarking
+  const config: PublicSimulatorConfig = PublicSimulatorConfig.from({
+    skipFeeEnforcement: false,
+    collectCallMetadata: false,
+    collectDebugLogs: false,
+    collectHints: false,
+    collectStatistics: false,
+  });
 
   afterAll(() => {
     if (process.env.BENCH_OUTPUT) {
@@ -47,7 +56,13 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
       beforeEach(async () => {
         worldStateService = await NativeWorldStateService.tmp();
-        tester = await PublicTxSimulationTester.create(worldStateService, defaultGlobals(), metrics, useCppSimulator);
+        tester = await PublicTxSimulationTester.create(
+          worldStateService,
+          defaultGlobals(),
+          metrics,
+          useCppSimulator,
+          config,
+        );
       });
 
       afterEach(async () => {

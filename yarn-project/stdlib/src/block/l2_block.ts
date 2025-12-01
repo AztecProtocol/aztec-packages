@@ -1,16 +1,19 @@
-import { type BlockBlobData, encodeBlockBlobData } from '@aztec/blob-lib/encoding';
+import { type BlockBlobData, encodeBlockBlobData, encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { z } from 'zod';
 
+import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import { Body } from './body.js';
 import { makeAppendOnlyTreeSnapshot, makeL2BlockHeader } from './l2_block_code_to_purge.js';
 import { L2BlockHeader } from './l2_block_header.js';
 import type { L2BlockInfo } from './l2_block_info.js';
+import { L2BlockNew } from './l2_block_new.js';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
@@ -94,7 +97,7 @@ export class L2Block {
     slotNumber: number | undefined = undefined,
     maxEffects: number | undefined = undefined,
   ): Promise<L2Block> {
-    const body = await Body.random(txsPerBlock, numPublicCallsPerTx, numPublicLogsPerCall, maxEffects);
+    const body = await Body.random({ txsPerBlock, numPublicCallsPerTx, numPublicLogsPerCall, maxEffects });
 
     return new L2Block(
       makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
@@ -115,7 +118,7 @@ export class L2Block {
     return this.header.getBlockNumber();
   }
 
-  get slot(): bigint {
+  get slot(): SlotNumber {
     return this.header.getSlot();
   }
 
@@ -148,14 +151,43 @@ export class L2Block {
     return this.header.toBlockHeader();
   }
 
+  public toL2Block() {
+    return new L2BlockNew(this.archive, this.getBlockHeader(), this.body);
+  }
+
+  public toCheckpoint() {
+    return new Checkpoint(
+      this.archive,
+      this.getCheckpointHeader(),
+      [this.toL2Block()],
+      CheckpointNumber.fromBlockNumber(this.number),
+    );
+  }
+
+  static fromCheckpoint(checkpoint: Checkpoint) {
+    const checkpointHeader = checkpoint.header;
+    const block = checkpoint.blocks.at(-1)!;
+    const header = new L2BlockHeader(
+      new AppendOnlyTreeSnapshot(checkpointHeader.lastArchiveRoot, block.number),
+      checkpointHeader.contentCommitment,
+      block.header.state,
+      block.header.globalVariables,
+      block.header.totalFees,
+      checkpointHeader.totalManaUsed,
+      block.header.spongeBlobHash,
+      checkpointHeader.blockHeadersHash,
+    );
+    return new L2Block(checkpoint.archive, header, block.body);
+  }
+
   /**
    * @deprecated
    * This only works when there's one block per checkpoint.
    * TODO(#17027): Remove this method from L2Block and create a dedicated Checkpoint class.
    */
   public getCheckpointBlobFields() {
-    const blockBlobData = this.toBlobFields(true);
-    return [new Fr(blockBlobData.length + 1)].concat(blockBlobData);
+    const blockBlobData = this.toBlockBlobData(true);
+    return encodeCheckpointBlobDataFromBlocks([blockBlobData]);
   }
 
   public toBlobFields(isFirstBlock: boolean): Fr[] {

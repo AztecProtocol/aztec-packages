@@ -109,10 +109,10 @@ function compile_all {
   cmds=('format --check')
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
     # Fully type check and lint.
-    cmds+=('yarn tsc -b --emitDeclarationOnly && lint --check')
+    cmds+=('yarn tsgo -b --emitDeclarationOnly && lint --check')
   else
     # We just need the type declarations required for downstream consumers.
-    cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')
+    cmds+=('cd aztec.js && yarn tsgo -b --emitDeclarationOnly')
   fi
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt
@@ -138,6 +138,9 @@ function test_cmds {
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
+    # Skip benchmarks here.
+    [[ "$test" =~ \.bench\.test\.ts$ ]] && continue
+
     local prefix=$hash
     local cmd_env=""
 

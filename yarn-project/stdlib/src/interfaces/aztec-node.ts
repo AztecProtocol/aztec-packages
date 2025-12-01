@@ -7,6 +7,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
@@ -15,7 +16,7 @@ import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
-import { type InBlock, inBlockSchemaFor } from '../block/in_block.js';
+import { type DataInBlock, inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from '../block/l2_block_number.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
@@ -90,7 +91,7 @@ export interface AztecNode
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]>;
+  ): Promise<(DataInBlock<bigint> | undefined)[]>;
 
   /**
    * Returns a sibling path for the given index in the nullifier tree.
@@ -279,6 +280,12 @@ export interface AztecNode
   getCurrentBaseFees(): Promise<GasFees>;
 
   /**
+   * Method to fetch the current max priority fee of txs in the mempool.
+   * @returns The current max priority fees.
+   */
+  getMaxPriorityFees(): Promise<GasFees>;
+
+  /**
    * Method to fetch the version of the package.
    * @returns The node package version
    */
@@ -434,8 +441,8 @@ export interface AztecNode
   /** Returns stats for a single validator if enabled. */
   getValidatorStats(
     validatorAddress: EthAddress,
-    fromSlot?: bigint,
-    toSlot?: bigint,
+    fromSlot?: SlotNumber,
+    toSlot?: SlotNumber,
   ): Promise<SingleValidatorStats | undefined>;
 
   /**
@@ -575,6 +582,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getCurrentBaseFees: z.function().returns(GasFees.schema),
 
+  getMaxPriorityFees: z.function().returns(GasFees.schema),
+
   getNodeVersion: z.function().returns(z.string()),
 
   getVersion: z.function().returns(z.number()),
@@ -636,7 +645,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getValidatorStats: z
     .function()
-    .args(schemas.EthAddress, optional(schemas.BigInt), optional(schemas.BigInt))
+    .args(schemas.EthAddress, optional(schemas.SlotNumber), optional(schemas.SlotNumber))
     .returns(SingleValidatorStatsSchema.optional()),
 
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),

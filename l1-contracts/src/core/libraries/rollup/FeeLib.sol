@@ -34,7 +34,7 @@ uint256 constant MINIMUM_FEE_ASSET_PER_ETH = 10e9;
 uint256 constant MAX_FEE_ASSET_PRICE_MODIFIER = 1e6;
 uint256 constant FEE_ASSET_PRICE_UPDATE_FRACTION = 100e6;
 
-uint256 constant L1_GAS_PER_BLOCK_PROPOSED = 300_000;
+uint256 constant L1_GAS_PER_CHECKPOINT_PROPOSED = 300_000;
 uint256 constant L1_GAS_PER_EPOCH_VERIFIED = 1_000_000;
 
 uint256 constant MINIMUM_CONGESTION_MULTIPLIER = 1e9;
@@ -46,7 +46,7 @@ uint256 constant MAGIC_CONGESTION_VALUE_DIVISOR = 1e8;
 uint256 constant MAGIC_CONGESTION_VALUE_MULTIPLIER = 854_700_854;
 
 uint256 constant BLOB_GAS_PER_BLOB = 2 ** 17;
-uint256 constant BLOBS_PER_BLOCK = 3;
+uint256 constant BLOBS_PER_CHECKPOINT = 3;
 
 struct OracleInput {
   int256 feeAssetPriceModifier;
@@ -62,7 +62,7 @@ struct ManaBaseFeeComponents {
 struct FeeStore {
   CompressedFeeConfig config;
   L1GasOracleValues l1GasOracleValues;
-  mapping(uint256 blockNumber => CompressedFeeHeader feeHeader) feeHeaders;
+  mapping(uint256 checkpointNumber => CompressedFeeHeader feeHeader) feeHeaders;
 }
 
 library FeeLib {
@@ -92,6 +92,9 @@ library FeeLib {
   function initialize(uint256 _manaTarget, EthValue _provingCostPerMana) internal {
     FeeStore storage feeStore = getStorage();
 
+    // Computes and ensures that limit is within sane bounds
+    computeManaLimit(_manaTarget);
+
     feeStore.config = FeeConfig({
         manaTarget: _manaTarget,
         congestionUpdateFraction: _manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR,
@@ -106,6 +109,9 @@ library FeeLib {
   }
 
   function updateManaTarget(uint256 _manaTarget) internal {
+    // Computes and ensures that limit is within sane bounds
+    computeManaLimit(_manaTarget);
+
     FeeStore storage feeStore = getStorage();
 
     FeeConfig memory config = feeStore.config.decompress();
@@ -141,7 +147,7 @@ library FeeLib {
   }
 
   function computeFeeHeader(
-    uint256 _blockNumber,
+    uint256 _checkpointNumber,
     int256 _feeAssetPriceModifier,
     uint256 _manaUsed,
     uint256 _congestionCost,
@@ -151,7 +157,7 @@ library FeeLib {
       SignedMath.abs(_feeAssetPriceModifier) <= MAX_FEE_ASSET_PRICE_MODIFIER,
       Errors.FeeLib__InvalidFeeAssetPriceModifier()
     );
-    CompressedFeeHeader parentFeeHeader = STFLib.getFeeHeader(_blockNumber - 1);
+    CompressedFeeHeader parentFeeHeader = STFLib.getFeeHeader(_checkpointNumber - 1);
     return FeeHeader({
       excessMana: FeeLib.computeExcessMana(parentFeeHeader),
       feeAssetPriceNumerator: FeeLib.clampedAdd(parentFeeHeader.getFeeAssetPriceNumerator(), _feeAssetPriceModifier),
@@ -168,7 +174,7 @@ library FeeLib {
       : feeStore.l1GasOracleValues.post.decompress();
   }
 
-  function getManaBaseFeeComponentsAt(uint256 _blockOfInterest, Timestamp _timestamp, bool _inFeeAsset)
+  function getManaBaseFeeComponentsAt(uint256 _checkpointOfInterest, Timestamp _timestamp, bool _inFeeAsset)
     internal
     view
     returns (ManaBaseFeeComponents memory)
@@ -191,7 +197,7 @@ library FeeLib {
       // Sequencer cost per mana
       {
         uint256 ethUsed =
-          (L1_GAS_PER_BLOCK_PROPOSED * fees.baseFee) + (BLOBS_PER_BLOCK * BLOB_GAS_PER_BLOB * fees.blobFee);
+          (L1_GAS_PER_CHECKPOINT_PROPOSED * fees.baseFee) + (BLOBS_PER_CHECKPOINT * BLOB_GAS_PER_BLOB * fees.blobFee);
 
         sequencerCostPerMana = EthValue.wrap(Math.mulDiv(ethUsed, 1, manaTarget, Math.Rounding.Ceil));
       }
@@ -213,7 +219,7 @@ library FeeLib {
       total = sequencerCostPerMana + proverCostPerMana;
     }
 
-    CompressedFeeHeader parentFeeHeader = STFLib.getFeeHeader(_blockOfInterest);
+    CompressedFeeHeader parentFeeHeader = STFLib.getFeeHeader(_checkpointOfInterest);
     uint256 excessMana =
       FeeLib.clampedAdd(parentFeeHeader.getExcessMana() + parentFeeHeader.getManaUsed(), -int256(manaTarget));
     uint256 congestionMultiplier_ = congestionMultiplier(excessMana);
@@ -224,7 +230,7 @@ library FeeLib {
       ) - total;
 
     FeeAssetPerEthE9 feeAssetPrice =
-      _inFeeAsset ? FeeLib.getFeeAssetPerEthAtBlock(_blockOfInterest) : FeeAssetPerEthE9.wrap(1e9);
+      _inFeeAsset ? FeeLib.getFeeAssetPerEthAtCheckpoint(_checkpointOfInterest) : FeeAssetPerEthE9.wrap(1e9);
 
     return ManaBaseFeeComponents({
       sequencerCost: FeeAssetValue.unwrap(sequencerCostPerMana.toFeeAsset(feeAssetPrice)),
@@ -245,15 +251,15 @@ library FeeLib {
 
   function getManaLimit() internal view returns (uint256) {
     FeeStore storage feeStore = getStorage();
-    return feeStore.config.getManaTarget() * 2;
+    return computeManaLimit(feeStore.config.getManaTarget());
   }
 
   function getProvingCostPerMana() internal view returns (EthValue) {
     return getStorage().config.getProvingCostPerMana();
   }
 
-  function getFeeAssetPerEthAtBlock(uint256 _blockNumber) internal view returns (FeeAssetPerEthE9) {
-    return getFeeAssetPerEth(STFLib.getFeeHeader(_blockNumber).getFeeAssetPriceNumerator());
+  function getFeeAssetPerEthAtCheckpoint(uint256 _checkpointNumber) internal view returns (FeeAssetPerEthE9) {
+    return getFeeAssetPerEth(STFLib.getFeeHeader(_checkpointNumber).getFeeAssetPriceNumerator());
   }
 
   function computeExcessMana(CompressedFeeHeader _feeHeader) internal view returns (uint256) {
@@ -264,6 +270,15 @@ library FeeLib {
   function congestionMultiplier(uint256 _numerator) internal view returns (uint256) {
     FeeStore storage feeStore = getStorage();
     return fakeExponential(MINIMUM_CONGESTION_MULTIPLIER, _numerator, feeStore.config.getCongestionUpdateFraction());
+  }
+
+  function computeManaLimit(uint256 _manaTarget) internal pure returns (uint256) {
+    uint256 manaLimit = _manaTarget * 2;
+
+    // Ensure that the maximum spent mana can fit in the fee header
+    require(manaLimit <= type(uint32).max, Errors.FeeLib__InvalidManaLimit(type(uint32).max, manaLimit));
+
+    return manaLimit;
   }
 
   function getFeeAssetPerEth(uint256 _numerator) internal pure returns (FeeAssetPerEthE9) {

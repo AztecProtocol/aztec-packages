@@ -1,4 +1,5 @@
 import { EmpireSlashingProposerContract, RollupContract, SlasherContract } from '@aztec/ethereum';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -308,13 +309,13 @@ describe('EmpireSlasherClient', () => {
       const overridePayload = EthAddress.random();
       slasherClient.updateConfig({ slashOverridePayload: overridePayload });
 
-      const [overrideProposeAction] = await slasherClient.getProposePayloadActions(1n);
+      const [overrideProposeAction] = await slasherClient.getProposePayloadActions(SlotNumber.fromBigInt(1n));
       assert(overrideProposeAction.type === 'vote-empire-payload');
       expect(overrideProposeAction.payload).toEqual(overridePayload);
 
       await slasherClient.handleProposalExecutable(overridePayload, 1n);
 
-      const afterOverrideExecutableActions = await slasherClient.getProposePayloadActions(1n);
+      const afterOverrideExecutableActions = await slasherClient.getProposePayloadActions(SlotNumber.fromBigInt(1n));
       expect(afterOverrideExecutableActions).toHaveLength(0);
     });
   });
@@ -415,7 +416,7 @@ describe('EmpireSlasherClient', () => {
     it('creates payload from pending offenses', async () => {
       const offense = await addPendingOffense({ epochOrSlot: 1n });
 
-      const actions = await slasherClient.getProposerActions(slotNumber);
+      const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
 
       // Should have both create and vote actions
       expect(actions).toHaveLength(2);
@@ -428,7 +429,7 @@ describe('EmpireSlasherClient', () => {
       const { address: _payloadAddress1 } = await addSlashPayload({ amount: 50n, votes: 2n, round });
       const { address: payloadAddress2 } = await addSlashPayload({ amount: 100n, votes: 1n, round });
 
-      const actions = await slasherClient.getProposerActions(slotNumber);
+      const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
 
       expect(actions).toHaveLength(1);
       expectActionVotePayload(actions[0], payloadAddress2);
@@ -444,7 +445,7 @@ describe('EmpireSlasherClient', () => {
         .spyOn(slasherClient, 'agreeWithPayload')
         .mockImplementation(payload => Promise.resolve(payload.address.equals(payloadAddress1)));
 
-      const actions = await slasherClient.getProposerActions(slotNumber);
+      const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
 
       expect(actions).toHaveLength(1);
       expectActionVotePayload(actions[0], payloadAddress1);
@@ -454,7 +455,7 @@ describe('EmpireSlasherClient', () => {
       await addSlashPayload({ amount: 50n, votes: 2n, round });
 
       slotNumber = 290n; // Too close to end of round to get payload enough votes
-      const actions = await slasherClient.getProposerActions(slotNumber);
+      const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
 
       expect(actions).toHaveLength(0);
     });
@@ -462,7 +463,7 @@ describe('EmpireSlasherClient', () => {
     it('does not vote if a payload has already won', async () => {
       await addSlashPayload({ amount: 50n, votes: BigInt(settings.slashingQuorumSize), round });
 
-      const actions = await slasherClient.getProposerActions(slotNumber);
+      const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
 
       expect(actions).toHaveLength(0);
     });
@@ -478,7 +479,7 @@ describe('EmpireSlasherClient', () => {
       // Mock that client agrees with both payloads
       jest.spyOn(slasherClient, 'agreeWithPayload').mockResolvedValue(true);
 
-      const actions = await slasherClient.getProposerActions(slotNumber);
+      const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
 
       expect(actions).toHaveLength(2);
 
@@ -495,12 +496,12 @@ describe('EmpireSlasherClient', () => {
       const offense = await addPendingOffense({ epochOrSlot: 1n, amount: 10000000000000n });
 
       // If we are in nomination phase, we would create a new payload
-      const nominationActions = await slasherClient.getProposerActions(slotNumber);
+      const nominationActions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
       expect(nominationActions).toHaveLength(2);
       expectActionCreatePayload(nominationActions[0], offense);
 
       // But we are too close to the end of the round to create a new payload
-      const actions = await slasherClient.getProposerActions(290n);
+      const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(290n));
       expect(actions).toHaveLength(1);
       expectActionVotePayload(actions[0], payloadAddress2);
     });
@@ -516,7 +517,7 @@ describe('EmpireSlasherClient', () => {
       // Mock that client agrees with both payloads
       jest.spyOn(slasherClient, 'agreeWithPayload').mockResolvedValue(true);
 
-      const actions = await slasherClient.getProposerActions(slotNumber);
+      const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
 
       expect(actions).toHaveLength(1);
       expectActionVotePayload(actions[0], payloadAddress2);
@@ -533,7 +534,7 @@ describe('EmpireSlasherClient', () => {
       slashingProposer.getRoundInfo.mockResolvedValue(roundInfo);
 
       const slotNumber = currentRound * BigInt(settings.slashingRoundSize);
-      const actions = await slasherClient.getProposerActions(slotNumber);
+      const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
 
       expect(actions).toContainEqual({
         type: 'execute-empire-payload',
@@ -552,7 +553,7 @@ describe('EmpireSlasherClient', () => {
       slashingProposer.getRoundInfo.mockResolvedValue(roundInfo);
 
       const slotNumber = currentRound * BigInt(settings.slashingRoundSize);
-      const actions = await slasherClient.getProposerActions(slotNumber);
+      const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
 
       expect(actions).not.toContainEqual(
         expect.objectContaining({
@@ -567,7 +568,7 @@ describe('EmpireSlasherClient', () => {
       const overridePayload = EthAddress.random();
       slasherClient.updateConfig({ slashOverridePayload: overridePayload });
 
-      const actions = await slasherClient.getProposerActions(100n);
+      const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(100n));
 
       expect(actions).toHaveLength(1);
       expectActionVotePayload(actions[0], overridePayload);
@@ -579,14 +580,14 @@ describe('EmpireSlasherClient', () => {
       slasherClient.updateConfig({ slashOverridePayload: overridePayload });
 
       // First action should be to vote for override
-      let actions = await slasherClient.getProposerActions(slotNumber);
+      let actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(slotNumber));
       expectActionVotePayload(actions[0], overridePayload);
 
       // Simulate override becoming executable
       await slasherClient.handleProposalExecutable(overridePayload, 1n);
 
       // Should now return action based on pending offenses, not override
-      actions = await slasherClient.getProposerActions(200n);
+      actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(200n));
       expect(actions).toHaveLength(2);
       expectActionCreatePayload(actions[0], offense);
       expectActionVotePayload(actions[1], newPayloadAddress);
@@ -702,11 +703,11 @@ class TestEmpireSlasherClient extends EmpireSlasherClient {
     return this.offensesCollectorPublic.handleWantToSlash(args);
   }
 
-  public override getExecutePayloadAction(slotNumber: bigint): Promise<ProposerSlashAction | undefined> {
+  public override getExecutePayloadAction(slotNumber: SlotNumber): Promise<ProposerSlashAction | undefined> {
     return super.getExecutePayloadAction(slotNumber);
   }
 
-  public override getProposePayloadActions(slotNumber: bigint): Promise<ProposerSlashAction[]> {
+  public override getProposePayloadActions(slotNumber: SlotNumber): Promise<ProposerSlashAction[]> {
     return super.getProposePayloadActions(slotNumber);
   }
 

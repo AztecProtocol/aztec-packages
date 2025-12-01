@@ -1,4 +1,5 @@
 import { NoCommitteeError, RollupContract, createEthereumChain } from '@aztec/ethereum';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -17,30 +18,30 @@ import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } fr
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 
 export type EpochAndSlot = {
-  epoch: bigint;
-  slot: bigint;
+  epoch: EpochNumber;
+  slot: SlotNumber;
   ts: bigint;
 };
 
 export type EpochCommitteeInfo = {
   committee: EthAddress[] | undefined;
   seed: bigint;
-  epoch: bigint;
+  epoch: EpochNumber;
 };
 
-export type SlotTag = 'now' | 'next' | bigint;
+export type SlotTag = 'now' | 'next' | SlotNumber;
 
 export interface EpochCacheInterface {
   getCommittee(slot: SlotTag | undefined): Promise<EpochCommitteeInfo>;
   getEpochAndSlotNow(): EpochAndSlot;
   getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint };
-  getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}`;
-  computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint;
+  getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}`;
+  computeProposerIndex(slot: SlotNumber, epoch: EpochNumber, seed: bigint, size: bigint): bigint;
   getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
     currentProposer: EthAddress | undefined;
     nextProposer: EthAddress | undefined;
-    currentSlot: bigint;
-    nextSlot: bigint;
+    currentSlot: SlotNumber;
+    nextSlot: SlotNumber;
   }>;
   getRegisteredValidators(): Promise<EthAddress[]>;
   isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean>;
@@ -57,14 +58,18 @@ export interface EpochCacheInterface {
  * Note: This class is very dependent on the system clock being in sync.
  */
 export class EpochCache implements EpochCacheInterface {
-  protected cache: Map<bigint, EpochCommitteeInfo> = new Map();
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  protected cache: Map<EpochNumber, EpochCommitteeInfo> = new Map();
   private allValidators: Set<string> = new Set();
   private lastValidatorRefresh = 0;
   private readonly log: Logger = createLogger('epoch-cache');
 
   constructor(
     private rollup: RollupContract,
-    private readonly l1constants: L1RollupConstants & { lagInEpochs: number },
+    private readonly l1constants: L1RollupConstants & {
+      lagInEpochsForValidatorSet: number;
+      lagInEpochsForRandao: number;
+    },
     private readonly dateProvider: DateProvider = new DateProvider(),
     protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60 },
   ) {
@@ -94,15 +99,23 @@ export class EpochCache implements EpochCacheInterface {
       rollup = new RollupContract(publicClient, rollupOrAddress.toString());
     }
 
-    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, slotDuration, epochDuration, lagInEpochs] =
-      await Promise.all([
-        rollup.getL1StartBlock(),
-        rollup.getL1GenesisTime(),
-        rollup.getProofSubmissionEpochs(),
-        rollup.getSlotDuration(),
-        rollup.getEpochDuration(),
-        rollup.getLagInEpochs(),
-      ] as const);
+    const [
+      l1StartBlock,
+      l1GenesisTime,
+      proofSubmissionEpochs,
+      slotDuration,
+      epochDuration,
+      lagInEpochsForValidatorSet,
+      lagInEpochsForRandao,
+    ] = await Promise.all([
+      rollup.getL1StartBlock(),
+      rollup.getL1GenesisTime(),
+      rollup.getProofSubmissionEpochs(),
+      rollup.getSlotDuration(),
+      rollup.getEpochDuration(),
+      rollup.getLagInEpochsForValidatorSet(),
+      rollup.getLagInEpochsForRandao(),
+    ] as const);
 
     const l1RollupConstants = {
       l1StartBlock,
@@ -111,7 +124,8 @@ export class EpochCache implements EpochCacheInterface {
       slotDuration: Number(slotDuration),
       epochDuration: Number(epochDuration),
       ethereumSlotDuration: config.ethereumSlotDuration,
-      lagInEpochs: Number(lagInEpochs),
+      lagInEpochsForValidatorSet: Number(lagInEpochsForValidatorSet),
+      lagInEpochsForRandao: Number(lagInEpochsForRandao),
     };
 
     return new EpochCache(rollup, l1RollupConstants, deps.dateProvider);
@@ -130,7 +144,7 @@ export class EpochCache implements EpochCacheInterface {
     return BigInt(Math.floor(this.dateProvider.now() / 1000));
   }
 
-  private getEpochAndSlotAtSlot(slot: bigint): EpochAndSlot {
+  private getEpochAndSlotAtSlot(slot: SlotNumber): EpochAndSlot {
     const epoch = getEpochAtSlot(slot, this.l1constants);
     const ts = getTimestampRangeForEpoch(epoch, this.l1constants)[0];
     return { epoch, ts, slot };
@@ -151,7 +165,7 @@ export class EpochCache implements EpochCacheInterface {
     };
   }
 
-  public getCommitteeForEpoch(epoch: bigint): Promise<EpochCommitteeInfo> {
+  public getCommitteeForEpoch(epoch: EpochNumber): Promise<EpochCommitteeInfo> {
     const [startSlot] = getSlotRangeForEpoch(epoch, this.l1constants);
     return this.getCommittee(startSlot);
   }
@@ -193,15 +207,15 @@ export class EpochCache implements EpochCacheInterface {
     }
   }
 
-  private async computeCommittee(when: { epoch: bigint; ts: bigint }): Promise<EpochCommitteeInfo> {
+  private async computeCommittee(when: { epoch: EpochNumber; ts: bigint }): Promise<EpochCommitteeInfo> {
     const { ts, epoch } = when;
     const [committeeHex, seed, l1Timestamp] = await Promise.all([
       this.rollup.getCommitteeAt(ts),
       this.rollup.getSampleSeedAt(ts),
       this.rollup.client.getBlock({ includeTransactions: false }).then(b => b.timestamp),
     ]);
-    const { lagInEpochs, epochDuration, slotDuration } = this.l1constants;
-    const sub = BigInt(lagInEpochs) * BigInt(epochDuration) * BigInt(slotDuration);
+    const { lagInEpochsForValidatorSet, epochDuration, slotDuration } = this.l1constants;
+    const sub = BigInt(lagInEpochsForValidatorSet) * BigInt(epochDuration) * BigInt(slotDuration);
     if (ts - sub > l1Timestamp) {
       throw new Error(
         `Cannot query committee for future epoch ${epoch} with timestamp ${ts} (current L1 time is ${l1Timestamp}). Check your Ethereum node is synced.`,
@@ -214,18 +228,18 @@ export class EpochCache implements EpochCacheInterface {
   /**
    * Get the ABI encoding of the proposer index - see ValidatorSelectionLib.sol computeProposerIndex
    */
-  getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}` {
+  getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}` {
     return encodeAbiParameters(
       [
         { type: 'uint256', name: 'epoch' },
         { type: 'uint256', name: 'slot' },
         { type: 'uint256', name: 'seed' },
       ],
-      [epoch, slot, seed],
+      [BigInt(epoch), BigInt(slot), seed],
     );
   }
 
-  public computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint {
+  public computeProposerIndex(slot: SlotNumber, epoch: EpochNumber, seed: bigint, size: bigint): bigint {
     // if committe size is 0, then mod 1 is 0
     if (size === 0n) {
       return 0n;
@@ -240,8 +254,8 @@ export class EpochCache implements EpochCacheInterface {
    * which can be the next slot. If this is the case, then it will send proposals early.
    */
   public async getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
-    currentSlot: bigint;
-    nextSlot: bigint;
+    currentSlot: SlotNumber;
+    nextSlot: SlotNumber;
     currentProposer: EthAddress | undefined;
     nextProposer: EthAddress | undefined;
   }> {
@@ -261,7 +275,7 @@ export class EpochCache implements EpochCacheInterface {
    * @returns The proposer attester address. If the committee does not exist, we throw a NoCommitteeError.
    * If the committee is empty (i.e. target committee size is 0, and anyone can propose), we return undefined.
    */
-  public getProposerAttesterAddressInSlot(slot: bigint): Promise<EthAddress | undefined> {
+  public getProposerAttesterAddressInSlot(slot: SlotNumber): Promise<EthAddress | undefined> {
     const epochAndSlot = this.getEpochAndSlotAtSlot(slot);
     return this.getProposerAttesterAddressAt(epochAndSlot);
   }
@@ -295,7 +309,10 @@ export class EpochCache implements EpochCacheInterface {
     return committee[Number(proposerIndex)];
   }
 
-  public getProposerFromEpochCommittee(epochCommitteeInfo: EpochCommitteeInfo, slot: bigint): EthAddress | undefined {
+  public getProposerFromEpochCommittee(
+    epochCommitteeInfo: EpochCommitteeInfo,
+    slot: SlotNumber,
+  ): EthAddress | undefined {
     if (!epochCommitteeInfo.committee || epochCommitteeInfo.committee.length === 0) {
       return undefined;
     }

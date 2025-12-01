@@ -1,5 +1,6 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields';
-import type { StateReference, TxHash } from '@aztec/stdlib/tx';
+import type { TxHash } from '@aztec/stdlib/tx';
 
 export class ValidatorError extends Error {
   constructor(message: string) {
@@ -17,7 +18,7 @@ export class AttestationTimeoutError extends ValidatorError {
   constructor(
     public readonly collectedCount: number,
     public readonly requiredCount: number,
-    public readonly slot: bigint,
+    public readonly slot: SlotNumber,
   ) {
     super(`Timeout collecting attestations for slot ${slot}: ${collectedCount}/${requiredCount}`);
   }
@@ -39,8 +40,6 @@ export class ReExStateMismatchError extends ValidatorError {
   constructor(
     public readonly expectedArchiveRoot: Fr,
     public readonly actualArchiveRoot: Fr,
-    public readonly expectedStateReference?: StateReference,
-    public readonly actualStateReference?: StateReference,
   ) {
     super('Re-execution state mismatch');
   }

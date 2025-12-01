@@ -55,3 +55,37 @@ std::optional<uint8_t> MemoryManager::get_memory_offset_8_bit(bb::avm2::MemoryTa
 
     return static_cast<uint8_t>(value.value());
 }
+
+void MemoryManager::append_slot(bb::avm2::FF slot)
+{
+    storage_addresses.push_back(slot);
+}
+
+std::optional<bb::avm2::FF> MemoryManager::get_slot(uint16_t slot_offset_index)
+{
+    if (storage_addresses.empty()) {
+        return std::nullopt;
+    }
+    return storage_addresses[slot_offset_index % storage_addresses.size()];
+}
+
+void MemoryManager::append_emitted_note_hash(bb::avm2::FF note_hash)
+{
+    emitted_note_hashes.push_back(note_hash);
+}
+
+std::optional<bb::avm2::FF> MemoryManager::get_emitted_note_hash(uint16_t note_hash_index)
+{
+    if (emitted_note_hashes.empty()) {
+        return std::nullopt;
+    }
+    return emitted_note_hashes[note_hash_index % emitted_note_hashes.size()];
+}
+
+std::optional<uint16_t> MemoryManager::get_leaf_index(uint16_t note_hash_index)
+{
+    if (emitted_note_hashes.empty()) {
+        return std::nullopt;
+    }
+    return note_hash_index % emitted_note_hashes.size();
+}

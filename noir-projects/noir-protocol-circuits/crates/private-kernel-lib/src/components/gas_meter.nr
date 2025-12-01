@@ -36,7 +36,7 @@ global PUBLIC_TX_L2_GAS: BaseL2Gas = BaseL2Gas {
 /// Meter the gas used for a private or public tx.
 ///
 /// Data added to the blob will be counted towards DA fields.
-/// See `rollup-lib/src/tx_base/components/tx_blob_data.nr` for what's included in the blob.
+/// See `types/src/blob_data/tx_blob_data.nr` for what's included in the blob.
 pub fn meter_gas_used(public_inputs: PrivateKernelCircuitPublicInputs, is_for_public: bool) -> Gas {
     let mut metered_da_fields = 0;
     let mut metered_l2_gas = 0;

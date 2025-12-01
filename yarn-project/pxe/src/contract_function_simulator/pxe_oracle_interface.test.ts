@@ -11,7 +11,7 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } fr
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { computeAddress, deriveKeys } from '@aztec/stdlib/keys';
 import { DirectionalAppTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
-import { NoteStatus } from '@aztec/stdlib/note';
+import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -28,7 +28,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
-import { NoteDao } from '../storage/note_data_provider/note_dao.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
@@ -185,7 +184,7 @@ describe('PXEOracleInterface', () => {
       }
       aztecNode.getLogsByTags.mockReset();
       aztecNode.getTxEffect.mockResolvedValue({
-        ...randomInBlock(await TxEffect.random()),
+        ...randomInBlock(await TxEffect.random({ numNullifiers: 1 })),
         txIndexInBlock: 0,
       });
     });
@@ -620,6 +619,7 @@ describe('PXEOracleInterface', () => {
     let nullifier: Fr;
     let txHash: TxHash;
     let storageSlot: Fr;
+    let randomness: Fr;
     let noteNonce: Fr;
     let content: Fr[];
 
@@ -628,6 +628,7 @@ describe('PXEOracleInterface', () => {
       nullifier = Fr.random();
       txHash = TxHash.random();
       storageSlot = Fr.random();
+      randomness = Fr.random();
       noteNonce = Fr.random();
       content = [Fr.random(), Fr.random()];
     });
@@ -645,6 +646,7 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.deliverNote(
         contractAddress,
         storageSlot,
+        randomness,
         noteNonce,
         content,
         noteHash,
@@ -654,11 +656,10 @@ describe('PXEOracleInterface', () => {
       );
 
       // Verify note was stored
-      const notes = await noteDataProvider.getNotes({ contractAddress });
+      const notes = await noteDataProvider.getNotes({ contractAddress, scopes: [recipient.address] });
 
-      const matchingNotes = notes.filter(n => n.recipient.equals(recipient.address));
-      expect(matchingNotes).toHaveLength(1);
-      expect(matchingNotes[0].noteHash.equals(noteHash)).toBe(true);
+      expect(notes).toHaveLength(1);
+      expect(notes[0].noteHash.equals(noteHash)).toBe(true);
     });
 
     it('should throw if note does not exist in note hash tree', async () => {
@@ -669,6 +670,7 @@ describe('PXEOracleInterface', () => {
         pxeOracleInterface.deliverNote(
           contractAddress,
           storageSlot,
+          randomness,
           noteNonce,
           content,
           noteHash,
@@ -697,6 +699,7 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.deliverNote(
         contractAddress,
         storageSlot,
+        randomness,
         noteNonce,
         content,
         noteHash,
@@ -706,9 +709,8 @@ describe('PXEOracleInterface', () => {
       );
 
       // Verify note was removed
-      const notes = await noteDataProvider.getNotes({ contractAddress });
-      const matchingNotes = notes.filter(n => n.recipient.equals(recipient.address));
-      expect(matchingNotes).toHaveLength(0);
+      const notes = await noteDataProvider.getNotes({ contractAddress, scopes: [recipient.address] });
+      expect(notes).toHaveLength(0);
     });
 
     // Verifies that notes are only accepted from blocks that have been synced by PXE. We mock
@@ -732,6 +734,7 @@ describe('PXEOracleInterface', () => {
       await expect(
         pxeOracleInterface.deliverNote(
           contractAddress,
+          randomness,
           storageSlot,
           noteNonce,
           content,
@@ -767,6 +770,7 @@ describe('PXEOracleInterface', () => {
 
       await pxeOracleInterface.deliverNote(
         contractAddress,
+        randomness,
         storageSlot,
         noteNonce,
         content,
@@ -780,10 +784,10 @@ describe('PXEOracleInterface', () => {
       const notes = await noteDataProvider.getNotes({
         contractAddress,
         status: NoteStatus.ACTIVE,
+        scopes: [recipient.address],
       });
-      const matchingNotes = notes.filter(n => n.recipient.equals(recipient.address));
-      expect(matchingNotes).toHaveLength(1);
-      expect(matchingNotes[0].noteHash.equals(noteHash)).toBe(true);
+      expect(notes).toHaveLength(1);
+      expect(notes[0].noteHash.equals(noteHash)).toBe(true);
     });
   });
 
@@ -1008,7 +1012,7 @@ describe('PXEOracleInterface', () => {
 
     it('should remove notes that have been nullified', async () => {
       // Set up initial state with a note
-      const noteDao = await NoteDao.random({ contractAddress, recipient });
+      const noteDao = await NoteDao.random({ contractAddress });
 
       // Spy on the noteDataProvider.applyNullifiers to later on have additional guarantee that we really removed
       // the note.
@@ -1025,9 +1029,12 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
       // Verify the note was removed by checking storage
-      const remainingNotes = await noteDataProvider.getNotes({ contractAddress, status: NoteStatus.ACTIVE });
-      const matchingNotes = remainingNotes.filter(n => n.recipient.equals(recipient));
-      expect(matchingNotes).toHaveLength(0);
+      const remainingNotes = await noteDataProvider.getNotes({
+        contractAddress,
+        status: NoteStatus.ACTIVE,
+        scopes: [recipient],
+      });
+      expect(remainingNotes).toHaveLength(0);
 
       // Verify the note was removed by checking the spy
       expect(noteDataProvider.applyNullifiers).toHaveBeenCalledTimes(1);
@@ -1035,7 +1042,7 @@ describe('PXEOracleInterface', () => {
 
     it('should keep notes that have not been nullified', async () => {
       // Set up initial state with a note
-      const noteDao = await NoteDao.random({ contractAddress, recipient });
+      const noteDao = await NoteDao.random({ contractAddress });
 
       // Add the note to storage
       await noteDataProvider.addNotes([noteDao], recipient);
@@ -1047,10 +1054,13 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
       // Verify note still exists
-      const remainingNotes = await noteDataProvider.getNotes({ contractAddress, status: NoteStatus.ACTIVE });
-      const matchingNotes = remainingNotes.filter(n => n.recipient.equals(recipient));
-      expect(matchingNotes).toHaveLength(1);
-      expect(matchingNotes[0]).toEqual(noteDao);
+      const remainingNotes = await noteDataProvider.getNotes({
+        contractAddress,
+        status: NoteStatus.ACTIVE,
+        scopes: [recipient],
+      });
+      expect(remainingNotes).toHaveLength(1);
+      expect(remainingNotes[0]).toEqual(noteDao);
     });
 
     // Verifies that notes are not marked as nullified when their nullifier only exists in blocks that haven't been
@@ -1058,7 +1068,7 @@ describe('PXEOracleInterface', () => {
     // is not removed by applyNullifiers.
     it('should not remove notes if nullifier is in unsynced blocks', async () => {
       // Set up initial state with a note
-      const noteDao = await NoteDao.random({ contractAddress, recipient });
+      const noteDao = await NoteDao.random({ contractAddress });
       const syncedBlockNumber = 100;
       await setSyncedBlockNumber(syncedBlockNumber);
 
@@ -1077,10 +1087,13 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
       // Verify note still exists
-      const remainingNotes = await noteDataProvider.getNotes({ contractAddress, status: NoteStatus.ACTIVE });
-      const matchingNotes = remainingNotes.filter(n => n.recipient.equals(recipient));
-      expect(matchingNotes).toHaveLength(1);
-      expect(matchingNotes[0]).toEqual(noteDao);
+      const remainingNotes = await noteDataProvider.getNotes({
+        contractAddress,
+        status: NoteStatus.ACTIVE,
+        scopes: [recipient],
+      });
+      expect(remainingNotes).toHaveLength(1);
+      expect(remainingNotes[0]).toEqual(noteDao);
     });
 
     it('should search for notes from all accounts', async () => {

@@ -15,20 +15,25 @@ The following prerequisites apply to all node types and deployment methods.
 
 ### Operating System
 
-This guide assumes you're using a standard Linux distribution such as Debian or Ubuntu. While other operating systems may work, these instructions are tested and optimized for Linux environments.
+The node software can be run on any Unix system released after 2020.
 
-### Docker
+- Linux (common flavors)
+- MacOS (ARM and intel)
 
-**Docker is required for all node types and deployment methods.**
+### Docker and Docker Compose
 
-If not already installed, here is a convenient way to install it on Linux:
+Docker and Docker Compose are required for all node types. All Aztec nodes run in Docker containers managed by Docker Compose.
+
+**On Linux:** Install Docker Engine and Docker Compose separately:
+
+1. Install Docker:
 
 ```bash
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 ```
 
-After installation, add your user to the docker group so `sudo` is not needed:
+2. Add your user to the docker group so `sudo` is not needed:
 
 ```bash
 sudo groupadd docker
@@ -38,6 +43,10 @@ newgrp docker
 docker run hello-world
 ```
 
+3. Install Docker Compose by following the [Docker Compose installation guide](https://docs.docker.com/compose/install/).
+
+**On macOS:** Install [Docker Desktop](https://docs.docker.com/desktop/install/mac-install/), which includes both Docker and Docker Compose.
+
 ### L1 Ethereum Node Access
 
 All Aztec nodes require access to Ethereum L1 node endpoints:
@@ -45,14 +54,8 @@ All Aztec nodes require access to Ethereum L1 node endpoints:
 - **Execution client endpoint** (e.g., Geth, Nethermind, Besu, Erigon)
 - **Consensus client endpoint** (e.g., Prysm, Lighthouse, Teku, Nimbus)
 
-:::warning Sepolia Testnet Required
-Both options below must be connected to Sepolia testnet, as the Aztec testnet runs on Ethereum Sepolia.
-:::
-
 **Options:**
-
 1. **Run your own L1 node** (recommended for best performance):
-
    - Better performance and lower latency
    - No rate limiting or request throttling
    - Greater reliability and uptime control
@@ -62,7 +65,7 @@ Both options below must be connected to Sepolia testnet, as the Aztec testnet ru
 2. **Use a third-party RPC provider**:
    - Easier to set up initially
    - May have rate limits and throttling
-   - Ensure the provider supports high throughput
+   - Ensure the provider supports beacon apis
 
 :::tip High Throughput Required
 Your L1 endpoints must support high throughput to avoid degraded node performance.
@@ -101,72 +104,12 @@ nc -zuv [YOUR_EXTERNAL_IP] 40400
 If port forwarding isn't properly configured, your node may not be able to participate in P2P duties.
 :::
 
-### Auto-Updates
+### Aztec Toolchain
 
-The auto-update functionality is critical for network coordination and enables:
+The Aztec toolchain provides CLI utilities for key generation, validator registration, and other operational tasks. While not required for running nodes (which use Docker Compose), it is needed for:
 
-- Configuration updates across all nodes
-- Automated image updates via controlled shutdowns
-- Rapid hot-fix deployment
-- Coordinated resets after governance upgrades
-
-**Important:** Do not manually set `AUTO_UPDATE_URL` or `AUTO_UPDATE` environment variables. These must use their default values for proper operation.
-
-## Deployment Methods
-
-There are two methods to run Aztec nodes, each with different additional requirements.
-
-### Method 1: CLI Method
-
-Run nodes directly on your host using the Aztec CLI tools.
-
-**Best for:**
-
-- Quick setup and testing
-- Full nodes
-- Development environments
-
-**Additional requirements:**
-
-- Aztec toolchain installation
-
-**Used by:**
-
-- [Full node guide](./setup/running_a_node.md)
-
-### Method 2: Docker Compose Method
-
-Run nodes using Docker containers managed by Docker Compose.
-
-**Best for:**
-
-- Production deployments
-- Sequencer nodes
-- Prover nodes
-- Multi-container setups
-
-**Additional requirements:**
-
-- Docker Compose
-- Watchtower (for auto-updates)
-
-**Does NOT require:**
-
-- Aztec toolchain
-
-**Used by:**
-
-- [Full node guide](./setup/running_a_node.md)
-- [Sequencer guide](./setup/sequencer_management)
-- [Prover guide](./setup/running_a_prover.md)
-
-## Method-Specific Prerequisites
-
-### CLI Method: Additional Requirements
-
-If you're using the CLI method to run nodes, install the following **in addition to the common prerequisites**:
-
-#### Aztec Toolchain
+- Generating validator keystores and creating staking registration data (`aztec validator-keys`)
+- Registering sequencers on L1 (`aztec add-l1-validator`)
 
 Install the Aztec toolchain using the official installer:
 
@@ -174,59 +117,16 @@ Install the Aztec toolchain using the official installer:
 bash -i <(curl -s https://install.aztec.network)
 ```
 
-Verify installation:
+Install the correct version for the current network:
 
 ```bash
-ls ~/.aztec/bin
-# Should show: aztec, aztec-up, aztec-nargo, and aztec-wallet
+aztec-up 2.1.5
 ```
-
-Add Aztec to your PATH:
-
-```bash
-echo 'export PATH="$HOME/.aztec/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Install the correct version for the current testnet:
-
-```bash
-aztec-up v2.1.5
-```
-
-Verify the version:
-
-```bash
-aztec --version
-```
-
-### Docker Compose Method: Additional Requirements
-
-If you're using Docker Compose to run nodes, install the following **in addition to the common prerequisites**:
-
-#### Docker Compose
-
-Docker Compose is required for managing multi-container node setups.
-
-Installation guide: [https://docs.docker.com/compose/install/](https://docs.docker.com/compose/install/)
-
-#### Watchtower
-
-Since Docker Compose doesn't respect pull policies on container restarts, install Watchtower for automatic Docker image updates:
-
-```bash
-docker run -d \
-  --name watchtower \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  containrrr/watchtower
-```
-
-**Note:** The Docker Compose method pulls the Aztec node software directly from the `aztecprotocol/aztec:2.0.4` Docker image. You do NOT need to install the Aztec toolchain on your host machine.
 
 ## Next Steps
 
-Once you have met the prerequisites for your chosen method, proceed to set up your desired node type:
+Once you have met the prerequisites, proceed to set up your desired node type:
 
-- [Run a Full Node →](./setup/running_a_node.md) (CLI Method)
-- [Run a Sequencer Node →](./setup/sequencer_management) (Docker Compose Method)
-- [Run a Prover Node →](./setup/running_a_prover.md) (Docker Compose Method)
+- [Run a Full Node →](./setup/running_a_node.md)
+- [Run a Sequencer Node →](./setup/sequencer_management)
+- [Run a Prover Node →](./setup/running_a_prover.md)

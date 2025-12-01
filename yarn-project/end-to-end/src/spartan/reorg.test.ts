@@ -13,7 +13,7 @@ import type { ChildProcess } from 'child_process';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
-  deploySponsoredTestAccounts,
+  deploySponsoredTestAccountsWithTokens,
   performTransfers,
 } from './setup_test_wallets.js';
 import {
@@ -75,7 +75,7 @@ describe('reorg test', () => {
     spartanDir = `${getGitProjectRoot()}/spartan`;
 
     ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger));
-    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, debugLogger);
+    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, debugLogger);
   });
 
   it('survives a reorg', async () => {
@@ -101,7 +101,7 @@ describe('reorg test', () => {
     const stdout = await applyProverFailure({
       namespace: config.NAMESPACE,
       spartanDir,
-      durationSeconds: Number(epochDuration * slotDuration) * 2,
+      durationSeconds: Number(BigInt(epochDuration) * BigInt(slotDuration)) * 2,
       logger: debugLogger,
     });
     debugLogger.info(stdout);
@@ -109,7 +109,7 @@ describe('reorg test', () => {
     // We only need 2 epochs for a reorg to be triggered, but 3 gives time for the bot to be restarted and the chain to re-stabilize
     // TODO(#9613): why do we need to wait for 3 epochs?
     debugLogger.info(`Waiting for 3 epochs to pass`);
-    await sleep(Number(epochDuration * slotDuration) * 3 * 1000);
+    await sleep(Number(BigInt(epochDuration) * BigInt(slotDuration)) * 3 * 1000);
 
     // TODO(#9327): begin delete
     // The bot must be restarted because the PXE does not handle reorgs without a restart.
@@ -121,7 +121,7 @@ describe('reorg test', () => {
     ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger));
 
     await sleep(30 * 1000);
-    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, debugLogger);
+    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, debugLogger);
     // TODO(#9327): end delete
 
     await performTransfers({

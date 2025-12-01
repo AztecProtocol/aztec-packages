@@ -24,7 +24,7 @@ pub contract Parent {
         self.context.call_public_function(
             target_contract,
             target_selector,
-            [init_value].as_slice(),
+            [init_value],
             GasOpts::default(),
         )[0]
     }
@@ -38,13 +38,13 @@ pub contract Parent {
         let return_value: Field = self.context.call_public_function(
             target_contract,
             target_selector,
-            [init_value].as_slice(),
+            [init_value],
             GasOpts::default(),
         )[0];
         self.context.call_public_function(
             target_contract,
             target_selector,
-            [return_value].as_slice(),
+            [return_value],
             GasOpts::default(),
         )[0]
     }
@@ -218,7 +218,7 @@ pub contract Parent {
         self.context.static_call_public_function(
             target_contract,
             target_selector,
-            args.as_slice(),
+            args,
             GasOpts::default(),
         )[0]
     }
@@ -235,7 +235,7 @@ pub contract Parent {
         self.context.static_call_public_function(
             self.address,
             pub_entry_point_selector,
-            [target_contract.to_field(), target_selector.to_field(), args[0]].as_slice(),
+            [target_contract.to_field(), target_selector.to_field(), args[0]],
             GasOpts::default(),
         )[0]
     }

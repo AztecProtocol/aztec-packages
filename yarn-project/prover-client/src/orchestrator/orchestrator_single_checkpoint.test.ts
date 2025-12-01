@@ -1,3 +1,7 @@
+import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { EpochNumber } from '@aztec/foundation/branded-types';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
@@ -24,23 +28,19 @@ describe('prover/orchestrator/single-checkpoint', () => {
     const numBlocks = 2;
     const numTxsPerBlock = [0, 3];
     const numL1ToL2Messages = 2;
-    const { constants, blocks, totalNumBlobFields, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(
-      numBlocks,
-      {
-        numTxsPerBlock,
-        numL1ToL2Messages,
-      },
-    );
+    const { constants, blocks, l1ToL2Messages, previousBlockHeader, header } = await context.makeCheckpoint(numBlocks, {
+      numTxsPerBlock,
+      numL1ToL2Messages,
+    });
 
     const finalBlobChallenges = await context.getFinalBlobChallenges();
-    context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
+    context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
 
     await context.orchestrator.startNewCheckpoint(
       0, // checkpointIndex
       constants,
       l1ToL2Messages,
       numBlocks,
-      totalNumBlobFields,
       previousBlockHeader,
     );
 
@@ -53,8 +53,12 @@ describe('prover/orchestrator/single-checkpoint', () => {
       await context.orchestrator.setBlockCompleted(blockNumber, block.header);
     }
 
-    const result = await context.orchestrator.finalizeEpoch();
-    expect(result).toBeDefined();
+    const epoch = await context.orchestrator.finalizeEpoch();
+    expect(epoch.proof).toBeDefined();
+
+    expect(epoch.publicInputs.checkpointHeaderHashes).toEqual(
+      padArrayEnd([header.hash()], Fr.ZERO, AZTEC_MAX_EPOCH_DURATION),
+    );
 
     if (isGenerateTestDataEnabled()) {
       // These are the circuits that are not executed in prover/full.test.ts
@@ -70,23 +74,19 @@ describe('prover/orchestrator/single-checkpoint', () => {
     const numBlocks = 3;
     const numTxsPerBlock = 1;
     const numL1ToL2Messages = 2;
-    const { constants, blocks, totalNumBlobFields, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(
-      numBlocks,
-      {
-        numTxsPerBlock,
-        numL1ToL2Messages,
-      },
-    );
+    const { constants, blocks, l1ToL2Messages, previousBlockHeader, header } = await context.makeCheckpoint(numBlocks, {
+      numTxsPerBlock,
+      numL1ToL2Messages,
+    });
 
     const finalBlobChallenges = await context.getFinalBlobChallenges();
-    context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
+    context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
 
     await context.orchestrator.startNewCheckpoint(
       0, // checkpointIndex
       constants,
       l1ToL2Messages,
       numBlocks,
-      totalNumBlobFields,
       previousBlockHeader,
     );
 
@@ -97,8 +97,12 @@ describe('prover/orchestrator/single-checkpoint', () => {
       await context.orchestrator.setBlockCompleted(blockNumber, block.header);
     }
 
-    const result = await context.orchestrator.finalizeEpoch();
-    expect(result).toBeDefined();
+    const epoch = await context.orchestrator.finalizeEpoch();
+    expect(epoch.proof).toBeDefined();
+
+    expect(epoch.publicInputs.checkpointHeaderHashes).toEqual(
+      padArrayEnd([header.hash()], Fr.ZERO, AZTEC_MAX_EPOCH_DURATION),
+    );
 
     if (isGenerateTestDataEnabled()) {
       // These are the circuits that are not executed in prover/full.test.ts

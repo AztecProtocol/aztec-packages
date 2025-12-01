@@ -9,11 +9,12 @@ use types::{
         block_header::BlockHeader, checkpoint_constant_data::CheckpointConstantData,
         epoch_constant_data::EpochConstantData, fee_recipient::FeeRecipient, gas::Gas,
         gas_fees::GasFees, gas_settings::GasSettings, global_variables::GlobalVariables,
-        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
-        state_reference::StateReference, transaction::tx_context::TxContext,
-        tree_snapshots::TreeSnapshots, tx_constant_data::TxConstantData,
+        partial_state_reference::PartialStateReference, state_reference::StateReference,
+        transaction::tx_context::TxContext, tree_snapshots::TreeSnapshots,
+        tx_constant_data::TxConstantData,
     },
     address::{AztecAddress, EthAddress},
+    blob_data::SpongeBlob,
     constants::{
         ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT, L1_TO_L2_MSG_SUBTREE_HEIGHT,
         L1_TO_L2_MSG_TREE_HEIGHT,
@@ -303,6 +304,7 @@ impl RollupFixtureBuilder {
             end_sponge_blob: self.get_sponge_blob(end_block_number),
             start_timestamp: self.get_timestamp(start_block_number),
             end_timestamp: self.get_timestamp(end_block_number),
+            block_headers_hash: self.get_block_headers_hash(end_block_number),
             in_hash,
             out_hash: self.get_out_hash(end_block_number),
             accumulated_fees: self.get_fee(end_block_number),
@@ -393,6 +395,10 @@ impl RollupFixtureBuilder {
 
     fn get_mana_used(_self: Self, tx_or_block_number: u32) -> Field {
         tx_or_block_number as Field * 23
+    }
+
+    fn get_block_headers_hash(_self: Self, block_number: u32) -> Field {
+        block_number as Field * 429317
     }
 
     fn get_out_hash(_self: Self, tx_or_block_number: u32) -> Field {

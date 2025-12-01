@@ -41,7 +41,7 @@ Generating a Solidity Verifier with Barretenberg contract is actually a one-comm
 bb write_vk -b ./target/<noir_artifact_name>.json -o ./target --oracle_hash keccak
 
 # Generate the Solidity verifier from the vkey
-bb write_solidity_verifier -k ./target/vk -o ../target/Verifier.sol
+bb write_solidity_verifier -k ./target/vk -o ./target/Verifier.sol
 ```
 
 replacing `<noir_artifact_name>` with the name of your Noir project. A `Verifier.sol` contract is now in the target folder and can be deployed to any EVM blockchain acting as a verifier smart contract.

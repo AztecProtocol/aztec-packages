@@ -57,12 +57,12 @@ struct CompressedRoundAccounting {
  *
  * **Instances**: Refers to an instance of the rollup contract, which in this case is exposed via a simplified IEmperor
  * interface.
- * This contract only needs the instance to determine the current slot (to compute the round), and the current block
- * proposer.
+ * This contract only needs the instance to determine the current slot (to compute the round), and the current
+ * checkpoint proposer.
  *
  * **Signalers**: Each slot has a designated signaler (determined by IEmperor).
  * Only the current slot's signaler can signal support, either directly or via signature.
- * In the current implementation, the entity that may propose a block (i.e. the "proposer") is the signaler.
+ * In the current implementation, the entity that may propose a checkpoint (i.e. the "proposer") is the signaler.
  *
  * **Signaling**
  * - One signal per slot (enforced by tracking lastSignalSlot)

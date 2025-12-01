@@ -123,8 +123,39 @@ pub comptime global PARITY_ROOT_VK_INDEX: u32 = 23;
 pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 24;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
+// SIDE EFFECT RELATED CONSTANTS
+// Global indices allow us to uniquely index side effects in PrivateCircuitPublicInputs
+pub global GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET: u32 = 0;
+pub global GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET: u32 =
+    GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET + MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
+pub global GLOBAL_INDEX_NOTE_HASH_OFFSET: u32 =
+    GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET + MAX_NULLIFIER_READ_REQUESTS_PER_CALL;
+pub global GLOBAL_INDEX_NULLIFIER_OFFSET: u32 =
+    GLOBAL_INDEX_NOTE_HASH_OFFSET + MAX_NOTE_HASHES_PER_CALL;
+pub global GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET: u32 =
+    GLOBAL_INDEX_NULLIFIER_OFFSET + MAX_NULLIFIERS_PER_CALL;
+pub global GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET: u32 =
+    GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL;
+pub global GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET: u32 =
+    GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET + MAX_ENQUEUED_CALLS_PER_CALL;
+pub global GLOBAL_INDEX_PRIVATE_LOG_OFFSET: u32 =
+    GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET + MAX_L2_TO_L1_MSGS_PER_CALL;
+pub global GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET: u32 =
+    GLOBAL_INDEX_PRIVATE_LOG_OFFSET + MAX_PRIVATE_LOGS_PER_CALL;
+
+pub global TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL: u32 = MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
+    + MAX_NULLIFIER_READ_REQUESTS_PER_CALL
+    + MAX_NOTE_HASHES_PER_CALL
+    + MAX_NULLIFIERS_PER_CALL
+    + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL
+    + MAX_ENQUEUED_CALLS_PER_CALL
+    + MAX_L2_TO_L1_MSGS_PER_CALL
+    + MAX_PRIVATE_LOGS_PER_CALL
+    + MAX_CONTRACT_CLASS_LOGS_PER_CALL;
+
 // MISC CONSTANTS
 pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
+pub global INITIAL_CHECKPOINT_NUMBER: Field = 1;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_CHECKPOINT: u32 = 6;
@@ -264,7 +295,7 @@ pub global FUNCTION_LEAF_PREIMAGE_LENGTH: u32 = 5;
 pub global GLOBAL_VARIABLES_LENGTH: u32 = 7 + GAS_FEES_LENGTH;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
-pub global SPONGE_BLOB_LENGTH: u32 = 11;
+pub global SPONGE_BLOB_LENGTH: u32 = 10;
 pub global BLS12_FR_LIMBS: u32 = 3; // TODO(#14646): get this from bignum
 pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(#14646): get this from bignum
 pub global BLS12_POINT_LENGTH: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(#14646): reduce num fields needed here?
@@ -357,7 +388,8 @@ pub global BLOCK_HEADER_LENGTH_BYTES: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYT
     - 12
     + 32 * TOTAL_FEES_LENGTH
     + 32 * TOTAL_MANA_USED_LENGTH;
-pub global PROPOSED_BLOCK_HEADER_LENGTH: u32 = 1 /* last_archive_root */
+pub global CHECKPOINT_HEADER_LENGTH: u32 = 1 /* last_archive_root */
+    + 1 /* block_headers_hash */
     + CONTENT_COMMITMENT_LENGTH
     + 1 /* slot_number */
     + 1 /* timestamp */
@@ -365,7 +397,7 @@ pub global PROPOSED_BLOCK_HEADER_LENGTH: u32 = 1 /* last_archive_root */
     + 1 /* fee_recipient */
     + GAS_FEES_LENGTH
     + TOTAL_MANA_USED_LENGTH;
-pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENGTH - 4) * 32
+pub global CHECKPOINT_HEADER_SIZE_IN_BYTES: u32 = (CHECKPOINT_HEADER_LENGTH - 4) * 32
     + 8 /* timestamp */
     + 20 /* coinbase */
     + 16 /* gas_fees.fee_per_da_gas */
@@ -538,6 +570,7 @@ pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LEN
     + 2 * STATE_REFERENCE_LENGTH /* start_state and end_state */
     + 2 * SPONGE_BLOB_LENGTH /* start_sponge_blob and end_sponge_blob */
     + 2 /* start_timestamp and end_timestamp */
+    + 1 /* block_headers_hash */
     + 1 /* in_hash */
     + 1 /* out_hash */
     + 1 /* accumulated_fees */
@@ -1101,6 +1134,7 @@ pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE
 // TODO: Maybe hash instead of directly encoding to field for NUMS
 pub global TX_START_PREFIX: Field = 0x74785f7374617274; // = "tx_start".to_field() in nr
 pub global BLOCK_END_PREFIX: Field = 0x626c6f636b5f656e64; // = "block_end".to_field() in nr
+pub global CHECKPOINT_END_PREFIX: Field = 0x636865636b706f696e745f656e64; // = "checkpoint_end".to_field() in nr
 
 // Constants related to proof type of a recursive proof verification.
 // Keep following constants in sync with the enum acir_format::PROOF_TYPE in recursion_constraint.hpp
@@ -1167,13 +1201,22 @@ mod test {
     use crate::address::aztec_address::AztecAddress;
     use crate::constants::{
         AVM_RETRIEVED_BYTECODES_TREE_HEIGHT, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
-        MAX_PROTOCOL_CONTRACTS, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, SIDE_EFFECT_MASKING_ADDRESS,
+        GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET, GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET,
+        GLOBAL_INDEX_NOTE_HASH_OFFSET, GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
+        GLOBAL_INDEX_NULLIFIER_OFFSET, GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
+        GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET, GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
+        GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
+        MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_PROTOCOL_CONTRACTS,
+        MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        SIDE_EFFECT_MASKING_ADDRESS,
     };
     use crate::traits::FromField;
     use super::{
         NUM_BASE_PARITY_PER_ROOT_PARITY, NUM_MSGS_PER_BASE_PARITY,
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
     };
 
     #[test]
@@ -1222,6 +1265,29 @@ mod test {
             NUM_BASE_PARITY_PER_ROOT_PARITY * NUM_MSGS_PER_BASE_PARITY,
             NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
         );
+    }
+
+    #[test]
+    fn validate_global_indexes() {
+        let sequence = [
+            (GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
+            (GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
+            (GLOBAL_INDEX_NOTE_HASH_OFFSET, MAX_NOTE_HASHES_PER_CALL),
+            (GLOBAL_INDEX_NULLIFIER_OFFSET, MAX_NULLIFIERS_PER_CALL),
+            (GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
+            (GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_ENQUEUED_CALLS_PER_CALL),
+            (GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET, MAX_L2_TO_L1_MSGS_PER_CALL),
+            (GLOBAL_INDEX_PRIVATE_LOG_OFFSET, MAX_PRIVATE_LOGS_PER_CALL),
+            (GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET, MAX_CONTRACT_CLASS_LOGS_PER_CALL),
+        ];
+
+        let mut last_offset = 0;
+        for i in 0..sequence.len() {
+            let (offset, count) = sequence[i];
+            assert_eq(offset, last_offset);
+            last_offset += count;
+        }
+        assert_eq(last_offset, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL);
     }
 
 }
