@@ -382,17 +382,6 @@ This adds:
 - Recursive verification of previous app and kernel proofs
 - Databus consistency checks between circuits
 - Merge proof verification
-
-### Stdlib Queue Instantiation
-
-Before kernel logic, convert native queue to stdlib:
-
-```cpp
-ivc.instantiate_stdlib_verification_queue(kernel);
-```
-
----
-
 ## HyperNova Folding Details
 
 ### Core Classes
@@ -494,11 +483,11 @@ The fold operation:
      - `w_evaluations_accumulator` = $\text{eq}(X, r_{\text{acc}})$
      - `w_evaluations_instance` = $\text{eq}(X, r_{\text{inst}})$
 
-   - Runs Sumcheck on the batching relation which checks:
+   - Runs Sumcheck on the batching relation which checks (sums are over the Boolean hypercube $\{0,1\}^n$):
 
-   $$\sum_X p_{\text{acc}}(X) \cdot \text{eq}(X, r_{\text{acc}}) = v_{\text{acc}}$$
+   $$\sum_{\mathbf{i} \in \{0,1\}^n} p_{\text{acc}}(\mathbf{i}) \cdot \text{eq}(\mathbf{i}, r_{\text{acc}}) = v_{\text{acc}}$$
 
-   $$\sum_X p_{\text{inst}}(X) \cdot \text{eq}(X, r_{\text{inst}}) = v_{\text{inst}}$$
+   $$\sum_{\mathbf{i} \in \{0,1\}^n} p_{\text{inst}}(\mathbf{i}) \cdot \text{eq}(\mathbf{i}, r_{\text{inst}}) = v_{\text{inst}}$$
 
    This verifies that the claimed evaluations match the polynomials at the respective challenge points.
 
