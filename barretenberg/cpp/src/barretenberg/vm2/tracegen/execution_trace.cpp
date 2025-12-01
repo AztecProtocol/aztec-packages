@@ -290,7 +290,7 @@ void ExecutionTraceBuilder::process(
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
 
     // Preprocess events to determine which contexts will fail
-    FailingContexts failures = preprocess_for_discard(ex_events);
+    const FailingContexts failures = preprocess_for_discard(ex_events);
 
     // Some variables updated per loop iteration to track
     // whether or not the upcoming row should "discard" [side effects].
@@ -308,7 +308,7 @@ void ExecutionTraceBuilder::process(
             dying_context_id = dying_context_for_phase(ex_event.after_context_event.phase, failures);
         }
 
-        bool has_parent = ex_event.after_context_event.parent_id != 0;
+        const bool has_parent = ex_event.after_context_event.parent_id != 0;
 
         /**************************************************************************************************
          *  Setup.
@@ -424,7 +424,7 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 1: Bytecode retrieval.
          **************************************************************************************************/
 
-        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_RETRIEVAL;
+        const bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_RETRIEVAL;
         trace.set(row,
                   { {
                       { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
@@ -438,8 +438,8 @@ void ExecutionTraceBuilder::process(
 
         // This will only have a value if instruction fetching succeeded.
         std::optional<ExecutionOpCode> exec_opcode;
-        bool error_in_instruction_fetching = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
-        bool instruction_fetching_success = !bytecode_retrieval_failed && !error_in_instruction_fetching;
+        const bool error_in_instruction_fetching = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
+        const bool instruction_fetching_success = !bytecode_retrieval_failed && !error_in_instruction_fetching;
         trace.set(C::execution_sel_instruction_fetching_failure, row, error_in_instruction_fetching ? 1 : 0);
 
         if (instruction_fetching_success) {
@@ -458,7 +458,7 @@ void ExecutionTraceBuilder::process(
             process_addressing(ex_event.addressing_event, ex_event.wire_instruction, trace, row);
         }
 
-        bool addressing_failed = ex_event.error == ExecutionError::ADDRESSING;
+        const bool addressing_failed = ex_event.error == ExecutionError::ADDRESSING;
 
         /**************************************************************************************************
          *  Temporality group 3: Registers read.
@@ -467,8 +467,8 @@ void ExecutionTraceBuilder::process(
         // Note that if addressing did not fail, register reading will not fail.
         std::array<MemoryValue, AVM_MAX_REGISTERS> registers;
         std::ranges::fill(registers, MemoryValue::from<FF>(0));
-        bool should_process_registers = instruction_fetching_success && !addressing_failed;
-        bool register_processing_failed = ex_event.error == ExecutionError::REGISTER_READ;
+        const bool should_process_registers = instruction_fetching_success && !addressing_failed;
+        const bool register_processing_failed = ex_event.error == ExecutionError::REGISTER_READ;
         if (should_process_registers) {
             process_registers(*exec_opcode, ex_event.inputs, ex_event.output, registers, trace, row);
         }
@@ -477,8 +477,8 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 4: Gas (both base and dynamic).
          **************************************************************************************************/
 
-        bool should_check_gas = should_process_registers && !register_processing_failed;
-        bool oog = ex_event.error == ExecutionError::GAS;
+        const bool should_check_gas = should_process_registers && !register_processing_failed;
+        const bool oog = ex_event.error == ExecutionError::GAS;
         trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
         if (should_check_gas) {
             process_gas(ex_event.gas_event, *exec_opcode, trace, row);
@@ -511,21 +511,21 @@ void ExecutionTraceBuilder::process(
         // Overly verbose but maximising readibility here
         // FIXME(ilyas): We currently cannot move this into the if statement because they are used outside of this
         // temporality group (e.g. in recomputing discard)
-        bool should_execute_opcode = should_check_gas && !oog;
-        bool should_execute_call =
+        const bool should_execute_opcode = should_check_gas && !oog;
+        const bool should_execute_call =
             should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::CALL;
-        bool should_execute_static_call =
+        const bool should_execute_static_call =
             should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
-        bool should_execute_return =
+        const bool should_execute_return =
             should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
-        bool should_execute_revert =
+        const bool should_execute_revert =
             should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
 
-        bool is_err = ex_event.error != ExecutionError::NONE;
-        bool is_failure = should_execute_revert || is_err;
-        bool sel_enter_call = should_execute_call || should_execute_static_call;
+        const bool is_err = ex_event.error != ExecutionError::NONE;
+        const bool is_failure = should_execute_revert || is_err;
+        const bool sel_enter_call = should_execute_call || should_execute_static_call;
         // TODO: would is_err here catch any error at the opcode execution step which we dont want to consider?
-        bool sel_exit_call = should_execute_return || should_execute_revert || is_err;
+        const bool sel_exit_call = should_execute_return || should_execute_revert || is_err;
 
         if (sel_exit_call) {
             // We rollback if we revert or error and we have a parent context.
@@ -542,7 +542,7 @@ void ExecutionTraceBuilder::process(
                       } });
         }
 
-        bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
+        const bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
         if (should_execute_opcode) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
             const auto& dispatch_to_subtrace = get_subtrace_info_map().at(*exec_opcode);
@@ -670,7 +670,7 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 6: Register write.
          **************************************************************************************************/
 
-        bool should_process_register_write = should_execute_opcode && !opcode_execution_failed;
+        const bool should_process_register_write = should_execute_opcode && !opcode_execution_failed;
         if (should_process_register_write) {
             process_registers_write(*exec_opcode, trace, row);
         }
@@ -679,7 +679,7 @@ void ExecutionTraceBuilder::process(
          *  Discarding.
          **************************************************************************************************/
 
-        bool is_dying_context = discard == 1 && (ex_event.after_context_event.id == dying_context_id);
+        const bool is_dying_context = discard == 1 && (ex_event.after_context_event.id == dying_context_id);
 
         // Need to generate the item below for checking "is dying context" in circuit
         FF dying_context_diff = 0;
@@ -689,15 +689,15 @@ void ExecutionTraceBuilder::process(
         }
 
         // Needed for bc retrieval
-        bool sel_first_row_in_context = prev_row_was_enter_call || is_first_event_in_enqueued_call;
+        const bool sel_first_row_in_context = prev_row_was_enter_call || is_first_event_in_enqueued_call;
 
-        bool enqueued_call_end = sel_exit_call && !has_parent;
-        bool resolves_dying_context = is_failure && is_dying_context;
-        bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
+        const bool enqueued_call_end = sel_exit_call && !has_parent;
+        const bool resolves_dying_context = is_failure && is_dying_context;
+        const bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
 
         // This is here instead of guarded by `should_execute_opcode` because is_err is a higher level error
         // than just an opcode error (i.e., it is on if there are any errors in any temporality group).
-        bool rollback_context = (should_execute_revert || is_err) && has_parent;
+        const bool rollback_context = (should_execute_revert || is_err) && has_parent;
 
         trace.set(
             row,
@@ -721,7 +721,7 @@ void ExecutionTraceBuilder::process(
 
         // Trace-generation is done for this event.
         // Now, use this event to determine whether we should set/reset the discard flag for the NEXT event
-        bool event_kills_dying_context =
+        const bool event_kills_dying_context =
             discard == 1 && is_failure && ex_event.after_context_event.id == dying_context_id;
 
         if (event_kills_dying_context) {
