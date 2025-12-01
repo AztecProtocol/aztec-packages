@@ -27,6 +27,9 @@ In addition to the docs website, you can "talk" with this repo using [DeepWiki](
 
 All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://aztec.network/roadmap) section of our website.
 
+If you are new to the project and looking for a place to start, look for issues labelled ["good first issue"](https://github.com/AztecProtocol/aztec-packages/labels/good%20first%20issue) and comment that you would like to take them on.
+
+
 ## Debugging
 
 Logging goes through the [Logger](yarn-project/foundation/src/log/) module in Typescript. `LOG_LEVEL` controls the default log level, and one can set alternate levels for specific modules, such as `debug; warn: module1, module2; error: module3`.
