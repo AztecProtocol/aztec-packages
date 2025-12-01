@@ -201,6 +201,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual(GasFees.empty());
   });
 
+  it('getMaxPriorityFees', async () => {
+    const response = await context.client.getMaxPriorityFees();
+    expect(response).toEqual(GasFees.empty());
+  });
+
   it('getBlockNumber', async () => {
     const response = await context.client.getBlockNumber();
     expect(response).toBe(1);
