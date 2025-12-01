@@ -49,7 +49,7 @@ pub contract NFT {
         // Addresses that can mint
         minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
         // Contains the NFTs owned by each address in private.
-        private_nfts: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
+        private_nfts: PrivateSet<NFTNote, Context>,
         // A map from token ID to a boolean indicating if the NFT exists.
         nft_exists: Map<Field, PublicMutable<bool, Context>, Context>,
         // A map from token ID to the public owner of the NFT.
@@ -254,7 +254,7 @@ pub contract NFT {
             .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring");
 
-        let new_note = NFTNote::new(token_id, to);
+        let new_note = NFTNote::new(token_id);
 
         nfts.at(to).insert(new_note).emit(to, MessageDelivery.CONSTRAINED_ONCHAIN);
     }

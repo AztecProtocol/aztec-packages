@@ -235,6 +235,7 @@ export class Oracle {
   }
 
   async utilityGetNotes(
+    [owner]: ACVMField[],
     [storageSlot]: ACVMField[],
     [numSelects]: ACVMField[],
     selectByIndexes: ACVMField[],
@@ -253,6 +254,7 @@ export class Oracle {
     [packedRetrievedNoteLength]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
     const noteDatas = await this.handlerAsUtility().utilityGetNotes(
+      AztecAddress.fromString(owner),
       Fr.fromString(storageSlot),
       +numSelects,
       selectByIndexes.map(s => +s),
@@ -281,6 +283,7 @@ export class Oracle {
   }
 
   privateNotifyCreatedNote(
+    [owner]: ACVMField[],
     [storageSlot]: ACVMField[],
     [randomness]: ACVMField[],
     [noteTypeId]: ACVMField[],
@@ -289,6 +292,7 @@ export class Oracle {
     [counter]: ACVMField[],
   ): Promise<ACVMField[]> {
     this.handlerAsPrivate().privateNotifyCreatedNote(
+      AztecAddress.fromString(owner),
       Fr.fromString(storageSlot),
       Fr.fromString(randomness),
       NoteSelector.fromField(Fr.fromString(noteTypeId)),

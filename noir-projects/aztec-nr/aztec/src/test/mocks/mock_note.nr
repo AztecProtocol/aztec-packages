@@ -11,7 +11,7 @@ use dep::protocol_types::{
     address::AztecAddress,
     constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
     hash::poseidon2_hash_with_separator,
-    traits::Packable,
+    traits::{Packable, ToField},
 };
 
 #[derive(Eq, Packable)]
@@ -27,14 +27,20 @@ impl NoteType for MockNote {
 }
 
 impl NoteHash for MockNote {
-    fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field {
-        let input = self.pack().concat([storage_slot, randomness]);
+    fn compute_note_hash(
+        self,
+        owner: AztecAddress,
+        storage_slot: Field,
+        randomness: Field,
+    ) -> Field {
+        let input = self.pack().concat([owner.to_field(), storage_slot, randomness]);
         poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
     }
 
     fn compute_nullifier(
         _self: Self,
         _context: &mut PrivateContext,
+        _owner: AztecAddress,
         note_hash_for_nullification: Field,
     ) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
@@ -47,6 +53,7 @@ impl NoteHash for MockNote {
 
     unconstrained fn compute_nullifier_unconstrained(
         self,
+        _owner: AztecAddress,
         note_hash_for_nullification: Field,
     ) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests

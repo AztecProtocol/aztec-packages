@@ -1,1 +1,1 @@
-InvalidNote has a packed length of 12 fields, which exceeds the maximum allowed length of 11 fields
+InvalidNote has a packed length of 11 fields, which exceeds the maximum allowed length of 10 fields

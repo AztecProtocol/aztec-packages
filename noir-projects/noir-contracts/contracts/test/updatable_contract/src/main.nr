@@ -7,7 +7,7 @@ contract Updatable {
         macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::{
-            constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+            address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
             contract_class_id::ContractClassId,
         },
         state_vars::{PrivateMutable, PublicMutable},
@@ -25,8 +25,8 @@ contract Updatable {
     #[external("private")]
     fn initialize(initial_value: Field) {
         let owner = self.msg_sender().unwrap();
-        let new_value = ValueNote::new(initial_value, owner);
-        self.storage.private_value.initialize(new_value).emit(
+        let note = ValueNote::new(initial_value);
+        self.storage.private_value.at(owner).initialize(note).emit(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -57,8 +57,8 @@ contract Updatable {
     }
 
     #[external("utility")]
-    unconstrained fn get_private_value() -> Field {
-        self.storage.private_value.view_note().value()
+    unconstrained fn get_private_value(owner: AztecAddress) -> Field {
+        self.storage.private_value.at(owner).view_note().value()
     }
 
     #[external("utility")]
