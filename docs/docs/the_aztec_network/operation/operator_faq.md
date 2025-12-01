@@ -42,9 +42,7 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
    rm -rf ~/.aztec/v2.0.4/data/archiver
    ```
 
-3. Update to the latest version (see the "Updating to Latest Version" section below)
-
-4. Restart your node:
+3. Restart your node:
 
    ```bash
    docker compose up -d
@@ -216,29 +214,9 @@ Sequencers with insufficient funds in their publisher account risk being slashed
 
 ## Updates and Maintenance
 
-### Updating to Latest Version
-
-**Issue**: You need to update your node to the latest Aztec version.
-
-**Solution**:
-
-```bash
-# Pull the latest image
-docker compose pull
-
-# Stop the current container
-docker compose down
-
-# Start with the new image
-docker compose up -d
-
-# Verify it's running
-docker compose logs -f aztec-sequencer
-```
-
 #### Version-Specific Updates:
 
-To update to a specific version instead of latest, update your `docker-compose.yml`:
+To update to a specific version , update your `docker-compose.yml`:
 
 ```yaml
 # Change the image tag from:
