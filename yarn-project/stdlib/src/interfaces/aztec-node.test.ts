@@ -21,7 +21,7 @@ import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import type { InBlock } from '../block/in_block.js';
+import type { DataInBlock } from '../block/in_block.js';
 import { CommitteeAttestation, L2BlockHash, type L2BlockNumber } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
@@ -525,7 +525,7 @@ class MockAztecNode implements AztecNode {
     blockNumber: number | 'latest',
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]> {
+  ): Promise<(DataInBlock<bigint> | undefined)[]> {
     expect(leafValues).toHaveLength(2);
     expect(leafValues[0]).toBeInstanceOf(Fr);
     expect(leafValues[1]).toBeInstanceOf(Fr);

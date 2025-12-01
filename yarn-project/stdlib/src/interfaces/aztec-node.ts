@@ -16,7 +16,7 @@ import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
-import { type InBlock, inBlockSchemaFor } from '../block/in_block.js';
+import { type DataInBlock, inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from '../block/l2_block_number.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
@@ -91,7 +91,7 @@ export interface AztecNode
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]>;
+  ): Promise<(DataInBlock<bigint> | undefined)[]>;
 
   /**
    * Returns a sibling path for the given index in the nullifier tree.
