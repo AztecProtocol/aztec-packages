@@ -2,7 +2,7 @@ import { Body, L2Block } from '@aztec/aztec.js/block';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -200,7 +200,7 @@ describe('sequencer', () => {
     publisher.enqueueSlashingActions.mockResolvedValue(true);
     publisher.canProposeAtNextEthBlock.mockResolvedValue({
       slot: SlotNumber(newSlotNumber),
-      checkpointNumber: BigInt(newBlockNumber),
+      checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
       timeOfNextL1Slot: 1000n,
     });
 
@@ -382,7 +382,7 @@ describe('sequencer', () => {
       // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
       publisher.canProposeAtNextEthBlock.mockResolvedValue({
         slot: block.header.globalVariables.slotNumber,
-        checkpointNumber: BigInt(block.header.globalVariables.blockNumber),
+        checkpointNumber: CheckpointNumber.fromBlockNumber(block.header.globalVariables.blockNumber),
         timeOfNextL1Slot: 1000n,
       });
 
@@ -570,7 +570,7 @@ describe('sequencer', () => {
         publisher.enqueueSlashingActions.mockResolvedValue(true);
         publisher.canProposeAtNextEthBlock.mockResolvedValue({
           slot: SlotNumber(newSlotNumber),
-          checkpointNumber: BigInt(newBlockNumber),
+          checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
           timeOfNextL1Slot: 1000n,
         });
         return publisher;

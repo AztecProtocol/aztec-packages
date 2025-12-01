@@ -136,7 +136,7 @@ describe('full_prover', () => {
 
       const rewardsBeforeCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
       const rewardsBeforeProver = await rollup.getSpecificProverRewardsForEpoch(BigInt(epoch), t.proverAddress);
-      const oldProvenBlockNumber = await rollup.getProvenCheckpointNumber();
+      const oldProvenCheckpointNumber = await rollup.getProvenCheckpointNumber();
 
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
@@ -147,9 +147,9 @@ describe('full_prover', () => {
         }),
       );
 
-      const newProvenBlockNumber = await rollup.getProvenCheckpointNumber();
-      expect(newProvenBlockNumber).toBeGreaterThan(oldProvenBlockNumber);
-      expect(await rollup.getCheckpointNumber()).toBe(newProvenBlockNumber);
+      const newProvenCheckpointNumber = await rollup.getProvenCheckpointNumber();
+      expect(newProvenCheckpointNumber).toBeGreaterThan(oldProvenCheckpointNumber);
+      expect(await rollup.getCheckpointNumber()).toBe(newProvenCheckpointNumber);
 
       logger.info(`checking rewards for coinbase: ${COINBASE_ADDRESS.toString()}`);
       const rewardsAfterCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
@@ -158,15 +158,13 @@ describe('full_prover', () => {
       const rewardsAfterProver = await rollup.getSpecificProverRewardsForEpoch(BigInt(epoch), t.proverAddress);
       expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
 
-      const blockReward = await rollup.getCheckpointReward();
+      const reward = await rollup.getCheckpointReward();
+      const newProvenBlockNumber = Number(newProvenCheckpointNumber);
       const fees = (
-        await Promise.all([
-          t.aztecNode.getBlock(Number(newProvenBlockNumber - 1n)),
-          t.aztecNode.getBlock(Number(newProvenBlockNumber)),
-        ])
+        await Promise.all([t.aztecNode.getBlock(newProvenBlockNumber - 1), t.aztecNode.getBlock(newProvenBlockNumber)])
       ).map(b => b!.header.totalFees.toBigInt());
 
-      const totalRewards = fees.map(fee => fee + blockReward).reduce((acc, reward) => acc + reward, 0n);
+      const totalRewards = fees.map(fee => fee + reward).reduce((acc, reward) => acc + reward, 0n);
       const sequencerGain = rewardsAfterCoinbase - rewardsBeforeCoinbase;
       const proverGain = rewardsAfterProver - rewardsBeforeProver;
 

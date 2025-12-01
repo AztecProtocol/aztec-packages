@@ -1,6 +1,6 @@
 import { BatchedBlob } from '@aztec/blob-lib/types';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -135,10 +135,10 @@ describe('prover-node-publisher', () => {
         proven: provenBlockNumber,
       });
 
-      // Return the requested block
-      rollup.getCheckpoint.mockImplementation((blockNumber: bigint) =>
+      // Return the requested checkpoint
+      rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
         Promise.resolve({
-          archive: blocks[Number(blockNumber) - 1].endArchiveRoot.toString(),
+          archive: blocks[checkpointNumber - 1].endArchiveRoot.toString(),
           attestationsHash: '0x', // unused,
           payloadDigest: '0x', // unused,
           headerHash: '0x', // unused,
@@ -205,9 +205,9 @@ describe('prover-node-publisher', () => {
     });
 
     // Return the requested block
-    rollup.getCheckpoint.mockImplementation((i: bigint) =>
+    rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
       Promise.resolve({
-        archive: blocks[Number(i) - 1].endArchiveRoot.toString(),
+        archive: blocks[checkpointNumber - 1].endArchiveRoot.toString(),
         attestationsHash: '0x', // unused,
         payloadDigest: '0x', // unused,
         headerHash: '0x', // unused,

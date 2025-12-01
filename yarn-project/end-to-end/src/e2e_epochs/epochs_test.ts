@@ -9,7 +9,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig, type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
@@ -291,21 +291,21 @@ export class EpochsTestContext {
     return start;
   }
 
-  /** Waits until the given L2 block number is mined. */
-  public async waitUntilL2BlockNumber(target: number, timeout = 60) {
+  /** Waits until the given checkpoint number is mined. */
+  public async waitUntilCheckpointNumber(target: CheckpointNumber, timeout = 60) {
     await retryUntil(
       () => Promise.resolve(target <= this.monitor.checkpointNumber),
-      `Wait until L2 block ${target}`,
+      `Wait until checkpoint ${target}`,
       timeout,
       0.1,
     );
   }
 
-  /** Waits until the given L2 block number is marked as proven. */
-  public async waitUntilProvenL2BlockNumber(t: number, timeout = 60) {
+  /** Waits until the given checkpoint number is marked as proven. */
+  public async waitUntilProvenCheckpointNumber(target: CheckpointNumber, timeout = 60) {
     await retryUntil(
-      () => Promise.resolve(t <= this.monitor.provenCheckpointNumber),
-      `Wait proven L2 block ${t}`,
+      () => Promise.resolve(target <= this.monitor.provenCheckpointNumber),
+      `Wait proven checkpoint ${target}`,
       timeout,
       0.1,
     );
