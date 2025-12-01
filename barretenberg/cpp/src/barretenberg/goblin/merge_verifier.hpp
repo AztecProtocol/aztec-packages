@@ -36,6 +36,9 @@ template <typename Curve> class MergeVerifier_ {
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
 
+    // Size of batch opening claim: [Q], [L₁..L₄], [R₁..R₄], [M₁..M₄], [G], [1]
+    static constexpr size_t MERGE_BATCHED_CLAIM_SIZE = (3 * NUM_WIRES) + 3;
+
     using TableCommitments = std::array<Commitment, NUM_WIRES>; // Commitments to the subtables and the merged table
 
     /**
