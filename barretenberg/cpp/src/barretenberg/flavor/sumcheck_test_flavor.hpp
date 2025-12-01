@@ -349,22 +349,16 @@ using SumcheckTestFlavorZK = SumcheckTestFlavor_<curve::BN254, true, true>;
 using SumcheckTestFlavorFullBary = SumcheckTestFlavor_<curve::BN254, false, false>;
 
 /**
- * @brief Grumpkin curve variant
- * @details Tests sumcheck over the Grumpkin curve (used in IVC/recursion)
+ * @brief Grumpkin ZK variant
+ * @details Tests ZK sumcheck over the Grumpkin curve (used in ECCVM/IVC)
+ * @note Grumpkin sumcheck requires ZK mode for commitment-based protocol
  */
-using SumcheckTestFlavorGrumpkin = SumcheckTestFlavor_<curve::Grumpkin, false, true>;
+using SumcheckTestFlavorGrumpkinZK = SumcheckTestFlavor_<curve::Grumpkin, true, true>;
 
 /**
  * @brief ZK + Full barycentric combination
  * @details Tests both ZK and full barycentric extension together
  */
 using SumcheckTestFlavorZKFullBary = SumcheckTestFlavor_<curve::BN254, true, false>;
-
-/**
- * @brief Grumpkin + Full barycentric combination
- * @details Tests Grumpkin with full barycentric extension
- * @note Grumpkin does not support ZK sumcheck (Grumpkin::LIBRA_UNIVARIATES_LENGTH = 3)
- */
-using SumcheckTestFlavorGrumpkinFullBary = SumcheckTestFlavor_<curve::Grumpkin, false, false>;
 
 } // namespace bb

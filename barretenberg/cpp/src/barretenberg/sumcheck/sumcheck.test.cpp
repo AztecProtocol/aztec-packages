@@ -370,10 +370,10 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
 // Define the FlavorTypes using SumcheckTestFlavor variants
 // Note: Only testing short monomials since full barycentric adds complexity without testing sumcheck-specific logic
-// Note: Grumpkin does not support ZK sumcheck (LIBRA_UNIVARIATES_LENGTH mismatch)
-using FlavorTypes = testing::Types<SumcheckTestFlavor,          // BN254, non-ZK, short monomials
-                                   SumcheckTestFlavorZK,        // BN254, ZK, short monomials
-                                   SumcheckTestFlavorGrumpkin>; // Grumpkin, non-ZK, short monomials
+// Note: Grumpkin sumcheck requires ZK mode for commitment-based protocol (used in ECCVM/IVC)
+using FlavorTypes = testing::Types<SumcheckTestFlavor,            // BN254, non-ZK, short monomials
+                                   SumcheckTestFlavorZK,          // BN254, ZK, short monomials
+                                   SumcheckTestFlavorGrumpkinZK>; // Grumpkin, ZK, short monomials
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
 
