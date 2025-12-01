@@ -412,11 +412,11 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
             return std::make_unique<NoopDebugLogger>();
         }
     }();
-    auto call_stack_metadata_collector = config.collect_call_metadata
-                                             ? static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
-                                                   std::make_unique<CallStackMetadataCollector>())
-                                             : static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
-                                                   std::make_unique<NoopCallStackMetadataCollector>());
+    auto call_stack_metadata_collector =
+        config.collect_call_metadata ? static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
+                                           std::make_unique<CallStackMetadataCollector>(config.collection_limits))
+                                     : static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
+                                           std::make_unique<NoopCallStackMetadataCollector>());
 
     HybridExecution execution(alu,
                               bitwise,

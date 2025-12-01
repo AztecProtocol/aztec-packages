@@ -12,6 +12,19 @@ void CallStackMetadataCollector::set_phase(CoarseTransactionPhase phase)
     current_phase = phase;
 }
 
+bool CallStackMetadataCollector::should_skip_collection() const
+{
+    // Check call stack depth limit (size - 1 because we have a dummy root).
+    if (limits.max_call_stack_depth > 0 && (call_stack_metadata.size() - 1) >= limits.max_call_stack_depth) {
+        return true;
+    }
+    // Check total call stack items limit.
+    if (limits.max_call_stack_items > 0 && total_call_stack_items >= limits.max_call_stack_items) {
+        return true;
+    }
+    return false;
+}
+
 void CallStackMetadataCollector::notify_enter_call(const AztecAddress& contract_address,
                                                    uint32_t caller_pc,
                                                    const CalldataProvider& calldata_provider,
@@ -19,9 +32,17 @@ void CallStackMetadataCollector::notify_enter_call(const AztecAddress& contract_
                                                    const Gas& gas_limit)
 {
     assert(!call_stack_metadata.empty());
-    call_stack_metadata.top().num_nested_calls++;
 
-    uint32_t max_calldata_size = 1024; // TODO: make this configurable.
+    // Check if we should stop collecting due to limits.
+    if (should_skip_collection()) {
+        return;
+    }
+
+    call_stack_metadata.top().num_nested_calls++;
+    total_call_stack_items++;
+
+    // Use configured limit or default.
+    uint32_t max_calldata_size = limits.max_calldata_size_in_fields > 0 ? limits.max_calldata_size_in_fields : 1024;
     std::vector<FF> calldata = calldata_provider(max_calldata_size);
 
     call_stack_metadata.push({
@@ -46,7 +67,14 @@ void CallStackMetadataCollector::notify_exit_call(bool success,
                                                   const ReturnDataProvider& return_data_provider,
                                                   const InternalCallStackProvider& internal_call_stack_provider)
 {
-    uint32_t max_return_data_size = 1024; // TODO: make this configurable.
+    // If we only have the dummy root, we skipped collection for this call.
+    if (call_stack_metadata.size() <= 1) {
+        return;
+    }
+
+    // Use configured limit or default.
+    uint32_t max_return_data_size =
+        limits.max_returndata_size_in_fields > 0 ? limits.max_returndata_size_in_fields : 1024;
     std::vector<FF> return_data = return_data_provider(max_return_data_size);
     std::vector<PC> internal_call_stack = internal_call_stack_provider();
     internal_call_stack.push_back(pc);

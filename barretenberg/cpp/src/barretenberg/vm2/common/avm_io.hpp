@@ -427,6 +427,7 @@ struct AvmProvingInputs {
 struct CollectionLimitsConfig {
     uint32_t max_debug_log_memory_reads = 0;
     uint32_t max_calldata_size_in_fields = 0;
+    uint32_t max_returndata_size_in_fields = 0;
     uint32_t max_call_stack_depth = 0;
     uint32_t max_call_stack_items = 0;
 
@@ -434,6 +435,7 @@ struct CollectionLimitsConfig {
 
     MSGPACK_CAMEL_CASE_FIELDS(max_debug_log_memory_reads,
                               max_calldata_size_in_fields,
+                              max_returndata_size_in_fields,
                               max_call_stack_depth,
                               max_call_stack_items);
 };

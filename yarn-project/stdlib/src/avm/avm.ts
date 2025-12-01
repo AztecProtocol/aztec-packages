@@ -1283,6 +1283,7 @@ export class CollectionLimitsConfig {
   constructor(
     public readonly maxDebugLogMemoryReads: number,
     public readonly maxCalldataSizeInFields: number,
+    public readonly maxReturndataSizeInFields: number,
     public readonly maxCallStackDepth: number,
     public readonly maxCallStackItems: number,
   ) {}
@@ -1291,6 +1292,7 @@ export class CollectionLimitsConfig {
     return new CollectionLimitsConfig(
       obj.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
       obj.maxCalldataSizeInFields ?? 300,
+      obj.maxReturndataSizeInFields ?? 300,
       obj.maxCallStackDepth ?? 5,
       obj.maxCallStackItems ?? 100,
     );
@@ -1305,14 +1307,22 @@ export class CollectionLimitsConfig {
       .object({
         maxDebugLogMemoryReads: z.number(),
         maxCalldataSizeInFields: z.number(),
+        maxReturndataSizeInFields: z.number(),
         maxCallStackDepth: z.number(),
         maxCallStackItems: z.number(),
       })
       .transform(
-        ({ maxDebugLogMemoryReads, maxCalldataSizeInFields, maxCallStackDepth, maxCallStackItems }) =>
+        ({
+          maxDebugLogMemoryReads,
+          maxCalldataSizeInFields,
+          maxReturndataSizeInFields,
+          maxCallStackDepth,
+          maxCallStackItems,
+        }) =>
           new CollectionLimitsConfig(
             maxDebugLogMemoryReads,
             maxCalldataSizeInFields,
+            maxReturndataSizeInFields,
             maxCallStackDepth,
             maxCallStackItems,
           ),

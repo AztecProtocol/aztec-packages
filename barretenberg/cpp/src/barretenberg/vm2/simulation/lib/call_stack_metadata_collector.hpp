@@ -3,6 +3,7 @@
 #include <stack>
 #include <vector>
 
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/simulation/interfaces/call_stack_metadata_collector.hpp"
 
 namespace bb::avm2::simulation {
@@ -14,6 +15,9 @@ class InternalCallStackManagerInterface;
 class CallStackMetadataCollector : public CallStackMetadataCollectorInterface {
   public:
     CallStackMetadataCollector() = default;
+    explicit CallStackMetadataCollector(const CollectionLimitsConfig& limits)
+        : limits(limits)
+    {}
 
     void set_phase(CoarseTransactionPhase phase) override;
     void notify_enter_call(const AztecAddress& contract_address,
@@ -30,13 +34,21 @@ class CallStackMetadataCollector : public CallStackMetadataCollectorInterface {
     std::vector<CallStackMetadata> dump_call_stack_metadata() override;
 
   private:
+    // Collection limits configuration.
+    CollectionLimitsConfig limits;
+
     // It is incremented by 1 for each new call.
     uint32_t timestamp = 0;
+    // Total number of call stack items collected.
+    uint32_t total_call_stack_items = 0;
     // We start with a dummy call stack metadata. This is not a real call,
     // we use it as a placeholder "root call" that corresponds to the whole TX.
     // We store the enqueued calls in the nested vector of this root call.
     std::stack<CallStackMetadata> call_stack_metadata{ { {} } };
     CoarseTransactionPhase current_phase = CoarseTransactionPhase::SETUP;
+
+    // Returns true if we should skip collection due to limits being exceeded.
+    bool should_skip_collection() const;
 };
 
 // These factories return an object that is only valid for the lifetime of the context.
