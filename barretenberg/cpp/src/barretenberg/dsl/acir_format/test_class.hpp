@@ -132,6 +132,7 @@ inline std::vector<Acir::Opcode> block_constraint_to_acir_opcodes(const BlockCon
 
     // Create the MemoryInit opcode
     std::vector<Acir::Witness> init_witnesses;
+    init_witnesses.reserve(constraint.init.size());
     for (const auto& init_val : constraint.init) {
         init_witnesses.push_back(Acir::Witness{ .value = init_val });
     }

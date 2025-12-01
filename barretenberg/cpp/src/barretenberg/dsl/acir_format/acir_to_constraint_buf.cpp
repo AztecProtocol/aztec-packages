@@ -682,26 +682,23 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& blo
 {
     // Lambda to convert an Acir::Expression to a witness index
     auto acir_expression_to_witness_or_constant = [&](const Acir::Expression& expr) {
-        std::map<uint32_t, bb::fr> linear_terms = process_linear_terms(expr);
-        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(expr, linear_terms);
-
-        BB_ASSERT_EQ(mul_quads.size(), 1U, "MemoryOp expression should result in a single mul_quad_ gate");
-        mul_quad_<fr> quad = mul_quads.front();
-
         // Noir gives us witnesses or constants for read/write operations. We use the following assertions to ensure
         // that the data coming from Noir is in the correct form.
-        BB_ASSERT_EQ(quad.mul_scaling, fr::zero(), "MemoryOp should not have a mul term");
-        BB_ASSERT_EQ(quad.b_scaling, fr::zero(), "MemoryOp should only have one linear term");
-        BB_ASSERT_EQ(quad.c_scaling, fr::zero(), "MemoryOp should only have one linear term");
-        BB_ASSERT_EQ(quad.d_scaling, fr::zero(), "MemoryOp should only have one linear term");
+        BB_ASSERT(expr.mul_terms.empty(), "MemoryOp should not have multiplication terms");
+        BB_ASSERT_LTE(expr.linear_combinations.size(), 1U, "MemoryOp should have at most one linear term");
 
-        bool is_witness = quad.a_scaling == fr::one() && quad.const_scaling == fr::zero();
-        bool is_constant = quad.a_scaling == fr::zero();
+        const fr a_scaling = expr.linear_combinations.size() == 1
+                                 ? fr::serialize_from_buffer(std::get<0>(expr.linear_combinations[0]).data())
+                                 : fr::zero();
+        const fr constant_term = fr::serialize_from_buffer(expr.q_c.data());
+
+        bool is_witness = a_scaling == fr::one() && constant_term == fr::zero();
+        bool is_constant = a_scaling == fr::zero();
         BB_ASSERT(is_witness || is_constant, "MemoryOp expression must be a witness or a constant");
 
         return WitnessOrConstant<bb::fr>{
-            .index = is_witness ? quad.a : bb::stdlib::IS_CONSTANT,
-            .value = is_constant ? quad.const_scaling : bb::fr::zero(),
+            .index = is_witness ? std::get<1>(expr.linear_combinations[0]).value : bb::stdlib::IS_CONSTANT,
+            .value = is_constant ? constant_term : fr::zero(),
             .is_constant = is_constant,
         };
     };
