@@ -3,7 +3,7 @@ import type { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock } from '@aztec/stdlib/block';
+import type { DataInBlock } from '@aztec/stdlib/block';
 import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
 import { NoteDao } from '@aztec/stdlib/note';
 
@@ -333,7 +333,7 @@ export class NoteDataProvider {
    * @returns Promise resolving to array of nullified NoteDao objects
    * @throws Error if any nullifier is not found in the active notes
    */
-  applyNullifiers(nullifiers: InBlock<Fr>[]): Promise<NoteDao[]> {
+  applyNullifiers(nullifiers: DataInBlock<Fr>[]): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {
       return Promise.resolve([]);
     }
