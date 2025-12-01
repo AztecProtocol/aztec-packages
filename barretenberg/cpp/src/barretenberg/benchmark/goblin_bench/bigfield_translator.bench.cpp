@@ -81,7 +81,8 @@ void bigfield_translator_prove_mega(State& state) noexcept
 
         fq_ct x = fq_ct::create_from_u512_as_witness(&builder, uint512_t(x_native));
         fq_ct v = fq_ct::create_from_u512_as_witness(&builder, uint512_t(v_native));
-        fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v);
+        // Use predecomposed limbs for optimized circuit size (2^18)
+        fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v, /*use_predecomposed_limbs=*/true);
         DoNotOptimize(result);
 
         // Add default public inputs required by the proving system
@@ -98,8 +99,8 @@ void bigfield_translator_prove_mega(State& state) noexcept
     }
 }
 
-BENCHMARK(bigfield_translator_prove_lightzk)->Unit(kMillisecond)->Arg(100)->Arg(1000)->Arg(4096);
-BENCHMARK(bigfield_translator_prove_mega)->Unit(kMillisecond)->Arg(100)->Arg(1000)->Arg(4096);
+BENCHMARK(bigfield_translator_prove_lightzk)->Unit(kMillisecond)->Arg(100)->Arg(500)->Arg(1000)->Arg(2000)->Arg(4096);
+BENCHMARK(bigfield_translator_prove_mega)->Unit(kMillisecond)->Arg(100)->Arg(500)->Arg(1000)->Arg(2000)->Arg(4096);
 
 } // namespace
 

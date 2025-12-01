@@ -61,7 +61,8 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_column_sum(const std::vect
 
 BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& builder,
                                                                   const fq_ct& evaluation_challenge_x,
-                                                                  const fq_ct& batching_challenge_v)
+                                                                  const fq_ct& batching_challenge_v,
+                                                                  bool use_predecomposed_limbs)
 {
     BB_BENCH_NAME("BigfieldTranslator::compute_accumulator");
 
@@ -162,11 +163,38 @@ BigfieldTranslator::fq_ct BigfieldTranslator::compute_accumulator(Builder& build
         // TODO: Refactor opcodes to {0, 1, 2, 3} to reduce to 2-bit range constraint
         ops[i] = fq_ct::create_from_single_limb(op_field, 4);
 
-        // Px from x_lo and x_hi (each 136 bits) - use safe constructor with range constraints
-        pxs[i] = fq_ct(x_lo, x_hi);
+        if (use_predecomposed_limbs) {
+            // OPTIMIZED PATH: Split 136-bit limbs into 68-bit sublimbs and construct bigfield
+            // WITHOUT range constraints. This assumes limbs are pre-decomposed and range-constrained
+            // in kernels. Reduces circuit size from 2^19 to 2^18.
+            constexpr uint256_t LIMB_68_MASK = (uint256_t(1) << 68) - 1;
 
-        // Py from y_lo and y_hi (each 136 bits)
-        pys[i] = fq_ct(y_lo, y_hi);
+            auto split_and_construct = [&](const field_ct& lo_136, const field_ct& hi_136) -> fq_ct {
+                // Get native values and split into 68-bit limbs
+                uint256_t lo_val = uint256_t(lo_136.get_value());
+                uint256_t hi_val = uint256_t(hi_136.get_value());
+
+                // Create constants (not witnesses) for the 68-bit sublimbs - no constraints added
+                field_ct limb0(&builder, Fr(lo_val & LIMB_68_MASK));
+                field_ct limb1(&builder, Fr(lo_val >> 68));
+                field_ct limb2(&builder, Fr(hi_val & LIMB_68_MASK));
+                field_ct limb3(&builder, Fr(hi_val >> 68));
+
+                // No assertions, no range constraints - assumes kernels already validated
+                return fq_ct::unsafe_construct_from_limbs(limb0, limb1, limb2, limb3, /*can_overflow=*/false);
+            };
+
+            // Px from x_lo and x_hi (each 136 bits) - split into 68-bit limbs
+            pxs[i] = split_and_construct(x_lo, x_hi);
+
+            // Py from y_lo and y_hi (each 136 bits)
+            pys[i] = split_and_construct(y_lo, y_hi);
+        } else {
+            // STANDARD PATH: Use fq_ct(lo, hi) constructor which decomposes and range-constrains
+            // internally. Results in 2^19 circuit size but doesn't require kernel changes.
+            pxs[i] = fq_ct(x_lo, x_hi);
+            pys[i] = fq_ct(y_lo, y_hi);
+        }
 
         // z1 and z2 are 128-bit scalar field elements
         // Use create_from_single_limb which range-constrains to 128 bits

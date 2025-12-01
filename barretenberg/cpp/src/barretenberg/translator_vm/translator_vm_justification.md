@@ -253,6 +253,132 @@ The Bigfield approach trades ~46% more memory for significantly simpler code tha
 
 ---
 
+## Optimized Approach: Pre-decomposed 68-bit Limbs
+
+The baseline bigfield approach pays significant overhead for decomposing 136-bit coordinate limbs (Px, Py) into 68-bit sublimbs and range-constraining them. This section describes an optimization that moves this work to kernels.
+
+### Current Op Queue Layout (2 rows per op)
+
+```
+Row 2i:   (op,   x_lo,  x_hi,  y_lo)   // x_lo, x_hi, y_lo are 136-bit
+Row 2i+1: (0,    y_hi,  z1,    z2)     // y_hi is 136-bit, z1/z2 are 128-bit
+```
+
+The `fq_ct(x_lo, x_hi)` constructor:
+1. Decomposes each 136-bit limb into 2×68-bit sublimbs
+2. Range-constrains each 68-bit sublimb via 5×14-bit decomposition
+3. Creates ~10 range-constrained variables per 136-bit limb
+
+For 4096 ops × 4 coordinate limbs = 16,384 decompositions → ~164K range variables → ~41K delta_range gates.
+
+### Proposed Op Queue Layout (3 rows per op)
+
+```
+Row 3i:   (op,       x_lo_lo, x_lo_hi, x_hi_lo)  // 68-bit limbs
+Row 3i+1: (x_hi_hi,  y_lo_lo, y_lo_hi, y_hi_lo)  // x_hi_hi 50-bit (top limb), rest 68-bit
+Row 3i+2: (y_hi_hi,  z1,      z2,      0)        // y_hi_hi 50-bit (top limb), z1/z2 128-bit
+```
+
+Note: BN254 Fq is 254 bits. Split into 4 limbs: 68 + 68 + 68 + 50 = 254. The top limb (`x_hi_hi`, `y_hi_hi`) is only 50 bits.
+
+With this layout:
+- Kernels decompose 136-bit → 68-bit when populating the op queue
+- Kernels range-constrain the 68-bit limbs (amortized across kernel's other constraints)
+- Translator uses `unsafe_construct_from_limbs` - no decomposition or range constraints
+
+### Implementation Details
+
+**In kernels (at `batch_mul`):**
+```cpp
+// Instead of storing x_lo (136-bit), store x_lo_lo and x_lo_hi (68-bit each)
+uint256_t x_lo_val = ...;
+Fr x_lo_lo = Fr(x_lo_val & LIMB_68_MASK);
+Fr x_lo_hi = Fr(x_lo_val >> 68);
+
+// Range constrain (finalization cost amortized with kernel's other constraints)
+field_ct x_lo_lo_ct = field_ct::from_witness(&builder, x_lo_lo);
+field_ct x_lo_hi_ct = field_ct::from_witness(&builder, x_lo_hi);
+x_lo_lo_ct.create_range_constraint(68);
+x_lo_hi_ct.create_range_constraint(68);
+```
+
+**In translator circuit:**
+```cpp
+// Read 68-bit limbs directly from op queue (no decomposition needed)
+field_ct limb0 = field_ct::from_witness_index(&builder, x_lo_lo_idx);
+field_ct limb1 = field_ct::from_witness_index(&builder, x_lo_hi_idx);
+field_ct limb2 = field_ct::from_witness_index(&builder, x_hi_lo_idx);
+field_ct limb3 = field_ct::from_witness_index(&builder, x_hi_hi_idx);
+
+// No range constraints - already done in kernels
+fq_ct px = fq_ct::unsafe_construct_from_limbs(limb0, limb1, limb2, limb3, false);
+```
+
+### Measured Results
+
+**Remote benchmark results (2000 ops, 16-core EC2):**
+
+| Approach | Proving Time |
+|----------|--------------|
+| Translator VM | **1,253 ms** |
+| Bigfield + LightZK (optimized) | 2,034 ms |
+| Bigfield + MegaFlavor (optimized) | **1,810 ms** |
+
+**BB_BENCH=1 breakdown (2000 ops, local):**
+
+| Component | Translator VM | Bigfield + LightZK | Bigfield + MegaFlavor |
+|-----------|--------------|-------------------|----------------------|
+| **Total Time** | 1,305 ms | 2,018 ms | 1,827 ms |
+| **Peak Memory** | 264 MB | 353 MB | 406 MB |
+| Circuit Construction | 114 ms | 345 ms | 341 ms |
+| ProverInstance | - | 220 ms | 234 ms |
+| OinkProver | - | 283 ms | 185 ms |
+| Sumcheck | 113 ms | 165 ms | 140 ms |
+| Commitments | 218 ms | 513 ms | 477 ms |
+
+**Gate count analysis (4096 ops, simulated optimization):**
+
+| Metric | Baseline Bigfield | Optimized (simulated) | Improvement |
+|--------|-------------------|----------------------|-------------|
+| Circuit size | 2^19 (324K gates) | **2^18** (181K gates) | 2x smaller |
+| Range variables | 270K | 115K | 57% fewer |
+| Delta range gates | 68K | 29K | 57% fewer |
+| NNF gates | 113K | 82K | 27% fewer |
+
+### Kernel Overhead Analysis
+
+Pre-decomposing in kernels adds gates per kernel:
+
+| Ops/Kernel | Gates/Op | Gates/Kernel | Notes |
+|------------|----------|--------------|-------|
+| 100 | 56 | 5,600 | Less batching efficiency |
+| 240 | 36 | 8,640 | Typical kernel size |
+| 500 | 32 | 16,000 | Better batching |
+
+With 17 kernels × 240 ops/kernel:
+- Kernel overhead: 17 × 8,640 = **146,880 gates total**
+- Translator savings: ~143,000 gates (324K → 181K)
+- **Net impact: roughly neutral** in total gate count
+
+However, the optimization is still valuable because:
+1. **Smaller translator circuit** → faster translator proving (single prover)
+2. **Kernel overhead is parallelizable** → distributed across 17 kernel provers
+3. **Memory reduction** → 376 MB vs 543 MB peak
+
+### Comparison Summary
+
+| Approach | Circuit Size | Memory | Proving Time (2000 ops) | Complexity |
+|----------|--------------|--------|------------------------|------------|
+| Translator VM | 2^17 | 264 MB | **1,253 ms** | High (custom relations) |
+| Bigfield + LightZK (optimized) | 2^18 | 353 MB | 2,034 ms | Low |
+| **Bigfield + MegaFlavor (optimized)** | **2^18** | 406 MB | **1,810 ms** | Low + kernel changes |
+
+The MegaFlavor approach is ~1.44x slower than Translator VM but eliminates ZK overhead and is significantly simpler. LightZK adds ZK properties at the cost of ~12% more time.
+
+The optimized approach closes the gap with Translator VM while maintaining bigfield's simplicity advantages.
+
+---
+
 ## Appendix: Finalization Details
 
 ### NNF Multiplication Caching

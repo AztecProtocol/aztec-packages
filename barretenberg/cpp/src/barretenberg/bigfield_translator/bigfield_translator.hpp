@@ -69,11 +69,16 @@ class BigfieldTranslator {
      * @param builder The circuit builder (must have ecc_op block populated)
      * @param evaluation_challenge_x The evaluation point x from ECCVM (as circuit witness)
      * @param batching_challenge_v The batching challenge v from ECCVM (as circuit witness)
+     * @param use_predecomposed_limbs If true, assumes Px/Py coordinates are pre-decomposed into
+     *        68-bit limbs and range-constrained in kernels. Uses unsafe_construct_from_limbs
+     *        which skips decomposition and range constraints, reducing circuit size from 2^19 to 2^18.
+     *        If false (default), uses the standard fq_ct(lo, hi) constructor with full range constraints.
      * @return fq_ct The accumulated result (as a bigfield circuit type)
      */
     static fq_ct compute_accumulator(Builder& builder,
                                      const fq_ct& evaluation_challenge_x,
-                                     const fq_ct& batching_challenge_v);
+                                     const fq_ct& batching_challenge_v,
+                                     bool use_predecomposed_limbs = false);
 
     /**
      * @brief Native computation of the translator accumulation (for testing/verification).
