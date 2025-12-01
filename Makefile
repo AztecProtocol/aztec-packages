@@ -293,7 +293,7 @@ yarn-project-benches: yarn-project
 release-image: yarn-project
 	$(call build,$@,release-image)
 
-boxes: release-image
+boxes: yarn-project
 	$(call build,$@,boxes)
 
 boxes-tests: boxes
