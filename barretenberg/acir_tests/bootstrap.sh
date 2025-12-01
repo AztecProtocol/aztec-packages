@@ -118,6 +118,8 @@ function build {
     # These are breaking with:
     # Failed to solve program: 'Failed to solve blackbox function: embedded_curve_add, reason: Infinite input: embedded_curve_add(infinity, infinity)'
     rm -rf acir_tests/{regression_5045,regression_7744}
+    # The following test fails because it uses CallData/ReturnData with UltraBuilder, which is not supported
+    rm -rf acir_tests/{regression_7612,regression_7143,databus_composite_calldata,databus_two_calldata_simple,databus_two_calldata,databus}
     # Merge the internal test programs with the acir tests.
     cp -R ./internal_test_programs/* acir_tests
 

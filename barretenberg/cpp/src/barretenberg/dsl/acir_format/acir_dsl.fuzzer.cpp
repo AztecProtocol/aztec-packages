@@ -134,7 +134,7 @@ bool solve_witnesses(std::vector<Acir::Expression>& expressions,
             // TIER 2: If no linear-only witness found, adjust q_c to force equation to zero
             if (!solved) {
                 // Set q_c = -value to make: q_c + value = 0
-                fr::serialize_to_buffer(fr::serialize_from_buffer(&expr.q_c[0]) - value, &expr.q_c[0]);
+                expr.q_c = (fr::serialize_from_buffer(&expr.q_c[0]) - value).to_buffer();
             }
         }
 
@@ -458,7 +458,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
             remaining -= 3;
 
             std::vector<uint8_t> coeff(32);
-            fr::serialize_to_buffer(coeff_state[coeff_reg], &coeff[0]);
+            coeff = coeff_state[coeff_reg].to_buffer();
             Acir::Witness w1, w2;
             w1.value = w1_idx;
             w2.value = w2_idx;
@@ -482,7 +482,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
             prev_witness = w_idx;
 
             std::vector<uint8_t> coeff(32);
-            fr::serialize_to_buffer(coeff_state[coeff_reg], &coeff[0]);
+            coeff = coeff_state[coeff_reg].to_buffer();
             Acir::Witness w;
             w.value = w_idx;
             expr.linear_combinations.push_back(std::make_tuple(coeff, w));
@@ -493,7 +493,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
             uint8_t const_reg = ptr[0] % INTERNAL_STATE_SIZE;
             ptr++;
             remaining--;
-            fr::serialize_to_buffer(coeff_state[const_reg], &expr.q_c[0]);
+            expr.q_c = coeff_state[const_reg].to_buffer();
         } else {
             expr.q_c = std::vector<uint8_t>(32, 0);
         }
