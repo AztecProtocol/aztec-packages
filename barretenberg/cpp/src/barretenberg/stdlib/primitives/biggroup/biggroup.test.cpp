@@ -181,8 +181,12 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         auto pif_normal = bool_ct(witness_ct(&builder, false));
 
         x_death.set_origin_tag(instant_death_tag);
+        // Set constant tags on the other elements so they can be merged with instant_death_tag
+        y_normal.set_origin_tag(constant_tag);
+        pif_normal.set_origin_tag(constant_tag);
 
-        element_ct b(x_death, y_normal, pif_normal);
+        // Use assert_on_curve=false to avoid triggering instant_death during validate_on_curve()
+        element_ct b(x_death, y_normal, pif_normal, /*assert_on_curve=*/false);
         // Working with instant death tagged element causes an exception
         EXPECT_THROW(b + b, std::runtime_error);
 #endif
@@ -1461,6 +1465,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         std::vector<fr> input_scalars = { scalar_a, scalar_b, scalar_c };
 
         OriginTag tag_union{};
+        tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
         std::vector<scalar_ct> scalars;
         std::vector<element_ct> points;
         for (size_t i = 0; i < 3; ++i) {
@@ -1617,6 +1622,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
 
         OriginTag tag_union{};
+        tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
         for (size_t i = 0; i < num_points; ++i) {
             // Set tag to submitted value tag at round i
             circuit_points[i].set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
@@ -1675,6 +1681,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         std::vector<element_ct> circuit_points;
         std::vector<scalar_ct> circuit_scalars;
         OriginTag tag_union{};
+        tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
         for (size_t i = 0; i < num_points; ++i) {
             circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -1724,6 +1731,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         std::vector<scalar_ct> circuit_scalars;
 
         OriginTag tag_union{};
+        tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
         for (size_t i = 0; i < num_points; ++i) {
             circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -1778,6 +1786,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             std::vector<scalar_ct> circuit_scalars;
 
             OriginTag tag_union{};
+            tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
             for (size_t i = 0; i < num_points; ++i) {
                 circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -1838,6 +1847,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             std::vector<scalar_ct> circuit_scalars;
 
             OriginTag tag_union{};
+            tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
             for (size_t i = 0; i < num_points; ++i) {
                 circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -1886,6 +1896,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             std::vector<element_ct> circuit_points;
             std::vector<scalar_ct> circuit_scalars;
             OriginTag tag_union{};
+            tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
             for (size_t i = 0; i < num_points; ++i) {
                 circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 

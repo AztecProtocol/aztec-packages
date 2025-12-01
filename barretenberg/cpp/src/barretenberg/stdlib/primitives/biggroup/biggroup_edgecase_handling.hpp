@@ -56,7 +56,9 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
     const typename G::affine_element native_offset_generator = element::compute_table_offset_generator();
     C* builder = validate_context<C>(validate_context<C>(_points), validate_context<C>(_scalars));
     const element offset_generator_element = element::from_witness(builder, native_offset_generator);
-    offset_generator_element.set_origin_tag(OriginTag());
+    auto empty_tag = OriginTag();
+    empty_tag.set_constant(); // Use CONSTANT tag to disable origin checking during intermediate operations
+    offset_generator_element.set_origin_tag(empty_tag);
 
     // Compute initial point to be added: (δ)⋅G_offset
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1585): do we really need to multiply by δ here?

@@ -22,7 +22,9 @@ field_t<Builder>::field_t(Builder* parent_context)
     , additive_constant(bb::fr::zero())
     , multiplicative_constant(bb::fr::one())
     , witness_index(IS_CONSTANT)
-{}
+{
+    tag.set_constant();
+}
 
 template <typename Builder>
 field_t<Builder>::field_t(const witness_t<Builder>& value)
@@ -40,7 +42,9 @@ field_t<Builder>::field_t(Builder* parent_context, const bb::fr& value)
     , additive_constant(value)
     , multiplicative_constant(bb::fr::one())
     , witness_index(IS_CONSTANT)
-{}
+{
+    tag.set_constant();
+}
 
 template <typename Builder>
 field_t<Builder>::field_t(const bool_t<Builder>& other)
@@ -63,6 +67,9 @@ field_t<Builder> field_t<Builder>::from_witness_index(Builder* ctx, const uint32
 {
     field_t<Builder> result(ctx);
     result.witness_index = witness_index;
+    // Since this is now a witness (not a constant), set the free witness tag
+    // The caller should set the appropriate tag if this element has a known provenance
+    result.set_free_witness_tag();
     return result;
 }
 
@@ -944,8 +951,10 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
         // (e.g., proving 2 separate properties about same object through 2 different transcripts)
         const auto lhs_original_tag = lhs.get_origin_tag();
         const auto rhs_original_tag = rhs.get_origin_tag();
-        lhs.set_origin_tag(OriginTag());
-        rhs.set_origin_tag(OriginTag());
+        auto empty_tag = OriginTag();
+        empty_tag.set_constant(); // Use CONSTANT tag to disable origin checking during intermediate operations
+        lhs.set_origin_tag(empty_tag);
+        rhs.set_origin_tag(empty_tag);
 
         if (lhs.is_normalized() || rhs.is_normalized()) {
             ctx->assert_equal(lhs.get_witness_index(), rhs.get_witness_index(), msg);
@@ -1272,6 +1281,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
                          accumulator[3 * last_gate_idx + 2].additive_constant,
     });
     OriginTag new_tag{};
+    new_tag.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
     for (const auto& single_input : input) {
         new_tag = OriginTag(new_tag, single_input.tag);
     }

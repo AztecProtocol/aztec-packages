@@ -20,7 +20,9 @@ namespace bb::stdlib {
 template <typename Builder>
 bool_t<Builder>::bool_t(const bool value)
     : witness_bool(value)
-{}
+{
+    tag.set_constant();
+}
 
 /**
  * @brief Construct a constant `bool_t` object with a given Builder argument, its value is `false`.
@@ -28,7 +30,9 @@ bool_t<Builder>::bool_t(const bool value)
 template <typename Builder>
 bool_t<Builder>::bool_t(Builder* parent_context)
     : context(parent_context)
-{}
+{
+    tag.set_constant();
+}
 
 /**
  * @brief Construct a `bool_t` object from a witness, note that the value stored at `witness_index` is constrained to be
@@ -63,7 +67,9 @@ template <typename Builder>
 bool_t<Builder>::bool_t(Builder* parent_context, const bool value)
     : context(parent_context)
     , witness_bool(value)
-{}
+{
+    tag.set_constant();
+}
 
 /**
  * @brief Copy constructor
@@ -104,6 +110,9 @@ bool_t<Builder> bool_t<Builder>::from_witness_index_unsafe(Builder* ctx, const u
     BB_ASSERT_EQ(value * value - value, 0, "bool_t: creating a witness bool from a non-boolean value");
     result.witness_bool = (value == 1);
     result.witness_inverted = false;
+    // Since this is now a witness (not a constant), set the free witness tag
+    // The caller should set the appropriate tag if this element has a known provenance
+    result.set_free_witness_tag();
     return result;
 }
 
@@ -116,6 +125,7 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bo
     witness_index = IS_CONSTANT;
     witness_bool = other;
     witness_inverted = false;
+    tag.set_constant();
     return *this;
 }
 
@@ -440,8 +450,10 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
         // (e.g., proving 2 separate properties about same object through 2 different transcripts)
         const auto lhs_original_tag = lhs.get_origin_tag();
         const auto rhs_original_tag = rhs.get_origin_tag();
-        lhs.set_origin_tag(OriginTag());
-        rhs.set_origin_tag(OriginTag());
+        auto empty_tag = OriginTag();
+        empty_tag.set_constant(); // Use CONSTANT tag to disable origin checking during intermediate operations
+        lhs.set_origin_tag(empty_tag);
+        rhs.set_origin_tag(empty_tag);
 
         bool_t left = lhs;
         bool_t right = rhs;

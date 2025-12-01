@@ -54,6 +54,7 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
     size_t num_points = points.size();
 
     OriginTag tag_union{};
+    tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
     for (size_t i = 0; i < num_points; ++i) {
         auto& point = points[i];
         auto& scalar = scalars[i];
