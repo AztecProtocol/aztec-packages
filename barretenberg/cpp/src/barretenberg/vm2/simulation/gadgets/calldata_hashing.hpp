@@ -12,6 +12,7 @@ namespace bb::avm2::simulation {
 
 class CalldataHasher : public CalldataHashingInterface {
   public:
+    // TODO should this be uint16? range check is for 16 bit
     CalldataHasher(uint32_t context_id, Poseidon2Interface& hasher, EventEmitterInterface<CalldataEvent>& events)
         : context_id(context_id)
         , events(events)
