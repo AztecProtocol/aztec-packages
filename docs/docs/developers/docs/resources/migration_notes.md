@@ -9,6 +9,118 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Note owner is now enshrined
+
+It turns out that in all the cases a note always have a logical owner.
+For this reason we have decided to enshrine the concept of a note owner and you should drop the field from your note:
+
+```diff
+#[derive(Deserialize, Eq, Packable, Serialize)]
+#[note]
+pub struct ValueNote {
+    value: Field,
+-    owner: AztecAddress,
+}
+```
+
+The owner being enshrined means that our API explicitly expects it on the input.
+The `NoteHash` trait got modified as follows:
+
+```diff
+pub trait NoteHash {
+    fn compute_note_hash(
+        self,
++        owner: AztecAddress,
+        storage_slot: Field,
+        randomness: Field,
+    ) -> Field;
+
+    fn compute_nullifier(
+        self,
+        context: &mut PrivateContext,
++        owner: AztecAddress,
+        note_hash_for_nullification: Field,
+    ) -> Field;
+
+    unconstrained fn compute_nullifier_unconstrained(
+        self,
++        owner: AztecAddress,
+        note_hash_for_nullification: Field,
+    ) -> Field;
+}
+```
+
+Our low-level note utilities now also accept owner as a parameter:
+
+```diff
+pub fn create_note<Note>(
+    context: &mut PrivateContext,
++    owner: AztecAddress,
+    storage_slot: Field,
+    note: Note,
+) -> NoteEmission<Note>
+where
+    Note: NoteType + NoteHash + Packable,
+{
+...
+}
+```
+
+```diff
+pub fn destroy_note_unsafe<Note>(
+    context: &mut PrivateContext,
+    retrieved_note: RetrievedNote<Note>,
++    owner: AztecAddress,
+    note_hash_read: NoteHashRead,
+)
+where
+    Note: NoteHash,
+{
+...
+}
+```
+
+`PrivateImmutable`, `PrivateMutable` and `PrivateSet` got modified to directly contain the owner instead of implicitly "containing it" by including it in the storage slot via a `Map`.
+Now the `Map` is redundant and the relevant state variable should be moved out of it:
+
+```diff
+#[storage]
+struct Storage<Context> {
+-    private_nfts: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
++    private_nfts: PrivateSet<NFTNote, Context>,
+}
+```
+
+Now we have an `at` method on the private state variables that scopes it to a given owner.
+Given that we used to call `at` on the map and now we call it directly on the set if you so the above change it should not be required of you to do any further changes in your contract.
+
+if you had `PrivateImmutable` or `PrivateMutable` defined out of a `Map`, e.g.:
+
+```rust
+#[storage]
+struct Storage<Context> {
+    signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
+}
+```
+
+you were most likely dealing with some kind of admin flow where only the admin can modify the state variable.
+Now, unfortunately, there is a bit of a regression and you will need to call `at` on the state var:
+
+```diff
+- self.storage.signing_public_key.initialize(pub_key_note)
++ self.storage.signing_public_key.at(self.address).initialize(pub_key_note)
+    .emit(self.address, MessageDelivery.CONSTRAINED_ONCHAIN);
+```
+
+We are likely to come up with a concept of admin state variables in the future.
+
+None of the reference notes now contain the owner so if you manually construct `AddressNote`, `UintNote` or `ValueNote` you need to update the call to `new` method:
+
+```diff
+- let note = UintNote::new(156, owner);
++ let note = UintNote::new(156);
+```
+
 ### [Aztec.nr] Note randomness is now handled internally
 
 In order to prevent pre-image attacks, it is necessary to inject randomness to notes. Aztec.nr users were previously expected to add said randomness to their custom note types. From now on, Aztec.nr takes care of handling randomness as built-in note metadata, making it impossible to miss for library users. This change breaks backwards compatibility as we'll discuss below.

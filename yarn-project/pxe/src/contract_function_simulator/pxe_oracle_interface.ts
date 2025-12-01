@@ -90,16 +90,24 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return instance;
   }
 
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
+  async getNotes(
+    contractAddress: AztecAddress,
+    owner: AztecAddress,
+    storageSlot: Fr,
+    status: NoteStatus,
+    scopes?: AztecAddress[],
+  ) {
     const noteDaos = await this.noteDataProvider.getNotes({
       contractAddress,
+      owner,
       storageSlot,
       status,
       scopes,
     });
     return noteDaos.map(
-      ({ contractAddress, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
+      ({ contractAddress, owner, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
         contractAddress,
+        owner,
         storageSlot,
         randomness,
         noteNonce,
@@ -599,6 +607,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const noteDeliveries = noteValidationRequests.map(request =>
       this.deliverNote(
         request.contractAddress,
+        request.owner,
         request.storageSlot,
         request.randomness,
         request.noteNonce,
@@ -630,6 +639,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async deliverNote(
     contractAddress: AztecAddress,
+    owner: AztecAddress,
     storageSlot: Fr,
     randomness: Fr,
     noteNonce: Fr,
@@ -682,6 +692,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const noteDao = new NoteDao(
       new Note(content),
       contractAddress,
+      owner,
       storageSlot,
       randomness,
       noteNonce,
