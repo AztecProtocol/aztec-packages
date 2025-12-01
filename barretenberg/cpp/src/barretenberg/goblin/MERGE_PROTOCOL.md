@@ -388,7 +388,7 @@ We now argue that there exists at least one $F$ such that $H_{F}$ is non-zero.
 
 - Evaluating $H_{F_{r_i}}(X)$ at $\mathrm{row}_{r_i}$, we get
 
-    $H_{F_{r_i}}(\mathrm{row}_{r_i}) = \sum_{j=1}^{40} \beta_j\, B_j^{F_{r_i}}(\mathrm{row}_{r_i}) = \beta_i\, B_i^{F_{r_i}}(\mathrm{row}_{r_i}) + \sum_{j\neq i} \beta_j\, B_j^{F_{r_i}}(\mathrm{row}_{r_i}) = \beta_i\, B_i^{F_{r_i}}(\mathrm{row}_{r_i}) \neq 0$.
+    $H_{F_{r_i}}(\mathrm{row}_{r_i}) = \sum_{j=1}^{40} \beta_j  B_j^{F_{r_i}}(\mathrm{row}_{r_i}) = \beta_i B_i^{F_{r_i}}(\mathrm{row}_{r_i}) + \sum_{j\neq i} \beta_j B_j^{F_{r_i}}(\mathrm{row}_{r_i}) = \beta_i B_i^{F_{r_i}}(\mathrm{row}_{r_i}) \neq 0$.
 
 - Thus, given $\beta \neq 0$, there exists at least one $F$ ($F_{r_i}$ in this case) such that $H_{F}$ is non-zero.
 
