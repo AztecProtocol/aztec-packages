@@ -49,7 +49,7 @@ import {
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type InBlock,
+  type DataInBlock,
   type L2Block,
   L2BlockHash,
   type L2BlockNumber,
@@ -795,7 +795,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]> {
+  ): Promise<(DataInBlock<bigint> | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
     const maybeIndices = await committedDb.findLeafIndices(
       treeId,
@@ -832,7 +832,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
     }
 
-    // Create InBlock objects by combining indices, blockNumbers and blockHashes and return them.
+    // Create DataInBlock objects by combining indices, blockNumbers and blockHashes and return them.
     return maybeIndices.map((index, i) => {
       if (index === undefined) {
         return undefined;

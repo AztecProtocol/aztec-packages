@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { EventSelector, type FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
+import type { DataInBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
@@ -941,10 +941,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const foundNullifiers = nullifiersToCheck
       .map((nullifier, i) => {
         if (nullifierIndexes[i] !== undefined) {
-          return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
+          return { ...nullifierIndexes[i], ...{ data: nullifier } } as DataInBlock<Fr>;
         }
       })
-      .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
+      .filter(nullifier => nullifier !== undefined) as DataInBlock<Fr>[];
 
     const nullifiedNotes = await this.noteDataProvider.applyNullifiers(foundNullifiers);
     nullifiedNotes.forEach(noteDao => {

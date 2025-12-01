@@ -2,10 +2,10 @@ import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { L2BlockHash } from '../block/block_hash.js';
-import { type InBlock, inBlockSchemaFor, randomInBlock } from '../block/in_block.js';
+import { type DataInBlock, inBlockSchemaFor, randomInBlock } from '../block/in_block.js';
 import { TxEffect } from './tx_effect.js';
 
-export type IndexedTxEffect = InBlock<TxEffect> & { txIndexInBlock: number };
+export type IndexedTxEffect = DataInBlock<TxEffect> & { txIndexInBlock: number };
 
 export function indexedTxSchema() {
   return inBlockSchemaFor(TxEffect.schema).extend({ txIndexInBlock: schemas.Integer });
