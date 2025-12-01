@@ -1,17 +1,25 @@
 use crate::{
     abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
     address::SaltedInitializationHash,
-    constants::{FUNCTION_TREE_HEIGHT, PROOF_TYPE_HN, PROOF_TYPE_OINK, PUBLIC_DATA_TREE_HEIGHT},
+    constants::{
+        FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
+        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, PROOF_TYPE_HN,
+        PROOF_TYPE_OINK, PUBLIC_DATA_TREE_HEIGHT, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
+    },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     merkle_tree::MembershipWitness,
     proof::verification_key::ChonkVerificationKey,
     public_keys::PublicKeys,
+    traits::Empty,
 };
 
 pub struct PrivateCallData {
     pub public_inputs: PrivateCircuitPublicInputs,
     pub vk: ChonkVerificationKey,
     pub verification_key_hints: PrivateVerificationKeyHints,
+    pub side_effect_uniqueness_hints: SideEffectUniquenessHints,
 }
 
 impl PrivateCallData {
@@ -53,6 +61,7 @@ pub struct PrivateVerificationKeyHints {
 pub struct PrivateCallDataWithoutPublicInputs {
     pub vk: ChonkVerificationKey,
     pub verification_key_hints: PrivateVerificationKeyHints,
+    pub side_effect_uniqueness_hints: SideEffectUniquenessHints,
 }
 
 impl PrivateCallDataWithoutPublicInputs {
@@ -64,6 +73,54 @@ impl PrivateCallDataWithoutPublicInputs {
             public_inputs,
             vk: self.vk,
             verification_key_hints: self.verification_key_hints,
+            side_effect_uniqueness_hints: self.side_effect_uniqueness_hints,
+        }
+    }
+}
+
+#[derive(Eq)]
+pub struct SideEffectCounterRange {
+    pub start: u32,
+    pub end: u32,
+    pub side_effect_global_index: u32,
+}
+
+impl Empty for SideEffectCounterRange {
+    fn empty() -> Self {
+        SideEffectCounterRange { start: 0, end: 0, side_effect_global_index: 0 }
+    }
+}
+
+#[derive(Eq)]
+pub struct SideEffectUniquenessHints {
+    pub side_effect_ranges: [SideEffectCounterRange; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
+
+    pub note_hash_read_request_indices: [u32; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub nullifier_read_request_indices: [u32; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
+    pub note_hashes_indices: [u32; MAX_NOTE_HASHES_PER_CALL],
+    pub nullifiers_indices: [u32; MAX_NULLIFIERS_PER_CALL],
+    pub private_call_requests_indices: [u32; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
+    pub public_call_requests_indices: [u32; MAX_ENQUEUED_CALLS_PER_CALL],
+    pub l2_to_l1_msgs_indices: [u32; MAX_L2_TO_L1_MSGS_PER_CALL],
+    pub private_logs_indices: [u32; MAX_PRIVATE_LOGS_PER_CALL],
+    pub contract_class_logs_hashes_indices: [u32; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
+}
+
+impl Empty for SideEffectUniquenessHints {
+    fn empty() -> Self {
+        SideEffectUniquenessHints {
+            side_effect_ranges: [
+                SideEffectCounterRange::empty(); TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL
+            ],
+            note_hash_read_request_indices: [0; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+            nullifier_read_request_indices: [0; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
+            note_hashes_indices: [0; MAX_NOTE_HASHES_PER_CALL],
+            nullifiers_indices: [0; MAX_NULLIFIERS_PER_CALL],
+            private_call_requests_indices: [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
+            public_call_requests_indices: [0; MAX_ENQUEUED_CALLS_PER_CALL],
+            l2_to_l1_msgs_indices: [0; MAX_L2_TO_L1_MSGS_PER_CALL],
+            private_logs_indices: [0; MAX_PRIVATE_LOGS_PER_CALL],
+            contract_class_logs_hashes_indices: [0; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
         }
     }
 }
