@@ -63,7 +63,7 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
-import type { GasFees } from '@aztec/stdlib/gas';
+import { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import {
   type AztecNode,
@@ -594,6 +594,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    */
   public async getCurrentBaseFees(): Promise<GasFees> {
     return await this.globalVariableBuilder.getCurrentBaseFees();
+  }
+
+  public async getMaxPriorityFees(): Promise<GasFees> {
+    for await (const tx of this.p2pClient.iteratePendingTxs()) {
+      return tx.getGasSettings().maxPriorityFeesPerGas;
+    }
+
+    return GasFees.from({ feePerDaGas: 0n, feePerL2Gas: 0n });
   }
 
   /**
