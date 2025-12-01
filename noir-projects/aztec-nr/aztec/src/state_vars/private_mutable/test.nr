@@ -327,3 +327,26 @@ unconstrained fn initialize_or_replace_initialized_settled() {
         assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
     });
 }
+
+#[test]
+unconstrained fn get_replacement_note_has_unique_randomness() {
+    let env = TestEnvironment::new();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_emission = env.private_context(|context| {
+        let state_var = in_private(context);
+
+        state_var.initialize(note)
+    });
+
+    env.discover_note(init_emission);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let get_emission = state_var.get_note();
+
+        assert(get_emission.content.randomness != init_emission.content.randomness);
+    });
+}
