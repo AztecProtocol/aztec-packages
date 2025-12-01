@@ -627,6 +627,9 @@ class MockAztecNode implements AztecNode {
   getCurrentBaseFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());
   }
+  getMaxPriorityFees(): Promise<GasFees> {
+    return Promise.resolve(GasFees.empty());
+  }
   getBlockNumber(): Promise<number> {
     return Promise.resolve(1);
   }
