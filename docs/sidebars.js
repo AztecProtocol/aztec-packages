@@ -114,16 +114,26 @@ const sidebar = {
       },
       "items": [
         {
-          "type": "doc",
-          "id": "the_aztec_network/operation/otel_setup"
+          "type": "category",
+          "label": "Setup Guides",
+          "items": [
+            {
+              "type": "doc",
+              "id": "the_aztec_network/operation/otel_setup"
+            },
+            {
+              "type": "doc",
+              "id": "the_aztec_network/operation/prometheus_setup"
+            },
+            {
+              "type": "doc",
+              "id": "the_aztec_network/operation/grafana_setup"
+            }
+          ]
         },
         {
           "type": "doc",
-          "id": "the_aztec_network/operation/prometheus_setup"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/grafana_setup"
+          "id": "the_aztec_network/operation/metrics_reference"
         },
         {
           "type": "doc",
