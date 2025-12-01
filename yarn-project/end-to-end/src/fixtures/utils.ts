@@ -84,6 +84,7 @@ import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import { setupL1ContractsWithForge } from './setup_l1_contracts.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 export { startAnvil };
@@ -312,7 +313,7 @@ export type SetupOptions = {
   anvilPort?: number;
   /** Key to use for publishing L1 contracts */
   l1PublisherKey?: SecretValue<`0x${string}`>;
-  /** Whether to use forge scripts for L1 contract deployment (default: false) */
+  /** Whether to use forge scripts for L1 contract deployment (default: true) */
   useForgeDeployment?: boolean;
 } & Partial<AztecNodeConfig>;
 
@@ -374,6 +375,8 @@ export async function setup(
   try {
     opts.aztecTargetCommitteeSize ??= 0;
     opts.slasherFlavor ??= 'none';
+    // Default to using forge deployment for L1 contracts
+    opts.useForgeDeployment ??= true;
 
     const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
@@ -476,9 +479,39 @@ export async function setup(
     const l1Client = createExtendedL1Client(config.l1RpcUrls, publisherHdAccount!, chain);
     await deployMulticall3(l1Client, logger);
 
-    const deployL1ContractsValues =
-      opts.deployL1ContractsValues ??
-      (await setupL1Contracts(
+    // Deploy L1 contracts using either forge or TypeScript deployment
+    let deployL1ContractsValues: DeployL1ContractsReturnType;
+    if (opts.deployL1ContractsValues) {
+      deployL1ContractsValues = opts.deployL1ContractsValues;
+    } else if (opts.useForgeDeployment) {
+      // Get private key for forge deployment
+      const privateKeyHex = config.publisherPrivateKeys![0].getValue();
+      logger.info('Using forge script for L1 contract deployment', {
+        realVerifier: opts.realProofs ?? false,
+        fundRewardDistributor: opts.fundRewardDistributor ?? true,
+      });
+      deployL1ContractsValues = await setupL1ContractsWithForge(config.l1RpcUrls[0], privateKeyHex, logger, {
+        genesisArchiveRoot: genesisArchiveRoot.toString() as `0x${string}`,
+        realVerifier: opts.realProofs,
+        fundRewardDistributor: opts.fundRewardDistributor,
+      });
+
+      // Fund the fee juice portal after forge deployment
+      if (fundingNeeded > 0n) {
+        const feeJuicePortalAddress = deployL1ContractsValues.l1ContractAddresses.feeJuicePortalAddress;
+        const feeJuiceAddress = deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress;
+        const feeJuiceToken = getContract({
+          address: feeJuiceAddress.toString(),
+          abi: FeeAssetArtifact.contractAbi,
+          client: deployL1ContractsValues.l1Client,
+        });
+        logger.info(`Funding fee juice portal at ${feeJuicePortalAddress} with ${fundingNeeded}`);
+        const mintHash = await feeJuiceToken.write.mint([feeJuicePortalAddress.toString(), fundingNeeded], {} as any);
+        await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: mintHash });
+        logger.info(`Fee juice portal funded`);
+      }
+    } else {
+      deployL1ContractsValues = await setupL1Contracts(
         config.l1RpcUrls,
         publisherHdAccount!,
         logger,
@@ -489,7 +522,8 @@ export async function setup(
           initialValidators: opts.initialValidators,
         },
         chain,
-      ));
+      );
+    }
 
     config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
     config.rollupVersion = deployL1ContractsValues.rollupVersion;

@@ -302,6 +302,9 @@ async function setupFromFresh(
   opts.slasherFlavor ??= 'none';
   deployL1ContractsArgs.slasherFlavor ??= opts.slasherFlavor;
 
+  // Default to using forge deployment for L1 contracts
+  opts.useForgeDeployment ??= true;
+
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
@@ -369,14 +372,16 @@ async function setupFromFresh(
   // Deploy L1 contracts using either forge or TypeScript deployment
   let deployL1ContractsValues;
   if (opts.useForgeDeployment) {
-    logger.info('Using forge script for L1 contract deployment');
+    logger.info('Using forge script for L1 contract deployment', {
+      realVerifier: deployL1ContractsArgs.realVerifier ?? false,
+      fundRewardDistributor: opts.fundRewardDistributor ?? true,
+    });
     const privateKeyHex = `0x${publisherPrivKey!.toString('hex')}` as `0x${string}`;
-    deployL1ContractsValues = await setupL1ContractsWithForge(
-      aztecNodeConfig.l1RpcUrls[0],
-      privateKeyHex,
-      logger,
-      genesisArchiveRoot.toString() as `0x${string}`,
-    );
+    deployL1ContractsValues = await setupL1ContractsWithForge(aztecNodeConfig.l1RpcUrls[0], privateKeyHex, logger, {
+      genesisArchiveRoot: genesisArchiveRoot.toString() as `0x${string}`,
+      realVerifier: deployL1ContractsArgs.realVerifier,
+      fundRewardDistributor: opts.fundRewardDistributor,
+    });
 
     // Fund the fee juice portal after forge deployment
     if (fundingNeeded > 0n) {

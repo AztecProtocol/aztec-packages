@@ -14,7 +14,6 @@ describe('forge_script', () => {
     logger = createLogger('ethereum:test:forge_script');
 
     // Start anvil with prague hardfork (matching foundry.toml's evm_version)
-    // The forge deployment uses production profile which requires block.blobbasefee
     ({ stop, rpcUrl } = await startAnvil({ port: 8546, hardfork: 'prague' }));
     logger.info(`Anvil started at ${rpcUrl}`);
   }, 30000);
@@ -31,10 +30,7 @@ describe('forge_script', () => {
 
   it('runForgeScript returns proper result structure on error', async () => {
     // Run forge with an invalid script path to test error handling
-    const result = await runForgeScript({
-      scriptPath: 'script/nonexistent.sol:NonExistent',
-      rpcUrl,
-      broadcast: false,
+    const result = await runForgeScript(['script', 'script/nonexistent.sol:NonExistent', '--rpc-url', rpcUrl], {
       logger,
     });
 
@@ -43,16 +39,11 @@ describe('forge_script', () => {
     expect(result.stderr.length).toBeGreaterThan(0);
   });
 
-  // NOTE: This test uses --force flag to work around a forge bug where complex nested struct
-  // constructor arguments (like RollupConfigInput) fail to decode during broadcast logging.
-  // The simulation passes but broadcast logging fails with "ABI decoding failed: buffer overrun".
-  // The --force flag causes forge to recompile and continue despite the logging error.
-  //
   // To test manually with anvil:
   // 1. Start anvil: anvil --port 8546 --hardfork prague
-  // 2. Run forge: FOUNDRY_PROFILE=production forge script script/DeployL1Contracts.s.sol:DeployL1Contracts \
-  //    --root <l1-contracts-path> --sig "run()" --rpc-url http://127.0.0.1:8546 \
-  //    --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --broadcast --force -vvv
+  // 2. Run forge: forge script script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts \
+  //    --sig "run()" --rpc-url http://127.0.0.1:8546 \
+  //    --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --broadcast -vvv
   it('setupL1ContractsViaForge deploys and returns complete L1ContractAddresses', async () => {
     const result = await setupL1ContractsViaForge(rpcUrl, privateKeyHex, {
       logger,

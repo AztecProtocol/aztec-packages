@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Script} from "forge-std/Script.sol";
+import {Script, console} from "forge-std/Script.sol";
 import {Test} from "forge-std/Test.sol";
 
 import {Rollup} from "@aztec/core/Rollup.sol";
@@ -60,6 +60,7 @@ contract DeployL1Contracts is Script, Test {
     // Cached configuration values (read in setUp before broadcasts)
     // These must be cached because vm.broadcast() disallows staticcalls
     bool internal useMockVerifier;
+    bool internal fundRewardDistributor;
     uint256 internal coinIssuerRate;
     uint256 internal gseActivationThreshold;
     uint256 internal gseEjectionThreshold;
@@ -99,6 +100,7 @@ contract DeployL1Contracts is Script, Test {
         // Deployment config
         DeploymentConfiguration memory deployConfig = config.getDeploymentConfiguration();
         useMockVerifier = deployConfig.useMockVerifier;
+        fundRewardDistributor = deployConfig.fundRewardDistributor;
 
         // Coin issuer config
         CoinIssuerConfiguration memory coinIssuerConfig = config.getCoinIssuerConfiguration();
@@ -146,7 +148,7 @@ contract DeployL1Contracts is Script, Test {
         deployVerifier();
         deployRollup();
         registerRollup();
-        fundRewardDistributor();
+        fundRewardDistributorIfEnabled();
         handoverToGovernance();
 
         _assertAccessControl();
@@ -277,7 +279,10 @@ contract DeployL1Contracts is Script, Test {
         GSE_CONTRACT.addRollup(address(ROLLUP_CONTRACT));
     }
 
-    function fundRewardDistributor() public virtual {
+    function fundRewardDistributorIfEnabled() public virtual {
+        if (!fundRewardDistributor) {
+            return;
+        }
         vm.broadcast(deployer);
         TestERC20(address(FEE_ASSET_CONTRACT)).mint(
             address(REWARD_DISTRIBUTOR_CONTRACT),
@@ -308,19 +313,19 @@ contract DeployL1Contracts is Script, Test {
 
     // ============ Logging ============
 
-    function logDeployedAddresses() internal virtual {
-        emit log("=== Deployed Contract Addresses ===");
-        emit log_named_address("Deployer", deployer);
-        emit log_named_address("FeeAsset", address(FEE_ASSET_CONTRACT));
-        emit log_named_address("StakingAsset", address(STAKING_ASSET_CONTRACT));
-        emit log_named_address("GSE", address(GSE_CONTRACT));
-        emit log_named_address("Registry", address(REGISTRY_CONTRACT));
-        emit log_named_address("RewardDistributor", address(REWARD_DISTRIBUTOR_CONTRACT));
-        emit log_named_address("GovernanceProposer", address(GOVERNANCE_PROPOSER_CONTRACT));
-        emit log_named_address("Governance", address(GOVERNANCE_CONTRACT));
-        emit log_named_address("CoinIssuer", address(COIN_ISSUER_CONTRACT));
-        emit log_named_address("Verifier", address(VERIFIER_CONTRACT));
-        emit log_named_address("Rollup", address(ROLLUP_CONTRACT));
-        emit log_named_address("FeeAssetHandler", address(FEE_ASSET_HANDLER_CONTRACT));
+    function logDeployedAddresses() internal virtual view {
+        console.log("=== Deployed Contract Addresses ===");
+        console.log("Deployer:", deployer);
+        console.log("FeeAsset:", address(FEE_ASSET_CONTRACT));
+        console.log("StakingAsset:", address(STAKING_ASSET_CONTRACT));
+        console.log("GSE:", address(GSE_CONTRACT));
+        console.log("Registry:", address(REGISTRY_CONTRACT));
+        console.log("RewardDistributor:", address(REWARD_DISTRIBUTOR_CONTRACT));
+        console.log("GovernanceProposer:", address(GOVERNANCE_PROPOSER_CONTRACT));
+        console.log("Governance:", address(GOVERNANCE_CONTRACT));
+        console.log("CoinIssuer:", address(COIN_ISSUER_CONTRACT));
+        console.log("Verifier:", address(VERIFIER_CONTRACT));
+        console.log("Rollup:", address(ROLLUP_CONTRACT));
+        console.log("FeeAssetHandler:", address(FEE_ASSET_HANDLER_CONTRACT));
     }
 }

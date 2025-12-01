@@ -45,32 +45,6 @@ const RollupAddressesAbi = [
 ] as const;
 
 /**
- * Configuration for running a forge script.
- */
-export interface ForgeScriptConfig {
-  /** The path to the script file relative to the l1-contracts directory */
-  scriptPath: string;
-  /** The function signature to call (e.g., "run()") */
-  signature?: string;
-  /** The RPC URL to use */
-  rpcUrl: string;
-  /** The private key to use for broadcasting */
-  privateKey?: string;
-  /** Whether to broadcast transactions */
-  broadcast?: boolean;
-  /** Whether to verify contracts on Etherscan */
-  verify?: boolean;
-  /** Additional environment variables */
-  env?: Record<string, string>;
-  /** The working directory (defaults to l1-contracts) */
-  workingDir?: string;
-  /** Additional forge arguments */
-  additionalArgs?: string[];
-  /** Logger instance */
-  logger?: Logger;
-}
-
-/**
  * Result of running a forge script.
  */
 export interface ForgeScriptResult {
@@ -106,7 +80,7 @@ export interface L1DeploymentAddresses {
 /**
  * Gets the path to the l1-contracts directory.
  */
-function getL1ContractsPath(): string {
+export function getL1ContractsPath(): string {
   // Try to find l1-contracts relative to this file
   const currentDir = dirname(fileURLToPath(import.meta.url));
 
@@ -131,7 +105,6 @@ function getL1ContractsPath(): string {
 
 /**
  * Parses deployed addresses from forge script output.
- * The script emits log_named_address events that we can parse.
  *
  * @param stdout - The stdout output from the forge script
  * @returns Parsed addresses
@@ -165,57 +138,38 @@ function parseDeployedAddresses(stdout: string): Partial<L1DeploymentAddresses> 
 }
 
 /**
- * Runs a forge script and returns the result.
+ * Runs a forge command and returns the result.
  *
- * @param config - The script configuration
+ * @param args - The arguments to pass to forge
+ * @param options - Optional configuration
  * @returns The script result
  */
-// eslint-disable-next-line require-await
-export async function runForgeScript(config: ForgeScriptConfig): Promise<ForgeScriptResult> {
-  const logger = config.logger ?? createLogger('forge-script');
-  const l1ContractsPath = getL1ContractsPath();
-  const workingDir = config.workingDir ?? l1ContractsPath;
+export async function runForgeScript(
+  args: string[],
+  options: {
+    cwd?: string;
+    env?: Record<string, string>;
+    logger?: Logger;
+  } = {},
+): Promise<ForgeScriptResult> {
+  const logger = options.logger ?? createLogger('forge-script');
+  const cwd = options.cwd ?? getL1ContractsPath();
 
-  if (!existsSync(workingDir)) {
-    throw new Error(`Working directory does not exist: ${workingDir}`);
+  if (!existsSync(cwd)) {
+    throw new Error(`Working directory does not exist: ${cwd}`);
   }
 
-  const args: string[] = ['script', config.scriptPath];
-
-  if (config.signature) {
-    args.push('--sig', config.signature);
-  }
-
-  args.push('--rpc-url', config.rpcUrl);
-
-  if (config.privateKey) {
-    args.push('--private-key', config.privateKey);
-  }
-
-  if (config.broadcast) {
-    args.push('--broadcast');
-  }
-
-  if (config.verify) {
-    args.push('--verify');
-  }
-
-  if (config.additionalArgs) {
-    args.push(...config.additionalArgs);
-  }
-
-  // Merge environment variables
   const env = {
     ...process.env,
-    ...config.env,
+    ...options.env,
   };
 
-  logger.info(`Running forge script: forge ${args.join(' ')}`);
-  logger.verbose(`Working directory: ${workingDir}`);
+  logger.info(`Running: forge ${args.join(' ')}`);
+  logger.verbose(`Working directory: ${cwd}`);
 
   return new Promise((resolvePromise, reject) => {
     const proc = spawn('forge', args, {
-      cwd: workingDir,
+      cwd,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -226,18 +180,13 @@ export async function runForgeScript(config: ForgeScriptConfig): Promise<ForgeSc
     proc.stdout.on('data', data => {
       const text = data.toString();
       stdout += text;
-      logger.verbose(text.trim());
+      logger.info(`[forge] ${text.trim()}`);
     });
 
     proc.stderr.on('data', data => {
       const text = data.toString();
       stderr += text;
-      // Forge outputs progress to stderr, so only log as warning if it looks like an error
-      if (text.toLowerCase().includes('error') || text.toLowerCase().includes('failed')) {
-        logger.warn(text.trim());
-      } else {
-        logger.verbose(text.trim());
-      }
+      logger.info(`[forge] ${text.trim()}`);
     });
 
     proc.on('error', error => {
@@ -253,12 +202,12 @@ export async function runForgeScript(config: ForgeScriptConfig): Promise<ForgeSc
         exitCode: code ?? 1,
       };
 
-      // Always try to parse addresses from output - forge may have deployed contracts
-      // successfully but failed on post-deployment verification (e.g., ABI decoding errors)
+      // Try to parse addresses from output
       result.deployments = parseDeployedAddresses(stdout);
 
-      // Consider deployment successful if we got the key addresses, even if forge
-      // returned non-zero exit code due to non-critical errors like ABI decoding
+      logger.info('Parsed deployment addresses:', result.deployments);
+
+      // Consider deployment successful if we got the key addresses
       const hasKeyAddresses = result.deployments?.rollupAddress && result.deployments?.registryAddress;
       if (hasKeyAddresses && !exitSuccess) {
         logger.warn(`Forge exited with code ${code} but deployment appears successful (got contract addresses)`);
@@ -267,101 +216,13 @@ export async function runForgeScript(config: ForgeScriptConfig): Promise<ForgeSc
         logger.info('Forge script completed successfully');
       } else {
         logger.error(`Forge script failed with exit code ${code}`);
+        logger.error(`stdout: ${stdout}`);
+        logger.error(`stderr: ${stderr}`);
       }
 
       resolvePromise(result);
     });
   });
-}
-
-/**
- * Options for deploying L1 contracts via forge.
- */
-export interface DeployL1ContractsOptions {
-  /** Whether to broadcast transactions (default: true) */
-  broadcast?: boolean;
-  /** The deployer address (defaults to the address derived from privateKey) */
-  deployerAddress?: string;
-  /** VK tree root (optional) */
-  vkTreeRoot?: string;
-  /** Protocol contracts hash (optional) */
-  protocolContractsHash?: string;
-  /** Genesis archive root (optional) */
-  genesisArchiveRoot?: string;
-  /** Whether to use fake proofs / mock verifier (default: true, reads from FAKE_PROOFS env var) */
-  fakeProofs?: boolean;
-  /** Logger instance */
-  logger?: Logger;
-}
-
-/**
- * Deploys L1 contracts using the DeployL1Contracts forge script.
- * This is an alternative to the TypeScript-based deployment in deploy_l1_contracts.ts.
- *
- * @param rpcUrl - The RPC URL to use
- * @param privateKey - The private key for the deployer
- * @param options - Additional deployment options
- * @returns The deployment result with contract addresses
- */
-export async function deployL1ContractsViaForge(
-  rpcUrl: string,
-  privateKey: string,
-  options: DeployL1ContractsOptions = {},
-): Promise<ForgeScriptResult & { addresses?: Partial<L1DeploymentAddresses> }> {
-  const logger = options.logger ?? createLogger('deploy-l1-contracts');
-
-  const env: Record<string, string> = {};
-
-  if (options.deployerAddress) {
-    env.DEPLOYER_ADDRESS = options.deployerAddress;
-  }
-
-  if (options.vkTreeRoot) {
-    env.VK_TREE_ROOT = options.vkTreeRoot;
-  }
-
-  if (options.protocolContractsHash) {
-    env.PROTOCOL_CONTRACTS_HASH = options.protocolContractsHash;
-  }
-
-  if (options.genesisArchiveRoot) {
-    env.GENESIS_ARCHIVE_ROOT = options.genesisArchiveRoot;
-  }
-
-  // FAKE_PROOFS controls MockVerifier vs HonkVerifier in the forge script
-  // Default to true (use mock verifier) if not specified
-  const fakeProofs = options.fakeProofs ?? process.env.FAKE_PROOFS !== '0';
-  env.FAKE_PROOFS = fakeProofs ? '1' : '0';
-  logger.info(`Using ${fakeProofs ? 'MockVerifier' : 'HonkVerifier'} (FAKE_PROOFS=${env.FAKE_PROOFS})`);
-
-  // Use production profile to avoid mock BlobLib with vm.getBlobBaseFee() cheatcode
-  // which doesn't work in broadcast mode.
-  // Note: When using anvil, it should be started with --hardfork prague (or cancun) for blob base fee support.
-  env.FOUNDRY_PROFILE = 'production';
-
-  const result = await runForgeScript({
-    scriptPath: 'script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts',
-    signature: 'run()',
-    rpcUrl,
-    privateKey,
-    broadcast: options.broadcast ?? true,
-    env,
-    logger,
-    // --force is required to work around a forge bug with ABI decoding of complex nested struct
-    // constructor arguments (like RollupConfigInput). The error occurs during transaction logging
-    // but doesn't affect the actual deployment. With --force, forge recompiles and proceeds.
-    // This adds ~9 seconds to the deployment time due to recompilation.
-    additionalArgs: ['-vvv', '--force'],
-  });
-
-  if (result.success && result.deployments) {
-    return {
-      ...result,
-      addresses: result.deployments as Partial<L1DeploymentAddresses>,
-    };
-  }
-
-  return result;
 }
 
 /**
@@ -377,39 +238,154 @@ export interface ForgeDeployL1ContractsReturnType {
 }
 
 /**
- * Options for setupL1ContractsViaForge.
+ * Configuration options for forge-based L1 contract deployment.
+ * All parameters map to environment variables in the Solidity E2EConfiguration contract.
  */
-export interface SetupL1ContractsViaForgeOptions extends DeployL1ContractsOptions {
-  /** The chain to use (defaults to foundry/anvil) */
+export interface ForgeDeploymentOptions {
+  /** Chain to deploy to (defaults to foundry/anvil) */
   chain?: Chain;
-  // fakeProofs is inherited from DeployL1ContractsOptions
+  /** Logger instance */
+  logger?: Logger;
+  /** VK tree root (hex string) */
+  vkTreeRoot?: string;
+  /** Protocol contracts hash (hex string) */
+  protocolContractsHash?: string;
+  /** Genesis archive root (hex string) */
+  genesisArchiveRoot?: string;
+  /** Use real verifier (HonkVerifier) instead of MockVerifier */
+  realVerifier?: boolean;
+  /** Fund the reward distributor with tokens (default: true) */
+  fundRewardDistributor?: boolean;
+  /** L2 slot duration in seconds (default: 36) */
+  aztecSlotDuration?: number;
+  /** L2 epoch duration in slots (default: 32) */
+  aztecEpochDuration?: number;
+  /** Target committee size (default: 0 for e2e tests) */
+  targetCommitteeSize?: number;
+  /** Slasher flavor: 'none' | 'empire' | 'tally' (default: 'none') */
+  slasherFlavor?: 'none' | 'empire' | 'tally';
+  /** GSE activation threshold in wei */
+  activationThreshold?: bigint;
+  /** GSE ejection threshold in wei */
+  ejectionThreshold?: bigint;
+  /** Amount to fund the reward distributor */
+  rewardDistributorFunding?: bigint;
+}
+
+/**
+ * Converts slasher flavor string to numeric value for forge env.
+ */
+function slasherFlavorToEnvValue(flavor?: 'none' | 'empire' | 'tally'): string {
+  switch (flavor) {
+    case 'empire':
+      return '1';
+    case 'tally':
+      return '2';
+    case 'none':
+    default:
+      return '0';
+  }
 }
 
 /**
  * Deploys L1 contracts using forge and returns a result compatible with the TypeScript deployL1Contracts function.
  * This queries the Rollup contract to get the inbox, outbox, and feeJuicePortal addresses.
  *
+ * All configuration is passed via environment variables to the forge script. The E2EConfiguration.sol
+ * contract reads these values and applies defaults for any unspecified parameters.
+ *
  * @param rpcUrl - The RPC URL to use
  * @param privateKey - The private key for the deployer (with 0x prefix)
- * @param options - Additional deployment options
+ * @param options - Additional deployment options (all optional with sensible defaults)
  * @returns The deployment result with all contract addresses and an l1Client
  */
 export async function setupL1ContractsViaForge(
   rpcUrl: string,
   privateKey: `0x${string}`,
-  options: SetupL1ContractsViaForgeOptions = {},
+  options: ForgeDeploymentOptions = {},
 ): Promise<ForgeDeployL1ContractsReturnType> {
   const logger = options.logger ?? createLogger('setup-l1-contracts-forge');
   const chain = options.chain ?? foundry;
 
-  // Deploy contracts via forge
-  const deployResult = await deployL1ContractsViaForge(rpcUrl, privateKey, options);
+  // Build environment variables for forge script
+  // FAKE_PROOFS controls MockVerifier vs HonkVerifier
+  const fakeProofs = options.realVerifier === true ? '0' : '1';
+  logger.info(`Using ${fakeProofs === '1' ? 'MockVerifier' : 'HonkVerifier'} (FAKE_PROOFS=${fakeProofs})`);
 
-  if (!deployResult.success || !deployResult.addresses) {
-    throw new Error(`Forge deployment failed: ${deployResult.stderr}`);
+  // Build env object with all configuration
+  const env: Record<string, string> = {
+    FAKE_PROOFS: fakeProofs,
+  };
+
+  // Genesis state
+  if (options.vkTreeRoot) {
+    env.VK_TREE_ROOT = options.vkTreeRoot;
+  }
+  if (options.protocolContractsHash) {
+    env.PROTOCOL_CONTRACTS_HASH = options.protocolContractsHash;
+  }
+  if (options.genesisArchiveRoot) {
+    env.GENESIS_ARCHIVE_ROOT = options.genesisArchiveRoot;
   }
 
-  const addresses = deployResult.addresses;
+  // Deployment options
+  if (options.fundRewardDistributor !== undefined) {
+    env.FUND_REWARD_DISTRIBUTOR = options.fundRewardDistributor ? '1' : '0';
+  }
+
+  // Rollup configuration
+  if (options.aztecSlotDuration !== undefined) {
+    env.AZTEC_SLOT_DURATION = options.aztecSlotDuration.toString();
+  }
+  if (options.aztecEpochDuration !== undefined) {
+    env.AZTEC_EPOCH_DURATION = options.aztecEpochDuration.toString();
+  }
+  if (options.targetCommitteeSize !== undefined) {
+    env.TARGET_COMMITTEE_SIZE = options.targetCommitteeSize.toString();
+  }
+  if (options.slasherFlavor !== undefined) {
+    env.SLASHER_FLAVOR = slasherFlavorToEnvValue(options.slasherFlavor);
+  }
+
+  // GSE configuration
+  if (options.activationThreshold !== undefined) {
+    env.ACTIVATION_THRESHOLD = options.activationThreshold.toString();
+  }
+  if (options.ejectionThreshold !== undefined) {
+    env.EJECTION_THRESHOLD = options.ejectionThreshold.toString();
+  }
+
+  // Reward distributor
+  if (options.rewardDistributorFunding !== undefined) {
+    env.REWARD_DISTRIBUTOR_FUNDING = options.rewardDistributorFunding.toString();
+  }
+
+  logger.verbose('Forge deployment environment', env);
+
+  const result = await runForgeScript(
+    [
+      'script',
+      'script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts',
+      '--sig',
+      'run()',
+      '--rpc-url',
+      rpcUrl,
+      '--private-key',
+      privateKey,
+      '--broadcast',
+      '-vvv',
+    ],
+    {
+      env,
+      logger,
+    },
+  );
+
+  if (!result.success || !result.deployments) {
+    throw new Error(`Forge deployment failed: ${result.stderr}`);
+  }
+
+  const addresses = result.deployments;
 
   // Verify we got the required addresses from forge output
   if (!addresses.rollupAddress || !addresses.registryAddress) {
