@@ -44,16 +44,7 @@
  * SumcheckProver<Flavor> prover(...);
  * auto output = prover.prove(...);
  * @endcode
- *
- * @section creating_variants Creating Custom Variants
- * To create a new test flavor variant:
- * 1. Copy SumcheckTestFlavor class
- * 2. Change the class name
- * 3. Modify the constants (HasZK, USE_SHORT_MONOMIALS, etc.)
- * 4. If using different relations, update Relations_ tuple and entity counts
- * 5. Reuse entity definitions from base flavor using `using` declarations
- *
- * Tests can now use template parameters to configure the flavor.
+ * @note Tests can now use template parameters to configure the flavor.
  */
 
 #pragma once

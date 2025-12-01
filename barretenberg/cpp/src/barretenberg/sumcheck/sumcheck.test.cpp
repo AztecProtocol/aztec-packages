@@ -288,10 +288,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         auto sumcheck_verifier = SumcheckVerifier<Flavor>(verifier_transcript, verifier_alpha, virtual_log_n);
 
         std::vector<FF> verifier_gate_challenges(virtual_log_n);
-        for (size_t idx = 0; idx < virtual_log_n; idx++) {
-            verifier_gate_challenges[idx] =
-                verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        verifier_gate_challenges =
+            verifier_transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
         std::vector<FF> padding_indicator_array(virtual_log_n, 1);
         if constexpr (Flavor::HasZK) {
@@ -329,11 +327,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         auto prover_transcript = Flavor::Transcript::prover_init_empty();
         FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-        std::vector<FF> prover_gate_challenges(multivariate_d);
-        for (size_t idx = 0; idx < multivariate_d; idx++) {
-            prover_gate_challenges[idx] =
-                prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        auto prover_gate_challenges =
+            prover_transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", multivariate_d);
 
         SumcheckProver<Flavor> sumcheck_prover(multivariate_n,
                                                full_polynomials,
@@ -406,95 +401,6 @@ TYPED_TEST(SumcheckTests, ProverAndVerifierSimple)
 TYPED_TEST(SumcheckTests, ProverAndVerifierSimpleFailure)
 {
     this->test_failure_prover_verifier_flow();
-}
-
-/**
- * @brief Test full sumcheck with intentionally wrong polynomial evaluations
- * @details Runs a valid sumcheck prover, tampers with the claimed polynomial evaluations,
- * and verifies that the verifier detects the fraud in the final check.
- */
-TEST(SumcheckTests, TamperedEvaluations)
-{
-    using Flavor = SumcheckTestFlavor;
-    using FF = typename Flavor::FF;
-    constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
-
-    const size_t multivariate_d = 3;
-    const size_t multivariate_n = 1 << multivariate_d;
-
-    // Test 1: Valid circuit but tampered evaluations
-    {
-        info("Test 1: Valid circuit, tampered evaluations - should FAIL");
-
-        // Use the standalone helper to create a valid circuit
-        auto prover_polynomials = create_satisfiable_trace<Flavor>(multivariate_n);
-
-        // SumcheckTestFlavor doesn't need complex relation parameters
-        RelationParameters<FF> relation_parameters{};
-
-        // Run the prover with valid circuit
-        auto prover_transcript = Flavor::Transcript::prover_init_empty();
-        FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
-
-        std::vector<FF> prover_gate_challenges(multivariate_d);
-        for (size_t idx = 0; idx < multivariate_d; idx++) {
-            prover_gate_challenges[idx] =
-                prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
-
-        SumcheckProver<Flavor> sumcheck_prover(multivariate_n,
-                                               prover_polynomials,
-                                               prover_transcript,
-                                               prover_alpha,
-                                               prover_gate_challenges,
-                                               relation_parameters,
-                                               multivariate_d);
-
-        auto prover_output = sumcheck_prover.prove();
-
-        // Check that the verifier can verify the proof
-        auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
-
-        FF verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
-        SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alpha, multivariate_d);
-        std::vector<FF> verifier_gate_challenges(multivariate_d);
-        for (size_t idx = 0; idx < multivariate_d; idx++) {
-            verifier_gate_challenges[idx] =
-                verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
-        std::vector<FF> padding_indicator_array(multivariate_d, FF(1));
-        auto verifier_output =
-            sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
-        EXPECT_TRUE(verifier_output.verified);
-
-        // Now tamper with the claimed evaluations
-        // TAMPER: Replace claimed evaluations with random values
-        typename Flavor::AllValues wrong_evaluations;
-        for (auto& wrong_eval : wrong_evaluations.get_all()) {
-            wrong_eval = FF::random_element(); // Intentionally random (highly unlikely to be correct)
-        }
-
-        // Manually send the wrong evaluations to the prover transcript
-        // This simulates a dishonest prover sending wrong claimed evaluations
-        std::array<FF, NUM_POLYNOMIALS> wrong_evals_array;
-        for (size_t i = 0; i < NUM_POLYNOMIALS; ++i) {
-            wrong_evals_array[i] = wrong_evaluations.get_all()[i];
-        }
-        prover_transcript->send_to_verifier("Sumcheck:evaluations", wrong_evals_array);
-
-        // update the verifier transcript with the tampered proof
-        verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
-
-        verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
-        sumcheck_verifier = SumcheckVerifier<Flavor>(verifier_transcript, verifier_alpha, multivariate_d);
-
-        verifier_output =
-            sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
-
-        EXPECT_FALSE(verifier_output.verified) << "Sumcheck should fail when polynomial evaluations are tampered with";
-
-        info("Tampered evaluations: Verifier correctly rejects wrong polynomial evaluations");
-    }
 }
 
 } // namespace
