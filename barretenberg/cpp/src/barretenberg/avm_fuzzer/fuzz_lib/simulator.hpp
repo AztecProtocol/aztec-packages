@@ -14,7 +14,7 @@ using namespace bb::avm2;
 struct SimulatorResult {
     bool reverted;
     std::vector<FF> output;
-    TreeSnapshots tree_snapshots;
+    TreeSnapshots end_tree_snapshots;
     std::string revert_reason;
 };
 

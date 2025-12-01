@@ -13,6 +13,7 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/common/base64.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -32,8 +33,7 @@ using namespace bb::world_state;
 using json = nlohmann::json;
 
 // Helper function to serialize bytecode, calldata, tx, and globals to JSON
-std::string serialize_simulation_request(fuzzer::FuzzerWorldStateManager& ws,
-                                         const std::vector<uint8_t>& bytecode,
+std::string serialize_simulation_request(const std::vector<uint8_t>& bytecode,
                                          const std::vector<FF>& calldata,
                                          const Tx& tx,
                                          const GlobalVariables& globals)
@@ -53,7 +53,6 @@ std::string serialize_simulation_request(fuzzer::FuzzerWorldStateManager& ws,
     // Note: TypeScript expects the parent directory and adds "world_state/" subdirectory itself
     j["ws_data_dir"] = FuzzerWorldStateManager::get_data_dir();
     j["ws_map_size_kb"] = FuzzerWorldStateManager::get_map_size_kb();
-    j["ws_fork_id"] = ws.get_current_revision().forkId;
 
     // Serialize Tx using msgpack and base64 encode
     auto [tx_buffer, tx_size] = msgpack_encode_buffer(tx);
@@ -96,6 +95,7 @@ Tx create_default_tx(const AztecAddress& contract_address,
         .hash = TRANSACTION_HASH,
         .gas_settings = GasSettings{
             .gas_limits = gas_limit,
+            .max_fees_per_gas = GasFees{ .fee_per_da_gas = FEE_PER_DA_GAS, .fee_per_l2_gas = FEE_PER_L2_GAS },
         },
         .effective_gas_fees = EFFECTIVE_GAS_FEES,
         .non_revertible_accumulated_data = AccumulatedData{
@@ -158,7 +158,9 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
         }
     }
     if (result.public_inputs.has_value()) {
-        return { .reverted = reverted, .output = values, .tree_snapshots = result.public_inputs->end_tree_snapshots };
+        return { .reverted = reverted,
+                 .output = values,
+                 .end_tree_snapshots = result.public_inputs->end_tree_snapshots };
     }
     return { .reverted = reverted, .output = values };
 }
@@ -187,7 +189,7 @@ void JsSimulator::initialize(std::string& simulator_path)
     instance = new JsSimulator(simulator_path);
 }
 
-SimulatorResult JsSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
+SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateManager& ws_mgr,
                                       const std::vector<uint8_t>& bytecode,
                                       const std::vector<FF>& calldata)
 {
@@ -197,7 +199,7 @@ SimulatorResult JsSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
     auto globals = create_default_globals();
     Tx tx = create_default_tx(CONTRACT_ADDRESS, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
 
-    std::string serialized = serialize_simulation_request(ws_mgr, bytecode, calldata, tx, globals);
+    std::string serialized = serialize_simulation_request(bytecode, calldata, tx, globals);
     if (logging_enabled) {
         info("Sending request to simulator: ", serialized);
     }
@@ -226,14 +228,40 @@ SimulatorResult JsSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
     for (const auto& field : output) {
         output_fields.push_back(FF(field));
     }
+
+    // Parse endTreeSnapshots from JSON response
+    TreeSnapshots end_tree_snapshots;
+    if (response_json.contains("endTreeSnapshots")) {
+        const auto& ets = response_json["endTreeSnapshots"];
+        end_tree_snapshots.l1_to_l2_message_tree = AppendOnlyTreeSnapshot{
+            .root = FF(ets["l1ToL2MessageTree"]["root"].get<std::string>()),
+            .next_available_leaf_index = ets["l1ToL2MessageTree"]["nextAvailableLeafIndex"].get<uint64_t>(),
+        };
+        end_tree_snapshots.note_hash_tree = AppendOnlyTreeSnapshot{
+            .root = FF(ets["noteHashTree"]["root"].get<std::string>()),
+            .next_available_leaf_index = ets["noteHashTree"]["nextAvailableLeafIndex"].get<uint64_t>(),
+        };
+        end_tree_snapshots.nullifier_tree = AppendOnlyTreeSnapshot{
+            .root = FF(ets["nullifierTree"]["root"].get<std::string>()),
+            .next_available_leaf_index = ets["nullifierTree"]["nextAvailableLeafIndex"].get<uint64_t>(),
+        };
+        end_tree_snapshots.public_data_tree = AppendOnlyTreeSnapshot{
+            .root = FF(ets["publicDataTree"]["root"].get<std::string>()),
+            .next_available_leaf_index = ets["publicDataTree"]["nextAvailableLeafIndex"].get<uint64_t>(),
+        };
+    }
+
     SimulatorResult result = {
-        .reverted = reverted, .output = output_fields, .tree_snapshots = {}, .revert_reason = revert_reason
+        .reverted = reverted,
+        .output = output_fields,
+        .end_tree_snapshots = end_tree_snapshots,
+        .revert_reason = revert_reason,
     };
     return result;
 }
 
 bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2)
 {
-    // add: result1.tree_snapshots == result2.tree_snapshots;
-    return result1.reverted == result2.reverted && result1.output == result2.output;
+    return result1.reverted == result2.reverted && result1.output == result2.output &&
+           result1.end_tree_snapshots == result2.end_tree_snapshots;
 }
