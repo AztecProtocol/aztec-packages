@@ -2,18 +2,70 @@ use types::{
     abis::{
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        private_kernel::private_call_data::{SideEffectCounterRange, SideEffectUniquenessHints},
     },
     constants::{
         GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET, GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET,
         GLOBAL_INDEX_NOTE_HASH_OFFSET, GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
         GLOBAL_INDEX_NULLIFIER_OFFSET, GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
         GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET, GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
-        GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
+        GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
+        MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+        TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
     },
     side_effect::Ordered,
-    utils::arrays::ClaimedLengthArray,
+    traits::Empty,
+    utils::arrays::{ClaimedLengthArray, subarray},
 };
+
+#[derive(Eq)]
+pub struct SideEffectCounterRange {
+    pub start: u32,
+    pub end: u32,
+    pub side_effect_global_index: u32,
+}
+
+impl Empty for SideEffectCounterRange {
+    fn empty() -> Self {
+        SideEffectCounterRange { start: 0, end: 0, side_effect_global_index: 0 }
+    }
+}
+
+#[derive(Eq)]
+pub struct SideEffectUniquenessHints {
+    pub side_effect_ranges: [SideEffectCounterRange; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
+
+    pub note_hash_read_request_indices: [u32; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub nullifier_read_request_indices: [u32; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
+    pub note_hashes_indices: [u32; MAX_NOTE_HASHES_PER_CALL],
+    pub nullifiers_indices: [u32; MAX_NULLIFIERS_PER_CALL],
+    pub private_call_requests_indices: [u32; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
+    pub public_call_requests_indices: [u32; MAX_ENQUEUED_CALLS_PER_CALL],
+    pub l2_to_l1_msgs_indices: [u32; MAX_L2_TO_L1_MSGS_PER_CALL],
+    pub private_logs_indices: [u32; MAX_PRIVATE_LOGS_PER_CALL],
+    pub contract_class_logs_hashes_indices: [u32; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
+}
+
+impl Empty for SideEffectUniquenessHints {
+    fn empty() -> Self {
+        SideEffectUniquenessHints {
+            side_effect_ranges: [
+                SideEffectCounterRange::empty(); TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL
+            ],
+            note_hash_read_request_indices: [0; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+            nullifier_read_request_indices: [0; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
+            note_hashes_indices: [0; MAX_NOTE_HASHES_PER_CALL],
+            nullifiers_indices: [0; MAX_NULLIFIERS_PER_CALL],
+            private_call_requests_indices: [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
+            public_call_requests_indices: [0; MAX_ENQUEUED_CALLS_PER_CALL],
+            l2_to_l1_msgs_indices: [0; MAX_L2_TO_L1_MSGS_PER_CALL],
+            private_logs_indices: [0; MAX_PRIVATE_LOGS_PER_CALL],
+            contract_class_logs_hashes_indices: [0; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
+        }
+    }
+}
 
 // This function ensures that side effect counters of a private call are unique and within bounds of the private call.
 // For nested calls, the uniqueness check also ensures that no other side effect falls within the range of the nested call counters.
@@ -22,6 +74,17 @@ use types::{
 // After constraining the mapping to the list of ranges, we validate that call_start_counter < ranges[0].start ... < call_end_counter.
 // Tested in tests/private_call_data_validator_builder/validate_side_effect_counters.nr
 pub fn validate_unique_and_within_bounds_side_effect_counters(
+    public_inputs: PrivateCircuitPublicInputs,
+) {
+    // Safety: These are hints to validate in the with hints function.
+    let side_effect_sorting_hints = unsafe { build_uniqueness_hints(public_inputs) };
+    validate_unique_and_within_bounds_side_effect_counters_with_hints(
+        public_inputs,
+        side_effect_sorting_hints,
+    );
+}
+
+pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
     public_inputs: PrivateCircuitPublicInputs,
     side_effect_sorting_hints: SideEffectUniquenessHints,
 ) {
@@ -219,4 +282,133 @@ fn validate_increasing_ranges(
         }
     }
     assert(prev_counter < counter_end, "end counter must be less than the end counter of the call");
+}
+
+fn build_side_effect_range<T>(item: T, global_index: u32) -> SideEffectCounterRange
+where
+    T: Ordered,
+{
+    SideEffectCounterRange {
+        start: item.counter(),
+        end: item.counter(),
+        side_effect_global_index: global_index,
+    }
+}
+
+fn build_side_effect_range_from_private_call_request(
+    item: PrivateCallRequest,
+    global_index: u32,
+) -> SideEffectCounterRange {
+    SideEffectCounterRange {
+        start: item.start_side_effect_counter,
+        end: item.end_side_effect_counter,
+        side_effect_global_index: global_index,
+    }
+}
+
+pub unconstrained fn build_uniqueness_hints(
+    public_inputs: PrivateCircuitPublicInputs,
+) -> SideEffectUniquenessHints {
+    let mut side_effect_ranges = BoundedVec::new();
+
+    for i in 0..public_inputs.note_hash_read_requests.length {
+        side_effect_ranges.push(build_side_effect_range(
+            public_inputs.note_hash_read_requests.array[i],
+            i + GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
+        ));
+    }
+
+    for i in 0..public_inputs.nullifier_read_requests.length {
+        side_effect_ranges.push(build_side_effect_range(
+            public_inputs.nullifier_read_requests.array[i],
+            i + GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
+        ));
+    }
+
+    for i in 0..public_inputs.note_hashes.length {
+        side_effect_ranges.push(build_side_effect_range(
+            public_inputs.note_hashes.array[i],
+            i + GLOBAL_INDEX_NOTE_HASH_OFFSET,
+        ));
+    }
+
+    for i in 0..public_inputs.nullifiers.length {
+        side_effect_ranges.push(build_side_effect_range(
+            public_inputs.nullifiers.array[i],
+            i + GLOBAL_INDEX_NULLIFIER_OFFSET,
+        ));
+    }
+
+    for i in 0..public_inputs.private_call_requests.length {
+        side_effect_ranges.push(build_side_effect_range_from_private_call_request(
+            public_inputs.private_call_requests.array[i],
+            i + GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET,
+        ));
+    }
+
+    for i in 0..public_inputs.public_call_requests.length {
+        side_effect_ranges.push(build_side_effect_range(
+            public_inputs.public_call_requests.array[i],
+            i + GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET,
+        ));
+    }
+
+    for i in 0..public_inputs.l2_to_l1_msgs.length {
+        side_effect_ranges.push(build_side_effect_range(
+            public_inputs.l2_to_l1_msgs.array[i],
+            i + GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET,
+        ));
+    }
+
+    for i in 0..public_inputs.private_logs.length {
+        side_effect_ranges.push(build_side_effect_range(
+            public_inputs.private_logs.array[i],
+            i + GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
+        ));
+    }
+
+    for i in 0..public_inputs.contract_class_logs_hashes.length {
+        side_effect_ranges.push(build_side_effect_range(
+            public_inputs.contract_class_logs_hashes.array[i],
+            i + GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
+        ));
+    }
+
+    let sorted_side_effect_ranges = side_effect_ranges.storage().sort_via(|a, b| {
+        if b.is_empty() {
+            true
+        } else {
+            a.start <= b.start
+        }
+    });
+
+    let mut indices = [0; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL];
+
+    // Using the bounded vec here because we know the length of the array.
+    for i in 0..side_effect_ranges.len() {
+        let range = sorted_side_effect_ranges[i];
+        indices[range.side_effect_global_index] = i;
+    }
+
+    SideEffectUniquenessHints {
+        side_effect_ranges: sorted_side_effect_ranges,
+        note_hash_read_request_indices: subarray(
+            indices,
+            GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
+        ),
+        nullifier_read_request_indices: subarray(
+            indices,
+            GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
+        ),
+        note_hashes_indices: subarray(indices, GLOBAL_INDEX_NOTE_HASH_OFFSET),
+        nullifiers_indices: subarray(indices, GLOBAL_INDEX_NULLIFIER_OFFSET),
+        private_call_requests_indices: subarray(indices, GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET),
+        public_call_requests_indices: subarray(indices, GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET),
+        l2_to_l1_msgs_indices: subarray(indices, GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET),
+        private_logs_indices: subarray(indices, GLOBAL_INDEX_PRIVATE_LOG_OFFSET),
+        contract_class_logs_hashes_indices: subarray(
+            indices,
+            GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
+        ),
+    }
 }

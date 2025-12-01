@@ -1,12 +1,17 @@
 use crate::{
-    components::private_call_data_validator::PrivateCallDataValidator,
+    components::private_call_data_validator::validate_side_effect_counters::{
+        build_uniqueness_hints, validate_unique_and_within_bounds_side_effect_counters_with_hints,
+    },
     tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder,
 };
-use types::constants::{
-    MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
-    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
-    MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+use types::{
+    constants::{
+        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+    },
+    tests::fixture_builder::FixtureBuilder,
 };
 
 #[test]
@@ -587,98 +592,119 @@ fn validate_side_effect_counters_duplicated_contract_class_log_counter_in_other_
 
 #[test(should_fail_with = "side effect range index out of bounds")]
 fn validate_side_effect_counters_modify_range_index_out_of_bounds_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new_from_counter(50);
-    builder.private_call.append_nullifiers(2);
+    let mut builder = FixtureBuilder::new_from_counter(50);
+    builder.append_nullifiers(2);
 
-    let mut private_call = builder.private_call.to_private_call_data();
+    let private_call = builder.to_private_call_data();
 
-    private_call.side_effect_uniqueness_hints.nullifiers_indices[0] = 10;
+    // Safety: Validation below should fail
+    let mut hints = unsafe { build_uniqueness_hints(private_call.public_inputs) };
+    hints.nullifiers_indices[0] = 10;
 
-    PrivateCallDataValidator::new(private_call).validate_common(
-        builder.private_call.protocol_contracts,
+    validate_unique_and_within_bounds_side_effect_counters_with_hints(
+        private_call.public_inputs,
+        hints,
     );
 }
 
 #[test(should_fail_with = "counter does not match start range item")]
 fn validate_side_effect_counters_modify_range_start_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new_from_counter(50);
-    builder.private_call.append_note_hash_read_requests(2);
+    let mut builder = FixtureBuilder::new_from_counter(50);
+    builder.append_note_hash_read_requests(2);
 
-    let mut private_call = builder.private_call.to_private_call_data();
+    let mut private_call = builder.to_private_call_data();
 
-    private_call.side_effect_uniqueness_hints.side_effect_ranges[0].start += 1;
+    // Safety: Validation below should fail
+    let mut hints = unsafe { build_uniqueness_hints(private_call.public_inputs) };
+    hints.side_effect_ranges[0].start += 1;
 
-    PrivateCallDataValidator::new(private_call).validate_common(
-        builder.private_call.protocol_contracts,
+    validate_unique_and_within_bounds_side_effect_counters_with_hints(
+        private_call.public_inputs,
+        hints,
     );
 }
 
 #[test(should_fail_with = "counter does not match end range item")]
 fn validate_side_effect_counters_modify_range_end_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new_from_counter(50);
-    builder.private_call.append_nullifier_read_requests(2);
+    let mut builder = FixtureBuilder::new_from_counter(50);
+    builder.append_nullifier_read_requests(2);
 
-    let mut private_call = builder.private_call.to_private_call_data();
+    let mut private_call = builder.to_private_call_data();
 
-    private_call.side_effect_uniqueness_hints.side_effect_ranges[0].end += 1;
+    // Safety: Validation below should fail
+    let mut hints = unsafe { build_uniqueness_hints(private_call.public_inputs) };
+    hints.side_effect_ranges[0].end += 1;
 
-    PrivateCallDataValidator::new(private_call).validate_common(
-        builder.private_call.protocol_contracts,
+    validate_unique_and_within_bounds_side_effect_counters_with_hints(
+        private_call.public_inputs,
+        hints,
     );
 }
 
 #[test(should_fail_with = "range global index does not match side effect global index")]
 fn validate_side_effect_counters_modify_range_global_index_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new_from_counter(50);
-    builder.private_call.append_l2_to_l1_msgs(2);
+    let mut builder = FixtureBuilder::new_from_counter(50);
+    builder.append_l2_to_l1_msgs(2);
 
-    let mut private_call = builder.private_call.to_private_call_data();
+    let mut private_call = builder.to_private_call_data();
 
-    private_call.side_effect_uniqueness_hints.side_effect_ranges[0].side_effect_global_index += 1;
+    // Safety: Validation below should fail
+    let mut hints = unsafe { build_uniqueness_hints(private_call.public_inputs) };
+    hints.side_effect_ranges[0].side_effect_global_index += 1;
 
-    PrivateCallDataValidator::new(private_call).validate_common(
-        builder.private_call.protocol_contracts,
+    validate_unique_and_within_bounds_side_effect_counters_with_hints(
+        private_call.public_inputs,
+        hints,
     );
 }
 
 #[test(should_fail_with = "start counter does not match range item")]
 fn validate_side_effect_counters_modify_call_request_range_start_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new_from_counter(50);
-    builder.private_call.append_private_call_requests(1);
+    let mut builder = FixtureBuilder::new_from_counter(50);
+    builder.append_private_call_requests(1);
 
-    let mut private_call = builder.private_call.to_private_call_data();
+    let mut private_call = builder.to_private_call_data();
 
+    // Safety: Validation below should fail
+    let mut hints = unsafe { build_uniqueness_hints(private_call.public_inputs) };
     private_call.public_inputs.private_call_requests.array[0].start_side_effect_counter += 1;
 
-    PrivateCallDataValidator::new(private_call).validate_common(
-        builder.private_call.protocol_contracts,
+    validate_unique_and_within_bounds_side_effect_counters_with_hints(
+        private_call.public_inputs,
+        hints,
     );
 }
 
 #[test(should_fail_with = "end counter does not match range item")]
 fn validate_side_effect_counters_modify_call_request_range_end_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new_from_counter(50);
-    builder.private_call.append_private_call_requests(2);
+    let mut builder = FixtureBuilder::new_from_counter(50);
+    builder.append_private_call_requests(2);
 
-    let mut private_call = builder.private_call.to_private_call_data();
+    let mut private_call = builder.to_private_call_data();
 
+    // Safety: Validation below should fail
+    let mut hints = unsafe { build_uniqueness_hints(private_call.public_inputs) };
     private_call.public_inputs.private_call_requests.array[0].end_side_effect_counter += 1;
 
-    PrivateCallDataValidator::new(private_call).validate_common(
-        builder.private_call.protocol_contracts,
+    validate_unique_and_within_bounds_side_effect_counters_with_hints(
+        private_call.public_inputs,
+        hints,
     );
 }
 
 #[test(should_fail_with = "range global index does not match side effect global index")]
 fn validate_side_effect_counters_modify_call_request_range_global_index_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new_from_counter(50);
-    builder.private_call.append_private_call_requests(2);
+    let mut builder = FixtureBuilder::new_from_counter(50);
+    builder.append_private_call_requests(2);
 
-    let mut private_call = builder.private_call.to_private_call_data();
+    let mut private_call = builder.to_private_call_data();
 
-    private_call.side_effect_uniqueness_hints.side_effect_ranges[1].side_effect_global_index += 1;
+    // Safety: Validation below should fail
+    let mut hints = unsafe { build_uniqueness_hints(private_call.public_inputs) };
+    hints.side_effect_ranges[1].side_effect_global_index += 1;
 
-    PrivateCallDataValidator::new(private_call).validate_common(
-        builder.private_call.protocol_contracts,
+    validate_unique_and_within_bounds_side_effect_counters_with_hints(
+        private_call.public_inputs,
+        hints,
     );
 }
