@@ -35,6 +35,7 @@ import {
 import { VerificationKeyAsFields, VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
+import { computeSideEffectUniquenessHints } from './hints/compute_side_effect_uniqueness_hints.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 const NULL_SIMULATE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
@@ -415,6 +416,9 @@ export class PrivateKernelExecutionProver {
       await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
     const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
+
+    const sideEffectUniquenessHints = computeSideEffectUniquenessHints(publicInputs);
+
     return PrivateCallData.from({
       publicInputs,
       vk,
@@ -426,6 +430,7 @@ export class PrivateKernelExecutionProver {
         functionLeafMembershipWitness,
         updatedClassIdHints,
       }),
+      sideEffectUniquenessHints,
     });
   }
 }
