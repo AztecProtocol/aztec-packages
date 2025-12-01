@@ -1271,41 +1271,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
 };
 
 /**
- * @brief Decompose a single witness into two limbs, range constrained to DEFAULT_NON_NATIVE_FIELD_LIMB_BITS (68) and
- * num_limb_bits - DEFAULT_NON_NATIVE_FIELD_LIMB_BITS, respectively.
- *
- * @details Doesn't create gates constraining the limbs to each other.
- *
- * @param limb_idx The index of the limb that will be decomposed
- * @param num_limb_bits The range we want to constrain the original limb to
- * @return std::array<uint32_t, 2> The indices of new limbs.
- */
-// AUDITTODO: what is the justification for this method being in the builder? Seems similar methods are defined directly
-// in bigfield.
-template <typename ExecutionTrace>
-std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_native_field_double_width_limb(
-    const uint32_t limb_idx, const size_t num_limb_bits)
-{
-    BB_ASSERT_LT(uint256_t(this->get_variable(limb_idx)), (uint256_t(1) << num_limb_bits));
-    constexpr FF LIMB_MASK = (uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) - 1;
-    const uint256_t value = this->get_variable(limb_idx);
-    const uint256_t low = value & LIMB_MASK;
-    const uint256_t hi = value >> DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    BB_ASSERT_EQ(low + (hi << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS), value);
-
-    const uint32_t low_idx = this->add_variable(fr(low));
-    const uint32_t hi_idx = this->add_variable(fr(hi));
-
-    BB_ASSERT_GT(num_limb_bits, DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
-    const size_t lo_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    const size_t hi_bits = num_limb_bits - DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    range_constrain_two_limbs(
-        low_idx, hi_idx, lo_bits, hi_bits, "decompose_non_native_field_double_width_limb: limbs too large");
-
-    return std::array<uint32_t, 2>{ low_idx, hi_idx };
-}
-
-/**
  * @brief Create gates for a full non-native field multiplication identity a * b = q * p + r
  *
  * @details Creates gates to constrain the non-native field multiplication identity a * b = q * p + r, where a, b, q, r
