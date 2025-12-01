@@ -49,7 +49,6 @@ function print_usage {
   echo_cmd "avm-inputs-collection" "Nightly: run e2e tests, dump AVM circuit inputs, upload to cache."
   echo_cmd "avm-check-circuit"     "Nightly: download cached AVM inputs, run check-circuit on each."
   echo_cmd "help"                  "Display this help message."
-
 }
 
 [ -n "$cmd" ] && shift
