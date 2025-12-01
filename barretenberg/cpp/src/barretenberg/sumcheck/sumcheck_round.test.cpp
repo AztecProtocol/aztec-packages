@@ -405,7 +405,7 @@ TEST(SumcheckRound, ExtendEdgesShortMonomial)
 TEST(SumcheckRound, ExtendEdges)
 {
     // Use a flavor without ShortMonomials
-    using Flavor = MultilinearBatchingFlavor;
+    using Flavor = SumcheckTestFlavorFullBary;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using SumcheckRound = SumcheckProverRound<Flavor>;
@@ -466,13 +466,13 @@ TEST(SumcheckRound, ExtendEdges)
 }
 
 /**
- * @brief Test accumulate_relation_univariates for UltraFlavor
+ * @brief Test accumulate_relation_univariates for SumcheckTestFlavor
  * @details Tests that:
  * 1. Arithmetic relation contributions are correctly accumulated
  * 2. Scaling factors are properly applied
  * 3. Multiple calls correctly accumulate (add) contributions
  */
-TEST(SumcheckRound, AccumulateRelationUnivariatesUltra)
+TEST(SumcheckRound, AccumulateRelationUnivariatesSumcheckTestFlavor)
 {
     using Flavor = SumcheckTestFlavor;
     using FF = typename Flavor::FF;
@@ -568,7 +568,8 @@ TEST(SumcheckRound, AccumulateRelationUnivariatesUltra)
         typename SumcheckRound::ExtendedEdges extended_edges;
         round.extend_edges(extended_edges, prover_polynomials, 0);
 
-        typename SumcheckRound::SumcheckTupleOfTuplesOfUnivariates acc1{}, acc2{};
+        typename SumcheckRound::SumcheckTupleOfTuplesOfUnivariates acc1{};
+        typename SumcheckRound::SumcheckTupleOfTuplesOfUnivariates acc2{};
         RelationUtils<Flavor>::zero_univariates(acc1);
         RelationUtils<Flavor>::zero_univariates(acc2);
         RelationParameters<FF> relation_parameters{};
