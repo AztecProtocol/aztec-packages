@@ -71,10 +71,9 @@ EOF
 }
 
 function test_cmds {
-  echo "$hash aztec-up/scripts/run_test.sh amm_flow"
-  echo "$hash aztec-up/scripts/run_test.sh bridge_and_claim"
-  echo "$hash aztec-up/scripts/run_test.sh basic_install"
-  echo "$hash aztec-up/scripts/run_test.sh counter_contract"
+  for test in amm_flow bridge_and_claim basic_install counter_contract; do
+    echo "$hash:TIMEOUT=15m aztec-up/scripts/run_test.sh $test"
+  done
 }
 
 function test {
