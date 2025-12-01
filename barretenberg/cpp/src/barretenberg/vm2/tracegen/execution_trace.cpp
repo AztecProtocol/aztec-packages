@@ -292,13 +292,10 @@ void ExecutionTraceBuilder::process(
     // Preprocess events to determine which contexts will fail
     FailingContexts failures = preprocess_for_discard(ex_events);
 
-    uint32_t last_seen_parent_id = 0;
-
     // Some variables updated per loop iteration to track
     // whether or not the upcoming row should "discard" [side effects].
     uint32_t discard = 0;
     uint32_t dying_context_id = 0;
-    FF dying_context_id_inv = 0;
     bool is_first_event_in_enqueued_call = true;
     bool prev_row_was_enter_call = false;
 
@@ -309,14 +306,9 @@ void ExecutionTraceBuilder::process(
             is_phase_discarded(ex_event.after_context_event.phase, failures)) {
             discard = 1;
             dying_context_id = dying_context_for_phase(ex_event.after_context_event.phase, failures);
-            dying_context_id_inv = dying_context_id; // Will be inverted in batch later.
         }
 
-        // Cache the parent id inversion since we will repeatedly just be doing the same expensive inversion
         bool has_parent = ex_event.after_context_event.parent_id != 0;
-        if (last_seen_parent_id != ex_event.after_context_event.parent_id) {
-            last_seen_parent_id = ex_event.after_context_event.parent_id;
-        }
 
         /**************************************************************************************************
          *  Setup.
@@ -417,7 +409,7 @@ void ExecutionTraceBuilder::process(
                 { C::execution_num_l2_to_l1_messages, ex_event.after_context_event.numL2ToL1Messages },
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
-                { C::execution_is_parent_id_inv, has_parent ? last_seen_parent_id : 0 },
+                { C::execution_is_parent_id_inv, ex_event.after_context_event.parent_id }, // Will be inverted in batch.
             } });
 
         // Internal stack
@@ -690,11 +682,10 @@ void ExecutionTraceBuilder::process(
         bool is_dying_context = discard == 1 && (ex_event.after_context_event.id == dying_context_id);
 
         // Need to generate the item below for checking "is dying context" in circuit
-        FF dying_context_diff_inv = 0;
+        FF dying_context_diff = 0;
         if (!is_dying_context) {
             // Compute inversion when context_id != dying_context_id
-            FF diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
-            dying_context_diff_inv = diff; // Will be inverted in batch later.
+            dying_context_diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
         }
 
         // Needed for bc retrieval
@@ -719,9 +710,9 @@ void ExecutionTraceBuilder::process(
                 { C::execution_sel_failure, is_failure ? 1 : 0 },
                 { C::execution_discard, discard },
                 { C::execution_dying_context_id, dying_context_id },
-                { C::execution_dying_context_id_inv, dying_context_id_inv },
+                { C::execution_dying_context_id_inv, dying_context_id }, // Will be inverted in batch.
                 { C::execution_is_dying_context, is_dying_context ? 1 : 0 },
-                { C::execution_dying_context_diff_inv, dying_context_diff_inv },
+                { C::execution_dying_context_diff_inv, dying_context_diff }, // Will be inverted in batch.
                 { C::execution_enqueued_call_end, enqueued_call_end ? 1 : 0 },
                 { C::execution_sel_first_row_in_context, sel_first_row_in_context ? 1 : 0 },
                 { C::execution_resolves_dying_context, resolves_dying_context ? 1 : 0 },
@@ -736,7 +727,6 @@ void ExecutionTraceBuilder::process(
         if (event_kills_dying_context) {
             // Set/unset discard flag if the current event is the one that kills the dying context
             dying_context_id = 0;
-            dying_context_id_inv = 0;
             discard = 0;
         } else if (sel_enter_call && discard == 0 && !is_err &&
                    failures.does_context_fail.contains(ex_event.next_context_id)) {
@@ -745,7 +735,6 @@ void ExecutionTraceBuilder::process(
             // context is dying. NOTE: if a [STATIC]CALL instruction _itself_ errors, we don't set the
             // discard flag because we aren't actually entering a new context!
             dying_context_id = ex_event.next_context_id;
-            dying_context_id_inv = dying_context_id; // Will be inverted in batch later.
             discard = 1;
         }
         // Otherwise, we aren't entering or exiting a dying context,
@@ -938,10 +927,10 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                   } });
     }
 
-    // Inverse when base address is invalid.
-    FF base_address_tag_diff_inv = base_address_invalid ? FF(static_cast<uint8_t>(addr_event.base_address.get_tag())) -
-                                                              FF(static_cast<uint8_t>(MemoryTag::U32))
-                                                        : 0; // Will be inverted in batch later.
+    // Inverse of following difference is required when base address is invalid.
+    FF base_address_tag_diff = base_address_invalid ? FF(static_cast<uint8_t>(addr_event.base_address.get_tag())) -
+                                                          FF(static_cast<uint8_t>(MemoryTag::U32))
+                                                    : 0;
 
     // Tag check after indirection.
     bool some_final_check_failed = std::ranges::any_of(addr_event.resolution_info, [](const auto& info) {
@@ -962,7 +951,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     // Collect addressing errors. See PIL file for reference.
     bool addressing_failed =
         std::ranges::any_of(addr_event.resolution_info, [](const auto& info) { return info.error.has_value(); });
-    FF addressing_error_collection_inv =
+    FF addressing_error_collection =
         addressing_failed
             ? FF(
                   // Base address invalid.
@@ -980,22 +969,23 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                                   }) +
                   // Some invalid address after indirection.
                   (some_final_check_failed ? 1 : 0))
-            : 0; // Will be inverted in batch later.
+            : 0;
 
-    trace.set(row,
-              { {
-                  { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
-                  { C::execution_addressing_error_collection_inv, addressing_error_collection_inv },
-                  { C::execution_base_address_val, addr_event.base_address.as_ff() },
-                  { C::execution_base_address_tag, static_cast<uint8_t>(addr_event.base_address.get_tag()) },
-                  { C::execution_base_address_tag_diff_inv, base_address_tag_diff_inv },
-                  { C::execution_sel_some_final_check_failed, some_final_check_failed ? 1 : 0 },
-                  { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
-                  { C::execution_num_relative_operands_inv,
-                    do_base_check ? num_relative_operands : 0 }, // Will be inverted in batch later.
-                  { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
-                  { C::execution_highest_address, AVM_HIGHEST_MEM_ADDRESS },
-              } });
+    trace.set(
+        row,
+        { {
+            { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
+            { C::execution_addressing_error_collection_inv, addressing_error_collection }, // Will be inverted in batch.
+            { C::execution_base_address_val, addr_event.base_address.as_ff() },
+            { C::execution_base_address_tag, static_cast<uint8_t>(addr_event.base_address.get_tag()) },
+            { C::execution_base_address_tag_diff_inv, base_address_tag_diff }, // Will be inverted in batch.
+            { C::execution_sel_some_final_check_failed, some_final_check_failed ? 1 : 0 },
+            { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
+            { C::execution_num_relative_operands_inv,
+              do_base_check ? num_relative_operands : 0 }, // Will be inverted in batch later.
+            { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
+            { C::execution_highest_address, AVM_HIGHEST_MEM_ADDRESS },
+        } });
 }
 
 void ExecutionTraceBuilder::invert_columns(TraceContainer& trace)
@@ -1087,7 +1077,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
     trace.set(row,
               { {
                   { C::execution_sel_should_read_registers, 1 },
-                  { C::execution_batched_tags_diff_inv_reg, batched_tags_diff_inv_reg },
+                  { C::execution_batched_tags_diff_inv_reg, batched_tags_diff_inv_reg }, // Will be inverted in batch.
                   { C::execution_sel_register_read_error, some_tag_check_failed ? 1 : 0 },
               } });
 }
