@@ -71,6 +71,8 @@ describe('forge_script', () => {
     expect(result.l1ContractAddresses.governanceAddress).toBeDefined();
     expect(result.l1ContractAddresses.stakingAssetAddress).toBeDefined();
     expect(result.l1ContractAddresses.feeAssetHandlerAddress).toBeDefined();
+    expect(result.l1ContractAddresses.stakingAssetHandlerAddress).toBeDefined();
+    expect(result.l1ContractAddresses.zkPassportVerifierAddress).toBeDefined();
 
     // Verify l1Client is present
     expect(result.l1Client).toBeDefined();

@@ -391,7 +391,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private validateConfig() {
     if (
       this.config.proverNodeFailedEpochStore &&
-      (!this.config.dataDirectory || !this.config.l1ChainId || !this.config.rollupVersion)
+      (!this.config.dataDirectory || !this.config.l1ChainId || this.config.rollupVersion === undefined)
     ) {
       this.log.warn(
         `Invalid prover-node config (missing dataDirectory, l1ChainId, or rollupVersion)`,
