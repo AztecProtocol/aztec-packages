@@ -280,6 +280,12 @@ export interface AztecNode
   getCurrentBaseFees(): Promise<GasFees>;
 
   /**
+   * Method to fetch the current max priority fee of txs in the mempool.
+   * @returns The current max priority fees.
+   */
+  getMaxPriorityFees(): Promise<GasFees>;
+
+  /**
    * Method to fetch the version of the package.
    * @returns The node package version
    */
@@ -575,6 +581,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .returns(z.array(PublishedL2Block.schema)),
 
   getCurrentBaseFees: z.function().returns(GasFees.schema),
+
+  getMaxPriorityFees: z.function().returns(GasFees.schema),
 
   getNodeVersion: z.function().returns(z.string()),
 

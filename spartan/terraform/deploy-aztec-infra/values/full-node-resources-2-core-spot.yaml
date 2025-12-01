@@ -5,17 +5,6 @@ nodeSelector:
   pool: "spot"
 
 affinity:
-  podAntiAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-            - key: app
-              operator: In
-              values:
-                - node
-        topologyKey: "kubernetes.io/hostname"
-        namespaceSelector: {}
-
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
       nodeSelectorTerms:
@@ -30,7 +19,6 @@ tolerations:
     effect: "NoSchedule"
 
 replicaCount: 1
-hostNetwork: true
 
 node:
   resources:
