@@ -23,7 +23,7 @@ Its deviations from PlonK are motivated by the goals above:
 
 3. **Folding schemes**: Enable cheaper recursion than standard recursive proofs. We use sumcheck-based folding similar to [HyperNova](https://eprint.iacr.org/2023/573), well-suited for folding non-uniform PlonK circuits.
 
-4. **Goblin Plonk**: Though folding reduces recursion cost, in-circuit non-native EC scalar multiplications remain expensive. [Goblin Plonk](https://hackmd.io/@aztec-network/BkGNaHUJn/%2FdUsu57SOTBiQ4tS9KJMkMQ) (see also [this paper](https://eprint.iacr.org/2024/1651)) defers these operations to a queue, then proves them on the Grumpkin curve where they're native. This curve-switch approach was initiated by [BCTV](https://eprint.iacr.org/2014/595.pdf); a modern comparison is [CycleFold](https://eprint.iacr.org/2023/1192).
+4. **Goblin Plonk**: Though folding reduces recursion cost, in-circuit non-native EC scalar multiplications remain expensive. [Goblin Plonk](https://hackmd.io/@aztec-network/BkGNaHUJn/%2FGfNR5SE5ShyXXmLxNCsg3g) (see also [this paper](https://eprint.iacr.org/2024/1651)) defers these operations to a queue, then proves them on the Grumpkin curve where they're native. This curve-switch approach was initiated by [BCTV](https://eprint.iacr.org/2014/595.pdf); a modern comparison is [CycleFold](https://eprint.iacr.org/2023/1192). *Note: The linked documents use older terminology and omit some details (e.g., ZK handling) that have since evolved in the implementation.*
 
 *For a video presentation, see [this talk](https://www.youtube.com/watch?v=j6wlamEPKlE).*
 
@@ -550,6 +550,10 @@ The decider proof is verified recursively in the hiding kernel.
 | `PairingPoints` | Accumulated pairing check points |
 
 ### QUEUE_TYPE
+
+These types are used in two contexts with different meanings:
+- In `accumulate`: Indicates which circuit type is being accumulated (e.g., `HN_TAIL` means we are accumulating the tail circuit)
+- In `complete_kernel_circuit_logic`: Indicates which kernel's logic is being completed (e.g., `HN_TAIL` means we are completing the tail kernel's logic, not verifying it)
 
 | Type | Description |
 |------|-------------|
