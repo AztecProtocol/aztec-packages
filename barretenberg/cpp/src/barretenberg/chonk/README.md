@@ -43,7 +43,7 @@ Unlike Incrementally Verifiable Computation (IVC), RCG:
 - **Global consistency**: Supports global consistency checks across the whole computation (not just local state transitions)
 - **Space efficient**: Maintains prover space efficiency comparable to IVC despite proving global properties
 
-This makes RCG well-suited for private smart contract execution where global constraints (like databus consistency) must be verified across all circuits.
+This makes RCG well-suited for private smart contract execution where global constraints (like nullifier uniqueness or public state consistency) must be verified across all circuits.
 
 ### Circuit Structure
 
@@ -179,7 +179,7 @@ Goblin handles non-native EC operations by deferring them to an op queue, then p
 
 ### Merge Protocol
 
-Each circuit produces a subtable of ECC operations that must be merged into the global op queue. The Merge protocol proves this was done correctly.
+Each circuit produces a subtable of ECC operations that must be merged into the global op queue. The Merge protocol proves this was done correctly. See [MERGE_PROTOCOL.md](../goblin/MERGE_PROTOCOL.md) for full details including the degree check and ZK analysis.
 
 **What it proves:** For each of 4 wire columns $j$:
 
@@ -265,6 +265,8 @@ App₁ ──return_data [R'₁]──┐
 
 #### Inter-Circuit Consistency Protocol
 
+**Notation**: $\pi_i$ denotes the proof of folding the $i$-th kernel, and $\pi'_i$ denotes the proof of folding the $i$-th app.
+
 The key insight: circuit $K_{i+1}$ verifies the data transfer between $K_{i-1}$ and $K_i$. It has access to $[R_{i-1}]$ through public inputs and $[C_i]$ through the proof $\pi_i$.
 
 **Kernel $K_0$** (first kernel):
@@ -275,30 +277,44 @@ The key insight: circuit $K_{i+1}$ verifies the data transfer between $K_{i-1}$ 
 
 **Kernel $K_1$**:
 - Sets $C_1 = R_0$ and $C'_1 = R'_1$ (private inputs)
-- Produces $R_1$ with connections to $C_1$, $C'_1$ via lookup constraints
+- Produces $R_1$ as a function of $C_1$, $C'_1$, and accumulated side effects (note hashes, nullifiers, logs, etc.)
 - **Checks**: $\pi_0.[C'_0] = \pi_0.pub\_inputs.[R'_0]$
 - Extracts $\pi_0.[R_0]$ and $\pi'_1.[R'_1]$, adds to $\pi_1.pub\_inputs$
 - $\pi_1$ contains: $[C_1]$, $[C'_1]$, $[R_1]$
 
 **Kernel $K_i$** (general case, $i \geq 2$):
 - Sets $C_i = R_{i-1}$ and $C'_i = R'_i$ (private inputs)
-- Produces $R_i$ with connections to $C_i$, $C'_i$
+- Produces $R_i$ as a function of $C_i$, $C'_i$, and accumulated side effects
 - **Checks**:
   - $\pi_{i-1}.[C_{i-1}] = \pi_{i-1}.pub\_inputs.[R_{i-2}]$ (kernel chain)
   - $\pi_{i-1}.[C'_{i-1}] = \pi_{i-1}.pub\_inputs.[R'_{i-1}]$ (app input)
 - Extracts $\pi_{i-1}.[R_{i-1}]$ and $\pi'_i.[R'_i]$, adds to $\pi_i.pub\_inputs$
 - $\pi_i$ contains: $[C_i]$, $[C'_i]$, $[R_i]$
 
-**Final Kernel $K_n$** (cap circuit):
-- Sets $C_n = R_{n-1}$ (no corresponding app)
-- No return data $R_n$
-- **Checks**: Both consistency checks for $K_{n-1}$
-- $\pi_n$ contains: $[C_n]$
+**Tail Kernel $K_{n-1}$**:
+- Produces `PrivateToRollupKernelCircuitPublicInputs` containing final accumulated data
+- **Checks**: Consistency checks for previous kernel
 
-**Verifier**:
-- Checks $\pi_n.[C_n] = \pi_n.pub\_inputs.[R_{n-1}]$
+**Hiding Kernel $K_n$**:
+- Receives tail kernel's public inputs via databus (`call_data`)
+- Verifies the tail kernel proof (type `HN_FINAL`)
+- Passes through `PrivateToRollupKernelCircuitPublicInputs` as its public output
 
 This protocol ensures that data passed between circuits is consistent without requiring the verifier to see or hash the actual data—only commitment equality checks on $O(1)$-sized commitments.
+
+**Chonk Proof Verification**:
+
+There are two verification paths:
+
+1. **Native verification** (`Chonk::verify` / `bb verify --scheme chonk`):
+   - Used by **Aztec nodes** in the P2P layer to **reject invalid transactions** before they enter the mempool
+
+2. **Recursive verification** (in-circuit):
+   - `PrivateTxBaseRollup`: For private-only txs - verifies Chonk proof + processes tx (updates trees, validates fees, etc.)
+   - `PublicChonkVerifier`: For public txs - verifies Chonk proof in parallel with AVM verification
+
+Both verify: the hiding kernel's MegaZK proof + Goblin proof (merge, ECCVM, translator).
+Output: `PrivateToRollupKernelCircuitPublicInputs` consumed by the rollup.
 
 ---
 
@@ -535,6 +551,21 @@ The decider consists of:
 2. **KZG opening proof**: Proves the final univariate evaluation claim
 
 The decider proof is verified recursively in the hiding kernel.
+
+### Transcript Sharing
+
+Transcripts are shared at two levels to ensure Fiat-Shamir challenge binding:
+
+1. **Accumulation transcript**: A transcript is shared across each (kernel, app) pair:
+   - Reset when accumulating a kernel $K_i$
+   - Shared between folding $K_i$ and folding $A_{i+1}$
+   - The decider proof (produced after the tail kernel) also uses this transcript
+
+   On the verifier side, the recursive verifier in kernel $K_{i+1}$ creates a matching transcript to verify the proofs of $K_i$ and $A_{i+1}$.
+
+2. **Final proof transcript**: Shared between the Hiding kernel proof, Merge proof, ECCVM proof, and Translator proof. The native/recursive verifier uses a matching shared transcript.
+
+**Security**: Transcript sharing ensures that Fiat-Shamir challenges in later proofs depend on all prior proof elements, preventing a malicious prover from generating sub-proofs independently.
 
 ---
 
