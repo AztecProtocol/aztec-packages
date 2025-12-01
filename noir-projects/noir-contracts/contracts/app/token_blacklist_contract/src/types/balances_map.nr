@@ -5,7 +5,7 @@ use dep::aztec::{
     protocol_types::{
         address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
     },
-    state_vars::{Map, PrivateSet, storage::HasStorageSlot},
+    state_vars::{PrivateSet, storage::HasStorageSlot},
 };
 use dep::aztec::note::{
     note_interface::{NoteHash, NoteType},
@@ -16,26 +16,20 @@ use dep::aztec::note::{
 use std::ops::Add;
 
 pub struct BalancesMap<Note, Context> {
-    map: Map<AztecAddress, PrivateSet<Note, Context>, Context>,
+    set: PrivateSet<Note, Context>,
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
 impl<Note, Context> HasStorageSlot<1> for BalancesMap<Note, Context> {
     fn get_storage_slot(self) -> Field {
-        self.map.get_storage_slot()
+        self.set.get_storage_slot()
     }
 }
 
 impl<Note, Context> BalancesMap<Note, Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        Self {
-            map: Map::new(
-                context,
-                storage_slot,
-                |context, slot| PrivateSet::new(context, slot),
-            ),
-        }
+        Self { set: PrivateSet::new(context, storage_slot) }
     }
 }
 
@@ -54,7 +48,7 @@ where
     ) -> u128 {
         let mut balance = 0 as u128;
         let mut options = NoteViewerOptions::new();
-        let notes = self.map.at(owner).view_notes(options.set_offset(offset));
+        let notes = self.set.at(owner).view_notes(options.set_offset(offset));
         for i in 0..options.limit {
             if i < notes.len() {
                 balance = balance + notes.get_unchecked(i).get_amount();
@@ -77,12 +71,12 @@ impl<Note> BalancesMap<Note, &mut PrivateContext> {
         let content_option = if addend == 0 as u128 {
             Option::none()
         } else {
-            let addend_note = Note::new(addend, owner);
+            let addend_note = Note::new(addend);
 
-            Option::some(self.map.at(owner).insert(addend_note).content)
+            Option::some(self.set.at(owner).insert(addend_note).content)
         };
 
-        OuterNoteEmission::new(content_option, self.map.context)
+        OuterNoteEmission::new(content_option, self.set.context)
     }
 
     pub fn sub(self: Self, owner: AztecAddress, subtrahend: u128) -> OuterNoteEmission<Note>
@@ -90,7 +84,7 @@ impl<Note> BalancesMap<Note, &mut PrivateContext> {
         Note: NoteType + NoteHash + OwnedNote + Eq + Packable,
     {
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
-        let notes = self.map.at(owner).pop_notes(options);
+        let notes = self.set.at(owner).pop_notes(options);
 
         let mut minuend: u128 = 0 as u128;
         for i in 0..options.limit {
