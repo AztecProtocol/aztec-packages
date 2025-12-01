@@ -356,7 +356,7 @@ Thus, the number of linear equations in $r$ induced by this transcript of observ
 
 - 28 observables across all wires ($[L_j], [R_j], L_j(\kappa), R_j(\kappa), R_j(u), M_j(u'), M_{j,\text{shift}}(u')$ for $j \in \{1, 2, 3, 4\}$)
 
-- 4 shared observables ($[G], G(\kappa^{-1}), [Q], Q(z)$)
+- 4 shared observables ( $[G], G(\kappa^{-1}), [Q], Q(z)$ )
 
 We therefore have at most $32$ linear equations in $40$ unknowns when considering $v = A r + c$. Assuming that the rows of $A(X)$ are linearly independent, at least $8$ independent coefficients remain uniformly distributed from the verifier’s point of view.  This suffices to hide the contribution of the true ECC op-queue.
 
@@ -379,7 +379,7 @@ Then, $A(X)\beta = 0$ implies for all $k$, $T_k\big(H_{F_k}(X)\big) = 0$.
 We now argue that there exists at least one $F$ such that $H_{F}$ is non-zero.
 
 - To see why this is true, observe that since $\beta \neq 0$, there exists at least one index $i$, such that $\beta_i \neq 0$.
-- Consider the corresponding randomness $r_i$ at index $i$. As per the placement of the random non-ops in the op-queue, let  $F_{r_i} \in \{L_j, R_j\}$ be the polynomial where $r_i$ appears in $\mathrm{row}_{r_i}$  of $F_{r_i}$.
+- Consider the corresponding randomness $r_i$ at index $i$. As per the placement of the random non-ops in the op-queue, let  $F_{r_i} \in \{L_j, R_j\}$ be the polynomial where $r_i$ appears in ${\mathrm{row}}_{r_i}$ of $F_{r_i}$.
 - In general, note that the placement of the random non-ops ensures that for each $r_i$ for $i \in \{1, \ldots, 40\}$, there exists polynomial $F_{r_i} \in \{L_j, R_j\}$ and a corresponding row ${\mathrm{row}}_{r_i}$ such that
 
   (1) the coefficient polynomial $B_i^{F_{r_i}}$ is non-zero. Specifically, $B_i^{F_{r_i}}(\mathrm{row}_{r_i}) \neq 0$,
