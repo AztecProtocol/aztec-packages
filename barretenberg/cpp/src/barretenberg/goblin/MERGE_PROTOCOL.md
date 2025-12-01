@@ -309,27 +309,102 @@ Each wire contributes at most 7 observable values, and hence totalling at most 2
 
 These contribute at most $4$ more observables.
 
-These polynomials have the form
-$F(X)= F^{\mathrm{fixed}}(X)+ F^{\mathrm{rand}}(X) = F^{\mathrm{fixed}}(X) + \sum_{i=1}^{40} r_i  B_i^{F}(X)$,
-where $\{B_i^{F}(X)\}$ are the basis polynomials determined by which rows the random non-ops occupy on that wire, and for many $i$, $B_i^{F}=0$.
+These polynomials $L_j, R_j, M_j, G, Q$, for $j \in \{1, 2, 3, 4\}$, have the form
 
-Further, each of these observable values is an evaluation of a linear function of $r$. That is each value is of the form
-$f_k(r) = \sum_{i=1}^{40} A_{k,i} r_i + c_k$
-for $A_{k,i},c_k\in\mathbb{F}$ where $c_k$ denotes the fixed part.
+$F(X)= F^{\mathrm{fixed}}(X)+ F^{\mathrm{rand}}(X) = F^{\mathrm{fixed}}(X) + \sum_{i=1}^{40} r_i  B_i^{F}(X)$.
 
-Collecting these, say $N$, observable values into a vector $v\in\mathbb{F}^N$, we can write $v = A r + c$ for a given matrix $A \in \mathbb{F}^{N \times 40}$ and vector $c \in \mathbb{F}^N$.
+
+Here, $B_i^{F}(X)$ is the coefficient polynomial of $r_i$ in $F$, which determines the contribution of $r_i$ in $F$ given by $r_i B_i^{F}(X)$.
+- For the polynomials $F \in \{L_j, R_j\}$, if the randomness $r_i$  appears in polynomial $F$ at some row $t$ of the op-queue, then $B_i^{F}(X)$ is the polynomial that evaluates to $1$ at $t$, and $0$ at all other rows where $F$ is defined. In case if $r_i$ does not appear in $F$, then $B_i^{F}(X) = 0$.
+- For the polynomials $F \in \{M_j, G, Q\}$, $B_i^{F}$ are obtained by applying to the coefficient polynomials of its constituent polynomials (those that define $F$, e.g., $L_j, R_j$ for $M_j$, or $L_j$ for $G$, etc.) the same linear combinations used to define $F$ itself.
+For example, if $r_{8}$ appears in $R_1$ at row $5$, then in $M_1(X) = L_1(X) + X^{\ell}R_1(X)$, we will have $B_{8}^{M_1}(X) = X^{\ell} \cdot B_{8}^{R_1}(X)$, where $B_{8}^{R_1}(X)$ is the polynomial that evaluates to $1$ at $X=5$ and $0$ elsewhere.
+
+
+Since not every random non-op affects every wire, for a given $F \in \{L_j, R_j, M_j, G, Q\}$, most $B_i^{F}=0$.
+
+
+Each observable value $v_k$ is obtained from one of the polynomials
+$F \in \{L_j, R_j, M_j, G, Q\}$ by applying a linear transformation
+(e.g., evaluation at $\kappa$, evaluation at $u'$, a shift of
+the variable followed by evaluation, etc.).
+Thus, each observable value can be written as
+
+$v_k(r,X) =  T_k(F_k(X))$,
+
+where $T_k$ denotes the linear transformation associated with that observable value.
+
+Substituting
+
+$F(X)=F^{\mathrm{fixed}}(X)+\sum_{i=1}^{40} r_i B_i^{F}(X)$
+
+in the equation for $v_k(r, X)$ gives
+
+$v_k(r,X) = c_k(X) + \sum_{i=1}^{40} r_i T_k(B_i^{F_k}(X))$, where $c_k(X)$ is the fixed part.
+
+Denoting
+
+$ A_{k,i}(X) = T_k(B_i^{F_k}(X))$,
+
+we can write
+
+$v_k(r, X) = \sum_{i=1}^{40} A_{k,i}(X) r_i + c_k(X)$.
+
+
+Collecting these, say $N=32$, observable values into a vector $v(r, X)\in\mathbb{F}^N$, we can write $v(r, X) = A(X) r + c(X)$ for $A(X) \in \mathbb{F}^{N \times 40}$ and $c(X) \in \mathbb{F}^N$. Here, $X$ denotes the tuple of challenges $(\kappa, u, u', z)$ at which the polynomials $L_j, R_j, M_j, G, Q$ are queried.
 
 Thus, the number of linear equations in $r$ induced by this transcript of observable values can be bounded as follows.
+
 - 28 observables across all wires ($[L_j], [R_j], L_j(\kappa), R_j(\kappa), R_j(u), M_j(u'), M_{j,\text{shift}}(u')$ for $j \in \{1, 2, 3, 4\}$)
+
 - 4 shared observables ($[G], G(\kappa^{-1}), [Q], Q(z)$)
 
-We therefore have at most $32$ linear equations in $40$ unknowns when considering $v = A r + c$. Hence at least $8$ independent coefficients remain uniformly distributed from the verifier’s point of view.  This suffices to hide the contribution of the true ECC op-queue.
+We therefore have at most $32$ linear equations in $40$ unknowns when considering $v = A r + c$. Assuming that the rows of $A(X)$ are linearly independent, at least $8$ independent coefficients remain uniformly distributed from the verifier’s point of view.  This suffices to hide the contribution of the true ECC op-queue.
+
+We next show that rank of $A(X) = 32$ for random $X$. This implies that the rows of $A(X)$ are linearly independent.
+
+###### $\mathrm{rank}(A(X)) = 32$ for random challenges $X$:
+To show that $\mathrm{rank}(A(X)) = 32$, we will show that there does not exist a non-zero $\beta \in \mathbb{F}^{40}$ such that $A(X)\beta = 0$ for a  random $X$.
+
+Assume, for contradiction, that there exists a non-zero vector
+$\beta=(\beta_1,\dots,\beta_{40})$ such that $A(X)\beta = 0$ identically as a function of the challenges $X$.
+
+This implies that for each observable index $k$, $\sum_{i=1}^{40} A_{k,i}(X)\,\beta_i = 0$.
+
+Substituting $A_{k,i}(X)$ as defined earlier, we get $0 = \sum_{i=1}^{40} \beta_i T_k(B_i^{F_k}(X)) = T_k \left( \sum_{i=1}^{40} \beta_i B_i^{F_k}(X) \right)$.
+
+For each $F$, let $H_F(X) := \sum_{i=1}^{40} \beta_i\, B_i^{F}(X)$.
+
+Then, $A(X)\beta = 0$ implies for all $k$, $T_k\big(H_{F_k}(X)\big) = 0$.
+
+We now argue that there exists at least one $F$ such that $H_{F}$ is non-zero.
+
+- To see why this is true, observe that since $\beta \neq 0$, there exists at least one index $i$, such that $\beta_i \neq 0$.
+- Consider the corresponding randomness $r_i$ at index $i$. As per the placement of the random non-ops in the op-queue, let  $F_{r_i} \in \{L_j, R_j\}$ be the polynomial where $r_i$ appears in $\mathrm{row}_{r_i}$  of $F_{r_i}$.
+- In general, note that the placement of the random non-ops ensures that for each $r_i$ for $i \in \{1, \ldots, 40\}$, there exists polynomial $F_{r_i} \in \{L_j, R_j\}$ and a corresponding row $\mathrm{row}_{r_i}$ such that
+
+  (1) the coefficient polynomial $B_i^{F_{r_i}}$ is non-zero. Specifically, $B_i^{F_{r_i}}(\mathrm{row}_{r_i}) \neq 0$,
+
+  (2) no other $r_k$ ($k \neq i$) affects $\mathrm{row}_{r_i}$ of $F_{r_i}$, i.e., $B_k^{F_{r_i}}(\mathrm{row}_{r_i}) = 0$.
+
+- Evaluating $H_{F_{r_i}}(X)$ at $\mathrm{row}_{r_i}$, we get
+
+  $H_{F_{r_i}}(\mathrm{row}_{r_i}) = \sum_{j=1}^{40} \beta_j\, B_j^{F_{r_i}}(\mathrm{row}_{r_i}) = \beta_i\, B_i^{F_{r_i}}(\mathrm{row}_{r_i}) + \sum_{j\neq i} \beta_j\, B_j^{F_{r_i}}(\mathrm{row}_{r_i}) = \beta_i\, B_i^{F_{r_i}}(\mathrm{row}_{r_i}) \neq 0$.
+- Thus, given $\beta \neq 0$, there exists at least one $F$ ($F_{r_i}$ in this case) such that $H_{F}$ is non-zero.
+
+In particular, corresponding to $F_{r_i}$, there exists an observable index $k_{r_i}$ with $F_{k_{r_i}} = F_{r_i}$ and a non-zero linear transformation $T_{k_{r_i}}$. Thus, $T_{k_{r_i}}\big(H_{F_{r_i}}(X)\big)$ is non-zero polynomial. This contradicts the assumption that for all $k$, $T_k\big(H_{F_k}(X)\big) = 0$.
+
+
+This contradiction arose due to our assumption that $A(X)\beta = 0$ for a non-zero $\beta$. Thus, there does not exist a non-zero $\beta$ such that $A(X)\beta = 0$. Hence, $A(X)$ has full row rank.
+This implies that there exists a $32 \times 32$ submatrix $A'(X)$ of $A(X)$ whose determinant is non-zero.
+Thus, there exists an $X'$ such that determinant of $A'(X')$ is non-zero.
+Thus, $A(X')$ has rank $32$.
+Since determinant of $A'(X)$ is a non-zero polynomial in the challenge $X$, it is non-zero with high probability for a random challenge. Hence, for a random $X$, rank of $A(X) = 32$ with high probability.
 
 ##### The simulator
 
 The simulator proceeds as follows.
 
-- Choose the dummy op-queue. This determines the fixed part $c_{\mathrm{dummy}}$ without the random non-ops.
+- Choose a valid dummy op-queue arbitrarily. This determines the fixed part $c_{\mathrm{dummy}}$ without the random non-ops.
 - Sample challenges $\kappa, u, u', z$ using the same distribution as in the real protocol.
 - Sample $r_{\mathrm{sim}} \in \mathbb{F}^{40}$ uniformly at random.
 - Compute the corresponding simulated openings $v_{\mathrm{sim}} = A r_{\mathrm{sim}} + c_{\mathrm{dummy}}$.
@@ -355,7 +430,7 @@ In the real world, the prover samples a vector $r_{\mathrm{real}} \in \mathbb{F}
 The observable opened values satisfy $v_{\mathrm{real}} = A(\kappa, u,u',z)\, r_{\mathrm{real}} + c_{\mathrm{real}}$,  where $A(\kappa,u,u',z)$ depends only on the protocol structure and challenges, and $c_{\mathrm{real}}$ is the fixed part determined by the real op-queue.
 In the simulated world we have $v_{\mathrm{sim}} = A(\kappa,u,u',z)\, r_{\mathrm{sim}} + c_{\mathrm{dummy}}$, with $r_{\mathrm{sim}}$ uniform in $\mathbb{F}^{40}$ and $c_{\mathrm{dummy}}$ the fixed part for the dummy op-queue.
 
-$A(\kappa,u,u',z)$ is the same in both worlds and does not depend on the op-queue.
+$A(\kappa,u,u',z)$ is the same in both worlds and does not depend on the op-queue. Moreover, rows of $A(\kappa,u,u',z)$ are linearly independent, as discussed earlier.
 $r_{\mathrm{real}}$ and $r_{\mathrm{sim}}$ are both sampled uniformly at random from $\mathbb{F}^{40}$.
 $c_{\mathrm{real}}$ and $c_{\mathrm{dummy}}$ are fixed vectors.
 Therefore, $v_{\mathrm{real}} = A r_{\mathrm{real}} + c_{\mathrm{real}}$ and $v_{\mathrm{sim}} = A r_{\mathrm{sim}} + c_{\mathrm{dummy}}$ have the same distribution.
