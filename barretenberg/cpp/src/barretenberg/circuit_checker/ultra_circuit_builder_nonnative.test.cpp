@@ -14,16 +14,23 @@ using namespace bb;
  * evaluate_non_native_field_multiplication    (full a*b = q*p + r computation)
  * evaluate_non_native_field_addition          (add two non-native field elements)
  * evaluate_non_native_field_subtraction       (subtract two non-native field elements)
- * range_constrain_two_limbs                   (tested indirectly via multiplication tests)
- *
- * TODO: Tests needed for remaining non-native field methods:
- * ---------------------------
- * queue_partial_non_native_field_multiplication  (partial multiplication for caching/deduplication)
+ * queue_partial_non_native_field_multiplication  (partial multiplication with caching/deduplication)
  * process_non_native_field_multiplications       (finalization: process cached multiplications)
  */
 class UltraCircuitBuilderNonNative : public ::testing::Test {
   protected:
     static constexpr size_t LIMB_BITS = UltraCircuitBuilder::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+
+    // Number of NNF gates produced by a single partial multiplication
+    static constexpr size_t NNF_GATES_PER_PARTIAL_MUL = 4;
+    // Number of padding gates added to NNF block by finalize_circuit(ensure_nonzero=true)
+    static constexpr size_t NNF_ENSURE_NONZERO_PADDING = 2;
+
+    // Generate 4 random field elements (one per limb)
+    static std::array<fr, 4> random_limbs()
+    {
+        return { fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element() };
+    }
 
     // Splits a 256-bit integer into 4 68-bit limbs
     static std::array<fr, 4> split_into_limbs(const uint512_t& input)
@@ -110,8 +117,8 @@ class UltraCircuitBuilderNonNative : public ::testing::Test {
     static AddSubData create_random_add_sub_data()
     {
         return AddSubData{
-            .x_limbs = { fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element() },
-            .y_limbs = { fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element() },
+            .x_limbs = random_limbs(),
+            .y_limbs = random_limbs(),
             .x_prime = fr::random_element(),
             .y_prime = fr::random_element(),
             .x_scales = { fr(1), fr(1), fr(1), fr(1) },
@@ -142,6 +149,45 @@ class UltraCircuitBuilderNonNative : public ::testing::Test {
         auto limbp = std::make_tuple(x_p_idx, y_p_idx, data.addconstp);
 
         return { limb0, limb1, limb2, limb3, limbp };
+    }
+
+    // Helper to create partial multiplication inputs and queue the operation
+    static std::array<uint32_t, 2> create_and_queue_partial_multiplication(UltraCircuitBuilder& builder,
+                                                                           const std::array<fr, 4>& a_limbs,
+                                                                           const std::array<fr, 4>& b_limbs)
+    {
+        const auto a_indices = get_limb_witness_indices(builder, a_limbs);
+        const auto b_indices = get_limb_witness_indices(builder, b_limbs);
+
+        non_native_partial_multiplication_witnesses<fr> input{ .a = a_indices, .b = b_indices };
+        return builder.queue_partial_non_native_field_multiplication(input);
+    }
+
+    // Compute expected lo_0 and hi_1 values for partial multiplication.
+    //
+    // Given two non-native field elements represented as 4 limbs each:
+    //   a = a[0] + a[1]*L + a[2]*L² + a[3]*L³   (where L = 2^LIMB_BITS)
+    //   b = b[0] + b[1]*L + b[2]*L² + b[3]*L³
+    //
+    // The product a*b expands via schoolbook multiplication to terms at powers of L:
+    //   L⁰: a[0]*b[0]
+    //   L¹: a[1]*b[0] + a[0]*b[1]
+    //   L²: a[2]*b[0] + a[1]*b[1] + a[0]*b[2]
+    //   L³: a[3]*b[0] + a[2]*b[1] + a[1]*b[2] + a[0]*b[3]
+    //   (higher powers of L can be ignored)
+    //
+    // The partial products group these terms:
+    //   lo_0 = L⁰ and L¹ terms (low 2*LIMB_BITS portion)
+    //   hi_1 = L² and L³ terms (high portion, split into hi_0 + remaining for constraint efficiency)
+    static std::pair<fr, fr> compute_expected_partial_products(const std::array<fr, 4>& a, const std::array<fr, 4>& b)
+    {
+        const fr LIMB_SHIFT = fr(uint256_t(1) << LIMB_BITS);
+
+        fr lo_0 = a[0] * b[0] + ((a[1] * b[0] + a[0] * b[1]) * LIMB_SHIFT);
+        fr hi_0 = a[2] * b[0] + a[0] * b[2] + ((a[0] * b[3] + a[3] * b[0]) * LIMB_SHIFT);
+        fr hi_1 = hi_0 + a[1] * b[1] + ((a[1] * b[2] + a[2] * b[1]) * LIMB_SHIFT);
+
+        return { lo_0, hi_1 };
     }
 };
 
@@ -452,4 +498,179 @@ TEST_F(UltraCircuitBuilderNonNative, MultiplicationInvalidWitnessFailure)
         test_incorrect_qr(true, limb);  // tamper q
         test_incorrect_qr(false, limb); // tamper r
     }
+}
+
+// Verifies that queue_partial_non_native_field_multiplication computes correct intermediate values
+TEST_F(UltraCircuitBuilderNonNative, PartialMultiplicationBasic)
+{
+    const size_t num_iterations = 10;
+    for (size_t i = 0; i < num_iterations; i++) {
+        UltraCircuitBuilder builder;
+
+        std::array<fr, 4> a_limbs = random_limbs();
+        std::array<fr, 4> b_limbs = random_limbs();
+
+        const auto [lo_0_idx, hi_1_idx] = create_and_queue_partial_multiplication(builder, a_limbs, b_limbs);
+
+        // Verify returned witnesses contain expected values
+        auto [expected_lo_0, expected_hi_1] = compute_expected_partial_products(a_limbs, b_limbs);
+        EXPECT_EQ(builder.get_variable(lo_0_idx), expected_lo_0);
+        EXPECT_EQ(builder.get_variable(hi_1_idx), expected_hi_1);
+
+        // Verify circuit passes after finalization (which calls process_non_native_field_multiplications)
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+}
+
+// Verifies that duplicate partial multiplications are deduplicated
+TEST_F(UltraCircuitBuilderNonNative, PartialMultiplicationDeduplication)
+{
+    UltraCircuitBuilder builder;
+    std::array<fr, 4> a_limbs = random_limbs();
+    std::array<fr, 4> b_limbs = random_limbs();
+
+    // Add witnesses once (to be reused)
+    const auto a_indices = get_limb_witness_indices(builder, a_limbs);
+    const auto b_indices = get_limb_witness_indices(builder, b_limbs);
+
+    // Queue the same multiplication multiple times using the same witness indices
+    const size_t num_duplicates = 5;
+    std::vector<std::array<uint32_t, 2>> results;
+    for (size_t i = 0; i < num_duplicates; i++) {
+        non_native_partial_multiplication_witnesses<fr> input{ .a = a_indices, .b = b_indices };
+        results.push_back(builder.queue_partial_non_native_field_multiplication(input));
+    }
+
+    // Cache should have all entries before finalization
+    EXPECT_EQ(builder.cached_partial_non_native_field_multiplications.size(), num_duplicates);
+
+    // Verify circuit passes (finalization happens internally via copy)
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    // Finalize to check deduplication results
+    builder.finalize_circuit(/*ensure_nonzero=*/true);
+
+    // After finalization, cache should be deduplicated to 1 entry
+    EXPECT_EQ(builder.cached_partial_non_native_field_multiplications.size(), 1U);
+
+    // NNF block size should be the same as single multiplication (deduplication worked)
+    EXPECT_EQ(builder.blocks.nnf.size(), NNF_GATES_PER_PARTIAL_MUL + NNF_ENSURE_NONZERO_PADDING);
+
+    // All results should have the same expected values
+    auto [expected_lo_0, expected_hi_1] = compute_expected_partial_products(a_limbs, b_limbs);
+    for (const auto& result : results) {
+        EXPECT_EQ(builder.get_variable(result[0]), expected_lo_0);
+        EXPECT_EQ(builder.get_variable(result[1]), expected_hi_1);
+    }
+}
+
+// Verifies deduplication correctly handles duplicates that result from an assert_equal
+TEST_F(UltraCircuitBuilderNonNative, PartialMultiplicationWithAliasedVariables)
+{
+    UltraCircuitBuilder builder;
+    std::array<fr, 4> a_limbs = random_limbs();
+    std::array<fr, 4> b_limbs = random_limbs();
+
+    // Create two sets of witness indices (different indices, same underlying values)
+    const auto a1_indices = get_limb_witness_indices(builder, a_limbs);
+    const auto b1_indices = get_limb_witness_indices(builder, b_limbs);
+    const auto a2_indices = get_limb_witness_indices(builder, a_limbs);
+    const auto b2_indices = get_limb_witness_indices(builder, b_limbs);
+
+    // Without assert_equal, these would be distinct indices and wouldn't deduplicate.
+    // assert_equal should make them behave as duplicates.
+    for (size_t i = 0; i < 4; i++) {
+        builder.assert_equal(a1_indices[i], a2_indices[i]);
+        builder.assert_equal(b1_indices[i], b2_indices[i]);
+    }
+
+    // Queue partial multiplications using both sets of indices
+    non_native_partial_multiplication_witnesses<fr> input1{ .a = a1_indices, .b = b1_indices };
+    non_native_partial_multiplication_witnesses<fr> input2{ .a = a2_indices, .b = b2_indices };
+    builder.queue_partial_non_native_field_multiplication(input1);
+    builder.queue_partial_non_native_field_multiplication(input2);
+
+    // Before finalization, cache has 2 entries
+    EXPECT_EQ(builder.cached_partial_non_native_field_multiplications.size(), 2U);
+
+    // Verify circuit passes
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    // Finalize to check deduplication
+    builder.finalize_circuit(/*ensure_nonzero=*/true);
+
+    // After finalization, should be deduplicated to 1 entry
+    EXPECT_EQ(builder.cached_partial_non_native_field_multiplications.size(), 1U);
+
+    // NNF block size should be the same as single multiplication
+    EXPECT_EQ(builder.blocks.nnf.size(), NNF_GATES_PER_PARTIAL_MUL + NNF_ENSURE_NONZERO_PADDING);
+}
+
+// Verifies multiple distinct partial multiplications all produce correct constraints
+TEST_F(UltraCircuitBuilderNonNative, PartialMultiplicationMultipleDistinct)
+{
+    UltraCircuitBuilder builder;
+
+    const size_t num_multiplications = 5;
+    std::vector<std::array<fr, 4>> a_values(num_multiplications);
+    std::vector<std::array<fr, 4>> b_values(num_multiplications);
+    std::vector<std::array<uint32_t, 2>> results(num_multiplications);
+
+    // Queue multiple distinct partial multiplications
+    for (size_t i = 0; i < num_multiplications; i++) {
+        a_values[i] = random_limbs();
+        b_values[i] = random_limbs();
+        results[i] = create_and_queue_partial_multiplication(builder, a_values[i], b_values[i]);
+    }
+
+    // All entries should be in the cache
+    EXPECT_EQ(builder.cached_partial_non_native_field_multiplications.size(), num_multiplications);
+
+    // Verify circuit passes
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    // Finalize to check gate counts
+    builder.finalize_circuit(/*ensure_nonzero=*/true);
+
+    // After finalization, all distinct entries should remain (no deduplication)
+    EXPECT_EQ(builder.cached_partial_non_native_field_multiplications.size(), num_multiplications);
+
+    // NNF block size should scale with number of multiplications
+    EXPECT_EQ(builder.blocks.nnf.size(), num_multiplications * NNF_GATES_PER_PARTIAL_MUL + NNF_ENSURE_NONZERO_PADDING);
+
+    // Verify each result has correct values
+    for (size_t i = 0; i < num_multiplications; i++) {
+        auto [expected_lo_0, expected_hi_1] = compute_expected_partial_products(a_values[i], b_values[i]);
+        EXPECT_EQ(builder.get_variable(results[i][0]), expected_lo_0);
+        EXPECT_EQ(builder.get_variable(results[i][1]), expected_hi_1);
+    }
+}
+
+// Verifies that finalization with empty cache doesn't cause issues
+TEST_F(UltraCircuitBuilderNonNative, ProcessNonNativeFieldMultiplicationsEmptyCache)
+{
+    UltraCircuitBuilder builder;
+
+    // Create some non-NNF constraints to ensure the circuit isn't completely empty
+    fr a = fr::random_element();
+    fr b = fr::random_element();
+    uint32_t a_idx = builder.add_variable(a);
+    uint32_t b_idx = builder.add_variable(b);
+    uint32_t c_idx = builder.add_variable(a + b);
+    builder.create_add_gate({ a_idx, b_idx, c_idx, fr(1), fr(1), fr(-1), fr(0) });
+
+    // No NNF operations queued
+    EXPECT_EQ(builder.cached_partial_non_native_field_multiplications.size(), 0U);
+
+    // Finalization should succeed without issues
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    // Finalize to inspect NNF block
+    builder.finalize_circuit(/*ensure_nonzero=*/true);
+
+    // Cache should still be empty
+    EXPECT_EQ(builder.cached_partial_non_native_field_multiplications.size(), 0U);
+
+    // NNF block should only have ensure_nonzero padding (no actual NNF gates)
+    EXPECT_EQ(builder.blocks.nnf.size(), NNF_ENSURE_NONZERO_PADDING);
 }
