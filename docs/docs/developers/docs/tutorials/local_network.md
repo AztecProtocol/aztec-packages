@@ -20,7 +20,7 @@ On this page you will find
 
 ## Versions
 
-Aztec tools (local network, nargo), dependencies (Aztec.nr), and sample contracts are constantly being improved.
+Aztec tools (`aztec`, `nargo`, `bb`), dependencies (Aztec.nr), and sample contracts are constantly being improved.
 When developing and referring to example .nr files/snippets, it is helpful to verify the versions of different components (below), and if required keep them in lock-step by [updating](#updating).
 
 ### Dependency versions
@@ -54,8 +54,8 @@ diff ~/nargo/github.com/AztecProtocol/v0.23.0/yarn-project/noir-contracts/contra
 
 ### Language server version
 
-The [Noir LSP](../aztec-nr/installation.md) uses your local version of `aztec`, and thus also `aztec compile`.
-The path of the former (once installed) can be seen by hovering over "Nargo" in the bottom status bar of VS Code, and the latter via the `which aztec` command.
+The [Noir LSP](../aztec-nr/installation.md) uses your local version of `nargo`.
+The path can be seen by hovering over "Nargo" in the bottom status bar of VS Code, or via the `which nargo` command.
 
 :::caution
 For Aztec contract files, this should be `aztec` and for noir-only files this should be `nargo`. Mismatching tools and file types will generate misleading syntax and compiler errors.
@@ -71,7 +71,7 @@ This can present confusion when opening older contracts (and dependencies) writt
 
 ### Steps to keep up to date
 
-1. Update the Aztec local network to the latest version (includes `aztec` command, pxe, etc):
+1. Update the Aztec toolchain to the latest version (includes `aztec`, `aztec-wallet`, `nargo`, `bb`):
 
 ```shell
 aztec-up
@@ -102,13 +102,13 @@ Follow [updating Aztec.nr packages](#updating-aztecnr-packages) and [updating Ja
 
 ---
 
-There are four components whose versions need to be kept compatible:
+There are two main components whose versions need to be kept compatible:
 
-1. Aztec local network (includes the `aztec` command)
+1. Aztec toolchain (`aztec`, `aztec-wallet`, `nargo`, `bb`)
 2. `Aztec.nr`, the Noir framework for writing Aztec contracts
 
-First three are packaged together in docker and are kept compatible by running `aztec-up`.
-But you need to update your Aztec.nr version manually or using `aztec update`.
+The toolchain components are kept compatible by running `aztec-up`.
+You need to update your Aztec.nr version manually or using `aztec update`.
 
 ## Updating Aztec.nr packages
 

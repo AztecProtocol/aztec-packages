@@ -37,7 +37,7 @@ If you're new to Aztec and want to understand local development first, check out
 
 Before working with devnet, ensure you have:
 
-1. [Docker](https://docs.docker.com/get-started/get-docker/) installed
+1. Node.js v20.15 or later installed
 2. Aztec CLI installed:
 
 ```sh

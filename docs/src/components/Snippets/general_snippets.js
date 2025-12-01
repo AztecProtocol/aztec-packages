@@ -14,10 +14,7 @@ export const General = {
     <p>
       To use Aztec's suite of tools you'll need to:
       <ul>
-        <li>
-          <a href="https://docs.docker.com/engine/install/">Get docker</a>{" "}
-          (engine or desktop)
-        </li>
+        <li>Have Node.js v20.15 or later installed</li>
         <li>
           Run <code>bash -i &lt;(curl -s https://install.aztec.network)</code>
         </li>
@@ -51,8 +48,8 @@ export const General = {
 
   AztecLocalNetwork: () => (
     <p>
-      <b>Aztec's Local network</b> - runs a set of Aztec tools for convenient local
-      development, it includes: an Ethereum node, an Aztec node, and PXE.
+      <b>Aztec's Local network</b> - runs a set of Aztec tools for convenient
+      local development, it includes: an Ethereum node, an Aztec node, and PXE.
     </p>
   ),
 

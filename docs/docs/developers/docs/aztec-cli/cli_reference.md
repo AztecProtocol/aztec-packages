@@ -383,19 +383,13 @@ aztec start --network testnet --l1-rpc-urls https://example.com --l1-consensus-h
 
 ### Test
 
-Runs tests written in contracts.
+Runs tests written in contracts. This command starts a TXE (Test eXecution Environment) server and runs `nargo test` with the appropriate oracle resolver.
 
 ```bash
 aztec test [options]
 ```
 
-Options:
-
-- `-e, --env <key=value>`: Set environment variables (can be used multiple times).
-- `--no-tty`: Run the container without a TTY.
-- `--rm`: Automatically remove the container when it exits.
-- `-i, --interactive`: Keep STDIN open even if not attached.
-- `-t, --tty`: Allocate a pseudo-TTY.
+Options passed after `aztec test` are forwarded to `nargo test`. See `nargo test --help` for available options.
 
 ## Contract interaction
 
@@ -490,14 +484,6 @@ Options:
 - `--follow`: Keep polling for new logs until interrupted.
 
 ## Development and Debugging Tools
-
-### flamegraph
-
-Generates a flamegraph of the gate counts of a private function call.
-
-```bash
-[SERVE=1] aztec flamegraph <artifact_path> <function_name>
-```
 
 ### codegen
 

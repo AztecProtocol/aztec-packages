@@ -19,26 +19,17 @@ What's included in the local network:
 - A set of test accounts with some test tokens to pay fees
 - Development tools to compile contracts and interact with the network (`aztec` and `aztec-wallet`)
 
-All of this comes packaged in a Docker container to make it easy to install and run.
-
 This guide will teach you how to install the Aztec local network, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the `Testnet` tab.
 
 ## Prerequisites
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
-You need two global dependencies on your machine:
+You need one global dependency on your machine:
 
 - <General.node_ver />
-- Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
 
-## Install and run the local network
-
-### Start Docker
-
-Docker needs to be running in order to install the local network. Find instructions on the [Docker website](https://docs.docker.com/get-started/).
-
-### Install the local network
+## Install the Aztec toolchain
 
 Run:
 
@@ -48,11 +39,17 @@ bash -i <(curl -s https://install.aztec.network)
 
 This will install the following tools:
 
-- **aztec** - compiles and tests aztec contracts and launches various infrastructure subsystems (full local network, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
-- **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
-- **aztec-wallet** - a tool for interacting with the aztec network
+- **nargo** - the Noir compiler, compatible with the installed Aztec version
+- **bb** - the Barretenberg proving backend
+- **aztec** - compiles and tests Aztec contracts and launches various infrastructure subsystems (full local network, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
+- **aztec-up** - a tool to upgrade the Aztec toolchain to the latest, or specific versions
+- **aztec-wallet** - a CLI wallet for interacting with the Aztec network
 
-### Start the local network
+:::warning
+If you already have `nargo` or `bb` installed, running the installer will overwrite them with the versions compatible with Aztec. You can use `noirup` to switch versions if needed for other projects.
+:::
+
+## Start the local network
 
 Once these have been installed, to start the local network, run:
 
@@ -84,7 +81,7 @@ You'll know the local network is ready to go when you see something like this:
 [INFO] Aztec Server listening on port 8080
 ```
 
-### Codespaces
+## Codespaces
 
 If you do not want to run the local network locally, or if your machine is unsupported (eg Windows), it is possible to run it within a GitHub Codespace.
 
