@@ -260,10 +260,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
         std::vector<FF> prover_gate_challenges(virtual_log_n);
-        for (size_t idx = 0; idx < virtual_log_n; idx++) {
-            prover_gate_challenges[idx] =
-                prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        prover_gate_challenges =
+            prover_transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
         SumcheckProver<Flavor> sumcheck_prover(multivariate_n,
                                                full_polynomials,
