@@ -20,27 +20,21 @@ echo $node_version
 nvm install $node_version
 nvm alias default $node_version
 
-# Create Verdaccio config.
+# Create Verdaccio config (offline mode - all packages pre-cached, no proxy to npmjs).
 cat > /tmp/verdaccio-config.yaml <<EOF
 storage: /home/ubuntu/verdaccio-storage
 max_body_size: 1000mb
-
-uplinks:
-  npmjs:
-    url: https://registry.npmjs.org/
 
 packages:
   "@*/*":
     access: \$all
     publish: \$all
     unpublish: \$all
-    proxy: npmjs
 
   "**":
     access: \$all
     publish: \$all
     unpublish: \$all
-    proxy: npmjs
 
 logs: { type: stdout, format: pretty, level: warn }
 EOF
