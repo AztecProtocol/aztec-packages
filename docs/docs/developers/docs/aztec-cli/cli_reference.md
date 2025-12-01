@@ -383,7 +383,7 @@ aztec start --network testnet --l1-rpc-urls https://example.com --l1-consensus-h
 
 ### Test
 
-Runs tests written in contracts. This command starts a TXE (Test eXecution Environment) server and runs `nargo test` with the appropriate oracle resolver.
+Runs tests written in contracts. This command starts a testing environment server and runs `nargo test` with the appropriate oracle resolver.
 
 ```bash
 aztec test [options]
