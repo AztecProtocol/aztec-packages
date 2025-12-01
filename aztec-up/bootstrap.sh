@@ -67,6 +67,13 @@ EOF
     $root/yarn-project/bootstrap.sh get_projects
   } | parallel --tag -k --line-buffer --halt now,fail=1 "dump_fail 'cd {} && deploy_npm latest $version' >/dev/null"
 
+  # Prime the verdaccio cache by installing the packages we'll use in tests.
+  # This fetches all transitive dependencies from npmjs and caches them locally.
+  # Use --prefix to avoid modifying the host system's global npm packages.
+  echo "Priming verdaccio cache with all dependencies..."
+  npm i -g --prefix /tmp/npm-prime @aztec/aztec@$version @aztec/cli-wallet@$version @aztec/bb.js@$version
+  rm -rf /tmp/npm-prime
+
   docker build -t aztecprotocol/aztec-release-test .
 }
 
