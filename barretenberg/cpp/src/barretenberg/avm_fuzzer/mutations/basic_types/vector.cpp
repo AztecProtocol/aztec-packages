@@ -122,3 +122,9 @@ template void mutate_vec<std::vector<FuzzInstruction>>(
     std::function<void(std::vector<FuzzInstruction>&, std::mt19937_64&)> mutate_element_function,
     std::function<std::vector<FuzzInstruction>(std::mt19937_64&)> generate_random_element_function,
     const VecMutationConfig& config);
+
+template void mutate_vec<bb::avm2::FF>(std::vector<bb::avm2::FF>& vec,
+                                       std::mt19937_64& rng,
+                                       std::function<void(bb::avm2::FF&, std::mt19937_64&)> mutate_element_function,
+                                       std::function<bb::avm2::FF(std::mt19937_64&)> generate_random_element_function,
+                                       const VecMutationConfig& config);

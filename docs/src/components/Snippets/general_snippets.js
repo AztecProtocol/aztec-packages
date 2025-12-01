@@ -2,7 +2,7 @@ import React from "react";
 
 export const General = {
   VersionLatestTestnet: () => <code>testnet</code>,
-  VersionLatestSandbox: () => <code>0.87.2</code>,
+  VersionLatestLocalNetwork: () => <code>0.87.2</code>,
   ViewTransactions: () => (
     <p>
       Transactions and balances can be viewed in block explorers like{" "}
@@ -38,8 +38,7 @@ export const General = {
     <p>
       <b>PXE</b> - a client-side key manager, private contract storage, and
       Private eXecution Environment for private transactions. A PXE is a core
-      part of an Aztec wallet and Sandbox, but can be decoupled and run
-      independently.
+      part of an Aztec wallet .
     </p>
   ),
 
@@ -50,9 +49,9 @@ export const General = {
     </p>
   ),
 
-  AztecSandbox: () => (
+  AztecLocalNetwork: () => (
     <p>
-      <b>Aztec Sandbox</b> - runs a set of Aztec tools for convenient local
+      <b>Aztec's Local network</b> - runs a set of Aztec tools for convenient local
       development, it includes: an Ethereum node, an Aztec node, and PXE.
     </p>
   ),
@@ -107,7 +106,7 @@ export const Tx_Teardown_Phase = () => (
 
 export const CLI_Add_Test_Accounts = () => (
   <p>
-    For convenience, the sandbox comes with 3 initial accounts that are
+    For convenience, the local network comes with 3 initial accounts that are
     prefunded, helping bootstrap payment of any transaction. To use them, you
     will need to add them to your pxe/wallet.
   </p>

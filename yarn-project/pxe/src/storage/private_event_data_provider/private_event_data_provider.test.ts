@@ -6,6 +6,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
+import type { PrivateEvent } from '../../pxe.js';
 import { PrivateEventDataProvider } from './private_event_data_provider.js';
 
 const getRandomMsgContent = () => {
@@ -22,6 +23,7 @@ describe('PrivateEventDataProvider', () => {
   let eventSelector: EventSelector;
   let txHash: TxHash;
   let eventCommitmentIndex: number;
+  let expectedEvent: PrivateEvent;
 
   beforeEach(async () => {
     const store = await openTmpStore('private_event_data_provider_test');
@@ -34,17 +36,18 @@ describe('PrivateEventDataProvider', () => {
     eventSelector = EventSelector.random();
     txHash = TxHash.random();
     eventCommitmentIndex = randomInt(10);
-  });
 
-  it('stores and retrieves private events', async () => {
-    const expectedEvent = {
+    expectedEvent = {
       recipient,
-      msgContent,
+      packedEvent: msgContent,
       txHash,
       blockNumber,
       blockHash,
+      eventSelector,
     };
+  });
 
+  it('stores and retrieves private events', async () => {
     await privateEventDataProvider.storePrivateEventLog(
       contractAddress,
       recipient,
@@ -66,14 +69,6 @@ describe('PrivateEventDataProvider', () => {
   });
 
   it('ignores duplicate events with same eventCommitmentIndex', async () => {
-    const expectedEvent = {
-      recipient,
-      msgContent,
-      txHash,
-      blockNumber,
-      blockHash,
-    };
-
     await privateEventDataProvider.storePrivateEventLog(
       contractAddress,
       recipient,
@@ -105,14 +100,6 @@ describe('PrivateEventDataProvider', () => {
   });
 
   it('allows multiple events with same content but different eventCommitmentIndex', async () => {
-    const expectedEvent = {
-      recipient,
-      msgContent,
-      txHash,
-      blockNumber,
-      blockHash,
-    };
-
     const otherEventCommitmentIndex = eventCommitmentIndex + 1;
     await privateEventDataProvider.storePrivateEventLog(
       contractAddress,
@@ -145,12 +132,10 @@ describe('PrivateEventDataProvider', () => {
   });
 
   it('filters events by block range', async () => {
-    const expectedEvent = {
-      recipient,
-      msgContent,
+    expectedEvent = {
+      ...expectedEvent,
       txHash: TxHash.random(),
       blockNumber: 200,
-      blockHash,
     };
 
     await privateEventDataProvider.storePrivateEventLog(
@@ -196,14 +181,6 @@ describe('PrivateEventDataProvider', () => {
   });
 
   it('filters events by recipient', async () => {
-    const expectedEvent = {
-      recipient,
-      msgContent,
-      txHash,
-      blockNumber,
-      blockHash,
-    };
-
     const otherRecipient = await AztecAddress.random();
     await privateEventDataProvider.storePrivateEventLog(
       contractAddress,
@@ -300,7 +277,7 @@ describe('PrivateEventDataProvider', () => {
         eventSelector,
       );
 
-      expect(events.map(e => e.msgContent)).toEqual([msgContent1, msgContent2, msgContent3]);
+      expect(events.map(e => e.packedEvent)).toEqual([msgContent1, msgContent2, msgContent3]);
     });
   });
 });

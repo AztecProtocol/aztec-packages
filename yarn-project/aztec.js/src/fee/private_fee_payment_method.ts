@@ -1,8 +1,8 @@
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
+import { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type { Wallet } from '../wallet/wallet.js';
@@ -49,7 +49,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       const abi = {
         name: 'get_accepted_asset',
         functionType: FunctionType.PRIVATE,
-        isInternal: false,
+        isOnlySelf: false,
         isStatic: false,
         parameters: [],
         returnTypes: [
@@ -129,6 +129,8 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       ],
       [witness],
       [],
+      [],
+      this.paymentContract, // feePayer
     );
   }
 

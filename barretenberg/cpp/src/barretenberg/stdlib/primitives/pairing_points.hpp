@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -56,6 +57,11 @@ template <typename Curve> struct PairingPoints {
         if (builder != nullptr) {
             tag_index = builder->pairing_points_tagging.create_pairing_point_tag();
         }
+
+#ifndef NDEBUG
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
+        info("Are Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
+#endif
     }
 
     PairingPoints(std::array<Group, 2> const& points)
@@ -169,6 +175,11 @@ template <typename Curve> struct PairingPoints {
         if (builder != nullptr) {
             builder->pairing_points_tagging.merge_pairing_point_tags(this->tag_index, other.tag_index);
         }
+
+#ifndef NDEBUG
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
+        info("Aggregated Pairing Points with tag ", tag_index, ": valid: ", native_pp.check() ? "true" : "false");
+#endif
     }
 
     /**
@@ -223,25 +234,6 @@ template <typename Curve> struct PairingPoints {
         return { P0, P1 };
     }
 
-    static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
-    {
-        // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the most
-        // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to convert
-        // them back to biggroup elements anyway to add them to the public inputs...
-        using BigGroup = element_default::
-            element<Builder, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>, curve::BN254::Group>;
-        std::array<fr, PUBLIC_INPUTS_SIZE> dummy_pairing_points_values;
-        size_t idx = 0;
-        for (size_t i = 0; i < 2; i++) {
-            std::array<fr, BigGroup::PUBLIC_INPUTS_SIZE> element_vals = BigGroup::construct_dummy();
-            for (auto& val : element_vals) {
-                dummy_pairing_points_values[idx++] = val;
-            }
-        }
-
-        return dummy_pairing_points_values;
-    }
-
     /**
      * @brief Construct default pairing points.
      *
@@ -256,8 +248,9 @@ template <typename Curve> struct PairingPoints {
         Fq x1(DEFAULT_PAIRING_POINTS_P1_X);
         Fq y1(DEFAULT_PAIRING_POINTS_P1_Y);
 
-        Group P0(x0, y0);
-        Group P1(x1, y1);
+        // These are known, valid points, so we can skip the curve checks.
+        Group P0(x0, y0, /*assert_on_curve=*/false);
+        Group P1(x1, y1, /*assert_on_curve=*/false);
 
         return { P0, P1 };
     }

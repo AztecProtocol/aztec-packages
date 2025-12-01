@@ -103,12 +103,15 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
         ASSERT_TRUE(verified);
     }
     auto translator_pairing_points = output.points_accumulator;
-    // BIGGROUP_AUDITTODO: It seems suspicious that we have to fix these witnesses here to make this test pass. Seems to
-    // defeat the purpose of the test.
-    translator_pairing_points.P0.x().fix_witness();
-    translator_pairing_points.P0.y().fix_witness();
-    translator_pairing_points.P1.x().fix_witness();
-    translator_pairing_points.P1.y().fix_witness();
+
+    // The pairing points are public outputs from the recursive verifier that will be verified externally via a pairing
+    // check. While they are computed within the circuit (via batch_mul for P0 and negation for P1), their output
+    // coordinates may not appear in multiple constraint gates. Calling fix_witness() adds explicit constraints on these
+    // values. Without these constraints, the StaticAnalyzer detects 20 variables (the coordinate limbs) that appear in
+    // only one gate. This ensures the pairing point coordinates are properly constrained within the circuit itself,
+    // rather than relying solely on them being public outputs.
+    translator_pairing_points.P0.fix_witness();
+    translator_pairing_points.P1.fix_witness();
     info("Recursive Verifier: num gates = ", builder.num_gates());
     auto graph = cdg::StaticAnalyzer(builder, false);
     auto variables_in_one_gate = graph.get_variables_in_one_gate();

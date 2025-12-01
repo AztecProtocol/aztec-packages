@@ -43,7 +43,7 @@ resource "helm_release" "keystore_setup" {
         }
       }
       publishers = {
-        perValidatorKey    = var.ATTESTERS_PER_NODE
+        perValidatorKey    = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
         mnemonicStartIndex = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
       }
       provers = {

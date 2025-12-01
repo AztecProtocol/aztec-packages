@@ -1,4 +1,5 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
@@ -121,7 +122,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       this.log.debug(`Received block proposal from ${sender.toString()}`);
       // TODO(palla/txs): Need to subtract validatorReexecuteDeadlineMs from this deadline (see ValidatorClient.getReexecutionDeadline)
       const constants = this.txCollection.getConstants();
-      const nextSlotTimestampSeconds = Number(getTimestampForSlot(block.slotNumber.toBigInt() + 1n, constants));
+      const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(block.slotNumber + 1), constants));
       const deadline = new Date(nextSlotTimestampSeconds * 1000);
       const parentBlock = await this.l2BlockSource.getBlockHeaderByArchive(block.payload.header.lastArchiveRoot);
       if (!parentBlock) {
@@ -371,16 +372,21 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
-    [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: proposal.slotNumber,
     [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
-    [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),
+    [Attributes.P2P_ID]: (await proposal.p2pMessageLoggingIdentifier()).toString(),
   }))
   public broadcastProposal(proposal: BlockProposal): Promise<void> {
-    this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber.toNumber()} to peers`);
+    this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber} to peers`);
     return this.p2pService.propagate(proposal);
   }
 
-  public async getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]> {
+  public async broadcastAttestations(attestations: BlockAttestation[]): Promise<void> {
+    this.log.verbose(`Broadcasting ${attestations.length} attestations to peers`);
+    await Promise.all(attestations.map(att => this.p2pService.propagate(att)));
+  }
+
+  public async getAttestationsForSlot(slot: SlotNumber, proposalId?: string): Promise<BlockAttestation[]> {
     return (
       (await (proposalId
         ? this.attestationPool?.getAttestationsForSlotAndProposal(slot, proposalId)
@@ -721,7 +727,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     );
 
     await this.synchedLatestBlockNumber.set(lastBlock.number);
-    await this.synchedLatestSlot.set(lastBlock.header.getSlot());
+    await this.synchedLatestSlot.set(BigInt(lastBlock.header.getSlot()));
     this.log.verbose(`Synched to latest block ${lastBlock.number}`);
     await this.startServiceIfSynched();
   }

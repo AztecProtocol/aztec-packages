@@ -21,7 +21,7 @@ async function main() {
 
   const wallet = await TestWallet.create(node);
 
-  // During sandbox setup we deploy a few accounts. Below we add them to our wallet.
+  // During local network setup we deploy a few accounts. Below we add them to our wallet.
   const [aliceInitialAccountData, bobInitialAccountData] = await getInitialTestAccountsData();
   await wallet.createSchnorrAccount(aliceInitialAccountData.secret, aliceInitialAccountData.salt);
   await wallet.createSchnorrAccount(bobInitialAccountData.secret, bobInitialAccountData.salt);

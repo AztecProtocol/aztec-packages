@@ -23,21 +23,21 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  * @notice Tally-based slashing proposer that aggregates validator votes to determine which validators should be
  * slashed
  *
- * @dev This contract implements a voting-based slashing mechanism where block proposers signal their intent to slash
- *      validators from past epochs. The system operates in rounds, with each round corresponding to a time period where
- *      votes are collected from proposers to determine which validators should be slashed.
+ * @dev This contract implements a voting-based slashing mechanism where checkpoint proposers signal their intent to
+ *      slash validators from past epochs. The system operates in rounds, with each round corresponding to a time period
+ *      where votes are collected from proposers to determine which validators should be slashed.
  *
  *      Key concepts:
  *      - Rounds: Time periods during which votes are collected (measured in slots, multiple of epochs)
- *      - Voting: Block proposers submit encoded votes indicating which validators should be slashed and by how much
+ *      - Voting: Checkpoint proposers submit encoded votes indicating which validators to slash and by how much
  *      - Quorum: Minimum number of votes required in a round to trigger slashing of a specific validator
  *      - Execution Delay: Time that must pass after a round ends before its slashing can be executed (allows vetoing)
  *      - Slash Offset: How many rounds in the past to look when determining which validators to slash
  *
  *      How the system works:
  *      1. Time is divided into rounds (ROUND_SIZE slots each).
- *      2. During each round, block proposers can submit votes indicating which validators from the epochs that span
- *         SLASH_OFFSET_IN_ROUNDS rounds ago should be slashed.
+ *      2. During each round, checkpoint proposers can submit votes indicating which validators from the epochs that
+ *         span SLASH_OFFSET_IN_ROUNDS rounds ago should be slashed.
  *      3. Votes are encoded as bytes where each 2-bit pair represents the slash amount (0-3 slash units) for
  *         the corresponding validator slashed in the round.
  *      4. After a round ends, there is an execution delay period for review so the VETOER in the Slasher can veto the
@@ -347,7 +347,7 @@ contract TallySlashingProposer is EIP712 {
       ROUND_SIZE_IN_EPOCHS > 0,
       Errors.TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(ROUND_SIZE_IN_EPOCHS)
     );
-    require(ROUND_SIZE < MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
+    require(ROUND_SIZE <= MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
     require(COMMITTEE_SIZE > 0, Errors.TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
 
     // Validate that vote size doesn't exceed our fixed 4 bytes32 allocation
@@ -364,7 +364,7 @@ contract TallySlashingProposer is EIP712 {
 
   /**
    * @notice Submit a vote for slashing validators from SLASH_OFFSET_IN_ROUNDS rounds ago
-   * @dev Only the current block proposer can submit votes, enforced via EIP-712 signature verification.
+   * @dev Only the current checkpoint proposer can submit votes, enforced via EIP-712 signature verification.
    *      Each byte in the votes encodes slash amounts for 4 validators using 2 bits each (0-3 units each).
    *      The vote includes the current slot number to prevent replay attacks.
    *

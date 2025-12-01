@@ -140,9 +140,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     template <typename Accumulator, typename AllEntities, typename Parameters>
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {
-        using View = typename Accumulator::View;
-        using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
+        using ParameterCoefficientAccumulator = typename Parameters::DataType::CoefficientAccumulator;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         const auto gamma = ParameterCoefficientAccumulator(params.gamma);
@@ -165,9 +163,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     template <typename Accumulator, typename AllEntities, typename Parameters>
     static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
     {
-        using View = typename Accumulator::View;
-        using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
+        using ParameterCoefficientAccumulator = typename Parameters::DataType::CoefficientAccumulator;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         const auto gamma = ParameterCoefficientAccumulator(params.gamma);

@@ -12,7 +12,7 @@ Here's a complete example with all monitoring components integrated with your Az
 services:
   # Your Aztec node (example for full node)
   aztec-node:
-    image: "aztecprotocol/aztec:#include_testnet_version"
+    image: "aztecprotocol/aztec:2.0.4"
     container_name: "aztec-node"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
@@ -68,9 +68,9 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=30d'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
     networks:
       - aztec
     restart: always
@@ -100,6 +100,7 @@ networks:
 ```
 
 This configuration includes:
+
 - Your Aztec node configured to export metrics to the OTEL collector
 - OpenTelemetry Collector to receive and process metrics
 - Prometheus to store time-series data with 30-day retention
@@ -114,6 +115,7 @@ This configuration includes:
 **Issue**: No metrics showing in Prometheus or Grafana.
 
 **Solutions**:
+
 - Verify OTEL collector is running: `docker compose ps otel-collector`
 - Check OTEL collector logs: `docker compose logs otel-collector`
 - Verify node is configured with correct OTEL endpoints
@@ -125,6 +127,7 @@ This configuration includes:
 **Issue**: Prometheus shows target as "down" in Status → Targets.
 
 **Solutions**:
+
 - Verify OTEL collector is running and exposing port 8889
 - Check Prometheus configuration in `prometheus.yml`
 - Ensure target address is correct (use service name if in same Docker network)
@@ -135,6 +138,7 @@ This configuration includes:
 **Issue**: Grafana shows "Bad Gateway" or cannot query Prometheus.
 
 **Solutions**:
+
 - Verify Prometheus is running: `docker compose ps prometheus`
 - Check data source URL in Grafana (should be `http://prometheus:9090`)
 - Test Prometheus endpoint: `curl http://localhost:9090/api/v1/query?query=up`

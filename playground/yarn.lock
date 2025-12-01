@@ -70,12 +70,10 @@ __metadata:
     "@aztec/noir-contracts.js": "link:../yarn-project/noir-contracts.js"
     "@aztec/pxe": "link:../yarn-project/pxe"
     "@aztec/stdlib": "link:../yarn-project/stdlib"
+    "@aztec/wallet-sdk": "link:../yarn-project/wallet-sdk"
     "@emotion/react": "npm:^11.14.0"
     "@emotion/styled": "npm:^11.14.0"
     "@eslint/js": "npm:^9.18.0"
-    "@fontsource/inter": "npm:^5.2.5"
-    "@fontsource/roboto": "npm:^5.1.1"
-    "@fontsource/space-grotesk": "npm:^5.2.6"
     "@mui/icons-material": "npm:^6.3.1"
     "@mui/material": "npm:^6.3.1"
     "@mui/styles": "npm:^6.3.1"
@@ -85,6 +83,7 @@ __metadata:
     "@types/node": "npm:^22.15.17"
     "@types/react": "npm:^19.0.6"
     "@types/react-dom": "npm:^19.0.3"
+    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
     "@uidotdev/usehooks": "npm:^2.4.1"
     "@vitejs/plugin-react-swc": "npm:^3.7.2"
     buffer-json: "npm:^2.0.0"
@@ -116,6 +115,12 @@ __metadata:
 "@aztec/stdlib@link:../yarn-project/stdlib::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/stdlib@link:../yarn-project/stdlib::locator=%40aztec%2Fplayground%40workspace%3A."
+  languageName: node
+  linkType: soft
+
+"@aztec/wallet-sdk@link:../yarn-project/wallet-sdk::locator=%40aztec%2Fplayground%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/wallet-sdk@link:../yarn-project/wallet-sdk::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -736,27 +741,6 @@ __metadata:
     "@eslint/core": "npm:^0.13.0"
     levn: "npm:^0.4.1"
   checksum: 10c0/554847c8f2b6bfe0e634f317fc43d0b54771eea0015c4f844f75915fdb9e6170c830c004291bad57db949d61771732e459f36ed059f45cf750af223f77357c5c
-  languageName: node
-  linkType: hard
-
-"@fontsource/inter@npm:^5.2.5":
-  version: 5.2.5
-  resolution: "@fontsource/inter@npm:5.2.5"
-  checksum: 10c0/071e12a6a9c8cf6e95da43ba532e80eb8e35c1ffd2384c9c6555d7f222e306e22968f7c4fff5065b9f81503db622cf3de8a688fbc1cb0c04aa3803c797f6f6a0
-  languageName: node
-  linkType: hard
-
-"@fontsource/roboto@npm:^5.1.1":
-  version: 5.2.5
-  resolution: "@fontsource/roboto@npm:5.2.5"
-  checksum: 10c0/b254985468a3ba78323d66b0725af1b2dc60dbacc82a907c0f67ccc659cc30c52b66bbadd3f2afdea53971ddae60c96e582efbcaee2db52886201c3f56b830a8
-  languageName: node
-  linkType: hard
-
-"@fontsource/space-grotesk@npm:^5.2.6":
-  version: 5.2.6
-  resolution: "@fontsource/space-grotesk@npm:5.2.6"
-  checksum: 10c0/4ce284cac461031721c104844dbbeb8df75e3a1d3fd0573fcefc442f3aa8f5dd4362595cd067f09a2a47b7fd9a6f94f6882647da67139fd8e690cff9e603d39f
   languageName: node
   linkType: hard
 
@@ -1774,6 +1758,87 @@ __metadata:
     "@typescript-eslint/types": "npm:8.31.0"
     eslint-visitor-keys: "npm:^4.2.0"
   checksum: 10c0/e41e2a9e287d11232cda6126377d1df4de69c6e9dc2a14058819cff15280ec654a3877886a6806728196f299766cfbb0b299eb021c2ce168eb15dff5eb07b51b
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-darwin-arm64@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-darwin-arm64@npm:7.0.0-dev.20251126.1"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-darwin-x64@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-darwin-x64@npm:7.0.0-dev.20251126.1"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-linux-arm64@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-linux-arm64@npm:7.0.0-dev.20251126.1"
+  conditions: os=linux & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-linux-arm@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-linux-arm@npm:7.0.0-dev.20251126.1"
+  conditions: os=linux & cpu=arm
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-linux-x64@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-linux-x64@npm:7.0.0-dev.20251126.1"
+  conditions: os=linux & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-win32-arm64@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-win32-arm64@npm:7.0.0-dev.20251126.1"
+  conditions: os=win32 & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview-win32-x64@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview-win32-x64@npm:7.0.0-dev.20251126.1"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@typescript/native-preview@npm:7.0.0-dev.20251126.1":
+  version: 7.0.0-dev.20251126.1
+  resolution: "@typescript/native-preview@npm:7.0.0-dev.20251126.1"
+  dependencies:
+    "@typescript/native-preview-darwin-arm64": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-darwin-x64": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-linux-arm": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-linux-arm64": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-linux-x64": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-win32-arm64": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-win32-x64": "npm:7.0.0-dev.20251126.1"
+  dependenciesMeta:
+    "@typescript/native-preview-darwin-arm64":
+      optional: true
+    "@typescript/native-preview-darwin-x64":
+      optional: true
+    "@typescript/native-preview-linux-arm":
+      optional: true
+    "@typescript/native-preview-linux-arm64":
+      optional: true
+    "@typescript/native-preview-linux-x64":
+      optional: true
+    "@typescript/native-preview-win32-arm64":
+      optional: true
+    "@typescript/native-preview-win32-x64":
+      optional: true
+  bin:
+    tsgo: bin/tsgo.js
+  checksum: 10c0/6101172e52b0220af9447f16e0afb26384d820fb82da56011904955fdb68f302120c8e9596c792ac86f2653d00af944987f04b584858e4cd341e56818417a92b
   languageName: node
   linkType: hard
 

@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
 hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
 
 dump_fail "flock scripts/logs/install_deps.lock retry scripts/install_deps.sh >&2"
@@ -87,19 +85,6 @@ function single_test {
   $root/yarn-project/end-to-end/scripts/run_test.sh simple $test_file
 }
 
-function start_env {
-  if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    echo "Skipping start_env for nightly while we migrate to use the same deployment flow as the scenario/staging networks."
-  fi
-}
-
-function stop_env {
-  if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    echo "Skipping stop_env for nightly while we migrate to use the same deployment flow as the scenario/staging networks."
-  fi
-}
-
-
 function test {
   echo_header "spartan test (deprecated)"
   # the existing test flow is deprecated.
@@ -138,7 +123,6 @@ case "$cmd" in
     # do nothing but the install_deps.sh above
     ;;
   "ensure_eth_balances")
-    shift
     env_file="$1"
     amount="$2"
 
@@ -154,7 +138,6 @@ case "$cmd" in
     ensure_eth_balances "$amount"
     ;;
   "ensure_funded_environment")
-    shift
     env_file="$1"
     low_watermark="${2:-0.5}"
     high_watermark="${3:-1.0}"
@@ -162,7 +145,6 @@ case "$cmd" in
     ./scripts/ensure_funded_environment.sh "$env_file" "$FUNDING_PRIVATE_KEY" "$low_watermark" "$high_watermark"
     ;;
   "network_deploy")
-    shift
     env_file="$1"
 
     #Sets up basic env vars like RUN_TESTS
@@ -177,7 +159,6 @@ case "$cmd" in
     fi
     ;;
   "single_test")
-    shift
     env_file="$1"
     test_file="$2"
     source_network_env $env_file
@@ -187,7 +168,6 @@ case "$cmd" in
     ;;
 
   "network_tests")
-    shift
     env_file="$1"
     network_tests $env_file
     ;;
@@ -216,7 +196,6 @@ case "$cmd" in
     metrics/install-prod.sh
     ;;
   "network-shaping")
-    shift
     namespace="$1"
     chaos_values="$2"
     if network_shaping "$namespace" "$chaos_values"; then
@@ -230,7 +209,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|gke|build|start_env|stop_env|gcp_auth)
+  test|test_cmds|gke|build|gcp_auth)
     $cmd
     ;;
   "test-kind-smoke")
@@ -294,7 +273,6 @@ case "$cmd" in
       ./scripts/test_k8s.sh kind src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
     ;;
   "test-gke-transfer")
-    shift
     execution_client="$1"
     # TODO(#12163) reenable bot once not conflicting with transfer
     OVERRIDES="blobSink.enabled=true,bot.enabled=false"

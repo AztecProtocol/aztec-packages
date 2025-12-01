@@ -7,6 +7,8 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
+import type { PrivateEvent } from '../../pxe.js';
+
 interface PrivateEventEntry {
   msgContent: Buffer;
   blockNumber: number;
@@ -14,14 +16,6 @@ interface PrivateEventEntry {
   eventCommitmentIndex: number;
   txHash: Buffer;
 }
-
-export type PrivateEvent = {
-  msgContent: Fr[];
-  blockNumber: number;
-  blockHash: L2BlockHash;
-  txHash: TxHash;
-  recipient: AztecAddress;
-};
 
 /**
  * Stores decrypted private event logs.
@@ -131,11 +125,12 @@ export class PrivateEventDataProvider {
         events.push({
           eventCommitmentIndex: entry.eventCommitmentIndex,
           event: {
-            msgContent,
+            packedEvent: msgContent,
             blockNumber: entry.blockNumber,
             recipient,
             txHash,
             blockHash,
+            eventSelector,
           },
         });
       }

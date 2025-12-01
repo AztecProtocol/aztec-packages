@@ -17,8 +17,7 @@ struct TxContext {
     SideEffectTrackerInterface& side_effect_tracker;
 
     Gas gas_used = { 0, 0 };
-    bool reverted = false;                           // if any revertible phase reverted
-    std::optional<std::vector<FF>> app_logic_output; // last app logic returndata
+    RevertCode revert_code = RevertCode::OK;
 
     TxContextEvent serialize_tx_context_event() const
     {

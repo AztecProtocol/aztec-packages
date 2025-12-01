@@ -33,6 +33,8 @@ import {
   ScopedPrivateLogData,
   ScopedReadRequest,
   SettledReadHint,
+  SideEffectCounterRange,
+  SideEffectUniquenessHints,
   TransientDataSquashingHint,
 } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
@@ -70,6 +72,8 @@ import type {
   ReadRequestHints as ReadRequestHintsNoir,
   Scoped,
   SettledReadHint as SettledReadHintNoir,
+  SideEffectCounterRange as SideEffectCounterRangeNoir,
+  SideEffectUniquenessHints as SideEffectUniquenessHintsNoir,
   TransientDataSquashingHint as TransientDataSquashingHintNoir,
   TxRequest as TxRequestNoir,
 } from '../types/index.js';
@@ -92,8 +96,6 @@ import {
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
   mapNumberToNoir,
-  mapOptionalNumberFromNoir,
-  mapOptionalNumberToNoir,
   mapPointFromNoir,
   mapPointToNoir,
   mapPrivateLogFromNoir,
@@ -379,7 +381,6 @@ function mapPrivateValidationRequestsToNoir(requests: PrivateValidationRequests)
       requests.scopedKeyValidationRequestsAndGenerators,
       mapScopedKeyValidationRequestAndGeneratorToNoir,
     ),
-    split_counter: mapOptionalNumberToNoir(requests.splitCounter),
   };
 }
 
@@ -391,7 +392,6 @@ function mapPrivateValidationRequestsFromNoir(requests: PrivateValidationRequest
       requests.scoped_key_validation_requests_and_generators,
       mapScopedKeyValidationRequestAndGeneratorFromNoir,
     ),
-    mapOptionalNumberFromNoir(requests.split_counter),
   );
 }
 
@@ -438,11 +438,11 @@ export function mapPrivateCircuitPublicInputsToNoir(
     returns_hash: mapFieldToNoir(privateCircuitPublicInputs.returnsHash),
     note_hash_read_requests: mapClaimedLengthArrayToNoir(
       privateCircuitPublicInputs.noteHashReadRequests,
-      mapReadRequestToNoir,
+      mapScopedReadRequestToNoir,
     ),
     nullifier_read_requests: mapClaimedLengthArrayToNoir(
       privateCircuitPublicInputs.nullifierReadRequests,
-      mapReadRequestToNoir,
+      mapScopedReadRequestToNoir,
     ),
     key_validation_requests_and_generators: mapClaimedLengthArrayToNoir(
       privateCircuitPublicInputs.keyValidationRequestsAndGenerators,
@@ -467,6 +467,12 @@ export function mapPrivateCircuitPublicInputsToNoir(
     ),
     start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
+    expected_non_revertible_side_effect_counter: mapFieldToNoir(
+      privateCircuitPublicInputs.expectedNonRevertibleSideEffectCounter,
+    ),
+    expected_revertible_side_effect_counter: mapFieldToNoir(
+      privateCircuitPublicInputs.expectedRevertibleSideEffectCounter,
+    ),
     anchor_block_header: mapBlockHeaderToNoir(privateCircuitPublicInputs.anchorBlockHeader),
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
@@ -532,6 +538,34 @@ export function mapPrivateVerificationKeyHintsToNoir(
   };
 }
 
+function mapSideEffectCounterRangeToNoir(sideEffectCounterRange: SideEffectCounterRange): SideEffectCounterRangeNoir {
+  return {
+    start: mapNumberToNoir(sideEffectCounterRange.start),
+    end: mapNumberToNoir(sideEffectCounterRange.end),
+    side_effect_global_index: mapNumberToNoir(sideEffectCounterRange.sideEffectGlobalIndex),
+  };
+}
+
+function mapSideEffectUniquenessHintsToNoir(
+  sideEffectUniquenessHints: SideEffectUniquenessHints,
+): SideEffectUniquenessHintsNoir {
+  return {
+    side_effect_ranges: mapTuple(sideEffectUniquenessHints.sideEffectRanges, mapSideEffectCounterRangeToNoir),
+    note_hash_read_request_indices: mapTuple(sideEffectUniquenessHints.noteHashReadRequestIndices, mapNumberToNoir),
+    nullifier_read_request_indices: mapTuple(sideEffectUniquenessHints.nullifierReadRequestIndices, mapNumberToNoir),
+    note_hashes_indices: mapTuple(sideEffectUniquenessHints.noteHashesIndices, mapNumberToNoir),
+    nullifiers_indices: mapTuple(sideEffectUniquenessHints.nullifiersIndices, mapNumberToNoir),
+    private_call_requests_indices: mapTuple(sideEffectUniquenessHints.privateCallRequestsIndices, mapNumberToNoir),
+    public_call_requests_indices: mapTuple(sideEffectUniquenessHints.publicCallRequestsIndices, mapNumberToNoir),
+    l2_to_l1_msgs_indices: mapTuple(sideEffectUniquenessHints.l2ToL1MsgsIndices, mapNumberToNoir),
+    private_logs_indices: mapTuple(sideEffectUniquenessHints.privateLogsIndices, mapNumberToNoir),
+    contract_class_logs_hashes_indices: mapTuple(
+      sideEffectUniquenessHints.contractClassLogsHashesIndices,
+      mapNumberToNoir,
+    ),
+  };
+}
+
 /**
  * Maps a private call data to a noir private call data.
  * @param privateCallData - The private call data.
@@ -541,6 +575,7 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
   return {
     vk: mapVerificationKeyToNoir(privateCallData.vk, MEGA_VK_LENGTH_IN_FIELDS),
     verification_key_hints: mapPrivateVerificationKeyHintsToNoir(privateCallData.verificationKeyHints),
+    side_effect_uniqueness_hints: mapSideEffectUniquenessHintsToNoir(privateCallData.sideEffectUniquenessHints),
   };
 }
 
@@ -557,6 +592,7 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapU64FromNoir(inputs.include_by_timestamp),
     inputs.is_private_only,
     mapFieldFromNoir(inputs.claimed_first_nullifier),
+    mapNumberFromNoir(inputs.claimed_revertible_counter),
   );
 }
 
@@ -573,6 +609,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
     is_private_only: inputs.isPrivateOnly,
     claimed_first_nullifier: mapFieldToNoir(inputs.claimedFirstNullifier),
+    claimed_revertible_counter: mapNumberToNoir(inputs.claimedRevertibleCounter),
   };
 }
 
@@ -766,6 +803,5 @@ export function mapPrivateKernelResetHintsToNoir<
     transient_data_squashing_hints: inputs.transientDataSquashingHints.map(
       mapTransientDataSquashingHintToNoir,
     ) as FixedLengthArray<TransientDataSquashingHintNoir, TRANSIENT_DATA_HINTS_LEN>,
-    min_revertible_side_effect_counter: mapNumberToNoir(inputs.validationRequestsSplitCounter),
   };
 }

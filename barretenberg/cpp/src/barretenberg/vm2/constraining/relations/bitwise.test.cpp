@@ -414,18 +414,18 @@ TEST(BitwiseConstrainingTest, BitwiseExecInteraction)
     TestTraceContainer trace({ {
         // Bitwise Entry
         { C::bitwise_err, 1 },
-        { C::bitwise_sel, 1 },
-        { C::bitwise_tag_a, static_cast<uint8_t>(ValueTag::FF) },
-        { C::bitwise_tag_b, static_cast<uint8_t>(ValueTag::U8) },
+        { C::bitwise_start, 1 },
+        { C::bitwise_tag_a, static_cast<uint8_t>(MemoryTag::FF) },
+        { C::bitwise_tag_b, static_cast<uint8_t>(MemoryTag::U8) },
         { C::bitwise_acc_ia, 0x01 },
-        { C::bitwise_tag_c, static_cast<uint8_t>(ValueTag::U8) },
+        { C::bitwise_tag_c, static_cast<uint8_t>(MemoryTag::U8) },
         { C::bitwise_acc_ib, 0x01 },
         { C::bitwise_acc_ic, 0x00 },
         // Execution Entry
-        { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF) },
-        { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(ValueTag::U8) },
+        { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
+        { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U8) },
         { C::bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND) },
-        { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(ValueTag::U8) },
+        { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U8) },
         { C::execution_register_0_, 0x01 },
         { C::execution_register_1_, 0x01 },
         { C::execution_register_2_, 0x00 },
@@ -444,16 +444,16 @@ TEST(BitwiseConstrainingTest, InvalidBitwiseExecInteraction)
         { C::bitwise_sel, 1 },
         { C::bitwise_acc_ib, 0x01 },
         { C::bitwise_acc_ia, 0x01 },
-        { C::bitwise_tag_a, static_cast<uint8_t>(ValueTag::U8) },
-        { C::bitwise_tag_b, static_cast<uint8_t>(ValueTag::U8) },
+        { C::bitwise_tag_a, static_cast<uint8_t>(MemoryTag::U8) },
+        { C::bitwise_tag_b, static_cast<uint8_t>(MemoryTag::U8) },
         { C::bitwise_acc_ic, 0x00 },
-        { C::bitwise_tag_c, static_cast<uint8_t>(ValueTag::U8) },
+        { C::bitwise_tag_c, static_cast<uint8_t>(MemoryTag::U8) },
         { C::bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::AND) },
 
         // Execution Entry
-        { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U8) },
-        { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(ValueTag::U16) }, // Mismatch
-        { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(ValueTag::U8) },
+        { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U8) },
+        { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U16) }, // Mismatch
+        { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U8) },
         { C::execution_register_0_, 0x01 },
         { C::execution_register_1_, 0x01 },
         { C::execution_register_2_, 0x00 },
@@ -474,8 +474,8 @@ TEST(BitwiseConstrainingTest, ErrorHandlingInputFF)
 
     std::vector<simulation::BitwiseEvent> events = {
         { .operation = BitwiseOperation::XOR,
-          .a = MemoryValue::from_tag(ValueTag::FF, 1),
-          .b = MemoryValue::from_tag(ValueTag::FF, 1),
+          .a = MemoryValue::from_tag(MemoryTag::FF, 1),
+          .b = MemoryValue::from_tag(MemoryTag::FF, 1),
           .res = 0 },
     };
     builder.process(events, trace);
@@ -492,8 +492,8 @@ TEST(BitwiseConstrainingTest, ErrorHandlingInputTagMismatch)
 
     std::vector<simulation::BitwiseEvent> events = {
         { .operation = BitwiseOperation::AND,
-          .a = MemoryValue::from_tag(ValueTag::U8, 1),
-          .b = MemoryValue::from_tag(ValueTag::U16, 1),
+          .a = MemoryValue::from_tag(MemoryTag::U8, 1),
+          .b = MemoryValue::from_tag(MemoryTag::U16, 1),
           .res = 0 },
     };
     builder.process(events, trace);
@@ -509,13 +509,74 @@ TEST(BitwiseConstrainingTest, ErrorHandlingMultiple)
 
     std::vector<simulation::BitwiseEvent> events = {
         { .operation = BitwiseOperation::AND,
-          .a = MemoryValue::from_tag(ValueTag::FF, 1),
-          .b = MemoryValue::from_tag(ValueTag::U32, 1),
+          .a = MemoryValue::from_tag(MemoryTag::FF, 1),
+          .b = MemoryValue::from_tag(MemoryTag::U32, 1),
           .res = 0 },
     };
     builder.process(events, trace);
 
     check_relation<bitwise>(trace);
+}
+
+TEST(BitwiseConstrainingTest, ExecBitwiseDispatchOnErrorMismatch)
+{
+    // Bitwise operations on mismatch tags should error out and produce FF(0) result.
+    MemoryValue a = MemoryValue::from_tag(MemoryTag::U16, 45486);
+    MemoryValue b = MemoryValue::from_tag(MemoryTag::U8, 174);
+
+    TestTraceContainer trace({ {
+        // Execution Entry
+        { C::execution_sel_exec_dispatch_bitwise, 1 },
+        { C::execution_subtrace_operation_id, static_cast<uint8_t>(BitwiseOperation::AND) },
+        { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(a.get_tag()) },
+        { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(b.get_tag()) },
+        { C::execution_register_0_, a.as_ff() },
+        { C::execution_register_1_, b.as_ff() },
+
+        // Output is FF(0) due to error
+        { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::FF) },
+        { C::execution_register_2_, 0x00 },
+        { C::execution_sel_opcode_error, 1 },
+    } });
+
+    std::vector<simulation::BitwiseEvent> event = { { .operation = BitwiseOperation::AND, .a = a, .b = b, .res = 0 } };
+
+    BitwiseTraceBuilder builder;
+    builder.process(event, trace);
+
+    check_relation<bitwise>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_bitwise_settings>(trace);
+}
+
+TEST(BitwiseConstrainingTest, ExecBitwiseDispatchOnErrorFF)
+{
+    // Bitwise operations on FF tags should error out and produce FF(0) result.
+    MemoryValue a =
+        MemoryValue::from_tag(MemoryTag::FF, FF("0x1b7f6afaafbe72d6c3fc1bc92828a395341af3d33f805af83f06cbf0dcaca8a9"));
+    MemoryValue b = MemoryValue::from_tag(MemoryTag::U64, 9873803468411284649ULL);
+
+    TestTraceContainer trace({ {
+        // Execution Entry
+        { C::execution_sel_exec_dispatch_bitwise, 1 },
+        { C::execution_subtrace_operation_id, static_cast<uint8_t>(BitwiseOperation::OR) },
+        { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(a.get_tag()) },
+        { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(b.get_tag()) },
+        { C::execution_register_0_, a.as_ff() },
+        { C::execution_register_1_, b.as_ff() },
+
+        // Output is FF(0) due to error
+        { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::FF) },
+        { C::execution_register_2_, 0x00 },
+        { C::execution_sel_opcode_error, 1 },
+    } });
+
+    std::vector<simulation::BitwiseEvent> event = { { .operation = BitwiseOperation::OR, .a = a, .b = b, .res = 0 } };
+
+    BitwiseTraceBuilder builder;
+    builder.process(event, trace);
+
+    check_relation<bitwise>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_bitwise_settings>(trace);
 }
 
 } // namespace

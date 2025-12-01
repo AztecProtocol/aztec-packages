@@ -13,6 +13,7 @@ import {
   PublicProcessor,
   TelemetryPublicTxSimulator,
 } from '@aztec/simulator/server';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
@@ -46,7 +47,7 @@ export async function buildBlock(
 ): Promise<BuildBlockResult> {
   const blockBuildingTimer = new Timer();
   const blockNumber = newGlobalVariables.blockNumber;
-  const slot = newGlobalVariables.slotNumber.toBigInt();
+  const slot = newGlobalVariables.slotNumber;
   const msgCount = l1ToL2Messages.length;
   const stateReference = await worldStateFork.getStateReference();
   const archiveTree = await worldStateFork.getTreeInfo(MerkleTreeId.ARCHIVE);
@@ -125,11 +126,14 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
       contractsDB,
       globalVariables,
       this.telemetryClient,
-      {
-        doMerkleOperations: true,
-        skipFeeEnforcement: true,
-        clientInitiatedSimulation: false,
-      },
+      PublicSimulatorConfig.from({
+        skipFeeEnforcement: false,
+        collectDebugLogs: false,
+        collectHints: false,
+        maxDebugLogMemoryReads: 0,
+        collectStatistics: false,
+        collectCallMetadata: false,
+      }),
     );
 
     const processor = new PublicProcessor(

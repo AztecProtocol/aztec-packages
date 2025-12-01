@@ -4,13 +4,15 @@
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/lib/hinting_dbs.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/public_inputs_builder.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
@@ -152,7 +154,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
         poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
     NoteHashTreeCheck note_hash_tree_check(
-        hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
+        hints.tx.non_revertible_accumulated_data.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
     L1ToL2MessageTreeCheck l1_to_l2_msg_tree_check(merkle_check, l1_to_l2_msg_tree_check_emitter);
     EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
@@ -166,7 +168,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
 
-    ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation, hints.protocolContracts);
+    ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation, hints.protocol_contracts);
 
     MerkleDB base_merkle_db(raw_merkle_db,
                             public_data_tree_check,
@@ -183,17 +185,17 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     // Side effect tracking is only strictly needed for logs and L2-to-L1 messages.
     SideEffectTracker side_effect_tracker;
     SideEffectTrackingDB merkle_db(
-        hints.tx.nonRevertibleAccumulatedData.nullifiers[0], base_merkle_db, side_effect_tracker);
+        hints.tx.non_revertible_accumulated_data.nullifiers[0], base_merkle_db, side_effect_tracker);
 
     UpdateCheck update_check(
-        poseidon2, range_check, greater_than, merkle_db, update_check_emitter, hints.globalVariables);
+        poseidon2, range_check, greater_than, merkle_db, update_check_emitter, hints.global_variables);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);
     InstructionInfoDB instruction_info_db;
 
     ContractInstanceManager contract_instance_manager(
-        contract_db, merkle_db, update_check, field_gt, hints.protocolContracts, contract_instance_retrieval_emitter);
+        contract_db, merkle_db, update_check, field_gt, hints.protocol_contracts, contract_instance_retrieval_emitter);
 
     TxBytecodeManager bytecode_manager(contract_db,
                                        merkle_db,
@@ -217,7 +219,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
                                      written_public_data_slots_tree_check,
                                      retrieved_bytecodes_tree_check,
                                      side_effect_tracker,
-                                     hints.globalVariables);
+                                     hints.global_variables);
     DataCopy data_copy(execution_id_manager, greater_than, data_copy_emitter);
 
     // Create GetContractInstance opcode component
@@ -248,6 +250,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 
     TxExecution tx_execution(execution,
                              context_provider,
+                             contract_db,
                              merkle_db,
                              written_public_data_slots_tree_check,
                              retrieved_bytecodes_tree_check,
@@ -307,17 +310,12 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 
 TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_contract_db,
                                                       LowLevelMerkleDBInterface& raw_merkle_db,
+                                                      const PublicSimulatorConfig& config,
                                                       const Tx& tx,
                                                       const GlobalVariables& global_variables,
                                                       const ProtocolContracts& protocol_contracts)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_fast");
-
-    // TODO(fcarreiro): These should come from the simulate call.
-    bool user_requested_simulation = false;
-    DebugLogLevel debug_log_level = DebugLogLevel::INFO;
-    uint32_t max_debug_log_memory_reads = DEFAULT_MAX_DEBUG_LOG_MEMORY_READS;
-    FF prover_id = 1;
 
     NoopEventEmitter<ExecutionEvent> execution_emitter;
     NoopEventEmitter<DataCopyEvent> data_copy_emitter;
@@ -337,6 +335,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     NoopEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
     NoopEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
     NoopEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
+    NoopEventEmitter<UpdateCheckEvent> update_check_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -360,10 +359,15 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     PureContractDB contract_db(raw_contract_db);
 
     PureMerkleDB base_merkle_db(
-        tx.nonRevertibleAccumulatedData.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
-    SideEffectTrackingDB merkle_db(tx.nonRevertibleAccumulatedData.nullifiers[0], base_merkle_db, side_effect_tracker);
+        tx.non_revertible_accumulated_data.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
+    SideEffectTrackingDB merkle_db(
+        tx.non_revertible_accumulated_data.nullifiers[0], base_merkle_db, side_effect_tracker);
 
-    NoopUpdateCheck update_check;
+    // NoopUpdateCheck update_check;
+    // TODO(#18161): Note that if we need to gather hints here, we can't use the NoopUpdateCheck as it will skip
+    // collecting a required hint for a storage_read. Optionally use Noop if we don't need hints:
+
+    UpdateCheck update_check(poseidon2, range_check, greater_than, merkle_db, update_check_emitter, global_variables);
 
     InstructionInfoDB instruction_info_db;
 
@@ -392,9 +396,11 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
         execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
 
     std::unique_ptr<DebugLoggerInterface> debug_log_component;
-    if (user_requested_simulation) {
+    if (config.collect_debug_logs) {
+        // TODO(fcarreiro): add debug log level?
+        const DebugLogLevel debug_log_level = DebugLogLevel::INFO;
         debug_log_component = std::make_unique<DebugLogger>(
-            debug_log_level, max_debug_log_memory_reads, [](const std::string& message) { info(message); });
+            debug_log_level, config.max_debug_log_memory_reads, [](const std::string& message) { info(message); });
     } else {
         debug_log_component = std::make_unique<NoopDebugLogger>();
     }
@@ -420,199 +426,85 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                               merkle_db);
     TxExecution tx_execution(execution,
                              context_provider,
+                             contract_db,
                              merkle_db,
                              written_public_data_slots_tree_check,
                              retrieved_bytecodes_tree_check,
                              side_effect_tracker,
                              field_gt,
                              poseidon2,
-                             tx_event_emitter);
+                             tx_event_emitter,
+                             config.skip_fee_enforcement,
+                             config.collect_call_metadata);
 
     PublicInputsBuilder public_inputs_builder;
-    public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, prover_id, raw_merkle_db);
+    public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, config.prover_id, raw_merkle_db);
 
     // This triggers all the work.
     TxExecutionResult tx_execution_result = tx_execution.simulate(tx);
 
-    // TODO(fcarreiro): get these values from somewhere.
-    FF transaction_fee = 0;
     public_inputs_builder.extract_outputs(raw_merkle_db,
-                                          tx_execution_result.gas_used,
-                                          transaction_fee,
-                                          tx_execution_result.reverted,
+                                          // TODO(MW): Use of billed_gas is a bit misleading - we want public + private
+                                          // - teardown, which is stored as billed gas here/in ts:
+                                          tx_execution_result.gas_used.billed_gas,
+                                          tx_execution_result.transaction_fee,
+                                          tx_execution_result.revert_code != RevertCode::OK,
                                           side_effect_tracker.get_side_effects());
 
     return {
-        .public_inputs = public_inputs_builder.build(),
-        .execution_hints = std::nullopt, // TODO: add execution hints, optionally.
+        // Simulation.
         .gas_used = tx_execution_result.gas_used,
-        .debug_logs = debug_log_component->dump_logs(),
-        .app_logic_output = tx_execution_result.app_logic_output,
-        .reverted = tx_execution_result.reverted,
+        .revert_code = tx_execution_result.revert_code,
+        .app_logic_return_values = std::move(tx_execution_result.app_logic_return_values),
+        .logs = debug_log_component->dump_logs(),
+        // Proving request data.
+        .public_inputs = public_inputs_builder.build(),
+        .hints = std::nullopt, // NOTE: hints are injected by the caller.
     };
+}
+
+TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
+    simulation::ContractDBInterface& raw_contract_db,
+    const world_state::WorldStateRevision& world_state_revision,
+    world_state::WorldState& ws,
+    const PublicSimulatorConfig& config,
+    const Tx& tx,
+    const GlobalVariables& global_variables,
+    const ProtocolContracts& protocol_contracts)
+{
+    // Create PureRawMerkleDB with the provided WorldState instance
+    PureRawMerkleDB raw_merkle_db(world_state_revision, ws);
+
+    if (config.collect_hints) {
+        auto starting_tree_roots = raw_merkle_db.get_tree_roots();
+        HintingContractsDB hinting_contract_db(raw_contract_db);
+        HintingRawDB hinting_merkle_db(raw_merkle_db);
+        auto result =
+            simulate_fast(hinting_contract_db, hinting_merkle_db, config, tx, global_variables, protocol_contracts);
+        // TODO(MW): move to simulate_fast?
+        ExecutionHints collected_hints = ExecutionHints{ .global_variables = global_variables,
+                                                         .tx = tx,
+                                                         .protocol_contracts = protocol_contracts,
+                                                         .starting_tree_roots = starting_tree_roots };
+        hinting_contract_db.dump_hints(collected_hints);
+        hinting_merkle_db.dump_hints(collected_hints);
+
+        result.hints = collected_hints;
+        return result;
+    };
+
+    return simulate_fast(raw_contract_db, raw_merkle_db, config, tx, global_variables, protocol_contracts);
 }
 
 TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hints)
 {
+    // TODO(fcarreiro): decide if we want to pass a config here.
+    const PublicSimulatorConfig config{};
+
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
-    return simulate_fast(raw_contract_db, raw_merkle_db, hints.tx, hints.globalVariables, hints.protocolContracts);
-}
-
-EnqueuedCallResult AvmSimulationHelper::simulate_bytecode(const AztecAddress& address,
-                                                          const AztecAddress& sender,
-                                                          const FF& transaction_fee,
-                                                          const GlobalVariables& globals,
-                                                          bool is_static_call,
-                                                          const std::vector<FF>& calldata,
-                                                          const Gas& gas_limit,
-                                                          const std::vector<uint8_t>& bytecode)
-{
-    BB_BENCH_NAME("AvmSimulationHelper::simulate_bytecode");
-
-    NoopEventEmitter<ExecutionEvent> execution_emitter;
-    NoopEventEmitter<DataCopyEvent> data_copy_emitter;
-    NoopEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
-    NoopEventEmitter<EccAddEvent> ecc_add_emitter;
-    NoopEventEmitter<ScalarMulEvent> scalar_mul_emitter;
-    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
-    NoopEventEmitter<KeccakF1600Event> keccakf1600_emitter;
-    NoopEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
-    NoopEventEmitter<MerkleCheckEvent> merkle_check_emitter;
-    NoopEventEmitter<RangeCheckEvent> range_check_emitter;
-    NoopEventEmitter<ContextStackEvent> context_stack_emitter;
-    NoopEventEmitter<TxEvent> tx_event_emitter;
-    NoopEventEmitter<CalldataEvent> calldata_emitter;
-    NoopEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
-    NoopEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
-    NoopEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
-    NoopEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
-    NoopEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
-
-    ExecutionIdManager execution_id_manager(1);
-    RangeCheck range_check(range_check_emitter);
-    FieldGreaterThan field_gt(range_check, field_gt_emitter);
-    PureGreaterThan greater_than;
-    PureToRadix to_radix;
-    PurePoseidon2 poseidon2;
-    MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
-    PureWrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2);
-    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
-        poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
-    EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
-    PureAlu alu;
-    PureBitwise bitwise;
-    Sha256 sha256(execution_id_manager, bitwise, greater_than, sha256_compression_emitter);
-    KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check, greater_than);
-
-    Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
-
-    ExecutionHints empty_hints; // leave empty
-    HintedRawContractDB raw_contract_db(empty_hints);
-    HintedRawMerkleDB raw_merkle_db(empty_hints);
-
-    PureContractDB contract_db(raw_contract_db);
-
-    const FF first_nullifier = 42000; // just choose some arbitrary first nullifier
-    SideEffectTracker side_effect_tracker;
-    PureMerkleDB base_merkle_db(
-        /*first_nullifier=*/first_nullifier, raw_merkle_db, written_public_data_slots_tree_check);
-    SideEffectTrackingDB merkle_db(first_nullifier, base_merkle_db, side_effect_tracker);
-    base_merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
-
-    NoopUpdateCheck update_check;
-
-    InstructionInfoDB instruction_info_db;
-
-    std::array<AztecAddress, MAX_PROTOCOL_CONTRACTS> derived_addresses; // leave empty / 0s
-    ProtocolContracts protocol_contracts(derived_addresses);
-
-    ContractInstanceManager contract_instance_manager(
-        contract_db, merkle_db, update_check, field_gt, protocol_contracts, contract_instance_retrieval_emitter);
-
-    PureTxBytecodeManager bytecode_manager(contract_db, contract_instance_manager);
-    PureExecutionComponentsProvider execution_components(greater_than, instruction_info_db);
-
-    PureMemoryProvider memory_provider;
-    CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
-    InternalCallStackManagerProvider internal_call_stack_manager_provider(internal_call_stack_emitter);
-    ContextProvider context_provider(bytecode_manager,
-                                     memory_provider,
-                                     calldata_hashing_provider,
-                                     internal_call_stack_manager_provider,
-                                     merkle_db,
-                                     written_public_data_slots_tree_check,
-                                     retrieved_bytecodes_tree_check,
-                                     side_effect_tracker,
-                                     globals);
-    DataCopy data_copy(execution_id_manager, greater_than, data_copy_emitter);
-
-    // Create GetContractInstance opcode component
-    GetContractInstance get_contract_instance(
-        execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
-
-    std::unique_ptr<DebugLoggerInterface> debug_log_component;
-    debug_log_component = std::make_unique<NoopDebugLogger>();
-
-    HybridExecution execution(alu,
-                              bitwise,
-                              data_copy,
-                              poseidon2,
-                              ecc,
-                              to_radix,
-                              sha256,
-                              execution_components,
-                              context_provider,
-                              instruction_info_db,
-                              execution_id_manager,
-                              execution_emitter,
-                              context_stack_emitter,
-                              keccakf1600,
-                              greater_than,
-                              get_contract_instance,
-                              emit_unencrypted_log_component,
-                              *debug_log_component,
-                              merkle_db);
-
-    // Create a simple bytecode manager that wraps the raw bytecode
-    auto shared_bytecode = std::make_shared<std::vector<uint8_t>>(bytecode);
-    class RawBytecodeManager : public BytecodeManagerInterface {
-      public:
-        RawBytecodeManager(std::shared_ptr<std::vector<uint8_t>> bytecode_ptr)
-            : bytecode_ptr(bytecode_ptr)
-        {}
-
-        Instruction read_instruction(uint32_t pc) override { return deserialize_instruction(*bytecode_ptr, pc); }
-
-        BytecodeId get_bytecode_id() override { return BytecodeId{ 1 }; }
-
-        std::optional<BytecodeId> get_retrieved_bytecode_id() override { return BytecodeId{ 1 }; }
-
-      private:
-        std::shared_ptr<std::vector<uint8_t>> bytecode_ptr;
-    };
-
-    auto enqueued_call_context = std::make_unique<EnqueuedCallContext>(
-        /*context_id=*/0,
-        address,
-        sender,
-        transaction_fee,
-        is_static_call,
-        gas_limit,
-        /*gas_used=*/Gas{ 0, 0 },
-        globals,
-        std::make_unique<RawBytecodeManager>(shared_bytecode),
-        memory_provider.make_memory(/*space_id=*/0),
-        /*internal_call_stack_manager=*/
-        internal_call_stack_manager_provider.make_internal_call_stack_manager(/*context_id=*/0),
-        merkle_db,
-        written_public_data_slots_tree_check,
-        retrieved_bytecodes_tree_check,
-        side_effect_tracker,
-        /*phase=*/TransactionPhase::APP_LOGIC,
-        calldata);
-
-    return execution.execute(std::move(enqueued_call_context));
+    return simulate_fast(
+        raw_contract_db, raw_merkle_db, config, hints.tx, hints.global_variables, hints.protocol_contracts);
 }
 
 } // namespace bb::avm2

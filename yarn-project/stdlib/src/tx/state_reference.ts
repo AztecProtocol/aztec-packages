@@ -4,9 +4,9 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   STATE_REFERENCE_LENGTH,
 } from '@aztec/constants';
-import type { ViemStateReference } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 import { z } from 'zod';
@@ -38,6 +38,14 @@ export class StateReference {
     return this.l1ToL2MessageTree.getSize() + this.partial.getSize();
   }
 
+  static getFields(fields: FieldsOf<StateReference>) {
+    return [fields.l1ToL2MessageTree, fields.partial] as const;
+  }
+
+  static from(fields: FieldsOf<StateReference>) {
+    return new StateReference(...StateReference.getFields(fields));
+  }
+
   toBuffer() {
     // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return serializeToBuffer(this.l1ToL2MessageTree, this.partial);
@@ -67,26 +75,12 @@ export class StateReference {
     return new StateReference(l1ToL2MessageTree, partial);
   }
 
-  static fromViem(stateReference: ViemStateReference) {
-    return new StateReference(
-      AppendOnlyTreeSnapshot.fromViem(stateReference.l1ToL2MessageTree),
-      PartialStateReference.fromViem(stateReference.partialStateReference),
-    );
-  }
-
   static empty(): StateReference {
     return new StateReference(AppendOnlyTreeSnapshot.empty(), PartialStateReference.empty());
   }
 
   static random(): StateReference {
     return new StateReference(AppendOnlyTreeSnapshot.random(), PartialStateReference.random());
-  }
-
-  toViem(): ViemStateReference {
-    return {
-      l1ToL2MessageTree: this.l1ToL2MessageTree.toViem(),
-      partialStateReference: this.partial.toViem(),
-    };
   }
 
   toAbi(): [ReturnType<AppendOnlyTreeSnapshot['toAbi']>, ReturnType<PartialStateReference['toAbi']>] {

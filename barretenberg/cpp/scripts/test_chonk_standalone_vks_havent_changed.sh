@@ -13,7 +13,7 @@ cd ..
 # - Generate a hash for versioning: sha256sum bb-chonk-inputs.tar.gz
 # - Upload the compressed results: aws s3 cp bb-chonk-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-chonk-inputs-[hash(0:8)].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
-pinned_short_hash="79b094d8"
+pinned_short_hash="9d100e1f"
 pinned_chonk_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_short_hash}.tar.gz"
 
 function compress_and_upload {
@@ -73,11 +73,33 @@ fi
 function check_circuit_vks {
   set -eu
   local flow_folder="$inputs_tmp_dir/$1"
+  local output
+  local exit_code=0
 
   if [[ "${2:-}" == "--update_inputs" ]]; then
-    $bb check --update_inputs --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" || { echo_stderr "Error: Likely VK change detected in $flow_folder! Updating inputs."; exit 1; }
+    output=$($bb check --vk_policy=rewrite --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" 2>&1) || exit_code=$?
   else
-    $bb check --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" || { echo_stderr "Error: Likely VK change detected in $flow_folder!"; exit 1; }
+    output=$($bb check --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" 2>&1) || exit_code=$?
+  fi
+
+  if [[ $exit_code -ne 0 ]]; then
+    # Check if this is actually a VK change
+    if echo "$output" | grep -q "VK mismatch detected\|Expected precomputed vk"; then
+      echo_stderr "Error: VK change detected in $flow_folder!"
+      if [[ "${2:-}" == "--update_inputs" ]]; then
+        echo_stderr "Updating inputs with new VK."
+      fi
+      echo_stderr "$output"
+      exit 1
+    else
+      # Some other error occurred (file corruption, crash, etc.)
+      echo_stderr "Error: bb check failed in $flow_folder (not a VK change):"
+      echo_stderr "$output"
+      echo_stderr ""
+      echo_stderr "This indicates a bug or regression that is not related to VK changes."
+      echo_stderr "If this failure wasn't caught by other tests, please add a test case to prevent this regression."
+      exit 2
+    fi
   fi
 }
 
@@ -87,11 +109,35 @@ export -f check_circuit_vks
 ls "$inputs_tmp_dir"
 
 if [[ "${1:-}" == "--update_fast" ]]; then
-  parallel -v --line-buffer --tag check_circuit_vks {} --update_inputs ::: $(ls "$inputs_tmp_dir") \
-    && echo "No VK changes detected. Short hash is: ${pinned_short_hash}" \
-    || compress_and_upload $inputs_tmp_dir
+  exit_code=0
+  parallel -v --line-buffer --tag check_circuit_vks {} --update_inputs ::: $(ls "$inputs_tmp_dir") || exit_code=$?
+
+  if [[ $exit_code -eq 0 ]]; then
+    echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
+  elif [[ $exit_code -eq 1 ]]; then
+    # All flows that changed returned the same exit code (1)
+    compress_and_upload $inputs_tmp_dir
+  else
+    # Mixed results (some 0, some 1) OR real errors (exit code >= 2)
+    # Optimistically upload - real errors will persist on next run
+    echo "Mixed results detected (exit code: $exit_code). Uploading updated inputs..."
+    compress_and_upload $inputs_tmp_dir
+  fi
 else
-  parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir") \
-    && echo "No VK changes detected. Short hash is: ${pinned_short_hash}" \
-    || (echo "VK changes detected. Please re-run the script with --update_fast or --update_inputs" && exit 1)
+  exit_code=0
+  parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir") || exit_code=$?
+
+  if [[ $exit_code -eq 0 ]]; then
+    echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
+  elif [[ $exit_code -eq 1 ]]; then
+    # All flows had VK changes
+    echo "VK changes detected. Please re-run the script with --update_fast or --update_inputs"
+    exit 1
+  else
+    # Mixed results (some 0, some 1) OR real errors (exit code >= 2)
+    echo_stderr "Error: Mixed results or errors detected (exit code: $exit_code)."
+    echo_stderr "Some flows may have VK changes while others had errors."
+    echo_stderr "Please re-run with --update_fast to update inputs, or investigate errors above."
+    exit $exit_code
+  fi
 fi

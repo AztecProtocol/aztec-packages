@@ -1,7 +1,7 @@
 import { PARTIAL_STATE_REFERENCE_LENGTH } from '@aztec/constants';
-import type { ViemPartialStateReference } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -37,6 +37,14 @@ export class PartialStateReference {
     return this.noteHashTree.getSize() + this.nullifierTree.getSize() + this.publicDataTree.getSize();
   }
 
+  static getFields(fields: FieldsOf<PartialStateReference>) {
+    return [fields.noteHashTree, fields.nullifierTree, fields.publicDataTree] as const;
+  }
+
+  static from(fields: FieldsOf<PartialStateReference>) {
+    return new PartialStateReference(...PartialStateReference.getFields(fields));
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): PartialStateReference {
     const reader = BufferReader.asReader(buffer);
     return new PartialStateReference(
@@ -56,28 +64,12 @@ export class PartialStateReference {
     return new PartialStateReference(noteHashTree, nullifierTree, publicDataTree);
   }
 
-  static fromViem(stateReference: ViemPartialStateReference) {
-    return new PartialStateReference(
-      AppendOnlyTreeSnapshot.fromViem(stateReference.noteHashTree),
-      AppendOnlyTreeSnapshot.fromViem(stateReference.nullifierTree),
-      AppendOnlyTreeSnapshot.fromViem(stateReference.publicDataTree),
-    );
-  }
-
   static random(): PartialStateReference {
     return new PartialStateReference(
       AppendOnlyTreeSnapshot.random(),
       AppendOnlyTreeSnapshot.random(),
       AppendOnlyTreeSnapshot.random(),
     );
-  }
-
-  toViem(): ViemPartialStateReference {
-    return {
-      noteHashTree: this.noteHashTree.toViem(),
-      nullifierTree: this.nullifierTree.toViem(),
-      publicDataTree: this.publicDataTree.toViem(),
-    };
   }
 
   toAbi(): [

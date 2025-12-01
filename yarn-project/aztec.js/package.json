@@ -36,9 +36,9 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b",
-    "build:dev": "tsc -b --watch",
-    "build:ts": "tsc -b",
+    "build": "yarn clean && tsgo -b",
+    "build:dev": "tsgo -b --watch",
+    "build:ts": "tsgo -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/account_contract/artifacts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
@@ -93,13 +93,14 @@
     "@aztec/stdlib": "workspace:^",
     "axios": "^1.12.0",
     "tslib": "^2.4.0",
-    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0",
+    "viem": "npm:@aztec/viem@2.38.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
+    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "jest": "^30.0.0",

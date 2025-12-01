@@ -384,13 +384,13 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     }) as {
       eventName: 'MessageConsumed';
       args: {
-        l2BlockNumber: bigint;
+        checkpointNumber: bigint;
         root: `0x${string}`;
         messageHash: `0x${string}`;
         leafId: bigint;
       };
     };
-    expect(topics.args.l2BlockNumber).toBe(BigInt(blockNumber));
+    expect(topics.args.checkpointNumber).toBe(BigInt(blockNumber));
     expect(topics.args.root).toBe(witness.root.toString());
     expect(topics.args.messageHash).toBe(msgLeaf.toString());
     expect(topics.args.leafId).toBe(leafId);

@@ -51,7 +51,7 @@ jobs:
         run: |
           git fetch --tags --force
           tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
-          if echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+' && ! echo "$tag" | grep -q 'fake'; then
+          if echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+' && ! echo "$tag" | grep -q 'commit'; then
             echo "should_run=true" >> $GITHUB_OUTPUT
             echo "Found semver tag: $tag"
           else
@@ -192,6 +192,35 @@ jobs:
       - name: Save CI Success
         if: (env.SEMVER != '' || env.DOCKER_IMAGE != '') && steps.ci_cache.outputs.cache-hit != 'true' && github.event_name == 'workflow_run'
         run: echo "success" > ci-success.txt
+
+      #############
+      # Benchmarks
+      #############
+      - name: Download deploy benchmarks
+        if: (env.SEMVER != '' || env.DOCKER_IMAGE != '') && (steps.ci_cache.outputs.cache-hit != 'true' || github.event_name == 'workflow_dispatch')
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          if ./ci.sh gh-deploy-bench; then
+            echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
+          fi
+
+      - name: Upload deploy benchmarks
+        if: env.ENABLE_DEPLOY_BENCH == '1'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: CI Benchmarks
+          benchmark-data-dir-path: "bench/next"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          alert-threshold: "120%"
+          comment-on-alert: false
+          fail-on-alert: false
+          max-items-in-chart: 100
 
       - name: Notify Slack on failure
         if: failure() && github.event_name == 'workflow_run'

@@ -16,7 +16,7 @@ const sidebar = {
     },
     {
       type: "doc",
-      id: "developers/getting_started_on_sandbox",
+      id: "developers/getting_started_on_local_network",
     },
     {
       type: "doc",
@@ -43,145 +43,153 @@ const sidebar = {
     },
   ],
 
-  nodesSidebar: [
+  "nodesSidebar": [
     {
-      type: "html",
-      value: '<span class="sidebar-title">Getting Started</span>',
-      className: "sidebar-title",
+      "type": "html",
+      "value": "<span class=\"sidebar-title\">Getting Started</span>",
+      "className": "sidebar-title"
     },
     {
-      type: "doc",
-      id: "the_aztec_network/index",
+      "type": "doc",
+      "id": "the_aztec_network/index"
     },
     {
-      type: "doc",
-      id: "the_aztec_network/prerequisites",
+      "type": "doc",
+      "id": "the_aztec_network/prerequisites"
     },
     {
-      type: "html",
-      value: '<span class="sidebar-divider" />',
+      "type": "html",
+      "value": "<span class=\"sidebar-divider\" />"
     },
     {
-      type: "html",
-      value: '<span class="sidebar-title">Setup</span>',
-      className: "sidebar-title",
+      "type": "html",
+      "value": "<span class=\"sidebar-title\">Setup</span>",
+      "className": "sidebar-title"
     },
     {
-      type: "doc",
-      id: "the_aztec_network/setup/running_a_node",
+      "type": "doc",
+      "id": "the_aztec_network/setup/running_a_node"
     },
     {
-      type: "category",
-      label: "Running a Sequencer",
-      link: {
-        type: "doc",
-        id: "the_aztec_network/setup/sequencer_management",
+      "type": "category",
+      "label": "Running a Sequencer",
+      "link": {
+        "type": "doc",
+        "id": "the_aztec_network/setup/sequencer_management"
       },
-      items: [
+      "items": [
         {
-          type: "doc",
-          id: "the_aztec_network/setup/high_availability_sequencers",
-        },
-      ],
+          "type": "doc",
+          "id": "the_aztec_network/setup/high_availability_sequencers"
+        }
+      ]
     },
     {
-      type: "category",
-      label: "Running a Prover",
-      link: {
-        type: "doc",
-        id: "the_aztec_network/setup/running_a_prover",
+      "type": "doc",
+      "id": "the_aztec_network/setup/running_a_prover"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/setup/building_from_source"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/setup/bootnode_operation"
+    },
+    {
+      "type": "doc",
+      "id": "the_aztec_network/setup/syncing_best_practices"
+    },
+    {
+      "type": "html",
+      "value": "<span class=\"sidebar-title\">Operation</span>",
+      "className": "sidebar-title"
+    },
+    {
+      "type": "category",
+      "label": "Monitoring",
+      "link": {
+        "type": "doc",
+        "id": "the_aztec_network/operation/monitoring"
       },
-      items: [
+      "items": [
         {
-          type: "doc",
-          id: "the_aztec_network/setup/prover_single_machine",
+          "type": "category",
+          "label": "Setup Guides",
+          "items": [
+            {
+              "type": "doc",
+              "id": "the_aztec_network/operation/otel_setup"
+            },
+            {
+              "type": "doc",
+              "id": "the_aztec_network/operation/prometheus_setup"
+            },
+            {
+              "type": "doc",
+              "id": "the_aztec_network/operation/grafana_setup"
+            }
+          ]
         },
         {
-          type: "doc",
-          id: "the_aztec_network/setup/prover_distributed",
+          "type": "doc",
+          "id": "the_aztec_network/operation/metrics_reference"
         },
         {
-          type: "doc",
-          id: "the_aztec_network/setup/prover_verification_troubleshooting",
-        },
-      ],
+          "type": "doc",
+          "id": "the_aztec_network/operation/monitoring_example_troubleshooting"
+        }
+      ]
     },
     {
-      type: "doc",
-      id: "the_aztec_network/setup/bootnode_operation",
-    },
-    {
-      type: "doc",
-      id: "the_aztec_network/setup/syncing_best_practices",
-    },
-    {
-      type: "html",
-      value: '<span class="sidebar-title">Operation</span>',
-      className: "sidebar-title",
-    },
-    {
-      type: "category",
-      label: "Monitoring",
-      link: {
-        type: "doc",
-        id: "the_aztec_network/operation/monitoring",
+      "type": "category",
+      "label": "Keystore Usage",
+      "link": {
+        "type": "doc",
+        "id": "the_aztec_network/operation/keystore/advanced_keystore_guide"
       },
-      items: [
+      "items": [
         {
-          type: "doc",
-          id: "the_aztec_network/operation/otel_setup",
+          "type": "doc",
+          "id": "the_aztec_network/operation/keystore/creating_keystores"
         },
         {
-          type: "doc",
-          id: "the_aztec_network/operation/prometheus_setup",
+          "type": "doc",
+          "id": "the_aztec_network/operation/keystore/storage_methods"
         },
         {
-          type: "doc",
-          id: "the_aztec_network/operation/grafana_setup",
+          "type": "doc",
+          "id": "the_aztec_network/operation/keystore/advanced_patterns"
         },
         {
-          type: "doc",
-          id: "the_aztec_network/operation/monitoring_example_troubleshooting",
-        },
-      ],
+          "type": "doc",
+          "id": "the_aztec_network/operation/keystore/troubleshooting"
+        }
+      ]
     },
     {
-      type: "category",
-      label: "Advanced Keystore Usage",
-      link: {
-        type: "doc",
-        id: "the_aztec_network/operation/keystore/advanced_keystore_guide",
+      "type": "category",
+      "label": "Sequencer Management",
+      "link": {
+        "type": "doc",
+        "id": "the_aztec_network/operation/sequencer_management/sequencer_management_overview"
       },
-      items: [
+      "items": [
         {
-          type: "doc",
-          id: "the_aztec_network/operation/keystore/storage_methods",
+          "type": "doc",
+          "id": "the_aztec_network/operation/sequencer_management/creating_and_voting_on_proposals"
+        },
+        {
+          "type": "doc",
+          "id": "the_aztec_network/operation/sequencer_management/slashing_and_offenses"
+        },
+        {
+          "type": "doc",
+          "id": "the_aztec_network/operation/sequencer_management/running_delegated_stake"
         },
         {
           type: "doc",
-          id: "the_aztec_network/operation/keystore/advanced_patterns",
-        },
-        {
-          type: "doc",
-          id: "the_aztec_network/operation/keystore/troubleshooting",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Sequencer Management",
-      link: {
-        type: "doc",
-        id: "the_aztec_network/operation/sequencer_management/sequencer_management_overview",
-      },
-      items: [
-        {
-          type: "doc",
-          id: "the_aztec_network/operation/sequencer_management/creating_and_voting_on_proposals",
-        },
-        {
-          type: "doc",
-          id: "the_aztec_network/operation/sequencer_management/running_delegated_stake",
+          id: "the_aztec_network/operation/sequencer_management/claiming_rewards",
         },
         {
           type: "doc",
@@ -190,49 +198,49 @@ const sidebar = {
       ],
     },
     {
-      type: "doc",
-      id: "the_aztec_network/operation/operator_faq",
+      "type": "doc",
+      "id": "the_aztec_network/operation/operator_faq"
     },
     {
-      type: "html",
-      value: '<span class="sidebar-divider" />',
+      "type": "html",
+      "value": "<span class=\"sidebar-divider\" />"
     },
     {
-      type: "html",
-      value: '<span class="sidebar-title">Reference</span>',
-      className: "sidebar-title",
+      "type": "html",
+      "value": "<span class=\"sidebar-title\">Reference</span>",
+      "className": "sidebar-title"
     },
     {
-      type: "category",
-      label: "Changelog",
-      link: {
-        type: "doc",
-        id: "the_aztec_network/reference/changelog/changelog",
+      "type": "category",
+      "label": "Changelog",
+      "link": {
+        "type": "doc",
+        "id": "the_aztec_network/reference/changelog/changelog"
       },
-      items: [
+      "items": [
         {
-          type: "doc",
-          id: "the_aztec_network/reference/changelog/v2.0.2",
-        },
-      ],
+          "type": "doc",
+          "id": "the_aztec_network/reference/changelog/v2.0.2"
+        }
+      ]
     },
     {
-      type: "doc",
-      id: "the_aztec_network/reference/cli_reference",
+      "type": "doc",
+      "id": "the_aztec_network/reference/cli_reference"
     },
     {
-      type: "doc",
-      id: "the_aztec_network/reference/node_api_reference",
+      "type": "doc",
+      "id": "the_aztec_network/reference/node_api_reference"
     },
     {
-      type: "doc",
-      id: "the_aztec_network/reference/ethereum_rpc_reference",
+      "type": "doc",
+      "id": "the_aztec_network/reference/ethereum_rpc_reference"
     },
     {
-      type: "doc",
-      id: "the_aztec_network/reference/glossary",
-    },
-  ],
+      "type": "doc",
+      "id": "the_aztec_network/reference/glossary"
+    }
+  ]
 };
 
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */

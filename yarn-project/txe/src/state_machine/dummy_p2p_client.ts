@@ -1,3 +1,4 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type {
   AuthRequest,
   ENR,
@@ -17,6 +18,10 @@ import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {
+  public broadcastAttestations(_attestations: BlockAttestation[]): Promise<void> {
+    return Promise.resolve();
+  }
+
   public validate(_txs: Tx[]): Promise<void> {
     return Promise.resolve();
   }
@@ -113,7 +118,7 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getTxsByHash"');
   }
 
-  public getAttestationsForSlot(_slot: bigint, _proposalId?: string): Promise<BlockAttestation[]> {
+  public getAttestationsForSlot(_slot: SlotNumber, _proposalId?: string): Promise<BlockAttestation[]> {
     throw new Error('DummyP2P does not implement "getAttestationForSlot"');
   }
 

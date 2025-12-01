@@ -345,11 +345,11 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
      *
      * which we can reduce to:
      *
-     * ACC = ACC.montgomery_ladder(A)
-     * ACC = ACC.montgomery_ladder(B)
+     * ACC = ACC.dbl() + A
+     * ACC = ACC.dbl() + B
      *
      * This is more efficient than the non-staggered approach as we save 1 non-native field multiplication when we
-     * replace a DBL, ADD subroutine with a call to the montgomery ladder
+     * combine the DBL and ADD operations
      */
     C* builder = scalar.get_context();
 
@@ -393,6 +393,14 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
     Fr minus_lambda(bb::fr(minus_lambda_val.slice(0, 136)), bb::fr(minus_lambda_val.slice(136, 256)), false);
 
     Fr reconstructed_scalar = khi_reconstructed.madd(minus_lambda, { klo_reconstructed });
+
+    // Constant scalars are always reduced mod n by design (scalar < n), however
+    // the reconstructed_scalar may be larger than n as it's a witness. So we need to
+    // reduce the reconstructed_scalar mod n explicitly to match the original scalar.
+    // This is necessary for assert_equal to pass.
+    if (scalar.is_constant()) {
+        reconstructed_scalar.self_reduce();
+    }
 
     // Validate that the reconstructed scalar matches the original scalar in circuit
     scalar.assert_equal(reconstructed_scalar, "biggroup_nafs: reconstructed scalar does not match reduced input");
@@ -499,6 +507,16 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         Fr reconstructed_positive = Fr(lo_accumulators.first, hi_accumulators.first);
         Fr reconstructed_negative = Fr(lo_accumulators.second, hi_accumulators.second);
         Fr accumulator = reconstructed_positive - reconstructed_negative;
+
+        // Constant scalars are always reduced mod n by design (scalar < n), however
+        // the reconstructed accumulator may be larger than n as its a witness. So we need to
+        // reduce the reconstructed accumulator mod n explicitly to match the original scalar.
+        // This is necessary for assert_equal to pass.
+        if (scalar.is_constant()) {
+            accumulator.self_reduce();
+        }
+
+        // Validate that the reconstructed scalar matches the original scalar in circuit
         accumulator.assert_equal(scalar);
     }
 

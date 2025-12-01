@@ -207,8 +207,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
-        using ParameterCoefficientAccumulator =
-            typename GetParameterView<Parameters, typename Accumulator::View>::CoefficientAccumulator;
+        using ParameterCoefficientAccumulator = typename Parameters::DataType::CoefficientAccumulator;
 
         const auto& id = CoefficientAccumulator(in.databus_id);
         const auto& value = CoefficientAccumulator(BusData<bus_idx, AllEntities>::values(in));
@@ -229,9 +228,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
     {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
-        using View = typename Accumulator::View;
-        using ParameterView = GetParameterView<Parameters, View>;
-        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
+        using ParameterCoefficientAccumulator = typename Parameters::DataType::CoefficientAccumulator;
 
         // Bus value stored in w_1, index into bus column stored in w_2
         const auto& w_1 = CoefficientAccumulator(in.w_l);

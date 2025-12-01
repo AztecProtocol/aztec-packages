@@ -68,7 +68,7 @@ TEST(SideEffectTrackerTest, AddL2ToL1Message)
     tracker.add_l2_to_l1_message(contract_addr, recipient, content);
     EXPECT_THAT(tracker.get_side_effects().l2_to_l1_messages,
                 ElementsAre(ScopedL2ToL1Message{ .message = { .recipient = recipient, .content = content },
-                                                 .contractAddress = contract_addr }));
+                                                 .contract_address = contract_addr }));
 }
 
 TEST(SideEffectTrackerTest, AddPublicLog)
@@ -82,7 +82,7 @@ TEST(SideEffectTrackerTest, AddPublicLog)
     tracker.add_public_log(contract_addr, fields);
 
     PublicLogs expected_logs =
-        PublicLogs::from_logs({ PublicLog{ .fields = fields, .contractAddress = contract_addr } });
+        PublicLogs::from_logs({ PublicLog{ .fields = fields, .contract_address = contract_addr } });
     EXPECT_EQ(tracker.get_side_effects().public_logs, expected_logs);
 }
 
@@ -127,14 +127,14 @@ TEST(SideEffectTrackerTest, CreateAndCommitCheckpoint)
                     UnorderedElementsAre(Pair(FF(100), FF(300)), Pair(FF(200), FF(300)), Pair(FF(400), FF(400))));
         EXPECT_THAT(tracker.get_side_effects().public_logs,
                     Eq(PublicLogs::from_logs(
-                        { PublicLog{ .fields = { FF(1), FF(2), FF(3) }, .contractAddress = AztecAddress(0x1234) },
-                          PublicLog{ .fields = { FF(4), FF(5), FF(6) }, .contractAddress = AztecAddress(0x2222) } })));
+                        { PublicLog{ .fields = { FF(1), FF(2), FF(3) }, .contract_address = AztecAddress(0x1234) },
+                          PublicLog{ .fields = { FF(4), FF(5), FF(6) }, .contract_address = AztecAddress(0x2222) } })));
         EXPECT_THAT(
             tracker.get_side_effects().l2_to_l1_messages,
             ElementsAre(ScopedL2ToL1Message{ .message = { .recipient = EthAddress(0x5678), .content = FF(999) },
-                                             .contractAddress = AztecAddress(0x1234) },
+                                             .contract_address = AztecAddress(0x1234) },
                         ScopedL2ToL1Message{ .message = { .recipient = EthAddress(0x3333), .content = FF(1000) },
-                                             .contractAddress = AztecAddress(0x2222) }));
+                                             .contract_address = AztecAddress(0x2222) }));
     };
 
     tracker.add_nullifier(FF(1));
@@ -171,10 +171,10 @@ TEST(SideEffectTrackerTest, CreateAndRevertCheckpoint)
         EXPECT_EQ(tracker.get_side_effects().storage_writes_slot_to_value.at(FF(200)), FF(300));
         EXPECT_THAT(tracker.get_side_effects().public_logs,
                     Eq(PublicLogs::from_logs(
-                        { PublicLog{ .fields = { FF(1), FF(2), FF(3) }, .contractAddress = AztecAddress(0x1234) } })));
+                        { PublicLog{ .fields = { FF(1), FF(2), FF(3) }, .contract_address = AztecAddress(0x1234) } })));
         EXPECT_THAT(tracker.get_side_effects().l2_to_l1_messages,
                     ElementsAre(ScopedL2ToL1Message{ .message = { .recipient = EthAddress(0x5678), .content = FF(999) },
-                                                     .contractAddress = AztecAddress(0x1234) }));
+                                                     .contract_address = AztecAddress(0x1234) }));
     };
 
     tracker.add_nullifier(FF(1));

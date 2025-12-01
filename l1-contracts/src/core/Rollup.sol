@@ -10,14 +10,14 @@ import {
   L1FeeData,
   ManaBaseFeeComponents,
   FeeAssetPerEthE9,
-  BlockHeaderValidationFlags,
+  CheckpointHeaderValidationFlags,
   FeeHeader,
   RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IStaking, AttesterConfig, Exit, AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection, IEmperor} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
-import {TempBlockLog, BlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {TempCheckpointLog, CheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
@@ -82,7 +82,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param _header - The header to validate
    * @param _attestations - The attestations to validate
    * @param _digest - The digest to validate
-   * @param _blobsHash - The blobs hash for this block
+   * @param _blobsHash - The blobs hash for this checkpoint
    * @param _flags - The flags to validate
    */
   function validateHeaderWithAttestations(
@@ -92,7 +92,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     Signature memory _attestationsAndSignersSignature,
     bytes32 _digest,
     bytes32 _blobsHash,
-    BlockHeaderValidationFlags memory _flags
+    CheckpointHeaderValidationFlags memory _flags
   ) external override(IRollup) {
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
     RollupOperationsExtLib.validateHeaderWithAttestations(
@@ -123,6 +123,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param _ts - The timestamp to get the committee for
    *
    * @return The committee for the given timestamp
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getCommitteeAt(Timestamp _ts) external override(IValidatorSelection) returns (address[] memory) {
     return getEpochCommittee(getEpochAt(_ts));
@@ -135,6 +136,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The committee commitment for the given timestamp
    * @return The committee size for the given timestamp
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getCommitteeCommitmentAt(Timestamp _ts) external override(IValidatorSelection) returns (bytes32, uint256) {
     return ValidatorOperationsExtLib.getCommitteeCommitmentAt(getEpochAt(_ts));
@@ -147,6 +149,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The committee commitment for the given epoch
    * @return The committee size for the given epoch
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getEpochCommitteeCommitment(Epoch _epoch) external override(IValidatorSelection) returns (bytes32, uint256) {
     return ValidatorOperationsExtLib.getCommitteeCommitmentAt(_epoch);
@@ -171,7 +174,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param _who - The address to check
    *
    * @return uint256 - The slot at the given timestamp
-   * @return uint256 - The block number at the given timestamp
+   * @return uint256 - The checkpoint number at the given timestamp
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who)
     external
@@ -241,16 +245,16 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return ChainTipsLib.decompress(STFLib.getStorage().tips);
   }
 
-  function status(uint256 _myHeaderBlockNumber)
+  function status(uint256 _myHeaderCheckpointNumber)
     external
     view
     override(IRollup)
     returns (
-      uint256 provenBlockNumber,
+      uint256 provenCheckpointNumber,
       bytes32 provenArchive,
-      uint256 pendingBlockNumber,
+      uint256 pendingCheckpointNumber,
       bytes32 pendingArchive,
-      bytes32 archiveOfMyBlock,
+      bytes32 archiveOfMyCheckpoint,
       Epoch provenEpochNumber
     )
   {
@@ -258,12 +262,12 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     ChainTips memory tips = ChainTipsLib.decompress(rollupStore.tips);
 
     return (
-      tips.provenBlockNumber,
-      rollupStore.archives[tips.provenBlockNumber],
-      tips.pendingBlockNumber,
-      rollupStore.archives[tips.pendingBlockNumber],
-      archiveAt(_myHeaderBlockNumber),
-      getEpochForBlock(tips.provenBlockNumber)
+      tips.proven,
+      rollupStore.archives[tips.proven],
+      tips.pending,
+      rollupStore.archives[tips.pending],
+      archiveAt(_myHeaderCheckpointNumber),
+      getEpochForCheckpoint(tips.proven)
     );
   }
 
@@ -309,41 +313,41 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function archive() external view override(IRollup) returns (bytes32) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    return rollupStore.archives[rollupStore.tips.getPendingBlockNumber()];
+    return rollupStore.archives[rollupStore.tips.getPending()];
   }
 
-  function getProvenBlockNumber() external view override(IRollup) returns (uint256) {
-    return STFLib.getStorage().tips.getProvenBlockNumber();
+  function getProvenCheckpointNumber() external view override(IRollup) returns (uint256) {
+    return STFLib.getStorage().tips.getProven();
   }
 
-  function getPendingBlockNumber() external view override(IRollup) returns (uint256) {
-    return STFLib.getStorage().tips.getPendingBlockNumber();
+  function getPendingCheckpointNumber() external view override(IRollup) returns (uint256) {
+    return STFLib.getStorage().tips.getPending();
   }
 
-  function getBlock(uint256 _blockNumber) external view override(IRollup) returns (BlockLog memory) {
-    TempBlockLog memory tempBlockLog = STFLib.getTempBlockLog(_blockNumber);
-    return BlockLog({
-      archive: STFLib.getStorage().archives[_blockNumber],
-      headerHash: tempBlockLog.headerHash,
-      blobCommitmentsHash: tempBlockLog.blobCommitmentsHash,
-      attestationsHash: tempBlockLog.attestationsHash,
-      payloadDigest: tempBlockLog.payloadDigest,
-      slotNumber: tempBlockLog.slotNumber,
-      feeHeader: tempBlockLog.feeHeader
+  function getCheckpoint(uint256 _checkpointNumber) external view override(IRollup) returns (CheckpointLog memory) {
+    TempCheckpointLog memory tempCheckpointLog = STFLib.getTempCheckpointLog(_checkpointNumber);
+    return CheckpointLog({
+      archive: STFLib.getStorage().archives[_checkpointNumber],
+      headerHash: tempCheckpointLog.headerHash,
+      blobCommitmentsHash: tempCheckpointLog.blobCommitmentsHash,
+      attestationsHash: tempCheckpointLog.attestationsHash,
+      payloadDigest: tempCheckpointLog.payloadDigest,
+      slotNumber: tempCheckpointLog.slotNumber,
+      feeHeader: tempCheckpointLog.feeHeader
     });
   }
 
-  function getFeeHeader(uint256 _blockNumber) external view override(IRollup) returns (FeeHeader memory) {
-    return FeeHeaderLib.decompress(STFLib.getFeeHeader(_blockNumber));
+  function getFeeHeader(uint256 _checkpointNumber) external view override(IRollup) returns (FeeHeader memory) {
+    return FeeHeaderLib.decompress(STFLib.getFeeHeader(_checkpointNumber));
   }
 
-  function getBlobCommitmentsHash(uint256 _blockNumber) external view override(IRollup) returns (bytes32) {
-    return STFLib.getBlobCommitmentsHash(_blockNumber);
+  function getBlobCommitmentsHash(uint256 _checkpointNumber) external view override(IRollup) returns (bytes32) {
+    return STFLib.getBlobCommitmentsHash(_checkpointNumber);
   }
 
   function getCurrentBlobCommitmentsHash() external view override(IRollup) returns (bytes32) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    return STFLib.getBlobCommitmentsHash(rollupStore.tips.getPendingBlockNumber());
+    return STFLib.getBlobCommitmentsHash(rollupStore.tips.getPending());
   }
 
   function getConfig(address _attester) external view override(IStaking) returns (AttesterConfig memory) {
@@ -372,17 +376,30 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param _ts - The timestamp to get the sample seed for
    *
    * @return The sample seed for the given timestamp
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getSampleSeedAt(Timestamp _ts) external view override(IValidatorSelection) returns (uint256) {
     return ValidatorOperationsExtLib.getSampleSeedAt(getEpochAt(_ts));
   }
 
+  /**
+   * @notice  Get the sampling size for a given timestamp
+   *
+   * @param _ts - The timestamp to get the sampling size for
+   *
+   * @return The sampling size for the given timestamp
+   * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
+   */
   function getSamplingSizeAt(Timestamp _ts) external view override(IValidatorSelection) returns (uint256) {
     return ValidatorOperationsExtLib.getSamplingSizeAt(getEpochAt(_ts));
   }
 
-  function getLagInEpochs() external view override(IValidatorSelection) returns (uint256) {
-    return ValidatorOperationsExtLib.getLagInEpochs();
+  function getLagInEpochsForValidatorSet() external view override(IValidatorSelection) returns (uint256) {
+    return ValidatorOperationsExtLib.getLagInEpochsForValidatorSet();
+  }
+
+  function getLagInEpochsForRandao() external view override(IValidatorSelection) returns (uint256) {
+    return ValidatorOperationsExtLib.getLagInEpochsForRandao();
   }
 
   /**
@@ -447,7 +464,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   /**
    * @notice  Get the rewards for a specific prover for a given epoch
    *          BEWARE! If the epoch is not past its deadline, this value is the "current" value
-   *          and could change if a provers proves a longer series of blocks.
+   *          and could change if a provers proves a longer series of checkpoints.
    *
    * @param _epoch - The epoch to get the rewards for
    * @param _prover - The prover to get the rewards for
@@ -520,8 +537,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return RewardLib.getStorage().config;
   }
 
-  function getBlockReward() external view override(IRollup) returns (uint256) {
-    return RewardLib.getBlockReward();
+  function getCheckpointReward() external view override(IRollup) returns (uint256) {
+    return RewardLib.getCheckpointReward();
   }
 
   function isRewardsClaimable() external view override(IRollup) returns (bool) {
@@ -623,23 +640,23 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The fee asset price
    */
   function getFeeAssetPerEth() public view override(IRollup) returns (FeeAssetPerEthE9) {
-    return FeeLib.getFeeAssetPerEthAtBlock(STFLib.getStorage().tips.getPendingBlockNumber());
+    return FeeLib.getFeeAssetPerEthAtCheckpoint(STFLib.getStorage().tips.getPending());
   }
 
-  function getEpochForBlock(uint256 _blockNumber) public view override(IRollup) returns (Epoch) {
-    return STFLib.getEpochForBlock(_blockNumber);
+  function getEpochForCheckpoint(uint256 _checkpointNumber) public view override(IRollup) returns (Epoch) {
+    return STFLib.getEpochForCheckpoint(_checkpointNumber);
   }
 
   /**
-   * @notice  Get the archive root of a specific block
+   * @notice  Get the archive root of a specific checkpoint
    *
-   * @param _blockNumber - The block number to get the archive root of
+   * @param _checkpointNumber - The checkpoint number to get the archive root of
    *
-   * @return bytes32 - The archive root of the block
+   * @return bytes32 - The archive root of the checkpoint
    */
-  function archiveAt(uint256 _blockNumber) public view override(IRollup) returns (bytes32) {
+  function archiveAt(uint256 _checkpointNumber) public view override(IRollup) returns (bytes32) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    return _blockNumber <= rollupStore.tips.getPendingBlockNumber() ? rollupStore.archives[_blockNumber] : bytes32(0);
+    return _checkpointNumber <= rollupStore.tips.getPending() ? rollupStore.archives[_checkpointNumber] : bytes32(0);
   }
 
   /**

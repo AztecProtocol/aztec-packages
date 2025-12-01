@@ -1,10 +1,10 @@
 #pragma once
 
-#include <vector>
-
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/program_block.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/vm2/testing/instruction_builder.hpp"
+#include <vector>
 
 struct ReturnOptions {
     uint8_t return_size;
@@ -21,7 +21,70 @@ struct InsertSimpleInstructionBlock {
     MSGPACK_FIELDS(instruction_block_idx);
 };
 
-using CFGInstruction = std::variant<InsertSimpleInstructionBlock>;
+/// @brief finalizes the current block with jump, creates a new block and sets it as the current block
+struct JumpToNewBlock {
+    uint16_t target_program_block_instruction_block_idx;
+
+    MSGPACK_FIELDS(target_program_block_instruction_block_idx);
+};
+
+/// @brief finalizes the current block with jump if, creates two new blocks, sets the first as the then block and the
+/// second as the else block, changes the current block to the then block
+struct JumpIfToNewBlock {
+    uint16_t then_program_block_instruction_block_idx;
+    uint16_t else_program_block_instruction_block_idx;
+    uint16_t condition_offset_index;
+
+    MSGPACK_FIELDS(then_program_block_instruction_block_idx,
+                   else_program_block_instruction_block_idx,
+                   condition_offset_index);
+};
+
+/// @brief finalizes the current block with a jump to the block, which does not create a loop in the graph (defined by
+/// `get_reachable_blocks`) and switches the current block to the first block defined by `get_non_terminated_blocks`
+struct JumpToBlock {
+    uint16_t target_block_idx;
+
+    MSGPACK_FIELDS(target_block_idx);
+};
+
+/// @brief finalizes the current block with a JumpI and Jump instructions to the block, which does not create a loop in
+/// the graph (defined by `get_reachable_blocks`) and switches the current block to the first block defined by
+/// `get_non_terminated_blocks`
+struct JumpIfToBlock {
+    uint16_t target_then_block_idx;
+    uint16_t target_else_block_idx;
+    uint16_t condition_offset_index;
+    MSGPACK_FIELDS(target_then_block_idx, target_else_block_idx, condition_offset_index);
+};
+
+/// @brief finalizes the current block with Return and switches to the first non-terminated block
+struct FinalizeWithReturn {
+    ReturnOptions return_options;
+    MSGPACK_FIELDS(return_options);
+};
+
+/// @brief switches to the non-terminated block with the chosen index
+struct SwitchToNonTerminatedBlock {
+    uint16_t non_terminated_block_idx;
+    MSGPACK_FIELDS(non_terminated_block_idx);
+};
+
+/// @brief inserts INTERNALCALL instruction to the current block
+/// creates a new block and sets it as the current block
+struct InsertInternalCall {
+    uint16_t target_program_block_instruction_block_idx;
+    MSGPACK_FIELDS(target_program_block_instruction_block_idx);
+};
+
+using CFGInstruction = std::variant<InsertSimpleInstructionBlock,
+                                    JumpToNewBlock,
+                                    JumpIfToNewBlock,
+                                    JumpToBlock,
+                                    JumpIfToBlock,
+                                    FinalizeWithReturn,
+                                    SwitchToNonTerminatedBlock,
+                                    InsertInternalCall>;
 template <class... Ts> struct overloaded_cfg_instruction : Ts... {
     using Ts::operator()...;
 };
@@ -29,27 +92,111 @@ template <class... Ts> overloaded_cfg_instruction(Ts...) -> overloaded_cfg_instr
 
 inline std::ostream& operator<<(std::ostream& os, const CFGInstruction& instruction)
 {
-    std::visit(overloaded_cfg_instruction{ [&](InsertSimpleInstructionBlock arg) {
-                   os << "InsertSimpleInstructionBlock " << arg.instruction_block_idx;
-               } },
-               instruction);
+    std::visit(
+        overloaded_cfg_instruction{
+            [&](InsertSimpleInstructionBlock arg) {
+                os << "InsertSimpleInstructionBlock " << arg.instruction_block_idx;
+            },
+            [&](JumpToNewBlock arg) { os << "JumpToNewBlock " << arg.target_program_block_instruction_block_idx; },
+            [&](JumpIfToNewBlock arg) {
+                os << "JumpIfToNewBlock " << arg.then_program_block_instruction_block_idx << " "
+                   << arg.else_program_block_instruction_block_idx << " " << arg.condition_offset_index;
+            },
+            [&](JumpToBlock arg) { os << "JumpToBlock " << arg.target_block_idx; },
+            [&](JumpIfToBlock arg) {
+                os << "JumpIToBlock " << arg.target_then_block_idx << " " << arg.target_else_block_idx << " "
+                   << arg.condition_offset_index;
+            },
+            [&](FinalizeWithReturn arg) {
+                os << "FinalizeWithReturn " << arg.return_options.return_size << " "
+                   << arg.return_options.return_value_tag << " " << arg.return_options.return_value_offset_index;
+            },
+            [&](SwitchToNonTerminatedBlock arg) {
+                os << "SwitchToNonTerminatedBlock " << arg.non_terminated_block_idx;
+            },
+            [&](InsertInternalCall arg) {
+                os << "InsertInternalCall " << arg.target_program_block_instruction_block_idx;
+            },
+        },
+        instruction);
     return os;
 }
 
 // TODO(defkit) make a graph for jumps, loops, etc.
 class ControlFlow {
   private:
-    ProgramBlock current_block;
+    ProgramBlock* current_block;
+    /// @brief the entry block of the program
+    ProgramBlock* start_block;
     std::vector<std::vector<FuzzInstruction>>* instruction_blocks;
 
     /// @brief add instructions to the current block from the instruction block at the given index
     /// taken modulo length of the instruction blocks vector
     void process_insert_simple_instruction_block(InsertSimpleInstructionBlock instruction);
 
+    /// @brief terminates the current block with a jump and creates a new block
+    /// @param instruction the instruction to process
+    void process_jump_to_new_block(JumpToNewBlock instruction);
+
+    /// @brief terminates the current block with a jump if and creates two new blocks, sets the first as the then
+    /// block and the second as the else block, changes the current block to the then block
+    /// @param instruction the instruction to process
+    void process_jump_if_to_new_block(JumpIfToNewBlock instruction);
+
+    /// @brief terminates the current block with a jump to the block, which does not create a loop in the graph
+    /// (defined by `get_reachable_blocks`) and switches the current block to the first block defined by
+    /// `get_non_terminated_blocks`
+    /// @param instruction the instruction to process
+    void process_jump_to_block(JumpToBlock instruction);
+
+    /// @brief terminates the current block with a jumpi and jump instructions to the blocks, which does not create a
+    /// loop in the graph (defined by `get_reachable_blocks`) and switches the current block to the first block defined
+    /// by `get_non_terminated_blocks`
+    /// @param instruction the instruction to process
+    void process_jump_if_to_block(JumpIfToBlock instruction);
+
+    /// @brief terminates the current block with Return and switches to the first non-terminated block
+    /// @note if the current block has caller, it inserts INTERNALRETURN only and switches to the caller
+    /// @param instruction the instruction to process
+    void process_finalize_with_return(FinalizeWithReturn instruction);
+
+    /// @brief switches to the non-terminated block with the chosen index
+    /// @param instruction the instruction to process
+    void process_switch_to_non_terminated_block(SwitchToNonTerminatedBlock instruction);
+
+    /// @brief inserts INTERNALCALL instruction to the current block
+    /// creates a new block and sets it as the current block
+    /// @param instruction the instruction to process
+    void process_insert_internal_call(InsertInternalCall instruction);
+
+    /// @brief traverse the control flow graph using DFS
+    /// @param start_block the start block
+    /// @param reverse whether to traverse in reverse order. If true, the traversal will go to the predecessors of
+    /// the current block, otherwise to the successors.
+    /// @return the list of blocks in the order of traversal
+    static std::vector<ProgramBlock*> dfs_traverse(ProgramBlock* start_block, bool reverse = false);
+
+    /// @brief get the list of non-terminated blocks
+    std::vector<ProgramBlock*> get_non_terminated_blocks();
+
+    /// @brief get the list of blocks which are can be reached from the given block without creating a loop in the
+    /// graph
+    /// Also filters out blocks with different caller
+    std::vector<ProgramBlock*> get_reachable_blocks(ProgramBlock* block);
+
   public:
     ControlFlow(std::vector<std::vector<FuzzInstruction>>& instruction_blocks)
-        : instruction_blocks(&instruction_blocks)
+        : current_block(new ProgramBlock())
+        , start_block(current_block)
+        , instruction_blocks(&instruction_blocks)
     {}
+
+    ~ControlFlow()
+    {
+        for (ProgramBlock* block : dfs_traverse(start_block)) {
+            delete block;
+        }
+    }
 
     void process_cfg_instruction(CFGInstruction instruction);
 

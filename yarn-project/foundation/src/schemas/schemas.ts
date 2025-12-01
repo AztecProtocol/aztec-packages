@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { EpochNumber, EpochNumberSchema } from '../branded-types/epoch.js';
+import { SlotNumber, SlotNumberSchema } from '../branded-types/slot.js';
 import { Buffer32 } from '../buffer/buffer32.js';
 import { SecretValue } from '../config/secret_value.js';
 import { EthAddress } from '../eth-address/index.js';
@@ -9,6 +11,12 @@ import { isHex, withoutHexPrefix } from '../string/index.js';
 import { bufferSchema, hexSchema } from './utils.js';
 
 export const schemas = {
+  /** Accepts a number, bigint, or string as an EpochNumber. */
+  EpochNumber: EpochNumberSchema,
+
+  /** Accepts a number, bigint, or string as a SlotNumber. */
+  SlotNumber: SlotNumberSchema,
+
   /** Accepts a hex string. */
   EthAddress: EthAddress.schema,
 
@@ -54,15 +62,7 @@ export const schemas = {
   Buffer32: z.string().refine(isHex, 'Not a valid hex string').transform(Buffer32.fromString),
 
   /** Accepts a base64 string or an object `{ type: 'Buffer', data: [byte, byte...] }` as a buffer. */
-  Buffer: z.union([
-    bufferSchema,
-    z
-      .object({
-        type: z.literal('Buffer'),
-        data: z.array(z.number().int().min(0).max(255)),
-      })
-      .transform(({ data }) => Buffer.from(data)),
-  ]),
+  Buffer: bufferSchema,
 
   /** Accepts a hex string as a buffer. */
   BufferHex: z
@@ -79,4 +79,4 @@ export const schemas = {
 };
 
 // These are needed to avoid errors such as: "The inferred type of 'YourClassSchema' cannot be named without a reference to..."
-export type { EthAddress, Fq, Fr, Point };
+export type { EpochNumber, EthAddress, Fq, Fr, Point, SlotNumber };

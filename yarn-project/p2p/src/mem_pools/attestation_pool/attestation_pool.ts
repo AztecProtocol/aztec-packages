@@ -1,3 +1,4 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 
 /**
@@ -51,7 +52,7 @@ export interface AttestationPool {
    *
    * @param slot - The oldest slot to keep.
    */
-  deleteAttestationsOlderThan(slot: bigint): Promise<void>;
+  deleteAttestationsOlderThan(slot: SlotNumber): Promise<void>;
 
   /**
    * Delete Attestations for slot
@@ -60,7 +61,7 @@ export interface AttestationPool {
    *
    * @param slot - The slot to delete.
    */
-  deleteAttestationsForSlot(slot: bigint): Promise<void>;
+  deleteAttestationsForSlot(slot: SlotNumber): Promise<void>;
 
   /**
    * Delete Attestations for slot and proposal
@@ -70,7 +71,7 @@ export interface AttestationPool {
    * @param slot - The slot to delete.
    * @param proposalId - The proposal to delete.
    */
-  deleteAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<void>;
+  deleteAttestationsForSlotAndProposal(slot: SlotNumber, proposalId: string): Promise<void>;
 
   /**
    * Get all Attestations for all proposals for a given slot
@@ -80,7 +81,7 @@ export interface AttestationPool {
    * @param slot - The slot to query
    * @return BlockAttestations
    */
-  getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]>;
+  getAttestationsForSlot(slot: SlotNumber): Promise<BlockAttestation[]>;
 
   /**
    * Get Attestations for slot and given proposal
@@ -91,7 +92,7 @@ export interface AttestationPool {
    * @param proposalId - The proposal to query
    * @return BlockAttestations
    */
-  getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
+  getAttestationsForSlotAndProposal(slot: SlotNumber, proposalId: string): Promise<BlockAttestation[]>;
 
   /**
    * Check if a specific attestation exists in the pool
@@ -100,6 +101,29 @@ export interface AttestationPool {
    * @return True if the attestation exists, false otherwise
    */
   hasAttestation(attestation: BlockAttestation): Promise<boolean>;
+
+  /**
+   * Returns whether adding this proposal is permitted at current capacity:
+   * - True if the proposal already exists, allow overwrite to keep parity with tests.
+   * - True if the slot is below the proposal cap.
+   * - False if the slot is at/above cap and this would be a new unique proposal.
+   *
+   * @param block - The block proposal to check
+   * @returns True if the proposal can be added (or already exists), false otherwise.
+   */
+  canAddProposal(block: BlockProposal): Promise<boolean>;
+
+  /**
+   * Returns whether an attestation would be accepted for (slot, proposalId):
+   * - True if the attestation already exists for this sender.
+   * - True if the attestation cap for (slot, proposalId) has not been reached.
+   * - False if the cap is reached and this attestation would be a new unique entry.
+   *
+   * @param attestation - The attestation to check
+   * @param committeeSize - Committee size for the attestation's slot, implementation may add a small buffer
+   * @returns True if the attestation can be added, false otherwise.
+   */
+  canAddAttestation(attestation: BlockAttestation, committeeSize: number): Promise<boolean>;
 
   /** Returns whether the pool is empty. */
   isEmpty(): Promise<boolean>;

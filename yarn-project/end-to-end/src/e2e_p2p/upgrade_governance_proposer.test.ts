@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { L1TxUtils, RollupContract, createL1TxUtilsFromViemWallet, deployL1Contract } from '@aztec/ethereum';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { sleep } from '@aztec/foundation/sleep';
 import {
   GovernanceAbi,
@@ -102,9 +103,9 @@ describe('e2e_p2p_governance_proposer', () => {
       });
     };
 
-    const nextRoundTimestamp = await rollup.getTimestampForSlot(
-      ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
-    );
+    const currentSlot = await rollup.getSlotNumber();
+    const nextRoundSlot = SlotNumber.fromBigInt((BigInt(currentSlot) / roundSize) * roundSize + roundSize);
+    const nextRoundTimestamp = await rollup.getTimestampForSlot(nextRoundSlot);
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
     const { address: newPayloadAddress } = await deployL1Contract(
@@ -121,7 +122,7 @@ describe('e2e_p2p_governance_proposer', () => {
     const govInfo = async () => {
       const bn = await t.ctx.cheatCodes.eth.blockNumber();
       const slot = await rollup.getSlotNumber();
-      const round = await governanceProposer.read.computeRound([slot]);
+      const round = await governanceProposer.read.computeRound([BigInt(slot)]);
 
       const info = await governanceProposer.read.getRoundData([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
@@ -171,9 +172,9 @@ describe('e2e_p2p_governance_proposer', () => {
 
     expect(govData.leaderVotes).toBeGreaterThan(govBefore.leaderVotes);
 
-    const nextRoundTimestamp2 = await rollup.getTimestampForSlot(
-      ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
-    );
+    const currentSlot2 = await rollup.getSlotNumber();
+    const nextRoundSlot2 = SlotNumber.fromBigInt((BigInt(currentSlot2) / roundSize) * roundSize + roundSize);
+    const nextRoundTimestamp2 = await rollup.getTimestampForSlot(nextRoundSlot2);
     t.logger.info(`Warping to ${nextRoundTimestamp2}`);
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
 

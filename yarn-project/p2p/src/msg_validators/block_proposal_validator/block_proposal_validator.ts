@@ -24,10 +24,26 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       }
 
       // Check if transactions are permitted when the proposal contains transaction hashes
-      if (!this.txsPermitted && block.txHashes.length > 0) {
+      const embeddedTxCount = block.txs?.length ?? 0;
+      if (!this.txsPermitted && (block.txHashes.length > 0 || embeddedTxCount > 0)) {
         this.logger.debug(
           `Penalizing peer for block proposal with ${block.txHashes.length} transaction(s) when transactions are not permitted`,
         );
+        return PeerErrorSeverity.MidToleranceError;
+      }
+
+      // If there are embedded txs, they must be listed in txHashes; if there are no txHashes, there must be no txs
+      const hashSet = new Set(block.txHashes.map(h => h.toString()));
+      const missingTxHashes =
+        embeddedTxCount > 0
+          ? block.txs!.filter(tx => !hashSet.has(tx.getTxHash().toString())).map(tx => tx.getTxHash().toString())
+          : [];
+      if (embeddedTxCount > 0 && missingTxHashes.length > 0) {
+        this.logger.warn('Penalizing peer for embedded transaction(s) not included in txHashes', {
+          embeddedTxCount,
+          txHashesLength: block.txHashes.length,
+          missingTxHashes,
+        });
         return PeerErrorSeverity.MidToleranceError;
       }
 
@@ -35,15 +51,15 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
         await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
 
       // Check that the attestation is for the current or next slot
-      const slotNumberBigInt = block.payload.header.slotNumber.toBigInt();
-      if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
-        this.logger.debug(`Penalizing peer for invalid slot number ${slotNumberBigInt}`, { currentSlot, nextSlot });
+      const slotNumber = block.payload.header.slotNumber;
+      if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
+        this.logger.debug(`Penalizing peer for invalid slot number ${slotNumber}`, { currentSlot, nextSlot });
         return PeerErrorSeverity.HighToleranceError;
       }
 
       // Check that the block proposal is from the current or next proposer
-      if (slotNumberBigInt === currentSlot && currentProposer !== undefined && !proposer.equals(currentProposer)) {
-        this.logger.debug(`Penalizing peer for invalid proposer for current slot ${slotNumberBigInt}`, {
+      if (slotNumber === currentSlot && currentProposer !== undefined && !proposer.equals(currentProposer)) {
+        this.logger.debug(`Penalizing peer for invalid proposer for current slot ${slotNumber}`, {
           currentProposer,
           nextProposer,
           proposer: proposer.toString(),
@@ -51,8 +67,8 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
         return PeerErrorSeverity.MidToleranceError;
       }
 
-      if (slotNumberBigInt === nextSlot && nextProposer !== undefined && !proposer.equals(nextProposer)) {
-        this.logger.debug(`Penalizing peer for invalid proposer for next slot ${slotNumberBigInt}`, {
+      if (slotNumber === nextSlot && nextProposer !== undefined && !proposer.equals(nextProposer)) {
+        this.logger.debug(`Penalizing peer for invalid proposer for next slot ${slotNumber}`, {
           currentProposer,
           nextProposer,
           proposer: proposer.toString(),
@@ -64,7 +80,7 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       if (!(await Promise.all(block.txs?.map(tx => tx.validateTxHash()) ?? [])).every(v => v)) {
         this.logger.warn(`Penalizing peer for invalid tx hashes in block proposal`, {
           proposer,
-          slotNumber: slotNumberBigInt,
+          slotNumber,
         });
         return PeerErrorSeverity.LowToleranceError;
       }

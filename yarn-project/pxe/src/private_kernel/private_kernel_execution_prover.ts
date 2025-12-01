@@ -35,6 +35,7 @@ import {
 import { VerificationKeyAsFields, VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
+import { computeSideEffectUniquenessHints } from './hints/compute_side_effect_uniqueness_hints.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 const NULL_SIMULATE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
@@ -103,9 +104,8 @@ export class PrivateKernelExecutionProver {
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
-    const validationRequestsSplitCounter = isPrivateOnlyTx
-      ? 0
-      : getFinalMinRevertibleSideEffectCounter(executionResult);
+    const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(executionResult);
+    const splitCounter = isPrivateOnlyTx ? 0 : minRevertibleSideEffectCounter;
 
     while (executionStack.length) {
       if (!firstIteration) {
@@ -113,7 +113,7 @@ export class PrivateKernelExecutionProver {
           output,
           executionStack,
           noteHashNullifierCounterMap,
-          validationRequestsSplitCounter,
+          splitCounter,
         );
         while (resetBuilder.needsReset()) {
           const witgenTimer = new Timer();
@@ -134,7 +134,7 @@ export class PrivateKernelExecutionProver {
             output,
             executionStack,
             noteHashNullifierCounterMap,
-            validationRequestsSplitCounter,
+            splitCounter,
           );
         }
       }
@@ -171,6 +171,7 @@ export class PrivateKernelExecutionProver {
           privateCallData,
           isPrivateOnlyTx,
           executionResult.firstNullifier,
+          minRevertibleSideEffectCounter,
         );
         this.log.debug(
           `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
@@ -220,7 +221,7 @@ export class PrivateKernelExecutionProver {
       output,
       [],
       noteHashNullifierCounterMap,
-      validationRequestsSplitCounter,
+      splitCounter,
     );
     while (resetBuilder.needsReset()) {
       const witgenTimer = new Timer();
@@ -239,12 +240,7 @@ export class PrivateKernelExecutionProver {
         },
       });
 
-      resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
-        output,
-        [],
-        noteHashNullifierCounterMap,
-        validationRequestsSplitCounter,
-      );
+      resetBuilder = new PrivateKernelResetPrivateInputsBuilder(output, [], noteHashNullifierCounterMap, splitCounter);
     }
 
     if (output.publicInputs.feePayer.isZero() && skipFeeEnforcement) {
@@ -420,6 +416,9 @@ export class PrivateKernelExecutionProver {
       await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
     const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
+
+    const sideEffectUniquenessHints = computeSideEffectUniquenessHints(publicInputs);
+
     return PrivateCallData.from({
       publicInputs,
       vk,
@@ -431,6 +430,7 @@ export class PrivateKernelExecutionProver {
         functionLeafMembershipWitness,
         updatedClassIdHints,
       }),
+      sideEffectUniquenessHints,
     });
   }
 }

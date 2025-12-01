@@ -1,10 +1,10 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
+import type { ContractInstanceWithAddress, SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
@@ -29,13 +29,14 @@ describe('Transfer benchmark', () => {
   // The admin that aids in the setup of the test
   let adminAddress: AztecAddress;
   // FPC that accepts bananas
-  let bananaFPC: FPCContract;
+  let bananaFPCInstance: ContractInstanceWithAddress;
   // BananaCoin Token contract, just used to pay fees in this scenario
-  let bananaCoin: TokenContract;
+  let bananaCoinInstance: ContractInstanceWithAddress;
   // CandyBarCoin Token contract, which we want to transfer
   let candyBarCoin: TokenContract;
+  let candyBarCoinInstance: ContractInstanceWithAddress;
   // Sponsored FPC contract
-  let sponsoredFPC: SponsoredFPCContract;
+  let sponsoredFPCInstance: ContractInstanceWithAddress;
   // Aztec node
   let node: AztecNode;
   // Benchmarking configuration
@@ -52,11 +53,12 @@ describe('Transfer benchmark', () => {
       adminWallet,
       userWallet,
       adminAddress,
-      bananaFPC,
-      bananaCoin,
-      candyBarCoin,
-      sponsoredFPC,
       aztecNode: node,
+      bananaFPCInstance,
+      bananaCoinInstance,
+      candyBarCoin,
+      candyBarCoinInstance,
+      sponsoredFPCInstance,
     } = await t.setup());
   });
 
@@ -80,12 +82,12 @@ describe('Transfer benchmark', () => {
         // Register admin as sender in benchy's wallet, since we need it to discover the minted bananas
         await userWallet.registerSender(adminAddress);
         // Register both FPC and BananCoin on the user's Wallet so we can simulate and prove
-        await userWallet.registerContract(bananaFPC);
-        await userWallet.registerContract(bananaCoin);
+        await userWallet.registerContract(bananaFPCInstance, FPCContract.artifact);
+        await userWallet.registerContract(bananaCoinInstance, TokenContract.artifact);
         // Register the CandyBarCoin on the user's Wallet so we can simulate and prove
-        await userWallet.registerContract(candyBarCoin);
+        await userWallet.registerContract(candyBarCoinInstance);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
-        await userWallet.registerContract(sponsoredFPC);
+        await userWallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifact);
       });
 
       function recursionTest(
@@ -137,7 +139,7 @@ describe('Transfer benchmark', () => {
               fee: { paymentMethod: await paymentMethod.forWallet(userWallet, benchysAddress) },
             };
 
-            const asset = await TokenContract.at(candyBarCoin.address, userWallet);
+            const asset = TokenContract.at(t.candyBarCoin.address, userWallet);
 
             const transferInteraction = asset.methods.transfer(adminAddress, amountToSend);
 

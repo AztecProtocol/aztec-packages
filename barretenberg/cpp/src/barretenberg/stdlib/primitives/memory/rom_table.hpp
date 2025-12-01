@@ -13,13 +13,14 @@ namespace bb::stdlib {
 
 // A runtime-defined read-only memory table. Table entries must be initialized in the constructor.
 // Works with UltraBuilder and MegaBuilder.
-template <typename Builder> class rom_table {
+template <IsUltraOrMegaBuilder Builder> class rom_table {
   private:
     using field_pt = field_t<Builder>;
 
   public:
     rom_table() {};
     rom_table(const std::vector<field_pt>& table_entries);
+    rom_table(Builder* builder, const std::vector<field_pt>& table_entries);
     rom_table(const rom_table& other);
     rom_table(rom_table&& other);
 

@@ -1,5 +1,6 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { asyncPool } from '@aztec/foundation/async-pool';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -9,6 +10,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import {
   type EpochProver,
@@ -73,7 +75,7 @@ export class EpochProvingJob implements Traceable {
     return this.state;
   }
 
-  public getEpochNumber(): bigint {
+  public getEpochNumber(): EpochNumber {
     return this.data.epochNumber;
   }
 
@@ -105,7 +107,7 @@ export class EpochProvingJob implements Traceable {
    * Proves the given epoch and submits the proof to L1.
    */
   @trackSpan('EpochProvingJob.run', function () {
-    return { [Attributes.EPOCH_NUMBER]: Number(this.data.epochNumber) };
+    return { [Attributes.EPOCH_NUMBER]: this.data.epochNumber };
   })
   public async run() {
     this.scheduleDeadlineStop();
@@ -114,7 +116,7 @@ export class EpochProvingJob implements Traceable {
     }
 
     const attestations = this.attestations.map(attestation => attestation.toViem());
-    const epochNumber = Number(this.epochNumber);
+    const epochNumber = this.epochNumber;
     const epochSizeBlocks = this.blocks.length;
     const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.txEffects.length, 0);
     const [fromBlock, toBlock] = [this.blocks[0].number, this.blocks.at(-1)!.number];
@@ -183,7 +185,6 @@ export class EpochProvingJob implements Traceable {
           checkpointConstants,
           l1ToL2Messages,
           totalNumBlocks,
-          blobFieldsPerCheckpoint[checkpointIndex].length,
           previousHeader,
         );
 
@@ -192,11 +193,15 @@ export class EpochProvingJob implements Traceable {
 
         // Process public fns
         const db = await this.createFork(block.number - 1, l1ToL2Messages);
-        const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, {
-          skipFeeEnforcement: true,
-          clientInitiatedSimulation: false,
+        const config = PublicSimulatorConfig.from({
           proverId: this.prover.getProverId().toField(),
+          skipFeeEnforcement: false,
+          collectDebugLogs: false,
+          collectHints: true,
+          maxDebugLogMemoryReads: 0,
+          collectStatistics: false,
         });
+        const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, config);
         const processed = await this.processTxs(publicProcessor, txs);
         await this.prover.addTxs(processed);
         await db.close();
@@ -282,7 +287,7 @@ export class EpochProvingJob implements Traceable {
     );
     this.log.verbose(`Creating fork at ${blockNumber} with ${l1ToL2Messages.length} L1 to L2 messages`, {
       blockNumber,
-      l1ToL2Messages: l1ToL2MessagesPadded.map(m => m.toString()),
+      l1ToL2Messages: l1ToL2Messages.map(m => m.toString()),
     });
     await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
     return db;

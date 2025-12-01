@@ -1,4 +1,4 @@
-import { BatchedBlob, FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlob, FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib/types';
 import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
@@ -6,6 +6,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
 } from '@aztec/constants';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
 import { Fr } from '@aztec/foundation/fields';
@@ -16,7 +17,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { readAvmMinimalPublicTxInputsFromFile } from '@aztec/simulator/public/fixtures';
-import { EthAddress, createBlockEndMarker } from '@aztec/stdlib/block';
+import { EthAddress } from '@aztec/stdlib/block';
 import type {
   EpochProver,
   ForkMerkleTreeOperations,
@@ -54,7 +55,6 @@ import {
 import { inspect } from 'util';
 
 import {
-  buildBlockHeaderFromTxs,
   buildHeaderFromCircuitOutputs,
   getLastSiblingPath,
   getPublicChonkVerifierPrivateInputsFromTx,
@@ -118,7 +118,7 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   public startNewEpoch(
-    epochNumber: number,
+    epochNumber: EpochNumber,
     totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
   ) {
@@ -147,7 +147,6 @@ export class ProvingOrchestrator implements EpochProver {
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     totalNumBlocks: number,
-    totalNumBlobFields: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
   ) {
     if (!this.provingState) {
@@ -180,7 +179,6 @@ export class ProvingOrchestrator implements EpochProver {
       checkpointIndex,
       constants,
       totalNumBlocks,
-      totalNumBlobFields,
       headerOfLastBlockInPreviousCheckpoint,
       lastArchiveSiblingPath,
       l1ToL2Messages,
@@ -216,7 +214,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     const constants = checkpointProvingState.constants;
-    logger.info(`Starting block ${blockNumber} for slot ${constants.slotNumber.toNumber()}.`);
+    logger.info(`Starting block ${blockNumber} for slot ${constants.slotNumber}.`);
 
     // Fork the db only when it's not already set. The db for the first block is set in `startNewCheckpoint`.
     if (!this.dbs.has(blockNumber)) {
@@ -230,7 +228,7 @@ export class ProvingOrchestrator implements EpochProver {
     const lastArchiveTreeSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     const lastArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, db);
 
-    const blockProvingState = await checkpointProvingState.startNewBlock(
+    const blockProvingState = checkpointProvingState.startNewBlock(
       blockNumber,
       timestamp,
       totalNumTxs,
@@ -248,8 +246,12 @@ export class ProvingOrchestrator implements EpochProver {
     // Because `addTxs` won't be called for a block without txs, and that's where the sponge blob state is computed.
     // We need to set its end sponge blob here, which will become the start sponge blob for the next block.
     if (totalNumTxs === 0) {
+      const endState = await db.getStateReference();
+      blockProvingState.setEndState(endState);
+
       const endSpongeBlob = blockProvingState.getStartSpongeBlob().clone();
-      await endSpongeBlob.absorb([createBlockEndMarker(0)]);
+      const blockEndBlobFields = blockProvingState.getBlockEndBlobFields();
+      await endSpongeBlob.absorb(blockEndBlobFields);
       blockProvingState.setEndSpongeBlob(endSpongeBlob);
 
       // And also try to accumulate the blobs as far as we can:
@@ -341,7 +343,11 @@ export class ProvingOrchestrator implements EpochProver {
       }
     }
 
-    await spongeBlobState.absorb([createBlockEndMarker(txs.length)]);
+    const endState = await db.getStateReference();
+    provingState.setEndState(endState);
+
+    const blockEndBlobFields = provingState.getBlockEndBlobFields();
+    await spongeBlobState.absorb(blockEndBlobFields);
 
     provingState.setEndSpongeBlob(spongeBlobState);
 
@@ -408,39 +414,25 @@ export class ProvingOrchestrator implements EpochProver {
       );
     }
 
-    // And build the block header
+    // Given we've applied every change from this block, now assemble the block header:
     logger.verbose(`Block ${blockNumber} completed. Assembling header.`);
-    const header = await this.buildL2BlockHeader(provingState, expectedHeader);
-
-    await this.verifyBuiltBlockAgainstSyncedState(provingState);
-
-    return header;
-  }
-
-  private async buildL2BlockHeader(provingState: BlockProvingState, expectedHeader?: BlockHeader) {
-    // Collect all txs in this block to build the header. The function calling this has made sure that all txs have been added.
-    const txs = provingState.getProcessedTxs();
-
-    const startSpongeBlob = provingState.getStartSpongeBlob();
-
-    // Get db for this block
-    const db = this.dbs.get(provingState.blockNumber)!;
-
-    // Given we've applied every change from this block, now assemble the block header
-    // and update the archive tree, so we're ready to start processing the next block
-    const header = await buildBlockHeaderFromTxs(txs, provingState.getGlobalVariables(), startSpongeBlob, db);
+    const header = await provingState.buildBlockHeader();
 
     if (expectedHeader && !header.equals(expectedHeader)) {
       logger.error(`Block header mismatch: header=${header} expectedHeader=${expectedHeader}`);
       throw new Error('Block header mismatch');
     }
 
+    // Get db for this block
+    const db = this.dbs.get(provingState.blockNumber)!;
+
+    // Update the archive tree, so we're ready to start processing the next block:
     logger.verbose(
       `Updating archive tree with block ${provingState.blockNumber} header ${(await header.hash()).toString()}`,
     );
     await db.updateArchive(header);
 
-    provingState.setBuiltBlockHeader(header);
+    await this.verifyBuiltBlockAgainstSyncedState(provingState);
 
     return header;
   }

@@ -5,13 +5,13 @@ import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 export async function makeTxEffect(
   noteCache: ExecutionNoteCache,
-  txRequestHash: Fr,
+  protocolNullifier: Fr,
   txBlockNumber: number,
 ): Promise<TxEffect> {
   const txEffect = TxEffect.empty();
 
-  const { usedTxRequestHashForNonces } = noteCache.finish();
-  const nonceGenerator = usedTxRequestHashForNonces ? txRequestHash : noteCache.getAllNullifiers()[0];
+  const { usedProtocolNullifierForNonces } = noteCache.finish();
+  const nonceGenerator = usedProtocolNullifierForNonces ? protocolNullifier : noteCache.getAllNullifiers()[0];
 
   txEffect.noteHashes = await Promise.all(
     noteCache
@@ -27,8 +27,8 @@ export async function makeTxEffect(
   // Nullifiers are already siloed
   txEffect.nullifiers = noteCache.getAllNullifiers();
 
-  if (usedTxRequestHashForNonces) {
-    txEffect.nullifiers.unshift(txRequestHash);
+  if (usedProtocolNullifierForNonces) {
+    txEffect.nullifiers.unshift(protocolNullifier);
   }
 
   txEffect.txHash = new TxHash(new Fr(txBlockNumber));

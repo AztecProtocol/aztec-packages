@@ -1,15 +1,17 @@
-import type { RollupContract } from '@aztec/ethereum';
+import type { RollupContract, ViemPublicClient } from '@aztec/ethereum';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import type { GetBlockReturnType } from 'viem';
 
 import { EpochCache, type EpochCommitteeInfo } from './epoch_cache.js';
 
 class TestEpochCache extends EpochCache {
-  public seedCache(epoch: bigint, committeeInfo: EpochCommitteeInfo): void {
+  public seedCache(epoch: EpochNumber, committeeInfo: EpochCommitteeInfo): void {
     this.cache.set(epoch, committeeInfo);
   }
 
@@ -21,6 +23,7 @@ class TestEpochCache extends EpochCache {
 describe('EpochCache', () => {
   let rollupContract: MockProxy<RollupContract>;
   let epochCache: TestEpochCache;
+  let client: MockProxy<ViemPublicClient>;
 
   // Test constants
   const SLOT_DURATION = 12;
@@ -46,22 +49,33 @@ describe('EpochCache', () => {
 
     l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
 
+    // Mock the client.getBlock method for timestamp retrieval
+    // Return a timestamp far enough in the future to accommodate test queries
+    // lagInEpochsForValidatorSet * epochDuration * slotDuration = 2 * 32 * 12 = 768 seconds
+    // Add extra buffer for random slots in tests (e.g., 1000 slots = 12000 seconds)
+    client = mock<ViemPublicClient>();
+    const futureTimestamp = l1GenesisTime + BigInt(768 + 12000);
+    client.getBlock.mockResolvedValue({ timestamp: futureTimestamp } as GetBlockReturnType);
+    (rollupContract as any).client = client;
+
     // Setup fake timers
     jest.useFakeTimers();
 
     // Initialize with test constants
-    const testConstants: L1RollupConstants = {
+    const testConstants: L1RollupConstants & { lagInEpochsForValidatorSet: number; lagInEpochsForRandao: number } = {
       l1StartBlock: 0n,
       l1GenesisTime,
       slotDuration: SLOT_DURATION,
       ethereumSlotDuration: SLOT_DURATION,
       epochDuration: EPOCH_DURATION,
       proofSubmissionEpochs: 1,
+      lagInEpochsForValidatorSet: 2,
+      lagInEpochsForRandao: 2,
     };
 
     epochCache = new TestEpochCache(rollupContract, testConstants);
     // Initialize the cache with the initial epoch's committee
-    epochCache.seedCache(0n, { epoch: 0n, committee: testCommittee, seed: 0n });
+    epochCache.seedCache(EpochNumber(0), { epoch: EpochNumber(0), committee: testCommittee, seed: 0n });
   });
 
   afterEach(() => {
@@ -145,7 +159,7 @@ describe('EpochCache', () => {
     rollupContract.getCommitteeAt.mockResolvedValue(expectedCommittee.map(v => v.toString()));
     rollupContract.getSampleSeedAt.mockResolvedValue(expectedSeed);
 
-    await epochCache.getCommittee(targetSlot);
+    await epochCache.getCommittee(SlotNumber.fromBigInt(targetSlot));
 
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledWith(epochStartTimestamp);
@@ -171,8 +185,8 @@ describe('EpochCache', () => {
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1); // Called again for new epoch
     rollupContract.getCommitteeAt.mockClear();
 
-    // Should return the previous epoch still cached
-    const { committee: initialCommitteeRerequested } = await epochCache.getCommittee(1n);
+    // Should return the previous epoch still cached (SlotNumber(1) is a slot number, not an epoch)
+    const { committee: initialCommitteeRerequested } = await epochCache.getCommittee(SlotNumber(1));
     expect(initialCommitteeRerequested).toEqual(testCommittee);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0); // Cached
   });
@@ -187,7 +201,7 @@ describe('EpochCache', () => {
     // Seed the cache with 3 epochs worth of data
     for (let i = 0; i < 3; i++) {
       rollupContract.getCommitteeAt.mockResolvedValue(committees[i].map(v => v.toString()));
-      const { committee: actual } = await epochCache.getCommittee(BigInt(i * EPOCH_DURATION));
+      const { committee: actual } = await epochCache.getCommittee(SlotNumber(i * EPOCH_DURATION));
       expect(actual).toEqual(committees[i]);
       expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(i); // Epoch 0 is already initialized
     }
@@ -195,21 +209,21 @@ describe('EpochCache', () => {
     // Requesting any of them should not call the contract again
     rollupContract.getCommitteeAt.mockClear();
     for (let i = 0; i < 3; i++) {
-      const { committee: actual } = await epochCache.getCommittee(BigInt(i * EPOCH_DURATION));
+      const { committee: actual } = await epochCache.getCommittee(SlotNumber(i * EPOCH_DURATION));
       expect(actual).toEqual(committees[i]);
       expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0);
     }
 
     // Requesting another epoch should cause the oldest to be purged
     rollupContract.getCommitteeAt.mockResolvedValue(committees[3].map(v => v.toString()));
-    const { committee: fourth } = await epochCache.getCommittee(BigInt(3 * EPOCH_DURATION));
+    const { committee: fourth } = await epochCache.getCommittee(SlotNumber(3 * EPOCH_DURATION));
     expect(fourth).toEqual(committees[3]);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
     rollupContract.getCommitteeAt.mockClear();
 
     // So when going back to the first epoch, it should be re-requested from the contract
     rollupContract.getCommitteeAt.mockResolvedValue(committees[0].map(v => v.toString()));
-    const { committee: first } = await epochCache.getCommittee(BigInt(0 * EPOCH_DURATION));
+    const { committee: first } = await epochCache.getCommittee(SlotNumber(0 * EPOCH_DURATION));
     expect(first).toEqual(committees[0]);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
   });
@@ -238,5 +252,23 @@ describe('EpochCache', () => {
     const validators3 = await epochCache.getRegisteredValidators();
     expect(validators3.map(v => v.toString())).toEqual(updatedValidators.map(v => v.toString()));
     expect(rollupContract.getAttesters).toHaveBeenCalledTimes(2);
+  });
+
+  it('should throw error when querying committee for future epoch beyond lag', async () => {
+    const { l1GenesisTime, epochDuration } = epochCache.getL1Constants();
+
+    // Mock the client to return a current L1 timestamp that's close to genesis
+    const currentL1Timestamp = l1GenesisTime + BigInt(100); // Just 100 seconds after genesis
+    client.getBlock.mockResolvedValue({ timestamp: currentL1Timestamp } as GetBlockReturnType);
+
+    // Calculate a slot far in the future (epoch 100) that's definitely not cached
+    // and is beyond the allowed lag (lagInEpochsForValidatorSet * epochDuration * slotDuration = 2 * 32 * 12 = 768 seconds)
+    const futureEpoch = BigInt(100);
+    const futureSlot = futureEpoch * BigInt(epochDuration);
+
+    // Attempt to get committee for this future slot should throw
+    await expect(epochCache.getCommittee(SlotNumber.fromBigInt(futureSlot))).rejects.toThrow(
+      /Cannot query committee for future epoch.*with timestamp.*\(current L1 time is/,
+    );
   });
 });

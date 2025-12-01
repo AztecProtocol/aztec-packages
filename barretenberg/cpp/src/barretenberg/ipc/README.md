@@ -20,8 +20,8 @@ The IPC module provides:
 │    IpcClient            IpcServer                │
 │    - connect()          - listen()               │
 │    - send()             - wait_for_data()        │
-│    - recv()             - recv() / send()        │
-│    - close()            - close()                │
+│    - recv()             - receive() / release()  │
+│    - close()            - send() / close()       │
 │                         - run(handler)           │
 └──────────────┬─────────────────┬────────────────┘
                │                 │
@@ -152,11 +152,14 @@ public:
     // Start listening for connections
     virtual bool listen() = 0;
 
-    // Wait for data from any client (returns client_id)
-    virtual int wait_for_data(uint64_t timeout_ns = 0) = 0;
+    // Wait for data from any client (spins then blocks, returns client_id)
+    virtual int wait_for_data(uint64_t spin_ns) = 0;
 
-    // Receive from specific client
-    virtual ssize_t recv(int client_id, void* buffer, size_t max_len) = 0;
+    // Receive next message (blocks until complete, zero-copy for SHM)
+    virtual std::span<const uint8_t> receive(int client_id) = 0;
+
+    // Release/consume the received message
+    virtual void release(int client_id, size_t message_size) = 0;
 
     // Send to specific client
     virtual bool send(int client_id, const void* data, size_t len) = 0;
@@ -164,14 +167,21 @@ public:
     // Close server
     virtual void close() = 0;
 
-    // High-level event loop with handler
-    virtual void run(Handler handler, size_t max_message_size = 1024 * 1024);
+    // High-level event loop with handler (uses peek/release internally)
+    virtual void run(Handler handler);
 
     // Factory methods
     static std::unique_ptr<IpcServer> create_socket(const std::string& socket_path, int max_clients);
-    static std::unique_ptr<IpcServer> create_shm(const std::string& base_name, size_t max_clients);
+    static std::unique_ptr<IpcServer> create_shm(const std::string& base_name, size_t max_clients,
+                                                  size_t request_ring_size = 1MB, size_t response_ring_size = 1MB);
 };
 ```
+
+The receive/release pattern ensures:
+- **Zero-copy for SHM**: `receive()` returns a span pointing directly into the ring buffer
+- **No message loss**: Both implementations guarantee complete messages; incomplete = corruption
+- **Explicit lifecycle**: Messages are only consumed when `release()` is explicitly called with size
+- **Semantic equivalence**: Both socket and SHM implementations block until complete message available
 
 ### Graceful Shutdown
 
@@ -353,7 +363,7 @@ This is handled automatically by the implementations.
 
 ### Sockets
 - System call overhead (cannot eliminate)
-- Buffer copying on send/recv
+- Buffer copying on send (recv is internal buffer, minimal copy)
 - File descriptor limits (ulimit)
 
 ### Shared Memory

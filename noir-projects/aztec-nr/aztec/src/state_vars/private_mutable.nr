@@ -10,7 +10,6 @@ use crate::note::{
     note_getter::{get_note, view_note},
     note_interface::{NoteHash, NoteType},
 };
-use crate::note::retrieved_note::RetrievedNote;
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::HasStorageSlot;
 
@@ -293,15 +292,10 @@ where
     where
         Note: Packable,
     {
-        let (prev_retrieved_note, note_hash_for_read_request): (RetrievedNote<Note>, Field) =
-            get_note(self.context, self.storage_slot);
+        let (prev_retrieved_note, note_hash_read) = get_note(self.context, self.storage_slot);
 
         // Nullify previous note.
-        destroy_note_unsafe(
-            self.context,
-            prev_retrieved_note,
-            note_hash_for_read_request,
-        );
+        destroy_note_unsafe(self.context, prev_retrieved_note, note_hash_read);
 
         let new_note = f(prev_retrieved_note.note);
 
@@ -357,6 +351,7 @@ where
         NoteEmission::new(
             emission_content.note,
             emission_content.storage_slot,
+            emission_content.randomness,
             emission_content.note_hash_counter,
             self.context,
         )
@@ -411,11 +406,10 @@ where
     where
         Note: Packable,
     {
-        let mut (retrieved_note, note_hash_for_read_request) =
-            get_note(self.context, self.storage_slot);
+        let mut (retrieved_note, note_hash_read) = get_note(self.context, self.storage_slot);
 
         // Nullify current note to make sure it's reading the latest note.
-        destroy_note_unsafe(self.context, retrieved_note, note_hash_for_read_request);
+        destroy_note_unsafe(self.context, retrieved_note, note_hash_read);
 
         // Add the same note again.
         // Because a nonce is added to every note in the kernel, its nullifier will be different.

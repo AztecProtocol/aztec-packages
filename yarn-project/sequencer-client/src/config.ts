@@ -153,6 +153,16 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Inject a fake attestation (for testing only)',
     ...booleanConfigHelper(false),
   },
+  fishermanMode: {
+    env: 'FISHERMAN_MODE',
+    description:
+      'Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1',
+    ...booleanConfigHelper(false),
+  },
+  shuffleAttestationOrdering: {
+    description: 'Shuffle attestation ordering to create invalid ordering (for testing only)',
+    ...booleanConfigHelper(false),
+  },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };
 

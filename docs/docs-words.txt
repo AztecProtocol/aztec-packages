@@ -51,6 +51,7 @@ Chiplets
 ciphertextheader
 ciphertexts
 citizensˮ
+claimability
 clawback
 cmov
 CMOV
@@ -91,6 +92,7 @@ dlazy
 Dlazy
 DLAZY
 donʼt
+downsampling
 dstsize
 ECADD
 ECCVM
@@ -233,6 +235,7 @@ penalised
 permissonless
 pkey
 posesses
+preconfigured
 preconfirmed
 prefered
 procss
@@ -264,6 +267,7 @@ Returndata
 revertdata
 rollupʼs
 RSSH
+rustc
 sendl
 SENDL
 serde

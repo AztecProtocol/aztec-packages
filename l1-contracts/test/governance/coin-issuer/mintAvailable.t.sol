@@ -9,15 +9,6 @@ import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
 contract MintAvailableTest is CoinIssuerBase {
-  function test_GivenRateIs0(uint256 _time) external {
-    // it returns 0
-    _deploy(0, 1_000_000);
-    uint256 timeJump = bound(_time, 0, type(uint64).max - block.timestamp - 1);
-    vm.warp(block.timestamp + timeJump);
-
-    assertEq(nom.mintAvailable(), 0);
-  }
-
   modifier givenRateIsNot0(uint256 _rate, uint256 _initialSupply) {
     uint256 rate = bound(_rate, 0.01e18, 10e18);
     uint256 initialSupply = bound(_initialSupply, 100, type(uint128).max);

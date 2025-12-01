@@ -11,7 +11,7 @@ fn valid_previous_kernels() {
     }
 }
 
-#[test(should_fail_with = "Invalid vk index")]
+#[test(should_fail_with = "Vk index not in allowed list")]
 fn previous_kernel_not_in_allowed_list() {
     let mut builder = TestBuilder::new();
     builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);

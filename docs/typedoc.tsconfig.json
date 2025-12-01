@@ -1,0 +1,9 @@
+{
+  "extends": "../yarn-project/aztec.js/tsconfig.json",
+  "include": ["../yarn-project/aztec.js/src/**/*.ts"],
+  "exclude": [
+    "../yarn-project/aztec.js/src/**/*.test.ts",
+    "../yarn-project/aztec.js/src/**/__tests__/**",
+    "../yarn-project/aztec.js/src/**/test/**"
+  ]
+}

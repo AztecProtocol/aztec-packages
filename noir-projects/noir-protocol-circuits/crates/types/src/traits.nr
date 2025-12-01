@@ -45,6 +45,13 @@ impl Empty for Field {
     }
 }
 
+impl Empty for bool {
+    #[inline_always]
+    fn empty() -> Self {
+        false
+    }
+}
+
 impl Empty for u1 {
     #[inline_always]
     fn empty() -> Self {

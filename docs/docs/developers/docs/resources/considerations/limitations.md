@@ -65,9 +65,9 @@ The way in which keypairs and addresses are derived is still being iterated on a
 
 #### What are the consequences?
 
-This will impact the kinds of apps that you can build with the Sandbox, as it is today:
+This will impact the kinds of apps that you can build with the Local Network, as it is today:
 
-Please open new discussions on [discourse](http://discourse.aztec.network) or open issues on [github](http://github.com/AztecProtocol/aztec-packages), if you have requirements that aren't-yet being met by the Sandbox's current key derivation scheme.
+Please open new discussions on [discourse](http://discourse.aztec.network) or open issues on [github](http://github.com/AztecProtocol/aztec-packages), if you have requirements that aren't-yet being met by the local network's current key derivation scheme.
 
 ### No privacy-preserving queries to nodes
 
@@ -81,7 +81,7 @@ Private data should not be returned to an app, unless the user authorizes such a
 
 #### What are the consequences?
 
-Any app can request and receive any private user data relating to any other private app. Obviously this sounds bad. But the Sandbox is a sandbox, and no meaningful value or credentials should be stored there; only test values and test credentials.
+Any app can request and receive any private user data relating to any other private app. Obviously this sounds bad. But the local network is a sandbox, and no meaningful value or credentials should be stored there; only test values and test credentials.
 
 An auth layer will be added in due course.
 
@@ -91,7 +91,7 @@ For safety reasons, bytecode should not be executed unless the PXE/Wallet has va
 
 #### What are the consequences?
 
-Without such 'bytecode validation', if the incorrect bytecode is executed, and that bytecode is malicious, it could read private data from some other contract and emit that private data to the world. Obviously this would be bad in production. But the Sandbox is a sandbox, and no meaningful value or credentials should be stored there; only test values and test credentials.
+Without such 'bytecode validation', if the incorrect bytecode is executed, and that bytecode is malicious, it could read private data from some other contract and emit that private data to the world. Obviously this would be bad in production. But the local network is a sandbox, and no meaningful value or credentials should be stored there; only test values and test credentials.
 
 There are plans to add bytecode validation soon.
 
@@ -101,7 +101,7 @@ We are planning a full assessment of the protocol's hashes, including rigorous d
 
 #### What are the consequences?
 
-Collisions and other hash-related attacks might be possible in the Sandbox. Obviously that would be bad in production. But it's unlikely to cause problems at this early stage of testing.
+Collisions and other hash-related attacks might be possible in the local network. Obviously that would be bad in production. But it's unlikely to cause problems at this early stage of testing.
 
 ### `msg_sender` is leaked when making a private -> public call
 

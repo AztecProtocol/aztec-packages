@@ -1,20 +1,38 @@
 use crate::macros::{
+    calls_generation::{
+        external_functions::{
+            generate_external_function_calls, generate_external_function_self_calls_structs,
+        },
+        internal_functions::generate_call_internal_struct,
+    },
     dispatch::generate_public_dispatch,
-    functions::{self_call_registry, stub_registry, utils::check_each_fn_macroified},
+    internals_functions_generation::{create_fn_abi_exports, process_functions},
     notes::NOTES,
     storage::STORAGE_LAYOUT_NAME,
-    utils::{get_trait_impl_method, module_has_storage},
+    utils::{
+        get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal,
+        is_fn_test, module_has_storage,
+    },
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `sync_private_state` utility function.
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
-    let interface = generate_contract_interface(m);
-    let self_call_structs = generate_self_call_structs(m);
-
     // Functions that don't have #[external(...)], #[contract_library_method], or #[test] are not allowed in contracts.
     check_each_fn_macroified(m);
+
+    // We generate new functions prefixed with `__aztec_nr_internals__` and we replace the original functions' bodies
+    // with `static_assert(false, ...)` to prevent them from being called directly from within the contract.
+    let functions = process_functions(m);
+
+    // We generate structs and their implementations necessary for convenient functions calls.
+    let interface = generate_contract_interface(m);
+    let self_call_structs = generate_external_function_self_calls_structs(m);
+    let call_internal_struct = generate_call_internal_struct(m);
+
+    // We generate ABI exports for all the external functions in the contract.
+    let fn_abi_exports = create_fn_abi_exports(m);
 
     // We generate `_compute_note_hash_and_nullifier`, `sync_private_state` and `process_message`
     // functions only if they are not already implemented. If they are implemented we just insert empty
@@ -26,12 +44,17 @@ pub comptime fn aztec(m: Module) -> Quoted {
     } else {
         quote {}
     };
-    let sync_private_state = if !m.functions().any(|f| f.name() == quote { sync_private_state }) {
+    let sync_private_state_fn_and_abi_export = if !m.functions().any(|f| {
+        f.name() == quote { sync_private_state }
+    }) {
         generate_sync_private_state()
     } else {
         quote {}
     };
-    let process_message = if !m.functions().any(|f| f.name() == quote { process_message }) {
+
+    let process_message_fn_and_abi_export = if !m.functions().any(|f| {
+        f.name() == quote { process_message }
+    }) {
         generate_process_message()
     } else {
         quote {}
@@ -41,21 +64,20 @@ pub comptime fn aztec(m: Module) -> Quoted {
     quote {
         $interface
         $self_call_structs
+        $call_internal_struct
+        $functions
+        $fn_abi_exports
         $contract_library_method_compute_note_hash_and_nullifier
         $public_dispatch
-        $sync_private_state
-        $process_message
+        $sync_private_state_fn_and_abi_export
+        $process_message_fn_and_abi_export
     }
 }
 
 comptime fn generate_contract_interface(m: Module) -> Quoted {
+    let calls = generate_external_function_calls(m);
+
     let module_name = m.name();
-    let contract_stubs = stub_registry::get(m);
-    let fn_stubs_quote = if contract_stubs.is_some() {
-        contract_stubs.unwrap().join(quote {})
-    } else {
-        quote {}
-    };
 
     let has_storage_layout = module_has_storage(m) & STORAGE_LAYOUT_NAME.get(m).is_some();
     let storage_layout_getter = if has_storage_layout {
@@ -84,7 +106,7 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
         }
 
         impl $module_name {
-            $fn_stubs_quote
+            $calls
 
             pub fn at(
                 addr: aztec::protocol_types::address::AztecAddress
@@ -174,15 +196,16 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 
                         let note = $unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 
-                        let note_hash = $compute_note_hash(note, storage_slot);
+                        let note_hash = $compute_note_hash(note, storage_slot, randomness);
     
                         // The message discovery process finds settled notes, that is, notes that were created in prior
                         // transactions and are therefore already part of the note hash tree. We therefore compute the
                         // nullification note hash by treating the note as a settled note with the provided note nonce.
                         let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
                             aztec::note::retrieved_note::RetrievedNote{ 
-                                note, 
-                                contract_address, 
+                                note,
+                                contract_address,
+                                randomness,
                                 metadata: aztec::note::note_metadata::SettledNoteMetadata::new(note_nonce).into()
                             }, 
                             storage_slot,
@@ -218,6 +241,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 storage_slot: Field,
                 note_type_id: Field,
                 contract_address: aztec::protocol_types::address::AztecAddress,
+                randomness: Field,
                 note_nonce: Field,
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 $if_note_type_id_match_statements
@@ -240,6 +264,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 _storage_slot: Field,
                 _note_type_id: Field,
                 _contract_address: aztec::protocol_types::address::AztecAddress,
+                _randomness: Field,
                 _nonce: Field,
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 panic(f"This contract does not use private notes")
@@ -249,36 +274,45 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 }
 
 comptime fn generate_sync_private_state() -> Quoted {
-    // We obtain the `external` function on the next line instead of directly doing
-    // `#[aztec::macros::functions::external("utility")]` in the returned quote because the latter would result in
-    // the function attribute having the full path in the ABI. This is undesirable because we use the information in
-    // the ABI only to determine whether a function is `external("private")`, `external("public")`, or `external("utility")`.
-    let external = crate::macros::functions::external;
-
-    // All we need to do here is trigger message discovery, but this is already done by the #[external("utility")] macro - we don't
-    // need to do anything extra.
     quote {
-        #[$external("utility")]
+        pub struct sync_private_state_parameters {}
+
+        #[abi(functions)]
+        pub struct sync_private_state_abi {
+            parameters: sync_private_state_parameters,
+        }
+
+        #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
         unconstrained fn sync_private_state() {
+            let address = aztec::context::utility_context::UtilityContext::new().this_address();
+            
+            aztec::messages::discovery::discover_new_messages(address, _compute_note_hash_and_nullifier);
         }
     }
 }
 
 comptime fn generate_process_message() -> Quoted {
-    // We obtain the `external` function on the next line instead of directly doing
-    // `#[aztec::macros::functions::external("utility")]` in the returned quote because the latter would result in
-    // the function attribute having the full path in the ABI. This is undesirable because we use the information in
-    // the ABI only to determine whether a function is `external("private")`, `external("public")`, or `external("utility")`.
-    let external = crate::macros::functions::external;
-
     quote {
-        #[$external("utility")]
+        pub struct process_message_parameters {
+            pub message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
+            pub message_context: aztec::messages::processing::message_context::MessageContext,
+        }
+
+        #[abi(functions)]
+        pub struct process_message_abi {
+            parameters: process_message_parameters,
+        }
+
+        #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
         unconstrained fn process_message(
             message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
             message_context: aztec::messages::processing::message_context::MessageContext,
         ) {
+            let address = aztec::context::utility_context::UtilityContext::new().this_address();
+
+            aztec::messages::discovery::discover_new_messages(address, _compute_note_hash_and_nullifier);     
             aztec::messages::discovery::process_message::process_message_ciphertext(
-                self.address,
+                address,
                 _compute_note_hash_and_nullifier,
                 message_ciphertext,
                 message_context,
@@ -287,70 +321,20 @@ comptime fn generate_process_message() -> Quoted {
     }
 }
 
-/// Generates helper structs for convenient self-invocation of contract functions:
-///
-/// - `CallSelf`: Call your own private or public functions, e.g.:
-///     `self.call_self.some_private_function(args)`
-/// - `CallSelfStatic`: Call your own view (static) functions, e.g.:
-///     `self.call_self_static.some_view_function(args)`
-/// - `EnqueueSelf`: Enqueue your own (non-view) public functions for deferred execution, e.g.:
-///     `self.enqueue_self.some_public_function(args)`
-/// - `EnqueueSelfStatic`: Enqueue your own view public functions, e.g.:
-///     `self.enqueue_self_static.some_view_function(args)`
-comptime fn generate_self_call_structs(m: Module) -> Quoted {
-    let stubs = self_call_registry::get_all_self_call_stubs(m);
-
-    // We need to destructure the stubs here because accessing struct fields in a quote block is not supported.
-    let call_self_private_methods = stubs.call_self_private_methods;
-    let call_self_public_methods = stubs.call_self_public_methods;
-    let enqueue_self_methods = stubs.enqueue_self_methods;
-    let call_self_private_static_methods = stubs.call_self_private_static_methods;
-    let call_self_public_static_methods = stubs.call_self_public_static_methods;
-    let enqueue_self_static_methods = stubs.enqueue_self_static_methods;
-
-    quote {
-        pub struct CallSelf<Context> {
-            pub address: dep::aztec::protocol_types::address::AztecAddress,
-            pub context: Context,
-        }
-
-        impl CallSelf<&mut dep::aztec::context::private_context::PrivateContext> {
-            $call_self_private_methods
-        }
-
-        impl CallSelf<dep::aztec::context::public_context::PublicContext> {
-            $call_self_public_methods
-        }
-
-        pub struct CallSelfStatic<Context> {
-            pub address: dep::aztec::protocol_types::address::AztecAddress,
-            pub context: Context,
-        }
-
-        impl CallSelfStatic<&mut dep::aztec::context::private_context::PrivateContext> {
-            $call_self_private_static_methods
-        }
-
-        impl CallSelfStatic<dep::aztec::context::public_context::PublicContext> {
-            $call_self_public_static_methods
-        }
-
-        pub struct EnqueueSelf<Context> {
-            pub address: dep::aztec::protocol_types::address::AztecAddress,
-            pub context: Context,
-        }
-
-        impl EnqueueSelf<&mut dep::aztec::context::private_context::PrivateContext> {
-            $enqueue_self_methods
-        }
-
-        pub struct EnqueueSelfStatic<Context> {
-            pub address: dep::aztec::protocol_types::address::AztecAddress,
-            pub context: Context,
-        }
-
-        impl EnqueueSelfStatic<&mut dep::aztec::context::private_context::PrivateContext> {
-            $enqueue_self_static_methods
+/// Checks if each function in the module is marked with either #[external(...)], #[contract_library_method], or #[test].
+/// Non-macroified functions are not allowed in contracts.
+comptime fn check_each_fn_macroified(m: Module) {
+    for f in m.functions() {
+        let name = f.name();
+        if !is_fn_external(f)
+            & !is_fn_contract_library_method(f)
+            & !is_fn_internal(f)
+            & !is_fn_test(f) {
+            // We  don't suggest that #[contract_library_method] is allowed because we don't want to introduce another
+            // concept
+            panic(
+                f"Function {name} must be marked as either #[external(...)], #[internal(...)], or #[test]",
+            );
         }
     }
 }

@@ -19,10 +19,10 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b",
-    "build:dev": "tsc -b --watch",
+    "build": "yarn clean && tsgo -b",
+    "build:dev": "tsgo -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'",
+    "start:dev": "concurrently -k \"tsgo -b -w\" \"nodemon --watch dest --exec yarn start\"",
     "start": "node ./dest/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "proposer-address": "node ./dest/cli/forwarder_address.js"
@@ -40,7 +40,7 @@
     "lodash.chunk": "^4.2.0",
     "lodash.pickby": "^4.5.0",
     "tslib": "^2.4.0",
-    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0",
+    "viem": "npm:@aztec/viem@2.38.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -49,6 +49,7 @@
     "@types/jest": "^30.0.0",
     "@types/lodash.pickby": "^4",
     "@types/node": "^22.15.17",
+    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "@viem/anvil": "^0.0.10",
     "get-port": "^7.1.0",
     "jest": "^30.0.0",

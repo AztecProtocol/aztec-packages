@@ -39,7 +39,7 @@ const ethWallet = createWalletClient({
   transport: http("http://localhost:8545"),
 });
 
-// Setup L2 using Aztec's sandbox and one of its initial accounts
+// Setup L2 using Aztec's local network and one of its initial accounts
 console.log("🔮 Setting up L2...\n");
 const node = createAztecNodeClient("http://localhost:8080");
 const aztecWallet = await TestWallet.create(node);
@@ -239,7 +239,7 @@ console.log(`   Notes count: ${notesAfterClaim}\n`);
 // docs:start:exit_from_l2
 // L2 → L1 flow
 console.log("🚪 Exiting NFT from L2...");
-// Mine blocks
+// Mine blocks, not necessary on devnet, but must wait for 2 blocks
 await mine2Blocks(aztecWallet, account.address);
 
 const recipientEthAddress = EthAddress.fromString(l1Account.address);
@@ -286,6 +286,24 @@ const msgLeaf = computeL2ToL1MessageHash({
   rollupVersion: new Fr(version),
   chainId: new Fr(foundry.id),
 });
+
+// Wait for the block to be proven before withdrawing
+// Waiting for the block to be proven is not necessary on the local network, but it is necessary on devnet
+console.log("⏳ Waiting for block to be proven...");
+console.log(`   Exit block number: ${exitReceipt.blockNumber}`);
+
+let provenBlockNumber = await node.getProvenBlockNumber();
+console.log(`   Current proven block: ${provenBlockNumber}`);
+
+while (provenBlockNumber < exitReceipt.blockNumber!) {
+  console.log(
+    `   Waiting... (proven: ${provenBlockNumber}, needed: ${exitReceipt.blockNumber})`
+  );
+  await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait 10 seconds
+  provenBlockNumber = await node.getProvenBlockNumber();
+}
+
+console.log("✅ Block proven!\n");
 
 // Compute the membership witness using the message hash
 const witness = await computeL2ToL1MembershipWitness(

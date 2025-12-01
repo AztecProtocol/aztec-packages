@@ -85,6 +85,10 @@ function chonk_flow {
   echo "$flow ($runtime) has proven in $((elapsed_ms / 1000))s and peak memory of ${memory_taken_mb}MB."
   dump_fail "verify_ivc_flow $flow $output/proof"
   echo "$flow ($runtime) has verified."
+  # Get proof size after compression
+  tar -czf "$output/proof.tar.gz" -C "$output" proof
+  local proof_size_bytes=$(stat -c%s "$output/proof.tar.gz" 2>/dev/null || stat -f%z "$output/proof.tar.gz")
+  local proof_size_kb=$(( proof_size_bytes / 1024 ))
 
   cat > "$output/benchmarks.bench.json" <<EOF
 [
@@ -97,6 +101,11 @@ function chonk_flow {
     "name": "$name_path/memory",
     "unit": "MB",
     "value": ${memory_taken_mb}
+  },
+  {
+    "name": "$name_path/proof-size",
+    "unit": "KB",
+    "value": ${proof_size_kb}
   }
 ]
 EOF
@@ -107,34 +116,35 @@ export -f verify_ivc_flow run_bb_cli_bench
 chonk_flow $1 $2
 
 # Upload benchmark breakdown (op counts and timings) to disk if running in CI
-if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
-  echo_header "Uploading Barretenberg benchmark breakdowns"
+# Now uploads all flows via disk transfer only (no git uploads)
+runtime="$1"
+flow_name="$(basename $2)"
 
-  runtime="$1"
-  flow_name="$(basename $2)"
+if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
+  echo_header "Uploading Barretenberg benchmark breakdowns for $flow_name"
+
   benchmark_breakdown_file="bench-out/app-proving/$flow_name/$runtime/benchmark_breakdown.json"
 
   if [[ -f "$benchmark_breakdown_file" ]]; then
+    # TODO(AD): make this robust. not erroring if this breaks is not great.
+    set +e
     current_sha=$(git rev-parse HEAD)
 
-    # Create cache key: bench-bb-breakdown-<runtime>-<flow_name>-<sha>
-    # This will be accessible at: http://ci.aztec-labs.com/bench-bb-breakdown-<runtime>-<flow_name>-<sha>
-    cache_key="bench-bb-breakdown-${runtime}-${flow_name}-${current_sha}"
+    # Copy to /tmp with unique name to avoid race conditions with concurrent flows
+    # Other flows might delete bench-out before we finish uploading
+    tmp_breakdown_file="/tmp/benchmark_breakdown_${runtime}_${flow_name}_$$.json"
+    cp "$benchmark_breakdown_file" "$tmp_breakdown_file"
 
-    # Upload to Redis (30 day retention) and disk (bench/bb-breakdown subfolder)
+    # Upload to disk (bench/bb-breakdown subfolder) in background
+    # Key format: <runtime>-<flow_name>-<sha>
+    disk_key="${runtime}-${flow_name}-${current_sha}"
     {
-      # Write to Redis for ci.aztec-labs.com access
-      cat "$benchmark_breakdown_file" | gzip | redis_cli -x SETEX "$cache_key" 2592000 &>/dev/null
-
-      # Write to disk in explicit subfolder (only if disk logging enabled)
-      if [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
-        # Strip the prefix from key when writing to disk subfolder
-        disk_key="${cache_key#bench-bb-breakdown-}"
-        cat "$benchmark_breakdown_file" | gzip | cache_disk_transfer_to "bench/bb-breakdown" "$disk_key"
-      fi
+      cat "$tmp_breakdown_file" | gzip | cache_disk_transfer_to "bench/bb-breakdown" "$disk_key"
+      # Clean up tmp file after upload completes
+      rm -f "$tmp_breakdown_file"
     } &
 
-    echo "Uploaded benchmark breakdown: http://ci.aztec-labs.com/$cache_key"
+    echo "Uploaded benchmark breakdown to disk: bench/bb-breakdown/$disk_key"
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi

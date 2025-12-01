@@ -58,6 +58,7 @@ library Errors {
   error GovernanceProposer__GSEPayloadInvalid();
 
   error CoinIssuer__InsufficientMintAvailable(uint256 available, uint256 needed); // 0xa1cc8799
+  error CoinIssuer__InvalidConfiguration();
 
   error Registry__RollupAlreadyRegistered(address rollup); // 0x3c34eabf
   error Registry__RollupNotRegistered(uint256 version);

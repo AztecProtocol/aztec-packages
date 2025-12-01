@@ -24,30 +24,27 @@ template <class Curve> class EcdsaTestingFunctions {
     using G1Native = Curve::g1;
     using AcirConstraint = EcdsaConstraint;
 
-    struct Tampering {
+    struct InvalidWitness {
       public:
-        enum class Mode : uint8_t {
+        enum class Target : uint8_t {
             None,
-            TamperR,
+            HashIsNotAByteArray, // Set one element of the hash > 255
+            ZeroR,               // Set R=0 (tests ECDSA validation)
+            ZeroS,               // Set S=0 (tests ECDSA validation)
+            HighS,               // Set S=high (tests malleability protection)
+            P,                   // Invalidate public key
+            Result               // Invalid signature with claimed valid result
         };
 
-        static std::vector<Mode> get_all() { return { Mode::None, Mode::TamperR }; }
-
-        static std::vector<std::string> get_labels() { return { "None", "Tamper R" }; }
-    };
-
-    struct WitnessOverride {
-      public:
-        enum class Case : uint8_t { None, R, ZeroS, HighS, P, Result };
-
-        static std::vector<Case> get_all()
+        static std::vector<Target> get_all()
         {
-            return { Case::None, Case::R, Case::ZeroS, Case::HighS, Case::P, Case::Result };
+            return { Target::None,  Target::HashIsNotAByteArray, Target::ZeroR, Target::ZeroS, Target::HighS, Target::P,
+                     Target::Result };
         }
 
         static std::vector<std::string> get_labels()
         {
-            return { "None", "R", "Zero S", "High S", "Public key", "Result" };
+            return { "None", "Hash is not a byte array", "Zero R", "Zero S", "High S", "Public key", "Result" };
         }
     };
 
@@ -55,53 +52,53 @@ template <class Curve> class EcdsaTestingFunctions {
     static constexpr FrNative private_key =
         FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
 
-    static void override_witness(EcdsaConstraint& ecdsa_constraints,
-                                 WitnessVector& witness_values,
-                                 const WitnessOverride::Case& witness_override)
+    static void invalidate_witness(EcdsaConstraint& ecdsa_constraints,
+                                   WitnessVector& witness_values,
+                                   const InvalidWitness::Target& invalid_witness_target)
     {
-        witness_values[ecdsa_constraints.result] = bb::fr(0);
-        switch (witness_override) {
-        case WitnessOverride::Case::R:
+        // For most ECDSA invalidation cases, we set result=0 to ensure that the failure mode caught by the test is
+        // specific to the particular case being tested, not just simple verification failure.
+        // For the "Result" case we test the mismatch between actual and claimed result.
+        if (invalid_witness_target != InvalidWitness::Target::None &&
+            invalid_witness_target != InvalidWitness::Target::Result) {
+            witness_values[ecdsa_constraints.result] = bb::fr(0);
+        }
+
+        switch (invalid_witness_target) {
+        case InvalidWitness::Target::HashIsNotAByteArray:
+            // Set all bytes of hash to 256 (invalid as it doesn't fit in one byte)
+            for (size_t idx = 0; idx < 32; idx++) {
+                witness_values[ecdsa_constraints.hashed_message[idx]] = bb::fr(256);
+            };
+            break;
+        case InvalidWitness::Target::ZeroR:
+            // Set r = 0 (invalid ECDSA signature component)
             for (size_t idx = 0; idx < 32; idx++) {
                 witness_values[ecdsa_constraints.signature[idx]] = bb::fr(0);
             };
             break;
-        case WitnessOverride::Case::ZeroS:
+        case InvalidWitness::Target::ZeroS:
+            // Set s = 0 (tests ECDSA validation: s must be non-zero)
             for (size_t idx = 32; idx < 64; idx++) {
                 witness_values[ecdsa_constraints.signature[idx]] = bb::fr(0);
             };
             break;
-        case WitnessOverride::Case::HighS:
+        case InvalidWitness::Target::HighS:
+            // Set s = high value (tests signature malleability protection)
             for (size_t idx = 32; idx < 64; idx++) {
                 witness_values[ecdsa_constraints.signature[idx]] = bb::fr(255);
             };
             break;
-        case WitnessOverride::Case::P:
+        case InvalidWitness::Target::P:
+            // Invalidate public key
             witness_values[ecdsa_constraints.pub_x_indices[0]] += bb::fr(1);
             break;
-        case WitnessOverride::Case::Result:
-            // Tamper with the signature so that signature verification fails
+        case InvalidWitness::Target::Result:
+            // Test enforcement of verification result: tamper signature but claim it's valid
             witness_values[ecdsa_constraints.signature[31]] = bb::fr(0);
-            // Set signature result to true
             witness_values[ecdsa_constraints.result] = bb::fr(1);
             break;
-        case WitnessOverride::Case::None:
-            break;
-        }
-    }
-
-    static void tampering(EcdsaConstraint& ecdsa_constraints,
-                          WitnessVector& witness_values,
-                          const Tampering::Mode& tampering_mode)
-    {
-        switch (tampering_mode) {
-        case (Tampering::Mode::None):
-            break;
-        case (Tampering::Mode::TamperR):
-            // Set r = 0
-            for (size_t idx = 0; idx < 32; idx++) {
-                witness_values[ecdsa_constraints.signature[idx]] = bb::fr(0);
-            };
+        case InvalidWitness::Target::None:
             break;
         }
     }
@@ -134,27 +131,23 @@ template <class Curve> class EcdsaTestingFunctions {
 
         // Create witness indices and witnesses
         std::array<uint32_t, 32> hashed_message_indices =
-            add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(hashed_message));
+            add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(hashed_message));
 
         std::array<uint32_t, 32> pub_x_indices =
-            add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(buffer_x));
+            add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(buffer_x));
 
         std::array<uint32_t, 32> pub_y_indices =
-            add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(buffer_y));
+            add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(buffer_y));
 
         std::array<uint32_t, 32> r_indices =
-            add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(signature.r));
+            add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(signature.r));
 
         std::array<uint32_t, 32> s_indices =
-            add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(signature.s));
+            add_to_witness_and_track_indices<std::span<uint8_t>, 32>(witness_values, std::span(signature.s));
 
-        uint32_t result_index = static_cast<uint32_t>(witness_values.size());
-        bb::fr result = bb::fr::one();
-        witness_values.emplace_back(result);
+        uint32_t result_index = add_to_witness_and_track_indices(witness_values, bb::fr(1));
 
-        uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
-        bb::fr predicate = bb::fr::one();
-        witness_values.emplace_back(predicate);
+        uint32_t predicate_index = add_to_witness_and_track_indices(witness_values, bb::fr(1));
 
         // Restructure vectors into array
         std::array<uint32_t, 64> signature_indices;
@@ -194,32 +187,31 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
 TYPED_TEST(EcdsaConstraintsTest, ConstantTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_constant_true(TestFixture::TamperingMode::TamperR);
+    TestFixture::test_constant_true(TestFixture::InvalidWitnessTarget::Result);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, WitnessTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_true(TestFixture::TamperingMode::TamperR);
+    TestFixture::test_witness_true(TestFixture::InvalidWitnessTarget::Result);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, WitnessFalse)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_false(TestFixture::TamperingMode::TamperR);
+    TestFixture::test_witness_false();
 }
 
 TYPED_TEST(EcdsaConstraintsTest, WitnessFalseSlow)
 {
     // This test is equal to WitnessFalse but also checks that each configuration would have failed if the
     // predicate were witness true. It can be useful for debugging.
-    GTEST_SKIP();
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::TamperR);
+    TestFixture::test_witness_false_slow();
 }
 
-TYPED_TEST(EcdsaConstraintsTest, Tampering)
+TYPED_TEST(EcdsaConstraintsTest, InvalidWitnesses)
 {
     BB_DISABLE_ASSERTS();
-    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_invalid_witnesses();
 }

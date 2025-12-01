@@ -1,4 +1,4 @@
-use crate::{hash::hash_args_array, oracle::execution_cache};
+use crate::{hash::hash_args, oracle::execution_cache};
 use dep::protocol_types::traits::Deserialize;
 
 /// A hash that represents a private contract function call's return value. Call `get_preimage` to get the underlying
@@ -24,10 +24,10 @@ impl ReturnsHash {
     {
         // Safety: We verify that the value returned by `load` is the preimage of `hash`, fully constraining it. If `T`
         // is `()`, then `preimage` must be an array of length 0 (since that is `()`'s deserialization length).
-        // `hash_args_array` handles empty arrays following the protocol rules (i.e. an empty args array is signaled
+        // `hash_args` handles empty arrays following the protocol rules (i.e. an empty args array is signaled
         // with a zero hash), correctly constraining `self.hash`.
         let preimage = unsafe { execution_cache::load(self.hash) };
-        assert_eq(self.hash, hash_args_array(preimage), "Preimage mismatch");
+        assert_eq(self.hash, hash_args(preimage), "Preimage mismatch");
 
         Deserialize::deserialize(preimage)
     }
@@ -35,7 +35,7 @@ impl ReturnsHash {
 
 mod test {
     use crate::{
-        hash::hash_args_array,
+        hash::hash_args,
         oracle::execution_cache,
         test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
     };
@@ -50,7 +50,7 @@ mod test {
             let value = MockStruct::new(4, 7);
             let serialized = value.serialize();
 
-            let hash = hash_args_array(serialized);
+            let hash = hash_args(serialized);
             execution_cache::store(serialized, hash);
 
             assert_eq(ReturnsHash::new(hash).get_preimage(), value);
@@ -64,7 +64,7 @@ mod test {
             let value = ();
             let serialized = [];
 
-            let hash = hash_args_array(serialized);
+            let hash = hash_args(serialized);
             execution_cache::store(serialized, hash);
 
             assert_eq(ReturnsHash::new(hash).get_preimage(), value);
@@ -79,7 +79,7 @@ mod test {
         let mut bad_serialized = serialized;
         bad_serialized[0] += 1;
 
-        let hash = hash_args_array(serialized);
+        let hash = hash_args(serialized);
 
         let _ = OracleMock::mock("privateLoadFromExecutionCache").returns(bad_serialized);
         assert_eq(ReturnsHash::new(hash).get_preimage(), value);
@@ -91,7 +91,7 @@ mod test {
     //     let value = ();
     //     let serialized = [];
 
-    //     let hash = hash_args_array(serialized);
+    //     let hash = hash_args(serialized);
 
     //     let _ = OracleMock::mock("privateLoadFromExecutionCache").returns([1]);
     //     assert_eq(ReturnsHash::new(hash).get_preimage(), value);

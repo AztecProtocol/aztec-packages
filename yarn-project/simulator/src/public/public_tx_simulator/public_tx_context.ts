@@ -16,6 +16,7 @@ import {
   RevertCode,
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AllContractDeploymentData, type ContractDeploymentData } from '@aztec/stdlib/contract';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import { computeEffectiveGasFees, computeTransactionFee } from '@aztec/stdlib/fees';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
@@ -80,6 +81,8 @@ export class PublicTxContext {
     private readonly setupCallRequests: PublicCallRequestWithCalldata[],
     private readonly appLogicCallRequests: PublicCallRequestWithCalldata[],
     private readonly teardownCallRequests: PublicCallRequestWithCalldata[],
+    public readonly nonRevertibleContractDeploymentData: ContractDeploymentData,
+    public readonly revertibleContractDeploymentData: ContractDeploymentData,
     public readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly feePayer: AztecAddress,
@@ -94,9 +97,11 @@ export class PublicTxContext {
     tx: Tx,
     globalVariables: GlobalVariables,
     protocolContracts: ProtocolContracts,
-    doMerkleOperations: boolean,
     proverId: Fr,
   ) {
+    const contractDeploymentData = AllContractDeploymentData.fromTx(tx);
+    const nonRevertibleContractDeploymentData = contractDeploymentData.getNonRevertibleContractDeploymentData();
+    const revertibleContractDeploymentData = contractDeploymentData.getRevertibleContractDeploymentData();
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
 
     const trace = new SideEffectTrace();
@@ -108,7 +113,6 @@ export class PublicTxContext {
       treesDB,
       contractsDB,
       trace,
-      doMerkleOperations,
       firstNullifier,
       globalVariables.timestamp,
     );
@@ -132,6 +136,8 @@ export class PublicTxContext {
       getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP),
       getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.APP_LOGIC),
       getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.TEARDOWN),
+      nonRevertibleContractDeploymentData,
+      revertibleContractDeploymentData,
       tx.data.forPublic!.nonRevertibleAccumulatedData,
       tx.data.forPublic!.revertibleAccumulatedData,
       tx.data.feePayer,

@@ -1,25 +1,20 @@
-import { commitmentToFields, computeBlobFieldsHash } from '@aztec/blob-lib';
+import { commitmentToFields, computeBlobFieldsHash, encodeCheckpointEndMarker } from '@aztec/blob-lib';
+import { MAX_U32_VALUE } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { toInlineStrArray } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
-import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
-import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { buildBlobHints } from './block-building-helpers.js';
 
 describe('buildBlobHints', () => {
   it('correctly builds hints for 1 blob', async () => {
-    const txEffect0 = TxEffect.empty();
-    txEffect0.txHash = new TxHash(new Fr(42));
-    txEffect0.transactionFee = new Fr(0x2a);
-    txEffect0.nullifiers[0] = new Fr(0x123);
-    const txEffect1 = TxEffect.empty();
-    txEffect1.txHash = new TxHash(new Fr(43));
-    txEffect1.transactionFee = new Fr(0x3b);
-    txEffect1.noteHashes[0] = new Fr(0x6789);
-    txEffect1.nullifiers[0] = new Fr(0x45);
-    const blobFields = getCheckpointBlobFields([[txEffect0, txEffect1]]);
-    expect(blobFields.length).toBe(1 + 4 + 5 + 1); // +1 for the checkpoint prefix, +4 for txEffect0, +5 for txEffect1, +1 for block end marker.
+    const blobFieldsWithoutEndMarker = Array.from({ length: 5 }, (_, i) => new Fr((i + 123) * MAX_U32_VALUE));
+
+    // The fixtures are used in the checkpoint root rollup tests.
+    // It expects the last field to be the checkpoint end marker.
+    const blobFields = blobFieldsWithoutEndMarker.concat([
+      encodeCheckpointEndMarker({ numBlobFields: blobFieldsWithoutEndMarker.length + 1 }),
+    ]);
 
     const { blobCommitments, blobsHash, blobs } = buildBlobHints(blobFields);
 
@@ -31,20 +26,20 @@ describe('buildBlobHints', () => {
     expect(blobCommitmentsFields).toEqual(blobCommitments[0].toBN254Fields());
     const blobCommitmentStr = onlyBlob.commitment.toString('hex');
     expect(blobCommitmentStr).toMatchInlineSnapshot(
-      `"8df0325a56d0e4959d5ff1310b8f4e9be4ce318e0c91287de690d12b98782065e0eea216aca5086cb82514e36d660943"`,
+      `"b6e7a457a8799e584eeac804e0e01d8bc4e1d159ac2a801309b22d1612691ecc97d31a330b5cd07fc78df6ffe5c7c4d6"`,
     );
 
     const blobsHashStr = blobsHash.toString();
-    expect(blobsHashStr).toMatchInlineSnapshot(`"0x0060acfbd8f99d87a17096a8118c58360c5a20d0db2d4a4a1060bbcc260bd363"`);
+    expect(blobsHashStr).toMatchInlineSnapshot(`"0x0098b965ae031d8ee91534cdd87a14d0edb804397e31ae1daf0ea27fa9c502b9"`);
 
     const blobFieldsHash = await computeBlobFieldsHash(blobFields);
     const challengeZ = await onlyBlob.computeChallengeZ(blobFieldsHash);
     const zStr = challengeZ.toString();
-    expect(zStr).toMatchInlineSnapshot(`"0x0cfa1559ddd669051b7f6a7158c27c5dea85956d05501aa998210831392e370a"`);
+    expect(zStr).toMatchInlineSnapshot(`"0x214fde23666780cf52da41db2ce5ac67b74907efeecfb183c477063859fd8e4b"`);
 
     const proof = onlyBlob.evaluate(challengeZ, true /* verifyProof */);
     const yStr = proof.y.toString();
-    expect(yStr).toMatchInlineSnapshot(`"0x26aa329721c5f1626b0d3c12aaa569e2d0f3ba86ed6ec74fbb87bddfa4c12111"`);
+    expect(yStr).toMatchInlineSnapshot(`"0x058c570b7d2911810e7e797a8c242928751ce2385a6591f9884e32b60c27482c"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
@@ -61,11 +56,6 @@ describe('buildBlobHints', () => {
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',
       'blob_commitment_limbs_y_from_ts',
       toInlineStrArray(blobCommitments[0].y.toNoirBigNum().limbs),
-    );
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',
-      'blob_commitment_fields_from_ts',
-      toInlineStrArray(blobCommitmentsFields),
     );
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',

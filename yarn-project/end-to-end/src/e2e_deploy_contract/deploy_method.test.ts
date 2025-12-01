@@ -46,9 +46,9 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
     await contract.methods.increment_public_value(owner, 84).send({ from: defaultAccountAddress }).wait();
     expect(await contract.methods.get_public_value(owner).simulate({ from: defaultAccountAddress })).toEqual(84n);
+    const instance = (await wallet.getContractMetadata(contract.address)).contractInstance!;
     expect(
-      (await wallet.getContractClassMetadata(contract.instance.currentContractClassId))
-        .isContractClassPubliclyRegistered,
+      (await wallet.getContractClassMetadata(instance.currentContractClassId)).isContractClassPubliclyRegistered,
     ).toBeTrue();
   });
 

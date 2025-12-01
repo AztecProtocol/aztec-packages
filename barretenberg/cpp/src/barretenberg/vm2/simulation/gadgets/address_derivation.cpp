@@ -17,10 +17,10 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
 
     // First time seeing this address - do the actual derivation
     FF salted_initialization_hash = poseidon2.hash(
-        { GENERATOR_INDEX__PARTIAL_ADDRESS, instance.salt, instance.initialisation_hash, instance.deployer_addr });
+        { GENERATOR_INDEX__PARTIAL_ADDRESS, instance.salt, instance.initialization_hash, instance.deployer });
 
-    FF partial_address =
-        poseidon2.hash({ GENERATOR_INDEX__PARTIAL_ADDRESS, instance.original_class_id, salted_initialization_hash });
+    FF partial_address = poseidon2.hash(
+        { GENERATOR_INDEX__PARTIAL_ADDRESS, instance.original_contract_class_id, salted_initialization_hash });
 
     std::vector<FF> public_keys_hash_fields = instance.public_keys.to_fields();
     std::vector<FF> public_key_hash_vec{ GENERATOR_INDEX__PUBLIC_KEYS_HASH };

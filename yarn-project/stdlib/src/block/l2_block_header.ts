@@ -1,3 +1,4 @@
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
@@ -36,6 +37,8 @@ export class L2BlockHeader {
     public totalManaUsed: Fr,
     /** Hash of the sponge blob of the block. */
     public spongeBlobHash: Fr,
+    /** Hash of the block headers in the checkpoint. */
+    public blockHeadersHash: Fr,
   ) {}
 
   static get schema(): ZodFor<L2BlockHeader> {
@@ -48,6 +51,7 @@ export class L2BlockHeader {
         totalFees: schemas.Fr,
         totalManaUsed: schemas.Fr,
         spongeBlobHash: schemas.Fr,
+        blockHeadersHash: schemas.Fr,
       })
       .transform(L2BlockHeader.from);
   }
@@ -61,6 +65,7 @@ export class L2BlockHeader {
       fields.totalFees,
       fields.totalManaUsed,
       fields.spongeBlobHash,
+      fields.blockHeadersHash,
     ] as const;
   }
 
@@ -68,8 +73,8 @@ export class L2BlockHeader {
     return new L2BlockHeader(...L2BlockHeader.getFields(fields));
   }
 
-  getSlot() {
-    return this.globalVariables.slotNumber.toBigInt();
+  getSlot(): SlotNumber {
+    return this.globalVariables.slotNumber;
   }
 
   getBlockNumber() {
@@ -84,7 +89,8 @@ export class L2BlockHeader {
       this.globalVariables.getSize() +
       this.totalFees.size +
       this.totalManaUsed.size +
-      this.spongeBlobHash.size
+      this.spongeBlobHash.size +
+      this.blockHeadersHash.size
     );
   }
 
@@ -111,6 +117,7 @@ export class L2BlockHeader {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
+      reader.readObject(Fr),
     );
   }
 
@@ -122,6 +129,7 @@ export class L2BlockHeader {
       ContentCommitment.fromFields(reader),
       StateReference.fromFields(reader),
       GlobalVariables.fromFields(reader),
+      reader.readField(),
       reader.readField(),
       reader.readField(),
       reader.readField(),
@@ -137,6 +145,7 @@ export class L2BlockHeader {
       totalFees: Fr.ZERO,
       totalManaUsed: Fr.ZERO,
       spongeBlobHash: Fr.ZERO,
+      blockHeadersHash: Fr.ZERO,
       ...fields,
     });
   }
@@ -149,7 +158,8 @@ export class L2BlockHeader {
       this.globalVariables.isEmpty() &&
       this.totalFees.isZero() &&
       this.totalManaUsed.isZero() &&
-      this.spongeBlobHash.isZero()
+      this.spongeBlobHash.isZero() &&
+      this.blockHeadersHash.isZero()
     );
   }
 
@@ -168,6 +178,7 @@ export class L2BlockHeader {
   toCheckpointHeader() {
     return new CheckpointHeader(
       this.lastArchive.root,
+      this.blockHeadersHash,
       this.contentCommitment,
       this.globalVariables.slotNumber,
       this.globalVariables.timestamp,
@@ -198,6 +209,7 @@ export class L2BlockHeader {
       totalFees: this.totalFees.toBigInt(),
       totalManaUsed: this.totalManaUsed.toBigInt(),
       spongeBlobHash: this.spongeBlobHash.toString(),
+      blockHeadersHash: this.blockHeadersHash.toString(),
     };
   }
 
@@ -215,6 +227,7 @@ export class L2BlockHeader {
   totalFees: ${this.totalFees},
   totalManaUsed: ${this.totalManaUsed},
   spongeBlobHash: ${this.spongeBlobHash},
+  blockHeadersHash: ${this.blockHeadersHash},
 }`;
   }
 
@@ -226,7 +239,8 @@ export class L2BlockHeader {
       this.totalFees.equals(other.totalFees) &&
       this.totalManaUsed.equals(other.totalManaUsed) &&
       this.lastArchive.equals(other.lastArchive) &&
-      this.spongeBlobHash.equals(other.spongeBlobHash)
+      this.spongeBlobHash.equals(other.spongeBlobHash) &&
+      this.blockHeadersHash.equals(other.blockHeadersHash)
     );
   }
 }

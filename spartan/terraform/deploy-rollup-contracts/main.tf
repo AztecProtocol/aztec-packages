@@ -42,7 +42,8 @@ locals {
     LOG_LEVEL       = "debug"
     BOOTSTRAP_NODES = "asdf"
     } : { for k, v in {
-      AZTEC_LAG_IN_EPOCHS                      = var.AZTEC_LAG_IN_EPOCHS
+      AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET    = var.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET
+      AZTEC_LAG_IN_EPOCHS_FOR_RANDAO           = var.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO
       AZTEC_SLOT_DURATION                      = var.AZTEC_SLOT_DURATION
       AZTEC_EPOCH_DURATION                     = var.AZTEC_EPOCH_DURATION
       AZTEC_TARGET_COMMITTEE_SIZE              = var.AZTEC_TARGET_COMMITTEE_SIZE
@@ -170,8 +171,18 @@ data "external" "contract_addresses" {
   program = ["bash", "-c", <<-EOT
     set -e
 
-    # Get pod name for the completed job
-    POD_NAME=$(kubectl get pods -n ${var.NAMESPACE} -l job-name=${kubernetes_job_v1.deploy_rollup_contracts.metadata[0].name} -o jsonpath='{.items[0].metadata.name}')
+    # Get the most recent successfully completed pod for the job
+    # Filter by Succeeded phase and sort by creation timestamp to get the latest
+    POD_NAME=$(kubectl get pods -n ${var.NAMESPACE} \
+      -l job-name=${kubernetes_job_v1.deploy_rollup_contracts.metadata[0].name} \
+      --field-selector=status.phase=Succeeded \
+      --sort-by=.metadata.creationTimestamp \
+      -o jsonpath='{.items[-1:].metadata.name}')
+
+    if [ -z "$POD_NAME" ]; then
+      echo '{}'
+      exit 0
+    fi
 
     # Extract logs from the pod
     LOGS=$(kubectl logs $POD_NAME -n ${var.NAMESPACE} 2>/dev/null || echo "{}")
@@ -193,7 +204,18 @@ data "external" "verification_json" {
   program = ["bash", "-c", <<-EOT
     set -e
 
-    POD_NAME=$(kubectl get pods -n ${var.NAMESPACE} -l job-name=${kubernetes_job_v1.deploy_rollup_contracts.metadata[0].name} -o jsonpath='{.items[0].metadata.name}')
+    # Get the most recent successfully completed pod for the job
+    # Filter by Succeeded phase and sort by creation timestamp to get the latest
+    POD_NAME=$(kubectl get pods -n ${var.NAMESPACE} \
+      -l job-name=${kubernetes_job_v1.deploy_rollup_contracts.metadata[0].name} \
+      --field-selector=status.phase=Succeeded \
+      --sort-by=.metadata.creationTimestamp \
+      -o jsonpath='{.items[-1:].metadata.name}')
+
+    if [ -z "$POD_NAME" ]; then
+      echo '{"b64":""}'
+      exit 0
+    fi
 
     LOGS=$(kubectl logs $POD_NAME -n ${var.NAMESPACE} 2>/dev/null || echo "")
 

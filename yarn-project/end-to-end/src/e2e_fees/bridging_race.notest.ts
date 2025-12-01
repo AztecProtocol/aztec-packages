@@ -60,7 +60,7 @@ describe('e2e_fees bridging_race', () => {
     const origApprove = l1TokenManager.approve.bind(l1TokenManager);
     l1TokenManager.approve = async (amount: bigint, address: Hex, addressName = '') => {
       await origApprove(amount, address, addressName);
-      const sleepTime = (Number(t.chainMonitor.l2BlockTimestamp) + AZTEC_SLOT_DURATION) * 1000 - Date.now() - 500;
+      const sleepTime = (Number(t.chainMonitor.checkpointTimestamp) + AZTEC_SLOT_DURATION) * 1000 - Date.now() - 500;
       logger.info(`Sleeping for ${sleepTime}ms until near end of L2 slot before sending L1 fee juice to L2 inbox`);
       await sleep(sleepTime);
     };

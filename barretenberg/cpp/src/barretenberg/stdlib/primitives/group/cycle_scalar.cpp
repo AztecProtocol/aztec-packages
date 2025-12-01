@@ -12,15 +12,42 @@
 
 namespace bb::stdlib {
 
+/**
+ * @brief Private constructor that skips field validation (for internal use only)
+ * @details This constructor is used internally in contexts where validation has already been performed externally
+ * or where it is not required at all (e.g., 256-bit bitstrings).
+ *
+ * @tparam Builder
+ * @param lo Low LO_BITS of the scalar
+ * @param hi High HI_BITS of the scalar
+ * @param flag SkipValidation::FLAG explicitly indicates that validation should be skipped
+ */
 template <typename Builder>
-cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi, bool skip_validation)
-    : lo(_lo)
-    , hi(_hi)
+cycle_scalar<Builder>::cycle_scalar(const field_t& lo, const field_t& hi, [[maybe_unused]] SkipValidation flag)
+    : _lo(lo)
+    , _hi(hi)
+{}
+
+/**
+ * @brief Construct a cycle_scalar from lo and hi field elements
+ * @details Standard public constructor. Validates that (lo + hi * 2^LO_BITS) is less than the Grumpkin scalar field
+ * modulus. Use this constructor when creating cycle_scalars from arbitrary field elements that may not have been
+ * previously validated.
+ *
+ * @warning The validation performed by this constructor is only sound if the resulting cycle_scalar is used in a
+ * scalar multiplication operation (batch_mul), which provides the necessary range constraints on lo and hi. See
+ * validate_scalar_is_in_field() documentation for details.
+ *
+ * @tparam Builder
+ * @param lo Low LO_BITS of the scalar
+ * @param hi High HI_BITS of the scalar
+ */
+template <typename Builder>
+cycle_scalar<Builder>::cycle_scalar(const field_t& lo, const field_t& hi)
+    : _lo(lo)
+    , _hi(hi)
 {
-    // Unless explicitly skipped, validate the scalar is in the Grumpkin scalar field
-    if (!skip_validation) {
-        validate_scalar_is_in_field();
-    }
+    validate_scalar_is_in_field();
 }
 
 /**
@@ -33,8 +60,8 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const ScalarFiel
 {
     const uint256_t value(in);
     const auto [lo_v, hi_v] = decompose_into_lo_hi_u256(value);
-    lo = lo_v;
-    hi = hi_v;
+    _lo = lo_v;
+    _hi = hi_v;
 }
 
 /**
@@ -58,51 +85,8 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, cons
     hi.set_free_witness_tag();
 
     cycle_scalar result{ lo, hi };
-    result._num_bits = NUM_BITS;
 
     return result;
-}
-
-/**
- * @brief Construct a cycle scalar from a uint256_t witness bitstring
- * @details Used when we want to multiply a group element by a string of bits of known size, e.g. for Schnorr
- * signatures. No primality test is performed.
- *
- * @tparam Builder
- * @param context
- * @param value
- * @return cycle_scalar<Builder>
- */
-template <typename Builder>
-cycle_scalar<Builder> cycle_scalar<Builder>::from_u256_witness(Builder* context, const uint256_t& bitstring)
-{
-    const size_t num_bits = 256;
-    const uint256_t lo_v = bitstring.slice(0, LO_BITS);
-    const uint256_t hi_v = bitstring.slice(LO_BITS, num_bits);
-    auto lo = field_t::from_witness(context, typename field_t::native(lo_v));
-    auto hi = field_t::from_witness(context, typename field_t::native(hi_v));
-    cycle_scalar result{ lo, hi, /*skip_validation=*/true };
-    result._num_bits = num_bits;
-    return result;
-}
-
-/**
- * @brief Construct a cycle scalar (grumpkin scalar field element) from a bn254 scalar field element
- * @details This method ensures that the input is constrained to be less than the bn254 scalar field modulus to ensure
- * unique representation in the grumpkin scalar field. The validation is performed by split_unique.
- *
- * @tparam Builder
- * @param in a field_t representing a bn254 scalar field element
- * @return cycle_scalar<Builder> a cycle_scalar representing the same value in the grumpkin scalar field
- */
-template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_from_bn254_scalar(const field_t& in)
-{
-    // Use split_unique with skip_range_constraints=true since the range constraints are implicit
-    // in the lookup arguments used in scalar multiplication and thus do not need to be applied here.
-    // Note: split_unique validates the value is less than bn254::fr::modulus
-    auto [lo, hi] = split_unique(in, LO_BITS, /*skip_range_constraints=*/true);
-    // Note: we skip validation here since it is redundant with `split_unique`
-    return cycle_scalar{ lo, hi, /*skip_validation=*/true };
 }
 
 /**
@@ -147,10 +131,10 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
         const uint256_t value((scalar.get_value() % uint512_t(ScalarField::modulus)).lo);
         const auto [value_lo, value_hi] = decompose_into_lo_hi_u256(value);
 
-        lo = value_lo;
-        hi = value_hi;
-        lo.set_origin_tag(scalar.get_origin_tag());
-        hi.set_origin_tag(scalar.get_origin_tag());
+        _lo = value_lo;
+        _hi = value_hi;
+        _lo.set_origin_tag(scalar.get_origin_tag());
+        _hi.set_origin_tag(scalar.get_origin_tag());
         return;
     }
 
@@ -187,7 +171,7 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
     BB_ASSERT_GT(NUM_LIMB_BITS * 2, LO_BITS);
     BB_ASSERT_LT(NUM_LIMB_BITS, LO_BITS);
 
-    // Step 3: limb1 contributes to both *this.lo and *this.hi. Compute the values of the two limb1 slices
+    // Step 3: limb1 contributes to both *this._lo and *this._hi. Compute the values of the two limb1 slices
     const size_t lo_bits_in_limb_1 = LO_BITS - NUM_LIMB_BITS;
     const auto limb1_max_bits = static_cast<size_t>(limb1_max.get_msb() + 1);
     auto [limb1_lo, limb1_hi] = limb1.no_wrap_split_at(lo_bits_in_limb_1, limb1_max_bits);
@@ -196,41 +180,50 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
     limb1_lo.set_origin_tag(limb1.get_origin_tag());
     limb1_hi.set_origin_tag(limb1.get_origin_tag());
 
-    // Step 4: Construct *this.lo out of limb0 and limb1_lo
-    lo = limb0 + (limb1_lo * BigScalarField::shift_1);
+    // Step 4: Construct *this._lo out of limb0 and limb1_lo
+    _lo = limb0 + (limb1_lo * BigScalarField::shift_1);
 
-    // Step 5: Construct *this.hi out of limb1_hi, limb2 and limb3
+    // Step 5: Construct *this._hi out of limb1_hi, limb2 and limb3
     const uint256_t limb_2_shift = uint256_t(1) << ((2 * NUM_LIMB_BITS) - LO_BITS);
     const uint256_t limb_3_shift = uint256_t(1) << ((3 * NUM_LIMB_BITS) - LO_BITS);
-    hi = limb1_hi.add_two(limb2 * limb_2_shift, limb3 * limb_3_shift);
+    _hi = limb1_hi.add_two(limb2 * limb_2_shift, limb3 * limb_3_shift);
 
     // Manually propagate the origin tag of the scalar to the lo/hi limbs
-    lo.set_origin_tag(scalar.get_origin_tag());
-    hi.set_origin_tag(scalar.get_origin_tag());
+    _lo.set_origin_tag(scalar.get_origin_tag());
+    _hi.set_origin_tag(scalar.get_origin_tag());
 
     validate_scalar_is_in_field();
 };
 
 template <typename Builder> bool cycle_scalar<Builder>::is_constant() const
 {
-    return (lo.is_constant() && hi.is_constant());
+    return (_lo.is_constant() && _hi.is_constant());
 }
 
 /**
  * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the Grumpkin scalar field modulus
- * @details Delegates to `validate_split_in_field`
+ * @details Delegates to `validate_split_in_field_unsafe`, which uses a borrow-subtraction algorithm to check the
+ * inequality.
+ *
+ * @warning This validation assumes range constraints on the lo and hi limbs. Specifically:
+ * - lo < 2^LO_BITS (128 bits)
+ * - hi < 2^HI_BITS (126 bits)
+ *
+ * By design, these range constraints are not applied by this function. Instead, they are implicitly enforced when
+ * the cycle_scalar is used in scalar multiplication via batch_mul.
  *
  * @tparam Builder
  */
 template <typename Builder> void cycle_scalar<Builder>::validate_scalar_is_in_field() const
 {
-    validate_split_in_field(lo, hi, LO_BITS, ScalarField::modulus);
+    // Using _unsafe variant: range constraints are deferred to batch_mul's decompose_into_default_range
+    validate_split_in_field_unsafe(_lo, _hi, LO_BITS, ScalarField::modulus);
 }
 
 template <typename Builder> typename cycle_scalar<Builder>::ScalarField cycle_scalar<Builder>::get_value() const
 {
-    uint256_t lo_v(lo.get_value());
-    uint256_t hi_v(hi.get_value());
+    uint256_t lo_v(_lo.get_value());
+    uint256_t hi_v(_hi.get_value());
     return ScalarField(lo_v + (hi_v << LO_BITS));
 }
 

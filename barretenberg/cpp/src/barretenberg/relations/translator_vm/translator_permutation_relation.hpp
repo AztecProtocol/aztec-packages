@@ -38,7 +38,7 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
     inline static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
-        using ParameterView = GetParameterView<Parameters, View>;
+        using ParameterView = Parameters::DataType;
 
         auto interleaved_range_constraints_0 = View(in.interleaved_range_constraints_0);
         auto interleaved_range_constraints_1 = View(in.interleaved_range_constraints_1);
@@ -61,7 +61,7 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
     inline static Accumulator compute_grand_product_denominator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
-        using ParameterView = GetParameterView<Parameters, View>;
+        using ParameterView = Parameters::DataType;
 
         auto ordered_range_constraints_0 = View(in.ordered_range_constraints_0);
         auto ordered_range_constraints_1 = View(in.ordered_range_constraints_1);

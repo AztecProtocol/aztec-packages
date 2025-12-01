@@ -4,9 +4,9 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./client/wasm/bundle": "./dest/prover/client/wasm/bundle.js",
-    "./client/wasm/lazy": "./dest/prover/client/wasm/lazy.js",
-    "./client/native": "./dest/prover/client/native/bb_native_private_kernel_prover.js",
+    "./client/bundle": "./dest/prover/client/bundle.js",
+    "./client/lazy": "./dest/prover/client/lazy.js",
+    "./client": "./dest/prover/client/bb_private_kernel_prover.js",
     "./verifier": "./dest/verifier/index.js",
     "./test": "./dest/test/index.js",
     "./config": "./dest/config.js"
@@ -25,8 +25,8 @@
     "../package.common.json"
   ],
   "scripts": {
-    "build": "yarn clean && tsc -b",
-    "build:dev": "tsc -b --watch",
+    "build": "yarn clean && tsgo -b",
+    "build:dev": "tsgo -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "bb": "node --no-warnings ./dest/bb/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
@@ -94,11 +94,12 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
     "@types/source-map-support": "^0.5.10",
+    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3",
-    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0"
+    "viem": "npm:@aztec/viem@2.38.2"
   },
   "files": [
     "dest",

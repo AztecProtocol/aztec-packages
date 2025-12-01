@@ -13,7 +13,7 @@ describe('Recursive Aggregation Example', () => {
   let recursiveNoir: Noir;
   let recursiveInputs: any;
 
-  before(async function() {
+  before(async function () {
     this.timeout(120000);
 
     // docs:start:setup
@@ -34,28 +34,20 @@ describe('Recursive Aggregation Example', () => {
 
     // docs:start:backend_setup
     // Setup backend for main circuit (inner circuit)
-    mainBackend = new UltraHonkBackend(
-      mainBytecode,
-      { threads: 8 },
-      { recursive: true }
-    );
+    mainBackend = new UltraHonkBackend(mainBytecode, { threads: 8 }, { recursive: true });
 
     // Setup backend for recursive circuit (outer circuit)
-    recursiveBackend = new UltraHonkBackend(
-      recursiveBytecode,
-      { threads: 8 },
-      { recursive: false }
-    );
+    recursiveBackend = new UltraHonkBackend(recursiveBytecode, { threads: 8 }, { recursive: false });
     // docs:end:backend_setup
   });
 
-  after(async function() {
+  after(async function () {
     // Clean up resources
     if (mainBackend) await mainBackend.destroy();
     if (recursiveBackend) await recursiveBackend.destroy();
   });
 
-  it('should execute witness generation for both circuits', async function() {
+  it('should execute witness generation for both circuits', async function () {
     this.timeout(60000);
 
     // docs:start:witness_generation
@@ -71,7 +63,7 @@ describe('Recursive Aggregation Example', () => {
     expect(mainWitness.length).to.be.greaterThan(0);
   });
 
-  it('should generate proof and verification key for main circuit', async function() {
+  it('should generate proof and verification key for main circuit', async function () {
     this.timeout(120000);
 
     // Generate witness for main circuit
@@ -79,10 +71,14 @@ describe('Recursive Aggregation Example', () => {
 
     // docs:start:proof_generation
     // Generate proof for main circuit with keccakZK for recursive verification
-    const mainProofData = await mainBackend.generateProof(mainWitness, { keccakZK: true });
+    const mainProofData = await mainBackend.generateProof(mainWitness, {
+      keccakZK: true,
+    });
 
     // Generate verification key for main circuit
-    const mainVerificationKey = await mainBackend.getVerificationKey({ keccakZK: true });
+    const mainVerificationKey = await mainBackend.getVerificationKey({
+      keccakZK: true,
+    });
     // docs:end:proof_generation
 
     // Test that proof and VK were generated
@@ -92,8 +88,7 @@ describe('Recursive Aggregation Example', () => {
     expect(mainVerificationKey.length).to.be.greaterThan(0);
   });
 
-
-  it('should prepare recursive inputs from proof and verification key', async function() {
+  it('should prepare recursive inputs from proof and verification key', async function () {
     this.timeout(120000);
 
     // Generate witness and proof for main circuit
@@ -104,13 +99,14 @@ describe('Recursive Aggregation Example', () => {
     // docs:start:recursive_inputs
     // Convert proof and VK to fields for recursive circuit
     const barretenbergAPI = await Barretenberg.new({ threads: 1 });
-    const vkAsFields = (await barretenbergAPI.acirVkAsFieldsUltraHonk(new RawBuffer(mainVerificationKey)))
-      .map(field => field.toString());
+    const vkAsFields = (await barretenbergAPI.acirVkAsFieldsUltraHonk(new RawBuffer(mainVerificationKey))).map(field =>
+      field.toString(),
+    );
 
     recursiveInputs = {
       proof: deflattenFields(mainProofData.proof),
       public_inputs: [2],
-      verification_key: vkAsFields
+      verification_key: vkAsFields,
     };
 
     await barretenbergAPI.destroy();
@@ -124,8 +120,8 @@ describe('Recursive Aggregation Example', () => {
     expect(recursiveInputs.public_inputs).to.deep.equal([2]);
   });
 
-  it('should generate recursive proof', async function() {
-    this.timeout(180000);
+  it('should generate recursive proof', async function () {
+    this.timeout(300000);
 
     // docs:start:recursive_proof
     // Generate witness for recursive circuit

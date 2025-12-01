@@ -11,10 +11,9 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA
     let to_authorize = env.create_light_account();
     let other = env.create_light_account();
 
-    let initializer_call_interface = Auth::interface().constructor(admin);
+    let initializer_call = Auth::interface().constructor(admin);
 
-    let auth_contract_address =
-        env.deploy("Auth").with_public_initializer(admin, initializer_call_interface);
+    let auth_contract_address = env.deploy("Auth").with_public_initializer(admin, initializer_call);
 
     (env, auth_contract_address, admin, to_authorize, other)
 }

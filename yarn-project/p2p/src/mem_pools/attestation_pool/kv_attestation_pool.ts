@@ -1,3 +1,4 @@
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
@@ -5,8 +6,12 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@azte
 import { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
+import { ProposalSlotCapExceededError } from '../../errors/attestation-pool.error.js';
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import type { AttestationPool } from './attestation_pool.js';
+
+export const MAX_PROPOSALS_PER_SLOT = 5;
+export const ATTESTATION_CAP_BUFFER = 10;
 
 export class KvAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;
@@ -16,7 +21,7 @@ export class KvAttestationPool implements AttestationPool {
     /*  proposal.payload.archive  */ string,
     /* buffer representation of proposal */ Buffer
   >;
-  private proposalsForSlot: AztecAsyncMultiMap<string, string>;
+  private proposalsForSlot: AztecAsyncMultiMap<number, string>;
   private attestationsForProposal: AztecAsyncMultiMap<string, string>;
 
   constructor(
@@ -70,7 +75,7 @@ export class KvAttestationPool implements AttestationPool {
 
         // Skip attestations with invalid signatures
         if (!sender) {
-          this.log.warn(`Skipping attestation with invalid signature for slot ${slotNumber.toBigInt()}`, {
+          this.log.warn(`Skipping attestation with invalid signature for slot ${slotNumber}`, {
             signature: attestation.signature.toString(),
             slotNumber,
             proposalId,
@@ -82,13 +87,13 @@ export class KvAttestationPool implements AttestationPool {
 
         await this.attestations.set(this.getAttestationKey(slotNumber, proposalId, address), attestation.toBuffer());
 
-        await this.proposalsForSlot.set(slotNumber.toString(), proposalId.toString());
+        await this.proposalsForSlot.set(slotNumber, proposalId.toString());
         await this.attestationsForProposal.set(
           this.getProposalKey(slotNumber, proposalId),
           this.getAttestationKey(slotNumber, proposalId, address),
         );
 
-        this.log.verbose(`Added attestation for slot ${slotNumber.toBigInt()} from ${address}`, {
+        this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`, {
           signature: attestation.signature.toString(),
           slotNumber,
           address,
@@ -98,9 +103,8 @@ export class KvAttestationPool implements AttestationPool {
     });
   }
 
-  public async getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
-    const slotFr = new Fr(slot);
-    const proposalIds = await toArray(this.proposalsForSlot.getValuesAsync(slotFr.toString()));
+  public async getAttestationsForSlot(slot: SlotNumber): Promise<BlockAttestation[]> {
+    const proposalIds = await toArray(this.proposalsForSlot.getValuesAsync(slot));
     const attestations: BlockAttestation[] = [];
 
     for (const proposalId of proposalIds) {
@@ -110,7 +114,7 @@ export class KvAttestationPool implements AttestationPool {
     return attestations;
   }
 
-  public async getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
+  public async getAttestationsForSlotAndProposal(slot: SlotNumber, proposalId: string): Promise<BlockAttestation[]> {
     const attestationIds = await toArray(
       this.attestationsForProposal.getValuesAsync(this.getProposalKey(slot, proposalId)),
     );
@@ -132,21 +136,20 @@ export class KvAttestationPool implements AttestationPool {
     return attestations;
   }
 
-  public async deleteAttestationsOlderThan(oldestSlot: bigint): Promise<void> {
-    const olderThan = await toArray(this.proposalsForSlot.keysAsync({ end: new Fr(oldestSlot).toString() }));
+  public async deleteAttestationsOlderThan(oldestSlot: SlotNumber): Promise<void> {
+    const olderThan = await toArray(this.proposalsForSlot.keysAsync({ end: oldestSlot }));
     for (const oldSlot of olderThan) {
-      await this.deleteAttestationsForSlot(BigInt(oldSlot));
+      await this.deleteAttestationsForSlot(SlotNumber(oldSlot));
     }
   }
 
-  public async deleteAttestationsForSlot(slot: bigint): Promise<void> {
-    const slotFr = new Fr(slot);
+  public async deleteAttestationsForSlot(slot: SlotNumber): Promise<void> {
     let numberOfAttestations = 0;
     await this.store.transactionAsync(async () => {
-      const proposalIds = await toArray(this.proposalsForSlot.getValuesAsync(slotFr.toString()));
+      const proposalIds = await toArray(this.proposalsForSlot.getValuesAsync(slot));
       for (const proposalId of proposalIds) {
         const attestations = await toArray(
-          this.attestationsForProposal.getValuesAsync(this.getProposalKey(slotFr, proposalId)),
+          this.attestationsForProposal.getValuesAsync(this.getProposalKey(slot, proposalId)),
         );
 
         numberOfAttestations += attestations.length;
@@ -155,17 +158,19 @@ export class KvAttestationPool implements AttestationPool {
         }
 
         await this.proposals.delete(proposalId);
-        await this.attestationsForProposal.delete(this.getProposalKey(slotFr, proposalId));
+        await this.attestationsForProposal.delete(this.getProposalKey(slot, proposalId));
       }
+
+      // Delete from proposalsForSlot
+      await this.proposalsForSlot.delete(slot);
 
       this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot}`);
     });
   }
 
-  public async deleteAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<void> {
+  public async deleteAttestationsForSlotAndProposal(slot: SlotNumber, proposalId: string): Promise<void> {
     let numberOfAttestations = 0;
     await this.store.transactionAsync(async () => {
-      const slotString = new Fr(slot).toString();
       const attestations = await toArray(
         this.attestationsForProposal.getValuesAsync(this.getProposalKey(slot, proposalId)),
       );
@@ -176,8 +181,8 @@ export class KvAttestationPool implements AttestationPool {
       }
 
       await this.proposals.delete(proposalId);
-      await this.proposalsForSlot.deleteValue(slotString, proposalId);
-      await this.attestationsForProposal.delete(this.getProposalKey(slotString, proposalId));
+      await this.proposalsForSlot.deleteValue(slot, proposalId);
+      await this.attestationsForProposal.delete(this.getProposalKey(slot, proposalId));
 
       this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
     });
@@ -192,7 +197,7 @@ export class KvAttestationPool implements AttestationPool {
 
         // Skip attestations with invalid signatures
         if (!sender) {
-          this.log.warn(`Skipping deletion of attestation with invalid signature for slot ${slotNumber.toBigInt()}`);
+          this.log.warn(`Skipping deletion of attestation with invalid signature for slot ${slotNumber}`);
           continue;
         }
 
@@ -249,8 +254,45 @@ export class KvAttestationPool implements AttestationPool {
 
   public async addBlockProposal(blockProposal: BlockProposal): Promise<void> {
     await this.store.transactionAsync(async () => {
-      await this.proposalsForSlot.set(blockProposal.slotNumber.toString(), blockProposal.archive.toString());
-      await this.proposals.set(blockProposal.payload.archive.toString(), blockProposal.toBuffer());
+      const slotKey = blockProposal.slotNumber;
+      const proposalId = blockProposal.archive.toString();
+
+      if (!(await this.canAddProposal(blockProposal))) {
+        throw new ProposalSlotCapExceededError(
+          `Maximum proposals per slot reached: slot=${slotKey} cap=${MAX_PROPOSALS_PER_SLOT} proposal=${proposalId}`,
+        );
+      }
+
+      await this.proposalsForSlot.set(slotKey, proposalId);
+      // Always update the stored proposal buffer so re-adds overwrite with latest data
+      await this.proposals.set(proposalId, blockProposal.toBuffer());
     });
+  }
+
+  public async hasReachedProposalCap(slot: SlotNumber): Promise<boolean> {
+    const uniqueProposalCount = await this.proposalsForSlot.getValueCountAsync(slot);
+    return uniqueProposalCount >= MAX_PROPOSALS_PER_SLOT;
+  }
+
+  public async hasReachedAttestationCap(slot: SlotNumber, proposalId: string, committeeSize: number): Promise<boolean> {
+    const limit = committeeSize + ATTESTATION_CAP_BUFFER;
+    return (await this.attestationsForProposal.getValueCountAsync(this.getProposalKey(slot, proposalId))) >= limit;
+  }
+
+  public async canAddProposal(block: BlockProposal): Promise<boolean> {
+    return (
+      (await this.proposals.hasAsync(block.archive.toString())) || !(await this.hasReachedProposalCap(block.slotNumber))
+    );
+  }
+
+  public async canAddAttestation(attestation: BlockAttestation, committeeSize: number): Promise<boolean> {
+    return (
+      (await this.hasAttestation(attestation)) ||
+      !(await this.hasReachedAttestationCap(
+        attestation.payload.header.slotNumber,
+        attestation.archive.toString(),
+        committeeSize,
+      ))
+    );
   }
 }

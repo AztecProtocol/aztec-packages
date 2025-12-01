@@ -4,14 +4,17 @@ import { schemas } from '../schemas/index.js';
 import { L2BlockHash } from './block_hash.js';
 import type { L2Block } from './l2_block.js';
 
-// Note: If you expand this type with indexInBlock, then delete `IndexedTxEffect` and use this type instead.
-export type InBlock<T> = {
+export type InBlock = {
   l2BlockNumber: number;
   l2BlockHash: L2BlockHash;
-  data: T;
 };
 
-export function randomInBlock<T>(data: T): InBlock<T> {
+// Note: If you expand this type with indexInBlock, then delete `IndexedTxEffect` and use this type instead.
+export type DataInBlock<T> = {
+  data: T;
+} & InBlock;
+
+export function randomInBlock<T>(data: T): DataInBlock<T> {
   return {
     data,
     l2BlockNumber: Math.floor(Math.random() * 1000),
@@ -19,7 +22,7 @@ export function randomInBlock<T>(data: T): InBlock<T> {
   };
 }
 
-export async function wrapInBlock<T>(data: T, block: L2Block): Promise<InBlock<T>> {
+export async function wrapInBlock<T>(data: T, block: L2Block): Promise<DataInBlock<T>> {
   return {
     data,
     l2BlockNumber: block.number,

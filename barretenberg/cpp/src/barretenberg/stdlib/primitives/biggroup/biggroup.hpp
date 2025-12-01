@@ -34,48 +34,19 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
-    struct secp256k1_wnaf {
-        std::vector<field_ct> wnaf;
-        bool_ct positive_skew;
-        bool_ct negative_skew;
-        field_ct least_significant_wnaf_fragment;
-        bool has_wnaf_fragment = false;
-    };
-    struct secp256k1_wnaf_pair {
-        secp256k1_wnaf klo;
-        secp256k1_wnaf khi;
-    };
 
     element();
     element(const typename NativeGroup::affine_element& input);
-    element(const Fq& x, const Fq& y);
-    element(const Fq& x, const Fq& y, const bool_ct& is_infinity);
+
+    // Construct a biggroup element from its coordinates
+    // By default, we validate that the point is on the curve
+    element(const Fq& x, const Fq& y, const bool assert_on_curve = true);
+    element(const Fq& x, const Fq& y, const bool_ct& is_infinity, bool assert_on_curve = true);
 
     element(const element& other);
     element(element&& other) noexcept;
 
     ~element() = default;
-
-    /**
-     * @brief Construct a dummy element (the group generator) and return its limbs as fr constants
-     *
-     * @return std::array<fr, PUBLIC_INPUTS_SIZE>
-     */
-    static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
-    {
-        const typename NativeGroup::affine_element& native_val = NativeGroup::affine_element::one();
-        element val(native_val);
-        size_t idx = 0;
-        std::array<fr, PUBLIC_INPUTS_SIZE> limb_vals;
-        for (auto& limb : val._x.binary_basis_limbs) {
-            limb_vals[idx++] = limb.element.get_value();
-        }
-        for (auto& limb : val._y.binary_basis_limbs) {
-            limb_vals[idx++] = limb.element.get_value();
-        }
-        BB_ASSERT_EQ(idx, PUBLIC_INPUTS_SIZE);
-        return limb_vals;
-    }
 
     /**
      * @brief Set the witness indices for the x and y coordinates to public
@@ -102,7 +73,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
         std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
 
-        return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
+        const Fq x = Fq::reconstruct_from_public(x_limbs);
+        const Fq y = Fq::reconstruct_from_public(y_limbs);
+        return element(x, y);
     }
 
     /**
@@ -165,6 +138,14 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         }
     }
 
+    [[nodiscard]] bool is_constant() const
+    {
+        const bool x_is_const = _x.is_constant();
+        const bool y_is_const = _y.is_constant();
+        BB_ASSERT_EQ(x_is_const, y_is_const, "biggroup: x and y coordinate constant status mismatch");
+        return x_is_const;
+    }
+
     /**
      * @brief Creates fixed witnesses from a constant element.
      **/
@@ -198,7 +179,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         uint256_t y = uint256_t(NativeGroup::one.y);
         Fq x_fq(ctx, x);
         Fq y_fq(ctx, y);
-        return element(x_fq, y_fq);
+        return element(x_fq, y_fq, /*assert_on_curve=*/false);
     }
 
     static element point_at_infinity(Builder* ctx)
@@ -207,26 +188,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         zero.unset_free_witness_tag();
         Fq x_fq(zero, zero);
         Fq y_fq(zero, zero);
-        element result(x_fq, y_fq);
+        element result(x_fq, y_fq, /*assert_on_curve=*/false);
         result.set_point_at_infinity(true);
         return result;
     }
 
     element& operator=(const element& other);
     element& operator=(element&& other) noexcept;
-
-    /**
-     * @brief Serialize the element to a byte array in form: (yhi || ylo || xhi || xlo).
-     *
-     * @return byte_array<Builder>
-     */
-    byte_array<Builder> to_byte_array() const
-    {
-        byte_array<Builder> result(get_context());
-        result.write(_y.to_byte_array());
-        result.write(_x.to_byte_array());
-        return result;
-    }
 
     element checked_unconditional_add(const element& other) const;
     element checked_unconditional_subtract(const element& other) const;
@@ -249,7 +217,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         *this = *this - other;
         return *this;
     }
-    std::array<element, 2> checked_unconditional_add_sub(const element& other) const;
 
     element operator*(const Fr& scalar) const;
 
@@ -359,12 +326,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     /**
      * We can chain repeated point additions together, where we only require 2 non-native field multiplications per
      * point addition, instead of 3
+     * NOTE: These must remain public as they are used by nested structs like batch_lookup_table_plookup
      **/
     static chain_add_accumulator chain_add_start(const element& p1, const element& p2);
     static chain_add_accumulator chain_add(const element& p1, const chain_add_accumulator& accumulator);
     static element chain_add_end(const chain_add_accumulator& accumulator);
-    element montgomery_ladder(const element& other) const;
-    element montgomery_ladder(const chain_add_accumulator& to_add);
     element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const;
 
     typename NativeGroup::affine_element get_value() const
@@ -378,13 +344,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return result;
     }
 
-    static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
-                                                                        const std::vector<Fr>& _scalars,
-                                                                        const Fr& masking_scalar = Fr(1));
-
-    static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
-        const std::vector<element>& _points, const std::vector<Fr>& _scalars);
-
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
@@ -394,8 +353,31 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
 
+    /**
+     * @brief Compute Non-Adjacent Form (NAF) representation of a scalar
+     * @details Only used internally in biggroup_nafs.hpp
+     */
     static std::vector<bool_ct> compute_naf(const Fr& scalar, const size_t max_num_bits = 0);
 
+    // Internal struct to represent wNAF for a secp256k1 scalar
+    struct secp256k1_wnaf {
+        std::vector<field_t<Builder>> wnaf;
+        bool_ct positive_skew;
+        bool_ct negative_skew;
+        field_t<Builder> least_significant_wnaf_fragment;
+        bool has_wnaf_fragment = false;
+    };
+
+    // Internal struct to represent a pair of secp256k1 wNAFs
+    struct secp256k1_wnaf_pair {
+        secp256k1_wnaf klo;
+        secp256k1_wnaf khi;
+    };
+
+    /**
+     * @brief Compute endomorphism for a secp256k1 scalar, and then compute the wNAF representation of both halves
+     * @details Only used internally in biggroup_nafs.hpp and biggroup_secp256k1.hpp
+     */
     template <size_t wnaf_size, size_t staggered_lo_offset = 0, size_t staggered_hi_offset = 0>
     static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
 
@@ -409,9 +391,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     // Coordinate accessors (non-owning, const reference)
     const Fq& x() const { return _x; }
     const Fq& y() const { return _y; }
-    // BIGGROUP_AUDITTODO: Remove these non-const accessors by adding explicit methods for mutation where required.
-    Fq& x() { return _x; }
-    Fq& y() { return _y; }
 
     bool_ct is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_ct& is_infinity, const bool& add_to_used_witnesses = false)
@@ -428,6 +407,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         _x.set_origin_tag(tag);
         _y.set_origin_tag(tag);
         _is_infinity.set_origin_tag(tag);
+    }
+
+    void clear_round_provenance() const
+    {
+        _x.clear_round_provenance();
+        _y.clear_round_provenance();
+        _is_infinity.clear_round_provenance();
     }
 
     OriginTag get_origin_tag() const
@@ -462,6 +448,36 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     Fq _x;
     Fq _y;
     bool_ct _is_infinity;
+
+    /**
+     * @brief Compute both add and subtract (a + b, a - b) results simultaneously
+     * @details Only used internally for lookup table generation
+     */
+    std::array<element, 2> checked_unconditional_add_sub(const element& other) const;
+
+    /**
+     * @brief Mask points for batch multiplication to handle edge cases
+     * @param _points The points to be masked
+     * @param _scalars The corresponding scalars
+     * @param masking_scalar The masking scalar used to randomise the points
+     * @return A pair of vectors containing the masked points and scalars
+     *
+     * @details Only used internally in biggroup_edgecase_handling.hpp
+     */
+    static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
+                                                                        const std::vector<Fr>& _scalars,
+                                                                        const Fr& masking_scalar);
+
+    /**
+     * @brief Handle points at infinity in batch operations, replaces (∞, scalar) pairs by (G, 0)
+     * @param _points The input points
+     * @param _scalars The corresponding scalars
+     * @return A pair of vectors containing the processed points and scalars
+     *
+     * @details Only used internally in biggroup_edgecase_handling.hpp
+     */
+    static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
+        const std::vector<element>& _points, const std::vector<Fr>& _scalars);
 
     /**
      * @brief Compute the wNAF representation (in circuit) of a scalar for secp256k1
@@ -936,12 +952,26 @@ class element_test_accessor {
         return element<C, Fq, Fr, G>::template get_staggered_wnaf_fragment_value<wnaf_size>(
             fragment_u64, stagger, is_negative, wnaf_skew);
     }
+
+    template <typename C, typename Fq, typename Fr, typename G>
+    static auto checked_unconditional_add_sub(const element<C, Fq, Fr, G>& elem1, const element<C, Fq, Fr, G>& elem2)
+    {
+        return elem1.checked_unconditional_add_sub(elem2);
+    }
+
+    // Overload for goblin_element
+    template <typename C, typename Fq, typename Fr, typename G>
+    static auto checked_unconditional_add_sub(const element_goblin::goblin_element<C, Fq, Fr, G>& elem1,
+                                              const element_goblin::goblin_element<C, Fq, Fr, G>& elem2)
+    {
+        return elem1.checked_unconditional_add_sub(elem2);
+    }
 };
 
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, element<C, Fq, Fr, G> const& v)
 {
-    return os << "{ " << v._x << " , " << v._y << " }";
+    return os << "{ " << v.x() << " , " << v.y() << " }";
 }
 } // namespace bb::stdlib::element_default
 

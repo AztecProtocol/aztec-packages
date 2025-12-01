@@ -1,14 +1,16 @@
 use crate::{
-    context::{inputs::PrivateContextInputs, returns_hash::ReturnsHash},
-    hash::{hash_args_array, hash_calldata_array},
+    context::{
+        inputs::PrivateContextInputs, note_hash_read::NoteHashRead, returns_hash::ReturnsHash,
+    },
+    hash::{hash_args, hash_calldata_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
     oracle::{
         block_header::get_block_header_at,
         call_private_function::call_private_function_internal,
         enqueue_public_function_call::{
-            notify_enqueued_public_function_call, notify_set_min_revertible_side_effect_counter,
-            notify_set_public_teardown_function_call,
+            is_side_effect_counter_revertible_oracle_wrapper, notify_enqueued_public_function_call,
+            notify_set_min_revertible_side_effect_counter, notify_set_public_teardown_function_call,
         },
         execution_cache,
         key_validation_request::get_key_validation_request,
@@ -43,9 +45,9 @@ use dep::protocol_types::{
     },
     hash::poseidon2_hash,
     messaging::l2_to_l1_message::L2ToL1Message,
-    side_effect::Counted,
+    side_effect::{Counted, scoped::Scoped},
     traits::{Empty, Hash, ToField},
-    utils::arrays::{ClaimedLengthArray, trimmed_array_length_hint},
+    utils::arrays::{ClaimedLengthArray, find_first_index, trimmed_array_length_hint},
 };
 
 /// # PrivateContext
@@ -178,8 +180,8 @@ pub struct PrivateContext {
 
     pub include_by_timestamp: u64,
 
-    pub note_hash_read_requests: BoundedVec<Counted<Field>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
-    pub nullifier_read_requests: BoundedVec<Counted<Field>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    pub note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    pub nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     pub note_hashes: BoundedVec<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,
@@ -201,6 +203,9 @@ pub struct PrivateContext {
     // fetching the same request multiple times.
     // The index of the array corresponds to the key type (0 nullifier, 1 incoming, 2 outgoing, 3 tagging).
     pub last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
+
+    pub expected_non_revertible_side_effect_counter: u32,
+    pub expected_revertible_side_effect_counter: u32,
 }
 
 impl PrivateContext {
@@ -228,6 +233,8 @@ impl PrivateContext {
             private_logs: BoundedVec::new(),
             contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
+            expected_non_revertible_side_effect_counter: 0,
+            expected_revertible_side_effect_counter: 0,
         }
     }
 
@@ -565,7 +572,7 @@ impl PrivateContext {
     /// * `serialized_return_values` - The serialized return values as a field array
     ///
     pub fn set_return_hash<let N: u32>(&mut self, serialized_return_values: [Field; N]) {
-        let return_hash = hash_args_array(serialized_return_values);
+        let return_hash = hash_args(serialized_return_values);
         self.return_hash = return_hash;
         execution_cache::store(serialized_return_values, return_hash);
     }
@@ -606,6 +613,9 @@ impl PrivateContext {
             ),
             anchor_block_header: self.anchor_block_header,
             tx_context: self.inputs.tx_context,
+            expected_non_revertible_side_effect_counter: self
+                .expected_non_revertible_side_effect_counter,
+            expected_revertible_side_effect_counter: self.expected_revertible_side_effect_counter,
         }
     }
 
@@ -628,6 +638,25 @@ impl PrivateContext {
             [self.this_address().to_field()],
         );
         self.is_fee_payer = true;
+    }
+
+    pub fn in_revertible_phase(&mut self) -> bool {
+        let current_counter = self.side_effect_counter;
+
+        // Safety: Kernel will validate that the claim is correct by validating the expected counters.
+        let is_revertible =
+            unsafe { is_side_effect_counter_revertible_oracle_wrapper(current_counter) };
+
+        if is_revertible {
+            if (self.expected_revertible_side_effect_counter == 0)
+                | (current_counter < self.expected_revertible_side_effect_counter) {
+                self.expected_revertible_side_effect_counter = current_counter;
+            }
+        } else if current_counter > self.expected_non_revertible_side_effect_counter {
+            self.expected_non_revertible_side_effect_counter = current_counter;
+        }
+
+        is_revertible
     }
 
     /// Declares the end of the "setup phase" of this tx.
@@ -659,6 +688,9 @@ impl PrivateContext {
     /// PrivateContext's _current_ side effect counter.
     ///
     pub fn end_setup(&mut self) {
+        // Incrementing the side effect counter when ending setup ensures non
+        // ambiguity for the counter where we change phases.
+        self.side_effect_counter += 1;
         // dep::protocol_types::debug_log::debug_log_format(
         //     "Ending setup at counter {0}",
         //     [self.side_effect_counter as Field]
@@ -731,7 +763,7 @@ impl PrivateContext {
     /// requests.
     ///
     /// # Arguments
-    /// * `note_hash` - The note hash to read and verify
+    /// * `note_hash_read` - The note hash to read and verify
     ///
     /// # Advanced
     /// In "traditional" circuits for non-Aztec privacy applications, the merkle
@@ -763,9 +795,42 @@ impl PrivateContext {
     /// than performing the read in a later tx, after waiting for the earlier tx
     /// to be included, to ensure the note is included in the tree).
     ///
-    pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
-        let side_effect = Counted::new(note_hash, self.next_counter());
+    pub fn push_note_hash_read_request(&mut self, note_hash_read: NoteHashRead) {
+        let note_hash = note_hash_read.note_hash();
+        let contract_address = note_hash_read.contract_address().unwrap_or(AztecAddress::zero());
+        let side_effect = Scoped::new(
+            Counted::new(note_hash, self.next_counter()),
+            contract_address,
+        );
         self.note_hash_read_requests.push(side_effect);
+    }
+
+    /// Asserts that a NoteHashRead has been requested to the kernel by this context.
+    /// Asserts instead of returning a boolean to save on gates.
+    ///
+    /// # Arguments
+    /// * `note_hash_read` - The note hash read to assert that has been requested.
+    ///
+    pub fn assert_has_been_requested(self, note_hash_read: NoteHashRead) {
+        let note_hash = note_hash_read.note_hash();
+        let contract_address = note_hash_read.contract_address().unwrap_or(AztecAddress::zero());
+
+        // Safety: The index is constrained by the checks below.
+        let hinted_index = unsafe {
+            find_first_index(
+                self.note_hash_read_requests.storage(),
+                |r| (r.contract_address == contract_address) & (r.innermost() == note_hash),
+            )
+        };
+        // This assertion is not necessary, since the .get would fail. But it enables us to have a more explicit error message.
+        assert(
+            hinted_index != self.note_hash_read_requests.max_len(),
+            "Note hash read has not been requested",
+        );
+
+        let request = self.note_hash_read_requests.get(hinted_index);
+        assert_eq(request.contract_address, contract_address);
+        assert_eq(request.innermost(), note_hash);
     }
 
     /// Requests to read a specific nullifier from the nullifier tree.
@@ -786,15 +851,23 @@ impl PrivateContext {
     ///
     /// # Arguments
     /// * `nullifier` - The nullifier to read and verify
+    /// * `contract_address` - The contract address that emitted the nullifier
     ///
     /// # Advanced
     /// This approach improves latency between writes and reads:
     /// a function can read a nullifier which was created earlier in the tx
     /// (rather than performing the read in a later tx, after waiting for the
-    /// earlier tx to be included, to ensure the note is included in the tree).
+    /// earlier tx to be included, to ensure the nullifier is included in the tree).
     ///
-    pub fn push_nullifier_read_request(&mut self, nullifier: Field) {
-        let request = Counted::new(nullifier, self.next_counter());
+    pub fn push_nullifier_read_request(
+        &mut self,
+        nullifier: Field,
+        contract_address: AztecAddress,
+    ) {
+        let request = Scoped::new(
+            Counted::new(nullifier, self.next_counter()),
+            contract_address,
+        );
         self.nullifier_read_requests.push(request);
     }
 
@@ -1190,7 +1263,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ArgsCount],
     ) -> ReturnsHash {
-        let args_hash = hash_args_array(args);
+        let args_hash = hash_args(args);
         execution_cache::store(args, args_hash);
         self.call_private_function_with_args_hash(
             contract_address,
@@ -1224,7 +1297,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ArgsCount],
     ) -> ReturnsHash {
-        let args_hash = hash_args_array(args);
+        let args_hash = hash_args(args);
         execution_cache::store(args, args_hash);
         self.call_private_function_with_args_hash(
             contract_address,
@@ -1756,6 +1829,8 @@ impl Empty for PrivateContext {
             private_logs: BoundedVec::new(),
             contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
+            expected_non_revertible_side_effect_counter: 0,
+            expected_revertible_side_effect_counter: 0,
         }
     }
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 
@@ -12,7 +14,7 @@ struct U256Decomposition {
     bool operator==(const U256Decomposition& other) const = default;
 };
 
-U256Decomposition decompose(const uint256_t& x);
+U256Decomposition decompose_256(const uint256_t& x);
 
 struct U128Decomposition {
     uint64_t lo;
@@ -21,6 +23,6 @@ struct U128Decomposition {
     bool operator==(const U128Decomposition& other) const = default;
 };
 
-U128Decomposition decompose(const uint128_t& x);
+U128Decomposition decompose_128(const uint128_t& x);
 
 } // namespace bb::avm2::simulation

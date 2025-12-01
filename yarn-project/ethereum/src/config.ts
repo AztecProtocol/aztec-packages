@@ -29,7 +29,9 @@ export type L1ContractsConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: number;
   /** The number of epochs to lag behind the current epoch for validator selection. */
-  lagInEpochs: number;
+  lagInEpochsForValidatorSet: number;
+  /** The number of epochs to lag behind the current epoch for randao selection. */
+  lagInEpochsForRandao: number;
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
@@ -77,7 +79,8 @@ export const DefaultL1ContractsConfig = {
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
-  lagInEpochs: 2,
+  lagInEpochsForValidatorSet: 2,
+  lagInEpochsForRandao: 2, // For PROD, this value should be > lagInEpochsForValidatorSet
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   activationThreshold: 100n * 10n ** 18n,
   ejectionThreshold: 50n * 10n ** 18n,
@@ -90,7 +93,7 @@ export const DefaultL1ContractsConfig = {
   slashingExecutionDelayInRounds: 0, // round N may be submitted in round N + 1
   slashingVetoer: EthAddress.ZERO,
   governanceProposerRoundSize: 300,
-  manaTarget: BigInt(1e10),
+  manaTarget: BigInt(100e6),
   provingCostPerMana: BigInt(100),
   exitDelaySeconds: 2 * 24 * 60 * 60,
   slasherFlavor: 'tally' as const,
@@ -138,7 +141,7 @@ const TestnetGovernanceConfiguration = {
   gracePeriod: 1n * 24n * 60n * 60n, // 1 day
   quorum: 2n * 10n ** 17n, // 20%
   requiredYeaMargin: 1n * 10n ** 17n, // 10%
-  minimumVotes: 1250n * 200_000n * 10n ** 18n,
+  minimumVotes: 100n * 200_000n * 10n ** 18n,
 };
 
 const StagingIgnitionGovernanceConfiguration = {
@@ -200,14 +203,14 @@ const DefaultRewardConfig = {
   sequencerBps: 8000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
-  blockReward: 500n * 10n ** 18n,
+  checkpointReward: 500n * 10n ** 18n,
 };
 
 const MainnetRewardConfig = {
   sequencerBps: 7_000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
-  blockReward: 400n * 10n ** 18n,
+  checkpointReward: 400n * 10n ** 18n,
 };
 
 export const getRewardConfig = (networkName: NetworkNames) => {
@@ -256,11 +259,11 @@ const StagingPublicEntryQueueConfig = {
 };
 
 const TestnetEntryQueueConfig = {
-  bootstrapValidatorSetSize: 750n,
-  bootstrapFlushSize: 32n,
-  normalFlushSizeMin: 32n,
-  normalFlushSizeQuotient: 2475n,
-  maxQueueFlushSize: 32n,
+  bootstrapValidatorSetSize: 256n,
+  bootstrapFlushSize: 256n,
+  normalFlushSizeMin: 4n,
+  normalFlushSizeQuotient: 2048n,
+  maxQueueFlushSize: 8n,
 };
 
 const StagingIgnitionEntryQueueConfig = {
@@ -321,10 +324,15 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The target validator committee size.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
   },
-  lagInEpochs: {
-    env: 'AZTEC_LAG_IN_EPOCHS',
+  lagInEpochsForValidatorSet: {
+    env: 'AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET',
     description: 'The number of epochs to lag behind the current epoch for validator selection.',
-    ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochs),
+    ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochsForValidatorSet),
+  },
+  lagInEpochsForRandao: {
+    env: 'AZTEC_LAG_IN_EPOCHS_FOR_RANDAO',
+    description: 'The number of epochs to lag behind the current epoch for randao selection.',
+    ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochsForRandao),
   },
   aztecProofSubmissionEpochs: {
     env: 'AZTEC_PROOF_SUBMISSION_EPOCHS',

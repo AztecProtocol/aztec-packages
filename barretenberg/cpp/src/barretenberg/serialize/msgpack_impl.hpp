@@ -5,7 +5,9 @@
 // - bind the input as a coded msgpack array of all the arguments (using template metamagic)
 // - bind the return value to an out buffer, where the caller must free the memory
 
-#define MSGPACK_NO_BOOST
+#include <cstring>
+#include <type_traits>
+
 #include "barretenberg/common/try_catch_shim.hpp"
 #include "msgpack_impl/check_memory_span.hpp"
 #include "msgpack_impl/concepts.hpp"
@@ -15,9 +17,6 @@
 #include "msgpack_impl/schema_impl.hpp"
 #include "msgpack_impl/schema_name.hpp"
 #include "msgpack_impl/struct_map_impl.hpp"
-
-#include <cstring>
-#include <type_traits>
 
 /**
  * Represents this as a bbmalloc'ed object, fit for sending to e.g. TypeScript.

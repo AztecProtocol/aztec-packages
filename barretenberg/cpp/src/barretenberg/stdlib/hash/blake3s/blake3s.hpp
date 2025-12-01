@@ -15,11 +15,9 @@ template <typename Builder> class Blake3s {
     using byte_array_ct = byte_array<Builder>;
     using field_ct = field_t<Builder>;
 
-/*
- * Constants and more.
- */
-#define BLAKE3_VERSION_STRING "0.3.7"
-
+    /*
+     * Constants and more.
+     */
     // internal flags
     enum blake3_flags {
         CHUNK_START = 1 << 0,
@@ -31,6 +29,9 @@ template <typename Builder> class Blake3s {
         DERIVE_KEY_MATERIAL = 1 << 6,
     };
     static constexpr size_t BLAKE3_STATE_SIZE = stdlib::blake_util::BLAKE_STATE_SIZE;
+
+    static constexpr size_t BLAKE3_CV_WORDS = 8;
+
     // constants
     enum blake3s_constant { BLAKE3_KEY_LEN = 32, BLAKE3_OUT_LEN = 32, BLAKE3_BLOCK_LEN = 64, BLAKE3_CHUNK_LEN = 1024 };
 
@@ -38,9 +39,9 @@ template <typename Builder> class Blake3s {
                                                  0x510E527FUL, 0x9B05688CUL, 0x1F83D9ABUL, 0x5BE0CD19UL };
 
     struct blake3_hasher {
-        field_t<Builder> key[8];
-        field_t<Builder> cv[8];
-        byte_array<Builder> buf;
+        field_ct key[BLAKE3_CV_WORDS];
+        field_ct cv[BLAKE3_CV_WORDS];
+        byte_array_ct buf;
         uint8_t buf_len;
         uint8_t blocks_compressed;
         uint8_t flags;
@@ -48,21 +49,27 @@ template <typename Builder> class Blake3s {
     };
 
     struct output_t {
-        field_t<Builder> input_cv[8];
-        byte_array<Builder> block;
+        field_ct input_cv[BLAKE3_CV_WORDS];
+        byte_array_ct block;
         uint8_t block_len;
         uint8_t flags;
     };
-    static void compress_pre(field_t<Builder> state[BLAKE3_STATE_SIZE],
-                             const field_t<Builder> cv[8],
+    static void compress_pre(field_ct state[BLAKE3_STATE_SIZE],
+                             const field_ct cv[BLAKE3_CV_WORDS],
                              const byte_array_ct& block,
                              uint8_t block_len,
                              uint8_t flags);
 
-    static void compress_in_place(field_t<Builder> cv[8], const byte_array_ct& block, uint8_t block_len, uint8_t flags);
+    static void compress_in_place(field_ct cv[BLAKE3_CV_WORDS],
+                                  const byte_array_ct& block,
+                                  uint8_t block_len,
+                                  uint8_t flags);
 
-    static void compress_xof(
-        const field_t<Builder> cv[8], const byte_array_ct& block, uint8_t block_len, uint8_t flags, byte_array_ct& out);
+    static void compress_xof(const field_ct cv[BLAKE3_CV_WORDS],
+                             const byte_array_ct& block,
+                             uint8_t block_len,
+                             uint8_t flags,
+                             byte_array_ct& out);
 
     /*
      * Blake3s helper functions.
@@ -76,7 +83,7 @@ template <typename Builder> class Blake3s {
             return 0;
         }
     }
-    static output_t make_output(const field_t<Builder> input_cv[8],
+    static output_t make_output(const field_ct input_cv[BLAKE3_CV_WORDS],
                                 const byte_array_ct& block,
                                 uint8_t block_len,
                                 uint8_t flags);
