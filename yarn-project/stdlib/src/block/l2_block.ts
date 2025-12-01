@@ -1,5 +1,5 @@
 import { type BlockBlobData, encodeBlockBlobData, encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -156,7 +156,12 @@ export class L2Block {
   }
 
   public toCheckpoint() {
-    return new Checkpoint(this.archive, this.getCheckpointHeader(), [this.toL2Block()], this.number);
+    return new Checkpoint(
+      this.archive,
+      this.getCheckpointHeader(),
+      [this.toL2Block()],
+      CheckpointNumber.fromBlockNumber(this.number),
+    );
   }
 
   static fromCheckpoint(checkpoint: Checkpoint) {

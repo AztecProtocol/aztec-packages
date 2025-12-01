@@ -1,5 +1,5 @@
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
@@ -24,7 +24,7 @@ describe('validateCheckpointAttestations', () => {
   const constants = { epochDuration: 10 };
 
   const makeCheckpoint = async (signers: Secp256k1Signer[], committee: EthAddress[], slot?: number) => {
-    const checkpoint = await Checkpoint.random(1, { slotNumber: SlotNumber(slot ?? 1) });
+    const checkpoint = await Checkpoint.random(CheckpointNumber(1), { slotNumber: SlotNumber(slot ?? 1) });
     const attestations = signers.map(signer => makeAttestationFromCheckpoint(checkpoint, signer));
     const committeeAttestations = orderAttestations(attestations, committee);
     return new PublishedCheckpoint(checkpoint, L1PublishedData.random(), committeeAttestations);
