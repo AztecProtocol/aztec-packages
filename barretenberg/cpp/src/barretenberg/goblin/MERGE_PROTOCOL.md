@@ -291,7 +291,7 @@ The verifier observes the following.
     - Merge: $L_j(\kappa)$
     - Merge: $R_j(\kappa)$
         - Note: $M_j(\kappa) = L_j(\kappa) + \kappa^\ell \cdot R_j(\kappa)$ (not an independent constraint)
-    - MegaZK: $R_j(u)$ (as $\text{ecc_op_wire}$ )
+    - MegaZK: $R_j(u)$ (as `ecc_op_wires` )
     - Translator: $M_j(u^\prime)$
     - Translator: $M_{j, \text{shifted}}(u^\prime)$
 
