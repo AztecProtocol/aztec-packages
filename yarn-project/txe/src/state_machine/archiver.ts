@@ -1,5 +1,6 @@
 import { ArchiverStoreHelper, KVArchiverDataStore, type PublishedL2Block } from '@aztec/archiver';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -89,23 +90,23 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     return this.getPublishedBlocks(from, limit).then(blocks => blocks.map(b => b.block));
   }
 
-  public getL2SlotNumber(): Promise<bigint> {
+  public getL2SlotNumber(): Promise<SlotNumber | undefined> {
     throw new Error('TXE Archiver does not implement "getL2SlotNumber"');
   }
 
-  public getL2EpochNumber(): Promise<bigint> {
+  public getL2EpochNumber(): Promise<EpochNumber> {
     throw new Error('TXE Archiver does not implement "getL2EpochNumber"');
   }
 
-  public getBlocksForEpoch(_epochNumber: bigint): Promise<L2Block[]> {
+  public getBlocksForEpoch(_epochNumber: EpochNumber): Promise<L2Block[]> {
     throw new Error('TXE Archiver does not implement "getBlocksForEpoch"');
   }
 
-  public getBlockHeadersForEpoch(_epochNumber: bigint): Promise<BlockHeader[]> {
+  public getBlockHeadersForEpoch(_epochNumber: EpochNumber): Promise<BlockHeader[]> {
     throw new Error('TXE Archiver does not implement "getBlockHeadersForEpoch"');
   }
 
-  public isEpochComplete(_epochNumber: bigint): Promise<boolean> {
+  public isEpochComplete(_epochNumber: EpochNumber): Promise<boolean> {
     throw new Error('TXE Archiver does not implement "isEpochComplete"');
   }
 

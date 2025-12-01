@@ -26,7 +26,7 @@ This tutorial focuses on the L2 side to keep things manageable. You'll learn the
 Let's start simple. Since this is an Ethereum project, it's easier to just start with Hardhat:
 
 ```bash
-git clone https://github.com/signorecello/hardhat-aztec-example
+git clone https://github.com/critesjosh/hardhat-aztec-example
 ```
 
 You're cloning a repo here to make it easier for Aztec's `l1-contracts` to be mapped correctly. You should now have a `hardhat-aztec-example` folder with Hardhat's default starter, with a few changes in `package.json`.

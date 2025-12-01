@@ -1,5 +1,6 @@
-import { BatchedBlob } from '@aztec/blob-lib';
+import { BatchedBlob } from '@aztec/blob-lib/types';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -130,14 +131,14 @@ describe('prover-node-publisher', () => {
 
       // Return the tips specified by the test
       rollup.getTips.mockResolvedValue({
-        pendingBlockNumber,
-        provenBlockNumber,
+        pending: pendingBlockNumber,
+        proven: provenBlockNumber,
       });
 
-      // Return the requested block
-      rollup.getBlock.mockImplementation((blockNumber: bigint) =>
+      // Return the requested checkpoint
+      rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
         Promise.resolve({
-          archive: blocks[Number(blockNumber) - 1].endArchiveRoot.toString(),
+          archive: blocks[checkpointNumber - 1].endArchiveRoot.toString(),
           attestationsHash: '0x', // unused,
           payloadDigest: '0x', // unused,
           headerHash: '0x', // unused,
@@ -173,7 +174,7 @@ describe('prover-node-publisher', () => {
 
       const result = await publisher
         .submitEpochProof({
-          epochNumber: 2,
+          epochNumber: EpochNumber(2),
           fromBlock,
           toBlock,
           publicInputs: ourPublicInputs,
@@ -199,14 +200,14 @@ describe('prover-node-publisher', () => {
 
     // Return the tips specified by the test
     rollup.getTips.mockResolvedValue({
-      pendingBlockNumber: 2n,
-      provenBlockNumber: 1n,
+      pending: 2n,
+      proven: 1n,
     });
 
     // Return the requested block
-    rollup.getBlock.mockImplementation((i: bigint) =>
+    rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
       Promise.resolve({
-        archive: blocks[Number(i) - 1].endArchiveRoot.toString(),
+        archive: blocks[checkpointNumber - 1].endArchiveRoot.toString(),
         attestationsHash: '0x', // unused,
         payloadDigest: '0x', // unused,
         headerHash: '0x', // unused,
@@ -265,7 +266,7 @@ describe('prover-node-publisher', () => {
     });
 
     const result = await publisher.submitEpochProof({
-      epochNumber: 2,
+      epochNumber: EpochNumber(2),
       fromBlock: 2,
       toBlock: 2,
       publicInputs: ourPublicInputs,

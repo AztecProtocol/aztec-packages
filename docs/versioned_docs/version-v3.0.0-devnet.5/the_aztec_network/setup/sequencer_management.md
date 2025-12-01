@@ -21,7 +21,7 @@ Once sufficient attestations are collected (two-thirds of the committee plus one
 
 ### Minimum Hardware Requirements
 
-- 2 core / 4 vCPU (released in 2015 or later)
+- 8 core / 16 vCPU (released in 2015 or later)
 - 16 GB RAM
 - 1 TB NVMe SSD
 - 25 Mbps network connection
@@ -212,7 +212,6 @@ services:
     container_name: "aztec-sequencer"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
-      - ${AZTEC_ADMIN_PORT}:${AZTEC_ADMIN_PORT}
       - ${P2P_PORT}:${P2P_PORT}
       - ${P2P_PORT}:${P2P_PORT}/udp
     volumes:
@@ -245,6 +244,17 @@ networks:
   aztec:
     name: aztec
 ```
+
+:::warning Security: Admin Port Not Exposed
+The admin port (8880) is intentionally **not exposed** to the host machine for security reasons. The admin API provides sensitive operations like configuration changes and database rollbacks that should never be accessible from outside the container.
+
+If you need to access admin endpoints, use `docker exec`:
+```bash
+docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
+```
+:::
 
 This configuration includes only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
 

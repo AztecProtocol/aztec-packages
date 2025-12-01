@@ -35,7 +35,7 @@ import {
   ClaimedLengthArrayFromBuffer,
   ClaimedLengthArrayFromFields,
 } from './claimed_length_array.js';
-import { ReadRequest } from './hints/read_request.js';
+import { ScopedReadRequest } from './hints/read_request.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
 import { CountedPublicCallRequest, PublicCallRequest } from './public_call_request.js';
@@ -72,11 +72,11 @@ export class PrivateCircuitPublicInputs {
     /**
      * Read requests created by the corresponding function call.
      */
-    public noteHashReadRequests: ClaimedLengthArray<ReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    public noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     /**
      * Nullifier read requests created by the corresponding function call.
      */
-    public nullifierReadRequests: ClaimedLengthArray<ReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    public nullifierReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     /**
      * Key validation requests and generators created by the corresponding function call.
      */
@@ -125,6 +125,14 @@ export class PrivateCircuitPublicInputs {
      */
     public endSideEffectCounter: Fr,
     /**
+     * The expected non revertible side effect counter for this call.
+     */
+    public expectedNonRevertibleSideEffectCounter: Fr,
+    /**
+     * The expected revertible side effect counter for this call.
+     */
+    public expectedRevertibleSideEffectCounter: Fr,
+    /**
      * Header of a block whose state is used during private execution (not the block the transaction is included in).
      */
     public anchorBlockHeader: BlockHeader,
@@ -161,8 +169,8 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readBoolean(),
       reader.readUInt64(),
-      reader.readObject(ClaimedLengthArrayFromBuffer(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
-      reader.readObject(ClaimedLengthArrayFromBuffer(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromBuffer(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromBuffer(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
         ClaimedLengthArrayFromBuffer(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ),
@@ -174,6 +182,8 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(ClaimedLengthArrayFromBuffer(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL)),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(BlockHeader),
@@ -190,8 +200,8 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readBoolean(),
       reader.readU64(),
-      reader.readObject(ClaimedLengthArrayFromFields(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
-      reader.readObject(ClaimedLengthArrayFromFields(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromFields(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromFields(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
         ClaimedLengthArrayFromFields(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ),
@@ -203,6 +213,8 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(ClaimedLengthArrayFromFields(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL)),
+      reader.readField(),
+      reader.readField(),
       reader.readField(),
       reader.readField(),
       reader.readObject(BlockHeader),
@@ -222,8 +234,8 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       false,
       0n,
-      ClaimedLengthArray.empty(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
-      ClaimedLengthArray.empty(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
+      ClaimedLengthArray.empty(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
+      ClaimedLengthArray.empty(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(NoteHash, MAX_NOTE_HASHES_PER_CALL),
       ClaimedLengthArray.empty(Nullifier, MAX_NULLIFIERS_PER_CALL),
@@ -233,6 +245,8 @@ export class PrivateCircuitPublicInputs {
       ClaimedLengthArray.empty(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL),
       ClaimedLengthArray.empty(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL),
       ClaimedLengthArray.empty(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL),
+      Fr.ZERO,
+      Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       BlockHeader.empty(),
@@ -261,6 +275,8 @@ export class PrivateCircuitPublicInputs {
       this.contractClassLogsHashes.isEmpty() &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
+      this.expectedNonRevertibleSideEffectCounter.isZero() &&
+      this.expectedRevertibleSideEffectCounter.isZero() &&
       this.anchorBlockHeader.isEmpty() &&
       this.txContext.isEmpty()
     );
@@ -292,6 +308,8 @@ export class PrivateCircuitPublicInputs {
       fields.contractClassLogsHashes,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
+      fields.expectedNonRevertibleSideEffectCounter,
+      fields.expectedRevertibleSideEffectCounter,
       fields.anchorBlockHeader,
       fields.txContext,
     ] as const;
@@ -324,6 +342,8 @@ export class PrivateCircuitPublicInputs {
       this.contractClassLogsHashes,
       this.startSideEffectCounter,
       this.endSideEffectCounter,
+      this.expectedNonRevertibleSideEffectCounter,
+      this.expectedRevertibleSideEffectCounter,
       this.anchorBlockHeader,
       this.txContext,
     ]);

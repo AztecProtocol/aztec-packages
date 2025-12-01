@@ -32,6 +32,7 @@ import {
   createDelayedL1TxUtilsFromViemWallet,
   startAnvil,
 } from '@aztec/ethereum/test';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -499,7 +500,7 @@ export async function setup(
         deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       );
 
-      const blockReward = await rollup.getBlockReward();
+      const blockReward = await rollup.getCheckpointReward();
       const mintAmount = 10_000n * (blockReward as bigint);
 
       const feeJuice = getContract({
@@ -646,7 +647,11 @@ export async function setup(
       (opts.initialValidators && opts.initialValidators.length > 0)
     ) {
       // We need to advance such that the committee is set up.
-      await cheatCodes.rollup.advanceToEpoch((await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochs + 1));
+      await cheatCodes.rollup.advanceToEpoch(
+        EpochNumber.fromBigInt(
+          BigInt(await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochsForValidatorSet + 1),
+        ),
+      );
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }
@@ -858,7 +863,7 @@ export async function setupSponsoredFPC(wallet: Wallet) {
     salt: new Fr(SPONSORED_FPC_SALT),
   });
 
-  await wallet.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
+  await wallet.registerContract(instance, SponsoredFPCContract.artifact);
   getLogger().info(`SponsoredFPC: ${instance.address}`);
   return instance;
 }
@@ -868,7 +873,7 @@ export async function setupSponsoredFPC(wallet: Wallet) {
  * @param wallet - The wallet
  */
 export async function registerSponsoredFPC(wallet: Wallet): Promise<void> {
-  await wallet.registerContract({ instance: await getSponsoredFPCInstance(), artifact: SponsoredFPCContract.artifact });
+  await wallet.registerContract(await getSponsoredFPCInstance(), SponsoredFPCContract.artifact);
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {

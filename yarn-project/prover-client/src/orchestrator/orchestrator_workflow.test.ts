@@ -1,4 +1,5 @@
 import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -46,7 +47,6 @@ describe('prover/orchestrator', () => {
           constants,
           blocks: [{ header }],
           l1ToL2Messages,
-          totalNumBlobFields,
           previousBlockHeader,
         } = await context.makeCheckpoint(1, { numTxsPerBlock: 0, numL1ToL2Messages });
 
@@ -84,14 +84,13 @@ describe('prover/orchestrator', () => {
         });
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
           constants,
           [message],
           1,
-          totalNumBlobFields,
           previousBlockHeader,
         );
 
@@ -129,19 +128,17 @@ describe('prover/orchestrator', () => {
         const {
           constants,
           blocks: [{ header, txs }],
-          totalNumBlobFields,
           previousBlockHeader,
         } = await context.makeCheckpoint(numBlocks);
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
           constants,
           [],
           numBlocks,
-          totalNumBlobFields,
           previousBlockHeader,
         );
 
@@ -165,7 +162,6 @@ describe('prover/orchestrator', () => {
         const {
           constants,
           blocks: [{ header, txs }],
-          totalNumBlobFields,
           previousBlockHeader,
         } = await context.makeCheckpoint(numBlocks, {
           numTxsPerBlock: 2,
@@ -173,14 +169,13 @@ describe('prover/orchestrator', () => {
         });
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
         await orchestrator.startNewCheckpoint(
           0, // checkpointIndex
           constants,
           [],
           numBlocks,
-          totalNumBlobFields,
           previousBlockHeader,
         );
 
@@ -222,18 +217,16 @@ describe('prover/orchestrator', () => {
         );
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
+        context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
 
         // Start checkpoint in reverse order.
         for (let checkpointIndex = numCheckpoints - 1; checkpointIndex >= 0; checkpointIndex--) {
-          const { constants, blocks, l1ToL2Messages, totalNumBlobFields, previousBlockHeader } =
-            checkpoints[checkpointIndex];
+          const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
           await context.orchestrator.startNewCheckpoint(
             checkpointIndex,
             constants,
             l1ToL2Messages,
             blocks.length,
-            totalNumBlobFields,
             previousBlockHeader,
           );
 
@@ -261,17 +254,16 @@ describe('prover/orchestrator', () => {
         );
 
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
+        context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
 
         await Promise.all(
           checkpoints.map(async (checkpoint, checkpointIndex) => {
-            const { constants, blocks, l1ToL2Messages, totalNumBlobFields, previousBlockHeader } = checkpoint;
+            const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoint;
             await context.orchestrator.startNewCheckpoint(
               checkpointIndex,
               constants,
               l1ToL2Messages,
               blocks.length,
-              totalNumBlobFields,
               previousBlockHeader,
             );
 

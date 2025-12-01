@@ -1,5 +1,6 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
@@ -22,7 +23,9 @@ describe('e2e_epochs/epochs_multi_proof', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup();
+    // Don't start prover node during setup - we'll create and manage all prover nodes in the test
+    // This ensures we can apply delay patches before any prover starts proving
+    test = await EpochsTestContext.setup({ startProverNode: false });
     ({ context, rollup, constants, logger, L1_BLOCK_TIME_IN_S } = test);
   });
 
@@ -32,12 +35,15 @@ describe('e2e_epochs/epochs_multi_proof', () => {
   });
 
   it('submits proofs from multiple prover-nodes', async () => {
-    await test.createProverNode();
-    await test.createProverNode();
-    const proverIds = test.proverNodes.map(prover => prover.getProverId());
-    logger.info(`Prover nodes running with ids ${proverIds.map(id => id.toString()).join(', ')}`);
+    // Create all three prover nodes without starting them
+    // This allows us to apply the delay patches before any proving begins
+    await test.createProverNode({ dontStart: true });
+    await test.createProverNode({ dontStart: true });
+    await test.createProverNode({ dontStart: true });
 
     // Add a delay to prover nodes so not all txs land on the same place
+    // We apply patches BEFORE starting the prover nodes to ensure all provers get the delay
+    // This prevents the race condition where multiple provers submit to L1 at the same time
     test.proverNodes.forEach((prover, index) => {
       const proverManager = prover.getProver();
       const origCreateEpochProver = proverManager.createEpochProver.bind(proverManager);
@@ -55,10 +61,16 @@ describe('e2e_epochs/epochs_multi_proof', () => {
       };
     });
 
+    // Now start all prover nodes after patches have been applied
+    await Promise.all(test.proverNodes.map(prover => prover.start()));
+
+    const proverIds = test.proverNodes.map(prover => prover.getProverId());
+    logger.info(`Prover nodes running with ids ${proverIds.map(id => id.toString()).join(', ')}`);
+
     // Wait until the start of epoch one and collect info on epoch zero
     await test.waitUntilEpochStarts(1);
     await sleep(L1_BLOCK_TIME_IN_S * 1000);
-    const [_firstEpochStartSlot, firstEpochEndSlot] = getSlotRangeForEpoch(0n, constants);
+    const [_firstEpochStartSlot, firstEpochEndSlot] = getSlotRangeForEpoch(EpochNumber(0), constants);
     const firstEpochBlocks = await context.aztecNode
       .getBlocks(1, test.epochDuration)
       .then(blocks => blocks.filter(block => block.header.getSlot() <= firstEpochEndSlot));
@@ -70,7 +82,7 @@ describe('e2e_epochs/epochs_multi_proof', () => {
     await retryUntil(
       async () => {
         const haveSubmitted = await Promise.all(
-          proverIds.map(proverId => rollup.getHasSubmittedProof(0, firstEpochLength, proverId)),
+          proverIds.map(proverId => rollup.getHasSubmittedProof(EpochNumber(0), firstEpochLength, proverId)),
         );
         logger.info(`Proof submissions: ${haveSubmitted.join(', ')}`);
         return haveSubmitted.every(submitted => submitted);

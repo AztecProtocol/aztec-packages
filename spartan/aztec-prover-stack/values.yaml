@@ -41,8 +41,6 @@ node:
       - --prover-node
       - --archiver
 
-    hostNetwork: true
-
     configMap:
       envEnabled: true
     secret:

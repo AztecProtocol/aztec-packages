@@ -23,6 +23,8 @@ export interface NoteData {
   contractAddress: AztecAddress;
   /** The storage slot of the note. */
   storageSlot: Fr;
+  /** The randomness injected to the note */
+  randomness: Fr;
   /** The nonce injected into the note hash preimage by kernels. */
   noteNonce: Fr;
   /** A hash of the note as it gets stored in the note hash tree. */
@@ -129,7 +131,14 @@ export interface IPrivateExecutionOracle {
 
   privateStoreInExecutionCache(values: Fr[], hash: Fr): void;
   privateLoadFromExecutionCache(hash: Fr): Promise<Fr[]>;
-  privateNotifyCreatedNote(storageSlot: Fr, noteTypeId: NoteSelector, note: Fr[], noteHash: Fr, counter: number): void;
+  privateNotifyCreatedNote(
+    storageSlot: Fr,
+    randomness: Fr,
+    noteTypeId: NoteSelector,
+    note: Fr[],
+    noteHash: Fr,
+    counter: number,
+  ): void;
   privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number): Promise<void>;
   privateNotifyCreatedNullifier(innerNullifier: Fr): Promise<void>;
   privateNotifyCreatedContractClassLog(log: ContractClassLog, counter: number): void;
@@ -153,6 +162,7 @@ export interface IPrivateExecutionOracle {
     isStaticCall: boolean,
   ): Promise<void>;
   privateNotifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void>;
+  privateIsSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean>;
   privateGetSenderForTags(): Promise<AztecAddress | undefined>;
   privateSetSenderForTags(senderForTags: AztecAddress): Promise<void>;
   privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;

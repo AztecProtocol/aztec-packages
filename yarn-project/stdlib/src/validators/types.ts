@@ -1,3 +1,4 @@
+import type { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
 export type ValidatorStatusType = 'block' | 'attestation';
@@ -9,7 +10,7 @@ export type ValidatorStatusInSlot =
   | 'attestation-sent'
   | 'attestation-missed';
 
-export type ValidatorStatusHistory = { slot: bigint; status: ValidatorStatusInSlot }[];
+export type ValidatorStatusHistory = { slot: SlotNumber; status: ValidatorStatusInSlot }[];
 
 export type ValidatorMissedStats = {
   currentStreak: number;
@@ -20,8 +21,8 @@ export type ValidatorMissedStats = {
 
 export type ValidatorStats = {
   address: EthAddress;
-  lastProposal?: { timestamp: bigint; slot: bigint; date: string };
-  lastAttestation?: { timestamp: bigint; slot: bigint; date: string };
+  lastProposal?: { timestamp: bigint; slot: SlotNumber; date: string };
+  lastAttestation?: { timestamp: bigint; slot: SlotNumber; date: string };
   totalSlots: number;
   missedProposals: ValidatorMissedStats;
   missedAttestations: ValidatorMissedStats;
@@ -30,8 +31,8 @@ export type ValidatorStats = {
 
 export type ValidatorsStats = {
   stats: Record<string, ValidatorStats>;
-  lastProcessedSlot?: bigint;
-  initialSlot?: bigint;
+  lastProcessedSlot?: SlotNumber;
+  initialSlot?: SlotNumber;
   slotWindow: number;
 };
 
@@ -39,8 +40,8 @@ export type ValidatorsEpochPerformance = Record<`0x${string}`, { missed: number;
 
 export type SingleValidatorStats = {
   validator: ValidatorStats;
-  allTimeProvenPerformance: { missed: number; total: number; epoch: bigint }[];
-  lastProcessedSlot?: bigint;
-  initialSlot?: bigint;
+  allTimeProvenPerformance: { missed: number; total: number; epoch: EpochNumber }[];
+  lastProcessedSlot?: SlotNumber;
+  initialSlot?: SlotNumber;
   slotWindow: number;
 };

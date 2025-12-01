@@ -1,5 +1,6 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { RollupContract } from '@aztec/ethereum';
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import {
   Attributes,
   type Gauge,
@@ -41,7 +42,7 @@ export class SequencerMetrics {
   private blockProposalPrecheckFailed: UpDownCounter;
   private slashingAttempts: UpDownCounter;
 
-  private lastSeenSlot?: bigint;
+  private lastSeenSlot?: SlotNumber;
 
   constructor(
     client: TelemetryClient,
@@ -185,7 +186,7 @@ export class SequencerMetrics {
     });
   }
 
-  incOpenSlot(slot: bigint, proposer: string) {
+  incOpenSlot(slot: SlotNumber, proposer: string) {
     // sequencer went through the loop a second time. Noop
     if (slot === this.lastSeenSlot) {
       return;

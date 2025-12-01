@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { UnbalancedMerkleTreeCalculator, computeUnbalancedMerkleTreeRoot } from '@aztec/foundation/trees';
+import { UnbalancedMerkleTreeCalculator, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
 
 export function computeTxOutHash(messages: Fr[]): Fr {
   if (!messages.length) {
@@ -7,7 +7,7 @@ export function computeTxOutHash(messages: Fr[]): Fr {
   }
   // Tx out hash is the root of the unbalanced merkle tree of all the messages.
   // Zero hashes (which should not happen) are not compressed.
-  return Fr.fromBuffer(computeUnbalancedMerkleTreeRoot(messages.map(msg => msg.toBuffer())));
+  return Fr.fromBuffer(computeUnbalancedShaRoot(messages.map(msg => msg.toBuffer())));
 }
 
 export function computeBlockOutHash(messagesPerBlock: Fr[][]): Fr {

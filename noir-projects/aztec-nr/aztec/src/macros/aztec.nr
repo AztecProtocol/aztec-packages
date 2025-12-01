@@ -6,11 +6,13 @@ use crate::macros::{
         internal_functions::generate_call_internal_struct,
     },
     dispatch::generate_public_dispatch,
-    functions::utils::check_each_fn_macroified,
     internals_functions_generation::{create_fn_abi_exports, process_functions},
     notes::NOTES,
     storage::STORAGE_LAYOUT_NAME,
-    utils::{get_trait_impl_method, module_has_storage},
+    utils::{
+        get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal,
+        is_fn_test, module_has_storage,
+    },
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
@@ -194,15 +196,16 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 
                         let note = $unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 
-                        let note_hash = $compute_note_hash(note, storage_slot);
+                        let note_hash = $compute_note_hash(note, storage_slot, randomness);
     
                         // The message discovery process finds settled notes, that is, notes that were created in prior
                         // transactions and are therefore already part of the note hash tree. We therefore compute the
                         // nullification note hash by treating the note as a settled note with the provided note nonce.
                         let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
                             aztec::note::retrieved_note::RetrievedNote{ 
-                                note, 
-                                contract_address, 
+                                note,
+                                contract_address,
+                                randomness,
                                 metadata: aztec::note::note_metadata::SettledNoteMetadata::new(note_nonce).into()
                             }, 
                             storage_slot,
@@ -238,6 +241,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 storage_slot: Field,
                 note_type_id: Field,
                 contract_address: aztec::protocol_types::address::AztecAddress,
+                randomness: Field,
                 note_nonce: Field,
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 $if_note_type_id_match_statements
@@ -260,6 +264,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 _storage_slot: Field,
                 _note_type_id: Field,
                 _contract_address: aztec::protocol_types::address::AztecAddress,
+                _randomness: Field,
                 _nonce: Field,
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 panic(f"This contract does not use private notes")
@@ -311,6 +316,24 @@ comptime fn generate_process_message() -> Quoted {
                 _compute_note_hash_and_nullifier,
                 message_ciphertext,
                 message_context,
+            );
+        }
+    }
+}
+
+/// Checks if each function in the module is marked with either #[external(...)], #[contract_library_method], or #[test].
+/// Non-macroified functions are not allowed in contracts.
+comptime fn check_each_fn_macroified(m: Module) {
+    for f in m.functions() {
+        let name = f.name();
+        if !is_fn_external(f)
+            & !is_fn_contract_library_method(f)
+            & !is_fn_internal(f)
+            & !is_fn_test(f) {
+            // We  don't suggest that #[contract_library_method] is allowed because we don't want to introduce another
+            // concept
+            panic(
+                f"Function {name} must be marked as either #[external(...)], #[internal(...)], or #[test]",
             );
         }
     }

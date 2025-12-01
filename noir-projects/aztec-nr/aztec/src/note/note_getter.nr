@@ -1,5 +1,5 @@
 use crate::{
-    context::PrivateContext,
+    context::{note_hash_read::NoteHashRead, PrivateContext},
     note::{
         note_getter_options::{
             NoteGetterOptions, NoteStatus, PropertySelector, Select, Sort, SortOrder,
@@ -7,7 +7,7 @@ use crate::{
         note_interface::{NoteHash, NoteType},
         note_viewer_options::NoteViewerOptions,
         retrieved_note::RetrievedNote,
-        utils::compute_note_hash_for_read_request,
+        utils::compute_note_hash_read,
     },
     oracle,
     utils::{array, comparison::compare},
@@ -75,7 +75,7 @@ fn check_notes_order<let N: u32>(
 pub fn get_note<Note>(
     context: &mut PrivateContext,
     storage_slot: Field,
-) -> (RetrievedNote<Note>, Field)
+) -> (RetrievedNote<Note>, NoteHashRead)
 where
     Note: NoteType + NoteHash + Packable,
 {
@@ -84,7 +84,7 @@ where
     let retrieved_note = unsafe { view_note::<Note>(storage_slot) };
 
     // For settled notes, the contract address is implicitly checked since the hash returned from
-    // `compute_note_hash_for_read_request` is siloed and kernels verify the siloing during note read request
+    // `compute_note_hash_read` is siloed and kernels verify the siloing during note read request
     // validation. Pending notes however are read with the unsiloed note hash, so we need to check that the contract
     // address returned from the oracle matches. Since branching in circuits is expensive, we perform this check on all
     // note types.
@@ -93,11 +93,10 @@ where
         "Note contract address mismatch.",
     );
 
-    let note_hash_for_read_request =
-        compute_note_hash_for_read_request(retrieved_note, storage_slot);
-    context.push_note_hash_read_request(note_hash_for_read_request);
+    let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
+    context.push_note_hash_read_request(note_hash_read);
 
-    (retrieved_note, note_hash_for_read_request)
+    (retrieved_note, note_hash_read)
 }
 
 /// Returns a BoundedVec of notes that have been proven to have been created by this contract, either in the current or
@@ -112,7 +111,7 @@ pub fn get_notes<Note, let M: u32, PreprocessorArgs, FilterArgs>(
     context: &mut PrivateContext,
     storage_slot: Field,
     options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
-    ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
+    ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
     Note: NoteType + NoteHash + Eq + Packable<N = M>,
 {
@@ -137,7 +136,7 @@ fn constrain_get_notes_internal<Note, let M: u32, PreprocessorArgs, FilterArgs>(
     storage_slot: Field,
     opt_notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
-    ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
+    ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
     Note: NoteType + NoteHash + Eq + Packable<N = M>,
 {
@@ -163,7 +162,7 @@ where
             let retrieved_note = notes.get_unchecked(i);
 
             // For settled notes, the contract address is implicitly checked since the hash returned from
-            // `compute_note_hash_for_read_request` is siloed and kernels verify the siloing during note read request
+            // `compute_note_hash_read` is siloed and kernels verify the siloing during note read request
             // validation. Pending notes however are read with the unsiloed note hash, so we need to check that the
             // contract address returned from the oracle matches. Since branching in circuits is expensive, we perform
             // this check on all note types.
@@ -179,10 +178,9 @@ where
             }
             prev_packed_note = packed_note;
 
-            let note_hash_for_read_request =
-                compute_note_hash_for_read_request(retrieved_note, storage_slot);
-            context.push_note_hash_read_request(note_hash_for_read_request);
-            note_hashes.push(note_hash_for_read_request);
+            let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
+            context.push_note_hash_read_request(note_hash_read);
+            note_hashes.push(note_hash_read);
         };
     }
 

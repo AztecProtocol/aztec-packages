@@ -15,9 +15,9 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b",
-    "build:dev": "tsc -b --watch",
-    "build:ts": "tsc -b",
+    "build": "yarn clean && tsgo -b",
+    "build:dev": "tsgo -b --watch",
+    "build:ts": "tsgo -b",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
@@ -68,12 +68,14 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/pxe": "workspace:^",
-    "@aztec/stdlib": "workspace:^"
+    "@aztec/stdlib": "workspace:^",
+    "@aztec/wallet-sdk": "workspace:^"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
+    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "resolve-typescript-plugin": "^2.0.1",

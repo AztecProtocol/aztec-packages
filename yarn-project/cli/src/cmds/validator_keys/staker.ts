@@ -17,6 +17,7 @@ import type {
 
 import { Wallet } from '@ethersproject/wallet';
 import { readFileSync, writeFileSync } from 'fs';
+import { basename, dirname, join } from 'path';
 import { createPublicClient, fallback, http } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
@@ -275,10 +276,16 @@ export async function generateStakerJson(options: StakerOptions, log: LogFn): Pr
   });
   const gse = new GSEContract(publicClient, gseAddress);
 
-  // Process each validator
-  for (const validator of keystore.validators) {
+  const keystoreBaseName = basename(from, '.json');
+  const outputDir = output ? output : dirname(from);
+
+  for (let i = 0; i < keystore.validators.length; i++) {
+    const validator = keystore.validators[i];
     const outputs = await processAttesterAccounts(validator.attester, gse, password);
-    allOutputs.push(...outputs);
+
+    for (let j = 0; j < outputs.length; j++) {
+      allOutputs.push(outputs[j]);
+    }
   }
 
   if (allOutputs.length === 0) {
@@ -286,13 +293,8 @@ export async function generateStakerJson(options: StakerOptions, log: LogFn): Pr
     return;
   }
 
-  const jsonOutput = prettyPrintJSON(allOutputs);
-
-  // Write to file if output is specified, otherwise log to stdout
-  if (output) {
-    writeFileSync(output, jsonOutput, 'utf-8');
-    log(`Wrote staking data to ${output}`);
-  } else {
-    log(jsonOutput);
-  }
+  // Write a single JSON file with all staker outputs
+  const stakerOutputPath = join(outputDir, `${keystoreBaseName}_staker_output.json`);
+  writeFileSync(stakerOutputPath, prettyPrintJSON(allOutputs), 'utf-8');
+  log(`Wrote staker output for ${allOutputs.length} validator(s) to ${stakerOutputPath}`);
 }

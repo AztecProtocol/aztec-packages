@@ -29,7 +29,7 @@ const publicClient = createPublicClient({
 const ROLLUP_ABI = [
   {
     type: "function",
-    name: "getProvenBlockNumber",
+    name: "getProvenCheckpointNumber",
     inputs: [],
     outputs: [
       {
@@ -42,7 +42,7 @@ const ROLLUP_ABI = [
   },
   {
     type: "function",
-    name: "getPendingBlockNumber",
+    name: "getPendingCheckpointNumber",
     inputs: [],
     outputs: [
       {
@@ -58,35 +58,35 @@ const ROLLUP_ABI = [
 // Add a default label to all metrics (including process metrics)
 client.register.setDefaultLabels({ network: NETWORK as string });
 
-const provenBlockNumberGauge = new client.Gauge({
-  name: "rollup_proven_block_number",
-  help: "The latest proven block number of the rollup",
+const provenCheckpointNumberGauge = new client.Gauge({
+  name: "rollup_proven_checkpoint_number",
+  help: "The latest proven checkpoint number of the rollup",
   labelNames: ["network"],
 });
 
-const pendingBlockNumberGauge = new client.Gauge({
-  name: "rollup_pending_block_number",
-  help: "The latest pending block number of the rollup",
+const pendingCheckpointNumberGauge = new client.Gauge({
+  name: "rollup_pending_checkpoint_number",
+  help: "The latest pending checkpoint number of the rollup",
   labelNames: ["network"],
 });
 
-async function updateBlockNumbers(): Promise<void> {
+async function updateCheckpointNumbers(): Promise<void> {
   try {
-    const provenBlockNumber = await publicClient.readContract({
+    const provenCheckpointNumber = await publicClient.readContract({
       address: ROLLUP_CONTRACT_ADDRESS as `0x${string}`,
       abi: ROLLUP_ABI,
-      functionName: "getProvenBlockNumber",
+      functionName: "getProvenCheckpointNumber",
     });
-    provenBlockNumberGauge.set(Number(provenBlockNumber));
+    provenCheckpointNumberGauge.set(Number(provenCheckpointNumber));
 
-    const pendingBlockNumber = await publicClient.readContract({
+    const pendingCheckpointNumber = await publicClient.readContract({
       address: ROLLUP_CONTRACT_ADDRESS as `0x${string}`,
       abi: ROLLUP_ABI,
-      functionName: "getPendingBlockNumber",
+      functionName: "getPendingCheckpointNumber",
     });
-    pendingBlockNumberGauge.set(Number(pendingBlockNumber));
+    pendingCheckpointNumberGauge.set(Number(pendingCheckpointNumber));
   } catch (error) {
-    console.error("Error updating block numbers:", error);
+    console.error("Error updating checkpoint numbers:", error);
   }
 }
 
@@ -101,8 +101,8 @@ app.listen(port, () => {
   console.log(`Metrics server listening on port ${port}`);
 });
 
-setInterval(updateBlockNumbers, 36000);
-updateBlockNumbers();
+setInterval(updateCheckpointNumbers, 36000);
+updateCheckpointNumbers();
 
 // Expose default process metrics, including process_start_time_seconds
 client.collectDefaultMetrics();

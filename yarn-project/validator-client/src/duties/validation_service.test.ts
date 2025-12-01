@@ -25,9 +25,9 @@ describe('ValidationService', () => {
   it('creates a proposal with txs appended', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const {
-      payload: { header, archive, stateReference },
+      payload: { header, archive },
     } = makeBlockProposal({ txs });
-    const proposal = await service.createBlockProposal(header, archive, stateReference, txs, addresses[0], {
+    const proposal = await service.createBlockProposal(header, archive, txs, addresses[0], {
       publishFullTxs: true,
     });
     expect(proposal.getSender()).toEqual(store.getAddress(0));
@@ -38,9 +38,9 @@ describe('ValidationService', () => {
   it('creates a proposal without txs appended', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const {
-      payload: { header, archive, stateReference },
+      payload: { header, archive },
     } = makeBlockProposal({ txs });
-    const proposal = await service.createBlockProposal(header, archive, stateReference, txs, addresses[0], {
+    const proposal = await service.createBlockProposal(header, archive, txs, addresses[0], {
       publishFullTxs: false,
     });
     expect(proposal.getSender()).toEqual(addresses[0]);

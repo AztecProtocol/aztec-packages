@@ -81,4 +81,15 @@ export class BlobAccumulator {
       BLS12Fr.fromNoirBigNum({ limbs: reader.readFieldArray(BLS12_FR_LIMBS).map(f => f.toString()) }),
     );
   }
+
+  static random() {
+    return new BlobAccumulator(
+      Fr.random(),
+      Fr.random(),
+      BLS12Fr.random(),
+      BLS12Point.random(),
+      Fr.random(),
+      BLS12Fr.random(),
+    );
+  }
 }

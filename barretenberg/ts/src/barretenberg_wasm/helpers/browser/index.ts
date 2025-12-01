@@ -13,7 +13,14 @@ export function getNumCpu() {
   return navigator.hardwareConcurrency;
 }
 
-export function threadLogger(): ((msg: string) => void) | undefined {
+export function threadLogger(useCustomLogger: boolean): ((msg: string) => void) | undefined {
+  if (useCustomLogger) {
+    // Post log messages back to main thread for routing through user-provided logger
+    return (msg: string) => {
+      postMessage({ type: 'log', msg });
+    };
+  }
+  // Use console.log directly when no custom logger is provided
   return console.log;
 }
 

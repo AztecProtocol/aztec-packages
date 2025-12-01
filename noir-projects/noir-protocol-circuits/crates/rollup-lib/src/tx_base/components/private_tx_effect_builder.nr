@@ -1,13 +1,11 @@
-use crate::{
-    abis::TxEffect,
-    tx_base::components::{fees::compute_transaction_fee, tx_blob_data::TxEffectArrayLengths},
-};
+use crate::tx_base::components::fees::compute_transaction_fee;
 use dep::types::{
     abis::{
         block_constant_data::BlockConstantData, contract_class_log::ContractClassLog,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs, log::Log,
         public_data_write::PublicDataWrite, public_logs::PublicLogs,
     },
+    blob_data::{TxEffect, TxEffectArrayLengths},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,

@@ -1,4 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -124,7 +125,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     await debugRollup();
 
     // Wait for the committee to exist
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(2);
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(2));
     await t.ctx.cheatCodes.rollup.markAsProven();
     const committee = await awaitCommitteeExists({ rollup, logger: t.logger });
     await debugRollup();
@@ -136,7 +137,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
 
     // Warp forward to after the initial grace period
     expect(await rollup.getCurrentEpoch()).toBeLessThan(initialEpoch);
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(initialEpoch, { offset: -ethereumSlotDuration });
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(initialEpoch), { offset: -ethereumSlotDuration });
     await t.ctx.cheatCodes.rollup.markAsProven();
 
     // Send a tx to deploy a contract so that we have a tx with public function execution in the pruned epoch

@@ -34,7 +34,7 @@ contract Inbox is IInbox {
   // Practically immutable value as we only set it in the constructor.
   FrontierLib.Forest internal forest;
 
-  mapping(uint256 blockNumber => FrontierLib.Tree tree) public trees;
+  mapping(uint256 checkpointNumber => FrontierLib.Tree tree) public trees;
 
   InboxState internal state;
 
@@ -45,11 +45,12 @@ contract Inbox is IInbox {
     HEIGHT = _height;
     SIZE = 2 ** _height;
 
-    state =
-      InboxState({rollingHash: 0, totalMessagesInserted: 0, inProgress: uint64(Constants.INITIAL_L2_BLOCK_NUM) + 1});
+    state = InboxState({
+      rollingHash: 0, totalMessagesInserted: 0, inProgress: uint64(Constants.INITIAL_CHECKPOINT_NUMBER) + 1
+    });
 
     forest.initialize(_height);
-    EMPTY_ROOT = trees[uint64(Constants.INITIAL_L2_BLOCK_NUM) + 1].root(forest, HEIGHT, SIZE);
+    EMPTY_ROOT = trees[uint64(Constants.INITIAL_CHECKPOINT_NUMBER) + 1].root(forest, HEIGHT, SIZE);
 
     FEE_ASSET_PORTAL = address(new FeeJuicePortal(IRollup(_rollup), _feeAsset, IInbox(this), VERSION));
   }
@@ -91,10 +92,10 @@ contract Inbox is IInbox {
       currentTree = trees[inProgress];
     }
 
-    // this is the global leaf index and not index in the l2Block subtree
+    // this is the global leaf index and not index in the checkpoint subtree
     // such that users can simply use it and don't need access to a node if they are to consume it in public.
     // trees are constant size so global index = tree number * size + subtree index
-    uint256 index = (inProgress - Constants.INITIAL_L2_BLOCK_NUM) * SIZE + currentTree.nextIndex;
+    uint256 index = (inProgress - Constants.INITIAL_CHECKPOINT_NUMBER) * SIZE + currentTree.nextIndex;
 
     // If the sender is the fee asset portal, we use a magic address to simpler have it initialized at genesis.
     // We assume that no-one will know the private key for this address and that the precompile won't change to
@@ -126,10 +127,10 @@ contract Inbox is IInbox {
    * @notice Consumes the current tree, and starts a new one if needed
    *
    * @dev Only callable by the rollup contract
-   * @dev In the first iteration we return empty tree root because first block's messages tree is always
-   * empty because there has to be a 1 block lag to prevent sequencer DOS attacks
+   * @dev In the first iteration we return empty tree root because first checkpoint's messages tree is always
+   * empty because there has to be a 1 checkpoint lag to prevent sequencer DOS attacks
    *
-   * @param _toConsume - The block number to consume
+   * @param _toConsume - The checkpoint number to consume
    *
    * @return The root of the consumed tree
    */
@@ -140,7 +141,7 @@ contract Inbox is IInbox {
     require(_toConsume < inProgress, Errors.Inbox__MustBuildBeforeConsume());
 
     bytes32 root = EMPTY_ROOT;
-    if (_toConsume > Constants.INITIAL_L2_BLOCK_NUM) {
+    if (_toConsume > Constants.INITIAL_CHECKPOINT_NUMBER) {
       root = trees[_toConsume].root(forest, HEIGHT, SIZE);
     }
 
@@ -153,17 +154,17 @@ contract Inbox is IInbox {
   }
 
   /**
-   * @notice Catch up the inbox to the pending block number
+   * @notice Catch up the inbox to the pending checkpoint number
    *
    * @dev Only callable by the rollup contract
    *      Will only be called WHEN a change is made from 0 to non-zero mana limits
    *
-   * @param _pendingBlockNumber - The pending block number to catch up to
+   * @param _pendingCheckpointNumber - The pending checkpoint number to catch up to
    */
-  function catchUp(uint256 _pendingBlockNumber) external override(IInbox) {
+  function catchUp(uint256 _pendingCheckpointNumber) external override(IInbox) {
     require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
-    // The next expected will be 1 ahead of the next block, e.g., + 2 from current.
-    state.inProgress = SafeCast.toUint64(_pendingBlockNumber + 2);
+    // The next expected will be 1 ahead of the next checkpoint, e.g., + 2 from current.
+    state.inProgress = SafeCast.toUint64(_pendingCheckpointNumber + 2);
     emit InboxSynchronized(state.inProgress);
   }
 
@@ -171,8 +172,8 @@ contract Inbox is IInbox {
     return FEE_ASSET_PORTAL;
   }
 
-  function getRoot(uint256 _blockNumber) external view override(IInbox) returns (bytes32) {
-    return trees[_blockNumber].root(forest, HEIGHT, SIZE);
+  function getRoot(uint256 _checkpointNumber) external view override(IInbox) returns (bytes32) {
+    return trees[_checkpointNumber].root(forest, HEIGHT, SIZE);
   }
 
   function getState() external view override(IInbox) returns (InboxState memory) {

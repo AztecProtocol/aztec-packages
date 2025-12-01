@@ -65,41 +65,7 @@ The Aztec network operates through the coordinated interaction of these differen
 4. **Proof Generation**: Prover nodes generate cryptographic proofs for epochs of blocks
 5. **L1 Submission**: Sequencers submit attested blocks and provers submit epoch proofs to Ethereum
 
-## Best Practices
-
-### Snapshot Sync
-
-Nodes can synchronize state in two ways:
-
-1. **L1 sync**: Queries the rollup and data availability layer for historical state directly from Layer 1
-2. **Snapshot sync**: Downloads pre-built state snapshots from a storage location for faster synchronization
-
-Since Aztec uses blobs, syncing from L1 requires an archive node that stores complete blob history from Aztec's deployment. Snapshot sync is significantly faster, doesn't require archive nodes, and reduces load on L1 infrastructure, making it the recommended approach for most deployments.
-
-**Configuring sync mode:**
-
-```bash
-aztec start --node --sync-mode [MODE]
-```
-
-Available sync modes:
-- **`snapshot`**: Downloads and uses a snapshot only if no local data exists (default behavior)
-- **`force-snapshot`**: Downloads and uses a snapshot even if local data exists, overwriting it
-- **`l1`**: Syncs directly from Layer 1 without using snapshots
-
-[Learn more about using and uploading snapshots →](./setup/syncing_best_practices.md)
-
-### Using Bootnodes
-
-Bootnodes facilitate peer discovery by maintaining lists of active peers that new nodes can connect to. To connect your node to a bootnode, pass the bootnode's ENR (Ethereum Node Record) at startup:
-
-```bash
-aztec start --node --p2p.bootstrapNodes [ENR1],[ENR2],[ENR3]
-```
-
-[Learn more about bootnodes →](./setup/bootnode_operation.md)
-
-### Using Your Own L1 Node
+## Using Your Own L1 Node
 
 For optimal performance and reliability, it's highly recommended to run your own Ethereum L1 node rather than relying on third-party RPC providers.
 
@@ -112,33 +78,9 @@ For optimal performance and reliability, it's highly recommended to run your own
 **Requirements:**
 - Access to both execution and consensus client endpoints
 - Endpoints must support high throughput
-- Must be connected to Ethereum mainnet for Aztec mainnet
+- Must be connected to Ethereum Mainnet
 
 See [Eth Docker's guide](https://ethdocker.com/Usage/QuickStart) for setting up your own L1 node.
-
-## Node Reference
-
-For detailed configuration options and command-line reference, see:
-
-- [CLI Reference](./reference/cli_reference.md) - Complete list of all available flags and environment variables
-- [Useful Commands](./operation/sequencer_management/useful_commands.md) - Common operational commands
-- [Operator FAQ](./operation/operator_faq.md) - Frequently asked questions for node operators
-
-## Full Node Quick Start
-
-Get a full node running quickly with this one-liner:
-
-```bash
-aztec supervised-start --node --archiver --p2p.p2pIp $(curl -s ipv4.icanhazip.com) --network mainnet --l1-rpc-urls [YOUR_L1_EXECUTION_RPC] --l1-consensus-host-urls [YOUR_L1_CONSENSUS_RPC]
-```
-
-Replace `[YOUR_L1_EXECUTION_RPC]` and `[YOUR_L1_CONSENSUS_RPC]` with your Ethereum mainnet RPC endpoints.
-
-**Before running this command:**
-- Ensure you've met the [prerequisites](./prerequisites.md) for the CLI method
-- Configure port forwarding for ports 8080 (HTTP) and 40400 (P2P, both TCP/UDP)
-
-[Full installation guide →](./setup/running_a_node.md)
 
 ## Next Steps
 

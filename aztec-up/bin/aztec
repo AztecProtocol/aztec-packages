@@ -556,6 +556,12 @@ EOF
       --entrypoint=/usr/src/noir/noir-repo/target/release/nargo \
       $DOCKER_REPO:$VERSION lsp
     ;;
+  valkeys|valKeys|validator-keys)
+    # Special case for validator keys command to inject LEGACY_BLS_CLI environment variable
+    export ENV_VARS_TO_INJECT="LEGACY_BLS_CLI"
+    exec $(dirname $0)/.aztec-run aztec \
+      node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
+    ;;
   *)
     export ENV_VARS_TO_INJECT="SECRET_KEY"
     exec $(dirname $0)/.aztec-run aztec \

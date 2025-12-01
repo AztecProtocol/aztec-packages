@@ -1,11 +1,12 @@
 import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import type { FeeOptions, Wallet } from '@aztec/aztec.js/wallet';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import type { FeeOptions } from '@aztec/wallet-sdk/base-wallet';
 
 import { Option } from 'commander';
 

@@ -206,7 +206,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
         fr q_o{ -1 };
         fr q_c{ i_a * i_b };
 
-        ctx->create_poly_gate({ witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+        ctx->create_arithmetic_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
     } else if (!is_constant() && other.is_constant()) {
         BB_ASSERT(!other.witness_inverted);
         // If rhs is a constant true, the output is determined by the lhs. Otherwise the output is a constant
@@ -259,7 +260,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const boo
         // Let r := a | b;
         // Constrain
         //      q_m * w_a * w_b + q_l * w_a + q_r * w_b + q_o * r + q_c = 0
-        ctx->create_poly_gate({ witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+        ctx->create_arithmetic_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
     } else if (!is_constant() && other.is_constant()) {
         BB_ASSERT_EQ(other.witness_inverted, false);
 
@@ -314,7 +316,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
         // Let r := a ^ b;
         // Constrain
         //      q_m * w_a * w_b + q_l * w_a + q_r * w_b + q_o * r + q_c = 0
-        ctx->create_poly_gate({ witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+        ctx->create_arithmetic_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
     } else if (!is_constant() && other.is_constant()) {
         // witness ^ 1 = !witness
         BB_ASSERT_EQ(other.witness_inverted, false);
@@ -377,7 +380,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bo
         bb::fr q_o{ bb::fr::neg_one() };
         bb::fr q_c{ 1 - lhs_inverted - rhs_inverted + 2 * rhs_inverted * lhs_inverted };
 
-        ctx->create_poly_gate({ witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+        ctx->create_arithmetic_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
 
     } else if (!is_constant() && (other.is_constant())) {
         // Compare *this with a constant other. If other == true, then we're checking *this == true. In this case we
@@ -533,7 +537,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
     bb::fr q_o = bb::fr::neg_one();
     bb::fr q_m = bb::fr::zero();
     bb::fr q_r = bb::fr::zero();
-    context->create_poly_gate({ witness_index, context->zero_idx(), new_witness, q_m, q_l, q_r, q_o, q_c });
+    context->create_arithmetic_gate({ witness_index, context->zero_idx(), new_witness, q_m, q_l, q_r, q_o, q_c });
 
     witness_index = new_witness;
     witness_bool = value;
