@@ -343,7 +343,7 @@ $v_k(r,X) = c_k(X) + \sum_{i=1}^{40} r_i T_k(B_i^{F_k}(X))$, where $c_k(X)$ is t
 
 Denoting
 
-$ A_{k,i}(X) = T_k(B_i^{F_k}(X))$,
+$A_{k,i}(X) = T_k(B_i^{F_k}(X))$,
 
 we can write
 
@@ -380,15 +380,16 @@ We now argue that there exists at least one $F$ such that $H_{F}$ is non-zero.
 
 - To see why this is true, observe that since $\beta \neq 0$, there exists at least one index $i$, such that $\beta_i \neq 0$.
 - Consider the corresponding randomness $r_i$ at index $i$. As per the placement of the random non-ops in the op-queue, let  $F_{r_i} \in \{L_j, R_j\}$ be the polynomial where $r_i$ appears in $\mathrm{row}_{r_i}$  of $F_{r_i}$.
-- In general, note that the placement of the random non-ops ensures that for each $r_i$ for $i \in \{1, \ldots, 40\}$, there exists polynomial $F_{r_i} \in \{L_j, R_j\}$ and a corresponding row $\mathrm{row}_{r_i}$ such that
+- In general, note that the placement of the random non-ops ensures that for each $r_i$ for $i \in \{1, \ldots, 40\}$, there exists polynomial $F_{r_i} \in \{L_j, R_j\}$ and a corresponding row ${\mathrm{row}}_{r_i}$ such that
 
   (1) the coefficient polynomial $B_i^{F_{r_i}}$ is non-zero. Specifically, $B_i^{F_{r_i}}(\mathrm{row}_{r_i}) \neq 0$,
 
-  (2) no other $r_k$ ($k \neq i$) affects $\mathrm{row}_{r_i}$ of $F_{r_i}$, i.e., $B_k^{F_{r_i}}(\mathrm{row}_{r_i}) = 0$.
+  (2) no other $r_k$ ($k \neq i$) affects ${\mathrm{row}}_{r_i}$ of $F_{r_i}$, i.e., $B_k^{F_{r_i}}(\mathrm{row}_{r_i}) = 0$.
 
 - Evaluating $H_{F_{r_i}}(X)$ at $\mathrm{row}_{r_i}$, we get
 
   $H_{F_{r_i}}(\mathrm{row}_{r_i}) = \sum_{j=1}^{40} \beta_j\, B_j^{F_{r_i}}(\mathrm{row}_{r_i}) = \beta_i\, B_i^{F_{r_i}}(\mathrm{row}_{r_i}) + \sum_{j\neq i} \beta_j\, B_j^{F_{r_i}}(\mathrm{row}_{r_i}) = \beta_i\, B_i^{F_{r_i}}(\mathrm{row}_{r_i}) \neq 0$.
+
 - Thus, given $\beta \neq 0$, there exists at least one $F$ ($F_{r_i}$ in this case) such that $H_{F}$ is non-zero.
 
 In particular, corresponding to $F_{r_i}$, there exists an observable index $k_{r_i}$ with $F_{k_{r_i}} = F_{r_i}$ and a non-zero linear transformation $T_{k_{r_i}}$. Thus, $T_{k_{r_i}}\big(H_{F_{r_i}}(X)\big)$ is non-zero polynomial. This contradicts the assumption that for all $k$, $T_k\big(H_{F_k}(X)\big) = 0$.
