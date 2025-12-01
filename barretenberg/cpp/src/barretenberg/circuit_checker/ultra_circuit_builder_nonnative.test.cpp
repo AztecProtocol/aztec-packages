@@ -2,7 +2,6 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
-#include <cstddef>
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -13,27 +12,27 @@ using namespace bb;
  * Methods under test:
  * ---------------------------
  * evaluate_non_native_field_multiplication    (full a*b = q*p + r computation)
- * range_constrain_two_limbs                   (constrain two limbs to ≤70 bits each)
+ * evaluate_non_native_field_addition          (add two non-native field elements)
+ * evaluate_non_native_field_subtraction       (subtract two non-native field elements)
+ * range_constrain_two_limbs                   (tested indirectly via multiplication tests)
  *
  * TODO: Tests needed for remaining non-native field methods:
  * ---------------------------
  * queue_partial_non_native_field_multiplication  (partial multiplication for caching/deduplication)
- * evaluate_non_native_field_addition             (add two non-native field elements)
- * evaluate_non_native_field_subtraction          (subtract two non-native field elements)
- * decompose_non_native_field_double_width_limb   (split 136-bit limb into two 68-bit limbs)
  * process_non_native_field_multiplications       (finalization: process cached multiplications)
  */
 class UltraCircuitBuilderNonNative : public ::testing::Test {
   protected:
+    static constexpr size_t LIMB_BITS = UltraCircuitBuilder::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+
     // Splits a 256-bit integer into 4 68-bit limbs
     static std::array<fr, 4> split_into_limbs(const uint512_t& input)
     {
-        constexpr size_t NUM_BITS = 68;
         std::array<fr, 4> limbs;
-        limbs[0] = input.slice(0, NUM_BITS).lo;
-        limbs[1] = input.slice(NUM_BITS * 1, NUM_BITS * 2).lo;
-        limbs[2] = input.slice(NUM_BITS * 2, NUM_BITS * 3).lo;
-        limbs[3] = input.slice(NUM_BITS * 3, NUM_BITS * 4).lo;
+        limbs[0] = input.slice(0, LIMB_BITS).lo;
+        limbs[1] = input.slice(LIMB_BITS * 1, LIMB_BITS * 2).lo;
+        limbs[2] = input.slice(LIMB_BITS * 2, LIMB_BITS * 3).lo;
+        limbs[3] = input.slice(LIMB_BITS * 3, LIMB_BITS * 4).lo;
         return limbs;
     }
 
@@ -58,7 +57,7 @@ class UltraCircuitBuilderNonNative : public ::testing::Test {
                                                                     const uint256_t& modulus)
     {
         // Compute negative modulus: (-p) := 2^T - p
-        const uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (68 * 4);
+        const uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (LIMB_BITS * 4);
         auto modulus_limbs = split_into_limbs(BINARY_BASIS_MODULUS - uint512_t(modulus));
 
         // Add a, b, q, r as circuit variables
@@ -89,6 +88,60 @@ class UltraCircuitBuilderNonNative : public ::testing::Test {
         uint1024_t r_big = (a_big * b_big) % p_big;
 
         return { uint256_t(q_big.lo.lo), uint256_t(r_big.lo.lo) };
+    }
+
+    // Type aliases matching builder API for addition/subtraction
+    using scaled_witness = std::pair<uint32_t, fr>;
+    using add_simple = std::tuple<scaled_witness, scaled_witness, fr>;
+
+    // Data structure for addition/subtraction test inputs
+    struct AddSubData {
+        std::array<fr, 4> x_limbs;
+        std::array<fr, 4> y_limbs;
+        fr x_prime;
+        fr y_prime;
+        std::array<fr, 4> x_scales;
+        std::array<fr, 4> y_scales;
+        std::array<fr, 4> addconsts;
+        fr addconstp;
+    };
+
+    // Create random limb values for testing
+    static AddSubData create_random_add_sub_data()
+    {
+        return AddSubData{
+            .x_limbs = { fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element() },
+            .y_limbs = { fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element() },
+            .x_prime = fr::random_element(),
+            .y_prime = fr::random_element(),
+            .x_scales = { fr(1), fr(1), fr(1), fr(1) },
+            .y_scales = { fr(1), fr(1), fr(1), fr(1) },
+            .addconsts = { fr(0), fr(0), fr(0), fr(0) },
+            .addconstp = fr(0),
+        };
+    }
+
+    // Create add_simple tuples from test data and witness indices
+    static std::tuple<add_simple, add_simple, add_simple, add_simple, std::tuple<uint32_t, uint32_t, fr>>
+    create_add_sub_inputs(UltraCircuitBuilder& builder, const AddSubData& data)
+    {
+        // Add witness variables
+        std::array<uint32_t, 4> x_idx, y_idx;
+        for (size_t i = 0; i < 4; i++) {
+            x_idx[i] = builder.add_variable(data.x_limbs[i]);
+            y_idx[i] = builder.add_variable(data.y_limbs[i]);
+        }
+        uint32_t x_p_idx = builder.add_variable(data.x_prime);
+        uint32_t y_p_idx = builder.add_variable(data.y_prime);
+
+        // Build add_simple tuples: ((x_idx, x_scale), (y_idx, y_scale), addconst)
+        add_simple limb0 = { { x_idx[0], data.x_scales[0] }, { y_idx[0], data.y_scales[0] }, data.addconsts[0] };
+        add_simple limb1 = { { x_idx[1], data.x_scales[1] }, { y_idx[1], data.y_scales[1] }, data.addconsts[1] };
+        add_simple limb2 = { { x_idx[2], data.x_scales[2] }, { y_idx[2], data.y_scales[2] }, data.addconsts[2] };
+        add_simple limb3 = { { x_idx[3], data.x_scales[3] }, { y_idx[3], data.y_scales[3] }, data.addconsts[3] };
+        auto limbp = std::make_tuple(x_p_idx, y_p_idx, data.addconstp);
+
+        return { limb0, limb1, limb2, limb3, limbp };
     }
 };
 
@@ -190,5 +243,213 @@ TEST_F(UltraCircuitBuilderNonNative, BlockSelectorIsolation)
         EXPECT_EQ(builder.blocks.nnf.q_lookup()[i], 0);
         EXPECT_EQ(builder.blocks.nnf.q_poseidon2_external()[i], 0);
         EXPECT_EQ(builder.blocks.nnf.q_poseidon2_internal()[i], 0);
+    }
+}
+
+// Verifies non-native field addition with various scaling factors
+TEST_F(UltraCircuitBuilderNonNative, Addition)
+{
+    // Test with identity scaling (z = x + y)
+    {
+        UltraCircuitBuilder builder;
+        auto data = create_random_add_sub_data();
+        auto [limb0, limb1, limb2, limb3, limbp] = create_add_sub_inputs(builder, data);
+        builder.evaluate_non_native_field_addition(limb0, limb1, limb2, limb3, limbp);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    // Test with different scaling factors per limb and non-zero addconstp
+    {
+        UltraCircuitBuilder builder;
+        auto data = create_random_add_sub_data();
+        data.x_scales = { fr(2), fr(3), fr(5), fr(7) };
+        data.y_scales = { fr(11), fr(13), fr(17), fr(19) };
+        data.addconsts = { fr(100), fr(200), fr(300), fr(400) };
+        data.addconstp = fr(500);
+
+        auto [limb0, limb1, limb2, limb3, limbp] = create_add_sub_inputs(builder, data);
+        builder.evaluate_non_native_field_addition(limb0, limb1, limb2, limb3, limbp);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    // Test with negative and zero scaling factors
+    {
+        UltraCircuitBuilder builder;
+        auto data = create_random_add_sub_data();
+        data.x_scales = { fr(-1), fr(0), fr(1), fr(-2) };
+        data.y_scales = { fr(1), fr(-1), fr(0), fr(2) };
+        data.addconsts = { fr(0), fr(-50), fr(50), fr(0) };
+        data.addconstp = fr(-100);
+
+        auto [limb0, limb1, limb2, limb3, limbp] = create_add_sub_inputs(builder, data);
+        builder.evaluate_non_native_field_addition(limb0, limb1, limb2, limb3, limbp);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    // Edge case: all zeros
+    {
+        UltraCircuitBuilder builder;
+        AddSubData data{
+            .x_limbs = { fr(0), fr(0), fr(0), fr(0) },
+            .y_limbs = { fr(0), fr(0), fr(0), fr(0) },
+            .x_prime = fr(0),
+            .y_prime = fr(0),
+            .x_scales = { fr(1), fr(1), fr(1), fr(1) },
+            .y_scales = { fr(1), fr(1), fr(1), fr(1) },
+            .addconsts = { fr(0), fr(0), fr(0), fr(0) },
+            .addconstp = fr(0),
+        };
+        auto [limb0, limb1, limb2, limb3, limbp] = create_add_sub_inputs(builder, data);
+        builder.evaluate_non_native_field_addition(limb0, limb1, limb2, limb3, limbp);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    // Edge case: x == y (doubling)
+    {
+        UltraCircuitBuilder builder;
+        fr val0 = fr::random_element();
+        fr val1 = fr::random_element();
+        fr val2 = fr::random_element();
+        fr val3 = fr::random_element();
+        fr valp = fr::random_element();
+        AddSubData data{
+            .x_limbs = { val0, val1, val2, val3 },
+            .y_limbs = { val0, val1, val2, val3 },
+            .x_prime = valp,
+            .y_prime = valp,
+            .x_scales = { fr(1), fr(1), fr(1), fr(1) },
+            .y_scales = { fr(1), fr(1), fr(1), fr(1) },
+            .addconsts = { fr(0), fr(0), fr(0), fr(0) },
+            .addconstp = fr(0),
+        };
+        auto [limb0, limb1, limb2, limb3, limbp] = create_add_sub_inputs(builder, data);
+        builder.evaluate_non_native_field_addition(limb0, limb1, limb2, limb3, limbp);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+}
+
+// Verifies non-native field subtraction with various scaling factors
+TEST_F(UltraCircuitBuilderNonNative, Subtraction)
+{
+    // Test with identity scaling (z = x - y)
+    {
+        UltraCircuitBuilder builder;
+        auto data = create_random_add_sub_data();
+        auto [limb0, limb1, limb2, limb3, limbp] = create_add_sub_inputs(builder, data);
+        builder.evaluate_non_native_field_subtraction(limb0, limb1, limb2, limb3, limbp);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    // Test with different scaling factors per limb and non-zero addconstp
+    {
+        UltraCircuitBuilder builder;
+        auto data = create_random_add_sub_data();
+        data.x_scales = { fr(2), fr(3), fr(5), fr(7) };
+        data.y_scales = { fr(11), fr(13), fr(17), fr(19) };
+        data.addconsts = { fr(100), fr(200), fr(300), fr(400) };
+        data.addconstp = fr(500);
+
+        auto [limb0, limb1, limb2, limb3, limbp] = create_add_sub_inputs(builder, data);
+        builder.evaluate_non_native_field_subtraction(limb0, limb1, limb2, limb3, limbp);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    // Test with negative and zero scaling factors
+    {
+        UltraCircuitBuilder builder;
+        auto data = create_random_add_sub_data();
+        data.x_scales = { fr(-1), fr(0), fr(1), fr(-2) };
+        data.y_scales = { fr(1), fr(-1), fr(0), fr(2) };
+        data.addconsts = { fr(0), fr(-50), fr(50), fr(0) };
+        data.addconstp = fr(-100);
+
+        auto [limb0, limb1, limb2, limb3, limbp] = create_add_sub_inputs(builder, data);
+        builder.evaluate_non_native_field_subtraction(limb0, limb1, limb2, limb3, limbp);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    // Edge case: all zeros
+    {
+        UltraCircuitBuilder builder;
+        AddSubData data{
+            .x_limbs = { fr(0), fr(0), fr(0), fr(0) },
+            .y_limbs = { fr(0), fr(0), fr(0), fr(0) },
+            .x_prime = fr(0),
+            .y_prime = fr(0),
+            .x_scales = { fr(1), fr(1), fr(1), fr(1) },
+            .y_scales = { fr(1), fr(1), fr(1), fr(1) },
+            .addconsts = { fr(0), fr(0), fr(0), fr(0) },
+            .addconstp = fr(0),
+        };
+        auto [limb0, limb1, limb2, limb3, limbp] = create_add_sub_inputs(builder, data);
+        builder.evaluate_non_native_field_subtraction(limb0, limb1, limb2, limb3, limbp);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    // Edge case: x == y (result is zero)
+    {
+        UltraCircuitBuilder builder;
+        fr val0 = fr::random_element();
+        fr val1 = fr::random_element();
+        fr val2 = fr::random_element();
+        fr val3 = fr::random_element();
+        fr valp = fr::random_element();
+        AddSubData data{
+            .x_limbs = { val0, val1, val2, val3 },
+            .y_limbs = { val0, val1, val2, val3 },
+            .x_prime = valp,
+            .y_prime = valp,
+            .x_scales = { fr(1), fr(1), fr(1), fr(1) },
+            .y_scales = { fr(1), fr(1), fr(1), fr(1) },
+            .addconsts = { fr(0), fr(0), fr(0), fr(0) },
+            .addconstp = fr(0),
+        };
+        auto [limb0, limb1, limb2, limb3, limbp] = create_add_sub_inputs(builder, data);
+        builder.evaluate_non_native_field_subtraction(limb0, limb1, limb2, limb3, limbp);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+}
+
+// Verifies that providing incorrect witnesses to multiplication causes failure
+TEST_F(UltraCircuitBuilderNonNative, MultiplicationInvalidWitnessFailure)
+{
+    // Helper to test that providing incorrect quotient/remainder causes failure
+    auto test_incorrect_qr = [](bool tamper_q, size_t limb_idx) {
+        UltraCircuitBuilder builder;
+
+        uint256_t a = uint256_t(fq::random_element());
+        uint256_t b = uint256_t(fq::random_element());
+        uint256_t modulus = fq::modulus;
+        auto [q, r] = compute_quotient_remainder(a, b, modulus);
+
+        // Tamper with quotient or remainder
+        if (tamper_q) {
+            // Add 1 to a specific limb of q
+            auto q_limbs = split_into_limbs(uint256_t(q));
+            q_limbs[limb_idx] += fr(1);
+            q = uint256_t(q_limbs[0]) + (uint256_t(q_limbs[1]) << LIMB_BITS) +
+                (uint256_t(q_limbs[2]) << (LIMB_BITS * 2)) + (uint256_t(q_limbs[3]) << (LIMB_BITS * 3));
+        } else {
+            // Add 1 to a specific limb of r
+            auto r_limbs = split_into_limbs(uint256_t(r));
+            r_limbs[limb_idx] += fr(1);
+            r = uint256_t(r_limbs[0]) + (uint256_t(r_limbs[1]) << LIMB_BITS) +
+                (uint256_t(r_limbs[2]) << (LIMB_BITS * 2)) + (uint256_t(r_limbs[3]) << (LIMB_BITS * 3));
+        }
+
+        // Now a*b != q*p + r (the multiplication identity is violated)
+        const auto [lo_idx, hi_idx] = create_non_native_multiplication(builder, a, b, q, r, modulus);
+
+        // Add range constraints
+        builder.decompose_into_default_range(lo_idx, 72);
+        builder.decompose_into_default_range(hi_idx, 72);
+
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    };
+
+    // Test tampering with each limb of q and r
+    for (size_t limb = 0; limb < 4; limb++) {
+        test_incorrect_qr(true, limb);  // tamper q
+        test_incorrect_qr(false, limb); // tamper r
     }
 }
