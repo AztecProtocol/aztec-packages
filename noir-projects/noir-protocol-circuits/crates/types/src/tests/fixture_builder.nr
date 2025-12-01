@@ -78,12 +78,15 @@ use crate::{
     public_keys::PublicKeys,
     side_effect::{Counted, Ordered, Scoped},
     storage::map::derive_storage_slot_in_map,
-    tests::fixtures::{
-        self,
-        contract_functions::ContractFunction,
-        contracts::ContractData,
-        public_data_tree::empty_public_data_tree,
-        vk_tree::{get_vk_data, vk_tree_root},
+    tests::{
+        fixtures::{
+            self,
+            contract_functions::ContractFunction,
+            contracts::ContractData,
+            public_data_tree::empty_public_data_tree,
+            vk_tree::{get_vk_data, vk_tree_root},
+        },
+        side_effect_uniqueness_hints::build_uniqueness_hints,
     },
     traits::{Deserialize, Empty, FromField, Hash, Packable},
     utils::arrays::ClaimedLengthArray,
@@ -519,10 +522,14 @@ impl FixtureBuilder {
     }
 
     pub fn to_private_call_data(mut self) -> PrivateCallData {
+        let public_inputs = self.to_private_circuit_public_inputs();
+        // Safety: These are hints to be validated in the kernels.
+        let uniqueness_hints = unsafe { build_uniqueness_hints(public_inputs) };
         PrivateCallData {
-            public_inputs: self.to_private_circuit_public_inputs(),
+            public_inputs,
             vk: self.vk,
             verification_key_hints: self.to_private_verification_key_hints(),
+            side_effect_uniqueness_hints: uniqueness_hints,
         }
     }
 
