@@ -1,1 +1,1 @@
-barretenberg_module(goblin_bench eccvm)
+barretenberg_module(goblin_bench eccvm bigfield_translator translator_vm)
