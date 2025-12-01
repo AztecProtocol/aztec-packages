@@ -9,10 +9,6 @@ Aztec's goal is to enable private verifiable execution of smart contracts. This 
 
 Efficient recursion supports low memory proving - statements can be decomposed via recursion into smaller statements that require less prover memory.
 
-**Memory bound**: The prover's peak memory occurs during the first Sumcheck round and is bounded by $1.5 \times \max_i |\text{ProverPolynomials}_i|$, where the max is over all input circuits. Crucially, this bound is independent of the number of circuits being folded.
-
-*Example*: 55 dense polynomials of size $2^{18}$ consume $1.5 \times 55 \times 2^{18} \times 32\text{ bytes} \approx 660\text{ MB}$ (shifted polynomials share memory with unshifted), which can be used as a rough upper bound for a Mega Circuit RAM footprint during Chonk.
-
 ## Design Principles
 
 CHONK builds on [PlonK](https://eprint.iacr.org/2019/953), sharing its foundation:
@@ -65,7 +61,7 @@ App₀ → Kernel₀ → App₁ → Kernel₁ → ... → Appₙ → Reset → T
 
 A Chonk proof (`Chonk::Proof`) consists of:
 
-1. **Mega proof**: ZK proof of the hiding circuit which recursively verifies:
+1. **Mega proof**: ZK proof of the Hiding kernel which recursively verifies:
    - The final HyperNova folding proof
    - The decider proof
 
@@ -154,6 +150,14 @@ In `MultilinearBatchingVerifier::compute_new_claim`:
 | **Chonk (HyperNova + Goblin)** | 62 short scalar muls (op queue) | N/A (deferred) | Shplemini deferred to decider |
 
 Combining `UltraHonk` features such as custom gates with databus mechanism enabling inter-circuit communication with Hypernova sumcheck-based folding boosted by Goblin elliptic curve operation deferral protocol we get a client-friendly RCG that can be run on a mobile phone.
+
+### Memory Efficiency
+
+A key benefit of Chonk's folding approach is that prover memory is bounded by the largest individual circuit, not the total computation size.
+
+**Memory bound**: Peak memory occurs during the first Sumcheck round and is bounded by $1.5 \times \max_i |\text{ProverPolynomials}_i|$, where the max is over all input circuits. Crucially, this bound is independent of the number of circuits being folded.
+
+*Example*: 55 dense polynomials of size $2^{18}$ consume $1.5 \times 55 \times 2^{18} \times 32\text{ bytes} \approx 660\text{ MB}$ (shifted polynomials share memory with unshifted), which serves as a rough upper bound for a Mega circuit's RAM footprint during Chonk.
 
 ---
 
@@ -316,7 +320,7 @@ The op queue contains EC operations from all circuits and must be hidden:
 
 1. **`hide_op_queue_accumulation_result`**: Hides the final accumulator point
 2. **`hide_op_queue_content_in_tail`**: Protects tail kernel op queue data
-3. **`hide_op_queue_content_in_hiding`**: Final ZK protection in hiding circuit
+3. **`hide_op_queue_content_in_hiding`**: Final ZK protection in Hiding kernel
 
 ### Hiding Kernel
 

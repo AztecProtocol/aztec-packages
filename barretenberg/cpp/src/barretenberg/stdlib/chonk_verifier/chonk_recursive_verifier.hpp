@@ -11,7 +11,7 @@
 namespace bb::stdlib::recursion::honk {
 class ChonkRecursiveVerifier {
     using Builder = UltraCircuitBuilder;                     // The circuit will be an Ultra circuit
-    using RecursiveFlavor = MegaZKRecursiveFlavor_<Builder>; // The hiding circuit verifier algorithm is MegaZK
+    using RecursiveFlavor = MegaZKRecursiveFlavor_<Builder>; // The Hiding kernel verifier algorithm is MegaZK
     using RecursiveVerifierInstance = RecursiveVerifierInstance_<RecursiveFlavor>;
     using RecursiveVerificationKey = RecursiveVerifierInstance::VerificationKey;
     using MegaVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
@@ -40,7 +40,7 @@ class ChonkRecursiveVerifier {
             return bb::Chonk::Proof::PROOF_LENGTH(virtual_log_n);
         }
 
-        StdlibHonkProof mega_proof; // proof of the hiding circuit
+        StdlibHonkProof mega_proof; // proof of the Hiding kernel
         StdlibGoblinProof goblin_proof;
 
         StdlibProof(Builder& builder, const Chonk::Proof& proof)
