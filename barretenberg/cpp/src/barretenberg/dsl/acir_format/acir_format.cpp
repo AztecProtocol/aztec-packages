@@ -90,16 +90,6 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
 
     GateCounter gate_counter{ &builder, collect_gates_per_opcode };
 
-    // Add arithmetic gates
-
-    // AUDITTODO(federico): remove poly_triple_constraints
-    for (const auto& [constraint, opcode_idx] :
-         zip_view(constraints.arithmetic_triple_constraints,
-                  constraints.original_opcode_indices.arithmetic_triple_constraints)) {
-        builder.create_arithmetic_gate(constraint);
-        gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-    }
-
     // Add standard width-4 Ultra arithmetic gates
     for (auto [constraint, opcode_idx] :
          zip_view(constraints.quad_constraints, constraints.original_opcode_indices.quad_constraints)) {
@@ -180,6 +170,7 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
         gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
+    // Add poseidon2 constraints
     for (const auto& [constraint, opcode_idx] :
          zip_view(constraints.poseidon2_constraints, constraints.original_opcode_indices.poseidon2_constraints)) {
         create_poseidon2_permutations_constraints(builder, constraint);
@@ -590,9 +581,18 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
     BB_BENCH();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
+    const bool is_write_vk_mode = witness.empty();
 
-    UltraCircuitBuilder builder{ metadata.size_hint, witness.empty() };
-    builder.initialize_from_acir_data(constraints.max_witness_index, witness, constraints.public_inputs);
+    if (!is_write_vk_mode) {
+        BB_ASSERT_EQ(witness.size(),
+                     constraints.max_witness_index + 1,
+                     "ACIR witness size (" << witness.size() << ") does not match max witness index ("
+                                           << constraints.max_witness_index << ").");
+    } else {
+        witness.resize(constraints.max_witness_index + 1, 0);
+    }
+
+    UltraCircuitBuilder builder{ metadata.size_hint, witness, constraints.public_inputs, is_write_vk_mode };
 
     // Populate constraints in the builder
     build_constraints(builder, constraints, metadata);
@@ -613,12 +613,21 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
     BB_BENCH();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
+    const bool is_write_vk_mode = witness.empty();
+
+    if (!is_write_vk_mode) {
+        BB_ASSERT_EQ(witness.size(),
+                     constraints.max_witness_index + 1,
+                     "ACIR witness size (" << witness.size() << ") does not match max witness index ("
+                                           << constraints.max_witness_index << ").");
+    } else {
+        witness.resize(constraints.max_witness_index + 1, 0);
+    }
 
     auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->get_goblin().op_queue;
 
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    MegaCircuitBuilder builder{ metadata.size_hint, op_queue, witness.empty() };
-    builder.initialize_from_acir_data(constraints.max_witness_index, witness, constraints.public_inputs);
+    MegaCircuitBuilder builder{ op_queue, witness, constraints.public_inputs, is_write_vk_mode };
 
     // Populate constraints in the builder
     build_constraints(builder, constraints, metadata);

@@ -68,18 +68,14 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
                 /*num_public_inputs_to_extract=*/static_cast<size_t>(chonk_data.mega_vk->num_public_inputs) -
                     PUBLIC_INPUTS_SIZE);
 
-        auto constraint = RecursionConstraint{
-            .key = transform::map(key_indices, [&](auto& e) { return e + Builder::ACIR_OFFSET; }),
-            .proof = transform::map(proof_indices, [&](auto& e) { return e + Builder::ACIR_OFFSET; }),
-            .public_inputs = transform::map(public_inputs_indices, [&](auto& e) { return e + Builder::ACIR_OFFSET; }),
-            .key_hash = key_hash_index + Builder::ACIR_OFFSET,
-            .proof_type = PROOF_TYPE::CHONK
-        };
+        auto constraint = RecursionConstraint{ .key = key_indices,
+                                               .proof = proof_indices,
+                                               .public_inputs = public_inputs_indices,
+                                               .key_hash = key_hash_index,
+                                               .proof_type = PROOF_TYPE::CHONK };
 
         // Construct a constraint system
-        program.constraints.acir_gates_offset = Builder::ACIR_OFFSET;
-        program.constraints.max_witness_index =
-            static_cast<uint32_t>(program.witness.size() + Builder::ACIR_OFFSET - 1);
+        program.constraints.max_witness_index = static_cast<uint32_t>(program.witness.size() - 1);
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(1);
         program.constraints.chonk_recursion_constraints = { constraint };
         program.constraints.original_opcode_indices = create_empty_original_opcode_indices();

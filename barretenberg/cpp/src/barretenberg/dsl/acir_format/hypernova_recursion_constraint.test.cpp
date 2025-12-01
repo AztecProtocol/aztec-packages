@@ -192,10 +192,10 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         }
 
         return RecursionConstraint{
-            .key = transform::map(key_indices, [&](auto& e) { return e + Builder::ACIR_OFFSET; }),
+            .key = key_indices,
             .proof = {}, // the proof witness indices are not needed in an ivc recursion constraint
-            .public_inputs = transform::map(public_inputs_indices, [&](auto& e) { return e + Builder::ACIR_OFFSET; }),
-            .key_hash = key_hash_index + Builder::ACIR_OFFSET,
+            .public_inputs = public_inputs_indices,
+            .key_hash = key_hash_index,
             .proof_type = proof_type,
         };
     }
@@ -225,9 +225,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         }
 
         // Construct a constraint system containing the business logic and ivc recursion constraints
-        program.constraints.max_witness_index =
-            static_cast<uint32_t>(program.witness.size() + Flavor::CircuitBuilder::ACIR_OFFSET - 1);
-        program.constraints.acir_gates_offset = Flavor::CircuitBuilder::ACIR_OFFSET;
+        program.constraints.max_witness_index = static_cast<uint32_t>(program.witness.size() - 1);
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(hn_recursion_constraints.size());
         program.constraints.hn_recursion_constraints = hn_recursion_constraints;
         program.constraints.original_opcode_indices = create_empty_original_opcode_indices();

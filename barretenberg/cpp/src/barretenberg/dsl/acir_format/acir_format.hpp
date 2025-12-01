@@ -33,6 +33,9 @@
 
 namespace acir_format {
 
+using QuadConstraints = mul_quad_<fr>;
+using WitnessVector = std::vector<bb::fr>;
+
 /**
  * @brief Indices of the original opcode that originated each constraint in AcirFormat.
  * @details Contains one array of indices per opcode type. The length of each array is equal to the number of
@@ -71,7 +74,6 @@ struct AcirFormat {
     uint32_t acir_gates_offset;
     uint32_t num_acir_opcodes;
 
-    using ArithTripleConstraint = bb::arithmetic_triple_<bb::curve::BN254::ScalarField>;
     std::vector<uint32_t> public_inputs;
 
     std::vector<LogicConstraint> logic_constraints;
@@ -90,18 +92,12 @@ struct AcirFormat {
     std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> hn_recursion_constraints;
     std::vector<RecursionConstraint> chonk_recursion_constraints;
-
-    // A standard plonk arithmetic constraint, as defined in the arithmetic_triple struct, consists of selector values
-    // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
-    // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
-    std::vector<ArithTripleConstraint> arithmetic_triple_constraints;
-    // A standard ultra plonk arithmetic constraint, of width 4: q_Ma*b+q_A*a+q_B*b+q_C*c+q_d*d+q_const = 0
-    std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
+    std::vector<QuadConstraints> quad_constraints; // Standard honk arithmetic constraint of width 4
     // A vector of vector of mul_quad gates (i.e arithmetic constraints of width 4)
     // Each vector of gates represente a 'big' expression (a polynomial of degree 1 or 2 which does not fit inside one
-    // mul_gate) that has been splitted into multiple mul_gates, using w4_omega (the 4th wire of the next gate), to
+    // mul_gate) that has been splitted into multiple mul_gates, using w4_shift (the 4th wire of the next gate), to
     // reduce the number of intermediate variables.
-    std::vector<std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>> big_quad_constraints;
+    std::vector<std::vector<QuadConstraints>> big_quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
@@ -129,7 +125,6 @@ struct AcirFormat {
                    avm_recursion_constraints,
                    hn_recursion_constraints,
                    chonk_recursion_constraints,
-                   arithmetic_triple_constraints,
                    quad_constraints,
                    big_quad_constraints,
                    block_constraints);
@@ -137,46 +132,12 @@ struct AcirFormat {
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };
 
-using WitnessVector = std::vector<bb::fr>;
-using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
-
 struct AcirProgram {
     AcirFormat constraints;
     WitnessVector witness;
 };
 
-/**
- * @brief Storage for constaint_systems/witnesses for a stack of acir programs
- * @details In general the number of items in the witness stack will be equal or greater than the number of constraint
- * systems because the program may consist of multiple calls to the same function.
- *
- */
-struct AcirProgramStack {
-    std::vector<AcirFormat> constraint_systems;
-    WitnessVectorStack witness_stack;
-
-    AcirProgramStack(std::vector<AcirFormat> constraint_systems_in, WitnessVectorStack witness_stack_in)
-        : constraint_systems(std::move(constraint_systems_in))
-        , witness_stack(std::move(witness_stack_in))
-    {}
-
-    size_t size() const { return witness_stack.size(); }
-    bool empty() const { return witness_stack.empty(); }
-
-    AcirProgram back()
-    {
-        auto witness_stack_item = witness_stack.back();
-        auto witness = witness_stack_item.second;
-        auto constraint_system = constraint_systems[witness_stack_item.first];
-
-        return { constraint_system, witness };
-    }
-
-    void pop_back() { witness_stack.pop_back(); }
-};
-
 struct ProgramMetadata {
-
     // An IVC instance; needed to construct a circuit from IVC recursion constraints
     std::shared_ptr<bb::IVCBase> ivc = nullptr;
 

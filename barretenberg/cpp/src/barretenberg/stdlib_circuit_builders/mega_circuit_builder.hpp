@@ -23,7 +23,6 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
   public:
     using ExecutionTrace = MegaExecutionTraceBlocks;
 
-    static constexpr uint32_t ACIR_OFFSET = 4;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
         UltraCircuitBuilder_<MegaExecutionTraceBlocks>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
@@ -70,46 +69,36 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     {}
 
     /**
-     * @brief Initialize builder data from ACIR data
+     * @brief Constructor from data generated from ACIR
      *
+     * @param op_queue_in Op queue to which goblinized group ops will be added
      * @param witness_values witnesses values known to acir
      * @param public_inputs indices of public inputs in witness array
+     * @param is_write_vk_mode true if the builder is used to generate the vk of a circuit
      *
      * @note witness_values is the vector of witness values known at the time of acir generation. It is filled with
      * witness values which are interleaved with zeros when witnesses are optimized away.
      *
-     * @note num_acir_witnesses is in general less than total number of variables/witnesses that might be present for a
-     * circuit generated from acir, since many gates will depend on the details of the bberg implementation (or more
-     * generally on the backend used to process acir).
+     * @note The length of the witness vector is in general less than total number of variables/witnesses that might be
+     * present for a circuit generated from acir, since many gates will depend on the details of the bberg
+     * implementation (or more generally on the backend used to process acir).
      *
      */
-    void initialize_from_acir_data(uint32_t max_witness_index,
-                                   const std::vector<FF>& witness_values,
-                                   const std::vector<uint32_t>& public_inputs)
+    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
+                        const std::vector<FF>& witness_values,
+                        const std::vector<uint32_t>& public_inputs,
+                        const bool is_write_vk_mode)
+        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(
+              /*size_hint=*/0, witness_values, public_inputs, is_write_vk_mode)
+        , op_queue(std::move(op_queue_in))
     {
-        BB_ASSERT_EQ(this->num_gates(),
-                     ACIR_OFFSET,
-                     "MegaCircuitBuilder: Found " << this->num_gates()
-                                                  << " gates when initializing from ACIR data, expected " << ACIR_OFFSET
-                                                  << " gates.");
+        // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
+        // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
+        op_queue->initialize_new_subtable();
 
-        if (!witness_values.empty()) {
-            BB_ASSERT_EQ(witness_values.size() + ACIR_OFFSET,
-                         max_witness_index + 1,
-                         "MegaCircuitBuilder: ACIR witness size (" << witness_values.size()
-                                                                   << ") plus offset does not match max witness index ("
-                                                                   << max_witness_index << ").");
-            for (const auto& value : witness_values) {
-                this->add_variable(value);
-            }
-        } else {
-            for (size_t idx = 0; idx < max_witness_index + 1; ++idx) {
-                this->add_variable(FF::zero());
-            }
-        }
-
-        this->initialize_public_inputs(public_inputs);
-    }
+        // Set indices to constants corresponding to Goblin ECC op codes
+        set_goblin_ecc_op_code_constant_variables();
+    };
 
     /**
      * @brief Convert op code to the witness index for the corresponding op index in the builder

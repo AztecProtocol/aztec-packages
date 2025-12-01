@@ -16,16 +16,14 @@ namespace acir_format {
 /// representations.
 
 /**
- * @brief Transform a witness index by applying the acir_gates_offset and updating max_witness_index.
+ * @brief Update the max_witness_index.
  *
- * @details Noir directly indexes into the witness vector. However, barretenberg adds some gates at the beginning of
- * every circuit, so we need to offset the witness indices passed by Noir. Also, we keep track of the maximum witness
- * index encountered. In write_vk scenarios, we use the max witness index to populate the builder with enough dummy
- * variables. When a witness vector is provided, we check that the max witness index is equal to the length of the
- * witness vector minus one to avoid buffer overrides.
+ * @details In write_vk scenarios, we use the max witness index to populate the builder with enough dummy variables.
+ * When a witness vector is provided, we check that the max witness index is equal to the length of the witness vector
+ * minus one to avoid buffer overrides.
  *
  */
-uint32_t transform_witness_index(uint32_t witness_idx, AcirFormat& af);
+void update_max_witness_index(uint32_t witness_idx, AcirFormat& af);
 
 /**
  * @brief Parse an Acir::FunctionInput (which can either be a witness or a constant) into a WitnessOrConstant.
@@ -46,25 +44,25 @@ uint32_t get_witness_from_function_input(Acir::FunctionInput input, AcirFormat& 
  * in an expression, applying the acir_gates_offset and updating the max witness index
  *
  */
-void update_max_witness_from_expression(Acir::Expression const& expr, AcirFormat& af);
+void update_max_witness_index_from_expression(Acir::Expression const& expr, AcirFormat& af);
 
 /// ========= BYTES TO BARRETENBERG'S REPRESENTATION  ========= ///
 
-/// The functions below handle the transition from serialized ACIR formats (msgpack and bincode), which is the
-/// output of compiling a Noir program, to Barretenberg's internal formats.
+/// The functions below handle the transition from serialized ACIR formats (msgpack and bincode), which is the output of
+/// compiling a Noir program, to Barretenberg's internal formats.
 ///
 /// The flow is as follows:
-/// - A buffer of bytes is deserialised according to either msgpack or bincode into an Acir::Circuit, which is jus
-//    the representation of a function in terms of Acir::Opcodes, Acir::Witness, Acir::PublicInputs. As of now (Nov
-//    2025) only bincode is supported.
+/// - A buffer of bytes is deserialised according to either msgpack or bincode into an Acir::Circuit, which is just the
+///   representation of a function in terms of Acir::Opcodes, Acir::Witness, Acir::PublicInputs. As of now (Nov 2025)
+///   only bincode is supported.
 /// - The Acir::Circuit is transformed into AcirFormat, which is Barretenberg's internal representation of the Acir
 ///   constraints that have to be added to the Builder.
-/// - A buffer of bytes is deserialised into a WitnessVector, which is the list of witness values known at the time
-///   of noir program execution. This conversion takes a WitnessMap (which is a list of couples (witness_index,
+/// - A buffer of bytes is deserialised into a WitnessVector, which is the list of witness values known at the time of
+///   noir program execution. This conversion takes a WitnessMap (which is a list of couples (witness_index,
 ///   witness_value)) and converts it to a vector of bb::fr elements. ACIR optimizes away some witnesses, so the
-///   WitnessMap may have holes: witness indices go up, but not necessarily by one. The conversion accounts for
-///   these holes and fills them with zeros. NOTE: The witness vector does NOT contain all the witnesses that will
-///   be present in the builder by the end of circuit construction.
+///   WitnessMap may have holes: witness indices go up, but not necessarily by one. The conversion accounts for these
+///   holes and fills them with zeros. NOTE: The witness vector does NOT contain all the witnesses that will be present
+///   in the builder by the end of circuit construction.
 /// - The AcirFormat structure and the WitnessVector are passed to acir_format::create_circuit,
 ///   which constructs a barretenberg circuit by adding the relevant constraints and witnesses to a Builder
 
@@ -85,7 +83,7 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
 /**
  * @brief Convert an Acir::Circuit into an AcirFormat by processing all the opcodes.
  */
-AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, uint32_t acir_gates_offset);
+AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit);
 
 /**
  * @brief Convert from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
@@ -98,7 +96,7 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
 /**
  * @brief Convert a buffer representing a circuit into Barretenberg's internal `AcirFormat` representation.
  */
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf, uint32_t acir_gates_offset);
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf);
 
 /**
  * @brief Convert a buffer representing a witness vector into Barretenberg's internal `WitnessVector` format.

@@ -43,8 +43,7 @@ template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
 Circuit _compute_circuit(std::vector<uint8_t>&& bytecode, std::vector<uint8_t>&& witness)
 {
     const acir_format::ProgramMetadata metadata = _create_program_metadata<Flavor>();
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(bytecode),
-                                                                              Circuit::ACIR_OFFSET) };
+    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(bytecode)) };
 
     if (!witness.empty()) {
         program.witness = acir_format::witness_buf_to_witness_vector(std::move(witness));
@@ -272,7 +271,7 @@ template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
 CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gates_per_opcode)
 {
     // Parse the circuit to get gate count information
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(bytecode), Circuit::ACIR_OFFSET);
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(bytecode));
 
     acir_format::ProgramMetadata metadata = _create_program_metadata<Flavor>();
     metadata.collect_gates_per_opcode = include_gates_per_opcode;

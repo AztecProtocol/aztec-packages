@@ -103,22 +103,21 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
                     witness, proof_witnesses, key_witnesses, key_hash_witness, num_public_inputs_to_extract);
 
             uint32_t predicate_index = add_to_witness_and_track_indices(witness, predicate_val ? fr(1) : fr(0));
+            auto predicate = WitnessOrConstant<fr>::from_index(predicate_index);
 
             RecursionConstraint honk_recursion_constraint{
-                .key = transform::map(key_indices, [&](auto& e) { return e + BuilderType::ACIR_OFFSET; }),
-                .proof = transform::map(proof_indices, [&](auto& e) { return e + BuilderType::ACIR_OFFSET; }),
-                .public_inputs =
-                    transform::map(inner_public_inputs, [&](auto& e) { return e + BuilderType::ACIR_OFFSET; }),
-                .key_hash = key_hash_index + BuilderType::ACIR_OFFSET,
+                .key = key_indices,
+                .proof = proof_indices,
+                .public_inputs = inner_public_inputs,
+                .key_hash = key_hash_index,
                 .proof_type = proof_type,
-                .predicate = WitnessOrConstant<fr>::from_index(predicate_index + BuilderType::ACIR_OFFSET),
+                .predicate = predicate,
             };
             honk_recursion_constraints.push_back(honk_recursion_constraint);
         }
 
         AcirFormat constraint_system{};
-        constraint_system.acir_gates_offset = BuilderType::ACIR_OFFSET;
-        constraint_system.max_witness_index = static_cast<uint32_t>(witness.size() + BuilderType::ACIR_OFFSET - 1);
+        constraint_system.max_witness_index = static_cast<uint32_t>(witness.size() - 1);
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(honk_recursion_constraints.size());
         constraint_system.honk_recursion_constraints = honk_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
@@ -396,20 +395,20 @@ TYPED_TEST(AcirHonkRecursionConstraint, GateCountSingleHonkRecursion)
     // We pin the number of gates with predicate set to witness true, so this is an upper bound for when the constraint
     // is added with a constant predicate
     uint32_t predicate_index = add_to_witness_and_track_indices(witness, fr(1));
+    auto predicate = WitnessOrConstant<fr>::from_index(predicate_index);
 
     RecursionConstraint honk_recursion_constraint{
-        .key = transform::map(key_indices, [&](auto& e) { return e + OuterBuilder::ACIR_OFFSET; }),
-        .proof = transform::map(proof_indices, [&](auto& e) { return e + OuterBuilder::ACIR_OFFSET; }),
-        .public_inputs = transform::map(inner_public_inputs, [&](auto& e) { return e + OuterBuilder::ACIR_OFFSET; }),
-        .key_hash = key_hash_index + OuterBuilder::ACIR_OFFSET,
+        .key = key_indices,
+        .proof = proof_indices,
+        .public_inputs = inner_public_inputs,
+        .key_hash = key_hash_index,
         .proof_type = proof_type,
-        .predicate = WitnessOrConstant<fr>::from_index(predicate_index + OuterBuilder::ACIR_OFFSET),
+        .predicate = predicate,
     };
     honk_recursion_constraints.push_back(honk_recursion_constraint);
 
     AcirFormat constraint_system{};
-    constraint_system.acir_gates_offset = OuterBuilder::ACIR_OFFSET;
-    constraint_system.max_witness_index = static_cast<uint32_t>(witness.size() + OuterBuilder::ACIR_OFFSET - 1);
+    constraint_system.max_witness_index = static_cast<uint32_t>(witness.size() - 1);
     constraint_system.num_acir_opcodes = 1;
     constraint_system.honk_recursion_constraints = honk_recursion_constraints;
     constraint_system.original_opcode_indices = create_empty_original_opcode_indices();

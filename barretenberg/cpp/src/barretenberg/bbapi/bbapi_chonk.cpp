@@ -30,8 +30,7 @@ ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
     }
 
     request.loaded_circuit_name = circuit.name;
-    request.loaded_circuit_constraints =
-        acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode), MegaCircuitBuilder::ACIR_OFFSET);
+    request.loaded_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
     request.loaded_circuit_vk = circuit.verification_key;
 
     info("ChonkLoad - loaded circuit '", request.loaded_circuit_name, "'");
@@ -154,8 +153,7 @@ ChonkComputeStandaloneVk::Response ChonkComputeStandaloneVk::execute([[maybe_unu
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     info("ChonkComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
 
-    auto constraint_system =
-        acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode), MegaCircuitBuilder::ACIR_OFFSET);
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
     std::shared_ptr<Chonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
@@ -188,8 +186,7 @@ ChonkComputeIvcVk::Response ChonkComputeIvcVk::execute(BB_UNUSED const BBApiRequ
 ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode),
-                                                                              MegaCircuitBuilder::ACIR_OFFSET),
+    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
     std::shared_ptr<Chonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
@@ -217,8 +214,7 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     Response response;
 
-    const auto constraint_system =
-        acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode), MegaCircuitBuilder::ACIR_OFFSET);
+    const auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
     acir_format::AcirProgram program{ constraint_system };
 
     // Get IVC constraints if any

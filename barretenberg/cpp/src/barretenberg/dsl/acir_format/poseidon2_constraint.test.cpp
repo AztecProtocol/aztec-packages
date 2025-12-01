@@ -31,9 +31,8 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
 
     Poseidon2Constraint poseidon2_constraint;
     for (size_t idx = 0; idx < state_size; idx++) {
-        poseidon2_constraint.state.emplace_back(static_cast<uint32_t>(idx + UltraCircuitBuilder::ACIR_OFFSET));
-        poseidon2_constraint.result.emplace_back(
-            static_cast<uint32_t>(idx + state_size + UltraCircuitBuilder::ACIR_OFFSET));
+        poseidon2_constraint.state.emplace_back(static_cast<uint32_t>(idx));
+        poseidon2_constraint.result.emplace_back(static_cast<uint32_t>(idx + state_size));
     }
 
     auto native_state = NativePoseidonPermutation::State({ 1, 1, 1, 1 });
@@ -45,8 +44,7 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
     }
 
     AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) + UltraCircuitBuilder::ACIR_OFFSET - 1,
-        .acir_gates_offset = UltraCircuitBuilder::ACIR_OFFSET,
+        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .poseidon2_constraints = { poseidon2_constraint },

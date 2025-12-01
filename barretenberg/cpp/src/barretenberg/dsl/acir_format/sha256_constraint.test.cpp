@@ -18,15 +18,13 @@ TEST_F(Sha256Tests, TestSha256Compression)
     Sha256Compression sha256_compression;
 
     for (size_t i = 0; i < 16; ++i) {
-        sha256_compression.inputs[i] =
-            WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + UltraCircuitBuilder::ACIR_OFFSET));
+        sha256_compression.inputs[i] = WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i));
     }
     for (size_t i = 0; i < 8; ++i) {
-        sha256_compression.hash_values[i] =
-            WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 16 + UltraCircuitBuilder::ACIR_OFFSET));
+        sha256_compression.hash_values[i] = WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 16));
     }
     for (size_t i = 0; i < 8; ++i) {
-        sha256_compression.result[i] = static_cast<uint32_t>(i + 24 + UltraCircuitBuilder::ACIR_OFFSET);
+        sha256_compression.result[i] = static_cast<uint32_t>(i + 24);
     }
 
     std::vector<uint8_t> inputs_as_bits(64);
@@ -45,8 +43,7 @@ TEST_F(Sha256Tests, TestSha256Compression)
     }
 
     AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) + UltraCircuitBuilder::ACIR_OFFSET - 1,
-        .acir_gates_offset = UltraCircuitBuilder::ACIR_OFFSET,
+        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .sha256_compression = { sha256_compression },
