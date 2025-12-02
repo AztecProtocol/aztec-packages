@@ -155,9 +155,10 @@ pol commit op[7];  // operands
 
 // We now proceed to fetch the instruction.
 // The handling is slightly subtle: suppose fetching fails, then in simulation/tracegen
-// we will NOT have the partial information of the instruction, and to be honest we
-// ideally want to leave it unconstrained. This is why we do 2 lookups instead of 1.
-// TODO: We can consider optimizing this later, but it is probably the cleanest right now.
+// we will NOT have the partial information of the instruction, and we prefer to leave
+// the instruction unconstrained here. Fixing this would require the partial instruction
+// result to execution.cpp which is not very elegant neither.
+// This is why we do 2 lookups instead of 1.
 
 // Note: the below lookups additionally constrain that the bytecode with bytecode_id has
 // been correctly hashed due to instr_fetching's lookups into bc_decomposition, where
