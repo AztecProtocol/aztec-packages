@@ -378,7 +378,8 @@ TEST(UltraCircuitSMT, RAMTables)
     Builder builder;
 
     size_t table_size = 3;
-    ram_table_t table(&builder, table_size);
+    std::vector<field_t> zeros(table_size, field_t(0));
+    ram_table_t table(&builder, zeros);
     for (size_t i = 0; i < table_size; ++i) {
         table.write(i, 0);
     }
@@ -420,7 +421,8 @@ TEST(UltraCircuitSMT, RAMTablesRelaxed)
     Builder builder;
 
     size_t table_size = 3;
-    ram_table_t table(&builder, table_size);
+    std::vector<field_t> zeros(table_size, field_t(0));
+    ram_table_t table(&builder, zeros);
     for (size_t i = 0; i < table_size; ++i) {
         table.write(i, 0);
     }

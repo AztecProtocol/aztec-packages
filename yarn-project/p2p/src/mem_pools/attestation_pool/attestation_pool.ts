@@ -1,3 +1,4 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 
 /**
@@ -51,7 +52,7 @@ export interface AttestationPool {
    *
    * @param slot - The oldest slot to keep.
    */
-  deleteAttestationsOlderThan(slot: bigint): Promise<void>;
+  deleteAttestationsOlderThan(slot: SlotNumber): Promise<void>;
 
   /**
    * Delete Attestations for slot
@@ -60,7 +61,7 @@ export interface AttestationPool {
    *
    * @param slot - The slot to delete.
    */
-  deleteAttestationsForSlot(slot: bigint): Promise<void>;
+  deleteAttestationsForSlot(slot: SlotNumber): Promise<void>;
 
   /**
    * Delete Attestations for slot and proposal
@@ -70,7 +71,7 @@ export interface AttestationPool {
    * @param slot - The slot to delete.
    * @param proposalId - The proposal to delete.
    */
-  deleteAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<void>;
+  deleteAttestationsForSlotAndProposal(slot: SlotNumber, proposalId: string): Promise<void>;
 
   /**
    * Get all Attestations for all proposals for a given slot
@@ -80,7 +81,7 @@ export interface AttestationPool {
    * @param slot - The slot to query
    * @return BlockAttestations
    */
-  getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]>;
+  getAttestationsForSlot(slot: SlotNumber): Promise<BlockAttestation[]>;
 
   /**
    * Get Attestations for slot and given proposal
@@ -91,7 +92,7 @@ export interface AttestationPool {
    * @param proposalId - The proposal to query
    * @return BlockAttestations
    */
-  getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
+  getAttestationsForSlotAndProposal(slot: SlotNumber, proposalId: string): Promise<BlockAttestation[]>;
 
   /**
    * Check if a specific attestation exists in the pool

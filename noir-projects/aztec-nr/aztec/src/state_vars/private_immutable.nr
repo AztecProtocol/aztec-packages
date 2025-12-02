@@ -1,18 +1,22 @@
-use dep::protocol_types::{
-    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
-    traits::Packable,
+use crate::{
+    context::{PrivateContext, UtilityContext},
+    keys::getters::{get_nsk_app, get_public_keys},
+    note::{
+        lifecycle::create_note,
+        note_emission::NoteEmission,
+        note_getter::{get_note, view_note},
+        note_interface::{NoteHash, NoteType},
+    },
+    oracle::notes::check_nullifier_exists,
+    state_vars::storage::HasStorageSlot,
 };
 
-use crate::context::{PrivateContext, UtilityContext};
-use crate::note::{
-    lifecycle::create_note,
-    note_emission::NoteEmission,
-    note_getter::{get_note, view_notes},
-    note_interface::{NoteHash, NoteType},
-    note_viewer_options::NoteViewerOptions,
+use protocol_types::{
+    address::AztecAddress,
+    constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    hash::poseidon2_hash_with_separator,
+    traits::{Hash, Packable},
 };
-use crate::oracle::notes::check_nullifier_exists;
-use crate::state_vars::storage::HasStorageSlot;
 
 /// PrivateImmutable
 ///
@@ -25,11 +29,13 @@ use crate::state_vars::storage::HasStorageSlot;
 /// E.g.:
 /// `your_variable: PrivateImmutable<YourNote, Context>`
 ///
-/// The value is represented as a single note that persists for the lifetime of
-/// the state variable. Once initialized, this note is never nullified or replaced
-/// through the state variable interface - it can only be read.
+/// The values of a PrivateImmutable are stored in the Aztec's private state and hence
+/// are represented as notes. While any number of notes can be created within
+/// a PrivateImmutable, at any moment, only one note exists per "owner."
+/// To interact with a specific owner's note, call `PrivateImmutable::at(owner)`, which
+/// returns an OwnedPrivateImmutable handle for that owner.
 ///
-/// The PrivateImmutable type facilitates: inserting the permanent note during
+/// The OwnedPrivateImmutable type facilitates: inserting the permanent note during
 /// initialization, and reading that note.
 ///
 /// The methods of PrivateImmutable are:
@@ -41,14 +47,10 @@ use crate::state_vars::storage::HasStorageSlot;
 ///
 /// A contract's configuration parameters can be represented as a PrivateImmutable.
 /// Once set during contract deployment or initial setup, these parameters remain
-/// constant for the lifetime of the contract.
-///
-/// ## Privacy
-///
-/// PrivateImmutable has the same privacy properties as PrivateMutable (see
-/// PrivateMutable documentation), including the same privacy considerations
-/// regarding the initialization nullifier potentially leaking information about
-/// which storage slot was initialized.
+/// constant for the lifetime of the contract. To ensure there is only one configuration
+/// per contract you would consider valid only one view of the PrivateImmutable
+/// (most likely the view constructed with the contract's address).
+/// TODO(F-187): Update this ^
 ///
 /// # Generic Parameters:
 ///
@@ -56,7 +58,6 @@ use crate::state_vars::storage::HasStorageSlot;
 ///            value at the given storage_slot.
 /// * `Context` - The execution context (PrivateContext or UtilityContext).
 ///
-/// docs:start:struct
 pub struct PrivateImmutable<Note, Context> {
     context: Context,
     storage_slot: Field,
@@ -90,55 +91,59 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
     ///                    dev shouldn't have to worry about this, as it's managed
     ///                    behind the scenes.
     ///
-    /// docs:start:new
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
 
-    /// Computes the nullifier that will be created when this PrivateImmutable is
-    /// initialized.
-    ///
-    /// This function is primarily used internally by the `initialize` method, but
-    /// may also be useful for contracts that need to check if a PrivateImmutable
-    /// has been initialized.
-    ///
-    /// **IMPORTANT PRIVACY CONSIDERATION:**
-    /// This computation has the same privacy implications as PrivateMutable's
-    /// initialization nullifier (see PrivateMutable documentation for detailed
-    /// explanation). The initialization nullifier can leak information about which
-    /// storage slot was initialized.
-    ///
-    /// See https://github.com/AztecProtocol/aztec-packages/issues/15568 for ideas to
-    /// improve this privacy footgun in future.
-    ///
-    /// # Returns
-    ///
-    /// * `Field` - The nullifier that will be emitted when this PrivateImmutable is
-    ///             initialized.
-    ///
-    /// # Advanced
-    ///
-    /// The computation uses the Poseidon2 hash function with a specific generator
-    /// index to hash the storage slot, creating a deterministic nullifier based on
-    /// the storage location.
-    ///
-    pub fn compute_initialization_nullifier(self) -> Field {
+    /// Returns an OwnedPrivateImmutable scoped to the given `owner`'s note.
+    pub fn at(self, owner: AztecAddress) -> OwnedPrivateImmutable<Note, Context> {
+        OwnedPrivateImmutable::new(self.context, owner, self.storage_slot)
+    }
+}
+
+/// A view of a note in a PrivateImmutable belonging to a specific `owner`.
+/// Obtained by calling `PrivateImmutable::at(owner)`.
+pub struct OwnedPrivateImmutable<Note, Context> {
+    context: Context,
+    owner: AztecAddress,
+    storage_slot: Field,
+}
+
+impl<Note, Context> OwnedPrivateImmutable<Note, Context> {
+    fn new(context: Context, owner: AztecAddress, storage_slot: Field) -> Self {
+        Self { context, owner, storage_slot }
+    }
+
+    /// Computes the initialization nullifier using the provided secret.
+    fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
-            [self.storage_slot],
+            [self.storage_slot, secret],
             GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
         )
     }
 }
 
-impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
-    /// Initializes a PrivateImmutable state variable instance with a permanent note.
+impl<Note> OwnedPrivateImmutable<Note, &mut PrivateContext> {
+    /// Computes the nullifier that will be created when this PrivateImmutable is first initialized.
+    ///
+    /// This function is primarily used internally by the `initialize` method, but may also be useful for contracts that
+    /// need to check if a PrivateImmutable has been initialized.
+    ///
+    fn get_initialization_nullifier(self) -> Field {
+        let owner_npk_m = get_public_keys(self.owner).npk_m;
+        let owner_npk_m_hash = owner_npk_m.hash();
+        let secret = self.context.request_nsk_app(owner_npk_m_hash);
+        self.compute_initialization_nullifier(secret)
+    }
+
+    /// Initializes an OwnedPrivateImmutable state variable instance with a permanent note.
     ///
     /// This function inserts the single, permanent note for this state variable. It can
-    /// only be called once per PrivateImmutable. Subsequent calls will fail because
+    /// only be called once per OwnedPrivateImmutable. Subsequent calls will fail because
     /// the initialization nullifier will already exist.
     ///
-    /// Unlike PrivateMutable, this note will never be nullified or replaced through
+    /// Unlike OwnedPrivateMutable, this note will never be nullified or replaced through
     /// the state variable interface - it persists for the lifetime of the state variable.
     ///
     /// # Arguments
@@ -163,32 +168,27 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     /// - Returns a NoteEmission type that allows the caller to decide how to encrypt
     ///   and deliver the note to its intended recipient.
     ///
-    /// The initialization nullifier is deterministically computed from the storage
-    /// slot and can leak privacy information (see `compute_initialization_nullifier`
-    /// documentation).
-    ///
-    /// docs:start:initialize
     pub fn initialize(self, note: Note) -> NoteEmission<Note>
     where
         Note: NoteType + NoteHash + Packable,
     {
         // We emit an initialization nullifier to indicate that the struct is initialized. This also prevents
         // the value from being initialized again as a nullifier can be included only once.
-        let nullifier = self.compute_initialization_nullifier();
+        let nullifier = self.get_initialization_nullifier();
         self.context.push_nullifier(nullifier);
 
-        create_note(self.context, self.storage_slot, note)
+        create_note(self.context, self.owner, self.storage_slot, note)
     }
 
-    /// Reads the permanent note of a PrivateImmutable state variable instance.
+    /// Reads the permanent note of an OwnedPrivateImmutable state variable instance.
     ///
-    /// If this PrivateImmutable state variable has not yet been initialized,
+    /// If this OwnedPrivateImmutable state variable has not yet been initialized,
     /// no note will exist: the call will fail and the transaction will not
     /// be provable.
     ///
     /// # Returns
     ///
-    /// * `Note` - The permanent note stored in this PrivateImmutable.
+    /// * `Note` - The permanent note stored in this OwnedPrivateImmutable.
     ///
     /// # Advanced
     ///
@@ -201,39 +201,45 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     /// Since the note is immutable, there's no risk of reading stale data or
     /// race conditions - the note never changes after initialization.
     ///
-    /// docs:start:get_note
     pub fn get_note(self) -> Note
     where
         Note: NoteType + NoteHash + Packable,
     {
         let storage_slot = self.storage_slot;
-        let retrieved_note = get_note(self.context, storage_slot).0;
+        let retrieved_note = get_note(self.context, self.owner, storage_slot).0;
 
-        // Because the notes obtained from PrivateImmutable are not meant to be nullified and get_note(...) function
+        // Because the notes obtained from OwnedPrivateImmutable are not meant to be nullified and get_note(...) function
         // has already constrained the note (by pushing a read request to the context), we can return just the note
         // and skip the additional data in RetrievedNote.
         retrieved_note.note
     }
 }
 
-impl<Note> PrivateImmutable<Note, UtilityContext>
+impl<Note> OwnedPrivateImmutable<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + Eq,
 {
-    /// Checks whether this PrivateImmutable has been initialized.
+    /// Computes the nullifier that will be created when this PrivateImmutable is first initialized.
+    unconstrained fn get_initialization_nullifier(self) -> Field {
+        let owner_npk_m = get_public_keys(self.owner).npk_m;
+        let owner_npk_m_hash = owner_npk_m.hash();
+        let secret = get_nsk_app(owner_npk_m_hash);
+        self.compute_initialization_nullifier(secret)
+    }
+
+    /// Checks whether this OwnedPrivateImmutable has been initialized.
     ///
     /// # Returns
     ///
-    /// * `bool` - `true` if the PrivateImmutable has been initialized (the initialization
+    /// * `bool` - `true` if the OwnedPrivateImmutable has been initialized (the initialization
     ///            nullifier exists), `false` otherwise.
     ///
-    /// docs:start:is_initialized
     pub unconstrained fn is_initialized(self) -> bool {
-        let nullifier = self.compute_initialization_nullifier();
+        let nullifier = self.get_initialization_nullifier();
         check_nullifier_exists(nullifier)
     }
 
-    /// Returns the permanent note in this PrivateImmutable without consuming it.
+    /// Returns the permanent note in this OwnedPrivateImmutable without consuming it.
     ///
     /// This function is only available in a UtilityContext (unconstrained environment)
     /// and is typically used for offchain queries, view functions, or testing.
@@ -243,14 +249,12 @@ where
     ///
     /// # Returns
     ///
-    /// * `Note` - The permanent note stored in this PrivateImmutable.
+    /// * `Note` - The permanent note stored in this OwnedPrivateImmutable.
     ///
-    /// docs:start:view_note
     pub unconstrained fn view_note(self) -> Note
     where
         Note: Packable,
     {
-        let mut options = NoteViewerOptions::<Note, <Note as Packable>::N>::new();
-        view_notes(self.storage_slot, options.set_limit(1)).get(0)
+        view_note(self.owner, self.storage_slot).note
     }
 }

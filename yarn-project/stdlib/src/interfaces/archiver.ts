@@ -1,5 +1,5 @@
 import type { L1ContractAddresses } from '@aztec/ethereum';
-import { EpochNumberSchema } from '@aztec/foundation/branded-types';
+import { CheckpointNumberSchema, EpochNumberSchema } from '@aztec/foundation/branded-types';
 import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -8,6 +8,8 @@ import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import { PublishedL2Block } from '../block/published_l2_block.js';
 import { ValidateBlockResultSchema } from '../block/validate_block_result.js';
+import { Checkpoint } from '../checkpoint/checkpoint.js';
+import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
   ContractClassPublicSchema,
   type ContractDataSource,
@@ -84,6 +86,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
     .returns(z.array(L2Block.schema)),
+  getPublishedCheckpoints: z
+    .function()
+    .args(schemas.Integer, schemas.Integer)
+    .returns(z.array(PublishedCheckpoint.schema)),
   getPublishedBlocks: z
     .function()
     .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
@@ -94,8 +100,9 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
   getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
-  getL2SlotNumber: z.function().args().returns(schemas.BigInt.optional()),
+  getL2SlotNumber: z.function().args().returns(schemas.SlotNumber.optional()),
   getL2EpochNumber: z.function().args().returns(EpochNumberSchema.optional()),
+  getCheckpointsForEpoch: z.function().args(EpochNumberSchema).returns(z.array(Checkpoint.schema)),
   getBlocksForEpoch: z.function().args(EpochNumberSchema).returns(z.array(L2Block.schema)),
   getBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),
   isEpochComplete: z.function().args(EpochNumberSchema).returns(z.boolean()),
@@ -115,6 +122,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .returns(ContractInstanceWithAddressSchema.optional()),
   getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
   registerContractFunctionSignatures: z.function().args(z.array(z.string())).returns(z.void()),
+  getL1ToL2MessagesForCheckpoint: z.function().args(CheckpointNumberSchema).returns(z.array(schemas.Fr)),
   getL1ToL2Messages: z.function().args(schemas.Integer).returns(z.array(schemas.Fr)),
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),

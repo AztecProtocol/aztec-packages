@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Struct GasSettings documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct GasSettings</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#gas_limits">gas_limits</a></li>
+<li><a href="#max_fees_per_gas">max_fees_per_gas</a></li>
+<li><a href="#max_priority_fees_per_gas">max_priority_fees_per_gas</a></li>
+<li><a href="#teardown_gas_limits">teardown_gas_limits</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#new">new</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-GasSettings">Deserialize</a></li>
+<li><a href="#impl-Empty-for-GasSettings">Empty</a></li>
+<li><a href="#impl-Eq-for-GasSettings">Eq</a></li>
+<li><a href="#impl-Serialize-for-GasSettings">Serialize</a></li>
+</ul>
+<h2>In module gas_settings</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.GasSettings.html">GasSettings</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">abis</a>::<a href="index.html">gas_settings</a></div>
+<h1>Struct <span id="struct" class="struct">GasSettings</span></h1>
+<pre><code>pub struct GasSettings {
+    pub gas_limits: <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>,
+    pub teardown_gas_limits: <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>,
+    pub max_fees_per_gas: <a href="../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>,
+    pub max_priority_fees_per_gas: <a href="../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="gas_limits" class="struct-field"><code class="code-header">gas_limits: <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></div>
+<div class="padded-description"></div><div id="teardown_gas_limits" class="struct-field"><code class="code-header">teardown_gas_limits: <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></div>
+<div class="padded-description"></div><div id="max_fees_per_gas" class="struct-field"><code class="code-header">max_fees_per_gas: <a href="../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a></code></div>
+<div class="padded-description"></div><div id="max_priority_fees_per_gas" class="struct-field"><code class="code-header">max_priority_fees_per_gas: <a href="../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../protocol_types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a></code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(
+    gas_limits: <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>,
+    teardown_gas_limits: <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>,
+    max_fees_per_gas: <a href="../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>,
+    max_priority_fees_per_gas: <a href="../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>,
+) -> Self</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-GasSettings"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 8]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-GasSettings"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../protocol_types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-GasSettings"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../protocol_types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-GasSettings"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 8]</code>
+
+</div></main>
+</body>
+</html>

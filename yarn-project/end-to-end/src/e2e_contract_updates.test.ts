@@ -123,9 +123,9 @@ describe('e2e_contract_updates', () => {
   afterEach(() => teardown());
 
   it('should update the contract', async () => {
-    expect(await contract.methods.get_private_value().simulate({ from: defaultAccountAddress })).toEqual(
-      INITIAL_UPDATABLE_CONTRACT_VALUE,
-    );
+    expect(
+      await contract.methods.get_private_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+    ).toEqual(INITIAL_UPDATABLE_CONTRACT_VALUE);
     expect(await contract.methods.get_public_value().simulate({ from: defaultAccountAddress })).toEqual(
       INITIAL_UPDATABLE_CONTRACT_VALUE,
     );
@@ -138,9 +138,9 @@ describe('e2e_contract_updates', () => {
     // Call a private method that wasn't available in the previous contract
     await updatedContract.methods.set_private_value().send({ from: defaultAccountAddress }).wait();
     // Read state that was changed by the previous tx
-    expect(await updatedContract.methods.get_private_value().simulate({ from: defaultAccountAddress })).toEqual(
-      UPDATED_CONTRACT_PUBLIC_VALUE,
-    );
+    expect(
+      await updatedContract.methods.get_private_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+    ).toEqual(UPDATED_CONTRACT_PUBLIC_VALUE);
 
     // Call a public method with a new implementation
     await updatedContract.methods.set_public_value().send({ from: defaultAccountAddress }).wait();

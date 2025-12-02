@@ -51,9 +51,20 @@ jobs:
             exit 1
           fi
 
-          TEMPLATE_CONTENT=$(cat .github/pull_request_template.md)
-          if [ "$PR_BODY" = "$TEMPLATE_CONTENT" ]; then
-            echo "::error::Please update the PR description - it still contains the default template"
+          # Extract non-blank lines from template
+          TEMPLATE_LINES=$(grep -v '^[[:space:]]*$' .github/pull_request_template.md || true)
+
+          # Check if any template line exists in PR body
+          FOUND_TEMPLATE=false
+          while IFS= read -r line; do
+          if [ -n "$line" ] && echo "$PR_BODY" | grep -qF "$line"; then
+            FOUND_TEMPLATE=true
+            break
+          fi
+          done <<< "$TEMPLATE_LINES"
+
+          if [ "$FOUND_TEMPLATE" = true ]; then
+            echo "::error::Please update the PR description - it still contains template content"
             exit 1
           fi
 

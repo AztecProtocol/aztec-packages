@@ -1,6 +1,6 @@
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
+import { CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -19,7 +19,7 @@ export class Checkpoint {
     /** L2 blocks in the checkpoint. */
     public blocks: L2BlockNew[],
     /** Number of the checkpoint. */
-    public number: number,
+    public number: CheckpointNumber,
   ) {}
 
   static get schema() {
@@ -28,7 +28,7 @@ export class Checkpoint {
         archive: AppendOnlyTreeSnapshot.schema,
         header: CheckpointHeader.schema,
         blocks: z.array(L2BlockNew.schema),
-        number: schemas.UInt32,
+        number: CheckpointNumberSchema,
       })
       .transform(({ archive, header, blocks, number }) => new Checkpoint(archive, header, blocks, number));
   }
@@ -47,7 +47,7 @@ export class Checkpoint {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(CheckpointHeader),
       reader.readVector(L2BlockNew),
-      reader.readNumber(),
+      CheckpointNumber(reader.readNumber()),
     );
   }
 
@@ -69,7 +69,7 @@ export class Checkpoint {
   }
 
   static async random(
-    checkpointNumber = 1,
+    checkpointNumber = CheckpointNumber(1),
     {
       numBlocks = 1,
       startBlockNumber = 1,

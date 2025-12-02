@@ -1,3 +1,5 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
+
 import { z } from 'zod';
 
 import { BlockAttestation } from '../p2p/block_attestation.js';
@@ -56,7 +58,7 @@ export interface P2PApiWithAttestations extends P2PApiWithoutAttestations {
    * @param proposalId - the proposal id to query, or undefined to query all proposals for the slot
    * @returns BlockAttestations
    */
-  getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]>;
+  getAttestationsForSlot(slot: SlotNumber, proposalId?: string): Promise<BlockAttestation[]>;
 
   /** Deletes a given attestation manually from the p2p client attestation pool. */
   deleteAttestation(attestation: BlockAttestation): Promise<void>;
@@ -78,7 +80,7 @@ export type P2PApiFull<T extends P2PClientType = P2PClientType.Full> = T extends
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getAttestationsForSlot: z
     .function()
-    .args(schemas.BigInt, optional(z.string()))
+    .args(schemas.SlotNumber, optional(z.string()))
     .returns(z.array(BlockAttestation.schema)),
   getPendingTxs: z
     .function()

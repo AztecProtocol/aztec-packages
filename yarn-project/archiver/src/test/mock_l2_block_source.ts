@@ -1,6 +1,6 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -15,6 +15,7 @@ import {
   PublishedL2Block,
   type ValidateBlockResult,
 } from '@aztec/stdlib/block';
+import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants, type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
@@ -113,6 +114,11 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
+  public async getPublishedCheckpoints(from: number, limit: number) {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
+    return (await this.getPublishedBlocks(from, limit)).map(block => block.toPublishedCheckpoint());
+  }
+
   public async getPublishedBlocks(from: number, limit: number, proven?: boolean) {
     const blocks = await this.getBlocks(from, limit, proven);
     return blocks.map(block =>
@@ -183,11 +189,16 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number - 1 : -1)?.getBlockHeader());
   }
 
+  getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
+    return this.getBlocksForEpoch(epochNumber).then(blocks => blocks.map(b => b.toCheckpoint()));
+  }
+
   getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]> {
     const epochDuration = DefaultL1ContractsConfig.aztecEpochDuration;
     const [start, end] = getSlotRangeForEpoch(epochNumber, { epochDuration });
     const blocks = this.l2Blocks.filter(b => {
-      const slot = b.header.globalVariables.slotNumber.toBigInt();
+      const slot = b.header.globalVariables.slotNumber;
       return slot >= start && slot <= end;
     });
     return Promise.resolve(blocks);
@@ -273,7 +284,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     throw new Error('Method not implemented.');
   }
 
-  getL2SlotNumber(): Promise<bigint> {
+  getL2SlotNumber(): Promise<SlotNumber> {
     throw new Error('Method not implemented.');
   }
 

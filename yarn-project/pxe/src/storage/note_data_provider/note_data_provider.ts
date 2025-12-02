@@ -3,7 +3,7 @@ import type { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock } from '@aztec/stdlib/block';
+import type { DataInBlock } from '@aztec/stdlib/block';
 import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
 import { NoteDao } from '@aztec/stdlib/note';
 
@@ -224,7 +224,7 @@ export class NoteDataProvider {
    * parameters.
    *
    * @param filter - Filter criteria including contractAddress (required), and optional
-   *                 storageSlot, status, scopes and siloedNullifier.
+   *                 owner, storageSlot, status, scopes, and siloedNullifier.
    * @returns Promise resolving to array of NoteDao objects matching the filter
    * @throws If filtering by an empty scopes array. Scopes have to be set to undefined or to a non-empty array.
    */
@@ -307,6 +307,10 @@ export class NoteDataProvider {
           continue;
         }
 
+        if (filter.owner && !note.owner.equals(filter.owner)) {
+          continue;
+        }
+
         if (filter.storageSlot && !note.storageSlot.equals(filter.storageSlot!)) {
           continue;
         }
@@ -333,7 +337,7 @@ export class NoteDataProvider {
    * @returns Promise resolving to array of nullified NoteDao objects
    * @throws Error if any nullifier is not found in the active notes
    */
-  applyNullifiers(nullifiers: InBlock<Fr>[]): Promise<NoteDao[]> {
+  applyNullifiers(nullifiers: DataInBlock<Fr>[]): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {
       return Promise.resolve([]);
     }

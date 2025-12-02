@@ -8,6 +8,7 @@ import {
   deployL1Contract,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { TimeoutError } from '@aztec/foundation/error';
@@ -117,7 +118,7 @@ describe('e2e_gov_proposal', () => {
     testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
     logger.warn(`Deployed test contract at ${testContract.address}`);
 
-    await cheatCodes.rollup.advanceToEpoch(2n);
+    await cheatCodes.rollup.advanceToEpoch(EpochNumber(2));
   });
 
   afterEach(() => teardown());
@@ -129,7 +130,7 @@ describe('e2e_gov_proposal', () => {
 
     const slot = await rollup.getSlotNumber();
     const round = await governanceProposer.computeRound(slot);
-    const nextRoundBeginsAtSlot = (slot / roundDuration) * roundDuration + roundDuration;
+    const nextRoundBeginsAtSlot = SlotNumber(Number((BigInt(slot) / roundDuration) * roundDuration + roundDuration));
     const nextRoundBeginsAtTimestamp = await rollup.getTimestampForSlot(nextRoundBeginsAtSlot);
 
     logger.warn(`Warping to round ${round + 1n} at slot ${nextRoundBeginsAtSlot}`, {
@@ -215,7 +216,7 @@ describe('e2e_gov_proposal', () => {
     const { round, roundDuration, nextRoundBeginsAtSlot } = await setupVotingRound();
 
     // And wait until the round is over
-    const nextRoundEndsAtSlot = nextRoundBeginsAtSlot + roundDuration;
+    const nextRoundEndsAtSlot = SlotNumber(nextRoundBeginsAtSlot + Number(roundDuration));
     const timeout = AZTEC_SLOT_DURATION * Number(roundDuration + 1n) + 20;
     logger.warn(`Waiting until slot ${nextRoundEndsAtSlot} for round to end (timeout ${timeout}s)`);
     await retryUntil(() => rollup.getSlotNumber().then(s => s > nextRoundEndsAtSlot), 'round end', timeout, 1);

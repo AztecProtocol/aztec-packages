@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Module ecdh_shared_secret documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#mod">Module ecdh_shared_secret</a></h2>
+<h3>Module items</h3>
+<ul class="sidebar-list">
+<li><a href="#functions">Functions</a></li>
+</ul>
+<h2>In module keys</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="../constants/index.html">constants</a></div></li>
+<li><a href="../ecdh_shared_secret/index.html">ecdh_shared_secret</a></div></li>
+<li><a href="../ephemeral/index.html">ephemeral</a></div></li>
+<li><a href="../getters/index.html">getters</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">keys</a>::ecdh_shared_secret</div>
+<h1>Module <span id="mod" class="module">ecdh_shared_secret</span></h1>
+<h2 id="functions">Functions</h2><ul class="item-list">
+<li><div class="item-name"><a href="fn.derive_ecdh_shared_secret.html" class="fn">derive_ecdh_shared_secret</a></div><div class="item-description">Computes a standard ecdh shared secret: [secret] * public_key = shared_secret.
+The input secret is known only to one party. The output shared secret is derivable
+by both parties, through this function.
+E.g.:
+Epk = esk * G // ephemeral keypair
+Pk = sk * G // recipient keypair
+Shared secret S = esk * Pk = sk * Epk // see how this function can be called with two different sets of inputs, depending on which secret the caller knows (either esk or sk)?</div></li>
+<li><div class="item-name"><a href="fn.derive_ecdh_shared_secret_using_aztec_address.html" class="fn">derive_ecdh_shared_secret_using_aztec_address</a></div><div class="item-description">Computes a standard ECDH shared secret using the public key corresponding to an AztecAddress:</div></li>
+</ul>
+</main>
+</body>
+</html>

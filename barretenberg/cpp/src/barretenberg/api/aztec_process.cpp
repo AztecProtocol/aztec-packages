@@ -59,7 +59,7 @@ std::filesystem::path get_cache_dir()
     if (!home) {
         home = ".";
     }
-    std::filesystem::path cache_dir = std::filesystem::path(home) / ".bb" / BB_VERSION_PLACEHOLDER / "vk_cache";
+    std::filesystem::path cache_dir = std::filesystem::path(home) / ".bb" / BB_VERSION / "vk_cache";
     std::filesystem::create_directories(cache_dir);
     return cache_dir;
 }

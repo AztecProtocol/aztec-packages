@@ -42,14 +42,13 @@ polynomials to \f$ T^i(X_i)\f$
  */
 
 template <typename Flavor> class SumcheckProverRound {
-
-    using FF = typename Flavor::FF;
     using Utils = bb::RelationUtils<Flavor>;
+
+  public:
+    using FF = typename Flavor::FF;
     using Relations = typename Flavor::Relations;
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
-
-  public:
     using ExtendedEdges = std::conditional_t<Flavor::USE_SHORT_MONOMIALS,
                                              typename Flavor::template ProverUnivariates<2>,
                                              typename Flavor::ExtendedEdges>;
@@ -686,6 +685,15 @@ template <typename Flavor> class SumcheckProverRound {
         } else {
             return libra_round_univariate.template extend_to<SumcheckRoundUnivariate::LENGTH>();
         }
+    }
+
+    // Methods made accessible for testing
+    void accumulate_relation_univariates_public(SumcheckTupleOfTuplesOfUnivariates& univariate_accumulators,
+                                                const auto& extended_edges,
+                                                const bb::RelationParameters<FF>& relation_parameters,
+                                                const FF& scaling_factor)
+    {
+        accumulate_relation_univariates(univariate_accumulators, extended_edges, relation_parameters, scaling_factor);
     }
 
   private:

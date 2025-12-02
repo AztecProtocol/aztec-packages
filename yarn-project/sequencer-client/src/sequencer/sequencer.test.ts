@@ -2,7 +2,7 @@ import { Body, L2Block } from '@aztec/aztec.js/block';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -172,7 +172,7 @@ describe('sequencer', () => {
       chainId,
       version,
       newBlockNumber,
-      new Fr(newSlotNumber),
+      SlotNumber(newSlotNumber),
       /*timestamp=*/ 0n,
       coinbase,
       feeRecipient,
@@ -185,7 +185,7 @@ describe('sequencer', () => {
     epochCache = mockDeep<EpochCache>();
     epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({
       epoch: EpochNumber(1),
-      slot: 1n,
+      slot: SlotNumber(1),
       ts: 1000n,
       now: 1000n,
     }));
@@ -199,8 +199,8 @@ describe('sequencer', () => {
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
     publisher.canProposeAtNextEthBlock.mockResolvedValue({
-      slot: BigInt(newSlotNumber),
-      checkpointNumber: BigInt(newBlockNumber),
+      slot: SlotNumber(newSlotNumber),
+      checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
       timeOfNextL1Slot: 1000n,
     });
 
@@ -381,8 +381,8 @@ describe('sequencer', () => {
 
       // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
       publisher.canProposeAtNextEthBlock.mockResolvedValue({
-        slot: block.header.globalVariables.slotNumber.toBigInt(),
-        checkpointNumber: BigInt(block.header.globalVariables.blockNumber),
+        slot: block.header.globalVariables.slotNumber,
+        checkpointNumber: CheckpointNumber.fromBlockNumber(block.header.globalVariables.blockNumber),
         timeOfNextL1Slot: 1000n,
       });
 
@@ -569,8 +569,8 @@ describe('sequencer', () => {
         publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
         publisher.enqueueSlashingActions.mockResolvedValue(true);
         publisher.canProposeAtNextEthBlock.mockResolvedValue({
-          slot: BigInt(newSlotNumber),
-          checkpointNumber: BigInt(newBlockNumber),
+          slot: SlotNumber(newSlotNumber),
+          checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
           timeOfNextL1Slot: 1000n,
         });
         return publisher;
@@ -680,11 +680,11 @@ describe('sequencer', () => {
 
       // We're testing the new behavior - that we try to vote even when sync fails
       // when we're past the time we could build a block
-      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(1n);
+      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(1));
       expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
       expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalledWith(
         governancePayload,
-        1n,
+        SlotNumber(1),
         1000n,
         expect.any(EthAddress),
         expect.any(Function),
@@ -779,7 +779,7 @@ class TestSubject extends Sequencer {
     return super.work();
   }
 
-  public override getBlockBuilderOptions(slot: number): PublicProcessorLimits {
+  public override getBlockBuilderOptions(slot: SlotNumber): PublicProcessorLimits {
     return super.getBlockBuilderOptions(slot);
   }
 }
