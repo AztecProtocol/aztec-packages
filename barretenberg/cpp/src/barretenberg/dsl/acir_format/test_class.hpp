@@ -157,6 +157,39 @@ inline std::vector<Acir::Opcode> block_constraint_to_acir_opcodes(const BlockCon
 }
 
 /**
+ * @brief Add terms for a mul_quad_ gate to an Acir::Expression
+ *
+ */
+inline void add_terms_to_expression(Acir::Expression& expr, const mul_quad_<bb::fr>& mul_quad)
+{
+    // Add multiplication term if both a and b are not constants
+    if (mul_quad.a != bb::stdlib::IS_CONSTANT && mul_quad.b != bb::stdlib::IS_CONSTANT &&
+        !mul_quad.mul_scaling.is_zero()) {
+        expr.mul_terms.push_back(std::make_tuple(mul_quad.mul_scaling.to_buffer(),
+                                                 Acir::Witness{ .value = mul_quad.a },
+                                                 Acir::Witness{ .value = mul_quad.b }));
+    }
+
+    // Add linear terms for each non-constant witness with non-zero scaling
+    if (mul_quad.a != bb::stdlib::IS_CONSTANT && !mul_quad.a_scaling.is_zero()) {
+        expr.linear_combinations.push_back(
+            std::make_tuple(mul_quad.a_scaling.to_buffer(), Acir::Witness{ .value = mul_quad.a }));
+    }
+    if (mul_quad.b != bb::stdlib::IS_CONSTANT && !mul_quad.b_scaling.is_zero()) {
+        expr.linear_combinations.push_back(
+            std::make_tuple(mul_quad.b_scaling.to_buffer(), Acir::Witness{ .value = mul_quad.b }));
+    }
+    if (mul_quad.c != bb::stdlib::IS_CONSTANT && !mul_quad.c_scaling.is_zero()) {
+        expr.linear_combinations.push_back(
+            std::make_tuple(mul_quad.c_scaling.to_buffer(), Acir::Witness{ .value = mul_quad.c }));
+    }
+    if (mul_quad.d != bb::stdlib::IS_CONSTANT && !mul_quad.d_scaling.is_zero()) {
+        expr.linear_combinations.push_back(
+            std::make_tuple(mul_quad.d_scaling.to_buffer(), Acir::Witness{ .value = mul_quad.d }));
+    }
+}
+
+/**
  * @brief Convert a constraint to a vector of Acir::Opcodes.
  *
  * @details This function converts barretenberg constraint types back to their corresponding Acir::Opcode
@@ -406,9 +439,29 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
     } else if constexpr (std::is_same_v<ConstraintType, AcirFormat::ArithTripleConstraint>) {
         throw_or_abort("ArithTripleConstraint conversion to Acir::Opcode is not currently supported.");
     } else if constexpr (std::is_same_v<ConstraintType, bb::mul_quad_<bb::curve::BN254::ScalarField>>) {
-        throw_or_abort("mul_quad_ conversion to Acir::Opcode is not currently supported.");
+        // Convert a single mul_quad_ to an AssertZero opcode
+        Acir::Expression expr{
+            .mul_terms = {},
+            .linear_combinations = {},
+            .q_c = constraint.const_scaling.to_buffer(),
+        };
+
+        add_terms_to_expression(expr, constraint);
+
+        return { Acir::Opcode{ .value = Acir::Opcode::AssertZero{ .value = expr } } };
     } else if constexpr (std::is_same_v<ConstraintType, std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>>) {
-        throw_or_abort("big_quad_constraints conversion to Acir::Opcode is not currently supported.");
+        // Convert a vector of mul_quad_ (big_quad_constraints) to an AssertZero opcode
+        Acir::Expression expr{
+            .mul_terms = {},
+            .linear_combinations = {},
+            .q_c = constraint[0].const_scaling.to_buffer(),
+        };
+
+        for (const auto& mul_quad : constraint) {
+            add_terms_to_expression(expr, mul_quad);
+        }
+
+        return { Acir::Opcode{ .value = Acir::Opcode::AssertZero{ .value = expr } } };
     } else {
         throw_or_abort("Unsupported constraint type");
     }
