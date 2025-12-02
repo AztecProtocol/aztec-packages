@@ -358,15 +358,7 @@ describe('e2e_p2p_add_rollup', () => {
           abi: OutboxAbi,
           data: txLog.data,
           topics: txLog.topics,
-        }) as {
-          eventName: 'MessageConsumed';
-          args: {
-            l2BlockNumber: bigint;
-            root: `0x${string}`;
-            messageHash: `0x${string}`;
-            leafId: bigint;
-          };
-        };
+        });
 
         // We check that MessageConsumed event was emitted with the expected message hash and leaf id
         expect(topics.args.messageHash).toStrictEqual(leaf.toString());
