@@ -18,7 +18,7 @@ namespace tx;
     *   C) Public call request, non-padded: Mutation happens in #[DISPATCH_EXEC_START] and #[DISPATCH_EXEC_END].
     *   D) (Non-)Revertible append note hash: Mutation happens in #[NOTE_HASH_APPEND] for non-padded and non-reverted rows.
     *
-    * - Revert: On a reverted row, next_note_hash_tree_root is under-constrained. It is fine, because we restore the note hash tree root
+    * - Revert: On a reverted row, next_note_hash_tree_root is not constrained. It is fine, because we restore the note hash tree root
     *           in #[RESTORE_STATE_ON_REVERT] which correctly constrains prev_note_hash_tree_root' (next row).
     *
     * Similar mechanisms apply for other tree states and side effect states.

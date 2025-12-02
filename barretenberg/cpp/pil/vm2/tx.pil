@@ -152,7 +152,7 @@ namespace tx;
     #[IS_PADDED_OR_REVERTED_END_PHASE]
     (is_padded + reverted) * (1 - end_phase) = 0;
 
-    // sel == 1 when start_tx, is_padded, reverted, start_phase, end_phase are 1.
+    // sel == 1 when start_tx, is_padded, reverted, start_phase or end_phase is 1.
     #[SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS]
     (start_tx + start_phase + end_phase) * (1 - sel) = 0;
     // From #[IS_PADDED_OR_REVERTED_END_PHASE], we transitively get `(is_padded = 1 || reverted = 1) ==> sel == 1`.
@@ -314,7 +314,7 @@ namespace tx;
 
     // Public call requests are dispatched to the execution trace.
     // We match the values to the start of an enqueued call in the execution trace.
-    // Key: In execution, `context_id` and `enqueued_call_start == 1` are unique.
+    // Key: In execution, the pair `context_id` and `enqueued_call_start == 1` characterizes a unique row.
     // Inputs: All other columns are inputs to the enqueued call.
     #[DISPATCH_EXEC_START]
     should_process_call_request {
@@ -461,7 +461,8 @@ namespace tx;
 
     // Read the tree value from public inputs
     // Note: A malicious prover could activate `is_tree_insert_phase` outside of the active
-    //       trace, but it does not affect security.
+    //       trace, but it does not affect security because "reading the public inputs" does
+    //       not create any side effects.
     #[READ_TREE_INSERT_VALUE]
     is_tree_insert_phase { read_pi_offset, leaf_value } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
@@ -583,7 +584,7 @@ namespace tx;
     should_l2_l1_msg_append { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
 
-    // If reverted, the next count is unconstrained. This is okay since we are going to restore the state at the end of setup or fail proving.
+    // If reverted, the next count is unconstrained. This is okay since we are going to restore the state to the end of setup or fail proving.
     // Namely, #[RESTORE_STATE_ON_REVERT] restores the number of L2 to L1 messages to its value at the end of setup.
     #[UPDATE_NUM_L2_TO_L1_MSGS]
     should_try_l2_l1_msg_append * (1 - reverted) * (prev_num_l2_to_l1_messages + 1 - next_num_l2_to_l1_messages) = 0;
@@ -637,9 +638,9 @@ namespace tx;
     // In all other phases, force fee to 0
     #[FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN]
     (1 - is_collect_fee) * (1 - is_teardown) * fee = 0;
-    // Note that if TEARDOWN is empty (is_padded == 1), the fee is unconstrained. It is fine because no public call request will be
-    // dispatched in this case (lookup #[DISPATCH_EXEC_START] is inactive). All the other relations involving the fee below
-    // are gated by `is_collect_fee`.
+    // Note that if TEARDOWN is empty (is_padded == 1), the fee is unconstrained for TEARDOWN's padded row.
+    // It is fine because no public call request will be dispatched in this case (lookup #[DISPATCH_EXEC_START] is inactive).
+    // All the other relations involving the fee below are gated by `is_collect_fee`.
 
     pol commit fee_juice_contract_address;
     is_collect_fee * (constants.FEE_JUICE_ADDRESS - fee_juice_contract_address) = 0;
