@@ -49,7 +49,7 @@ bool verify_buggy_witness(std::string instruction_name)
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + instruction_name + ".acir");
     bb::UltraCircuitBuilder builder = loader.get_circuit_builder();
     for (uint i = 0; i < witness.size(); i++) {
-        builder.variables[i] = witness[i];
+        builder.set_variable(i, witness[i]);
         if (i < 100) {
             info(witness[i]);
         }
@@ -58,13 +58,13 @@ bool verify_buggy_witness(std::string instruction_name)
 }
 
 /**
- * @brief Tests 127-bit unsigned addition
+ * @brief Tests 128-bit unsigned addition
  * Verifies that the ACIR implementation of addition is correct
  * Execution time: ~2.8 seconds on SMTBOX
  */
 TEST(acir_formal_proofs, uint_terms_add)
 {
-    std::string TESTNAME = "Binary::Add_Unsigned_127_Unsigned_127";
+    std::string TESTNAME = "Binary::Add_Unsigned_128_Unsigned_128";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
@@ -77,12 +77,12 @@ TEST(acir_formal_proofs, uint_terms_add)
 }
 
 /**
- * @brief Tests 127-bit unsigned bitwise AND
+ * @brief Tests 128-bit unsigned bitwise AND
  * Verifies that the ACIR implementation of AND is correct
  */
 TEST(acir_formal_proofs, uint_terms_and)
 {
-    std::string TESTNAME = "Binary::And_Unsigned_127_Unsigned_127";
+    std::string TESTNAME = "Binary::And_Unsigned_128_Unsigned_128";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
@@ -112,12 +112,12 @@ TEST(acir_formal_proofs, uint_terms_and32)
 }
 
 /**
- * @brief Tests 126-bit unsigned division
+ * @brief Tests 128-bit unsigned division
  * Verifies that the ACIR implementation of division is correct
  */
 TEST(acir_formal_proofs, uint_terms_div)
 {
-    std::string TESTNAME = "Binary::Div_Unsigned_126_Unsigned_126";
+    std::string TESTNAME = "Binary::Div_Unsigned_128_Unsigned_128";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
@@ -129,7 +129,7 @@ TEST(acir_formal_proofs, uint_terms_div)
 }
 
 /**
- * @brief Tests 127-bit unsigned equality comparison
+ * @brief Tests 128-bit unsigned equality comparison
  * Verifies two cases:
  * 1. When operands are equal, result must be 0
  * 2. When operands are not equal, result must be 1
@@ -137,7 +137,7 @@ TEST(acir_formal_proofs, uint_terms_div)
  */
 TEST(acir_formal_proofs, uint_terms_eq)
 {
-    std::string TESTNAME = "Binary::Eq_Unsigned_127_Unsigned_127";
+    std::string TESTNAME = "Binary::Eq_Unsigned_128_Unsigned_128";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver1 = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit1 = loader.get_bitvec_smt_circuit(&solver1);
@@ -159,7 +159,7 @@ TEST(acir_formal_proofs, uint_terms_eq)
 }
 
 /**
- * @brief Tests 127-bit unsigned less than comparison
+ * @brief Tests 128-bit unsigned less than comparison
  * Verifies two cases:
  * 1. When a < b, result must be 0
  * 2. When a >= b, result must be 1
@@ -167,7 +167,7 @@ TEST(acir_formal_proofs, uint_terms_eq)
  */
 TEST(acir_formal_proofs, uint_terms_lt)
 {
-    std::string TESTNAME = "Binary::Lt_Unsigned_127_Unsigned_127";
+    std::string TESTNAME = "Binary::Lt_Unsigned_128_Unsigned_128";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver1 = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit1 = loader.get_bitvec_smt_circuit(&solver1);
@@ -189,13 +189,13 @@ TEST(acir_formal_proofs, uint_terms_lt)
 }
 
 /**
- * @brief Tests 126-bit unsigned modulo
+ * @brief Tests 128-bit unsigned modulo
  * Verifies that the ACIR implementation of modulo is correct
  * Execution time: ??? seconds on SMTBOX
  */
 TEST(acir_formal_proofs, uint_terms_mod)
 {
-    std::string TESTNAME = "Binary::Mod_Unsigned_126_Unsigned_126";
+    std::string TESTNAME = "Binary::Mod_Unsigned_128_Unsigned_128";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
@@ -208,13 +208,13 @@ TEST(acir_formal_proofs, uint_terms_mod)
 }
 
 /**
- * @brief Tests 127-bit unsigned multiplication
+ * @brief Tests 128-bit unsigned multiplication
  * Verifies that the ACIR implementation of multiplication is correct
  * Execution time: ~10.0 seconds on SMTBOX
  */
 TEST(acir_formal_proofs, uint_terms_mul)
 {
-    std::string TESTNAME = "Binary::Mul_Unsigned_127_Unsigned_127";
+    std::string TESTNAME = "Binary::Mul_Unsigned_128_Unsigned_128";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
@@ -226,12 +226,12 @@ TEST(acir_formal_proofs, uint_terms_mul)
 }
 
 /**
- * @brief Tests 127-bit unsigned bitwise OR
+ * @brief Tests 128-bit unsigned bitwise OR
  * Verifies that the ACIR implementation of OR is correct
  */
 TEST(acir_formal_proofs, uint_terms_or)
 {
-    std::string TESTNAME = "Binary::Or_Unsigned_127_Unsigned_127";
+    std::string TESTNAME = "Binary::Or_Unsigned_128_Unsigned_128";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
@@ -261,18 +261,18 @@ TEST(acir_formal_proofs, uint_terms_or32)
 }
 
 /**
- * @brief Tests 64-bit left shift
+ * @brief Tests 8-bit left shift
  * Verifies that the ACIR implementation of left shift is correct
  * Execution time: ~4588 seconds on SMTBOX
  * Memory usage: ~30GB RAM
  */
-TEST(acir_formal_proofs, uint_terms_shl64)
+TEST(acir_formal_proofs, uint_terms_shl8)
 {
-    std::string TESTNAME = "Binary::Shl_Unsigned_64_Unsigned_8";
+    std::string TESTNAME = "Binary::Shl_Unsigned_8_Unsigned_8";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
-    bool res = verify_shl64(&solver, circuit);
+    bool res = verify_shl8(&solver, circuit);
     if (res) {
         save_buggy_witness(TESTNAME, circuit);
     }
@@ -318,13 +318,13 @@ TEST(acir_formal_proofs, uint_terms_shr)
 }
 
 /**
- * @brief Tests 127-bit unsigned subtraction
+ * @brief Tests 128-bit unsigned subtraction
  * Verifies that the ACIR implementation of subtraction is correct
  * Execution time: ~2.6 seconds on SMTBOX
  */
 TEST(acir_formal_proofs, uint_terms_sub)
 {
-    std::string TESTNAME = "Binary::Sub_Unsigned_127_Unsigned_127";
+    std::string TESTNAME = "Binary::Sub_Unsigned_128_Unsigned_128";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
@@ -336,12 +336,12 @@ TEST(acir_formal_proofs, uint_terms_sub)
 }
 
 /**
- * @brief Tests 127-bit unsigned bitwise XOR
+ * @brief Tests 128-bit unsigned bitwise XOR
  * Verifies that the ACIR implementation of XOR is correct
  */
 TEST(acir_formal_proofs, uint_terms_xor)
 {
-    std::string TESTNAME = "Binary::Xor_Unsigned_127_Unsigned_127";
+    std::string TESTNAME = "Binary::Xor_Unsigned_128_Unsigned_128";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
@@ -370,17 +370,17 @@ TEST(acir_formal_proofs, uint_terms_xor32)
 }
 
 /**
- * @brief Tests 127-bit unsigned bitwise NOT
+ * @brief Tests 128-bit unsigned bitwise NOT
  * Verifies that the ACIR implementation of NOT is correct
  * Execution time: ~21.3 seconds on SMTBOX
  */
 TEST(acir_formal_proofs, uint_terms_not)
 {
-    std::string TESTNAME = "Not_Unsigned_127";
+    std::string TESTNAME = "Not_Unsigned_128";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
-    bool res = verify_not_127(&solver, circuit);
+    bool res = verify_not_128(&solver, circuit);
     EXPECT_FALSE(res);
     if (res) {
         save_buggy_witness(TESTNAME, circuit);
@@ -472,13 +472,13 @@ TEST(acir_formal_proofs, field_terms_mul)
 }
 
 /**
- * @brief Tests 126-bit signed division
+ * @brief Tests 64-bit signed division
  * Verifies that the ACIR implementation of signed division is correct
  * Execution time: >17 DAYS on SMTBOX
  */
 TEST(acir_formal_proofs, integer_terms_div)
 {
-    std::string TESTNAME = "Binary::Div_Signed_126_Signed_126";
+    std::string TESTNAME = "Binary::Div_Signed_64_Signed_64";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_integer_smt_circuit(&solver);
@@ -490,12 +490,12 @@ TEST(acir_formal_proofs, integer_terms_div)
 }
 
 /**
- * @brief Tests non-uniqueness for casts
- * Verifies that the ACIR implementation of casts is correct Field -> u64
+ * @brief Tests non-uniqueness for truncate
+ * Verifies that the ACIR implementation of truncate is correct Field -> u64
  */
-TEST(acir_formal_proofs, non_uniqueness_for_casts_field_to_u64)
+TEST(acir_formal_proofs, non_uniqueness_for_truncate_field_to_u64)
 {
-    std::string TESTNAME = "Cast_Field_0";
+    std::string TESTNAME = "Truncate_Field_0";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     bool res = verify_non_uniqueness_for_casts(&solver, &loader, smt_terms::TermType::FFTerm);
@@ -503,12 +503,12 @@ TEST(acir_formal_proofs, non_uniqueness_for_casts_field_to_u64)
 }
 
 /**
- * @brief Tests non-uniqueness for casts
- * Verifies that the ACIR implementation of casts is correct u64 -> u8
+ * @brief Tests non-uniqueness for truncate
+ * Verifies that the ACIR implementation of truncate is correct u64 -> u8
  */
-TEST(acir_formal_proofs, non_uniqueness_for_casts_u64_to_u8)
+TEST(acir_formal_proofs, non_uniqueness_for_truncate_u64_to_u8)
 {
-    std::string TESTNAME = "Cast_Unsigned_64";
+    std::string TESTNAME = "Truncate_Unsigned_64";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     bool res = verify_non_uniqueness_for_casts(&solver, &loader, smt_terms::TermType::BVTerm);
@@ -516,14 +516,203 @@ TEST(acir_formal_proofs, non_uniqueness_for_casts_u64_to_u8)
 }
 
 /**
- * @brief Tests non-uniqueness for casts
- * Verifies that the ACIR implementation of casts is correct u8 -> u64
+ * @brief Tests non-uniqueness for truncate
+ * Verifies that the ACIR implementation of truncate is correct i64 -> u8
  */
-TEST(acir_formal_proofs, non_uniqueness_for_casts_u8_to_u64)
+TEST(acir_formal_proofs, non_uniqueness_for_truncate_i64_to_u8)
 {
-    std::string TESTNAME = "Cast_Unsigned_8";
+    std::string TESTNAME = "Truncate_Signed_64";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     bool res = verify_non_uniqueness_for_casts(&solver, &loader, smt_terms::TermType::BVTerm);
     EXPECT_FALSE(res);
+}
+
+/**
+ * @brief  Tests for i64 + i64
+ *
+ */
+TEST(AcirFormalProofs, SignedAdd)
+{
+    std::string TESTNAME = "Binary::Add_Signed_64_Signed_64";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_add_signed(&solver, circuit, 64);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
+ * @brief  Tests for i64 & i64
+ *
+ */
+TEST(AcirFormalProofs, SignedAnd)
+{
+    std::string TESTNAME = "Binary::And_Signed_64_Signed_64";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_and(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
+ * @brief Tests for i64 == i64
+ *
+ */
+TEST(AcirFormalProofs, SignedEq)
+{
+    std::string TESTNAME = "Binary::Eq_Signed_64_Signed_64";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_integer_smt_circuit(&solver);
+    bool res = verify_eq_on_equlaity(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+    bool res2 = verify_eq_on_inequlaity(&solver, circuit);
+    EXPECT_FALSE(res2);
+    if (res2) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
+ * @brief Tests for i64 % i64
+ *
+ */
+TEST(AcirFormalProofs, SignedMod)
+{
+    std::string TESTNAME = "Binary::Mod_Signed_64_Signed_64";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_integer_smt_circuit(&solver);
+    bool res = verify_mod(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
+ * @brief Tests for i64 * i64
+ *
+ */
+TEST(AcirFormalProofs, SignedMul)
+{
+    std::string TESTNAME = "Binary::Mul_Signed_64_Signed_64";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_mul_signed(&solver, circuit, 64);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
+ * @brief Tests for i64 | i64
+ *
+ */
+TEST(AcirFormalProofs, SignedOr)
+{
+    std::string TESTNAME = "Binary::Or_Signed_64_Signed_64";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_integer_smt_circuit(&solver);
+    bool res = verify_or(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
+ * @brief Test for i8 << i8
+ *
+ */
+TEST(AcirFormalProofs, SignedShl)
+{
+    std::string TESTNAME = "Binary::Shl_Signed_8_Signed_8";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_shl8(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
+ * @brief Test for i8 >> i8
+ *
+ */
+TEST(AcirFormalProofs, SignedShr)
+{
+    std::string TESTNAME = "Binary::Shr_Signed_8_Signed_8";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_shr(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
+ * @brief Test for i64 - i64
+ *
+ */
+TEST(AcirFormalProofs, SignedSub)
+{
+    std::string TESTNAME = "Binary::Sub_Signed_64_Signed_64";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_sub_signed(&solver, circuit, 64);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
+ * @brief Test for i64 ^ i64
+ *
+ */
+TEST(AcirFormalProofs, SignedXor)
+{
+    std::string TESTNAME = "Binary::Xor_Signed_64_Signed_64";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_xor(&solver, circuit);
+    EXPECT_FALSE(res);
+}
+
+/**
+ * @brief Test for ~i64
+ *
+ */
+TEST(AcirFormalProofs, SignedNot)
+{
+    std::string TESTNAME = "Not_Signed_64";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_not_64(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
 }

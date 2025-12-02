@@ -1,3 +1,4 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { Offense, ProposerSlashAction, SlashPayloadRound } from '@aztec/stdlib/slashing';
 
 import type { SlasherConfig } from './config.js';
@@ -30,7 +31,7 @@ export class NullSlasherClient implements SlasherClientInterface {
     this.config = { ...this.config, ...config };
   }
 
-  public getProposerActions(_slotNumber: bigint): Promise<ProposerSlashAction[]> {
+  public getProposerActions(_slotNumber: SlotNumber): Promise<ProposerSlashAction[]> {
     return Promise.resolve([]);
   }
 

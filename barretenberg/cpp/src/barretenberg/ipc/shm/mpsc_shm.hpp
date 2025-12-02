@@ -21,10 +21,16 @@ namespace bb::ipc {
  * @brief Shared doorbell for waking consumer
  *
  * Producers ring this when publishing data to wake the sleeping consumer.
+ * Carefully aligned to avoid false sharing between producer and consumer.
  */
 struct alignas(64) MpscDoorbell {
-    std::atomic<uint32_t> seq;
-    std::array<uint8_t, 60> _pad; // Cache line alignment
+    // Producer-written (written by producers in publish())
+    alignas(64) std::atomic<uint32_t> seq;
+    std::array<uint8_t, 60> _pad0;
+
+    // Consumer-written (written by consumer in wait_for_data())
+    alignas(64) std::atomic<bool> consumer_blocked; // Set RIGHT BEFORE futex_wait, cleared RIGHT AFTER
+    std::array<uint8_t, 63> _pad1;
 };
 
 /**
@@ -61,18 +67,19 @@ class MpscConsumer {
 
     /**
      * @brief Wait for data on any ring
-     * @param spin_ns Nanoseconds to busy-wait before sleeping on doorbell
+     * @param timeout_ns Total timeout in nanoseconds (spins 10ms, then futex waits for remainder)
      * @return Ring index with data, or -1 on timeout
      */
-    int wait_for_data(uint32_t spin_ns);
+    int wait_for_data(uint32_t timeout_ns);
 
     /**
      * @brief Peek data from specific ring
      * @param ring_idx Ring index
-     * @param n Output: bytes available
-     * @return Pointer to data, or nullptr if empty
+     * @param want Minimum bytes required
+     * @param timeout_ns Timeout in nanoseconds
+     * @return Pointer to data, or nullptr on timeout
      */
-    void* peek(size_t ring_idx, size_t* n);
+    void* peek(size_t ring_idx, size_t want, uint32_t timeout_ns);
 
     /**
      * @brief Release data from specific ring
@@ -94,7 +101,8 @@ class MpscConsumer {
     int doorbell_fd_ = -1;
     size_t doorbell_len_ = 0;
     MpscDoorbell* doorbell_ = nullptr;
-    size_t last_served_ = 0; // Round-robin fairness
+    size_t last_served_ = 0;         // Round-robin fairness
+    bool previous_had_data_ = false; // Adaptive spinning: only spin if previous call found data
 };
 
 /**
@@ -123,24 +131,16 @@ class MpscProducer {
     /**
      * @brief Claim space in producer's ring
      * @param want Bytes wanted
-     * @param granted Output: bytes actually granted
-     * @return Pointer to buffer, or nullptr if no space
+     * @param timeout_ns Timeout in nanoseconds
+     * @return Pointer to buffer, or nullptr on timeout
      */
-    void* claim(size_t want, size_t* granted);
+    void* claim(size_t want, uint32_t timeout_ns);
 
     /**
      * @brief Publish data to producer's ring (rings doorbell)
      * @param n Bytes to publish
      */
     void publish(size_t n);
-
-    /**
-     * @brief Wait for space in producer's ring
-     * @param need Bytes needed
-     * @param spin_ns Nanoseconds to spin before sleeping
-     * @return true if space available
-     */
-    bool wait_for_space(size_t need, uint32_t spin_ns);
 
   private:
     MpscProducer(SpscShm&& ring, int doorbell_fd, size_t doorbell_len, MpscDoorbell* doorbell, size_t producer_id);

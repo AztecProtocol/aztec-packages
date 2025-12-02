@@ -14,6 +14,7 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 import { type Bufferable, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
@@ -246,7 +247,6 @@ function mapSpongeBlobToNoir(spongeBlob: SpongeBlob): SpongeBlobNoir {
   return {
     sponge: mapPoseidon2SpongeToNoir(spongeBlob.sponge),
     num_absorbed_fields: mapNumberToNoir(spongeBlob.numAbsorbedFields),
-    num_expected_fields: mapNumberToNoir(spongeBlob.numExpectedFields),
   };
 }
 
@@ -259,7 +259,6 @@ function mapSpongeBlobFromNoir(spongeBlob: SpongeBlobNoir): SpongeBlob {
   return new SpongeBlob(
     mapPoseidon2SpongeFromNoir(spongeBlob.sponge),
     mapNumberFromNoir(spongeBlob.num_absorbed_fields),
-    mapNumberFromNoir(spongeBlob.num_expected_fields),
   );
 }
 
@@ -363,7 +362,7 @@ function mapCheckpointConstantDataFromNoir(constants: CheckpointConstantDataNoir
     mapFieldFromNoir(constants.vk_tree_root),
     mapFieldFromNoir(constants.protocol_contracts_hash),
     mapFieldFromNoir(constants.prover_id),
-    mapFieldFromNoir(constants.slot_number),
+    SlotNumber(mapFieldFromNoir(constants.slot_number).toNumber()),
     mapEthAddressFromNoir(constants.coinbase),
     mapAztecAddressFromNoir(constants.fee_recipient),
     mapGasFeesFromNoir(constants.gas_fees),
@@ -377,7 +376,7 @@ function mapCheckpointConstantDataToNoir(constants: CheckpointConstantData): Che
     vk_tree_root: mapFieldToNoir(constants.vkTreeRoot),
     protocol_contracts_hash: mapFieldToNoir(constants.protocolContractsHash),
     prover_id: mapFieldToNoir(constants.proverId),
-    slot_number: mapFieldToNoir(constants.slotNumber),
+    slot_number: mapFieldToNoir(new Fr(constants.slotNumber)),
     coinbase: mapEthAddressToNoir(constants.coinbase),
     fee_recipient: mapAztecAddressToNoir(constants.feeRecipient),
     gas_fees: mapGasFeesToNoir(constants.gasFees),
@@ -593,6 +592,7 @@ export function mapBlockRollupPublicInputsFromNoir(inputs: BlockRollupPublicInpu
     mapSpongeBlobFromNoir(inputs.end_sponge_blob),
     mapU64FromNoir(inputs.start_timestamp),
     mapU64FromNoir(inputs.end_timestamp),
+    mapFieldFromNoir(inputs.block_headers_hash),
     mapFieldFromNoir(inputs.in_hash),
     mapFieldFromNoir(inputs.out_hash),
     mapFieldFromNoir(inputs.accumulated_fees),
@@ -611,6 +611,7 @@ export function mapBlockRollupPublicInputsToNoir(inputs: BlockRollupPublicInputs
     end_sponge_blob: mapSpongeBlobToNoir(inputs.endSpongeBlob),
     start_timestamp: mapU64ToNoir(inputs.startTimestamp),
     end_timestamp: mapU64ToNoir(inputs.endTimestamp),
+    block_headers_hash: mapFieldToNoir(inputs.blockHeadersHash),
     in_hash: mapFieldToNoir(inputs.inHash),
     out_hash: mapFieldToNoir(inputs.outHash),
     accumulated_fees: mapFieldToNoir(inputs.accumulatedFees),
@@ -821,7 +822,6 @@ export function mapBlockRootEmptyTxFirstRollupPrivateInputsToNoir(
     previous_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.previousArchive),
     previous_state: mapStateReferenceToNoir(inputs.previousState),
     constants: mapCheckpointConstantDataToNoir(inputs.constants),
-    start_sponge_blob: mapSpongeBlobToNoir(inputs.startSpongeBlob),
     timestamp: mapU64ToNoir(inputs.timestamp),
     new_l1_to_l2_message_subtree_root_sibling_path: mapTuple(
       inputs.newL1ToL2MessageSubtreeRootSiblingPath,

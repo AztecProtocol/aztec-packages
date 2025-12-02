@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-# Helper script to calculate all publisher key indices for a given environment
+# Helper script to calculate all publisher key indices and bot account indices for a given environment
 # This is used to determine which keys need funding
+# Includes: validator publishers, prover publishers, bot transfers, and bot swaps
 
 set -euo pipefail
 
@@ -50,6 +51,24 @@ if (( TOTAL_PROVER_PUBLISHERS > 0 )); then
   PROVER_PUBLISHER_INDICES=$(seq "$PROVER_PUBLISHER_MNEMONIC_START_INDEX" $((PROVER_PUBLISHER_MNEMONIC_START_INDEX + TOTAL_PROVER_PUBLISHERS - 1)) | tr '\n' ',' | sed 's/,$//')
 fi
 
+# Calculate transfers bot indices
+BOT_TRANSFERS_REPLICAS=${BOT_TRANSFERS_REPLICAS:-0}
+BOT_TRANSFERS_MNEMONIC_START_INDEX=${BOT_TRANSFERS_MNEMONIC_START_INDEX:-7000}
+
+BOT_TRANSFERS_INDICES=""
+if (( BOT_TRANSFERS_REPLICAS > 0 )); then
+  BOT_TRANSFERS_INDICES=$(seq "$BOT_TRANSFERS_MNEMONIC_START_INDEX" $((BOT_TRANSFERS_MNEMONIC_START_INDEX + BOT_TRANSFERS_REPLICAS - 1)) | tr '\n' ',' | sed 's/,$//')
+fi
+
+# Calculate swaps bot indices
+BOT_SWAPS_REPLICAS=${BOT_SWAPS_REPLICAS:-0}
+BOT_SWAPS_MNEMONIC_START_INDEX=${BOT_SWAPS_MNEMONIC_START_INDEX:-7100}
+
+BOT_SWAPS_INDICES=""
+if (( BOT_SWAPS_REPLICAS > 0 )); then
+  BOT_SWAPS_INDICES=$(seq "$BOT_SWAPS_MNEMONIC_START_INDEX" $((BOT_SWAPS_MNEMONIC_START_INDEX + BOT_SWAPS_REPLICAS - 1)) | tr '\n' ',' | sed 's/,$//')
+fi
+
 # Combine all publisher indices
 ALL_PUBLISHER_INDICES=""
 if [ -n "$VALIDATOR_PUBLISHER_INDICES" ]; then
@@ -61,6 +80,22 @@ if [ -n "$PROVER_PUBLISHER_INDICES" ]; then
     ALL_PUBLISHER_INDICES="${ALL_PUBLISHER_INDICES},${PROVER_PUBLISHER_INDICES}"
   else
     ALL_PUBLISHER_INDICES="$PROVER_PUBLISHER_INDICES"
+  fi
+fi
+
+if [ -n "$BOT_TRANSFERS_INDICES" ]; then
+  if [ -n "$ALL_PUBLISHER_INDICES" ]; then
+    ALL_PUBLISHER_INDICES="${ALL_PUBLISHER_INDICES},${BOT_TRANSFERS_INDICES}"
+  else
+    ALL_PUBLISHER_INDICES="$BOT_TRANSFERS_INDICES"
+  fi
+fi
+
+if [ -n "$BOT_SWAPS_INDICES" ]; then
+  if [ -n "$ALL_PUBLISHER_INDICES" ]; then
+    ALL_PUBLISHER_INDICES="${ALL_PUBLISHER_INDICES},${BOT_SWAPS_INDICES}"
+  else
+    ALL_PUBLISHER_INDICES="$BOT_SWAPS_INDICES"
   fi
 fi
 

@@ -56,15 +56,15 @@ contract SeedAndSizeSnapshotsTest is ValidatorSelectionTestBase {
       $randaos[timeCheater.getCurrentSlot()] = nextRandao;
 
       // We will add one node to the GSE for rollup (impersonate rollup to avoid the queue).
-      // We want to see that the lag between current values are the same between randaos and size values
-
       uint256 epochIndex = Epoch.unwrap(timeCheater.getCurrentEpoch());
-      if (epochIndex >= 2) {
+      if (epochIndex >= TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET) {
         (uint256 seed, uint256 size) = getValues();
-        uint256 slot = (epochIndex - 2) * timeCheater.epochDuration();
+        uint256 randaoSlot = (epochIndex - TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO) * timeCheater.epochDuration();
+        uint256 validatorSetSlot =
+          (epochIndex - TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET) * timeCheater.epochDuration();
 
-        assertEq(size, $sizes[slot], "invalid size");
-        assertEq(seed, uint256(keccak256(abi.encode(epochIndex, uint224($randaos[slot])))), "invalid seed");
+        assertEq(size, $sizes[validatorSetSlot], "invalid size");
+        assertEq(seed, uint256(keccak256(abi.encode(epochIndex, uint224($randaos[randaoSlot])))), "invalid seed");
       }
     }
   }
@@ -84,21 +84,27 @@ contract SeedAndSizeSnapshotsTest is ValidatorSelectionTestBase {
   function test_revertWhenSampleTimeInFuture() public setup(4, 4) {
     uint256 epochDuration = TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
 
-    // Move to the start of epoch 1
-    vm.warp(block.timestamp + epochDuration);
-
-    // Trying to get sample seed for epoch 4 should fail because its sample time is in the future
-    Timestamp futureEpochTimestamp = Timestamp.wrap(block.timestamp + 3 * epochDuration);
+    Timestamp tooEarlyForRandao =
+      Timestamp.wrap(block.timestamp + (TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO + 1) * epochDuration);
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.ValidatorSelection__EpochNotStable.selector, 4, uint32(block.timestamp))
+      abi.encodeWithSelector(
+        Errors.ValidatorSelection__EpochNotStable.selector,
+        TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO + 1,
+        uint32(block.timestamp)
+      )
     );
-    rollup.getSampleSeedAt(futureEpochTimestamp);
+    rollup.getSampleSeedAt(tooEarlyForRandao);
 
-    // Same for sampling size
+    Timestamp tooEarlyForValidatorSet =
+      Timestamp.wrap(block.timestamp + (TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET + 1) * epochDuration);
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.ValidatorSelection__EpochNotStable.selector, 4, uint32(block.timestamp))
+      abi.encodeWithSelector(
+        Errors.ValidatorSelection__EpochNotStable.selector,
+        TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET + 1,
+        uint32(block.timestamp)
+      )
     );
-    rollup.getSamplingSizeAt(futureEpochTimestamp);
+    rollup.getSamplingSizeAt(tooEarlyForValidatorSet);
   }
 }

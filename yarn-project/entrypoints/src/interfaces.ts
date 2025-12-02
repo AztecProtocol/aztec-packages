@@ -1,7 +1,9 @@
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import type { ExecutionPayload, TxExecutionRequest } from '@aztec/stdlib/tx';
+
+import { z } from 'zod';
 
 /**
  * Information on the connected chain. Used by wallets when constructing transactions to protect against replay
@@ -13,6 +15,14 @@ export type ChainInfo = {
   /** The version of the rollup  */
   version: Fr;
 };
+
+/**
+ * Zod schema for ChainInfo
+ */
+export const ChainInfoSchema = z.object({
+  chainId: Fr.schema,
+  version: Fr.schema,
+});
 
 /**
  * Creates transaction execution requests out of a set of function calls, a fee payment method and

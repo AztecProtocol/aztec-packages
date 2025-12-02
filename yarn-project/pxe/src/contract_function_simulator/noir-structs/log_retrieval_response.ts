@@ -42,7 +42,7 @@ export class LogRetrievalResponse {
     return range(serializationLen).map(_ => Fr.zero());
   }
 
-  static toSerializedOption(response?: LogRetrievalResponse): Fr[] {
+  static toSerializedOption(response: LogRetrievalResponse | null): Fr[] {
     if (response) {
       return [new Fr(1), ...response.toFields()];
     } else {

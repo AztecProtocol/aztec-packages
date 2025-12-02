@@ -7,6 +7,7 @@ import {
   deployL1Contracts,
 } from '@aztec/ethereum';
 import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -182,14 +183,14 @@ describe('TallySlashingProposer', () => {
 
     it('builds correct typed data to sign', async () => {
       const votes = bufferToHex(Buffer.alloc(testSlashingRoundSize / testConfig.aztecEpochDuration, 1));
-      const slot = 1n;
+      const slot = SlotNumber(1);
       const typedData = tallySlashingProposer.buildVoteTypedData(votes, slot);
       const expectedDigest = await tallySlashingProposer.getVoteDataDigest(votes, slot);
       expect(hashTypedData(typedData)).toEqual(expectedDigest.toString());
     });
 
     it('builds vote request with signer', async () => {
-      await rollupCheatCodes.advanceToEpoch(12n);
+      await rollupCheatCodes.advanceToEpoch(EpochNumber(12));
       const votes = bufferToHex(Buffer.alloc(testSlashingRoundSize / testConfig.aztecEpochDuration, 1));
       const slot = await rollup.getSlotNumber();
       const proposer = EthAddress.fromString(await rollup.getCurrentProposer());

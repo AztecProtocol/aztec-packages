@@ -30,7 +30,7 @@ class SocketServer : public IpcServer {
     SocketServer& operator=(SocketServer&&) = delete;
 
     bool listen() override;
-    int accept(uint64_t timeout_ns) override;
+    int accept() override;
     int wait_for_data(uint64_t timeout_ns) override;
     std::span<const uint8_t> receive(int client_id) override;
     void release(int client_id, size_t message_size) override;
@@ -45,11 +45,7 @@ class SocketServer : public IpcServer {
     std::string socket_path_;
     int initial_max_clients_;
     int listen_fd_ = -1;
-#ifdef __APPLE__
-    int kqueue_fd_ = -1; // macOS: kqueue for event notification
-#else
-    int epoll_fd_ = -1; // Linux: epoll for event notification
-#endif
+    int fd_ = -1;                                    // kqueue or epoll fd
     std::vector<int> client_fds_;                    // client_id -> fd
     std::unordered_map<int, int> fd_to_client_id_;   // fd -> client_id (for fast lookup)
     std::vector<std::vector<uint8_t>> recv_buffers_; // client_id -> recv buffer

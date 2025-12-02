@@ -21,7 +21,7 @@ comptime global FROM_FIELD: TypedExpr = {
 /// Utility function creating stubs used by all the stub functions in this file.
 comptime fn create_stub_base(
     f: FunctionDefinition,
-) -> (Quoted, Quoted, Quoted, Quoted, Quoted, u32, Field) {
+) -> (Quoted, Quoted, Quoted, Quoted, u32, Quoted, u32, Field) {
     // Dear privacy adventurer,
     // Chances are, you've command+clicked on the name of an external function
     // call -- seeking to view that function -- only to end up here.
@@ -43,8 +43,10 @@ comptime fn create_stub_base(
     let fn_parameters_list =
         fn_parameters.map(|(name, typ): (Quoted, Type)| quote { $name: $typ }).join(quote {,});
 
-    let (serialized_args_array_construction, _, serialized_args_array_name) =
+    let (serialized_args_array_construction, serialized_args_array_len_quote, serialized_args_array_name) =
         derive_serialization_quotes(fn_parameters, false);
+    let serialized_args_array_len: u32 =
+        unquote!(quote { ($serialized_args_array_len_quote) as u32 });
 
     let (fn_name_str, _) = fn_name.as_str_quote();
     let fn_name_len: u32 = unquote!(quote { $fn_name_str.as_bytes().len()});
@@ -52,17 +54,17 @@ comptime fn create_stub_base(
 
     (
         fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name,
-        fn_name_str, fn_name_len, fn_selector,
+        serialized_args_array_len, fn_name_str, fn_name_len, fn_selector,
     )
 }
 
 pub(crate) comptime fn create_private_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, serialized_args_array_len, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::PrivateCall<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::PrivateCall<$fn_name_len, $serialized_args_array_len, $fn_return_type> {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::calls::PrivateCall::new(
@@ -76,12 +78,12 @@ pub(crate) comptime fn create_private_stub(f: FunctionDefinition) -> Quoted {
 }
 
 pub(crate) comptime fn create_private_static_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, serialized_args_array_len, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::PrivateStaticCall<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::PrivateStaticCall<$fn_name_len, $serialized_args_array_len, $fn_return_type> {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::calls::PrivateStaticCall::new(
@@ -95,12 +97,12 @@ pub(crate) comptime fn create_private_static_stub(f: FunctionDefinition) -> Quot
 }
 
 pub(crate) comptime fn create_public_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, serialized_args_array_len, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::PublicCall<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::PublicCall<$fn_name_len, $serialized_args_array_len, $fn_return_type> {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::calls::PublicCall::new(
@@ -114,12 +116,12 @@ pub(crate) comptime fn create_public_stub(f: FunctionDefinition) -> Quoted {
 }
 
 pub(crate) comptime fn create_public_static_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, serialized_args_array_len, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::PublicStaticCall<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::PublicStaticCall<$fn_name_len, $serialized_args_array_len, $fn_return_type> {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::calls::PublicStaticCall::new(
@@ -133,12 +135,12 @@ pub(crate) comptime fn create_public_static_stub(f: FunctionDefinition) -> Quote
 }
 
 pub(crate) comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, serialized_args_array_len, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::UtilityCall<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::calls::UtilityCall<$fn_name_len, $serialized_args_array_len, $fn_return_type> {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::calls::UtilityCall::new(
@@ -160,7 +162,7 @@ pub(crate) comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
 /// Creates a stub for calling a private function (or static private function if `is_static` is true) from private
 /// context (for CallSelf<&mut PrivateContext> and CallSelfStatic<&mut PrivateContext>).
 pub comptime fn create_private_self_call_stub(f: FunctionDefinition, is_static: bool) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, _, _, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, _, _, _, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
@@ -189,7 +191,7 @@ pub comptime fn create_private_self_call_stub(f: FunctionDefinition, is_static: 
 
 /// Creates a stub for calling a public function from public context (for CallSelf<PublicContext>)
 pub comptime fn create_public_self_call_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, _, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, _, fn_name_str, _, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
@@ -211,7 +213,7 @@ pub comptime fn create_public_self_call_stub(f: FunctionDefinition) -> Quoted {
 
 /// Creates a static stub for calling a public view function from public context (for CallSelfStatic<PublicContext>)
 pub comptime fn create_public_self_call_static_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, _, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, _, fn_name_str, _, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
@@ -233,14 +235,14 @@ pub comptime fn create_public_self_call_static_stub(f: FunctionDefinition) -> Qu
 
 /// Creates a static stub for enqueuing a public view function from private context (for EnqueueSelfStatic<&mut PrivateContext>)
 pub comptime fn create_public_self_enqueue_static_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, serialized_args_array_len, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
 
     quote {
         pub fn $fn_name(self, $fn_parameters_list) {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            let interface: aztec::context::calls::PublicStaticCall<$fn_name_len, ()> = aztec::context::calls::PublicStaticCall::new(
+            let interface: aztec::context::calls::PublicStaticCall<$fn_name_len, $serialized_args_array_len, ()> = aztec::context::calls::PublicStaticCall::new(
                 self.address,
                 selector,
                 $fn_name_str,
@@ -253,14 +255,14 @@ pub comptime fn create_public_self_enqueue_static_stub(f: FunctionDefinition) ->
 
 /// Creates a stub for enqueuing a public function from private context (for EnqueueSelf<&mut PrivateContext>)
 pub comptime fn create_public_self_enqueue_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, serialized_args_array_len, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
 
     quote {
         pub fn $fn_name(self, $fn_parameters_list) {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            let interface: aztec::context::calls::PublicCall<$fn_name_len, ()> = aztec::context::calls::PublicCall::new(
+            let interface: aztec::context::calls::PublicCall<$fn_name_len, $serialized_args_array_len, ()> = aztec::context::calls::PublicCall::new(
                 self.address,
                 selector,
                 $fn_name_str,

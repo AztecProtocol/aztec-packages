@@ -28,7 +28,7 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  * @dev This library implements the validator selection system:
  *      - Epoch-based committee sampling
  *      - Slot-based proposer selection within committee members
- *      - Signature verification for block proposals and attestations
+ *      - Signature verification for checkpoint proposals and attestations
  *      - Committee commitment validation and caching mechanisms
  *      - Randomness seed management for unpredictable but deterministic selection
  *
@@ -44,13 +44,13 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  *      2. Proposer Selection:
  *         - For each slot within an epoch, one committee member is selected as the proposer (this may change)
  *         - Selection is deterministic based on epoch, slot, and the epoch's sample seed
- *         - Proposers have exclusive rights to propose blocks during their assigned slot
- *         - Proposer verification ensures only the correct validator can submit blocks
+ *         - Proposers have exclusive rights to propose checkpoints during their assigned slot
+ *         - Proposer verification ensures only the correct validator can submit checkpoints
  *
  *      3. Attestation System:
- *         - Committee members attest to blocks by providing signatures
+ *         - Committee members attest to checkpoints by providing signatures
  *         - Attestations serve dual purpose: data availability and state validation
- *         - Blocks require >2/3 committee signatures to be considered valid
+ *         - Checkpoints require >2/3 committee signatures to be considered valid
  *         - Signatures are verified against expected committee members using ECDSA recovery
  *         - Mixed signature/address format allows optimization (addresses included only for non-signing members,
  *           addresses for signing members can be recovered from the signatures and hence are not needed for DA
@@ -66,13 +66,13 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  *
  *      5. Caching and Optimization:
  *         - Transient storage caches proposer computations within the same transaction
- *           - This is used when signaling for a governance or slashing payload after a block proposal
+ *           - This is used when signaling for a governance or slashing payload after a checkpoint proposal
  *         - Committee commitments are stored to avoid recomputation during verification
  *         - Validator indices are sampled once and reused for address resolution
  *
  *      Integration with Rollup System:
  *      - Called from RollupCore.setupEpoch() to initialize epoch committees
- *      - Used in ProposeLib.propose() for proposer verification during block submission
+ *      - Used in ProposeLib.propose() for proposer verification during checkpoint submission
  *      - Integrates with StakingLib to resolve validator addresses from staking indices
  *      - Works with InvalidateLib for committee verification during invalidation
  *
@@ -128,14 +128,23 @@ library ValidatorSelectionLib {
 
   /**
    * @notice Initializes the validator selection system with target committee size
+   * @dev It is HIGHLY recommended to use lagInEpochsForValidatorSet > lagInEpochsForRandao, to avoid sequencer bias
+   *      but we allow them being equal because it makes test networks faster to kick off.
    * @dev Sets up the initial configuration and bootstrap seeds for the first two epochs.
    *      The first two epochs use maximum seed values for startup.
    * @param _targetCommitteeSize The desired number of validators in each epoch's committee
    */
-  function initialize(uint256 _targetCommitteeSize, uint256 _lagInEpochs) internal {
+  function initialize(uint256 _targetCommitteeSize, uint256 _lagInEpochsForValidatorSet, uint256 _lagInEpochsForRandao)
+    internal
+  {
+    require(
+      _lagInEpochsForValidatorSet >= _lagInEpochsForRandao,
+      Errors.ValidatorSelection__InvalidLagInEpochs(_lagInEpochsForValidatorSet, _lagInEpochsForRandao)
+    );
     ValidatorSelectionStorage storage store = getStorage();
     store.targetCommitteeSize = _targetCommitteeSize.toUint32();
-    store.lagInEpochs = _lagInEpochs.toUint32();
+    store.lagInEpochsForValidatorSet = _lagInEpochsForValidatorSet.toUint32();
+    store.lagInEpochsForRandao = _lagInEpochsForRandao.toUint32();
 
     checkpointRandao(Epoch.wrap(0));
   }
@@ -176,8 +185,8 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice Verifies that the block proposal has been signed by the correct proposer
-   * @dev Validates proposer eligibility and signature for block proposals by:
+   * @notice Verifies that the checkpoint proposal has been signed by the correct proposer
+   * @dev Validates proposer eligibility and signature for checkpoint proposals by:
    *      1. Attempting to load cached proposer from transient storage
    *      2. If not cached, reconstructing committee from attestations and verifying against stored commitment
    *      3. Computing proposer index using epoch, slot, and sample seed
@@ -189,13 +198,13 @@ library ValidatorSelectionLib {
    *      Uses transient storage caching to avoid recomputation within the same transaction. (This caching mechanism is
    *      commonly used when a proposer signals in governance and submits a proposal within the same transaction - then
    *      `getProposerAt` function is called).
-   * @param _slot The slot of the block being proposed
-   * @param _epochNumber The epoch number of the block
-   * @param _attestations The committee attestations for the block proposal
+   * @param _slot The slot of the checkpoint being proposed
+   * @param _epochNumber The epoch number of the checkpoint
+   * @param _attestations The committee attestations for the checkpoint proposal
    * @param _signers The addresses of the committee members that signed the attestations. Provided in order to not have
    * to recover them from their attestations' signatures (and hence save gas). The addresses of the non-signing
    * committee members are directly included in the attestations.
-   * @param _digest The digest of the block being proposed
+   * @param _digest The digest of the checkpoint being proposed
    * @param _updateCache Flag to identify that the proposer should be written to transient cache.
    * @custom:reverts Errors.ValidatorSelection__InvalidCommitteeCommitment if reconstructed committee doesn't match
    * stored commitment
@@ -282,10 +291,10 @@ library ValidatorSelectionLib {
    *      directly from calldata.
    *
    *      Skips validation entirely if target committee size is 0 (test configurations).
-   * @param _slot The slot of the block
-   * @param _epochNumber The epoch of the block
+   * @param _slot The slot of the checkpoint
+   * @param _epochNumber The epoch of the checkpoint
    * @param _attestations The packed signatures and addresses of committee members
-   * @param _digest The digest of the block that attestations are signed over
+   * @param _digest The digest of the checkpoint that attestations are signed over
    * @custom:reverts Errors.ValidatorSelection__InsufficientAttestations if less than 2/3 + 1 signatures provided
    * @custom:reverts Errors.ValidatorSelection__InvalidCommitteeCommitment if reconstructed committee doesn't match
    * stored commitment
@@ -482,16 +491,16 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice Validates if a specific validator can propose a block at a given time and chain state
+   * @notice Validates if a specific validator can propose a checkpoint at a given time and chain state
    * @dev Performs comprehensive validation including:
-   *      - Slot timing (must be after the last block's slot)
+   *      - Slot timing (must be after the last checkpoint's slot)
    *      - Archive consistency (must build on current chain tip)
    *      - Proposer authorization (must be the designated proposer for the slot)
-   * @param _ts The timestamp of the proposed block
-   * @param _archive The archive root the block claims to build on
-   * @param _who The address attempting to propose the block
+   * @param _ts The timestamp of the proposed checkpoint
+   * @param _archive The archive root the checkpoint claims to build on
+   * @param _who The address attempting to propose the checkpoint
    * @return slot The slot number derived from the timestamp
-   * @return blockNumber The next block number that will be assigned
+   * @return checkpointNumber The next checkpoint number that will be assigned
    * @custom:reverts Errors.Rollup__SlotAlreadyInChain if trying to propose for a past slot
    * @custom:reverts Errors.Rollup__InvalidArchive if archive doesn't match current chain tip
    * @custom:reverts Errors.ValidatorSelection__InvalidProposer if _who is not the designated proposer
@@ -502,20 +511,20 @@ library ValidatorSelectionLib {
     RollupStore storage rollupStore = STFLib.getStorage();
 
     // Pending chain tip
-    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
+    uint256 pendingCheckpointNumber = STFLib.getEffectivePendingCheckpointNumber(_ts);
 
-    Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);
+    Slot lastSlot = STFLib.getSlotNumber(pendingCheckpointNumber);
 
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
     // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
-    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
+    bytes32 tipArchive = rollupStore.archives[pendingCheckpointNumber];
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
     (address proposer,) = getProposerAt(slot);
     require(proposer == _who, Errors.ValidatorSelection__InvalidProposer(proposer, _who));
 
-    return (slot, pendingBlockNumber + 1);
+    return (slot, pendingCheckpointNumber + 1);
   }
 
   /**
@@ -544,7 +553,7 @@ library ValidatorSelectionLib {
    */
   function getSampleSeed(Epoch _epoch) internal view returns (uint256) {
     ValidatorSelectionStorage storage store = getStorage();
-    uint32 ts = stableEpochToSampleTime(_epoch);
+    uint32 ts = stableEpochToRandaoSampleTime(_epoch);
     return uint256(keccak256(abi.encode(_epoch, store.randaos.upperLookup(ts))));
   }
 
@@ -556,12 +565,16 @@ library ValidatorSelectionLib {
    * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
   function getSamplingSize(Epoch _epoch) internal view returns (uint256) {
-    uint32 ts = stableEpochToSampleTime(_epoch);
+    uint32 ts = stableEpochToValidatorSetSampleTime(_epoch);
     return StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
   }
 
-  function getLagInEpochs() internal view returns (uint256) {
-    return getStorage().lagInEpochs;
+  function getLagInEpochsForValidatorSet() internal view returns (uint256) {
+    return getStorage().lagInEpochsForValidatorSet;
+  }
+
+  function getLagInEpochsForRandao() internal view returns (uint256) {
+    return getStorage().lagInEpochsForRandao;
   }
 
   /**
@@ -608,7 +621,7 @@ library ValidatorSelectionLib {
    */
   function sampleValidatorsIndices(Epoch _epoch, uint256 _seed) private returns (uint32, uint256[] memory) {
     ValidatorSelectionStorage storage store = getStorage();
-    uint32 ts = stableEpochToSampleTime(_epoch);
+    uint32 ts = stableEpochToValidatorSetSampleTime(_epoch);
     uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
     uint256 targetCommitteeSize = store.targetCommitteeSize;
 
@@ -628,7 +641,7 @@ library ValidatorSelectionLib {
    * @notice Converts a stable epoch number to the timestamp used for validator set sampling
    * @dev Calculates the sampling timestamp by:
    *      1. Taking the epoch start timestamp
-   *      2. Subtracting `lagInEpochs` full epoch duration to ensure stability
+   *      2. Subtracting `lagInEpochsForRandao` full epoch duration to ensure stability
    *
    *      This ensures validator set sampling uses stable historical data that won't be
    *      affected by last-minute changes or L1 reorgs during synchronization.
@@ -638,8 +651,18 @@ library ValidatorSelectionLib {
    * @return The Unix timestamp (uint32) to use for validator set sampling
    * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
-  function stableEpochToSampleTime(Epoch _epoch) private view returns (uint32) {
-    uint32 sub = getStorage().lagInEpochs * TimeLib.getEpochDurationInSeconds().toUint32();
+  function stableEpochToRandaoSampleTime(Epoch _epoch) private view returns (uint32) {
+    uint32 sub = getStorage().lagInEpochsForRandao * TimeLib.getEpochDurationInSeconds().toUint32();
+    uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - sub;
+    require(
+      ts <= block.timestamp,
+      Errors.ValidatorSelection__EpochNotStable(uint256(Epoch.unwrap(_epoch)), uint32(block.timestamp))
+    );
+    return ts;
+  }
+
+  function stableEpochToValidatorSetSampleTime(Epoch _epoch) private view returns (uint32) {
+    uint32 sub = getStorage().lagInEpochsForValidatorSet * TimeLib.getEpochDurationInSeconds().toUint32();
     uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - sub;
     require(
       ts <= block.timestamp,

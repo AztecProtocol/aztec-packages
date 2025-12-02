@@ -1,6 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { RollupContract } from '@aztec/ethereum';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 
 import fs from 'fs';
 import 'jest-extended';
@@ -150,8 +151,11 @@ export class P2PInactivityTest {
     // This prevents race conditions where validators propose blocks before the network is ready
     await this.test.waitForP2PMeshConnectivity(this.nodes, NUM_NODES);
 
-    this.test.logger.warn(`Advancing to epoch ${SETUP_EPOCH_DURATION + 1} to start slashing`);
-    await this.test.ctx.cheatCodes.rollup.advanceToEpoch(SETUP_EPOCH_DURATION + 1);
+    const ethereumSlotDuration = this.test.ctx.aztecNodeConfig.ethereumSlotDuration!;
+    this.test.logger.warn(`Advancing to the L1 slot before epoch ${SETUP_EPOCH_DURATION + 1} to start slashing`);
+    await this.test.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(SETUP_EPOCH_DURATION + 1), {
+      offset: -ethereumSlotDuration,
+    });
 
     return this;
   }

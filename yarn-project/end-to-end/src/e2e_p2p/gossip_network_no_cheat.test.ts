@@ -5,6 +5,7 @@ import { SentTx } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { addL1Validator } from '@aztec/cli/l1';
 import { RollupContract } from '@aztec/ethereum';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
@@ -158,7 +159,9 @@ describe('e2e_p2p_network', () => {
     }
 
     // Wait for the validators to be added to the rollup
-    const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(BigInt(t.ctx.aztecNodeConfig.lagInEpochs + 1));
+    const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(
+      EpochNumber(t.ctx.aztecNodeConfig.lagInEpochsForValidatorSet + 1),
+    );
 
     // Changes have now taken effect
     const attesters = await rollupWrapper.getAttesters();

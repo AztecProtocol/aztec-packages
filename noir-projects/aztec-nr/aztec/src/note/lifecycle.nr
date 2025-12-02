@@ -1,15 +1,18 @@
-use crate::context::{note_hash_read::NoteHashRead, PrivateContext};
-use crate::note::{
-    note_emission::NoteEmission,
-    note_interface::{NoteHash, NoteType},
-    retrieved_note::RetrievedNote,
-    utils::{compute_note_hash_for_nullification_from_note_hash_read, compute_note_hash_read},
+use crate::{
+    context::{note_hash_read::NoteHashRead, PrivateContext},
+    note::{
+        note_emission::NoteEmission,
+        note_interface::{NoteHash, NoteType},
+        retrieved_note::RetrievedNote,
+        utils::{compute_note_hash_for_nullification_from_note_hash_read, compute_note_hash_read},
+    },
+    oracle::{notes::notify_created_note, random::random},
 };
-use crate::oracle::notes::notify_created_note;
-use protocol_types::traits::Packable;
+use protocol_types::{address::AztecAddress, traits::Packable};
 
 pub fn create_note<Note>(
     context: &mut PrivateContext,
+    owner: AztecAddress,
     storage_slot: Field,
     note: Note,
 ) -> NoteEmission<Note>
@@ -18,11 +21,19 @@ where
 {
     let note_hash_counter = context.side_effect_counter;
 
-    let note_hash = note.compute_note_hash(storage_slot);
+    // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
+    // so a malicious sender could use non-random values to make the note less private. But they already know
+    // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
+    // information. We can therefore assume that the sender will cooperate in the random value generation.
+    let randomness = unsafe { random() };
+
+    let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
 
     let packed_note = Note::pack(note);
     notify_created_note(
+        owner,
         storage_slot,
+        randomness,
         Note::get_id(),
         packed_note,
         note_hash,
@@ -31,26 +42,35 @@ where
 
     context.push_note_hash(note_hash);
 
-    NoteEmission::new(note, storage_slot, note_hash_counter, context)
+    NoteEmission::new(
+        note,
+        owner,
+        storage_slot,
+        randomness,
+        note_hash_counter,
+        context,
+    )
 }
 
 // Note: This function is currently totally unused.
 pub fn destroy_note<Note>(
     context: &mut PrivateContext,
     retrieved_note: RetrievedNote<Note>,
+    owner: AztecAddress,
     storage_slot: Field,
 )
 where
     Note: NoteHash,
 {
-    let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
+    let note_hash_read = compute_note_hash_read(retrieved_note, owner, storage_slot);
 
-    destroy_note_unsafe(context, retrieved_note, note_hash_read)
+    destroy_note_unsafe(context, retrieved_note, owner, note_hash_read)
 }
 
 pub fn destroy_note_unsafe<Note>(
     context: &mut PrivateContext,
     retrieved_note: RetrievedNote<Note>,
+    owner: AztecAddress,
     note_hash_read: NoteHashRead,
 )
 where
@@ -58,7 +78,8 @@ where
 {
     let note_hash_for_nullification =
         compute_note_hash_for_nullification_from_note_hash_read(retrieved_note, note_hash_read);
-    let nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullification);
+    let nullifier =
+        retrieved_note.note.compute_nullifier(context, owner, note_hash_for_nullification);
 
     let note_hash = if retrieved_note.metadata.is_settled() {
         // Counter is zero, so we're nullifying a settled note and we don't populate the note_hash with real value.

@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "yarn clean && yarn generate",
-    "build:dev": "tsc -b --watch",
+    "build:dev": "tsgo -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./src ./codegenCache.json",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
@@ -66,6 +66,7 @@
     "@aztec/builder": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
+    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "jest": "^30.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"

@@ -1,7 +1,7 @@
 import {
   type ConfigMappingsType,
-  bigintConfigHelper,
   booleanConfigHelper,
+  floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -15,11 +15,11 @@ export interface L1TxUtilsConfig {
   /**
    * Maximum gas price in gwei
    */
-  maxGwei?: bigint;
+  maxGwei?: number;
   /**
    * Maximum blob fee per gas in gwei
    */
-  maxBlobGwei?: bigint;
+  maxBlobGwei?: number;
   /**
    * Priority fee bump percentage
    */
@@ -71,12 +71,14 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   maxGwei: {
     description: 'Maximum gas price in gwei to be used for transactions.',
     env: 'L1_GAS_PRICE_MAX',
-    ...bigintConfigHelper(2000n),
+    fallback: ['L1_FEE_PER_GAS_GWEI_MAX'],
+    ...floatConfigHelper(2000),
   },
   maxBlobGwei: {
     description: 'Maximum blob fee per gas in gwei',
     env: 'L1_BLOB_FEE_PER_GAS_MAX',
-    ...bigintConfigHelper(3000n),
+    fallback: ['L1_BLOB_FEE_PER_GAS_GWEI_MAX'],
+    ...floatConfigHelper(3000),
   },
   priorityFeeBumpPercentage: {
     description: 'How much to increase priority fee by each attempt (percentage)',
@@ -91,7 +93,8 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   fixedPriorityFeePerGas: {
     description: 'Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage',
     env: 'L1_FIXED_PRIORITY_FEE_PER_GAS',
-    ...numberConfigHelper(0),
+    fallback: ['L1_FIXED_PRIORITY_FEE_PER_GAS_GWEI'],
+    ...floatConfigHelper(0),
   },
   maxSpeedUpAttempts: {
     description: 'Maximum number of speed-up attempts',

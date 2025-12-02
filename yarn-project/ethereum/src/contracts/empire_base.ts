@@ -1,3 +1,4 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { EmpireBaseAbi } from '@aztec/l1-artifacts/EmpireBaseAbi';
@@ -11,12 +12,12 @@ export interface IEmpireBase {
   getRoundInfo(
     rollupAddress: Hex,
     round: bigint,
-  ): Promise<{ lastSignalSlot: bigint; payloadWithMostSignals: Hex; executed: boolean }>;
-  computeRound(slot: bigint): Promise<bigint>;
+  ): Promise<{ lastSignalSlot: SlotNumber; payloadWithMostSignals: Hex; executed: boolean }>;
+  computeRound(slot: SlotNumber): Promise<bigint>;
   createSignalRequest(payload: Hex): L1TxRequest;
   createSignalRequestWithSignature(
     payload: Hex,
-    round: bigint,
+    slot: SlotNumber,
     chainId: number,
     signerAddress: Hex,
     signer: (msg: TypedDataDefinition) => Promise<Hex>,
@@ -51,7 +52,7 @@ export function encodeSignalWithSignature(payload: Hex, signature: Signature) {
 export async function signSignalWithSig(
   signer: (msg: TypedDataDefinition) => Promise<Hex>,
   payload: Hex,
-  slot: bigint,
+  slot: SlotNumber,
   instance: Hex,
   verifyingContract: Hex,
   chainId: number,
@@ -79,7 +80,7 @@ export async function signSignalWithSig(
 
   const message = {
     payload,
-    slot,
+    slot: BigInt(slot),
     instance,
   };
 

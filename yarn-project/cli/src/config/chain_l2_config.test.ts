@@ -49,7 +49,8 @@ describe('enrichEnvironmentWithChainConfig', () => {
     }
 
     // Regression: verify the four previously missing properties are now set
-    expect(process.env['AZTEC_LAG_IN_EPOCHS']).toBe(config.lagInEpochs.toString());
+    expect(process.env['AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET']).toBe(config.lagInEpochsForValidatorSet.toString());
+    expect(process.env['AZTEC_LAG_IN_EPOCHS_FOR_RANDAO']).toBe(config.lagInEpochsForRandao.toString());
     expect(process.env['AZTEC_SLASHING_DISABLE_DURATION']).toBe(config.slashingDisableDuration.toString());
     expect(process.env['SLASH_GRACE_PERIOD_L2_SLOTS']).toBe(config.slashGracePeriodL2Slots.toString());
     expect(process.env['SLASH_EXECUTE_ROUNDS_LOOK_BACK']).toBe(config.slashExecuteRoundsLookBack.toString());

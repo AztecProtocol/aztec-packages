@@ -12,8 +12,8 @@ uint256 constant ADDRESS_LENGTH = 20;
  * @notice The domain separator for the signatures
  */
 enum SignatureDomainSeparator {
-  blockProposal,
-  blockAttestation,
+  checkpointProposal,
+  checkpointAttestation,
   attestationsAndSigners
 }
 

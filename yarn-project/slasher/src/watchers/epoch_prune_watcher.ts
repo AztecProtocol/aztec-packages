@@ -1,4 +1,5 @@
 import { EpochCache } from '@aztec/epoch-cache';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
@@ -83,18 +84,18 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     );
   }
 
-  private async emitSlashForEpoch(offense: OffenseType, epochNumber: bigint): Promise<void> {
+  private async emitSlashForEpoch(offense: OffenseType, epochNumber: EpochNumber): Promise<void> {
     const validators = await this.getValidatorsForEpoch(epochNumber);
     if (validators.length === 0) {
       this.log.warn(`No validators found for epoch ${epochNumber} (cannot slash for ${getOffenseTypeName(offense)})`);
       return;
     }
-    const args = this.validatorsToSlashingArgs(validators, offense, BigInt(epochNumber));
+    const args = this.validatorsToSlashingArgs(validators, offense, epochNumber);
     this.log.verbose(`Created slash for ${getOffenseTypeName(offense)} at epoch ${epochNumber}`, args);
     this.emit(WANT_TO_SLASH_EVENT, args);
   }
 
-  private async processPruneL2Blocks(blocks: L2Block[], epochNumber: bigint): Promise<void> {
+  private async processPruneL2Blocks(blocks: L2Block[], epochNumber: EpochNumber): Promise<void> {
     try {
       const l1Constants = this.epochCache.getL1Constants();
       const epochBlocks = blocks.filter(b => getEpochAtSlot(b.slot, l1Constants) === epochNumber);
@@ -164,7 +165,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
   }
 
-  private async getValidatorsForEpoch(epochNumber: bigint): Promise<EthAddress[]> {
+  private async getValidatorsForEpoch(epochNumber: EpochNumber): Promise<EthAddress[]> {
     const { committee } = await this.epochCache.getCommitteeForEpoch(epochNumber);
     if (!committee) {
       this.log.trace(`No committee found for epoch ${epochNumber}`);
@@ -176,7 +177,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   private validatorsToSlashingArgs(
     validators: EthAddress[],
     offenseType: OffenseType,
-    epochOrSlot: bigint,
+    epochOrSlot: EpochNumber,
   ): WantToSlashArgs[] {
     const penalty =
       offenseType === OffenseType.DATA_WITHHOLDING
@@ -186,7 +187,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       validator: v,
       amount: penalty,
       offenseType,
-      epochOrSlot,
+      epochOrSlot: BigInt(epochOrSlot),
     }));
   }
 }

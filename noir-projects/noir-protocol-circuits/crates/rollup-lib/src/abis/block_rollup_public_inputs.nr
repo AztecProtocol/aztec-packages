@@ -1,9 +1,9 @@
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        checkpoint_constant_data::CheckpointConstantData, sponge_blob::SpongeBlob,
-        state_reference::StateReference,
+        checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,
     },
+    blob_data::SpongeBlob,
     constants::BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH,
     tests::utils::make_fixture,
     traits::{Deserialize, Serialize},
@@ -35,6 +35,11 @@ pub struct BlockRollupPublicInputs {
     // Timestamp of the last block in this block range.
     // Validated on L1 to ensure it matches the slot's timestamp.
     pub end_timestamp: u64,
+
+    // Hash of the headers of all blocks in this block range. It will be combined with the `block_headers_hash` from
+    // other blocks in the same checkpoint to form a wonky tree. The root of that tree becomes the final hash stored in
+    // the checkpoint header, enabling validation of the blocks included in a checkpoint given their headers.
+    pub block_headers_hash: Field,
 
     // Root of the `l1_to_l2` message subtree, set in the first block root and propagated to the checkpoint root.
     // Block root rollups that are not the first in a checkpoint will have an `in_hash` value of 0.

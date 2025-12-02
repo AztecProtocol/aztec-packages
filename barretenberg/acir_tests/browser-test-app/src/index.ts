@@ -7,6 +7,15 @@ const logger = pino({
   name: "browser-test-app",
 });
 
+// Create a logger wrapper for bb.js internal logging
+// Note: We log to both pino (for structured logging) and console.log (for CI parsing)
+// because bb.js internal logs include memory stats in the format "(mem: X.XMiB)"
+// that the CI benchmark script needs to parse from plain-text console output
+const bbLogger = (msg: string) => {
+  logger.debug({ source: 'bb.js' }, msg);
+  console.log(msg);
+};
+
 function installUltraHonkGlobals() {
   async function prove(
     bytecode: string,
@@ -16,7 +25,7 @@ function installUltraHonkGlobals() {
     const { UltraHonkBackend } = await import("@aztec/bb.js");
 
     logger.debug("starting test...");
-    const bb = await Barretenberg.new({ threads, logger: console.log });
+    const bb = await Barretenberg.new({ threads, logger: bbLogger });
     const backend = new UltraHonkBackend(bytecode, bb);
     const proofData = await backend.generateProof(witness);
 
@@ -31,7 +40,7 @@ function installUltraHonkGlobals() {
     const { UltraHonkVerifierBackend } = await import("@aztec/bb.js");
 
     logger.debug(`verifying...`);
-    const bb = await Barretenberg.new({ threads: 1, logger: console.log });
+    const bb = await Barretenberg.new({ threads: 1, logger: bbLogger });
     const backend = new UltraHonkVerifierBackend(bb);
     const verified = await backend.verifyProof({
       ...proofData,
@@ -84,7 +93,7 @@ function installChonkGlobal() {
       ivcInputsBuf
     );
     logger.debug("starting test...");
-    const bb = await Barretenberg.new({ threads, logger: console.log });
+    const bb = await Barretenberg.new({ threads, logger: bbLogger });
     const backend = new AztecClientBackend(acirBufs, bb);
     const [_, proof, verificationKey] = await backend.prove(
       witnessBufs,
@@ -98,6 +107,13 @@ function installChonkGlobal() {
 }
 
 installChonkGlobal();
+
+// Add test function to verify bbLogger works
+(window as any).testBbLogger = async function() {
+  const bb = await Barretenberg.new({ threads: 1, logger: bbLogger });
+  await bb.destroy();
+  return true;
+};
 
 document.addEventListener("DOMContentLoaded", function () {
   const ultraHonkButton = document.createElement("button");

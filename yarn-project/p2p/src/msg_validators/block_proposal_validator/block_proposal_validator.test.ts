@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -26,8 +27,8 @@ describe('BlockProposalValidator', () => {
 
     // Mock epoch cache to return different slot numbers
     (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-      currentSlot: 98n,
-      nextSlot: 99n,
+      currentSlot: SlotNumber(98),
+      nextSlot: SlotNumber(99),
       currentProposer: Fr.random(),
       nextProposer: Fr.random(),
     });
@@ -49,8 +50,8 @@ describe('BlockProposalValidator', () => {
 
     // Mock epoch cache to return valid slots but different proposers
     (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-      currentSlot: 100n,
-      nextSlot: 101n,
+      currentSlot: SlotNumber(100),
+      nextSlot: SlotNumber(101),
       currentProposer: currentProposer.address,
       nextProposer: nextProposer.address,
     });
@@ -72,8 +73,8 @@ describe('BlockProposalValidator', () => {
 
     // Mock epoch cache to return valid slots but different proposers
     (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-      currentSlot: 100n,
-      nextSlot: 101n,
+      currentSlot: SlotNumber(100),
+      nextSlot: SlotNumber(101),
       currentProposer: currentProposer.address,
       nextProposer: nextProposer.address,
     });
@@ -94,8 +95,8 @@ describe('BlockProposalValidator', () => {
 
     // Mock epoch cache to return valid slots but different proposers
     (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-      currentSlot: 100n,
-      nextSlot: 101n,
+      currentSlot: SlotNumber(100),
+      nextSlot: SlotNumber(101),
       currentProposer: currentProposer.address,
       nextProposer: nextProposer.address,
     });
@@ -116,8 +117,8 @@ describe('BlockProposalValidator', () => {
 
     // Mock epoch cache for valid case
     (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-      currentSlot: 100n,
-      nextSlot: 101n,
+      currentSlot: SlotNumber(100),
+      nextSlot: SlotNumber(101),
       currentProposer: currentProposer.address,
       nextProposer: nextProposer.address,
     });
@@ -138,8 +139,8 @@ describe('BlockProposalValidator', () => {
 
     // Mock epoch cache for valid case
     (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-      currentSlot: 100n,
-      nextSlot: 101n,
+      currentSlot: SlotNumber(100),
+      nextSlot: SlotNumber(101),
       currentProposer: currentProposer.address,
       nextProposer: nextProposer.address,
     });
@@ -162,8 +163,8 @@ describe('BlockProposalValidator', () => {
 
       // Mock epoch cache to return valid proposer (so only tx permission check fails)
       (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-        currentSlot: 100n,
-        nextSlot: 101n,
+        currentSlot: SlotNumber(100),
+        nextSlot: SlotNumber(101),
         currentProposer: currentProposer.address,
         nextProposer: Fr.random(),
       });
@@ -185,8 +186,8 @@ describe('BlockProposalValidator', () => {
 
       // Mock epoch cache for valid case
       (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-        currentSlot: 100n,
-        nextSlot: 101n,
+        currentSlot: SlotNumber(100),
+        nextSlot: SlotNumber(101),
         currentProposer: currentProposer.address,
         nextProposer: Fr.random(),
       });
@@ -208,8 +209,8 @@ describe('BlockProposalValidator', () => {
 
       // Mock epoch cache for valid case
       (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-        currentSlot: 100n,
-        nextSlot: 101n,
+        currentSlot: SlotNumber(100),
+        nextSlot: SlotNumber(101),
         currentProposer: currentProposer.address,
         nextProposer: Fr.random(),
       });

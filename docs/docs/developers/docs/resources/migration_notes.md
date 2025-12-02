@@ -9,6 +9,313 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Note owner is now enshrined
+
+It turns out that in all the cases a note always have a logical owner.
+For this reason we have decided to enshrine the concept of a note owner and you should drop the field from your note:
+
+```diff
+#[derive(Deserialize, Eq, Packable, Serialize)]
+#[note]
+pub struct ValueNote {
+    value: Field,
+-    owner: AztecAddress,
+}
+```
+
+The owner being enshrined means that our API explicitly expects it on the input.
+The `NoteHash` trait got modified as follows:
+
+```diff
+pub trait NoteHash {
+    fn compute_note_hash(
+        self,
++        owner: AztecAddress,
+        storage_slot: Field,
+        randomness: Field,
+    ) -> Field;
+
+    fn compute_nullifier(
+        self,
+        context: &mut PrivateContext,
++        owner: AztecAddress,
+        note_hash_for_nullification: Field,
+    ) -> Field;
+
+    unconstrained fn compute_nullifier_unconstrained(
+        self,
++        owner: AztecAddress,
+        note_hash_for_nullification: Field,
+    ) -> Field;
+}
+```
+
+Our low-level note utilities now also accept owner as a parameter:
+
+```diff
+pub fn create_note<Note>(
+    context: &mut PrivateContext,
++    owner: AztecAddress,
+    storage_slot: Field,
+    note: Note,
+) -> NoteEmission<Note>
+where
+    Note: NoteType + NoteHash + Packable,
+{
+...
+}
+```
+
+```diff
+pub fn destroy_note_unsafe<Note>(
+    context: &mut PrivateContext,
+    retrieved_note: RetrievedNote<Note>,
++    owner: AztecAddress,
+    note_hash_read: NoteHashRead,
+)
+where
+    Note: NoteHash,
+{
+...
+}
+```
+
+`PrivateImmutable`, `PrivateMutable` and `PrivateSet` got modified to directly contain the owner instead of implicitly "containing it" by including it in the storage slot via a `Map`.
+Now the `Map` is redundant and the relevant state variable should be moved out of it:
+
+```diff
+#[storage]
+struct Storage<Context> {
+-    private_nfts: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
++    private_nfts: PrivateSet<NFTNote, Context>,
+}
+```
+
+Now we have an `at` method on the private state variables that scopes it to a given owner.
+Given that we used to call `at` on the map and now we call it directly on the set if you so the above change it should not be required of you to do any further changes in your contract.
+
+if you had `PrivateImmutable` or `PrivateMutable` defined out of a `Map`, e.g.:
+
+```rust
+#[storage]
+struct Storage<Context> {
+    signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
+}
+```
+
+you were most likely dealing with some kind of admin flow where only the admin can modify the state variable.
+Now, unfortunately, there is a bit of a regression and you will need to call `at` on the state var:
+
+```diff
+- self.storage.signing_public_key.initialize(pub_key_note)
++ self.storage.signing_public_key.at(self.address).initialize(pub_key_note)
+    .emit(self.address, MessageDelivery.CONSTRAINED_ONCHAIN);
+```
+
+We are likely to come up with a concept of admin state variables in the future.
+
+None of the reference notes now contain the owner so if you manually construct `AddressNote`, `UintNote` or `ValueNote` you need to update the call to `new` method:
+
+```diff
+- let note = UintNote::new(156, owner);
++ let note = UintNote::new(156);
+```
+
+### [Aztec.nr] Note randomness is now handled internally
+
+In order to prevent pre-image attacks, it is necessary to inject randomness to notes. Aztec.nr users were previously expected to add said randomness to their custom note types. From now on, Aztec.nr takes care of handling randomness as built-in note metadata, making it impossible to miss for library users. This change breaks backwards compatibility as we'll discuss below.
+
+#### Changes to Aztec.nr note types
+
+If you're using any of the following note types, please be aware that `randomness` no longer is an explicit attribute in them.
+
+- ValueNote
+- UintNote
+- NFTNote
+- AddressNote
+
+#### Migrating your custom note types: refer to UintNote as an example of how to migrate
+
+We show the changes to `UintNote` below since it serves as a good example of the adjustments you will need to make to your own custom note types, including those that need to support partial notes.
+
+##### Remove `randomness` from note struct
+
+```diff
+pub struct UintNote {
+    /// The owner of the note, i.e. the account whose nullifier secret key is required to compute the nullifier.
+    owner: AztecAddress,
+-   /// Random value, protects against note hash preimage attacks.
+-   randomness: Field,
+    /// The number stored in the note.
+    value: u128,
+}
+
+impl UintNote {
+    pub fn new(value: u128, owner: AztecAddress) -> Self {
+-       let randomness = unsafe { random() };
+-       Self { value, owner, randomness }
++       Self { value, owner }
+    }
+```
+
+##### Add `randomness` to `compute_note_hash` implementation
+
+The `NoteHash` trait now requires `compute_note_hash` to receive a `randomness` field. This impacts
+
+```diff
+pub trait NoteHash {
+    /// ...
+-   fn compute_note_hash(self, storage_slot: Field) -> Field;
++   fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field;
+```
+
+Then in trait implementations:
+
+```diff
+impl NoteHash for UintNote {
+-   fn compute_note_hash(self, storage_slot: Field) -> Field {
++   fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field {
+    /// ...
+-   let private_content =
+-       UintPartialNotePrivateContent { owner: self.owner, randomness: self.randomness };
+-   let partial_note = PartialUintNote {
+-        commitment: private_content.compute_partial_commitment(storage_slot),
+-   };
+
++   let private_content =
++       UintPartialNotePrivateContent { owner: self.owner };
++   let partial_note = PartialUintNote {
++        commitment: private_content.compute_partial_commitment(storage_slot, randomness),
++   };
+```
+
+It's worth noting that this change also affects how partial notes are structured and handled.
+
+```diff
+pub fn partial(
+        owner: AztecAddress,
+        storage_slot: Field,
+        randomness: Field,
+        context: &mut PrivateContext,
+        recipient: AztecAddress,
+        completer: AztecAddress,
+    ) -> PartialUintNote {
+-   let commitment = UintPartialNotePrivateContent { owner, randomness }
+-       .compute_partial_commitment(storage_slot);
++   let commitment = UintPartialNotePrivateContent { owner }
++       .compute_partial_commitment(storage_slot, randomness);
+
+    let private_log_content =
+-       UintPartialNotePrivateLogContent { owner, randomness, public_log_tag: commitment };
++       UintPartialNotePrivateLogContent { owner, public_log_tag: commitment };
+        let encrypted_log = note::compute_partial_note_private_content_log(
+            private_log_content,
+            storage_slot,
++           randomness,
+            recipient,
+        );
+    /// ...
+}
+
+struct UintPartialNotePrivateContent {
+    owner: AztecAddress,
+-   randomness: Field,
+}
+
+impl UintPartialNotePrivateContent {
+-   fn compute_partial_commitment(self, storage_slot: Field) -> Field {
++   fn compute_partial_commitment(self, storage_slot: Field, randomness: Field) -> Field {
+        poseidon2_hash_with_separator(
+-           self.pack().concat([storage_slot]),
++           self.pack().concat([storage_slot, randomness]),
+            GENERATOR_INDEX__NOTE_HASH,
+        )
+    }
+}
+
+struct UintPartialNotePrivateLogContent {
+    public_log_tag: Field,
+    owner: AztecAddress,
+-   randomness: Field,
+}
+```
+
+##### Note size
+
+As a result of this change, the maximum packed length of the content of a note is 11 fields, down from 12. This is a direct consequence of moving the randomness field from the note content structure to the note's metadata.
+
+#### RetrievedNote now includes randomness field
+
+```diff
+pub struct RetrievedNote<Note> {
+    pub note: Note,
+    pub contract_address: AztecAddress,
++   pub randomness: Field,
+    pub metadata: NoteMetadata,
+}
+```
+
+### [L1 Contracts] `Block` is now `Checkpoint`
+
+A `checkpoint` is now the primary unit handled by the L1 contracts.
+
+A checkpoint may contain one or more L2 blocks. The protocol circuits already support producing multiple blocks per checkpoint. Updating the L1 contracts to operate on checkpoints allow L2 blockchain to advance faster.
+
+Below are the API and event renames reflecting this change:
+
+```diff
+- event L2BlockProposed
++ event CheckpointProposed
+```
+
+```diff
+- event BlockInvalidated
++ event CheckpointInvalidated
+```
+
+```diff
+- function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
++ function getEpochForCheckpoint(uint256 _checkpointNumber) external view returns (Epoch);
+```
+
+```diff
+- function getProvenBlockNumber() external view returns (uint256);
++ function getProvenCheckpointNumber() external view returns (uint256);
+```
+
+```diff
+- function getPendingBlockNumber() external view returns (uint256);
++ function getPendingCheckpointNumber() external view returns (uint256);
+```
+
+```diff
+- function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
++ function getCheckpoint(uint256 _checkpointNumber) external view returns (CheckpointLog memory);
+```
+
+```diff
+- function getBlockReward() external view returns (uint256);
++ function getCheckpointReward() external view returns (uint256);
+```
+
+Additionally, any function or struct that previously referenced an L2 block number now uses a checkpoint number instead:
+
+```diff
+- function status(uint256 _blockNumber) external view returns (
++ function status(uint256 _checkpointNumber) external view returns (
+-    uint256 provenBlockNumber,
++    uint256 provenCheckpointNumber,
+     bytes32 provenArchive,
+-    uint256 pendingBlockNumber,
++    uint256 pendingCheckpointNumber,
+     bytes32 pendingArchive,
+     bytes32 archiveOfMyBlock,
+     Epoch provenEpochNumber
+);
+```
+
+Note: current node softwares still produce exactly one L2 block per checkpoint, so for now checkpoint numbers and L2 block numbers remain equal. This may change once multi-block checkpoints are enabled.
+
 ### [Aztec.js] Wallet interface changes
 
 #### `simulateTx` is now batchable
@@ -123,6 +430,12 @@ The method now only accepts:
 - `instance`: A `ContractInstanceWithAddress` object
 - `artifact` (optional): A `ContractArtifact` object
 - `secretKey` (optional): A secret key for privacy keys registration
+
+#### Return value of `getNotes` no longer contains a recipient and it contains some other additional info
+
+Return value of `getNotes` used to be defined as `Promise<UniqueNote[]>` and now it's defined as `Promise<UniqueNote[]>`.
+`NoteDao` is mostly a super-set of `UniqueNote` but it doesn't contain a `recipient`.
+Having the recipient in the return value has been redundant as the same outcome can be achieved by populating the `scopes` array in `NoteFilter` with the `recipient` value.
 
 ### [CLI] Command refactor
 

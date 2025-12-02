@@ -164,11 +164,21 @@ locals {
         "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                  = var.SEQ_MIN_TX_PER_BLOCK
         "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                  = var.SEQ_MAX_TX_PER_BLOCK
         "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-        "validator.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
         "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
         "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
         "validator.node.env.BLOB_ALLOW_EMPTY_SOURCES"              = var.BLOB_ALLOW_EMPTY_SOURCES
+        "validator.node.env.P2P_MAX_TX_POOL_SIZE"                  = var.P2P_MAX_TX_POOL_SIZE
+        "validator.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"     = var.PROVER_TEST_VERIFICATION_DELAY_MS
+        "validator.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"         = var.DEBUG_P2P_INSTRUMENT_MESSAGES
         "validator.node.logLevel"                                  = var.LOG_LEVEL
+        "validator.node.secret.envEnabled"                         = true
+        "validator.node.secret.mnemonic"                           = var.VALIDATOR_MNEMONIC
+        "validator.node.secret.mnemonicIndex"                      = var.VALIDATOR_MNEMONIC_START_INDEX
+        "validator.node.env.P2P_GOSSIPSUB_D"                       = var.P2P_GOSSIPSUB_D
+        "validator.node.env.P2P_GOSSIPSUB_DLO"                     = var.P2P_GOSSIPSUB_DLO
+        "validator.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
+        "validator.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
+        "validator.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -196,16 +206,30 @@ locals {
           "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH"     = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
           "node.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
           "node.node.env.BLOB_ALLOW_EMPTY_SOURCES"              = var.BLOB_ALLOW_EMPTY_SOURCES
+          "node.node.secret.envEnabled"                         = true
+          "node.node.secret.mnemonic"                           = var.PROVER_MNEMONIC
+          "node.node.secret.mnemonicIndex"                      = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "broker.node.proverRealProofs"                        = var.PROVER_REAL_PROOFS
           "broker.node.logLevel"                                = var.LOG_LEVEL
           "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
           "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
+          "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
           "agent.replicaCount"                                  = var.PROVER_REPLICAS
           "agent.node.env.BOOTSTRAP_NODES"                      = "asdf"
-          "agent.node.env.AGENT_COUNT"                          = var.PROVER_AGENTS_PER_PROVER
+          "agent.node.env.PROVER_AGENT_COUNT"                   = var.PROVER_AGENTS_PER_PROVER
+          "agent.node.env.PROVER_TEST_DELAY_TYPE"               = var.PROVER_TEST_DELAY_TYPE
+          "agent.node.otelIncludeMetrics"                       = var.PROVER_AGENT_INCLUDE_METRICS
           "agent.node.logLevel"                                 = var.LOG_LEVEL
           "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE
           "node.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
+          "node.node.env.P2P_MAX_TX_POOL_SIZE"                  = var.P2P_MAX_TX_POOL_SIZE
+          "node.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"     = var.PROVER_TEST_VERIFICATION_DELAY_MS
+          "node.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"         = var.DEBUG_P2P_INSTRUMENT_MESSAGES
+          "node.node.env.P2P_GOSSIPSUB_D"                       = var.P2P_GOSSIPSUB_D
+          "node.node.env.P2P_GOSSIPSUB_DLO"                     = var.P2P_GOSSIPSUB_DLO
+          "node.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
+          "node.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
+          "node.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
         },
         # Only set web3signerUrl if proof publishing is enabled
         !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
@@ -246,19 +270,33 @@ locals {
             }
           }
         }
-      })] : []
-      custom_settings = merge(
-        {
-          "nodeType"                                    = "rpc"
-          "replicaCount"                                = var.RPC_REPLICAS
-          "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-          "ingress.rpc.enabled"                         = var.RPC_INGRESS_ENABLED
-          "ingress.rpc.host"                            = var.RPC_INGRESS_HOST
-          "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
-          "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
-          "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-          "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-          "node.logLevel"                               = var.LOG_LEVEL
+        })] : [yamlencode({
+        service = {
+          rpc = {
+            enabled = true
+            type    = "LoadBalancer"
+          }
+        }
+      })]
+
+      custom_settings = merge({
+        "nodeType"                                    = "rpc"
+        "replicaCount"                                = var.RPC_REPLICAS
+        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "ingress.rpc.enabled"                         = var.RPC_INGRESS_ENABLED
+        "ingress.rpc.host"                            = var.RPC_INGRESS_HOST
+        "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
+        "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
+        "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
+        "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
+        "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
+        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
+        "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
+        "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
+        "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
+        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
+        "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
         },
         # Only set RPC mnemonic config in fisherman mode)
         var.FISHERMAN_MODE ? {
@@ -277,6 +315,39 @@ locals {
       wait                 = true
     }
 
+
+    full_node = tonumber(var.FULL_NODE_REPLICAS) > 0 ? {
+      name  = "${var.RELEASE_PREFIX}-full-node"
+      chart = "aztec-node"
+      values = [
+        "common.yaml",
+        "full-node.yaml",
+        "full-node-resources-${var.FULL_NODE_RESOURCE_PROFILE}.yaml"
+      ]
+      custom_settings = {
+        "nodeType"                                    = "full-node"
+        "replicaCount"                                = var.FULL_NODE_REPLICAS
+        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
+        "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
+        "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
+        "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
+        "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
+        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
+        "node.otelIncludeMetrics"                     = var.FULL_NODE_INCLUDE_METRICS
+        "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
+        "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
+        "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
+        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
+        "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
+      }
+      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
+      // this Helm app will have lots of replicas, if we wait for all to come online we'll surely time out.
+      wait = false
+    } : null
+
     archive = var.DEPLOY_ARCHIVAL_NODE ? {
       name  = "${var.RELEASE_PREFIX}-archive"
       chart = "aztec-node"
@@ -288,8 +359,17 @@ locals {
       custom_settings = {
         "nodeType"                                    = "archive"
         "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
+        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
+        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
+        "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
+        "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
+        "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
+        "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
+        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
+        "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"

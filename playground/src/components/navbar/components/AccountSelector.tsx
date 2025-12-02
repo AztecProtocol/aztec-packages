@@ -85,7 +85,8 @@ export function AccountSelector() {
           renderValue={selected => {
             const account = accounts.find(account => account.item.toString() === selected);
             if (account) {
-              return `${account?.alias.split(':')[1]} (${formatFrAsString(account?.item.toString())})`;
+              const alias = account.alias.includes(':') ? account.alias.split(':')[1] : account.alias;
+              return `${alias} (${formatFrAsString(account?.item.toString())})`;
             }
             return selected ?? 'Select Account';
           }}
@@ -117,12 +118,14 @@ export function AccountSelector() {
             </div>
           )}
 
-          {accounts.map(account => (
-            <MenuItem key={account.alias} value={account.item.toString()}>
-              {account.alias.split(':')[1]}&nbsp;(
-              {formatFrAsString(account.item.toString())})
-            </MenuItem>
-          ))}
+          {accounts.map(account => {
+            const alias = account.alias.includes(':') ? account.alias.split(':')[1] : account.alias;
+            return (
+              <MenuItem key={account.alias} value={account.item.toString()}>
+                {alias}&nbsp;({formatFrAsString(account.item.toString())})
+              </MenuItem>
+            );
+          })}
         </Select>
       </FormControl>
 

@@ -2,6 +2,7 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { RollupContract, SlasherContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
 import { maxBigint } from '@aztec/foundation/bigint';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, partition, times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -169,7 +170,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
    * @param slotNumber - The current slot number
    * @returns The actions to take
    */
-  public async getProposerActions(slotNumber: bigint): Promise<ProposerSlashAction[]> {
+  public async getProposerActions(slotNumber: SlotNumber): Promise<ProposerSlashAction[]> {
     const [executeAction, voteAction] = await Promise.all([
       this.getExecuteSlashAction(slotNumber),
       this.getVoteOffensesAction(slotNumber),
@@ -182,7 +183,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
    * Returns an execute slash action if there are any rounds ready to be executed.
    * Returns the oldest slash action if there are multiple rounds pending execution.
    */
-  protected async getExecuteSlashAction(slotNumber: bigint): Promise<ProposerSlashAction | undefined> {
+  protected async getExecuteSlashAction(slotNumber: SlotNumber): Promise<ProposerSlashAction | undefined> {
     const { round: currentRound } = this.roundMonitor.getRoundForSlot(slotNumber);
     const slashingExecutionDelayInRounds = BigInt(this.settings.slashingExecutionDelayInRounds);
     const executableRound = currentRound - slashingExecutionDelayInRounds - 1n;
@@ -233,7 +234,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
    */
   private async tryGetRoundExecuteAction(
     executableRound: bigint,
-    slotNumber: bigint,
+    slotNumber: SlotNumber,
   ): Promise<ProposerSlashAction | undefined> {
     let logData: Record<string, unknown> = { executableRound, slotNumber };
     this.log.debug(`Testing if slashing round ${executableRound} is executable`, logData);
@@ -302,7 +303,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
   }
 
   /** Returns a vote action based on offenses from the target round (with offset applied) */
-  protected async getVoteOffensesAction(slotNumber: bigint): Promise<ProposerSlashAction | undefined> {
+  protected async getVoteOffensesAction(slotNumber: SlotNumber): Promise<ProposerSlashAction | undefined> {
     // Compute what round we are in based on the slot number and what round will be slashed
     const { round: currentRound } = this.roundMonitor.getRoundForSlot(slotNumber);
     const slashedRound = this.getSlashedRound(currentRound);
@@ -356,7 +357,12 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
 
     const committees = await this.collectCommitteesActiveDuringRound(slashedRound);
     const epochsForCommittees = getEpochsForRound(slashedRound, this.settings);
-    const votes = getSlashConsensusVotesFromOffenses(offensesToSlash, committees, epochsForCommittees, this.settings);
+    const votes = getSlashConsensusVotesFromOffenses(
+      offensesToSlash,
+      committees,
+      epochsForCommittees.map(e => BigInt(e)),
+      this.settings,
+    );
     if (votes.every(v => v === 0)) {
       this.log.warn(`Computed votes for offenses are all zero. Skipping vote.`, {
         slotNumber,

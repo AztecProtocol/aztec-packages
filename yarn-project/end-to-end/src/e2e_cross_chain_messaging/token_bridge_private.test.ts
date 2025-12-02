@@ -92,7 +92,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     );
 
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await cheatCodes.rollup.markAsProven(await rollup.getBlockNumber());
+    await cheatCodes.rollup.markAsProven(await rollup.getCheckpointNumber());
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);

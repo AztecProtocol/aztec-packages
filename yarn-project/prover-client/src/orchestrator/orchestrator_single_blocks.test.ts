@@ -1,4 +1,5 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -21,19 +22,17 @@ describe('prover/orchestrator/blocks', () => {
       const {
         constants,
         blocks: [emptyBlock],
-        totalNumBlobFields,
         previousBlockHeader,
       } = await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex
         constants,
         [],
         1, // numBlocks
-        totalNumBlobFields,
         previousBlockHeader,
       );
 
@@ -49,19 +48,17 @@ describe('prover/orchestrator/blocks', () => {
       const {
         constants,
         blocks: [block],
-        totalNumBlobFields,
         previousBlockHeader,
       } = await context.makeCheckpoint(1, { numTxsPerBlock: 1 });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex
         constants,
         [],
         1, // numBlocks
-        totalNumBlobFields,
         previousBlockHeader,
       );
 
@@ -79,7 +76,6 @@ describe('prover/orchestrator/blocks', () => {
         constants,
         blocks: [block],
         l1ToL2Messages,
-        totalNumBlobFields,
         previousBlockHeader,
       } = await context.makeCheckpoint(1, {
         numTxsPerBlock: 4,
@@ -88,14 +84,13 @@ describe('prover/orchestrator/blocks', () => {
       });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex
         constants,
         l1ToL2Messages,
         1, // numBlocks
-        totalNumBlobFields,
         previousBlockHeader,
       );
 

@@ -1,5 +1,14 @@
-import { sha256Trunc } from '../crypto/sha256/index.js';
-import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
+import {
+  computeBalancedMerkleTreeRoot,
+  computeBalancedMerkleTreeRootAsync,
+  poseidonMerkleHash,
+  shaMerkleHash,
+} from './balanced_merkle_tree.js';
+
+export const computeUnbalancedShaRoot = (leaves: Buffer[]) => computeUnbalancedMerkleTreeRoot(leaves, shaMerkleHash);
+
+export const computeUnbalancedPoseidonRoot = async (leaves: Buffer[]) =>
+  await computeUnbalancedMerkleTreeRootAsync(leaves, poseidonMerkleHash);
 
 /**
  * Computes the Merkle root of an unbalanced tree.
@@ -22,9 +31,13 @@ import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
  * But if we instead combine the size-4 and size-8 subtrees first (depth 4), and then merge with the size-2 subtree
  * (depth 1), the final tree has a depth of 5.
  */
-export function computeUnbalancedMerkleTreeRoot(leaves: Buffer[], hasher = sha256Trunc): Buffer {
+export function computeUnbalancedMerkleTreeRoot(
+  leaves: Buffer[],
+  hasher = shaMerkleHash,
+  emptyRoot = Buffer.alloc(32),
+): Buffer {
   if (!leaves.length) {
-    throw new Error('Cannot compute a Merkle root with no leaves');
+    return emptyRoot;
   }
 
   if (leaves.length === 1) {
@@ -37,11 +50,46 @@ export function computeUnbalancedMerkleTreeRoot(leaves: Buffer[], hasher = sha25
   while (numRemainingLeaves > 1) {
     if ((numRemainingLeaves & subtreeSize) !== 0) {
       const subtreeLeaves = leaves.slice(numRemainingLeaves - subtreeSize, numRemainingLeaves);
-      const subtreeRoot = MerkleTreeCalculator.computeTreeRootSync(subtreeLeaves, hasher);
+      const subtreeRoot = computeBalancedMerkleTreeRoot(subtreeLeaves, hasher);
       if (!root) {
         root = subtreeRoot;
       } else {
-        root = hasher(Buffer.concat([subtreeRoot, root]));
+        root = hasher(subtreeRoot, root);
+      }
+
+      numRemainingLeaves -= subtreeSize;
+    }
+
+    subtreeSize *= 2;
+  }
+
+  return root!;
+}
+
+export async function computeUnbalancedMerkleTreeRootAsync(
+  leaves: Buffer[],
+  hasher = poseidonMerkleHash,
+  emptyRoot = Buffer.alloc(32),
+): Promise<Buffer> {
+  if (!leaves.length) {
+    return emptyRoot;
+  }
+
+  if (leaves.length === 1) {
+    return leaves[0];
+  }
+
+  let numRemainingLeaves = leaves.length;
+  let subtreeSize = 1;
+  let root: Buffer | undefined;
+  while (numRemainingLeaves > 1) {
+    if ((numRemainingLeaves & subtreeSize) !== 0) {
+      const subtreeLeaves = leaves.slice(numRemainingLeaves - subtreeSize, numRemainingLeaves);
+      const subtreeRoot = await computeBalancedMerkleTreeRootAsync(subtreeLeaves, hasher);
+      if (!root) {
+        root = subtreeRoot;
+      } else {
+        root = await hasher(subtreeRoot, root);
       }
 
       numRemainingLeaves -= subtreeSize;
