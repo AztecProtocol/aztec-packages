@@ -1,5 +1,4 @@
 import {
-  BatchedBlob,
   BatchedBlobAccumulator,
   SpongeBlob,
   computeBlobsHashFromBlobs,
@@ -261,7 +260,7 @@ export const buildBlobHints = (blobFields: Fr[]) => {
 };
 
 export const buildFinalBlobChallenges = async (blobFieldsPerCheckpoint: Fr[][]) => {
-  return await BatchedBlob.precomputeBatchedBlobChallenges(blobFieldsPerCheckpoint);
+  return await BatchedBlobAccumulator.precomputeBatchedBlobChallenges(blobFieldsPerCheckpoint);
 };
 
 export const accumulateBlobs = runInSpan(

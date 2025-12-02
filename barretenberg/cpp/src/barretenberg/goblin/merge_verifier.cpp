@@ -60,12 +60,8 @@ BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
     const FF& kappa_inv,
     const std::vector<FF>& evals) const
 {
-    // Claim {Q', (z, 0)} expressed as
-    // Q' = -Q * (z - \kappa) +
-    //      + \sum_i \beta_i L_i - \sum_i \beta_i R_i - \sum_i \beta_i M_i
-    //      + (z - \kappa) / (z - \kappa^{-1}) * \beta_i G
-    //      - \sum_i \beta_i l_i - \sum_i \beta_i r_i - \sum_i \beta_i m_i
-    //      - (z - \kappa) / (z - \kappa^{-1}) * \beta_i * g
+    // Claim {Q', (z, 0)} where Q' = -Q·(z - κ) + Σᵢ βᵢLᵢ + Σᵢ βᵢRᵢ + Σᵢ βᵢMᵢ + (z - κ)/(z - κ⁻¹)·βG
+    //                              - Σᵢ βᵢlᵢ - Σᵢ βᵢrᵢ - Σᵢ βᵢmᵢ - (z - κ)/(z - κ⁻¹)·β·g
     BatchOpeningClaim<Curve> batch_opening_claim;
 
     // Commitment: [L_1], [L_2], ..., [L_n], [R_1], ..., [R_n], [M_1], ..., [M_n], [G], [1]
@@ -79,11 +75,7 @@ BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
         batch_opening_claim.commitments.emplace_back(Commitment::one());
     }
 
-    // Scalars:
-    // -(shplonk_opening_challenge - kappa), \beta_1, ..., \beta_12,
-    // \beta_13 * (z - \kappa) / (z - \kappa^{-1})
-    // - ( \sum_i \beta_i l_i + \sum_i \beta_i r_i + \sum_i \beta_i m_i
-    //          + \beta_13 * (z - \kappa) / (z - \kappa^{-1})* g )
+    // Scalars: -(z - κ), β₁...β₁₂, β₁₃·(z - κ)/(z - κ⁻¹), -(Σᵢ βᵢlᵢ + Σᵢ βᵢrᵢ + Σᵢ βᵢmᵢ + β₁₃·(z - κ)/(z - κ⁻¹)·g)
     batch_opening_claim.scalars = { -(shplonk_opening_challenge - kappa) };
     for (auto& scalar : shplonk_batching_challenges) {
         batch_opening_claim.scalars.emplace_back(std::move(scalar));
@@ -108,30 +100,14 @@ BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
 }
 
 /**
- * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
- * @details Let \f$L_j\f$, \f$R_j\f$, \f$M_j\f$ be three vectors. The Merge prover wants to convince the verifier that,
- * for j = 1, 2, 3, 4:
- *      - \f$M_j(X) = L_j(X) + X^l R_j(X)\f$      (1)
- *      - \f$deg(L_j(X)) < k\f$                   (2)
- * where k = shift_size.
+ * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j.
+ * @details Verifies that M_j(X) = L_j(X) + X^k * R_j(X) and deg(L_j) < k for j = 1,2,3,4.
+ * Checks concatenation and degree identities, then verifies Shplonk opening proof.
  *
- * 1. The prover commits to \f$L_i, R_j, M_j\f$ and receives from the verifier batching challenges \f$alpha_1, \dots,
- *    \alpha_4\f$
- * 2. The prover computes \f$G(X) = X^{k-1}(\sum_i \alpha_i L_i(X))\f$ and commits to it.
- * 3. The prover receives from the verifier an evaluation challenge \f$\kappa\f$ and sends evaluations
- *    \f$l_j = L_j(\kappa), r_j = R_j(\kappa), m_j = M_j(\kappa), g = G(\kappa^{-1}\f$.
- * 4. The prover uses Shplonk to open the commitments to the relevant points.
- *
- * @note The prover doesn't commit to t_j because it shares a transcript with the HN instance that folds
- * the present circuit, and therefore t_j has already been added to the transcript by HN. Similarly, it doesn't commit
- * to T_{prev, j} because the transcript is shared by entire recursive verification and therefore T_{prev, j} has been
- * added to the transcript in the previous round of Merge verification.
- *
- * @tparam Curve_
- * @param proof
- * @param inputs_commitments The commitments used by the Merge verifier
- * @return std::pair<PairingPoints, TableCommitments> Pair of the pairing points for verification and the commitments
- * to the merged tables as read from the proof
+ * @see MERGE_PROTOCOL.md for complete protocol specification.
+ * @param proof The merge proof to verify
+ * @param input_commitments Commitments to subtable (t) and previous table (T_prev)
+ * @return VerificationResult containing pairing points, merged table commitments, and check results
  */
 template <typename Curve>
 typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify_proof(
@@ -189,7 +165,7 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     const FF pow_kappa = kappa.pow(shift_size);
     const FF pow_kappa_minus_one = pow_kappa * kappa_inv;
 
-    // Receive evaluations of [L_i], [R_i], [M_i] at kappa
+    // Receive evaluations of [Lᵢ], [Rᵢ], [Mᵢ] at κ
     std::vector<FF> evals;
     evals.reserve((3 * NUM_WIRES) + 1);
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -202,7 +178,7 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
         evals.emplace_back(transcript->template receive_from_prover<FF>("MERGED_TABLE_EVAL_" + std::to_string(idx)));
     }
 
-    // Receive evaluation of G at 1/kappa
+    // Receive evaluation of G at 1/κ
     evals.emplace_back(transcript->template receive_from_prover<FF>("REVERSED_BATCHED_LEFT_TABLES_EVAL"));
 
     // Check concatenation identities
@@ -226,6 +202,9 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
                                                                                  kappa,
                                                                                  kappa_inv,
                                                                                  evals);
+
+    BB_ASSERT(batch_opening_claim.commitments.size() == MERGE_BATCHED_CLAIM_SIZE);
+    BB_ASSERT(batch_opening_claim.scalars.size() == MERGE_BATCHED_CLAIM_SIZE);
 
     // KZG verifier - returns PairingPoints directly
     PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);

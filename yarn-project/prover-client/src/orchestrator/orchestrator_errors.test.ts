@@ -1,5 +1,6 @@
 import type { FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
@@ -38,7 +39,7 @@ describe('prover/orchestrator/errors', () => {
 
   describe('errors', () => {
     it('throws if adding too many transactions', async () => {
-      orchestrator.startNewEpoch(1, 1 /* numCheckpoints */, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1), 1 /* numCheckpoints */, finalBlobChallenges);
 
       await orchestrator.startNewCheckpoint(
         0, // checkpointIndex
@@ -57,7 +58,7 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('throws if adding too many blocks', async () => {
-      orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
       await orchestrator.startNewCheckpoint(
         0, // checkpointIndex
@@ -78,7 +79,7 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('throws if adding empty block as non-first block', async () => {
-      orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
       await orchestrator.startNewCheckpoint(
         0, // checkpointIndex
@@ -102,7 +103,7 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('throws if adding a transaction before starting checkpoint', async () => {
-      orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
       await expect(async () => await orchestrator.addTxs(block.txs)).rejects.toThrow(
         /Proving state for block 1 not found/,
@@ -110,7 +111,7 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('throws if adding a transaction before starting block', async () => {
-      orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
       await orchestrator.startNewCheckpoint(
         0, // checkpointIndex
         constants,
@@ -124,7 +125,7 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('throws if completing a block before start', async () => {
-      orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
       await orchestrator.startNewCheckpoint(
         0, // checkpointIndex
         constants,
@@ -138,7 +139,7 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('throws if adding to a cancelled block', async () => {
-      orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
       await orchestrator.startNewCheckpoint(
         0, // checkpointIndex
         constants,
@@ -157,7 +158,7 @@ describe('prover/orchestrator/errors', () => {
 
     it('rejects if too many l1 to l2 messages are provided', async () => {
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 1).fill(new Fr(0n));
-      orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
       await expect(
         async () =>
           await orchestrator.startNewCheckpoint(

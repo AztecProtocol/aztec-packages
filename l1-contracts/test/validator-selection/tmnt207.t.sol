@@ -263,12 +263,8 @@ contract Tmnt207Test is RollupBase {
       header.totalManaUsed = 0;
     }
 
-    ProposeArgs memory proposeArgs = ProposeArgs({
-      header: header,
-      archive: archiveRoot,
-      stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput({feeAssetPriceModifier: 0})
-    });
+    ProposeArgs memory proposeArgs =
+      ProposeArgs({header: header, archive: archiveRoot, oracleInput: OracleInput({feeAssetPriceModifier: 0})});
 
     CommitteeAttestation[] memory attestations;
     address[] memory signers;
@@ -281,12 +277,8 @@ contract Tmnt207Test is RollupBase {
 
       bytes32 headerHash = ProposedHeaderLib.hash(proposeArgs.header);
 
-      ProposePayload memory proposePayload = ProposePayload({
-        archive: proposeArgs.archive,
-        stateReference: proposeArgs.stateReference,
-        oracleInput: proposeArgs.oracleInput,
-        headerHash: headerHash
-      });
+      ProposePayload memory proposePayload =
+        ProposePayload({archive: proposeArgs.archive, oracleInput: proposeArgs.oracleInput, headerHash: headerHash});
 
       bytes32 digest = ProposeLib.digest(proposePayload);
 

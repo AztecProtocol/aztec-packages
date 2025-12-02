@@ -98,6 +98,21 @@
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],
+    },
+    {
+      // Debug bb write_vk for a contract function
+      // Modify the "Extract contract bytecode" task in tasks.json to change the contract/function
+      "name": "Debug BB write_vk contract",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/bb",
+      "args": ["write_vk", "--scheme", "chonk", "--verifier_type", "standalone", "-b", "./target/bytecode.bin", "-o", "./target/vk_output", "-v"],
+      "cwd": "${workspaceFolder}/noir-projects/noir-contracts",
+      "preLaunchTask": "Extract contract bytecode",
+      "postDebugTask": "Cleanup contract bytecode",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
     }
   ]
 }

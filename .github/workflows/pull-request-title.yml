@@ -1,4 +1,4 @@
-name: Pull Request Title
+name: Pull Request Validation
 
 on:
   # This check is skipped in merge queue, but we need it to run (even skipped) for status checks.
@@ -31,3 +31,41 @@ jobs:
             refactor
             docs
             test
+
+  validate-description:
+    name: Validate PR description
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/pull_request_template.md
+          sparse-checkout-cone-mode: false
+      - name: Check PR description
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ -z "$PR_BODY" ]; then
+            echo "::error::PR description cannot be empty"
+            exit 1
+          fi
+
+          # Extract non-blank lines from template
+          TEMPLATE_LINES=$(grep -v '^[[:space:]]*$' .github/pull_request_template.md || true)
+
+          # Check if any template line exists in PR body
+          FOUND_TEMPLATE=false
+          while IFS= read -r line; do
+          if [ -n "$line" ] && echo "$PR_BODY" | grep -qF "$line"; then
+            FOUND_TEMPLATE=true
+            break
+          fi
+          done <<< "$TEMPLATE_LINES"
+
+          if [ "$FOUND_TEMPLATE" = true ]; then
+            echo "::error::Please update the PR description - it still contains template content"
+            exit 1
+          fi
+
+          echo "PR description is valid"

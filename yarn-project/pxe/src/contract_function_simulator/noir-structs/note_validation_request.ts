@@ -4,7 +4,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { TxHash } from '@aztec/stdlib/tx';
 
 // TODO(#14617): should we compute this from constants? This value is aztec-nr specific.
-export const MAX_NOTE_PACKED_LEN = 11;
+export const MAX_NOTE_PACKED_LEN = 10;
 
 /**
  * Intermediate struct used to perform batch note validation by PXE. The `utilityValidateEnqueuedNotesAndEvents` oracle
@@ -13,6 +13,7 @@ export const MAX_NOTE_PACKED_LEN = 11;
 export class NoteValidationRequest {
   constructor(
     public contractAddress: AztecAddress,
+    public owner: AztecAddress,
     public storageSlot: Fr,
     public randomness: Fr,
     public noteNonce: Fr,
@@ -27,6 +28,7 @@ export class NoteValidationRequest {
     const reader = FieldReader.asReader(fields);
 
     const contractAddress = AztecAddress.fromField(reader.readField());
+    const owner = AztecAddress.fromField(reader.readField());
     const storageSlot = reader.readField();
     const randomness = reader.readField();
     const noteNonce = reader.readField();
@@ -48,6 +50,7 @@ export class NoteValidationRequest {
 
     return new NoteValidationRequest(
       contractAddress,
+      owner,
       storageSlot,
       randomness,
       noteNonce,

@@ -1,5 +1,6 @@
-import { BatchedBlob } from '@aztec/blob-lib';
+import { BatchedBlob } from '@aztec/blob-lib/types';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -53,91 +54,91 @@ describe('prover-node-publisher', () => {
 
   const testCases = [
     // Usual case of proving full epoch
-    { pendingBlockNumber: 65n, provenBlockNumber: 32n, fromBlock: 33, toBlock: 64, expectedPublish: true, message: '' },
+    { pending: 65n, proven: 32n, fromCheckpoint: 33, toCheckpoint: 64, expectedPublish: true, message: '' },
     // Failure case of proving beyond the pending chain
     {
-      pendingBlockNumber: 65n,
-      provenBlockNumber: 32n,
-      fromBlock: 33,
-      toBlock: 66,
+      pending: 65n,
+      proven: 32n,
+      fromCheckpoint: 33,
+      toCheckpoint: 66,
       expectedPublish: false,
-      message: 'Cannot submit epoch proof for 33-66 as pending block is 65',
+      message: 'Cannot submit epoch proof for 33-66 as pending checkpoint is 65',
     },
     // Some successful partial epochs
-    { pendingBlockNumber: 33n, provenBlockNumber: 32n, fromBlock: 33, toBlock: 33, expectedPublish: true, message: '' },
-    { pendingBlockNumber: 65n, provenBlockNumber: 32n, fromBlock: 33, toBlock: 38, expectedPublish: true, message: '' },
-    { pendingBlockNumber: 40n, provenBlockNumber: 32n, fromBlock: 33, toBlock: 33, expectedPublish: true, message: '' },
+    { pending: 33n, proven: 32n, fromCheckpoint: 33, toCheckpoint: 33, expectedPublish: true, message: '' },
+    { pending: 65n, proven: 32n, fromCheckpoint: 33, toCheckpoint: 38, expectedPublish: true, message: '' },
+    { pending: 40n, proven: 32n, fromCheckpoint: 33, toCheckpoint: 33, expectedPublish: true, message: '' },
 
     // Somebody else proved the entire epoch already
 
     // We try and prove the full epoch - succeeds
-    { pendingBlockNumber: 65n, provenBlockNumber: 64n, fromBlock: 33, toBlock: 64, expectedPublish: true, message: '' },
+    { pending: 65n, proven: 64n, fromCheckpoint: 33, toCheckpoint: 64, expectedPublish: true, message: '' },
 
     // We try and prove a partial epoch that falls short of the end - fails as pointless to publish
     {
-      pendingBlockNumber: 65n,
-      provenBlockNumber: 64n,
-      fromBlock: 33,
-      toBlock: 35,
+      pending: 65n,
+      proven: 64n,
+      fromCheckpoint: 33,
+      toCheckpoint: 35,
       expectedPublish: false,
-      message: 'Cannot submit epoch proof for 33-35 as proven block is 64',
+      message: 'Cannot submit epoch proof for 33-35 as proven checkpoint is 64',
     },
 
     // Somebody else partially proved the epoch already
 
     // We try and prove the rest of the epoch - succeeds
-    { pendingBlockNumber: 65n, provenBlockNumber: 40n, fromBlock: 41, toBlock: 64, expectedPublish: true, message: '' },
+    { pending: 65n, proven: 40n, fromCheckpoint: 41, toCheckpoint: 64, expectedPublish: true, message: '' },
 
     // We try and prove all of the epoch - succeeds
-    { pendingBlockNumber: 65n, provenBlockNumber: 40n, fromBlock: 33, toBlock: 64, expectedPublish: true, message: '' },
+    { pending: 65n, proven: 40n, fromCheckpoint: 33, toCheckpoint: 64, expectedPublish: true, message: '' },
 
     // We try and partially prove the epoch after their proof - succeeds again
-    { pendingBlockNumber: 65n, provenBlockNumber: 40n, fromBlock: 41, toBlock: 45, expectedPublish: true, message: '' },
+    { pending: 65n, proven: 40n, fromCheckpoint: 41, toCheckpoint: 45, expectedPublish: true, message: '' },
 
     // We try and partially prove the epoch on top of their proof - succeeds again
-    { pendingBlockNumber: 65n, provenBlockNumber: 40n, fromBlock: 33, toBlock: 45, expectedPublish: true, message: '' },
+    { pending: 65n, proven: 40n, fromCheckpoint: 33, toCheckpoint: 45, expectedPublish: true, message: '' },
 
     // We try and partially prove the epoch and partially on top of their proof - succeeds again
-    { pendingBlockNumber: 65n, provenBlockNumber: 40n, fromBlock: 35, toBlock: 45, expectedPublish: true, message: '' },
+    { pending: 65n, proven: 40n, fromCheckpoint: 35, toCheckpoint: 45, expectedPublish: true, message: '' },
 
     // We try and partially prove the epoch but less than was already proven - fails as pointless
     {
-      pendingBlockNumber: 65n,
-      provenBlockNumber: 40n,
-      fromBlock: 33,
-      toBlock: 39,
+      pending: 65n,
+      proven: 40n,
+      fromCheckpoint: 33,
+      toCheckpoint: 39,
       expectedPublish: false,
-      message: 'Cannot submit epoch proof for 33-39 as proven block is 40',
+      message: 'Cannot submit epoch proof for 33-39 as proven checkpoint is 40',
     },
 
     // We try and partially prove the epoch but the same as was already proven - should possibly fail but succeeds for now, quite an edge case
     {
-      pendingBlockNumber: 65n,
-      provenBlockNumber: 40n,
-      fromBlock: 33,
-      toBlock: 40,
+      pending: 65n,
+      proven: 40n,
+      fromCheckpoint: 33,
+      toCheckpoint: 40,
       expectedPublish: true,
     },
   ];
 
   test.each(testCases)(
-    'submits proof for epoch with pendingBlock: $pendingBlockNumber, provenBlock: $provenBlockNumber, fromBlock: $fromBlock, toBlock: $toBlock',
-    async ({ pendingBlockNumber, provenBlockNumber, fromBlock, toBlock, expectedPublish, message }) => {
-      // Create public inputs for every block
-      const blocks = Array.from({ length: 100 }, () => {
+    'submits proof for epoch with pending checkpoint: $pending, proven checkpoint: $proven, fromCheckpoint: $fromCheckpoint, toCheckpoint: $toCheckpoint',
+    async ({ pending, proven, fromCheckpoint, toCheckpoint, expectedPublish, message }) => {
+      // Create public inputs for every checkpoint
+      const checkpoints = Array.from({ length: 100 }, () => {
         return RootRollupPublicInputs.random();
       });
 
       // Return the tips specified by the test
       rollup.getTips.mockResolvedValue({
-        pending: pendingBlockNumber,
-        proven: provenBlockNumber,
+        pending: pending,
+        proven: proven,
       });
 
-      // Return the requested block
-      rollup.getCheckpoint.mockImplementation((blockNumber: bigint) =>
+      // Return the requested checkpoint
+      rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
         Promise.resolve({
-          archive: blocks[Number(blockNumber) - 1].endArchiveRoot.toString(),
+          archive: checkpoints[checkpointNumber - 1].endArchiveRoot.toString(),
           attestationsHash: '0x', // unused,
           payloadDigest: '0x', // unused,
           headerHash: '0x', // unused,
@@ -153,11 +154,11 @@ describe('prover-node-publisher', () => {
         }),
       );
 
-      // We have built a rollup proof of the range fromBlock - toBlock
+      // We have built a rollup proof of the range fromCheckpoint - toCheckpoint
       // so we need to set our archives and hashes accordingly
       const ourPublicInputs = RootRollupPublicInputs.random();
-      ourPublicInputs.previousArchiveRoot = blocks[fromBlock - 2]?.endArchiveRoot ?? Fr.ZERO;
-      ourPublicInputs.endArchiveRoot = blocks[toBlock - 1]?.endArchiveRoot ?? Fr.ZERO;
+      ourPublicInputs.previousArchiveRoot = checkpoints[fromCheckpoint - 2]?.endArchiveRoot ?? Fr.ZERO;
+      ourPublicInputs.endArchiveRoot = checkpoints[toCheckpoint - 1]?.endArchiveRoot ?? Fr.ZERO;
 
       const ourBatchedBlob = new BatchedBlob(
         ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
@@ -173,9 +174,9 @@ describe('prover-node-publisher', () => {
 
       const result = await publisher
         .submitEpochProof({
-          epochNumber: 2,
-          fromBlock,
-          toBlock,
+          epochNumber: EpochNumber(2),
+          fromCheckpoint: CheckpointNumber(fromCheckpoint),
+          toCheckpoint: CheckpointNumber(toCheckpoint),
           publicInputs: ourPublicInputs,
           proof: Proof.empty(),
           batchedBlobInputs: ourBatchedBlob,
@@ -195,7 +196,7 @@ describe('prover-node-publisher', () => {
   );
 
   it('handles reverted txs correctly', async () => {
-    const blocks = [RootRollupPublicInputs.random(), RootRollupPublicInputs.random()];
+    const checkpoints = [RootRollupPublicInputs.random(), RootRollupPublicInputs.random()];
 
     // Return the tips specified by the test
     rollup.getTips.mockResolvedValue({
@@ -203,10 +204,10 @@ describe('prover-node-publisher', () => {
       proven: 1n,
     });
 
-    // Return the requested block
-    rollup.getCheckpoint.mockImplementation((i: bigint) =>
+    // Return the requested checkpoint
+    rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
       Promise.resolve({
-        archive: blocks[Number(i) - 1].endArchiveRoot.toString(),
+        archive: checkpoints[checkpointNumber - 1].endArchiveRoot.toString(),
         attestationsHash: '0x', // unused,
         payloadDigest: '0x', // unused,
         headerHash: '0x', // unused,
@@ -222,11 +223,11 @@ describe('prover-node-publisher', () => {
       }),
     );
 
-    // We have built a rollup proof of the range fromBlock - toBlock
+    // We have built a rollup proof of the range fromCheckpoint - toCheckpoint
     // so we need to set our archives and hashes accordingly
     const ourPublicInputs = RootRollupPublicInputs.random();
-    ourPublicInputs.previousArchiveRoot = blocks[0].endArchiveRoot ?? Fr.ZERO;
-    ourPublicInputs.endArchiveRoot = blocks[1].endArchiveRoot ?? Fr.ZERO;
+    ourPublicInputs.previousArchiveRoot = checkpoints[0].endArchiveRoot ?? Fr.ZERO;
+    ourPublicInputs.endArchiveRoot = checkpoints[1].endArchiveRoot ?? Fr.ZERO;
 
     const ourBatchedBlob = new BatchedBlob(
       ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
@@ -265,9 +266,9 @@ describe('prover-node-publisher', () => {
     });
 
     const result = await publisher.submitEpochProof({
-      epochNumber: 2,
-      fromBlock: 2,
-      toBlock: 2,
+      epochNumber: EpochNumber(2),
+      fromCheckpoint: CheckpointNumber(2),
+      toCheckpoint: CheckpointNumber(2),
       publicInputs: ourPublicInputs,
       proof: Proof.empty(),
       batchedBlobInputs: ourBatchedBlob,

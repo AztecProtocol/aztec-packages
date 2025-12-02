@@ -1,5 +1,6 @@
 import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
@@ -49,15 +50,15 @@ export class RollupCheatCodes {
   }
 
   /** Returns the current slot */
-  public async getSlot() {
+  public async getSlot(): Promise<SlotNumber> {
     const ts = BigInt((await this.client.getBlock()).timestamp);
-    return await this.rollup.read.getSlotAt([ts]);
+    return SlotNumber.fromBigInt(await this.rollup.read.getSlotAt([ts]));
   }
 
   /** Returns the current epoch */
-  public async getEpoch() {
+  public async getEpoch(): Promise<EpochNumber> {
     const slotNumber = await this.getSlot();
-    return await this.rollup.read.getEpochAtSlot([slotNumber]);
+    return EpochNumber.fromBigInt(await this.rollup.read.getEpochAtSlot([BigInt(slotNumber)]));
   }
 
   /**
@@ -96,13 +97,13 @@ export class RollupCheatCodes {
   /** Fetches the epoch and slot duration config from the rollup contract */
   public async getConfig(): Promise<{
     /** Epoch duration */ epochDuration: bigint;
-    /** Slot duration */ slotDuration: bigint;
+    /** Slot duration */ slotDuration: number;
   }> {
     const [epochDuration, slotDuration] = await Promise.all([
       this.rollup.read.getEpochDuration(),
       this.rollup.read.getSlotDuration(),
     ]);
-    return { epochDuration, slotDuration };
+    return { epochDuration, slotDuration: Number(slotDuration) };
   }
 
   /**
@@ -111,15 +112,15 @@ export class RollupCheatCodes {
    * @param opts - Options
    */
   public async advanceToEpoch(
-    epoch: bigint | number,
+    epoch: EpochNumber,
     opts: {
       /** Offset in seconds */
       offset?: number;
     } = {},
   ) {
     const { epochDuration: slotsInEpoch } = await this.getConfig();
-    const timestamp =
-      (await this.rollup.read.getTimestampForSlot([BigInt(epoch) * slotsInEpoch])) + BigInt(opts.offset ?? 0);
+    const slotNumber = SlotNumber(epoch * Number(slotsInEpoch));
+    const timestamp = (await this.rollup.read.getTimestampForSlot([BigInt(slotNumber)])) + BigInt(opts.offset ?? 0);
     try {
       await this.ethCheatCodes.warp(Number(timestamp), { ...opts, silent: true, resetBlockInterval: true });
       this.logger.warn(`Warped to epoch ${epoch}`);
@@ -133,8 +134,8 @@ export class RollupCheatCodes {
   public async advanceToNextEpoch() {
     const slot = await this.getSlot();
     const { epochDuration, slotDuration } = await this.getConfig();
-    const slotsUntilNextEpoch = epochDuration - (slot % epochDuration) + 1n;
-    const timeToNextEpoch = slotsUntilNextEpoch * slotDuration;
+    const slotsUntilNextEpoch = epochDuration - (BigInt(slot) % epochDuration) + 1n;
+    const timeToNextEpoch = slotsUntilNextEpoch * BigInt(slotDuration);
     const l1Timestamp = BigInt((await this.client.getBlock()).timestamp);
     await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), {
       silent: true,
@@ -146,10 +147,11 @@ export class RollupCheatCodes {
   /** Warps time in L1 until the beginning of the next slot. */
   public async advanceToNextSlot() {
     const currentSlot = await this.getSlot();
-    const timestamp = await this.rollup.read.getTimestampForSlot([currentSlot + 1n]);
+    const nextSlot = SlotNumber(currentSlot + 1);
+    const timestamp = await this.rollup.read.getTimestampForSlot([BigInt(nextSlot)]);
     await this.ethCheatCodes.warp(Number(timestamp), { silent: true, resetBlockInterval: true });
-    this.logger.warn(`Advanced to slot ${currentSlot + 1n}`);
-    return [timestamp, currentSlot + 1n];
+    this.logger.warn(`Advanced to slot ${nextSlot}`);
+    return [timestamp, nextSlot];
   }
 
   /**
@@ -158,8 +160,8 @@ export class RollupCheatCodes {
    */
   public async advanceSlots(howMany: number) {
     const l1Timestamp = (await this.client.getBlock()).timestamp;
-    const slotDuration = await this.rollup.read.getSlotDuration();
-    const timeToWarp = BigInt(howMany) * slotDuration;
+    const slotDuration = Number(await this.rollup.read.getSlotDuration());
+    const timeToWarp = BigInt(howMany) * BigInt(slotDuration);
     await this.ethCheatCodes.warp(l1Timestamp + timeToWarp, { silent: true, resetBlockInterval: true });
     const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);
     this.logger.warn(`Advanced ${howMany} slots up to slot ${slot} in epoch ${epoch}`);

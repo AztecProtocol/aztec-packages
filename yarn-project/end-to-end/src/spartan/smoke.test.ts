@@ -1,5 +1,6 @@
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
@@ -84,7 +85,7 @@ describe('smoke test', () => {
     await retryUntil(
       async () => {
         const checkpointNumber = await rollup.getCheckpointNumber();
-        return checkpointNumber >= 1n;
+        return checkpointNumber >= CheckpointNumber(1);
       },
       'get checkpoint number',
       60 * 60, // This should be quick since the committee is already formed (see test case above)

@@ -121,6 +121,8 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
     af.public_inputs = join({ transform::map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               transform::map(circuit.return_values.value, [](auto e) { return e.value; }) });
     // Map to a pair of: BlockConstraint, and list of opcodes associated with that BlockConstraint
+    // Block constraints are built as we process the opcodes, so we store them in this map and we add them to the
+    // AcirFormat struct at the end
     // NOTE: We want to deterministically visit this map, so unordered_map should not be used.
     std::map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
 
@@ -152,13 +154,10 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
             },
             gate.value);
     }
-    for (const auto& [block_id, block] : block_id_to_block_constraint) {
-        // Note: the trace will always be empty for ReturnData since it cannot be explicitly read from in noir
-        if (!block.first.trace.empty() || block.first.type == BlockType::ReturnData ||
-            block.first.type == BlockType::CallData) {
-            af.block_constraints.push_back(block.first);
-            af.original_opcode_indices.block_constraints.push_back(block.second);
-        }
+    // Add the block constraints to the AcirFormat struct
+    for (const auto& [_, block] : block_id_to_block_constraint) {
+        af.block_constraints.push_back(block.first);
+        af.original_opcode_indices.block_constraints.push_back(block.second);
     }
 
     return af;
@@ -409,7 +408,9 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         result.emplace_back(mul_quad);
     }
 
+    BB_ASSERT(!result.empty(), "split_into_mul_quad_gates: resulted in zero gates.");
     result.shrink_to_fit();
+
     return result;
 }
 
@@ -649,29 +650,27 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
 
 BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
 {
-    BlockConstraint block{ .init = {}, .trace = {}, .type = BlockType::ROM };
-    std::vector<arithmetic_triple> init;
-    std::vector<MemOp> trace;
+    // Noir doesn't distinguish between ROM and RAM table. Therefore, we initialize every table as a ROM table, and
+    // then we make it a RAM table if there is at least one write operation
+    BlockConstraint block{
+        .init = {},
+        .trace = {},
+        .type = BlockType::ROM,
+        .calldata_id = CallDataType::None,
+    };
 
-    auto len = mem_init.init.size();
-    for (size_t i = 0; i < len; ++i) {
-        block.init.push_back(arithmetic_triple{
-            .a = mem_init.init[i].value,
-            .b = 0,
-            .c = 0,
-            .q_m = 0,
-            .q_l = 1,
-            .q_r = 0,
-            .q_o = 0,
-            .q_c = 0,
-        });
+    for (const auto& init : mem_init.init) {
+        block.init.push_back(init.value);
     }
 
     // Databus is only supported for Goblin, non Goblin builders will treat call_data and return_data as normal
     // array.
     if (std::holds_alternative<Acir::BlockType::CallData>(mem_init.block_type.value)) {
+        uint32_t calldata_id = std::get<Acir::BlockType::CallData>(mem_init.block_type.value).value;
+        BB_ASSERT(calldata_id == 0 || calldata_id == 1, "acir_format::handle_memory_init: Unsupported calldata id");
+
         block.type = BlockType::CallData;
-        block.calldata_id = std::get<Acir::BlockType::CallData>(mem_init.block_type.value).value;
+        block.calldata_id = calldata_id == 0 ? CallDataType::Primary : CallDataType::Secondary;
     } else if (std::holds_alternative<Acir::BlockType::ReturnData>(mem_init.block_type.value)) {
         block.type = BlockType::ReturnData;
     }
@@ -679,36 +678,61 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
     return block;
 }
 
-bool is_rom(Acir::MemOp const& mem_op)
-{
-    return mem_op.operation.mul_terms.empty() && mem_op.operation.linear_combinations.empty() &&
-           fr::serialize_from_buffer(&mem_op.operation.q_c[0]) == fr::zero();
-}
-
-uint32_t poly_to_witness(const arithmetic_triple poly)
-{
-    if (poly.q_m == 0 && poly.q_r == 0 && poly.q_o == 0 && poly.q_l == 1 && poly.q_c == 0) {
-        return poly.a;
-    }
-    return 0;
-}
-
 void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
 {
-    uint8_t access_type = 1;
-    if (is_rom(mem_op.op)) {
-        access_type = 0;
-    }
-    if (access_type == 1) {
+    // Lambda to convert an Acir::Expression to a witness index
+    auto acir_expression_to_witness_or_constant = [&](const Acir::Expression& expr) {
+        std::map<uint32_t, bb::fr> linear_terms = process_linear_terms(expr);
+        std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(expr, linear_terms);
+
+        BB_ASSERT_EQ(mul_quads.size(), 1U, "MemoryOp expression should result in a single mul_quad_ gate");
+        mul_quad_<fr> quad = mul_quads.front();
+
+        // Noir gives us witnesses or constants for read/write operations. We use the following assertions to ensure
+        // that the data coming from Noir is in the correct form.
+        BB_ASSERT_EQ(quad.mul_scaling, fr::zero(), "MemoryOp should not have a mul term");
+        BB_ASSERT_EQ(quad.b_scaling, fr::zero(), "MemoryOp should only have one linear term");
+        BB_ASSERT_EQ(quad.c_scaling, fr::zero(), "MemoryOp should only have one linear term");
+        BB_ASSERT_EQ(quad.d_scaling, fr::zero(), "MemoryOp should only have one linear term");
+
+        bool is_witness = quad.a_scaling == fr::one() && quad.const_scaling == fr::zero();
+        bool is_constant = quad.a_scaling == fr::zero();
+        BB_ASSERT(is_witness || is_constant, "MemoryOp expression must be a witness or a constant");
+
+        return WitnessOrConstant<bb::fr>{
+            .index = is_witness ? quad.a : bb::stdlib::IS_CONSTANT,
+            .value = is_constant ? quad.const_scaling : bb::fr::zero(),
+            .is_constant = is_constant,
+        };
+    };
+
+    // Lambda to determine whether a memory operation is a read or write operation
+    auto is_read_operation = [&](const Acir::Expression& expr) {
+        BB_ASSERT(expr.mul_terms.empty(), "MemoryOp expression should not have multiplication terms");
+        BB_ASSERT(expr.linear_combinations.empty(), "MemoryOp expression should not have linear terms");
+
+        const fr const_term = fr::serialize_from_buffer(&expr.q_c[0]);
+
+        BB_ASSERT((const_term == fr::one()) || (const_term == fr::zero()),
+                  "MemoryOp expression should be either zero or one");
+
+        // A read operation is given by a zero Expression
+        return const_term == fr::zero();
+    };
+
+    AccessType access_type = is_read_operation(mem_op.op.operation) ? AccessType::Read : AccessType::Write;
+    if (access_type == AccessType::Write) {
         // We are not allowed to write on the databus
         BB_ASSERT((block.type != BlockType::CallData) && (block.type != BlockType::ReturnData));
+        // Mark the table as a RAM table
         block.type = BlockType::RAM;
     }
 
     // Update the ranges of the index using the array length
-    arithmetic_triple index = serialize_arithmetic_gate(mem_op.op.index);
-    MemOp acir_mem_op =
-        MemOp{ .access_type = access_type, .index = index, .value = serialize_arithmetic_gate(mem_op.op.value) };
+    WitnessOrConstant<bb::fr> index = acir_expression_to_witness_or_constant(mem_op.op.index);
+    WitnessOrConstant<bb::fr> value = acir_expression_to_witness_or_constant(mem_op.op.value);
+
+    MemOp acir_mem_op = MemOp{ .access_type = access_type, .index = index, .value = value };
     block.trace.push_back(acir_mem_op);
 }
 

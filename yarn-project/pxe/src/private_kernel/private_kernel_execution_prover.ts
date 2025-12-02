@@ -415,6 +415,7 @@ export class PrivateKernelExecutionProver {
       await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
     const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
+
     return PrivateCallData.from({
       publicInputs,
       vk,

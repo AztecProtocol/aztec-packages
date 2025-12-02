@@ -1,5 +1,6 @@
 import { GLOBAL_VARIABLES_LENGTH } from '@aztec/constants';
 import { randomInt } from '@aztec/foundation/crypto';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { makeGlobalVariables } from '../tests/factories.js';
 import { GlobalVariables } from './global_variables.js';
@@ -20,6 +21,12 @@ describe('GlobalVariables', () => {
   it('serializes to field array and deserializes it back', () => {
     const fieldArray = state.toFields();
     const res = GlobalVariables.fromFields(fieldArray);
+    expect(res).toEqual(state);
+  });
+
+  it('serializes to JSON and parses via schema', () => {
+    const jsonString = jsonStringify(state);
+    const res = GlobalVariables.schema.parse(JSON.parse(jsonString));
     expect(res).toEqual(state);
   });
 
