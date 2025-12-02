@@ -251,7 +251,6 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         const size_t virtual_log_n = 6;
 
-        // Use the helper to create a satisfiable trace
         auto full_polynomials = create_satisfiable_trace<Flavor>(multivariate_n);
 
         // SumcheckTestFlavor doesn't need complex relation parameters (no permutation, lookup, etc.)
