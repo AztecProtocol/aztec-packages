@@ -272,23 +272,23 @@ The key insight: circuit $K_{i+1}$ verifies the data transfer between $K_{i-1}$ 
 **Kernel $K_0$** (first kernel):
 - Initializes $C'_0 = R'_0$ (from App₀)
 - Produces return data $R_0$
-- Extracts $\pi'_0.[R'_0]$, adds to $\pi_0.pub\_inputs$
+- Extracts $\pi'_0.[R'_0]$, adds to $\pi_0.\text{pub_inputs}$
 - $\pi_0$ contains: $[R_0]$, $[C'_0]$
 
 **Kernel $K_1$**:
 - Sets $C_1 = R_0$ and $C'_1 = R'_1$ (private inputs)
 - Produces $R_1$ as a function of $C_1$, $C'_1$, and accumulated side effects (note hashes, nullifiers, logs, etc.)
-- **Checks**: $\pi_0.[C'_0] = \pi_0.pub\_inputs.[R'_0]$
-- Extracts $\pi_0.[R_0]$ and $\pi'_1.[R'_1]$, adds to $\pi_1.pub\_inputs$
+- **Checks**: $\pi_0.[C'_0] = \pi_0.\text{pub_inputs}.[R'_0]$
+- Extracts $\pi_0.[R_0]$ and $\pi'_1.[R'_1]$, adds to $\pi_1.\text{pub_inputs}$
 - $\pi_1$ contains: $[C_1]$, $[C'_1]$, $[R_1]$
 
 **Kernel $K_i$** (general case, $i \geq 2$):
 - Sets $C_i = R_{i-1}$ and $C'_i = R'_i$ (private inputs)
 - Produces $R_i$ as a function of $C_i$, $C'_i$, and accumulated side effects
 - **Checks**:
-  - $\pi_{i-1}.[C_{i-1}] = \pi_{i-1}.pub\_inputs.[R_{i-2}]$ (kernel chain)
-  - $\pi_{i-1}.[C'_{i-1}] = \pi_{i-1}.pub\_inputs.[R'_{i-1}]$ (app input)
-- Extracts $\pi_{i-1}.[R_{i-1}]$ and $\pi'_i.[R'_i]$, adds to $\pi_i.pub\_inputs$
+  - $\pi_{i-1}.[C_{i-1}] = \pi_{i-1}.\text{pub_inputs}.[R_{i-2}]$ (kernel chain)
+  - $\pi_{i-1}.[C'_{i-1}] = \pi_{i-1}.\text{pub_inputs}.[R'_{i-1}]$ (app input)
+- Extracts $\pi_{i-1}.[R_{i-1}]$ and $\pi'_i.[R'_i]$, adds to $\pi_i.\text{pub_inputs}$
 - $\pi_i$ contains: $[C_i]$, $[C'_i]$, $[R_i]$
 
 **Tail Kernel $K_{n-1}$**:
