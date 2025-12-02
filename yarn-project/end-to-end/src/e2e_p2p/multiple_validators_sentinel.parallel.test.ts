@@ -60,10 +60,10 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     await t.setup();
     await t.setupValidators();
 
-    rollup = RollupContract.getFromConfig(t.ctx.aztecNodeConfig);
+    rollup = RollupContract.getFromConfig(t.ctx.config);
 
     nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
+      t.ctx.config,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
@@ -76,7 +76,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     );
 
     sentinel = await createNonValidatorNode(
-      t.ctx.aztecNodeConfig,
+      t.ctx.config,
       t.ctx.dateProvider,
       BOOT_NODE_UDP_PORT + 1 + NUM_NODES,
       t.bootstrapNodeEnr,
