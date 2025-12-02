@@ -34,6 +34,7 @@ export class NestedContractTest extends BaseEndToEndTest {
   override async setup(): Promise<this> {
     await super.setup(this.numberOfAccounts);
     await this.publishAccountContracts();
+    await this.deployContracts();
     return this;
   }
 
