@@ -23,7 +23,7 @@ This is the typical sumcheck proving algorithm.
 At each round the prover computes a round univariate $$S^i(X_i) = \sum_{\ell\in \{0,1\}^d}F(u_0,\dots,u_{i-1},X_i, \ell_{i+1},\dots,\ell_{d-1})$$
 
 The important observation is that since $P_i$'s are multilinear polynomials, we have the following equality for $\ell \in \{0,1\}^{d-k-1}$:
-$$P_i(u_0,\dots, u_{k-1}, u_k, \ell) = u_k\cdot P_i(u_0,\dots,u_{k-1},1,\ell) + (1-u_k)\cdot P_i(u_0,\dots,u_{k-1},0,\ell)$$
+\begin{align}P_i(u_0,\dots, u_{k-1}, u_k, \ell)=&\\  &u_k\cdot P_i(u_0,\dots,u_{k-1},1,\ell) \\+ &(1-u_k)\cdot P_i(u_0,\dots,u_{k-1},0,\ell)\end{align}
 
 Hence, at round $i$ the prover will keep a __book-keeping table__ of evaluations $P_j(u_0,\dots,u_{i-1},\ell)$ for $\ell$ on the hypercube. In the code these are refered to as `partially_evaluated_polynomials`. The next book-keeping table (for round $i+1$) which has half the size of the one from round $i$, is computed using the equation above.
 
@@ -41,5 +41,132 @@ Hence, here is how the proving flow goes:
 
 ## ZK sumcheck
 There are two new subtelties that are introduced when making the proving system zero-knowledge.
+
 1. The sumcheck protocol should be modified so that the round univariates and evaluations don't leak information about the witness
-2. The sumcheck protocol should accomodate for randomness added to the end of the witness polynomials
+2. The sumcheck protocol should accomodate for randomness added to the end of the witness polynomials.
+
+Let us focus on bullet point 2 first. In order to hide the contribution of witness values in commitments/opennings every witness column is appended with 4 random values.
+> technically we only need to add 3 random values to each column, but since we require shift of some polynomials we append columns with 4 random values so there are 3 random values at the end of the shifted polynomial
+
+As these values are random, for the sumcheck relation to hold, these values should be be canceled. This is where we introduce the concept of `RowDisablingPolynomials`.
+#### `RowDisablingPolynomials`
+Assuming a reverse lexicographic order on the points on the hypercube, we want a polynomial that is $0$ at the following 4 points and $1$ everywhere else.
+- $2^{d}-1 = (1,1,1,\dots,1)$, with the lagrange polynomial $L_1 = X_0X_1X_2\dots X_{d-1}$
+- $2^{d}-2 = (0,1,1,\dots,1)$, with the lagrange polynomial $L_2 = (1-X_0)X_1X_2\dots X_{d-1}$
+- $2^{d}-3 = (1,0,1,\dots,1)$, with the lagrange polynomial $L_3 = X_0(1-X_1)X_2\dots X_{d-1}$
+- $2^{d}-4 = (0,0,1,\dots,1)$, with the lagrange polynomial $L_4 = (1-X_0)(1-X_1)X_2\dots X_{d-1}$
+
+Hence, the polynomial which is zero on these $4$ points and $1$ everywhere else on the hypercube is
+\begin{align}\textsf{RowDisablingPoly} =&1 - L_1 + L_2+ L_3 +L_4\\
+=& 1- X_2X_3\dots X_{d-1}
+\end{align}
+
+Given the definition, the updated sumcheck relation, is:
+\begin{align}
+\sum_{X\in \{0,1\}^d } F(X)\textsf{RowDisablingPoly}(X) = 0
+\end{align}
+This affects the sumcheck rounds in 2 ways:
+1. The contribution of $\textsf{RowDisablingPoly}$ to the round univariates should be added.
+2. The contribution of $\textsf{RowDisablingPoly}$ to the last round's multivariate eval should be added.
+
+Bullet point 2 is quite easy to handle, as the evaluation of the sumcheck multivariate should just be multiplied by $1-u_2\dots u_{d-1}$.
+
+
+Now let's tackle bullet point 1. Let us refer to the round univariate without taking into consideration the `RowDisablingPoly` as $S_{F,i}$ and the round univariate of the corrected poly $S'_{F,i}$.
+
+Recalling the definition of the round univariates of sumcheck we have that:
+\begin{aligned}
+S'_{F,i} &= \sum_{\gamma_i\in\{0,1\}} (F\times (1-L))(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1}) \\
+&= S_F - \sum_{\gamma_i\in\{0,1\}} F\times L(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1})
+\end{aligned}
+For $i=0$, $\Pi$ is only non-zero when for all $i>1$ $\gamma_i =1$ this means:
+\begin{aligned}
+S'_{F,0}
+&= S_F - \sum_{\gamma_1\in\{0,1\}} F\times L(X,\gamma_{1},1,\dots,1) \\
+& = S_F - \sum_{\gamma_1\in\{0,1\}} F(X,\gamma_{1},1,\dots,1)
+\end{aligned}
+for $i=1$,
+\begin{aligned}
+S'_{F,1}
+&= S_F - F\times L(u_0,X,,1,\dots,1)\\
+&= S_F - F(u_0,X,1,\dots,1)
+\end{aligned}
+
+For $i>1$,
+\begin{aligned}
+S'_{F,i}
+&= S_F - F\times L(u_0,\dots,u_{i-1}X,1,\dots,1)\\
+&= S_F - \Pi_{j=2}^{i-1}u_j \times X\times F(u_0,\dots,u_{i-1}X,1,\dots,1)
+\end{aligned}
+
+
+### Computing round univariates:
+One important detail is how the round univariates (and the row disabling polynomial contributions are implemented).
+
+To compute the round univariate first we would need to compute the corresponding univariates $P_j\left(u_0,\ldots, u_{i-1}, X_{i} , \vec \ell \right)$, for all prover multilinear polynomials $P_j$, over all $\vec \ell$ on the boolean hypercube.
+
+Note that, $P_j\left(u_0,\ldots, u_{i-1}, X_{i} , \vec \ell \right)$ is already computed for $X_i \in \{0,1\}$ in `PartiallyEvalutedPolynomials` book keeping table. To be able to compute evaluations of this univariate on an arbitrary point $X_i$ we should extend the evaluation table to the max individual degree of the relations in each variable. This is refered to as `MAX_PARTIAL_RELATION_LENGTH` and is specified by the `Flavor`.
+
+This extension is done via the `extend_edges` method. This method uses a barycentric evaluation type algorithm (with specific optimizations for univariates of low degrees).
+
+Computing the final round univariate, from the the evaluations of the individual multilinear polynomials is done via the `batch_over_relations` method, which as the name suggests batches the univariate contributions of each multilinear to obtain the final univariate.
+
+The contribution of the `RowDisablingPoly` to the round univariate is done quite similarly using the equalities given in the previous section and can found in `compute_disabled_contribution` method of the `SumcheckProverRound` method.
+
+
+
+## Libra
+Now that we have covered removing the contribution of masking randomness in the witness polynomials we move to describing zero-knowledge variant of the sumcheck IOP itself. The approach we take is from [Libra](https://eprint.iacr.org/2019/317.pdf).
+
+The main idea is that for a sumcheck claim $\sum_{x\in\{0,1\}^d} F(x) = 0$ we pick a multivariate polynomial $G(x_0,\dots,x_{d-1})$ and a random challenge $\rho$ and perform a sumcheck protocol for the claim $$\sum_{x\in\{0,1\}^d} (F(x) + \rho G(x)) = \rho\cdot \sum_{x\in\{0,1\}^d} G(x)$$
+
+In the code, we refer to $\rho$ as `libra_challenge` and $\sum_{x\in\{0,1\}^d} G(x)$ as `libra_total_sum`.
+
+The main contribution of Libra is that $G$ can have a very specific structure of form:
+\begin{align}
+G(X_0,\dots,X_{d-1}) =& a_0 + g_0(X_0) + g_1(X_1) + \dots+ g_{d-1}(X_{d-1})
+\end{align}
+Where for all $i\in [d-1]$, $g_i$ is a univariate of degree $\ell$ with random coefficients. $\ell$ is computed as the maximum individual degree of each variable in $F$.
+
+So to summarize the extra steps of the protocol,
+- Prover generates $g_i$\'s and commits to $G$.
+- Verifier sends the `libra_challenge` $\rho$ (done via Fiat-Shamir)
+- Prover and verifier engage in the sumcheck protocol for $F+ \rho G$
+- in the last round, the verifier asks for opennings of both $F$ and $G$ to perform the final evaluation check
+
+Now let us discuss the details of the prover algorithm to include the contributions from the Libra polynomial.
+Looking at the definition of the round univariate again, we have that the corrected round univariate (of polynomial $F + \rho G$), is:
+\begin{align}
+S'_{F,i} &= \sum_{\gamma_i\in\{0,1\}} F(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1})  \\
+&+\rho\cdot \sum_{\gamma_i\in\{0,1\}} H(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1}) \\
+&= S_{F,i} + \rho \cdot (a_0 + g_0(u_0)+ \dots+ g_{{i-1}}(u_{i-1})\\&+ g_i(X) + 2^{d-i-1}\sum_{i+1}^{d-1}g_j(\gamma_i))
+\end{align}
+Now let us separate this poly into different chunks.
+- let's refer to $2^{d-i-1}(a_0 + g_0(u_0)+ \dots+ g_{{i-1}}(u_{i-1}))$ as $2^{d-i-1} \textsf{prefix-sum}_i$
+- and $2^{d-i-1}\cdot\sum_{i+1}^{d-1}g_j(\gamma_i)$ as $\textsf{suffix_sum}_i$
+
+Now let us see, how these values should be updated when a new challenge $u_{i+1}$ is received. We have the following two equalities:
+\begin{align}
+&\textsf{prefix_sum}_{i+1} = \textsf{prefix_sum}_i + g_i(u_i)/2\\
+& \textsf{suffix_sum}_{i+1} = \textsf{suffix_sum}_i - (g_{i+1}(0) + g_{i+1}(1))/4
+\end{align} #todo this is wrong at the moment. need to add the correct powers of two.
+
+In the code, the sum of `prefix_sum` and `suffix_sum` are labled as `libra_running_sum`. The method `update_zk_sumcheck_data` does the updating described above for each round.
+
+Now to wrap up how the contribution of the libra polynomial to the round univariate:
+at round $i$:
+- the prover takes the $i^{th}$ libra univariate $g_i$ (called `current_column` in the code)
+- computes `libra_round_univariate` to be `current_column + libra_running_sum`
+- The prover updates the `zk_sumcheck_data`, i.e. computes the new running sum.
+- As `libra_round_univariates` is computed as it's evaluation over the domain of size `LIBRA_UNIVARIATES_LENGTH`, we run `extend_edges` to extend the evaluation domain.
+- After the rounds, the verifier additionally receives `libra_total_sum` and `libra_challege` and adds the correction term $\rho G(u_0,\dots ,u_{d-1})$ to the final evaluation check.
+
+The entirity of this logic can be found in `compute_libra_univariate` method of the `SumcheckProverRound` class.
+
+## ECCVM and commited sumcheck
+For the `(ECCVM/ECCVMRecursive)Flavor`, our sumcheck implementation differs from the description given above. The main reason for this is that the individual degrees in ECCVM are way higher than other flavors (22 as opposed to 7 in `UltraFlavor`). This would mean the libra univariates would need to be 3x larger which would make the usual approach very costly. Also, this would mean that the round univariates would be of a way higher degree, which would cause issues on
+
+To accomodate for this, we use a version of the Sumcheck Protocol that commits to the round univariates instead of sending them in clear. The prover algorithm is as follows:
+- In round $i$:
+    - The prover computes the round univariate $S_i$
+    - The prover commits to $[S_i]$ and sends the commitment $S_i$, and the evaluations of $S_i(0)$ and $S_i(1)$.
