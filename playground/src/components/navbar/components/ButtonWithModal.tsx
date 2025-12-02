@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { css, keyframes } from '@emotion/react';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { dropdownIcon } from '../../../styles/common';
+import { colors, commonStyles } from '../../../global.styles';
 
 // Animation for the modal appearing
 const popupAnimation = keyframes`
@@ -33,18 +34,21 @@ const containerStyle = css({
 // Styles for the button
 const buttonStyle = css({
   height: '48px',
-  borderRadius: '8px',
-  backgroundColor: '#CDD1D5',
+  borderRadius: commonStyles.borderRadius,
+  backgroundColor: commonStyles.glassPaper,
+  border: commonStyles.borderLight,
+  backdropFilter: commonStyles.backdropBlur,
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
   padding: '12px 16px',
   fontSize: '16px',
   lineHeight: '15px',
-  color: '#000000',
+  color: colors.text.primary,
   cursor: 'pointer',
   '&:hover': {
-    backgroundColor: '#BCC0C4',
+    backgroundColor: commonStyles.glassPaperDark,
+    borderColor: commonStyles.borderMedium,
   },
   '@media (max-width: 400px)': {
     width: '100%',
@@ -53,10 +57,12 @@ const buttonStyle = css({
 
 // Styles for active button
 const activeButtonStyle = css({
-  background: '#9894FF',
-  color: '#FFFFFF',
+  background: colors.primary.main,
+  color: colors.primary.contrastText,
+  borderColor: commonStyles.borderStrong,
   '&:hover': {
-    backgroundColor: '#8985FF',
+    backgroundColor: colors.primary.light,
+    borderColor: commonStyles.borderVeryStrong,
   },
 });
 
@@ -66,10 +72,12 @@ const modalStyle = css({
   // top: '0',
   // right: '0',
   marginTop: '5px',
-  backgroundColor: '#F5F5F5',
-  borderRadius: '10px',
+  backgroundColor: commonStyles.glassPaperDark,
+  backdropFilter: commonStyles.backdropBlur,
+  border: commonStyles.borderMedium,
+  borderRadius: commonStyles.borderRadius,
   padding: '15px',
-  boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.1)',
+  boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.3)',
   zIndex: 10,
   animation: `${popupAnimation} 0.3s ease-out forwards`,
   overflow: 'hidden',
@@ -79,7 +87,7 @@ const modalStyle = css({
 // Styles for loading spinner
 const loadingSpinner = css({
   marginLeft: '8px',
-  color: '#FFFFFF',
+  color: colors.text.primary,
 });
 
 interface ButtonWithModalProps {

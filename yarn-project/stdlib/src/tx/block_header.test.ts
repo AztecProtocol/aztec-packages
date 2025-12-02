@@ -3,7 +3,7 @@ import { randomInt } from '@aztec/foundation/crypto';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
-import { makeHeader } from '../tests/factories.js';
+import { makeBlockHeader } from '../tests/factories.js';
 import { BlockHeader } from './block_header.js';
 
 describe('BlockHeader', () => {
@@ -11,7 +11,7 @@ describe('BlockHeader', () => {
 
   beforeAll(() => {
     setupCustomSnapshotSerializers(expect);
-    header = makeHeader(randomInt(1000), undefined);
+    header = makeBlockHeader(randomInt(1000));
   });
 
   it('serializes to buffer and deserializes it back', () => {
@@ -28,7 +28,7 @@ describe('BlockHeader', () => {
 
   it('computes hash', async () => {
     const seed = 9870243;
-    const header = makeHeader(seed, undefined);
+    const header = makeBlockHeader(seed);
     const hash = await header.hash();
     expect(hash).toMatchSnapshot();
   });

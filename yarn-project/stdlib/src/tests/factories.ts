@@ -1,12 +1,15 @@
-import { makeBatchedBlobAccumulator, makeSpongeBlob } from '@aztec/blob-lib/testing';
+import {
+  makeBlobAccumulator,
+  makeFinalBlobAccumulator,
+  makeFinalBlobBatchingChallenges,
+  makeSpongeBlob,
+} from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AZTEC_MAX_EPOCH_DURATION,
   CHONK_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-  FIXED_DA_GAS,
-  FIXED_L2_GAS,
   GeneratorIndex,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -39,8 +42,9 @@ import {
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
-import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
-import { compact, padArrayEnd } from '@aztec/foundation/collection';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { SlotNumber } from '@aztec/foundation/branded-types';
+import { compact } from '@aztec/foundation/collection';
 import { Grumpkin, SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
@@ -59,6 +63,9 @@ import {
   AvmCircuitPublicInputs,
   AvmCommitCheckpointHint,
   AvmContractClassHint,
+  AvmContractDbCommitCheckpointHint,
+  AvmContractDbCreateCheckpointHint,
+  AvmContractDbRevertCheckpointHint,
   AvmContractInstanceHint,
   AvmCreateCheckpointHint,
   AvmDebugFunctionNameHint,
@@ -72,12 +79,11 @@ import {
   AvmSequentialInsertHintNullifierTree,
   AvmSequentialInsertHintPublicDataTree,
   AvmTxHint,
-  RevertCode,
 } from '../avm/index.js';
 import { PublicDataRead } from '../avm/public_data_read.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { L2BlockHeader } from '../block/index.js';
+import { L2BlockHeader } from '../block/l2_block_header.js';
 import {
   type ContractClassPublic,
   ContractDeploymentData,
@@ -89,13 +95,11 @@ import {
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
-import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
-import { Gas, GasFees, GasSettings, type GasUsed } from '../gas/index.js';
+import { Gas, GasFees, GasSettings } from '../gas/index.js';
 import { computeCalldataHash } from '../hash/hash.js';
-import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
 import { KeyValidationRequest } from '../kernel/hints/key_validation_request.js';
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
-import { ReadRequest } from '../kernel/hints/read_request.js';
+import { ReadRequest, ScopedReadRequest } from '../kernel/hints/read_request.js';
 import {
   ClaimedLengthArray,
   PartialPrivateTailPublicInputsForPublic,
@@ -129,7 +133,6 @@ import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
 import { ProofData } from '../proofs/index.js';
 import { Proof } from '../proofs/proof.js';
-import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { makeRecursiveProof } from '../proofs/recursive_proof.js';
 import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../rollup/base_rollup_hints.js';
 import { BlockConstantData } from '../rollup/block_constant_data.js';
@@ -160,7 +163,6 @@ import { ContentCommitment } from '../tx/content_commitment.js';
 import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
-import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
 import { ProtocolContracts } from '../tx/protocol_contracts.js';
 import { PublicCallRequestWithCalldata } from '../tx/public_call_request_with_calldata.js';
 import { StateReference } from '../tx/state_reference.js';
@@ -171,7 +173,6 @@ import { TxRequest } from '../tx/tx_request.js';
 import { Vector } from '../types/index.js';
 import { VkData } from '../vks/index.js';
 import { VerificationKey, VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
-import { mockTx } from './mocks.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.
@@ -239,8 +240,8 @@ export function makeSelector(seed: number): FunctionSelector {
   return new FunctionSelector(seed);
 }
 
-function makeReadRequest(n: number): ReadRequest {
-  return new ReadRequest(new Fr(BigInt(n)), n + 1);
+function makeScopedReadRequest(n: number): ScopedReadRequest {
+  return new ScopedReadRequest(new ReadRequest(new Fr(BigInt(n)), n + 1), makeAztecAddress(n + 2));
 }
 
 /**
@@ -261,7 +262,7 @@ function makeKeyValidationRequestAndGenerators(seed: number): KeyValidationReque
   return new KeyValidationRequestAndGenerator(makeKeyValidationRequests(seed), fr(seed + 4));
 }
 
-function makePublicDataWrite(seed = 1) {
+export function makePublicDataWrite(seed = 1) {
   return new PublicDataWrite(fr(seed), fr(seed + 1));
 }
 
@@ -301,7 +302,22 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 }
 
 function makeTxConstantData(seed = 1) {
-  return new TxConstantData(makeHeader(seed), makeTxContext(seed + 0x100), new Fr(seed + 0x200), new Fr(seed + 0x201));
+  return new TxConstantData(
+    makeBlockHeader(seed),
+    makeTxContext(seed + 0x100),
+    new Fr(seed + 0x200),
+    new Fr(seed + 0x201),
+  );
+}
+
+function makePaddedTuple<T, N extends number>(
+  length: N,
+  fn: (i: number) => T,
+  nonPaddedLength = 0,
+  makePadding: () => T,
+  offset = 0,
+) {
+  return makeTuple(length, i => (i < nonPaddedLength ? fn(i + offset) : makePadding()));
 }
 
 /**
@@ -309,26 +325,86 @@ function makeTxConstantData(seed = 1) {
  * @param seed - The seed to use for generating the accumulated data.
  * @returns An accumulated data.
  */
-export function makePrivateToRollupAccumulatedData(seed = 1, full = false): PrivateToRollupAccumulatedData {
-  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
-
+export function makePrivateToRollupAccumulatedData(
+  seed = 1,
+  {
+    numNoteHashes = MAX_NOTE_HASHES_PER_TX,
+    numNullifiers = MAX_NULLIFIERS_PER_TX,
+    numL2ToL1Messages = MAX_L2_TO_L1_MSGS_PER_TX,
+    numPrivateLogs = MAX_PRIVATE_LOGS_PER_TX,
+    numContractClassLogs = MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  }: {
+    numNoteHashes?: number;
+    numNullifiers?: number;
+    numL2ToL1Messages?: number;
+    numPrivateLogs?: number;
+    numContractClassLogs?: number;
+  } = {},
+): PrivateToRollupAccumulatedData {
   return new PrivateToRollupAccumulatedData(
-    tupleGenerator(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x120, Fr.zero),
-    tupleGenerator(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
-    tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
-    tupleGenerator(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, seed + 0x700, PrivateLog.empty),
-    tupleGenerator(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0xa00, ScopedLogHash.empty), // contract class logs
+    makePaddedTuple(MAX_NOTE_HASHES_PER_TX, fr, numNoteHashes, Fr.zero, seed + 0x100),
+    makePaddedTuple(MAX_NULLIFIERS_PER_TX, fr, numNullifiers, Fr.zero, seed + 0x200),
+    makePaddedTuple(
+      MAX_L2_TO_L1_MSGS_PER_TX,
+      makeScopedL2ToL1Message,
+      numL2ToL1Messages,
+      ScopedL2ToL1Message.empty,
+      seed + 0x300,
+    ),
+    makePaddedTuple(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, numPrivateLogs, PrivateLog.empty, seed + 0x400),
+    makePaddedTuple(
+      MAX_CONTRACT_CLASS_LOGS_PER_TX,
+      makeScopedLogHash,
+      numContractClassLogs,
+      ScopedLogHash.empty,
+      seed + 0x500,
+    ),
   );
 }
 
-export function makePrivateToPublicAccumulatedData(seed = 1) {
+export function makePrivateToPublicAccumulatedData(
+  seed = 1,
+  {
+    numNoteHashes = MAX_NOTE_HASHES_PER_TX,
+    numNullifiers = MAX_NULLIFIERS_PER_TX,
+    numL2ToL1Messages = MAX_L2_TO_L1_MSGS_PER_TX,
+    numPrivateLogs = MAX_PRIVATE_LOGS_PER_TX,
+    numContractClassLogs = MAX_CONTRACT_CLASS_LOGS_PER_TX,
+    numEnqueuedCalls = MAX_ENQUEUED_CALLS_PER_TX,
+  }: {
+    numNoteHashes?: number;
+    numNullifiers?: number;
+    numL2ToL1Messages?: number;
+    numPrivateLogs?: number;
+    numContractClassLogs?: number;
+    numEnqueuedCalls?: number;
+  } = {},
+) {
   return new PrivateToPublicAccumulatedData(
-    makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed),
-    makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100),
-    makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x200),
-    makeTuple(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, seed + 0x700),
-    makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0x900),
-    makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x500),
+    makePaddedTuple(MAX_NOTE_HASHES_PER_TX, fr, numNoteHashes, Fr.zero, seed),
+    makePaddedTuple(MAX_NULLIFIERS_PER_TX, fr, numNullifiers, Fr.zero, seed + 0x100),
+    makePaddedTuple(
+      MAX_L2_TO_L1_MSGS_PER_TX,
+      makeScopedL2ToL1Message,
+      numL2ToL1Messages,
+      ScopedL2ToL1Message.empty,
+      seed + 0x200,
+    ),
+    makePaddedTuple(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, numPrivateLogs, PrivateLog.empty, seed + 0x300),
+    makePaddedTuple(
+      MAX_CONTRACT_CLASS_LOGS_PER_TX,
+      makeScopedLogHash,
+      numContractClassLogs,
+      ScopedLogHash.empty,
+      seed + 0x400,
+    ),
+    makePaddedTuple(
+      MAX_ENQUEUED_CALLS_PER_TX,
+      makePublicCallRequest,
+      numEnqueuedCalls,
+      PublicCallRequest.empty,
+      seed + 0x500,
+    ),
   );
 }
 
@@ -431,13 +507,10 @@ export function makeProtocolContracts(seed = 1) {
  * @param seed - The seed to use for generating the kernel circuit public inputs.
  * @returns Public kernel circuit public inputs.
  */
-export function makePrivateToRollupKernelCircuitPublicInputs(
-  seed = 1,
-  fullAccumulatedData = true,
-): PrivateToRollupKernelCircuitPublicInputs {
+export function makePrivateToRollupKernelCircuitPublicInputs(seed = 1): PrivateToRollupKernelCircuitPublicInputs {
   return new PrivateToRollupKernelCircuitPublicInputs(
     makeTxConstantData(seed + 0x100),
-    makePrivateToRollupAccumulatedData(seed, fullAccumulatedData),
+    makePrivateToRollupAccumulatedData(seed),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
     BigInt(seed + 0x800),
@@ -580,8 +653,16 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
     minRevertibleSideEffectCounter: fr(0),
-    noteHashReadRequests: makeClaimedLengthArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300),
-    nullifierReadRequests: makeClaimedLengthArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
+    noteHashReadRequests: makeClaimedLengthArray(
+      MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+      makeScopedReadRequest,
+      seed + 0x300,
+    ),
+    nullifierReadRequests: makeClaimedLengthArray(
+      MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
+      makeScopedReadRequest,
+      seed + 0x310,
+    ),
     keyValidationRequestsAndGenerators: makeClaimedLengthArray(
       MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
       makeKeyValidationRequestAndGenerators,
@@ -601,7 +682,9 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     contractClassLogsHashes: makeClaimedLengthArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeCountedLogHash, seed + 0xa00),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
-    anchorBlockHeader: makeHeader(seed + 0xd00, undefined),
+    expectedNonRevertibleSideEffectCounter: fr(seed + 0x860),
+    expectedRevertibleSideEffectCounter: fr(seed + 0x861),
+    anchorBlockHeader: makeBlockHeader(seed + 0xd00),
     txContext: makeTxContext(seed + 0x1400),
     isFeePayer: false,
   });
@@ -612,7 +695,7 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
     chainId: new Fr(seed),
     version: new Fr(seed + 1),
     blockNumber: seed + 2,
-    slotNumber: new Fr(seed + 3),
+    slotNumber: SlotNumber(seed + 3),
     timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
     feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
@@ -693,7 +776,7 @@ function makeCheckpointConstantData(seed = 1) {
     fr(seed + 2),
     fr(seed + 3),
     fr(seed + 4),
-    fr(seed + 5),
+    SlotNumber(seed + 5),
     makeEthAddress(seed + 6),
     makeAztecAddress(seed + 7),
     makeGasFees(seed + 8),
@@ -742,8 +825,9 @@ export function makeBlockRollupPublicInputs(seed = 0): BlockRollupPublicInputs {
     makeStateReference(seed + 0x500),
     makeSpongeBlob(seed + 0x600),
     makeSpongeBlob(seed + 0x700),
+    BigInt(seed + 0x800),
     BigInt(seed + 0x810),
-    BigInt(seed + 0x820),
+    fr(seed + 0x820),
     fr(seed + 0x830),
     fr(seed + 0x840),
     fr(seed + 0x850),
@@ -752,16 +836,15 @@ export function makeBlockRollupPublicInputs(seed = 0): BlockRollupPublicInputs {
 }
 
 export function makeCheckpointRollupPublicInputs(seed = 0) {
-  const startBlobAccumulator = makeBatchedBlobAccumulator(seed);
   return new CheckpointRollupPublicInputs(
     makeEpochConstantData(seed),
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
-    startBlobAccumulator.toBlobAccumulator(),
-    makeBatchedBlobAccumulator(seed + 1).toBlobAccumulator(),
-    startBlobAccumulator.finalBlobChallenges,
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x400),
+    makeBlobAccumulator(seed + 0x500),
+    makeBlobAccumulator(seed + 0x600),
+    makeFinalBlobBatchingChallenges(seed + 0x700),
   );
 }
 
@@ -796,7 +879,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
-    makeBatchedBlobAccumulator(seed).toFinalBlobAccumulator(),
+    makeFinalBlobAccumulator(seed + 0x700),
   );
 }
 
@@ -807,23 +890,15 @@ export function makeContentCommitment(seed = 0): ContentCommitment {
   return new ContentCommitment(fr(seed + 0x100), fr(seed + 0x200), fr(seed + 0x300));
 }
 
-/**
- * Makes header.
- */
-export function makeHeader(
+export function makeBlockHeader(
   seed = 0,
-  blockNumber: number | undefined = undefined,
-  slotNumber: number | undefined = undefined,
-  overrides: Partial<FieldsOf<BlockHeader>> = {},
+  overrides: Partial<FieldsOf<Omit<BlockHeader, 'globalVariables'>>> & Partial<FieldsOf<GlobalVariables>> = {},
 ): BlockHeader {
   return BlockHeader.from({
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x100),
     state: makeStateReference(seed + 0x200),
     spongeBlobHash: fr(seed + 0x300),
-    globalVariables: makeGlobalVariables((seed += 0x700), {
-      ...(blockNumber ? { blockNumber } : {}),
-      ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
-    }),
+    globalVariables: makeGlobalVariables((seed += 0x700), overrides),
     totalFees: fr(seed + 0x800),
     totalManaUsed: fr(seed + 0x900),
     ...overrides,
@@ -842,19 +917,21 @@ export function makeL2BlockHeader(
     overrides?.state ?? makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
       ...(blockNumber ? { blockNumber } : {}),
-      ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
+      ...(slotNumber ? { slotNumber: SlotNumber(slotNumber) } : {}),
     }),
     new Fr(seed + 0x800),
     new Fr(seed + 0x900),
     new Fr(seed + 0xa00),
+    new Fr(seed + 0xb00),
   );
 }
 
 export function makeCheckpointHeader(seed = 0) {
   return CheckpointHeader.from({
     lastArchiveRoot: fr(seed + 0x100),
+    blockHeadersHash: fr(seed + 0x150),
     contentCommitment: makeContentCommitment(seed + 0x200),
-    slotNumber: new Fr(seed + 0x300),
+    slotNumber: SlotNumber(seed + 0x300),
     timestamp: BigInt(seed + 0x400),
     coinbase: makeEthAddress(seed + 0x500),
     feeRecipient: makeAztecAddress(seed + 0x600),
@@ -1364,6 +1441,30 @@ export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevert
   );
 }
 
+export function makeAvmContractDbCheckpointActionCreateCheckpointHint(seed = 0): AvmContractDbCreateCheckpointHint {
+  return new AvmContractDbCreateCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
+export function makeAvmContractDbCheckpointActionCommitCheckpointHint(seed = 0): AvmContractDbCommitCheckpointHint {
+  return new AvmContractDbCommitCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
+export function makeAvmContractDbCheckpointActionRevertCheckpointHint(seed = 0): AvmContractDbRevertCheckpointHint {
+  return new AvmContractDbRevertCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
 /**
  * Makes arbitrary AvmContractInstanceHint.
  * @param seed - The seed to use for generating the state reference.
@@ -1479,6 +1580,21 @@ export async function makeAvmExecutionHints(
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
     debugFunctionNames: makeArray(baseLength + 5, makeAvmDebugFunctionNameHint, seed + 0x4a00),
+    contractDbCreateCheckpointHints: makeArray(
+      baseLength + 5,
+      makeAvmContractDbCheckpointActionCreateCheckpointHint,
+      seed + 0x5900,
+    ),
+    contractDbCommitCheckpointHints: makeArray(
+      baseLength + 5,
+      makeAvmContractDbCheckpointActionCommitCheckpointHint,
+      seed + 0x5b00,
+    ),
+    contractDbRevertCheckpointHints: makeArray(
+      baseLength + 5,
+      makeAvmContractDbCheckpointActionRevertCheckpointHint,
+      seed + 0x5d00,
+    ),
     startingTreeRoots: makeTreeSnapshots(seed + 0x4900),
     getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
     getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
@@ -1514,6 +1630,9 @@ export async function makeAvmExecutionHints(
     fields.contractClasses,
     fields.bytecodeCommitments,
     fields.debugFunctionNames,
+    fields.contractDbCreateCheckpointHints,
+    fields.contractDbCommitCheckpointHints,
+    fields.contractDbRevertCheckpointHints,
     fields.startingTreeRoots,
     fields.getSiblingPathHints,
     fields.getPreviousValueIndexHints,
@@ -1555,165 +1674,4 @@ export async function makeAvmCircuitInputs(
  */
 export function fr(n: number): Fr {
   return new Fr(BigInt(n));
-}
-
-/** Makes a bloated processed tx for testing purposes. */
-export async function makeBloatedProcessedTx({
-  seed = 1,
-  header,
-  db,
-  chainId = Fr.ZERO,
-  version = Fr.ZERO,
-  gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
-  vkTreeRoot = Fr.ZERO,
-  protocolContracts = makeProtocolContracts(seed + 0x100),
-  globalVariables = GlobalVariables.empty(),
-  newL1ToL2Snapshot = AppendOnlyTreeSnapshot.empty(),
-  feePayer,
-  feePaymentPublicDataWrite,
-  // The default gasUsed is the tx overhead.
-  gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS }),
-  privateOnly = false,
-}: {
-  seed?: number;
-  header?: BlockHeader;
-  db?: MerkleTreeReadOperations;
-  chainId?: Fr;
-  version?: Fr;
-  gasSettings?: GasSettings;
-  vkTreeRoot?: Fr;
-  globalVariables?: GlobalVariables;
-  newL1ToL2Snapshot?: AppendOnlyTreeSnapshot;
-  protocolContracts?: ProtocolContracts;
-  feePayer?: AztecAddress;
-  feePaymentPublicDataWrite?: PublicDataWrite;
-  gasUsed?: Gas;
-  privateOnly?: boolean;
-} = {}) {
-  seed *= 0x1000; // Avoid clashing with the previous mock values if seed only increases by 1.
-  header ??= db?.getInitialHeader() ?? makeHeader(seed);
-  feePayer ??= await AztecAddress.random();
-
-  const txConstantData = TxConstantData.empty();
-  txConstantData.anchorBlockHeader = header!;
-  txConstantData.txContext.chainId = chainId;
-  txConstantData.txContext.version = version;
-  txConstantData.txContext.gasSettings = gasSettings;
-  txConstantData.vkTreeRoot = vkTreeRoot;
-  txConstantData.protocolContractsHash = await protocolContracts.hash();
-
-  const tx = !privateOnly
-    ? await mockTx(seed, { feePayer, gasUsed })
-    : await mockTx(seed, {
-        numberOfNonRevertiblePublicCallRequests: 0,
-        numberOfRevertiblePublicCallRequests: 0,
-        feePayer,
-        gasUsed,
-      });
-  tx.data.constants = txConstantData;
-
-  const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
-
-  if (privateOnly) {
-    const data = makePrivateToRollupAccumulatedData(seed + 0x1000);
-    clearContractClassLogs(data);
-
-    feePaymentPublicDataWrite ??= new PublicDataWrite(Fr.random(), Fr.random());
-
-    tx.data.forRollup!.end = data;
-
-    await tx.recomputeHash();
-    return makeProcessedTxFromPrivateOnlyTx(tx, transactionFee, feePaymentPublicDataWrite, globalVariables);
-  } else {
-    const dataFromPrivate = tx.data.forPublic!;
-
-    const nonRevertibleData = dataFromPrivate.nonRevertibleAccumulatedData;
-
-    // Create revertible data.
-    const revertibleData = makePrivateToPublicAccumulatedData(seed + 0x1000);
-    clearContractClassLogs(revertibleData);
-    revertibleData.nullifiers[MAX_NULLIFIERS_PER_TX - 1] = Fr.ZERO; // Leave one space for the tx hash nullifier in nonRevertibleAccumulatedData.
-    dataFromPrivate.revertibleAccumulatedData = revertibleData;
-
-    // Create avm output.
-    const avmOutput = AvmCircuitPublicInputs.empty();
-    // Assign data from hints.
-    avmOutput.protocolContracts = protocolContracts;
-    avmOutput.startTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
-    avmOutput.endTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
-    avmOutput.effectiveGasFees = computeEffectiveGasFees(globalVariables.gasFees, gasSettings);
-    // Assign data from private.
-    avmOutput.globalVariables = globalVariables;
-    avmOutput.startGasUsed = tx.data.gasUsed;
-    avmOutput.gasSettings = gasSettings;
-    avmOutput.feePayer = feePayer;
-    avmOutput.publicCallRequestArrayLengths = new PublicCallRequestArrayLengths(
-      tx.data.numberOfNonRevertiblePublicCallRequests(),
-      tx.data.numberOfRevertiblePublicCallRequests(),
-      tx.data.hasTeardownPublicCallRequest(),
-    );
-    avmOutput.publicSetupCallRequests = dataFromPrivate.nonRevertibleAccumulatedData.publicCallRequests;
-    avmOutput.publicAppLogicCallRequests = dataFromPrivate.revertibleAccumulatedData.publicCallRequests;
-    avmOutput.publicTeardownCallRequest = dataFromPrivate.publicTeardownCallRequest;
-    avmOutput.previousNonRevertibleAccumulatedData = new PrivateToAvmAccumulatedData(
-      dataFromPrivate.nonRevertibleAccumulatedData.noteHashes,
-      dataFromPrivate.nonRevertibleAccumulatedData.nullifiers,
-      dataFromPrivate.nonRevertibleAccumulatedData.l2ToL1Msgs,
-    );
-    avmOutput.previousNonRevertibleAccumulatedDataArrayLengths =
-      avmOutput.previousNonRevertibleAccumulatedData.getArrayLengths();
-    avmOutput.previousRevertibleAccumulatedData = new PrivateToAvmAccumulatedData(
-      dataFromPrivate.revertibleAccumulatedData.noteHashes,
-      dataFromPrivate.revertibleAccumulatedData.nullifiers,
-      dataFromPrivate.revertibleAccumulatedData.l2ToL1Msgs,
-    );
-    avmOutput.previousRevertibleAccumulatedDataArrayLengths =
-      avmOutput.previousRevertibleAccumulatedData.getArrayLengths();
-    // Assign final data emitted from avm.
-    avmOutput.accumulatedData.noteHashes = revertibleData.noteHashes;
-    avmOutput.accumulatedData.nullifiers = padArrayEnd(
-      nonRevertibleData.nullifiers.concat(revertibleData.nullifiers).filter(n => !n.isEmpty()),
-      Fr.ZERO,
-      MAX_NULLIFIERS_PER_TX,
-    );
-    avmOutput.accumulatedData.l2ToL1Msgs = revertibleData.l2ToL1Msgs;
-    avmOutput.accumulatedData.publicDataWrites = makeTuple(
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      i => new PublicDataWrite(new Fr(i), new Fr(i + 10)),
-      seed + 0x2000,
-    );
-    avmOutput.accumulatedDataArrayLengths = avmOutput.accumulatedData.getArrayLengths();
-    avmOutput.gasSettings = gasSettings;
-    // Note: The fee is computed from the tx's gas used, which only includes the gas used in private. But this shouldn't
-    // be a problem for the tests.
-    avmOutput.transactionFee = transactionFee;
-
-    const avmCircuitInputs = await makeAvmCircuitInputs(seed + 0x3000, { publicInputs: avmOutput });
-    avmCircuitInputs.hints.startingTreeRoots.l1ToL2MessageTree = newL1ToL2Snapshot;
-
-    const gasUsed = {
-      totalGas: Gas.empty(),
-      teardownGas: Gas.empty(),
-      publicGas: Gas.empty(),
-      billedGas: Gas.empty(),
-    } satisfies GasUsed;
-
-    await tx.recomputeHash();
-    return makeProcessedTxFromTxWithPublicCalls(
-      tx,
-      {
-        type: ProvingRequestType.PUBLIC_VM,
-        inputs: avmCircuitInputs,
-      },
-      gasUsed,
-      RevertCode.OK,
-      undefined /* revertReason */,
-    );
-  }
-}
-
-// Remove all contract class log hashes from the data as they are not required for the current tests.
-// If they are needed one day, change this to create the random fields first and update the data with real hashes of those fields.
-function clearContractClassLogs(data: { contractClassLogsHashes: ScopedLogHash[] }) {
-  data.contractClassLogsHashes.forEach((_, i) => (data.contractClassLogsHashes[i] = ScopedLogHash.empty()));
 }

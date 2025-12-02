@@ -1,1 +1,2 @@
-export * from './checkpoint_body.js';
+export * from './checkpoint.js';
+export * from './published_checkpoint.js';

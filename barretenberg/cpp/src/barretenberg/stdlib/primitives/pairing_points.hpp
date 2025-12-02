@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -56,6 +57,11 @@ template <typename Curve> struct PairingPoints {
         if (builder != nullptr) {
             tag_index = builder->pairing_points_tagging.create_pairing_point_tag();
         }
+
+#ifndef NDEBUG
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
+        info("Are Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
+#endif
     }
 
     PairingPoints(std::array<Group, 2> const& points)
@@ -169,6 +175,11 @@ template <typename Curve> struct PairingPoints {
         if (builder != nullptr) {
             builder->pairing_points_tagging.merge_pairing_point_tags(this->tag_index, other.tag_index);
         }
+
+#ifndef NDEBUG
+        bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
+        info("Aggregated Pairing Points with tag ", tag_index, ": valid: ", native_pp.check() ? "true" : "false");
+#endif
     }
 
     /**
@@ -237,8 +248,9 @@ template <typename Curve> struct PairingPoints {
         Fq x1(DEFAULT_PAIRING_POINTS_P1_X);
         Fq y1(DEFAULT_PAIRING_POINTS_P1_Y);
 
-        Group P0(x0, y0);
-        Group P1(x1, y1);
+        // These are known, valid points, so we can skip the curve checks.
+        Group P0(x0, y0, /*assert_on_curve=*/false);
+        Group P1(x1, y1, /*assert_on_curve=*/false);
 
         return { P0, P1 };
     }

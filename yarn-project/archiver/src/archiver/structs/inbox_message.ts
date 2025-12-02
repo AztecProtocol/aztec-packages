@@ -7,6 +7,7 @@ import type { UInt32 } from '@aztec/stdlib/types';
 export type InboxMessage = {
   index: bigint;
   leaf: Fr;
+  // TODO: should be checkpointNumber
   l2BlockNumber: UInt32;
   l1BlockNumber: bigint;
   l1BlockHash: Buffer32;

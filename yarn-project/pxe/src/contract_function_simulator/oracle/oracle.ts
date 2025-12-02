@@ -100,8 +100,7 @@ export class Oracle {
     return Promise.resolve([toACVMField(val)]);
   }
 
-  // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  privateStoreInExecutionCache(_length: ACVMField[], values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
+  privateStoreInExecutionCache(values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
     this.handlerAsPrivate().privateStoreInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
     return Promise.resolve([]);
   }
@@ -236,6 +235,7 @@ export class Oracle {
   }
 
   async utilityGetNotes(
+    [owner]: ACVMField[],
     [storageSlot]: ACVMField[],
     [numSelects]: ACVMField[],
     selectByIndexes: ACVMField[],
@@ -254,6 +254,7 @@ export class Oracle {
     [packedRetrievedNoteLength]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
     const noteDatas = await this.handlerAsUtility().utilityGetNotes(
+      AztecAddress.fromString(owner),
       Fr.fromString(storageSlot),
       +numSelects,
       selectByIndexes.map(s => +s),
@@ -282,14 +283,18 @@ export class Oracle {
   }
 
   privateNotifyCreatedNote(
+    [owner]: ACVMField[],
     [storageSlot]: ACVMField[],
+    [randomness]: ACVMField[],
     [noteTypeId]: ACVMField[],
     note: ACVMField[],
     [noteHash]: ACVMField[],
     [counter]: ACVMField[],
   ): Promise<ACVMField[]> {
     this.handlerAsPrivate().privateNotifyCreatedNote(
+      AztecAddress.fromString(owner),
       Fr.fromString(storageSlot),
+      Fr.fromString(randomness),
       NoteSelector.fromField(Fr.fromString(noteTypeId)),
       note.map(Fr.fromString),
       Fr.fromString(noteHash),
@@ -431,6 +436,13 @@ export class Oracle {
       Fr.fromString(minRevertibleSideEffectCounter).toNumber(),
     );
     return Promise.resolve([]);
+  }
+
+  async privateIsSideEffectCounterRevertible([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    const isRevertible = await this.handlerAsPrivate().privateIsSideEffectCounterRevertible(
+      Fr.fromString(sideEffectCounter).toNumber(),
+    );
+    return Promise.resolve([toACVMField(isRevertible)]);
   }
 
   async privateGetNextAppTagAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {

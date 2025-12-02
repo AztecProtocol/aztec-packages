@@ -13,13 +13,28 @@ export DENOISE=${DENOISE:-1}
 # Number of TXE servers to run when testing.
 export NUM_TXES=8
 
-cmd=${1:-}
-[ -n "$cmd" ] && shift
+export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
 
-if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
-  export NOIR_HASH=$(./noir/bootstrap.sh hash)
-  [ -n "$NOIR_HASH" ]
-fi
+# Cleanup function. Called on script exit.
+function cleanup {
+  set +e
+  if [ -n "${test_engine_pid:-}" ]; then
+    kill -SIGTERM -- -$test_engine_pgid &>/dev/null
+    wait $test_engine_pid
+    test_engine_pid=
+  fi
+  if [ -n "${make_pid:-}" ]; then
+    kill -SIGTERM $make_pid &>/dev/null
+    wait $make_pid
+    make_pid=
+  fi
+  if [ -n "${txe_pids:-}" ]; then
+    kill -SIGTERM $txe_pids &>/dev/null
+    wait $txe_pids
+    txe_pids=
+  fi
+}
+trap cleanup EXIT
 
 function encourage_dev_container {
   echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
@@ -134,17 +149,25 @@ function check_toolchains {
 # Install pre-commit git hooks.
 function install_hooks {
   hooks_dir=$(git rev-parse --git-path hooks)
+  rm -f $hooks_dir/*
+
   cat <<EOF >$hooks_dir/pre-commit
 #!/usr/bin/env bash
 set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
 ./yarn-project/precommit.sh
+./noir/precommit.sh
 ./noir-projects/precommit.sh
 ./yarn-project/constants/precommit.sh
 EOF
   chmod +x $hooks_dir/pre-commit
-  echo "(cd noir && ./postcheckout.sh \$@)" >$hooks_dir/post-checkout
-  chmod +x $hooks_dir/post-checkout
+
+  cat <<EOF >$hooks_dir/post-merge
+#!/usr/bin/env bash
+set -euo pipefail
+git submodule update --init --recursive
+EOF
+  chmod +x $hooks_dir/post-merge
 }
 
 function sort_by_cpus {
@@ -169,15 +192,13 @@ function sort_by_cpus {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir docs
+    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs ci3
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
 
-function start_test_env {
+function start_txes {
   # Starting txe servers with incrementing port numbers.
-  trap 'kill -SIGTERM $txe_pids &>/dev/null || true' EXIT
-
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
     existing_pid=$(lsof -ti :$port || true)
@@ -201,10 +222,83 @@ function start_test_env {
   done
 }
 
+export test_cmds_file="/tmp/test_cmds"
+
+function test_engine_start {
+  # This trickery is to overcome an oddity in parallel.
+  # Turns out when we hold an open pipe to parallel, like we do using tail below,
+  # parallel will only process the result of job N when it receives a new job *after* job N has completed.
+  # This can prevent a "fail fast" situation, or prevent the results from the first batch of commands from showing up.
+  # Empty commands fed to run_test_cmd are no-ops, so we keep parallel processing results in timely fashion with this.
+  while ! grep -E '^STOP$' $test_cmds_file; do sleep 5; echo >> $test_cmds_file; done &
+  # Continuously stream the test cmds into parallelize.
+  DENOISE=0 parallelize < <(tail -n+0 -f $test_cmds_file)
+}
+export -f test_engine_start
+
+function prep {
+  pull_submodules
+  check_toolchains
+
+  # Ensure we have yarn set up.
+  corepack enable
+
+  rm -f $test_cmds_file
+}
+
+function build_and_test {
+  local target=${1:-}
+
+  prep
+  echo_header "build and test"
+
+  # Start the test engine.
+  # setsid will put it in it's own process group we can terminate on cleanup.
+  rm -f $test_cmds_file
+  touch $test_cmds_file
+  setsid color_prefix "test-engine" "denoise test_engine_start" &
+  test_engine_pid=$!
+  test_engine_pgid=$(ps -o pgid= -p $test_engine_pid)
+
+  # Start the build.
+  if [ -z "$target" ]; then
+    [ "$CI_FULL" -eq 0 ] && target="all" || target="full"
+  fi
+  make $target &
+  make_pid=$!
+
+  # As soon as one of the above fails, terminate the other (as part of exit cleanup).
+  while [ -n "$make_pid" ] || [ -n "$test_engine_pid" ]; do
+    # This will return success only if build or test succeeds.
+    # Otherwise it's an error, which is an exit, which means we enter cleanup.
+    wait -p finished -n $make_pid $test_engine_pid &>/dev/null
+
+    # If make succeeded, start txes and add tests that depend on them.
+    if [ "$finished" == "$make_pid" ]; then
+      make_pid=
+
+      if [ -z "${1:-}" ]; then
+        # TODO: Handle this better to they can be run as part of the Makefile dependency tree.
+        start_txes
+        make noir-projects-txe-tests
+      fi
+
+      # Signal tests complete, handled by parallel -E STOP.
+      echo STOP >> $test_cmds_file
+    fi
+
+    if [ "$finished" == "$test_engine_pid" ]; then
+      test_engine_pid=
+    fi
+  done
+
+  return 0
+}
+
 function test {
   echo_header "test all"
 
-  start_test_env
+  start_txes
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
@@ -220,14 +314,18 @@ function test {
   echo "$tests" | parallelize
 }
 
-function build {
+function pull_submodules {
   echo_header "pull submodules"
-  denoise "git submodule update --init --recursive"
+  # If it's an old standalone noir clone, nuke it.
+  if [ -d "noir/noir-repo/.git" ]; then
+    echo "Removing old noir clone..."
+    rm -rf noir/noir-repo
+  fi
+  denoise "git submodule update --init --recursive --depth 1 --jobs 8"
+}
 
-  check_toolchains
-
-  # Ensure we have yarn set up.
-  corepack enable
+function build {
+  prep
 
   # These projects are dependent on each other and must be built linearly.
   serial_projects=(
@@ -244,7 +342,6 @@ function build {
     boxes/bootstrap.sh
     playground/bootstrap.sh
     docs/bootstrap.sh
-    spartan/bootstrap.sh
     aztec-up/bootstrap.sh
   )
 
@@ -278,7 +375,7 @@ function build {
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/sol barretenberg/acir_tests noir-projects/noir-protocol-circuits l1-contracts
+    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/noir-protocol-circuits l1-contracts
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
 }
@@ -301,7 +398,8 @@ function bench_merge {
     dir=${dir#./}; \
     dir=${dir%/bench-out*}; \
     jq --arg prefix "$dir/" '\''map(.name |= "\($prefix)\(.)")'\'' "$1"
-  ' _ {} | jq -s add > bench-out/bench.json
+  ' _ {} | jq -s "add // []" > bench-out/bench.json
+
 }
 
 function bench {
@@ -370,13 +468,10 @@ function release {
     boxes
     aztec-up
     playground
-    # docs # released as part of ci
     release-image
   )
   if [ $(arch) == arm64 ]; then
-    echo "Only releasing packages with platform-specific binaries on arm64."
     projects=(
-      barretenberg/cpp
       release-image
     )
   fi
@@ -414,7 +509,7 @@ case "$cmd" in
     check_toolchains
     echo "Toolchains look good! 🎉"
   ;;
-  ""|"fast"|"full")
+  "")
     install_hooks
     build
   ;;
@@ -427,16 +522,36 @@ case "$cmd" in
     ;;
   "ci-full")
     export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=1
+    build
+    test
+    bench
+    ;;
+  "ci-full-no-test-cache")
+    export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
     build
     test
     bench
     ;;
+  "ci-full-no-test-cache-makefile")
+    export CI=1
+    export USE_TEST_CACHE=0
+    export CI_FULL=1
+    build_and_test
+    bench
+    ;;
   "ci-network-deploy")
     export CI=1
     build
     spartan/bootstrap.sh network_deploy $NETWORK_ENV_FILE
+    # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
+    rm -rf bench-out
+    mkdir -p bench-out
+    bench_merge
+    cache_upload deploy-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
   "ci-network-tests")
     export CI=1
@@ -465,11 +580,7 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
-  test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)
-    $cmd "$@"
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
-  ;;
+    default_cmd_handler "$@"
+    ;;
 esac

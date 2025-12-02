@@ -12,8 +12,8 @@ This tutorial is compatible with the Aztec version `#include_aztec_version`. Ins
 
 ## Prerequisites
 
-- You have followed the [quickstart](../../../getting_started_on_sandbox.md)
-- Running Aztec Sandbox
+- You have followed the [quickstart](../../../getting_started_on_local_network.md)
+- Running Aztec local network
 - Installed [Noir LSP](../../aztec-nr/installation.md) (optional)
 
 ## Set up a project

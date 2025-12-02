@@ -17,35 +17,39 @@ namespace bb::stdlib {
 /**
  * @brief Construct a new RAM table, i.e., dynamic memory with a fixed length.
  *
- * @tparam Builder
- * @param table_size size of the table we are constructing
+ * @details This constructor is used in DSL, where we need to initialize a table with a builder to prevent the case in
+ * which a read operation happens before the context has been set.
  */
-template <typename Builder>
-ram_table<Builder>::ram_table(Builder* builder, const size_t table_size)
-    : length(table_size)
+template <IsUltraOrMegaBuilder Builder>
+ram_table<Builder>::ram_table(Builder* builder, const std::vector<field_pt>& table_entries)
+    : raw_entries(table_entries)
+    , length(table_entries.size())
     , context(builder)
 {
-    static_assert(IsUltraOrMegaBuilder<Builder>);
-    index_initialized.resize(table_size, false);
+    index_initialized.resize(length, false);
 
-    // do not initialize the table yet. The input entries might all be constant;
-    // if this is the case we might not have a valid pointer to a Builder.
-    // We get around this by initializing the table when `read` or `write` operator is called
-    // with a non-const field element.
+    // For consistency with the other constructor, we delegate the initialization of the table to the first read
+    // operation.
+
+    // Store tags
+    _tags.resize(length);
+    for (size_t i = 0; i < length; i++) {
+        _tags[i] = table_entries[i].get_origin_tag();
+    }
 }
 
 /**
  * @brief Construct a new RAM table, i.e., dynamic memory with a fixed length.
  *
- * @tparam Builder
- * @param table_entries vector of field elements that will initialize the RAM table
+ * @details This constructor is used internally in barretenberg to construct tables without the need to specify the
+ * builder. It is especially useful when methods create new rom tables operating on in-circuit values which a priori we
+ * don't know whether they are constant or witnesses.
  */
-template <typename Builder>
+template <IsUltraOrMegaBuilder Builder>
 ram_table<Builder>::ram_table(const std::vector<field_pt>& table_entries)
     : raw_entries(table_entries)
     , length(raw_entries.size())
 {
-    static_assert(IsUltraOrMegaBuilder<Builder>);
     for (const auto& entry : table_entries) {
         if (entry.get_context() != nullptr) {
             context = entry.get_context();
@@ -53,11 +57,9 @@ ram_table<Builder>::ram_table(const std::vector<field_pt>& table_entries)
         }
     }
 
-    index_initialized.resize(length);
-    for (auto&& idx : index_initialized) {
-        idx = false;
-    }
-    // do not initialize the table yet. The input entries might all be constant,
+    index_initialized.resize(length, false);
+
+    // Do not initialize the table yet. The input entries might all be constant,
     // if this is the case we might not have a valid pointer to a Builder
     // We get around this, by initializing the table when `read` or `write` operator is called
     // with a non-const field element.
@@ -78,7 +80,7 @@ ram_table<Builder>::ram_table(const std::vector<field_pt>& table_entries)
  *
  * @tparam Builder
  */
-template <typename Builder> void ram_table<Builder>::initialize_table() const
+template <IsUltraOrMegaBuilder Builder> void ram_table<Builder>::initialize_table() const
 {
     if (ram_table_generated_in_builder) {
         return;
@@ -113,10 +115,11 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
     ram_table_generated_in_builder = true;
 }
 // constructors and move operators
-template <typename Builder> ram_table<Builder>::ram_table(const ram_table& other) = default;
-template <typename Builder> ram_table<Builder>::ram_table(ram_table&& other) = default;
-template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(const ram_table& other) = default;
-template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other) = default;
+template <IsUltraOrMegaBuilder Builder> ram_table<Builder>::ram_table(const ram_table& other) = default;
+template <IsUltraOrMegaBuilder Builder> ram_table<Builder>::ram_table(ram_table&& other) = default;
+template <IsUltraOrMegaBuilder Builder>
+ram_table<Builder>& ram_table<Builder>::operator=(const ram_table& other) = default;
+template <IsUltraOrMegaBuilder Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other) = default;
 
 /**
  * @brief Read a field element from the RAM table at an index value
@@ -125,19 +128,25 @@ template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ra
  * @param index
  * @return field_t<Builder>
  */
-template <typename Builder> field_t<Builder> ram_table<Builder>::read(const field_pt& index) const
+template <IsUltraOrMegaBuilder Builder> field_t<Builder> ram_table<Builder>::read(const field_pt& index) const
 {
     if (context == nullptr) {
         context = index.get_context();
+        BB_ASSERT_NEQ(
+            context,
+            nullptr,
+            "ram_table: Performing a read operation without providing a context. We cannot initialize the table.");
     }
+
+    // When we perform the first read operation, we initialize the table
+    initialize_table();
+
     const auto native_index = uint256_t(index.get_value());
     if (native_index >= length) {
         // set a failure when the index is out of bounds. another error will be thrown when we try to call
         // `read_RAM_array`.
         context->failure("ram_table: RAM array access out of bounds");
     }
-
-    initialize_table();
 
     if (!check_indices_initialized()) {
         context->failure("ram_table must have initialized every RAM entry before the table can be read");
@@ -168,11 +177,18 @@ template <typename Builder> field_t<Builder> ram_table<Builder>::read(const fiel
  *
  * @note This is used to write an already-existing RAM entry and also to initialize a not-yet-written RAM entry.
  */
-template <typename Builder> void ram_table<Builder>::write(const field_pt& index, const field_pt& value)
+template <IsUltraOrMegaBuilder Builder> void ram_table<Builder>::write(const field_pt& index, const field_pt& value)
 {
     if (context == nullptr) {
         context = index.get_context();
+        BB_ASSERT_NEQ(
+            context,
+            nullptr,
+            "ram_table: Performing a write operation without providing a context. We cannot initialize the table.");
     }
+
+    // When we perform the first read operation, we initialize the table
+    initialize_table();
 
     if (uint256_t(index.get_value()) >= length) {
         // set a failure when the index is out of bounds. an error will be thrown when we try to call either
@@ -180,7 +196,6 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
         context->failure("ram_table: RAM array access out of bounds");
     }
 
-    initialize_table();
     field_pt index_wire = index;
     const auto native_index = uint256_t(index.get_value());
     if (index.is_constant()) {

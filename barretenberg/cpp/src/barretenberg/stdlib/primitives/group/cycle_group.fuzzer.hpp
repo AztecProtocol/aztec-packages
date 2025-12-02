@@ -4,6 +4,34 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
+/**
+ * @file cycle_group.fuzzer.hpp
+ * @brief Differential fuzzer for cycle_group elliptic curve operations
+ * @details Implements an instruction-based differential fuzzer that validates the cycle_group implementation by
+ * executing random sequences of operations both in-circuit (using cycle_group) and natively, then comparing the
+ * results. The architecture is as follows:
+ *
+ * ┌─────────────┐
+ * │ Fuzzer Input│
+ * │ (raw bytes) │
+ * └──────┬──────┘
+ *        │
+ *        ├──> Parser ──> Instruction Sequence
+ *        │
+ *        v
+ *   ExecutionHandler (maintains parallel state):
+ *   ┌─────────────────────────────────────────┐
+ *   │ Native:     GroupElement + ScalarField  │ (ground truth)
+ *   │ Circuit:    cycle_group + cycle_scalar  │
+ *   └─────────────────────────────────────────┘
+ *        │
+ *        ├──> Execute each instruction in both representations
+ *        │
+ *        v
+ *   Verify: cycle_group.get_value() == native_result
+ *   CircuitChecker::check(circuit)
+ */
+
 #pragma once
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -31,23 +59,71 @@ bool circuit_should_fail = false;
 // #define DISABLE_MULTIPLICATION
 // #define DISABLE_BATCH_MUL
 
+// Convert preprocessor flag to constexpr for cleaner call sites
 #ifdef FUZZING_SHOW_INFORMATION
-#define PREP_SINGLE_ARG(stack, first_index, output_index)                                                              \
-    std::string rhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";                                        \
-    std::string out = rhs;                                                                                             \
-    rhs += std::to_string(first_index);                                                                                \
-    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);                                 \
-    out = (output_index >= stack.size() ? "auto " : "") + out;
+constexpr bool SHOW_FUZZING_INFO = true;
+#else
+constexpr bool SHOW_FUZZING_INFO = false;
+#endif
 
-#define PREP_TWO_ARG(stack, first_index, second_index, output_index)                                                   \
-    std::string lhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";                                        \
-    std::string rhs = stack[second_index].cycle_group.is_constant() ? "c" : "w";                                       \
-    std::string out =                                                                                                  \
-        (stack[first_index].cycle_group.is_constant() && stack[second_index].cycle_group.is_constant()) ? "c" : "w";   \
-    lhs += std::to_string(first_index);                                                                                \
-    rhs += std::to_string(second_index);                                                                               \
-    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);                                 \
+/** @brief Compile-time debug logging helper */
+template <typename... Args> inline void debug_log(Args&&... args)
+{
+    if constexpr (SHOW_FUZZING_INFO) {
+        (std::cout << ... << std::forward<Args>(args));
+    }
+}
+
+#ifdef FUZZING_SHOW_INFORMATION
+/**
+ * @brief Formatted strings for debugging output
+ * Used to generate readable C++ code showing operation being performed
+ */
+struct FormattedArgs {
+    std::string lhs;
+    std::string rhs;
+    std::string out;
+};
+
+/**
+ * @brief Format a single-argument operation for debug output
+ * @param stack The execution stack
+ * @param first_index Index of the input argument
+ * @param output_index Index where result will be written
+ * @return FormattedArgs with rhs (input) and out (output) populated
+ */
+template <typename Stack>
+inline FormattedArgs format_single_arg(const Stack& stack, size_t first_index, size_t output_index)
+{
+    std::string rhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
+    std::string out = rhs;
+    rhs += std::to_string(first_index);
+    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
     out = (output_index >= stack.size() ? "auto " : "") + out;
+    return FormattedArgs{ .lhs = "", .rhs = rhs, .out = out };
+}
+
+/**
+ * @brief Format a two-argument operation for debug output
+ * @param stack The execution stack
+ * @param first_index Index of the first argument
+ * @param second_index Index of the second argument
+ * @param output_index Index where result will be written
+ * @return FormattedArgs with lhs, rhs (inputs) and out (output) populated
+ */
+template <typename Stack>
+inline FormattedArgs format_two_arg(const Stack& stack, size_t first_index, size_t second_index, size_t output_index)
+{
+    std::string lhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
+    std::string rhs = stack[second_index].cycle_group.is_constant() ? "c" : "w";
+    std::string out =
+        (stack[first_index].cycle_group.is_constant() && stack[second_index].cycle_group.is_constant()) ? "c" : "w";
+    lhs += std::to_string(first_index);
+    rhs += std::to_string(second_index);
+    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
+    out = (output_index >= stack.size() ? "auto " : "") + out;
+    return FormattedArgs{ .lhs = lhs, .rhs = rhs, .out = out };
+}
 #endif
 
 FastRandom VarianceRNG(0);
@@ -57,6 +133,63 @@ constexpr size_t MAXIMUM_MUL_ELEMENTS = 8;
 
 // This is an external function in Libfuzzer used internally by custom mutators
 extern "C" size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
+
+/**
+ * @brief Special scalar field values used for mutation testing
+ *
+ * @note: Zero is placed LAST to allow easy exclusion:
+ * - Use `rng.next() % SPECIAL_VALUE_COUNT` for all values
+ * - Use `rng.next() % SPECIAL_VALUE_COUNT_NO_ZERO` for values excluding Zero (One through HalfModulus)
+ */
+enum class SpecialScalarValue : uint8_t {
+    One = 0,
+    MinusOne,
+    SquareRootOfOne,
+    InverseSquareRootOfOne,
+    RootOfUnity13, // 13th root of unity (arbitrary small root)
+    Two,           // Small even number
+    HalfModulus,   // (p-1)/2
+    Zero,
+    COUNT // Sentinel value for total count
+};
+
+// Number of special values excluding Zero
+constexpr uint8_t SPECIAL_VALUE_COUNT_NO_ZERO = static_cast<uint8_t>(SpecialScalarValue::Zero);
+
+// Number of special values including Zero
+constexpr uint8_t SPECIAL_VALUE_COUNT = static_cast<uint8_t>(SpecialScalarValue::COUNT);
+
+/**
+ * @brief Generate a special scalar field value for testing
+ * @tparam FF Field type (e.g., ScalarField)
+ * @param type Which special value to generate
+ * @return The special field element
+ */
+template <typename FF> inline FF get_special_scalar_value(SpecialScalarValue type)
+{
+    switch (type) {
+    case SpecialScalarValue::One:
+        return FF::one();
+    case SpecialScalarValue::MinusOne:
+        return -FF::one();
+    case SpecialScalarValue::SquareRootOfOne:
+        return FF::one().sqrt().second;
+    case SpecialScalarValue::InverseSquareRootOfOne:
+        return FF::one().sqrt().second.invert();
+    case SpecialScalarValue::RootOfUnity13:
+        return FF::get_root_of_unity(13);
+    case SpecialScalarValue::Two:
+        return FF(2);
+    case SpecialScalarValue::HalfModulus:
+        return FF((FF::modulus - 1) / 2);
+    case SpecialScalarValue::Zero:
+        return FF::zero();
+    case SpecialScalarValue::COUNT:
+        // Fallthrough to abort - COUNT should never be used as a value
+    default:
+        abort(); // Invalid enum value
+    }
+}
 
 /**
  * @brief The class parametrizing CycleGroup fuzzing instructions, execution, etc
@@ -248,6 +381,28 @@ template <typename Builder> class CycleGroupBase {
         }
 
         /**
+         * @brief Convert a scalar field element to uint256_t, optionally using Montgomery form
+         */
+        template <typename FF> inline static uint256_t to_uint256_montgomery(const FF& value, bool as_montgomery)
+        {
+            if (as_montgomery) {
+                return uint256_t(value.to_montgomery_form());
+            }
+            return uint256_t(value);
+        }
+
+        /**
+         * @brief Convert uint256_t back to scalar field element, optionally from Montgomery form
+         */
+        template <typename FF> inline static FF from_uint256_montgomery(const uint256_t& data, bool from_montgomery)
+        {
+            if (from_montgomery) {
+                return FF(data).from_montgomery_form();
+            }
+            return FF(data);
+        }
+
+        /**
          * @brief Mutate the value of a group element
          *
          * @tparam T PRNG class
@@ -274,20 +429,6 @@ template <typename Builder> class CycleGroupBase {
                                             havoc_config.VAL_MUT_NON_MONTGOMERY_PROBABILITY)) <
                              havoc_config.VAL_MUT_MONTGOMERY_PROBABILITY;
             uint256_t value_data;
-            // Conversion at the start
-#define MONT_CONVERSION                                                                                                \
-    if (convert_to_montgomery) {                                                                                       \
-        value_data = uint256_t(e.scalar.to_montgomery_form());                                                         \
-    } else {                                                                                                           \
-        value_data = uint256_t(e.scalar);                                                                              \
-    }
-            // Inverse conversion at the end
-#define INV_MONT_CONVERSION                                                                                            \
-    if (convert_to_montgomery) {                                                                                       \
-        e.scalar = ScalarField(value_data).from_montgomery_form();                                                     \
-    } else {                                                                                                           \
-        e.scalar = ScalarField(value_data);                                                                            \
-    }
 
             // Pick the last value from the mutation distrivution vector
             const size_t mutation_type_count = havoc_config.value_mutation_distribution.size();
@@ -295,9 +436,9 @@ template <typename Builder> class CycleGroupBase {
             const size_t choice = rng.next() % havoc_config.value_mutation_distribution[mutation_type_count - 1];
             if (choice < havoc_config.value_mutation_distribution[0]) {
                 // Delegate mutation to libfuzzer (bit/byte mutations, autodictionary, etc)
-                MONT_CONVERSION
+                value_data = to_uint256_montgomery(e.scalar, convert_to_montgomery);
                 LLVMFuzzerMutate((uint8_t*)&value_data, sizeof(uint256_t), sizeof(uint256_t));
-                INV_MONT_CONVERSION
+                e.scalar = from_uint256_montgomery<ScalarField>(value_data, convert_to_montgomery);
                 e.value = GroupElement::one() * e.scalar;
             } else if (choice < havoc_config.value_mutation_distribution[1]) {
                 // Small addition/subtraction
@@ -332,35 +473,8 @@ template <typename Builder> class CycleGroupBase {
                     e.scalar = e.scalar.to_montgomery_form();
                 }
                 // Substitute scalar element with a special value
-                switch (rng.next() % 8) {
-                case 0:
-                    e.scalar = ScalarField::zero();
-                    break;
-                case 1:
-                    e.scalar = ScalarField::one();
-                    break;
-                case 2:
-                    e.scalar = -ScalarField::one();
-                    break;
-                case 3:
-                    e.scalar = ScalarField::one().sqrt().second;
-                    break;
-                case 4:
-                    e.scalar = ScalarField::one().sqrt().second.invert();
-                    break;
-                case 5:
-                    e.scalar = ScalarField::get_root_of_unity(13);
-                    break;
-                case 6:
-                    e.scalar = ScalarField(2);
-                    break;
-                case 7:
-                    e.scalar = ScalarField((ScalarField::modulus - 1) / 2);
-                    break;
-                default:
-                    abort();
-                    break;
-                }
+                auto special_value = static_cast<SpecialScalarValue>(rng.next() % SPECIAL_VALUE_COUNT);
+                e.scalar = get_special_scalar_value<ScalarField>(special_value);
                 if (convert_to_montgomery) {
                     e.scalar = e.scalar.to_montgomery_form();
                 }
@@ -390,20 +504,6 @@ template <typename Builder> class CycleGroupBase {
                                                         havoc_config.VAL_MUT_NON_MONTGOMERY_PROBABILITY)) <
                                          havoc_config.VAL_MUT_MONTGOMERY_PROBABILITY;
             uint256_t value_data;
-            // Conversion at the start
-#define MONT_CONVERSION_SCALAR                                                                                         \
-    if (convert_to_montgomery) {                                                                                       \
-        value_data = uint256_t(e.to_montgomery_form());                                                                \
-    } else {                                                                                                           \
-        value_data = uint256_t(e);                                                                                     \
-    }
-            // Inverse conversion at the end
-#define INV_MONT_CONVERSION_SCALAR                                                                                     \
-    if (convert_to_montgomery) {                                                                                       \
-        e = ScalarField(value_data).from_montgomery_form();                                                            \
-    } else {                                                                                                           \
-        e = ScalarField(value_data);                                                                                   \
-    }
 
             // Pick the last value from the mutation distrivution vector
             const size_t mutation_type_count = havoc_config.value_mutation_distribution.size();
@@ -411,9 +511,9 @@ template <typename Builder> class CycleGroupBase {
             const size_t choice = rng.next() % havoc_config.value_mutation_distribution[mutation_type_count - 1];
             if (choice < havoc_config.value_mutation_distribution[0]) {
                 // Delegate mutation to libfuzzer (bit/byte mutations, autodictionary, etc)
-                MONT_CONVERSION_SCALAR
+                value_data = to_uint256_montgomery(e, convert_to_montgomery);
                 LLVMFuzzerMutate((uint8_t*)&value_data, sizeof(uint256_t), sizeof(uint256_t));
-                INV_MONT_CONVERSION_SCALAR
+                e = from_uint256_montgomery<ScalarField>(value_data, convert_to_montgomery);
             } else if (choice < havoc_config.value_mutation_distribution[1]) {
                 // Small addition/subtraction
                 if (convert_to_montgomery) {
@@ -440,34 +540,10 @@ template <typename Builder> class CycleGroupBase {
                 if (convert_to_montgomery) {
                     e = e.to_montgomery_form();
                 }
-                // Substitute scalar element with a special value
+                // Substitute scalar element with a special value excluding zero
                 // I think that zeros from mutateGroupElement are enough zeros produced
-                switch (rng.next() % 7) {
-                case 0:
-                    e = ScalarField::one();
-                    break;
-                case 1:
-                    e = -ScalarField::one();
-                    break;
-                case 2:
-                    e = ScalarField::one().sqrt().second;
-                    break;
-                case 3:
-                    e = ScalarField::one().sqrt().second.invert();
-                    break;
-                case 4:
-                    e = ScalarField::get_root_of_unity(13);
-                    break;
-                case 5:
-                    e = ScalarField(2);
-                    break;
-                case 6:
-                    e = ScalarField((ScalarField::modulus - 1) / 2);
-                    break;
-                default:
-                    abort();
-                    break;
-                }
+                auto special_value = static_cast<SpecialScalarValue>(rng.next() % SPECIAL_VALUE_COUNT_NO_ZERO);
+                e = get_special_scalar_value<ScalarField>(special_value);
                 if (convert_to_montgomery) {
                     e = e.to_montgomery_form();
                 }
@@ -794,15 +870,10 @@ template <typename Builder> class CycleGroupBase {
             const bool predicate_is_const = static_cast<bool>(VarianceRNG.next() & 1);
             if (predicate_is_const) {
                 const bool predicate_has_ctx = static_cast<bool>(VarianceRNG.next() % 2);
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "bool_t(" << (predicate_has_ctx ? "&builder," : "nullptr,")
-                          << (predicate ? "true)" : "false)");
-#endif
+                debug_log("bool_t(", (predicate_has_ctx ? "&builder," : "nullptr,"), (predicate ? "true)" : "false)"));
                 return bool_t(predicate_has_ctx ? builder : nullptr, predicate);
             }
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << "bool_t(witness_t(&builder, " << (predicate ? "true));" : "false))");
-#endif
+            debug_log("bool_t(witness_t(&builder, ", (predicate ? "true));" : "false))"));
             return bool_t(witness_t(builder, predicate));
         }
 
@@ -827,83 +898,99 @@ template <typename Builder> class CycleGroupBase {
             , cycle_group(w_g)
         {}
 
-        ExecutionHandler operator_add(Builder* builder, const ExecutionHandler& other)
+      private:
+        /**
+         * @brief Handle addition when points are equal (requires doubling)
+         * @param builder Circuit builder
+         * @param other The other execution handler
+         * @param base_scalar_res Result scalar for native computation
+         * @param base_res Result point for native computation
+         * @return ExecutionHandler with doubled point via various code paths
+         */
+        ExecutionHandler handle_add_doubling_case([[maybe_unused]] Builder* builder,
+                                                  const ExecutionHandler& other,
+                                                  const ScalarField& base_scalar_res,
+                                                  const GroupElement& base_res)
         {
-            ScalarField base_scalar_res = this->base_scalar + other.base_scalar;
-            GroupElement base_res = this->base + other.base;
-
-            if (other.cg().get_value() == this->cg().get_value()) {
-                uint8_t dbl_path = VarianceRNG.next() % 4;
-                switch (dbl_path) {
-                case 0:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "left.dbl" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
-                case 1:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "right.dbl" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
-                case 2:
-                    return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
-                case 3:
-                    return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
-                }
-            } else if (other.cg().get_value() == -this->cg().get_value()) {
-                uint8_t inf_path = VarianceRNG.next() % 4;
-                cycle_group_t res;
-                switch (inf_path) {
-                case 0:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "left.set_point_at_infinity(";
-#endif
-                    res = this->cg();
-                    res.set_point_at_infinity(this->construct_predicate(builder, true));
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << ");" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, res);
-                case 1:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "right.set_point_at_infinity(";
-#endif
-                    res = other.cg();
-                    res.set_point_at_infinity(this->construct_predicate(builder, true));
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << ");" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, res);
-                case 2:
-                    return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
-                case 3:
-                    return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
-                }
+            uint8_t dbl_path = VarianceRNG.next() % 4;
+            switch (dbl_path) {
+            case 0:
+                debug_log("left.dbl", "\n");
+                return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
+            case 1:
+                debug_log("right.dbl", "\n");
+                return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
+            case 2:
+                return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
+            case 3:
+                return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
             }
+            return {};
+        }
+
+        /**
+         * @brief Handle addition when points are negations (result is point at infinity)
+         * @param builder Circuit builder
+         * @param other The other execution handler
+         * @param base_scalar_res Result scalar for native computation
+         * @param base_res Result point for native computation
+         * @return ExecutionHandler with point at infinity via various code paths
+         */
+        ExecutionHandler handle_add_infinity_case(Builder* builder,
+                                                  const ExecutionHandler& other,
+                                                  const ScalarField& base_scalar_res,
+                                                  const GroupElement& base_res)
+        {
+            uint8_t inf_path = VarianceRNG.next() % 4;
+            cycle_group_t res;
+            switch (inf_path) {
+            case 0:
+                debug_log("left.set_point_at_infinity(");
+                res = this->cg();
+                // Need to split logs here, since `set_point_at_infinity` produces extra logs
+                res.set_point_at_infinity(this->construct_predicate(builder, true));
+                debug_log(");", "\n");
+                return ExecutionHandler(base_scalar_res, base_res, res);
+            case 1:
+                debug_log("right.set_point_at_infinity();", "\n");
+                res = other.cg();
+                res.set_point_at_infinity(this->construct_predicate(builder, true));
+                return ExecutionHandler(base_scalar_res, base_res, res);
+            case 2:
+                return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
+            case 3:
+                return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
+            }
+            return {};
+        }
+
+        /**
+         * @brief Handle normal addition (no special edge cases)
+         * @param other The other execution handler
+         * @param base_scalar_res Result scalar for native computation
+         * @param base_res Result point for native computation
+         * @return ExecutionHandler with addition via various code paths
+         */
+        ExecutionHandler handle_add_normal_case(const ExecutionHandler& other,
+                                                const ScalarField& base_scalar_res,
+                                                const GroupElement& base_res)
+        {
             bool smth_inf = this->cycle_group.is_point_at_infinity().get_value() ||
                             other.cycle_group.is_point_at_infinity().get_value();
             uint8_t add_option = smth_inf ? 4 + (VarianceRNG.next() % 2) : VarianceRNG.next() % 6;
 
             switch (add_option) {
             case 0:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "left.unconditional_add(right);" << std::endl;
-#endif
+                debug_log("left.unconditional_add(right);", "\n");
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_add(other.cg()));
             case 1:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "right.unconditional_add(left);" << std::endl;
-#endif
+                debug_log("right.unconditional_add(left);", "\n");
                 return ExecutionHandler(base_scalar_res, base_res, other.cg().unconditional_add(this->cg()));
             case 2:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "left.checked_unconditional_add(right);" << std::endl;
-#endif
+                debug_log("left.checked_unconditional_add(right);", "\n");
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().checked_unconditional_add(other.cg()));
             case 3:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "right.checked_unconditional_add(left);" << std::endl;
-#endif
+                debug_log("right.checked_unconditional_add(left);", "\n");
                 return ExecutionHandler(base_scalar_res, base_res, other.cg().checked_unconditional_add(this->cg()));
             case 4:
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
@@ -913,71 +1000,95 @@ template <typename Builder> class CycleGroupBase {
             return {};
         }
 
-        ExecutionHandler operator_sub(Builder* builder, const ExecutionHandler& other)
+      public:
+        ExecutionHandler operator_add(Builder* builder, const ExecutionHandler& other)
         {
-            ScalarField base_scalar_res = this->base_scalar - other.base_scalar;
-            GroupElement base_res = this->base - other.base;
+            ScalarField base_scalar_res = this->base_scalar + other.base_scalar;
+            GroupElement base_res = this->base + other.base;
 
-            if (other.cg().get_value() == -this->cg().get_value()) {
-                uint8_t dbl_path = VarianceRNG.next() % 3;
-
-                switch (dbl_path) {
-                case 0:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "left.dbl();" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
-                case 1:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "-right.dbl();" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, -other.cg().dbl());
-                case 2:
-                    return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
-                }
-            } else if (other.cg().get_value() == this->cg().get_value()) {
-                uint8_t inf_path = VarianceRNG.next() % 3;
-                cycle_group_t res;
-
-                switch (inf_path) {
-                case 0:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "left.set_point_at_infinity(";
-#endif
-                    res = this->cg();
-                    res.set_point_at_infinity(this->construct_predicate(builder, true));
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << ");" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, res);
-                case 1:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "right.set_point_at_infinity(";
-#endif
-                    res = other.cg();
-                    res.set_point_at_infinity(this->construct_predicate(builder, true));
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << ");" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, res);
-                case 2:
-                    return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
-                }
+            // Test doubling path when points are equal
+            if (other.cg().get_value() == this->cg().get_value()) {
+                return handle_add_doubling_case(builder, other, base_scalar_res, base_res);
             }
+
+            // Test infinity path when points are negations
+            if (other.cg().get_value() == -this->cg().get_value()) {
+                return handle_add_infinity_case(builder, other, base_scalar_res, base_res);
+            }
+
+            // Test normal addition paths
+            return handle_add_normal_case(other, base_scalar_res, base_res);
+        }
+
+      private:
+        /**
+         * @brief Handle subtraction when points are negations: x - (-x) = 2x (doubling case)
+         */
+        ExecutionHandler handle_sub_doubling_case([[maybe_unused]] Builder* builder,
+                                                  const ExecutionHandler& other,
+                                                  const ScalarField& base_scalar_res,
+                                                  const GroupElement& base_res)
+        {
+            uint8_t dbl_path = VarianceRNG.next() % 3;
+
+            switch (dbl_path) {
+            case 0:
+                debug_log("left.dbl();", "\n");
+                return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
+            case 1:
+                debug_log("-right.dbl();", "\n");
+                return ExecutionHandler(base_scalar_res, base_res, -other.cg().dbl());
+            case 2:
+                return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
+            }
+            return {};
+        }
+
+        /**
+         * @brief Handle subtraction when points are equal: x - x = 0 (point at infinity)
+         */
+        ExecutionHandler handle_sub_infinity_case(Builder* builder,
+                                                  const ExecutionHandler& other,
+                                                  const ScalarField& base_scalar_res,
+                                                  const GroupElement& base_res)
+        {
+            uint8_t inf_path = VarianceRNG.next() % 3;
+            cycle_group_t res;
+
+            switch (inf_path) {
+            case 0:
+                debug_log("left.set_point_at_infinity();", "\n");
+                res = this->cg();
+                res.set_point_at_infinity(this->construct_predicate(builder, true));
+                return ExecutionHandler(base_scalar_res, base_res, res);
+            case 1:
+                debug_log("right.set_point_at_infinity();", "\n");
+                res = other.cg();
+                res.set_point_at_infinity(this->construct_predicate(builder, true));
+                return ExecutionHandler(base_scalar_res, base_res, res);
+            case 2:
+                return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
+            }
+            return {};
+        }
+
+        /**
+         * @brief Handle normal subtraction case (no special edge cases)
+         */
+        ExecutionHandler handle_sub_normal_case(const ExecutionHandler& other,
+                                                const ScalarField& base_scalar_res,
+                                                const GroupElement& base_res)
+        {
             bool smth_inf = this->cycle_group.is_point_at_infinity().get_value() ||
                             other.cycle_group.is_point_at_infinity().get_value();
             uint8_t add_option = smth_inf ? 2 : VarianceRNG.next() % 3;
 
             switch (add_option) {
             case 0:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "left.unconditional_subtract(right);" << std::endl;
-#endif
+                debug_log("left.unconditional_subtract(right);", "\n");
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_subtract(other.cg()));
             case 1:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "left.checked_unconditional_subtract(right);" << std::endl;
-#endif
+                debug_log("left.checked_unconditional_subtract(right);", "\n");
                 return ExecutionHandler(
                     base_scalar_res, base_res, this->cg().checked_unconditional_subtract(other.cg()));
             case 2:
@@ -986,13 +1097,32 @@ template <typename Builder> class CycleGroupBase {
             return {};
         }
 
+      public:
+        /**
+         * @brief Subtract two ExecutionHandlers, exploring different code paths for edge cases
+         */
+        ExecutionHandler operator_sub(Builder* builder, const ExecutionHandler& other)
+        {
+            ScalarField base_scalar_res = this->base_scalar - other.base_scalar;
+            GroupElement base_res = this->base - other.base;
+
+            if (other.cg().get_value() == -this->cg().get_value()) {
+                return handle_sub_doubling_case(builder, other, base_scalar_res, base_res);
+            }
+            if (other.cg().get_value() == this->cg().get_value()) {
+                return handle_sub_infinity_case(builder, other, base_scalar_res, base_res);
+            }
+            return handle_sub_normal_case(other, base_scalar_res, base_res);
+        }
+
         ExecutionHandler mul(Builder* builder, const ScalarField& multiplier)
         {
             bool is_witness = VarianceRNG.next() & 1;
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << " * cycle_scalar_t" << (is_witness ? "::from_witness(&builder, " : "(") << "ScalarField(\""
-                      << multiplier << "\"));";
-#endif
+            debug_log(" * cycle_scalar_t",
+                      (is_witness ? "::from_witness(&builder, " : "("),
+                      "ScalarField(\"",
+                      multiplier,
+                      "\"));");
             auto scalar = is_witness ? cycle_scalar_t::from_witness(builder, multiplier) : cycle_scalar_t(multiplier);
             return ExecutionHandler(this->base_scalar * multiplier, this->base * multiplier, this->cg() * scalar);
         }
@@ -1013,10 +1143,11 @@ template <typename Builder> class CycleGroupBase {
                 to_add_cg.push_back(to_add[i].cycle_group);
 
                 bool is_witness = VarianceRNG.next() & 1;
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "cycle_scalar_t" << (is_witness ? "::from_witness(&builder, " : "(") << "ScalarField(\""
-                          << to_mul[i] << "\")), ";
-#endif
+                debug_log("cycle_scalar_t",
+                          (is_witness ? "::from_witness(&builder, " : "("),
+                          "ScalarField(\"",
+                          to_mul[i],
+                          "\")), ");
                 auto scalar = is_witness ? cycle_scalar_t::from_witness(builder, to_mul[i]) : cycle_scalar_t(to_mul[i]);
                 to_mul_cs.push_back(scalar);
 
@@ -1078,16 +1209,13 @@ template <typename Builder> class CycleGroupBase {
             uint32_t switch_case = VarianceRNG.next() % 4;
             switch (switch_case) {
             case 0:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "cycle_group_t(" << std::endl;
-#endif
+                debug_log("cycle_group_t(", "\n");
                 /* construct via cycle_group_t */
                 return ExecutionHandler(this->base_scalar, this->base, cycle_group_t(this->cycle_group));
             case 1: {
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "cycle_group_t::from" << (this->cycle_group.is_constant() ? "" : "_constant")
-                          << "_witness(&builder, e.get_value());";
-#endif
+                debug_log("cycle_group_t::from",
+                          (this->cycle_group.is_constant() ? "" : "_constant"),
+                          "_witness(&builder, e.get_value());");
                 /* construct via AffineElement */
                 AffineElement e = this->cycle_group.get_value();
                 if (this->cycle_group.is_constant()) {
@@ -1097,20 +1225,16 @@ template <typename Builder> class CycleGroupBase {
                 return ExecutionHandler(this->base_scalar, this->base, cycle_group_t::from_witness(builder, e));
             }
             case 2: {
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "tmp = el;" << std::endl;
-                std::cout << "res = cycle_group_t(tmp);" << std::endl;
-#endif
+                debug_log("tmp = el;", "\n");
+                debug_log("res = cycle_group_t(tmp);", "\n");
                 /* Invoke assigment operator */
                 cycle_group_t cg_new(builder);
                 cg_new = this->cg();
                 return ExecutionHandler(this->base_scalar, this->base, cycle_group_t(cg_new));
             }
             case 3: {
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "tmp = el;" << std::endl;
-                std::cout << "res = cycle_group_t(std::move(tmp));" << std::endl;
-#endif
+                debug_log("tmp = el;", "\n");
+                debug_log("res = cycle_group_t(std::move(tmp));", "\n");
                 /* Invoke move constructor */
                 cycle_group_t cg_copy = this->cg();
                 return ExecutionHandler(this->base_scalar, this->base, cycle_group_t(std::move(cg_copy)));
@@ -1125,13 +1249,8 @@ template <typename Builder> class CycleGroupBase {
             auto res = this->set(builder);
             const bool set_inf =
                 res.cycle_group.is_point_at_infinity().get_value() ? true : static_cast<bool>(VarianceRNG.next() & 1);
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << "el.set_point_at_infinty(";
-#endif
+            debug_log("el.set_point_at_infinty();", "\n");
             res.set_point_at_infinity(this->construct_predicate(builder, set_inf));
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << ");" << std::endl;
-#endif
             return res;
         }
 
@@ -1141,7 +1260,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return 0 if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_CONSTANT(Builder* builder,
                                               std::vector<ExecutionHandler>& stack,
@@ -1152,10 +1271,8 @@ template <typename Builder> class CycleGroupBase {
                 ExecutionHandler(instruction.arguments.element.scalar,
                                  instruction.arguments.element.value,
                                  cycle_group_t(static_cast<AffineElement>(instruction.arguments.element.value))));
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << "auto c" << stack.size() - 1 << " = cycle_group_t(ae(\""
-                      << instruction.arguments.element.scalar << "\"));" << std::endl;
-#endif
+            debug_log(
+                "auto c", stack.size() - 1, " = cycle_group_t(ae(\"", instruction.arguments.element.scalar, "\"));\n");
             return 0;
         };
 
@@ -1165,7 +1282,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_WITNESS(Builder* builder,
                                              std::vector<ExecutionHandler>& stack,
@@ -1175,10 +1292,11 @@ template <typename Builder> class CycleGroupBase {
                 instruction.arguments.element.scalar,
                 instruction.arguments.element.value,
                 cycle_group_t::from_witness(builder, static_cast<AffineElement>(instruction.arguments.element.value))));
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << "auto w" << stack.size() - 1 << " = cycle_group_t::from_witness(&builder, ae(\""
-                      << instruction.arguments.element.scalar << "\"));" << std::endl;
-#endif
+            debug_log("auto w",
+                      stack.size() - 1,
+                      " = cycle_group_t::from_witness(&builder, ae(\"",
+                      instruction.arguments.element.scalar,
+                      "\"));\n");
             return 0;
         }
 
@@ -1189,7 +1307,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return 0 if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_CONSTANT_WITNESS(Builder* builder,
                                                       std::vector<ExecutionHandler>& stack,
@@ -1200,10 +1318,11 @@ template <typename Builder> class CycleGroupBase {
                                  instruction.arguments.element.value,
                                  cycle_group_t::from_constant_witness(
                                      builder, static_cast<AffineElement>(instruction.arguments.element.value))));
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << "auto cw" << stack.size() - 1 << " = cycle_group_t::from_constant_witness(&builder, ae(\""
-                      << instruction.arguments.element.scalar << "\"));" << std::endl;
-#endif
+            debug_log("auto cw",
+                      stack.size() - 1,
+                      " = cycle_group_t::from_constant_witness(&builder, ae(\"",
+                      instruction.arguments.element.scalar,
+                      "\"));\n");
             return 0;
         }
 
@@ -1213,7 +1332,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_DBL(Builder* builder,
                                          std::vector<ExecutionHandler>& stack,
@@ -1226,12 +1345,11 @@ template <typename Builder> class CycleGroupBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
 
-#ifdef FUZZING_SHOW_INFORMATION
-            PREP_SINGLE_ARG(stack, first_index, output_index)
-            std::cout << out << " = " << rhs << ".dbl();" << std::endl;
-#endif
-            ExecutionHandler result;
-            result = stack[first_index].dbl();
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, output_index);
+                debug_log(args.out, " = ", args.rhs, ".dbl();", "\n");
+            }
+            ExecutionHandler result = stack[first_index].dbl();
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
@@ -1247,7 +1365,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_NEG(Builder* builder,
                                          std::vector<ExecutionHandler>& stack,
@@ -1260,12 +1378,11 @@ template <typename Builder> class CycleGroupBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
 
-#ifdef FUZZING_SHOW_INFORMATION
-            PREP_SINGLE_ARG(stack, first_index, output_index)
-            std::cout << out << " = -" << rhs << ";" << std::endl;
-#endif
-            ExecutionHandler result;
-            result = -stack[first_index];
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, output_index);
+                debug_log(args.out, " = -", args.rhs, ";", "\n");
+            }
+            ExecutionHandler result = -stack[first_index];
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
@@ -1281,7 +1398,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_ASSERT_EQUAL(Builder* builder,
                                                   std::vector<ExecutionHandler>& stack,
@@ -1293,10 +1410,10 @@ template <typename Builder> class CycleGroupBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t second_index = instruction.arguments.twoArgs.out % stack.size();
 
-#ifdef FUZZING_SHOW_INFORMATION
-            PREP_TWO_ARG(stack, first_index, second_index, 0)
-            std::cout << "assert_equal(" << lhs << ", " << rhs << ", builder);" << std::endl;
-#endif
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, 0);
+                debug_log("assert_equal(", args.lhs, ", ", args.rhs, ", builder);", "\n");
+            }
             stack[first_index].assert_equal(builder, stack[second_index]);
             return 0;
         };
@@ -1307,7 +1424,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_SET(Builder* builder,
                                          std::vector<ExecutionHandler>& stack,
@@ -1319,16 +1436,17 @@ template <typename Builder> class CycleGroupBase {
             }
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
-            ExecutionHandler result;
 
-#ifdef FUZZING_SHOW_INFORMATION
-            PREP_SINGLE_ARG(stack, first_index, output_index)
-            std::cout << out << " = ";
-#endif
-            result = stack[first_index].set(builder);
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << rhs << ");" << std::endl;
-#endif
+            ExecutionHandler result;
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, output_index);
+                debug_log(args.out, " = ");
+                // Need to split logs here, since `set` produces extra logs
+                result = stack[first_index].set(builder);
+                debug_log(args.rhs, ");", "\n");
+            } else {
+                result = stack[first_index].set(builder);
+            }
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
@@ -1344,7 +1462,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_SET_INF(Builder* builder,
                                              std::vector<ExecutionHandler>& stack,
@@ -1356,13 +1474,12 @@ template <typename Builder> class CycleGroupBase {
             }
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
-            ExecutionHandler result;
 
-#ifdef FUZZING_SHOW_INFORMATION
-            PREP_SINGLE_ARG(stack, first_index, output_index)
-            std::cout << out << " = " << rhs << std::endl;
-#endif
-            result = stack[first_index].set_inf(builder);
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, output_index);
+                debug_log(args.out, " = ", args.rhs, "\n");
+            }
+            ExecutionHandler result = stack[first_index].set_inf(builder);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
@@ -1378,7 +1495,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_ADD(Builder* builder,
                                          std::vector<ExecutionHandler>& stack,
@@ -1392,12 +1509,11 @@ template <typename Builder> class CycleGroupBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
-#ifdef FUZZING_SHOW_INFORMATION
-            PREP_TWO_ARG(stack, first_index, second_index, output_index)
-            std::cout << out << " = " << lhs << " + " << rhs << ";" << std::endl;
-#endif
-            ExecutionHandler result;
-            result = stack[first_index].operator_add(builder, stack[second_index]);
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, " + ", args.rhs, ";", "\n");
+            }
+            ExecutionHandler result = stack[first_index].operator_add(builder, stack[second_index]);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
@@ -1413,7 +1529,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_SUBTRACT(Builder* builder,
                                               std::vector<ExecutionHandler>& stack,
@@ -1427,12 +1543,11 @@ template <typename Builder> class CycleGroupBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
-#ifdef FUZZING_SHOW_INFORMATION
-            PREP_TWO_ARG(stack, first_index, second_index, output_index)
-            std::cout << out << " = " << lhs << " - " << rhs << ";" << std::endl;
-#endif
-            ExecutionHandler result;
-            result = stack[first_index].operator_sub(builder, stack[second_index]);
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, " - ", args.rhs, ";", "\n");
+            }
+            ExecutionHandler result = stack[first_index].operator_sub(builder, stack[second_index]);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
@@ -1448,7 +1563,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_COND_ASSIGN(Builder* builder,
                                                  std::vector<ExecutionHandler>& stack,
@@ -1464,15 +1579,16 @@ template <typename Builder> class CycleGroupBase {
             bool predicate = instruction.arguments.fourArgs.in3 % 2;
 
             ExecutionHandler result;
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = cycle_group_t::conditional_assign(");
+                // Need to split logs here, since `conditional_assign` produces extra logs
+                result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
+                debug_log(args.rhs, ", ", args.lhs, ");", "\n");
+            } else {
+                result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
+            }
 
-#ifdef FUZZING_SHOW_INFORMATION
-            PREP_TWO_ARG(stack, first_index, second_index, output_index)
-            std::cout << out << " = cycle_group_t::conditional_assign(";
-#endif
-            result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << rhs << ", " << lhs << ");" << std::endl;
-#endif
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
@@ -1488,7 +1604,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_MULTIPLY(Builder* builder,
                                               std::vector<ExecutionHandler>& stack,
@@ -1502,12 +1618,11 @@ template <typename Builder> class CycleGroupBase {
             size_t output_index = instruction.arguments.mulArgs.out;
             ScalarField scalar = instruction.arguments.mulArgs.scalar;
 
-#ifdef FUZZING_SHOW_INFORMATION
-            PREP_SINGLE_ARG(stack, first_index, output_index)
-            std::cout << out << " = " << rhs << std::endl;
-#endif
-            ExecutionHandler result;
-            result = stack[first_index].mul(builder, scalar);
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, output_index);
+                debug_log(args.out, " = ", args.rhs);
+            }
+            ExecutionHandler result = stack[first_index].mul(builder, scalar);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
@@ -1523,7 +1638,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_BATCH_MUL(Builder* builder,
                                                std::vector<ExecutionHandler>& stack,
@@ -1541,26 +1656,27 @@ template <typename Builder> class CycleGroupBase {
             }
             size_t output_index = (size_t)instruction.arguments.batchMulArgs.output_index;
 
-#ifdef FUZZING_SHOW_INFORMATION
-            std::string res = "";
-            bool is_const = true;
-            for (size_t i = 0; i < instruction.arguments.batchMulArgs.add_elements_count; i++) {
-                size_t idx = instruction.arguments.batchMulArgs.inputs[i] % stack.size();
-                std::string el = stack[idx].cycle_group.is_constant() ? "c" : "w";
-                el += std::to_string(idx);
-                res += el + ", ";
-                is_const &= stack[idx].cycle_group.is_constant();
+            ExecutionHandler result;
+            if constexpr (SHOW_FUZZING_INFO) {
+                std::string res = "";
+                bool is_const = true;
+                for (size_t i = 0; i < instruction.arguments.batchMulArgs.add_elements_count; i++) {
+                    size_t idx = instruction.arguments.batchMulArgs.inputs[i] % stack.size();
+                    std::string el = stack[idx].cycle_group.is_constant() ? "c" : "w";
+                    el += std::to_string(idx);
+                    res += el + ", ";
+                    is_const &= stack[idx].cycle_group.is_constant();
+                }
+                std::string out = is_const ? "c" : "w";
+                out = ((output_index >= stack.size()) ? "auto " : "") + out;
+                out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
+                debug_log(out, " = cycle_group_t::batch_mul({", res, "}, {");
+                // Need to split logs here, since `conditional_assign` produces extra logs
+                result = ExecutionHandler::batch_mul(builder, to_add, to_mul);
+                debug_log("});", "\n");
+            } else {
+                result = ExecutionHandler::batch_mul(builder, to_add, to_mul);
             }
-            std::string out = is_const ? "c" : "w";
-            out = ((output_index >= stack.size()) ? "auto " : "") + out;
-            out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
-            std::cout << out << " = cycle_group_t::batch_mul({" << res << "}, {";
-#endif
-            auto result = ExecutionHandler::batch_mul(builder, to_add, to_mul);
-
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << "});" << std::endl;
-#endif
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
@@ -1576,7 +1692,7 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         * @return 0 to continue, 1 to stop
          */
         static inline size_t execute_RANDOMSEED(Builder* builder,
                                                 std::vector<ExecutionHandler>& stack,
@@ -1621,12 +1737,12 @@ template <typename Builder> class CycleGroupBase {
                 return false;
             }
 
-            bool fake_standardized = element.cycle_group.is_standard();
-            fake_standardized &= element.cycle_group.is_point_at_infinity().get_value();
-            fake_standardized &=
+            // Check that infinity points always have (0,0) coordinates
+            bool is_infinity_with_bad_coords = element.cycle_group.is_point_at_infinity().get_value();
+            is_infinity_with_bad_coords &=
                 (element.cycle_group.x().get_value() != 0) || (element.cycle_group.y().get_value() != 0);
-            if (fake_standardized) {
-                std::cerr << "Failed at " << i << " with value claimed to be standard: (0, 0) but the actual value is ("
+            if (is_infinity_with_bad_coords) {
+                std::cerr << "Failed at " << i << "; point at infinity with non-zero coordinates: ("
                           << element.cycle_group.x().get_value() << ", " << element.cycle_group.y().get_value() << ")"
                           << std::endl;
                 return false;

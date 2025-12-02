@@ -20,7 +20,7 @@ pub contract StatefulTest {
 
     #[storage]
     struct Storage<Context> {
-        notes: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
+        notes: PrivateSet<ValueNote, Context>,
         public_values: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
     }
 
@@ -46,9 +46,11 @@ pub contract StatefulTest {
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
         if (value != 0) {
-            let loc = self.storage.notes.at(owner);
-            let note = ValueNote::new(value, owner);
-            loc.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+            let note = ValueNote::new(value);
+            self.storage.notes.at(owner).insert(note).emit(
+                owner,
+                MessageDelivery.CONSTRAINED_ONCHAIN,
+            );
         }
     }
 
@@ -56,9 +58,11 @@ pub contract StatefulTest {
     #[noinitcheck]
     fn create_note_no_init_check(owner: AztecAddress, value: Field) {
         if (value != 0) {
-            let loc = self.storage.notes.at(owner);
-            let note = ValueNote::new(value, owner);
-            loc.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+            let note = ValueNote::new(value);
+            self.storage.notes.at(owner).insert(note).emit(
+                owner,
+                MessageDelivery.CONSTRAINED_ONCHAIN,
+            );
         }
     }
 
@@ -67,10 +71,9 @@ pub contract StatefulTest {
         assert_is_initialized_private(self.context);
         let sender = self.msg_sender().unwrap();
 
-        let sender_notes = self.storage.notes.at(sender);
-        let _ = sender_notes.pop_notes(NoteGetterOptions::new().set_limit(2));
+        let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 
-        self.storage.notes.at(recipient).insert(ValueNote::new(92, recipient)).emit(
+        self.storage.notes.at(recipient).insert(ValueNote::new(92)).emit(
             recipient,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -81,10 +84,9 @@ pub contract StatefulTest {
     fn destroy_and_create_no_init_check(recipient: AztecAddress) {
         let sender = self.msg_sender().unwrap();
 
-        let sender_notes = self.storage.notes.at(sender);
-        let _ = sender_notes.pop_notes(NoteGetterOptions::new().set_limit(2));
+        let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 
-        self.storage.notes.at(recipient).insert(ValueNote::new(92, recipient)).emit(
+        self.storage.notes.at(recipient).insert(ValueNote::new(92)).emit(
             recipient,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -105,10 +107,8 @@ pub contract StatefulTest {
 
     #[external("utility")]
     unconstrained fn summed_values(owner: AztecAddress) -> Field {
-        let owner_balance = self.storage.notes.at(owner);
-
         // Return the sum of all notes in the set.
-        balance_utils::get_balance(owner_balance)
+        balance_utils::get_balance(self.storage.notes, owner)
     }
 
     #[external("public")]

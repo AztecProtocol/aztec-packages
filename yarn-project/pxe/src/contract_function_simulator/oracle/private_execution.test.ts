@@ -36,19 +36,13 @@ import {
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
-import {
-  computeNoteHashNonce,
-  computeSecretHash,
-  computeUniqueNoteHash,
-  deriveStorageSlotInMap,
-  siloNoteHash,
-} from '@aztec/stdlib/hash';
+import { computeNoteHashNonce, computeSecretHash, computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
 import { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note } from '@aztec/stdlib/note';
-import { makeHeader } from '@aztec/stdlib/testing';
+import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -65,6 +59,7 @@ import { toFunctionSelector } from 'viem';
 
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import type { NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 jest.setTimeout(60_000);
@@ -236,9 +231,12 @@ describe('Private Execution test suite', () => {
     return trees[name];
   };
 
-  const computeNoteHash = (note: Note, storageSlot: Fr) => {
+  const computeNoteHash = (note: Note, owner: AztecAddress, storageSlot: Fr, randomness: Fr) => {
     // We're assuming here that the note hash function is the default one injected by the #[note] macro.
-    return poseidon2HashWithSeparator([...note.items, storageSlot], GeneratorIndex.NOTE_HASH);
+    return poseidon2HashWithSeparator(
+      [...note.items, owner.toField(), storageSlot, randomness],
+      GeneratorIndex.NOTE_HASH,
+    );
   };
 
   beforeAll(async () => {
@@ -316,18 +314,6 @@ describe('Private Execution test suite', () => {
       return Promise.resolve(artifact);
     });
 
-    executionDataProvider.getFunctionArtifactByName.mockImplementation((address, name) => {
-      const contract = contracts[address.toString()];
-      if (!contract) {
-        throw new Error(`Contract not found: ${address}`);
-      }
-      const artifact = getFunctionArtifactByName(contract, name);
-      if (!artifact) {
-        throw new Error(`Function not found: ${name} in contract ${address}`);
-      }
-      return Promise.resolve(artifact);
-    });
-
     executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
     // Provide tagging-related mocks expected by private log emission
     executionDataProvider.calculateDirectionalAppTaggingSecret.mockImplementation((_contract, _sender, _recipient) => {
@@ -367,7 +353,7 @@ describe('Private Execution test suite', () => {
     const mockFirstNullifier = new Fr(1111);
     let currentNoteIndex = 0n;
 
-    const buildNote = async (amount: bigint, ownerAddress: AztecAddress, storageSlot: Fr) => {
+    const buildNote = async (amount: bigint, owner: AztecAddress, storageSlot: Fr) => {
       // WARNING: this is not actually how nonces are computed!
       // For the purpose of this test we use a mocked firstNullifier and and a random number
       // to compute the nonce. Proper nonces are only enforced later by the kernel/later circuits
@@ -378,12 +364,15 @@ describe('Private Execution test suite', () => {
       // `hash(firstNullifier, noteHashIndex)`
       const noteHashIndex = randomInt(1); // mock index in TX's final noteHashes array
       const noteNonce = await computeNoteHashNonce(mockFirstNullifier, noteHashIndex);
-      const note = new Note([new Fr(amount), ownerAddress.toField(), Fr.random()]);
+      const note = new Note([new Fr(amount)]);
       // Note: The following does not correspond to how note hashing is generally done in real notes.
       const noteHash = await poseidon2Hash([storageSlot, ...note.items]);
+      const randomness = Fr.random();
       return {
         contractAddress,
+        owner,
         storageSlot,
+        randomness,
         noteNonce,
         note,
         noteHash,
@@ -416,11 +405,13 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
-      expect(newNote.storageSlot).toEqual(await deriveStorageSlotInMap(new Fr(1n), owner));
+      expect(newNote.storageSlot).toEqual(StatefulTestContractArtifact.storageLayout['notes'].slot);
 
       const noteHashes = result.publicInputs.noteHashes;
       expect(noteHashes.claimedLength).toBe(1);
-      expect(noteHashes.array[0].value).toEqual(await computeNoteHash(newNote.note, newNote.storageSlot));
+      expect(noteHashes.array[0].value).toEqual(
+        await computeNoteHash(newNote.note, owner, newNote.storageSlot, newNote.randomness),
+      );
 
       const privateLogs = result.publicInputs.privateLogs;
       expect(privateLogs.claimedLength).toBe(1);
@@ -435,32 +426,30 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
-      expect(newNote.storageSlot).toEqual(await deriveStorageSlotInMap(new Fr(1n), owner));
+      expect(newNote.storageSlot).toEqual(StatefulTestContractArtifact.storageLayout['notes'].slot);
 
       const noteHashes = result.publicInputs.noteHashes;
       expect(noteHashes.claimedLength).toBe(1);
-      expect(noteHashes.array[0].value).toEqual(await computeNoteHash(newNote.note, newNote.storageSlot));
+      expect(noteHashes.array[0].value).toEqual(
+        await computeNoteHash(newNote.note, owner, newNote.storageSlot, newNote.randomness),
+      );
 
       const privateLogs = result.publicInputs.privateLogs;
       expect(privateLogs.claimedLength).toBe(1);
     });
 
     it('should run the destroy_and_create function', async () => {
-      const storageSlot = await deriveStorageSlotInMap(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
-      const recipientStorageSlot = await deriveStorageSlotInMap(
-        StatefulTestContractArtifact.storageLayout['notes'].slot,
-        recipient,
-      );
+      const storageSlot = StatefulTestContractArtifact.storageLayout['notes'].slot;
 
-      const notes = await Promise.all([
+      const notes: NoteData[] = await Promise.all([
         buildNote(60n, ownerCompleteAddress.address, storageSlot),
         buildNote(80n, ownerCompleteAddress.address, storageSlot),
       ]);
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue(notes);
 
-      const consumedNotes = await asyncMap(notes, async ({ note, noteNonce }) => {
-        const noteHash = await computeNoteHash(note, storageSlot);
+      const consumedNotes = await asyncMap(notes, async ({ note, noteNonce, randomness }) => {
+        const noteHash = await computeNoteHash(note, owner, storageSlot, randomness);
         const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
         const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNoteHash);
         return uniqueNoteHash;
@@ -484,7 +473,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const [recipientNote] = result.newNotes;
-      expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
+      expect(recipientNote.storageSlot).toEqual(storageSlot);
       expect(recipientNote.note.items[0]).toEqual(new Fr(92n));
 
       const noteHashes = result.publicInputs.noteHashes;
@@ -500,14 +489,14 @@ describe('Private Execution test suite', () => {
     it('should be able to destroy_and_create with dummy notes', async () => {
       const balance = 160n;
 
-      const storageSlot = await deriveStorageSlotInMap(new Fr(1n), owner);
+      const storageSlot = StatefulTestContractArtifact.storageLayout['notes'].slot;
 
       const notes = await Promise.all([buildNote(balance, ownerCompleteAddress.address, storageSlot)]);
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue(notes);
 
-      const consumedNotes = await asyncMap(notes, async ({ note, noteNonce }) => {
-        const noteHash = await computeNoteHash(note, storageSlot);
+      const consumedNotes = await asyncMap(notes, async ({ note, noteNonce, randomness }) => {
+        const noteHash = await computeNoteHash(note, owner, storageSlot, randomness);
         const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
         const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNoteHash);
         return uniqueNoteHash;
@@ -797,11 +786,11 @@ describe('Private Execution test suite', () => {
   });
 
   describe('enqueued calls', () => {
-    it.each([false, true])('parent should enqueue call to child (internal %p)', async isInternal => {
+    it.each([false, true])('parent should enqueue call to child (is #[only_self]: %p)', async isOnlySelf => {
       const childContractArtifact = structuredClone(ChildContractArtifact);
       const childFunctionArtifact = childContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
       expect(childFunctionArtifact).toBeDefined();
-      childFunctionArtifact.isInternal = isInternal;
+      childFunctionArtifact.isOnlySelf = isOnlySelf;
 
       const childAddress = await AztecAddress.random();
       await mockContractInstance(childContractArtifact, childAddress);
@@ -903,6 +892,26 @@ describe('Private Execution test suite', () => {
     });
   });
 
+  describe('phase checking', () => {
+    it('should be able to end setup checking phases', async () => {
+      // arbitrary random function that doesn't set a fee payer
+      const contractAddress = await AztecAddress.random();
+      const { entrypoint: result } = await runSimulator({
+        artifact: TestContractArtifact,
+        functionName: 'end_setup_checking_phases',
+        contractAddress,
+      });
+      const minRevertibleSideEffectCounter = result.publicInputs.minRevertibleSideEffectCounter.toNumber();
+      const expectedNonRevertibleSideEffectCounter =
+        result.publicInputs.expectedNonRevertibleSideEffectCounter.toNumber();
+      const expectedRevertibleSideEffectCounter = result.publicInputs.expectedRevertibleSideEffectCounter.toNumber();
+      expect(expectedNonRevertibleSideEffectCounter).toBeGreaterThan(0);
+      expect(expectedRevertibleSideEffectCounter).toBeGreaterThan(0);
+      expect(expectedNonRevertibleSideEffectCounter < minRevertibleSideEffectCounter).toBe(true);
+      expect(expectedRevertibleSideEffectCounter >= minRevertibleSideEffectCounter).toBe(true);
+    });
+  });
+
   describe('pending note hashes contract', () => {
     beforeEach(async () => {
       await mockContractInstance(PendingNoteHashesContractArtifact, defaultContractAddress);
@@ -927,7 +936,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const noteAndSlot = result.newNotes[0];
-      expect(noteAndSlot.storageSlot).toEqual(await deriveStorageSlotInMap(new Fr(1n), owner));
+      expect(noteAndSlot.storageSlot).toEqual(PendingNoteHashesContractArtifact.storageLayout['balances'].slot);
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 
@@ -935,12 +944,9 @@ describe('Private Execution test suite', () => {
       expect(noteHashesFromCall.claimedLength).toBe(1);
 
       const noteHashFromCall = noteHashesFromCall.array[0].value;
-      const storageSlot = await deriveStorageSlotInMap(
-        PendingNoteHashesContractArtifact.storageLayout['balances'].slot,
-        owner,
-      );
+      const storageSlot = PendingNoteHashesContractArtifact.storageLayout['balances'].slot;
 
-      const derivedNoteHash = await computeNoteHash(noteAndSlot.note, storageSlot);
+      const derivedNoteHash = await computeNoteHash(noteAndSlot.note, owner, storageSlot, noteAndSlot.randomness);
       expect(noteHashFromCall).toEqual(derivedNoteHash);
 
       const privateLogs = result.publicInputs.privateLogs;
@@ -996,10 +1002,7 @@ describe('Private Execution test suite', () => {
       const execInsert = result.nestedExecutionResults[0];
       const execGetThenNullify = result.nestedExecutionResults[1];
 
-      const storageSlot = await deriveStorageSlotInMap(
-        PendingNoteHashesContractArtifact.storageLayout['balances'].slot,
-        owner,
-      );
+      const storageSlot = PendingNoteHashesContractArtifact.storageLayout['balances'].slot;
 
       expect(execInsert.newNotes).toHaveLength(1);
       const noteAndSlot = execInsert.newNotes[0];
@@ -1010,7 +1013,7 @@ describe('Private Execution test suite', () => {
       const noteHashes = execInsert.publicInputs.noteHashes;
       expect(noteHashes.claimedLength).toBe(1);
 
-      const derivedNoteHash = await computeNoteHash(noteAndSlot.note, storageSlot);
+      const derivedNoteHash = await computeNoteHash(noteAndSlot.note, owner, storageSlot, noteAndSlot.randomness);
       expect(noteHashes.array[0].value).toEqual(derivedNoteHash);
 
       const privateLogs = execInsert.publicInputs.privateLogs;
@@ -1068,7 +1071,8 @@ describe('Private Execution test suite', () => {
 
   describe('Get notes', () => {
     it('fails if returning no notes', async () => {
-      const args = [2n, true];
+      // call_get_notes(owner: AztecAddress, storage_slot: Field, active_or_nullified: bool)
+      const args = [owner, 2n, true];
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue([]);
 
@@ -1145,7 +1149,7 @@ describe('Private Execution test suite', () => {
 
   describe('Historical header in private context', () => {
     beforeEach(() => {
-      anchorBlockHeader = makeHeader();
+      anchorBlockHeader = makeBlockHeader();
 
       executionDataProvider.getAnchorBlockHeader.mockClear();
       executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);

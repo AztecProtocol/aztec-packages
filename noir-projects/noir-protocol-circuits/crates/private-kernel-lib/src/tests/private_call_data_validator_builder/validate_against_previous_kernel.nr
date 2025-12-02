@@ -3,7 +3,7 @@ use crate::{
     tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder,
 };
 use dep::types::{
-    abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+    abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, constants::MAX_U32_VALUE,
     tests::fixture_builder::FixtureBuilder,
 };
 
@@ -50,6 +50,52 @@ fn validate_against_previous_kernel_mismatch_chain_id_fails() {
 
     let mut previous_kernel = builder.make_previous_kernel();
     previous_kernel.constants.tx_context.chain_id += 1;
+
+    builder.validate_against_previous_kernel(previous_kernel);
+}
+
+#[test(should_fail_with = "Failed to validate expected non revertible side effect counter")]
+fn validate_against_previous_kernel_expected_non_revertible_side_effect_counter_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
+
+    builder.private_call.expected_non_revertible_side_effect_counter = 10;
+
+    let mut previous_kernel = builder.make_previous_kernel();
+    previous_kernel.claimed_revertible_counter = 10;
+
+    builder.validate_against_previous_kernel(previous_kernel);
+}
+
+#[test]
+fn validate_against_previous_kernel_expected_non_revertible_side_effect_counter_0_succeeds() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
+
+    builder.private_call.expected_non_revertible_side_effect_counter = MAX_U32_VALUE;
+
+    let mut previous_kernel = builder.make_previous_kernel();
+
+    builder.validate_against_previous_kernel(previous_kernel);
+}
+
+#[test(should_fail_with = "Failed to validate expected revertible side effect counter")]
+fn validate_against_previous_kernel_expected_revertible_side_effect_counter_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
+
+    builder.private_call.expected_revertible_side_effect_counter = 9;
+
+    let mut previous_kernel = builder.make_previous_kernel();
+    previous_kernel.claimed_revertible_counter = 10;
+
+    builder.validate_against_previous_kernel(previous_kernel);
+}
+
+#[test(should_fail_with = "Failed to validate expected revertible side effect counter")]
+fn validate_against_previous_kernel_expected_revertible_side_effect_counter_0_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
+
+    builder.private_call.expected_revertible_side_effect_counter = MAX_U32_VALUE;
+
+    let mut previous_kernel = builder.make_previous_kernel();
 
     builder.validate_against_previous_kernel(previous_kernel);
 }

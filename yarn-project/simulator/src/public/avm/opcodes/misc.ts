@@ -44,10 +44,10 @@ export class DebugLog extends Instruction {
     const operands = [this.levelOffset, this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
     const [levelOffset, messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
 
-    // DebugLog is a no-op except when doing client-initiated simulation.
+    // DebugLog is a no-op except unless the config is set to collect debug logs.
     // Note that we still do address resolution and basic tag-checking (above)
     // To avoid a special-case in the witness generator and circuit.
-    if (context.environment.clientInitiatedSimulation) {
+    if (context.environment.config.collectDebugLogs) {
       memory.checkTag(TypeTag.UINT8, levelOffset);
       const levelNumber = memory.get(levelOffset).toNumber();
       memory.checkTag(TypeTag.UINT32, fieldsSizeOffset);
@@ -56,11 +56,11 @@ export class DebugLog extends Instruction {
       const memoryReads = 1 /* level */ + 1 /* fieldsSize */ + this.messageSize /* message */ + fieldsSize; /* fields */
       if (
         context.persistableState.getDebugLogMemoryReads() + memoryReads >
-        context.environment.maxDebugLogMemoryReads
+        context.environment.config.maxDebugLogMemoryReads
       ) {
         // Regular error on purpose: this is not a recoverable error.
         throw new Error(
-          `Max debug log memory reads exceeded: ${context.persistableState.getDebugLogMemoryReads() + memoryReads} > ${context.environment.maxDebugLogMemoryReads}`,
+          `Max debug log memory reads exceeded: ${context.persistableState.getDebugLogMemoryReads() + memoryReads} > ${context.environment.config.maxDebugLogMemoryReads}`,
         );
       }
       context.persistableState.writeDebugLogMemoryReads(memoryReads);

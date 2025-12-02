@@ -352,7 +352,7 @@ pub contract AvmTest {
             l2_gas_left - 200_000,
             da_gas_left - 200_000,
             self.address,
-            &[selector.to_field(), 0],
+            [selector.to_field(), 0],
         );
 
         // Use SUCCESSCOPY to get the success status
@@ -764,7 +764,7 @@ pub contract AvmTest {
     #[external("public")]
     fn nested_call_to_nothing_recovers() {
         let garbageAddress = AztecAddress::from_field(42);
-        call(1, 1, garbageAddress, &[]);
+        call(1, 1, garbageAddress, []);
         let success = success_copy();
         assert(
             !success,
@@ -827,13 +827,23 @@ pub contract AvmTest {
         arg_a: Field,
         arg_b: Field,
     ) -> Field {
-        AvmTest::at(address).add_args_return(arg_a, arg_b).view(context)
+        let selector =
+            comptime { FunctionSelector::from_signature("add_args_return(Field,Field)") };
+        context.static_call_public_function(address, selector, [arg_a, arg_b], GasOpts::default())
+            [0]
     }
 
     // Indirectly call_static `set_storage_single`. Should revert since it's accessing self.storage.
     #[external("public")]
     fn nested_static_call_to_set_storage() {
-        AvmTest::at(self.address).set_storage_single(20).view(self.context);
+        let selector = comptime { FunctionSelector::from_signature("set_storage_single(Field)") };
+        let args = [20 as Field];
+        let _ = self.context.static_call_public_function(
+            self.address,
+            selector,
+            args,
+            GasOpts::default(),
+        );
     }
 
     #[external("public")]

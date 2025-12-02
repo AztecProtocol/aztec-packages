@@ -91,6 +91,13 @@ export class ExecutionNoteCache {
     updatedNotes.forEach(n => this.#addNote(n));
   }
 
+  public isSideEffectCounterRevertible(sideEffectCounter: number): boolean {
+    if (!this.inRevertiblePhase) {
+      return false;
+    }
+    return sideEffectCounter >= this.minRevertibleSideEffectCounter;
+  }
+
   public finish() {
     // If we never entered the revertible phase, we need to use the protocol nullifier to compute the nonces for the
     // notes if no nullifiers have been emitted.
@@ -166,11 +173,12 @@ export class ExecutionNoteCache {
    * Return notes created up to current point in execution.
    * If a nullifier for a note in this list is emitted, the note will be deleted.
    * @param contractAddress - Contract address of the notes.
+   * @param owner - Owner of the notes.
    * @param storageSlot - Storage slot of the notes.
    **/
-  public getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
+  public getNotes(contractAddress: AztecAddress, owner: AztecAddress, storageSlot: Fr) {
     const notes = this.noteMap.get(contractAddress.toBigInt()) ?? [];
-    return notes.filter(n => n.note.storageSlot.equals(storageSlot)).map(n => n.note);
+    return notes.filter(n => n.note.owner.equals(owner) && n.note.storageSlot.equals(storageSlot)).map(n => n.note);
   }
 
   /**

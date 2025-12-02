@@ -1,5 +1,6 @@
 import type { ViemClient } from '@aztec/ethereum';
 import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -16,11 +17,11 @@ import { type GetContractReturnType, getAddress, getContract } from 'viem';
  * block within the slot. And if so, it will time travel into the next slot.
  */
 export class AnvilTestWatcher {
-  private isSandbox: boolean = false;
+  private isLocalNetwork: boolean = false;
 
   private rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
   private rollupCheatCodes: RollupCheatCodes;
-  private l2SlotDuration!: bigint;
+  private l2SlotDuration!: number;
 
   private filledRunningPromise?: RunningPromise;
   private syncDateProviderPromise?: RunningPromise;
@@ -54,8 +55,8 @@ export class AnvilTestWatcher {
     this.isMarkingAsProven = isMarkingAsProven;
   }
 
-  setIsSandbox(isSandbox: boolean) {
-    this.isSandbox = isSandbox;
+  setisLocalNetwork(isLocalNetwork: boolean) {
+    this.isLocalNetwork = isLocalNetwork;
   }
 
   async start() {
@@ -68,7 +69,7 @@ export class AnvilTestWatcher {
 
     // If auto mining is not supported (e.g., we are on a real network), then we
     // will simple do nothing. But if on an anvil or the like, this make sure that
-    // the sandbox and tests don't break because time is frozen and we never get to
+    // the local network and tests don't break because time is frozen and we never get to
     // the next slot.
     const isAutoMining = await this.cheatcodes.isAutoMining();
 
@@ -105,7 +106,7 @@ export class AnvilTestWatcher {
   }
 
   async syncDateProviderToL1IfBehind() {
-    // this doesn't apply to the sandbox, because we don't have a date provider in the sandbox
+    // this doesn't apply to the local network, because we don't have a date provider in the local network
     if (!this.dateProvider) {
       return;
     }
@@ -123,12 +124,13 @@ export class AnvilTestWatcher {
 
   async warpTimeIfNeeded() {
     try {
-      const currentSlot = await this.rollup.read.getCurrentSlot();
-      const pendingBlockNumber = BigInt(await this.rollup.read.getPendingBlockNumber());
-      const blockLog = await this.rollup.read.getBlock([pendingBlockNumber]);
-      const nextSlotTimestamp = Number(await this.rollup.read.getTimestampForSlot([currentSlot + 1n]));
+      const currentSlot = SlotNumber.fromBigInt(await this.rollup.read.getCurrentSlot());
+      const pendingCheckpointNumber = await this.rollup.read.getPendingCheckpointNumber();
+      const checkpointLog = await this.rollup.read.getCheckpoint([pendingCheckpointNumber]);
+      const nextSlot = SlotNumber(currentSlot + 1);
+      const nextSlotTimestamp = Number(await this.rollup.read.getTimestampForSlot([BigInt(nextSlot)]));
 
-      if (currentSlot === blockLog.slotNumber) {
+      if (BigInt(currentSlot) === checkpointLog.slotNumber) {
         // We should jump to the next slot
         try {
           await this.cheatcodes.warp(nextSlotTimestamp, {
@@ -142,8 +144,8 @@ export class AnvilTestWatcher {
         return;
       }
 
-      // If we are not in sandbox, we don't need to warp time
-      if (!this.isSandbox) {
+      // If we are not in local network, we don't need to warp time
+      if (!this.isLocalNetwork) {
         return;
       }
 

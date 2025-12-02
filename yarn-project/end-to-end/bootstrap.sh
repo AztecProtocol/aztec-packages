@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
 hash=$(../bootstrap.sh hash)
 bench_fixtures_dir=example-app-ivc-inputs-out
 
@@ -57,7 +55,7 @@ function test_cmds {
     fi
   done
 
-  # compose-based tests (use running sandbox)
+  # compose-based tests (use running local network)
   tests=(
     src/composed/!(integration_proof_verification|e2e_persistence).test.ts
     src/guides/*.test.ts
@@ -135,14 +133,7 @@ function bench {
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  test|test_cmds|bench|bench_cmds|build_bench)
-    $cmd
-    ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
-  ;;
+    default_cmd_handler "$@"
+    ;;
 esac

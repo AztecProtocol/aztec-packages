@@ -558,7 +558,7 @@ library StakingLib {
    *
    *      All phases are subject to a hard cap of `maxQueueFlushSize`.
    *
-   *      The motivation for floodgates is that the whole system starts producing blocks with what is considered
+   *      The motivation for floodgates is that the whole system starts producing checkpoints with what is considered
    *      a sufficiently decentralized set of validators.
    *
    *      Note that Governance has the ability to close the validator set for this instance by setting

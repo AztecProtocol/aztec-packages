@@ -320,7 +320,7 @@ contract RollupBuilder is Test {
       vm.prank(config.testERC20.owner());
       config.testERC20.mint(feeAssetPortal, config.values.mintFeeAmount);
 
-      config.testERC20.mint(address(config.rewardDistributor), 1e6 * config.rollup.getBlockReward());
+      config.testERC20.mint(address(config.rewardDistributor), 1e6 * config.rollup.getCheckpointReward());
 
       vm.prank(config.registry.owner());
       config.registry.addRollup(config.rollup);

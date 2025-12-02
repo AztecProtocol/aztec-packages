@@ -62,6 +62,11 @@ void ECCVMProver::execute_wire_commitments_round()
     const size_t circuit_size = key->circuit_size;
     unmasked_witness_size = circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
+    // Create and commit to Gemini masking polynomial (for ZK-PCS)
+    key->polynomials.gemini_masking_poly = Polynomial::random(circuit_size);
+    auto masking_commitment = key->commitment_key.commit(key->polynomials.gemini_masking_poly);
+    transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
+
     auto batch = key->commitment_key.start_batch();
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
         batch.add_to_batch(wire, label, /* mask for zk? */ true);

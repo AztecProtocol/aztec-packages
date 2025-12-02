@@ -7,7 +7,10 @@ pub contract EcdsaKAccount {
     use dep::aztec::{
         authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
-        macros::{functions::{external, initializer, noinitcheck, view}, storage::storage},
+        macros::{
+            functions::{external, initializer, noinitcheck, nophasecheck, view},
+            storage::storage,
+        },
         messages::message_delivery::MessageDelivery,
         oracle::{auth_witness::get_auth_witness, notes::{get_sender_for_tags, set_sender_for_tags}},
         state_vars::PrivateImmutable,
@@ -24,8 +27,7 @@ pub contract EcdsaKAccount {
     #[external("private")]
     #[initializer]
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
-        let pub_key_note =
-            EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, self.address);
+        let pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y);
 
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
@@ -40,7 +42,7 @@ pub contract EcdsaKAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(self.address) };
-        self.storage.signing_public_key.initialize(pub_key_note).emit(
+        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).emit(
             self.address,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -52,6 +54,7 @@ pub contract EcdsaKAccount {
     // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
     #[external("private")]
     #[noinitcheck]
+    #[nophasecheck]
     fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
@@ -74,7 +77,7 @@ pub contract EcdsaKAccount {
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Load public key from storage
         let storage = Storage::init(context);
-        let public_key = storage.signing_public_key.get_note();
+        let public_key = storage.signing_public_key.at(context.this_address()).get_note();
 
         // Load auth witness
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.

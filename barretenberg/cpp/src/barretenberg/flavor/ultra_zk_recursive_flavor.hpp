@@ -28,10 +28,29 @@ namespace bb {
 template <typename BuilderType> class UltraZKRecursiveFlavor_ : public UltraRecursiveFlavor_<BuilderType> {
   public:
     using NativeFlavor = UltraZKFlavor;
+    using Commitment = typename UltraRecursiveFlavor_<BuilderType>::Commitment;
+    using VerificationKey = typename UltraRecursiveFlavor_<BuilderType>::VerificationKey;
+    using FF = typename UltraRecursiveFlavor_<BuilderType>::FF;
 
     static constexpr bool HasZK = true;
 
+    // The number of entities added for ZK (gemini_masking_poly)
+    static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
+
+    // NUM_ALL_ENTITIES includes gemini_masking_poly
+    static constexpr size_t NUM_ALL_ENTITIES =
+        UltraRecursiveFlavor_<BuilderType>::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;
+
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+
+    // Override to include ZK entities
+    class AllValues : public UltraFlavor::AllEntities_<FF, HasZK> {
+      public:
+        using Base = UltraFlavor::AllEntities_<FF, HasZK>;
+        using Base::Base;
+    };
+
+    using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
 };
 
 } // namespace bb

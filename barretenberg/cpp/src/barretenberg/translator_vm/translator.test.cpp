@@ -72,8 +72,7 @@ class TranslatorTests : public ::testing::Test {
         auto initial_transcript = prover_transcript->export_proof();
 
         // Setup verifier transcript
-        auto verifier_transcript = std::make_shared<Transcript>();
-        verifier_transcript->load_proof(initial_transcript);
+        auto verifier_transcript = std::make_shared<Transcript>(initial_transcript);
         verifier_transcript->template receive_from_prover<Fq>("init");
 
         // Create proving key and prover

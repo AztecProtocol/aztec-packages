@@ -30,6 +30,7 @@ where
 {
     std::static_assert(M <= N, "Source array larger than dest array");
 
+    // Needed so last_index doesn't underflow, in practice, it won't be used inside the loop.
     let last_index = if source.length == 0 {
         0
     } else {

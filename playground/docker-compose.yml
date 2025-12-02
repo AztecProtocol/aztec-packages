@@ -15,7 +15,7 @@ services:
     volumes:
       - ../:/root/aztec-packages
     working_dir: /root/aztec-packages/yarn-project/aztec
-    command: 'node ./dest/bin start --sandbox'
+    command: 'node ./dest/bin start --local-network'
     environment:
       ETHEREUM_HOSTS: http://ethereum:8545
       HARDWARE_CONCURRENCY: 4

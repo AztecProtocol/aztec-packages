@@ -49,8 +49,8 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
             .address = contract_address,
             .contract_instance = maybe_instance.value_or<ContractInstance>({}),
             // Tree context
-            .nullifier_tree_root = tree_state.nullifierTree.tree.root,
-            .public_data_tree_root = tree_state.publicDataTree.tree.root,
+            .nullifier_tree_root = tree_state.nullifier_tree.tree.root,
+            .public_data_tree_root = tree_state.public_data_tree.tree.root,
             .exists = derived_address.has_value(),
             .is_protocol_contract = true,
         });
@@ -63,8 +63,8 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
         event_emitter.emit({
             .address = contract_address,
             .contract_instance = {}, // Empty instance for error case
-            .nullifier_tree_root = tree_state.nullifierTree.tree.root,
-            .public_data_tree_root = tree_state.publicDataTree.tree.root,
+            .nullifier_tree_root = tree_state.nullifier_tree.tree.root,
+            .public_data_tree_root = tree_state.public_data_tree.tree.root,
             .deployment_nullifier = contract_address,
             .exists = false, // Nullifier not found!
         });
@@ -82,8 +82,8 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
         .address = contract_address,
         .contract_instance = instance,
         // Tree context
-        .nullifier_tree_root = tree_state.nullifierTree.tree.root,
-        .public_data_tree_root = tree_state.publicDataTree.tree.root,
+        .nullifier_tree_root = tree_state.nullifier_tree.tree.root,
+        .public_data_tree_root = tree_state.public_data_tree.tree.root,
         .deployment_nullifier = contract_address, // Contract address nullifier
         .exists = true,                           // Nullifier found!
     });

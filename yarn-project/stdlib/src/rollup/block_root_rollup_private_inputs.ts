@@ -1,4 +1,3 @@
-import { SpongeBlob } from '@aztec/blob-lib/types';
 import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
@@ -158,11 +157,6 @@ export class BlockRootEmptyTxFirstRollupPrivateInputs {
      */
     public constants: CheckpointConstantData,
     /**
-     * The start sponge blob of this block. No data has been absorbed into it yet, since it's the first block. But the
-     * number of expected fields must be set to the total number of fields in the entire checkpoint.
-     */
-    public startSpongeBlob: SpongeBlob,
-    /**
      * The timestamp of this block.
      */
     public timestamp: UInt64,
@@ -186,7 +180,6 @@ export class BlockRootEmptyTxFirstRollupPrivateInputs {
       fields.previousArchive,
       fields.previousState,
       fields.constants,
-      fields.startSpongeBlob,
       fields.timestamp,
       fields.newL1ToL2MessageSubtreeRootSiblingPath,
       fields.newArchiveSiblingPath,
@@ -199,7 +192,6 @@ export class BlockRootEmptyTxFirstRollupPrivateInputs {
       this.previousArchive,
       this.previousState,
       this.constants,
-      this.startSpongeBlob,
       bigintToUInt64BE(this.timestamp),
       this.newL1ToL2MessageSubtreeRootSiblingPath,
       this.newArchiveSiblingPath,
@@ -213,7 +205,6 @@ export class BlockRootEmptyTxFirstRollupPrivateInputs {
       AppendOnlyTreeSnapshot.fromBuffer(reader),
       StateReference.fromBuffer(reader),
       CheckpointConstantData.fromBuffer(reader),
-      SpongeBlob.fromBuffer(reader),
       reader.readUInt64(),
       reader.readArray(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),

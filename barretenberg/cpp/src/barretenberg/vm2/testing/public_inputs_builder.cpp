@@ -6,73 +6,73 @@ namespace bb::avm2::testing {
 
 PublicInputsBuilder& PublicInputsBuilder::with_global_variables(const GlobalVariables& globals)
 {
-    public_inputs.globalVariables = globals;
+    public_inputs.global_variables = globals;
     return *this;
 }
 PublicInputsBuilder& PublicInputsBuilder::set_protocol_contracts(const ProtocolContracts& protocol_contracts)
 {
-    public_inputs.protocolContracts = protocol_contracts;
+    public_inputs.protocol_contracts = protocol_contracts;
     return *this;
 }
 PublicInputsBuilder& PublicInputsBuilder::with_start_tree_snapshots(const TreeSnapshots& snapshots)
 {
-    public_inputs.startTreeSnapshots = snapshots;
+    public_inputs.start_tree_snapshots = snapshots;
     return *this;
 }
 PublicInputsBuilder& PublicInputsBuilder::with_start_gas_used(const Gas& gas)
 {
-    public_inputs.startGasUsed = gas;
+    public_inputs.start_gas_used = gas;
     return *this;
 }
 PublicInputsBuilder& PublicInputsBuilder::with_gas_settings(const GasSettings& settings)
 {
-    public_inputs.gasSettings = settings;
+    public_inputs.gas_settings = settings;
     return *this;
 }
 PublicInputsBuilder& PublicInputsBuilder::with_fee_payer(const AztecAddress& fee_payer)
 {
-    public_inputs.feePayer = fee_payer;
+    public_inputs.fee_payer = fee_payer;
     return *this;
 }
 
 PublicInputsBuilder& PublicInputsBuilder::with_public_setup_call_requests(
     const std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX>& public_setup_call_requests)
 {
-    public_inputs.publicSetupCallRequests = public_setup_call_requests;
+    public_inputs.public_setup_call_requests = public_setup_call_requests;
     return *this;
 }
 PublicInputsBuilder& PublicInputsBuilder::with_public_app_logic_call_requests(
     const std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX>& public_app_logic_call_requests)
 {
-    public_inputs.publicAppLogicCallRequests = public_app_logic_call_requests;
+    public_inputs.public_app_logic_call_requests = public_app_logic_call_requests;
     return *this;
 };
 
 PublicInputsBuilder& PublicInputsBuilder::with_public_teardown_call_request(
     const PublicCallRequest& public_teardown_call_request)
 {
-    public_inputs.publicTeardownCallRequest = public_teardown_call_request;
+    public_inputs.public_teardown_call_request = public_teardown_call_request;
     return *this;
 }
 
 PublicInputsBuilder& PublicInputsBuilder::with_previous_non_revertible_accumulated_data(
     const PrivateToAvmAccumulatedData& previous_non_revertible_accumulated_data)
 {
-    public_inputs.previousNonRevertibleAccumulatedData = previous_non_revertible_accumulated_data;
+    public_inputs.previous_non_revertible_accumulated_data = previous_non_revertible_accumulated_data;
     return *this;
 }
 
 PublicInputsBuilder& PublicInputsBuilder::with_previous_revertible_accumulated_data(
     const PrivateToAvmAccumulatedData& previous_revertible_accumulated_data)
 {
-    public_inputs.previousRevertibleAccumulatedData = previous_revertible_accumulated_data;
+    public_inputs.previous_revertible_accumulated_data = previous_revertible_accumulated_data;
     return *this;
 }
 
 PublicInputsBuilder& PublicInputsBuilder::with_previous_non_revertible_accumulated_data_array_lengths(
     const PrivateToAvmAccumulatedDataArrayLengths& previous_non_revertible_accumulated_data_array_lengths)
 {
-    public_inputs.previousNonRevertibleAccumulatedDataArrayLengths =
+    public_inputs.previous_non_revertible_accumulated_data_array_lengths =
         previous_non_revertible_accumulated_data_array_lengths;
     return *this;
 }
@@ -80,35 +80,36 @@ PublicInputsBuilder& PublicInputsBuilder::with_previous_non_revertible_accumulat
 PublicInputsBuilder& PublicInputsBuilder::with_previous_revertible_accumulated_data_array_lengths(
     const PrivateToAvmAccumulatedDataArrayLengths& previous_revertible_accumulated_data_array_lengths)
 {
-    public_inputs.previousRevertibleAccumulatedDataArrayLengths = previous_revertible_accumulated_data_array_lengths;
+    public_inputs.previous_revertible_accumulated_data_array_lengths =
+        previous_revertible_accumulated_data_array_lengths;
     return *this;
 }
 
 // Outputs
 PublicInputsBuilder& PublicInputsBuilder::set_end_tree_snapshots(const TreeSnapshots& end_tree_snapshots)
 {
-    public_inputs.endTreeSnapshots = end_tree_snapshots;
+    public_inputs.end_tree_snapshots = end_tree_snapshots;
     return *this;
 }
 PublicInputsBuilder& PublicInputsBuilder::set_end_gas_used(const Gas& end_gas_used)
 {
-    public_inputs.endGasUsed = end_gas_used;
+    public_inputs.end_gas_used = end_gas_used;
     return *this;
 }
 PublicInputsBuilder& PublicInputsBuilder::set_accumulated_data_array_lengths(
     const AvmAccumulatedDataArrayLengths& accumulated_data_array_lengths)
 {
-    public_inputs.accumulatedDataArrayLengths = accumulated_data_array_lengths;
+    public_inputs.accumulated_data_array_lengths = accumulated_data_array_lengths;
     return *this;
 }
 PublicInputsBuilder& PublicInputsBuilder::set_accumulated_data(const AvmAccumulatedData& accumulated_data)
 {
-    public_inputs.accumulatedData = accumulated_data;
+    public_inputs.accumulated_data = accumulated_data;
     return *this;
 }
 PublicInputsBuilder& PublicInputsBuilder::set_transaction_fee(const FF& transaction_fee)
 {
-    public_inputs.transactionFee = transaction_fee;
+    public_inputs.transaction_fee = transaction_fee;
     return *this;
 }
 PublicInputsBuilder& PublicInputsBuilder::set_reverted(bool reverted)
@@ -122,59 +123,62 @@ PublicInputsBuilder& PublicInputsBuilder::set_reverted(bool reverted)
 // *******************************************
 PublicInputsBuilder& PublicInputsBuilder::rand_global_variables()
 {
-    public_inputs.globalVariables = { .chainId = FF::random_element(&engine),
-                                      .version = FF::random_element(&engine),
-                                      .blockNumber = static_cast<uint32_t>(std::rand()),
-                                      .slotNumber = FF::random_element(&engine),
-                                      .timestamp = static_cast<uint64_t>(std::rand()),
-                                      .coinbase = EthAddress::random_element(&engine),
-                                      .feeRecipient = AztecAddress::random_element(&engine),
-                                      .gasFees = {
-                                          .feePerDaGas = static_cast<uint128_t>(std::rand()),
-                                          .feePerL2Gas = static_cast<uint128_t>(std::rand()),
-                                      } };
+    public_inputs.global_variables = { .chain_id = FF::random_element(&engine),
+                                       .version = FF::random_element(&engine),
+                                       .block_number = static_cast<uint32_t>(std::rand()),
+                                       .slot_number = FF::random_element(&engine),
+                                       .timestamp = static_cast<uint64_t>(std::rand()),
+                                       .coinbase = EthAddress::random_element(&engine),
+                                       .fee_recipient = AztecAddress::random_element(&engine),
+                                       .gas_fees = {
+                                           .fee_per_da_gas = static_cast<uint128_t>(std::rand()),
+                                           .fee_per_l2_gas = static_cast<uint128_t>(std::rand()),
+                                       } };
     return *this;
 }
 
 PublicInputsBuilder& PublicInputsBuilder::rand_start_tree_snapshots()
 {
-    public_inputs.startTreeSnapshots = {
-        .l1ToL2MessageTree = { .root = FF::random_element(&engine),
-                               .nextAvailableLeafIndex = engine.get_random_uint64() },
-        .noteHashTree = { .root = FF::random_element(&engine), .nextAvailableLeafIndex = engine.get_random_uint64() },
-        .nullifierTree = { .root = FF::random_element(&engine), .nextAvailableLeafIndex = engine.get_random_uint64() },
-        .publicDataTree = { .root = FF::random_element(&engine), .nextAvailableLeafIndex = engine.get_random_uint64() },
+    public_inputs.start_tree_snapshots = {
+        .l1_to_l2_message_tree = { .root = FF::random_element(&engine),
+                                   .next_available_leaf_index = engine.get_random_uint64() },
+        .note_hash_tree = { .root = FF::random_element(&engine),
+                            .next_available_leaf_index = engine.get_random_uint64() },
+        .nullifier_tree = { .root = FF::random_element(&engine),
+                            .next_available_leaf_index = engine.get_random_uint64() },
+        .public_data_tree = { .root = FF::random_element(&engine),
+                              .next_available_leaf_index = engine.get_random_uint64() },
     };
     return *this;
 }
 
 PublicInputsBuilder& PublicInputsBuilder::rand_start_gas_used()
 {
-    public_inputs.startGasUsed = {
-        .l2Gas = engine.get_random_uint32(),
-        .daGas = engine.get_random_uint32(),
+    public_inputs.start_gas_used = {
+        .l2_gas = engine.get_random_uint32(),
+        .da_gas = engine.get_random_uint32(),
     };
     return *this;
 }
 
 PublicInputsBuilder& PublicInputsBuilder::rand_gas_settings()
 {
-    public_inputs.gasSettings = {
-        .gasLimits = {
-            .l2Gas = engine.get_random_uint32(),
-            .daGas = engine.get_random_uint32(),
+    public_inputs.gas_settings = {
+        .gas_limits = {
+            .l2_gas = engine.get_random_uint32(),
+            .da_gas = engine.get_random_uint32(),
         },
-        .teardownGasLimits = {
-            .l2Gas = engine.get_random_uint32(),
-            .daGas = engine.get_random_uint32(),
+        .teardown_gas_limits = {
+            .l2_gas = engine.get_random_uint32(),
+            .da_gas = engine.get_random_uint32(),
         },
-        .maxFeesPerGas = {
-            .feePerDaGas = engine.get_random_uint128(),
-            .feePerL2Gas = engine.get_random_uint128(),
+        .max_fees_per_gas = {
+            .fee_per_da_gas = engine.get_random_uint128(),
+            .fee_per_l2_gas = engine.get_random_uint128(),
         },
-        .maxPriorityFeesPerGas = {
-            .feePerDaGas = engine.get_random_uint128(),
-            .feePerL2Gas = engine.get_random_uint128(),
+        .max_priority_fees_per_gas = {
+            .fee_per_da_gas = engine.get_random_uint128(),
+            .fee_per_l2_gas = engine.get_random_uint128(),
         },
     };
     return *this;
@@ -182,7 +186,7 @@ PublicInputsBuilder& PublicInputsBuilder::rand_gas_settings()
 
 PublicInputsBuilder& PublicInputsBuilder::rand_fee_payer()
 {
-    public_inputs.feePayer = AztecAddress::random_element(&engine);
+    public_inputs.fee_payer = AztecAddress::random_element(&engine);
     return *this;
 }
 
@@ -201,19 +205,19 @@ PublicInputsBuilder& PublicInputsBuilder::rand_previous_non_revertible_accumulat
                     .recipient = FF::random_element(&engine),
                     .content = FF::random_element(&engine),
                 },
-            .contractAddress = FF::random_element(&engine),
+            .contract_address = FF::random_element(&engine),
         };
     }
 
-    public_inputs.previousNonRevertibleAccumulatedData = {
-        .noteHashes = note_hashes,
+    public_inputs.previous_non_revertible_accumulated_data = {
+        .note_hashes = note_hashes,
         .nullifiers = nullifiers,
-        .l2ToL1Msgs = messages,
+        .l2_to_l1_msgs = messages,
     };
-    public_inputs.previousNonRevertibleAccumulatedDataArrayLengths = {
-        .noteHashes = static_cast<uint32_t>(n),
+    public_inputs.previous_non_revertible_accumulated_data_array_lengths = {
+        .note_hashes = static_cast<uint32_t>(n),
         .nullifiers = static_cast<uint32_t>(n),
-        .l2ToL1Msgs = static_cast<uint32_t>(n),
+        .l2_to_l1_msgs = static_cast<uint32_t>(n),
     };
     return *this;
 }
@@ -233,19 +237,19 @@ PublicInputsBuilder& PublicInputsBuilder::rand_previous_revertible_accumulated_d
                     .recipient = FF::random_element(&engine),
                     .content = FF::random_element(&engine),
                 },
-            .contractAddress = FF::random_element(&engine),
+            .contract_address = FF::random_element(&engine),
         };
     }
 
-    public_inputs.previousRevertibleAccumulatedData = {
-        .noteHashes = note_hashes,
+    public_inputs.previous_revertible_accumulated_data = {
+        .note_hashes = note_hashes,
         .nullifiers = nullifiers,
-        .l2ToL1Msgs = messages,
+        .l2_to_l1_msgs = messages,
     };
-    public_inputs.previousRevertibleAccumulatedDataArrayLengths = {
-        .noteHashes = static_cast<uint32_t>(n),
+    public_inputs.previous_revertible_accumulated_data_array_lengths = {
+        .note_hashes = static_cast<uint32_t>(n),
         .nullifiers = static_cast<uint32_t>(n),
-        .l2ToL1Msgs = static_cast<uint32_t>(n),
+        .l2_to_l1_msgs = static_cast<uint32_t>(n),
     };
     return *this;
 }
@@ -253,42 +257,42 @@ PublicInputsBuilder& PublicInputsBuilder::rand_previous_revertible_accumulated_d
 PublicInputsBuilder& PublicInputsBuilder::rand_public_setup_call_requests(size_t n)
 {
     for (size_t i = 0; i < n; ++i) {
-        public_inputs.publicSetupCallRequests[i] = PublicCallRequest{
-            .msgSender = AztecAddress::random_element(&engine),
-            .contractAddress = AztecAddress::random_element(&engine),
-            .isStaticCall = engine.get_random_uint8() % 2 == 0,
-            .calldataHash = FF::random_element(&engine), // Placeholder for actual calldata hash
+        public_inputs.public_setup_call_requests[i] = PublicCallRequest{
+            .msg_sender = AztecAddress::random_element(&engine),
+            .contract_address = AztecAddress::random_element(&engine),
+            .is_static_call = engine.get_random_uint8() % 2 == 0,
+            .calldata_hash = FF::random_element(&engine), // Placeholder for actual calldata hash
         };
     }
-    public_inputs.publicCallRequestArrayLengths.setupCalls += static_cast<uint32_t>(n);
+    public_inputs.public_call_request_array_lengths.setup_calls += static_cast<uint32_t>(n);
     return *this;
 }
 
 PublicInputsBuilder& PublicInputsBuilder::rand_public_app_logic_call_requests(size_t n)
 {
     for (size_t i = 0; i < n; ++i) {
-        public_inputs.publicAppLogicCallRequests[i] = PublicCallRequest{
-            .msgSender = AztecAddress::random_element(&engine),
-            .contractAddress = AztecAddress::random_element(&engine),
-            .isStaticCall = engine.get_random_uint8() % 2 == 0,
-            .calldataHash = FF::random_element(&engine), // Placeholder for actual calldata hash
+        public_inputs.public_app_logic_call_requests[i] = PublicCallRequest{
+            .msg_sender = AztecAddress::random_element(&engine),
+            .contract_address = AztecAddress::random_element(&engine),
+            .is_static_call = engine.get_random_uint8() % 2 == 0,
+            .calldata_hash = FF::random_element(&engine), // Placeholder for actual calldata hash
         };
     }
 
-    public_inputs.publicCallRequestArrayLengths.appLogicCalls += static_cast<uint32_t>(n);
+    public_inputs.public_call_request_array_lengths.app_logic_calls += static_cast<uint32_t>(n);
     return *this;
 }
 
 PublicInputsBuilder& PublicInputsBuilder::rand_public_teardown_call_request()
 {
-    public_inputs.publicTeardownCallRequest = PublicCallRequest{
-        .msgSender = AztecAddress::random_element(&engine),
-        .contractAddress = AztecAddress::random_element(&engine),
-        .isStaticCall = engine.get_random_uint8() % 2 == 0,
-        .calldataHash = FF::random_element(&engine), // Placeholder for actual calldata hash
+    public_inputs.public_teardown_call_request = PublicCallRequest{
+        .msg_sender = AztecAddress::random_element(&engine),
+        .contract_address = AztecAddress::random_element(&engine),
+        .is_static_call = engine.get_random_uint8() % 2 == 0,
+        .calldata_hash = FF::random_element(&engine), // Placeholder for actual calldata hash
     };
 
-    public_inputs.publicCallRequestArrayLengths.teardownCall = true;
+    public_inputs.public_call_request_array_lengths.teardown_call = true;
 
     return *this;
 }

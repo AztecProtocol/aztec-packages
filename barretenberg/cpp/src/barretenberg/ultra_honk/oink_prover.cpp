@@ -25,6 +25,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
     }
     // Add circuit size public input size and public inputs to transcript->
     execute_preamble_round();
+    // For ZK flavors: create and commit to Gemini masking polynomial
+    commit_to_masking_poly();
     // Compute first three wire commitments
     execute_wire_commitments_round();
     // Compute sorted list accumulator and commitment
@@ -61,7 +63,7 @@ template <IsUltraOrMegaHonk Flavor> typename OinkProver<Flavor>::Proof OinkProve
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     BB_BENCH_NAME("OinkProver::execute_preamble_round");
-    fr vk_hash = honk_vk->hash_through_transcript(domain_separator, *transcript);
+    fr vk_hash = honk_vk->hash_with_origin_tagging(domain_separator, *transcript);
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
     vinfo("vk hash in Oink prover: ", vk_hash);
 
@@ -224,7 +226,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_produ
     WitnessComputation<Flavor>::compute_grand_product_polynomial(prover_instance->polynomials,
                                                                  prover_instance->public_inputs,
                                                                  prover_instance->pub_inputs_offset(),
-                                                                 prover_instance->active_region_data,
                                                                  prover_instance->relation_parameters,
                                                                  prover_instance->get_final_active_wire_idx() + 1);
 
@@ -269,6 +270,20 @@ Flavor::Commitment OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<F
 
     return commitment;
 }
+
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
+{
+    if constexpr (Flavor::HasZK) {
+        // Create a random masking polynomial for Gemini
+        const size_t polynomial_size = prover_instance->dyadic_size();
+        prover_instance->polynomials.gemini_masking_poly = Polynomial<FF>::random(polynomial_size);
+
+        // Commit to the masking polynomial and send to transcript
+        auto masking_commitment =
+            prover_instance->commitment_key.commit(prover_instance->polynomials.gemini_masking_poly);
+        transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
+    }
+};
 
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraZKFlavor>;

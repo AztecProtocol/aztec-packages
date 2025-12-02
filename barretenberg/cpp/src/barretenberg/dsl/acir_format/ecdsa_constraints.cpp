@@ -78,6 +78,9 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
         }
 
         // Set public key to 2*generator when predicate is false
+        // The choice of 2*generator is arbitrary; it just needs to be a valid point on the curve and different from G
+        // or (-G). For secp256r1, the batch multiplication requires that the two points do not have the same x
+        // coordinate (so as to create a valid lookup table).
         // Compute as native type to get byte representation
         typename Curve::AffineElementNative default_point_native(Curve::g1::one + Curve::g1::one);
         std::array<uint8_t, 32> default_x_bytes;
@@ -105,8 +108,8 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     Fq pub_x(pub_x_bytes);
     Fq pub_y(pub_y_bytes);
     // This constructor sets the infinity flag of public_key to false. This is OK because the point at infinity is not a
-    // point on the curve and we check tha public_key is on the curve.
-    G1 public_key(pub_x, pub_y);
+    // point on the curve and we check tha public_key is on the curve in the ecdsa verification circuit.
+    G1 public_key(pub_x, pub_y, /*assert_on_curve=*/false);
 
     // Step 4.
     bool_ct signature_result =

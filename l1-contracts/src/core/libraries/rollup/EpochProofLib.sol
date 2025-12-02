@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {SubmitEpochRootProofArgs, PublicInputArgs, IRollupCore, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
-import {CompressedTempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {CompressedTempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -25,7 +25,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *
  * @dev This library implements epoch proof verification, which advances the proven chain tip.
  *      - Epoch boundary validation and proof deadline enforcement
- *      - Attestation verification for the last block in the proven range (which may be a partial epoch)
+ *      - Attestation verification for the last checkpoint in the proven range (which may be a partial epoch)
  *      - Validity proof verification using the configured verifier
  *      - Blob commitment validation and batched blob proof verification
  *      - Public input assembly and validation for the root rollup circuit
@@ -34,22 +34,22 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *      Integration with RollupCore:
  *      The submitEpochRootProof() function is the main entry point called from RollupCore.submitEpochRootProof().
  *      It serves as the mechanism by which provers can finalize epochs, advancing the proven chain tip and
- *      triggering reward distribution. This is a critical operation that moves blocks from "pending" to "proven"
+ *      triggering reward distribution. This is a critical operation that moves checkpoints from "pending" to "proven"
  *      status.
  *
  *      Attestation Verification:
- *      Before accepting an epoch proof, this library verifies the attestations for the end block of the proof.
+ *      Before accepting an epoch proof, this library verifies the attestations for the end checkpoint of the proof.
  *      This ensures that the committee has properly validated the final state of the proof. Note that this is
- *      equivalent to verifying the attestations for every prior block, since the committee should not attest
- *      to a block unless its ancestors are also valid and have been attested to. This step checks that the committee
- *      have agreed on the same output state of the proven range. For honest nodes, this is done by re-executing the
- *      transactions in the proven range and matching the state root, effectively acting as training wheels for the
- *      proving of public executions (i.e., the AVM).
+ *      equivalent to verifying the attestations for every prior checkpoint, since the committee should not attest
+ *      to a checkpoint unless its ancestors are also valid and have been attested to. This step checks that the
+ *      committee have agreed on the same output state of the proven range. For honest nodes, this is done by
+ *      re-executing the transactions in the proven range and matching the state root, effectively acting as training
+ *      wheels for the proving of public executions (i.e., the AVM).
  *
  *      Proof Submission Window:
  *      Epochs have a configurable proof submission deadline measured in epochs after the epoch's completion.
  *      This prevents indefinite delays in proof submission while allowing reasonable time for proof generation.
- *      If no proof is submitted within the deadline, blocks are pruned to maintain chain liveness.
+ *      If no proof is submitted within the deadline, checkpoints are pruned to maintain chain liveness.
  *
  *      Blob Integration:
  *      The library validates batched blob proofs using EIP-4844's point evaluation precompile and ensures
@@ -74,7 +74,7 @@ library EpochProofLib {
    *      verification, and validity proof verification. Upon success, advances the proven chain tip and
    *      distributes rewards to the prover and validators.
    *
-   *      The function will automatically prune unproven blocks if the pruning window has expired.
+   *      The function will automatically prune unproven checkpoints if the pruning window has expired.
    *
    * @dev Events Emitted:
    *      - L2ProofVerified: When proof verification succeeds and proven tip advances
@@ -83,21 +83,21 @@ library EpochProofLib {
    *      - Rollup__InvalidProof: validity proof verification failed
    *      - Rollup__InvalidPreviousArchive: Previous archive root mismatch
    *      - Rollup__InvalidArchive: End archive root mismatch
-   *      - Rollup__InvalidAttestations: Attestation verification failed for last block
+   *      - Rollup__InvalidAttestations: Attestation verification failed for last checkpoint
    *      - Rollup__StartAndEndNotSameEpoch: Proof spans multiple epochs
    *      - Rollup__PastDeadline: Proof submitted after deadline
    *      - Rollup__InvalidFirstEpochProof: Invalid first epoch proof structure
-   *      - Rollup__StartIsNotFirstBlockOfEpoch: Start block is not epoch boundary
-   *      - Rollup__StartIsNotBuildingOnProven: Start block doesn't build on proven chain
-   *      - Rollup__TooManyBlocksInEpoch: Epoch exceeds maximum block count
+   *      - Rollup__StartIsNotFirstCheckpointOfEpoch: Start checkpoint is not epoch boundary
+   *      - Rollup__StartIsNotBuildingOnProven: Start checkpoint doesn't build on proven chain
+   *      - Rollup__TooManyCheckpointsInEpoch: Epoch exceeds maximum checkpoint count
    *      - Rollup__InvalidBlobProof: Batched blob proof verification failed
    *
    * @param _args The epoch proof submission arguments containing:
-   *              - start: First block number in the epoch (inclusive)
-   *              - end: Last block number in the epoch (inclusive)
+   *              - start: First checkpoint number in the epoch (inclusive)
+   *              - end: Last checkpoint number in the epoch (inclusive)
    *              - args: Public inputs (previousArchive, endArchive, endTimestamp, proverId)
    *              - fees: Fee distribution array (recipient-value pairs)
-   *              - attestations: Committee attestations for the last block in the epoch
+   *              - attestations: Committee attestations for the last checkpoint in the epoch
    *              - blobInputs: Batched blob data for EIP-4844 point evaluation precompile
    *              - proof: The validity proof bytes for the root rollup circuit
    */
@@ -108,16 +108,15 @@ library EpochProofLib {
 
     Epoch endEpoch = assertAcceptable(_args.start, _args.end);
 
-    // Verify attestations for the last block in the epoch
+    // Verify attestations for the last checkpoint in the epoch
     // -> This serves as training wheels for the public part of the system (proving systems used in public and AVM)
     // ensuring committee agreement on the epoch's validity alongside the cryptographic proof verification below.
-    verifyLastBlockAttestations(_args.end, _args.attestations);
+    verifyLastCheckpointAttestations(_args.end, _args.attestations);
 
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    rollupStore.tips =
-      rollupStore.tips.updateProvenBlockNumber(Math.max(rollupStore.tips.getProvenBlockNumber(), _args.end));
+    rollupStore.tips = rollupStore.tips.updateProven(Math.max(rollupStore.tips.getProven(), _args.end));
 
     RewardLib.handleRewardsAndFees(_args, endEpoch);
 
@@ -171,7 +170,7 @@ library EpochProofLib {
     // struct RootRollupPublicInputs {
     //   previous_archive_root: Field,
     //   end_archive_root: Field,
-    //   proposedBlockHeaderHashes: [Field; Constants.AZTEC_MAX_EPOCH_DURATION],
+    //   checkpointHeaderHashes: [Field; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   fees: [FeeRecipient; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   chain_id: Field,
     //   version: Field,
@@ -188,9 +187,9 @@ library EpochProofLib {
       publicInputs[1] = _args.endArchive;
     }
 
-    uint256 numBlocks = _end - _start + 1;
+    uint256 numCheckpoints = _end - _start + 1;
 
-    for (uint256 i = 0; i < numBlocks; i++) {
+    for (uint256 i = 0; i < numCheckpoints; i++) {
       publicInputs[2 + i] = STFLib.getHeaderHash(_start + i);
     }
 
@@ -255,63 +254,65 @@ library EpochProofLib {
   }
 
   /**
-   * @notice Verifies committee attestations for the last block in the epoch before accepting the epoch proof
+   * @notice Verifies committee attestations for the last checkpoint in the epoch before accepting the epoch proof
    *
    * @dev This verification ensures that the committee has properly validated the final state of the epoch
    *      before the proof can be accepted. The function validates that:
-   *      1. The provided attestations match the stored attestation hash for the block
+   *      1. The provided attestations match the stored attestation hash for the checkpoint
    *      2. The attestations have valid signatures from committee members
    *      3. The attestations meet the required threshold (2/3+ of committee)
    *
    * @dev Errors Thrown:
    *      - Rollup__InvalidAttestations: Provided attestations don't match stored hash or fail validation
    *
-   * @param _endBlockNumber The last block number in the epoch to verify attestations for
+   * @param _endCheckpointNumber The last checkpoint number in the epoch to verify attestations for
    * @param _attestations The committee attestations containing signatures and validator information
    */
-  function verifyLastBlockAttestations(uint256 _endBlockNumber, CommitteeAttestations memory _attestations) private {
-    // Get the stored attestation hash and payload digest for the last block
-    CompressedTempBlockLog storage blockLog = STFLib.getStorageTempBlockLog(_endBlockNumber);
+  function verifyLastCheckpointAttestations(uint256 _endCheckpointNumber, CommitteeAttestations memory _attestations)
+    private
+  {
+    // Get the stored attestation hash and payload digest for the last checkpoint
+    CompressedTempCheckpointLog storage checkpointLog = STFLib.getStorageTempCheckpointLog(_endCheckpointNumber);
 
     // Verify that the provided attestations match the stored hash
     bytes32 providedAttestationsHash = keccak256(abi.encode(_attestations));
-    require(providedAttestationsHash == blockLog.attestationsHash, Errors.Rollup__InvalidAttestations());
+    require(providedAttestationsHash == checkpointLog.attestationsHash, Errors.Rollup__InvalidAttestations());
 
-    // Get the slot and epoch for the last block
-    Slot slot = blockLog.slotNumber.decompress();
-    Epoch epoch = STFLib.getEpochForBlock(_endBlockNumber);
+    // Get the slot and epoch for the last checkpoint
+    Slot slot = checkpointLog.slotNumber.decompress();
+    Epoch epoch = STFLib.getEpochForCheckpoint(_endCheckpointNumber);
 
-    ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, blockLog.payloadDigest);
+    ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, checkpointLog.payloadDigest);
   }
 
   /**
    * @notice Validates that an epoch proof submission meets all acceptance criteria
    *
    * @dev Performs comprehensive validation of epoch boundaries, timing constraints, and chain state:
-   *      - Ensures start and end blocks are in the same epoch
+   *      - Ensures start and end checkpoints are in the same epoch
    *      - Verifies proof is submitted within the deadline window
-   *      - Confirms start block is the first block of its epoch
-   *      - Validates start block builds on the proven chain
-   *      - Checks epoch doesn't exceed maximum block count
+   *      - Confirms start checkpoint is the first checkpoint of its epoch
+   *      - Validates start checkpoint builds on the proven chain
+   *      - Checks epoch doesn't exceed maximum checkpoint count
    *
    * @dev Errors Thrown:
-   *      - Rollup__StartAndEndNotSameEpoch: Start and end blocks in different epochs
+   *      - Rollup__StartAndEndNotSameEpoch: Start and end checkpoints in different epochs
    *      - Rollup__PastDeadline: Proof submitted after deadline
    *      - Rollup__InvalidFirstEpochProof: Invalid structure for first epoch proof
-   *      - Rollup__StartIsNotFirstBlockOfEpoch: Start block is not at epoch boundary
-   *      - Rollup__StartIsNotBuildingOnProven: Start block doesn't build on proven chain
-   *      - Rollup__TooManyBlocksInEpoch: Epoch exceeds maximum allowed blocks
+   *      - Rollup__StartIsNotFirstCheckpointOfEpoch: Start checkpoint is not at epoch boundary
+   *      - Rollup__StartIsNotBuildingOnProven: Start checkpoint doesn't build on proven chain
+   *      - Rollup__TooManyCheckpointsInEpoch: Epoch exceeds maximum allowed checkpoints
    *
-   * @param _start The first block number in the epoch (inclusive)
-   * @param _end The last block number in the epoch (inclusive)
+   * @param _start The first checkpoint number in the epoch (inclusive)
+   * @param _end The last checkpoint number in the epoch (inclusive)
    * @return The epoch number that the proof covers
    */
   function assertAcceptable(uint256 _start, uint256 _end) private view returns (Epoch) {
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    Epoch startEpoch = STFLib.getEpochForBlock(_start);
-    // This also checks for existence of the block.
-    Epoch endEpoch = STFLib.getEpochForBlock(_end);
+    Epoch startEpoch = STFLib.getEpochForCheckpoint(_start);
+    // This also checks for existence of the checkpoint.
+    Epoch endEpoch = STFLib.getEpochForCheckpoint(_end);
 
     require(startEpoch == endEpoch, Errors.Rollup__StartAndEndNotSameEpoch(startEpoch, endEpoch));
 
@@ -322,21 +323,22 @@ library EpochProofLib {
       Errors.Rollup__PastDeadline(startEpoch.toDeadlineEpoch(), currentEpoch)
     );
 
-    // By making sure that the previous block is in another epoch, we know that we were
+    // By making sure that the previous checkpoint is in another epoch, we know that we were
     // at the start.
-    Epoch parentEpoch = STFLib.getEpochForBlock(_start - 1);
+    Epoch parentEpoch = STFLib.getEpochForCheckpoint(_start - 1);
 
     require(startEpoch > Epoch.wrap(0) || _start == 1, Errors.Rollup__InvalidFirstEpochProof());
 
     bool isStartOfEpoch = _start == 1 || parentEpoch <= startEpoch - Epoch.wrap(1);
-    require(isStartOfEpoch, Errors.Rollup__StartIsNotFirstBlockOfEpoch());
+    require(isStartOfEpoch, Errors.Rollup__StartIsNotFirstCheckpointOfEpoch());
 
-    bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.getProvenBlockNumber();
+    bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.getProven();
     require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
 
-    bool claimedNumBlocksInEpoch = _end - _start + 1 <= Constants.AZTEC_MAX_EPOCH_DURATION;
+    bool claimedNumCheckpointsInEpoch = _end - _start + 1 <= Constants.AZTEC_MAX_EPOCH_DURATION;
     require(
-      claimedNumBlocksInEpoch, Errors.Rollup__TooManyBlocksInEpoch(Constants.AZTEC_MAX_EPOCH_DURATION, _end - _start)
+      claimedNumCheckpointsInEpoch,
+      Errors.Rollup__TooManyCheckpointsInEpoch(Constants.AZTEC_MAX_EPOCH_DURATION, _end - _start)
     );
 
     return endEpoch;

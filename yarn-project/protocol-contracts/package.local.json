@@ -1,8 +1,8 @@
 {
   "scripts": {
-    "build": "yarn clean && yarn generate && yarn generate:cleanup-artifacts && tsc -b",
-    "build:dev": "tsc -b --watch",
-    "build:ts": "tsc -b",
+    "build": "yarn clean && yarn generate && yarn generate:cleanup-artifacts && tsgo -b",
+    "build:dev": "tsgo -b --watch",
+    "build:ts": "tsgo -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts"
   },
   "files": ["dest", "src", "artifacts", "!*.test.*"]

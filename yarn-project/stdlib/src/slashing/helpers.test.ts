@@ -1,3 +1,5 @@
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+
 import {
   getEpochForOffense,
   getEpochsForRound,
@@ -18,46 +20,46 @@ describe('SlashingHelpers', () => {
 
   describe('getRoundForSlot', () => {
     it('returns correct round and voting slot for slot 0', () => {
-      const result = getRoundForSlot(0n, constants);
+      const result = getRoundForSlot(SlotNumber(0), constants);
       expect(result.round).toEqual(0n);
-      expect(result.votingSlot).toEqual(0n);
+      expect(result.votingSlot).toEqual(SlotNumber(0));
     });
 
     it('returns correct round and voting slot for slot within first round', () => {
-      const result = getRoundForSlot(7n, constants);
+      const result = getRoundForSlot(SlotNumber(7), constants);
       expect(result.round).toEqual(0n);
-      expect(result.votingSlot).toEqual(7n);
+      expect(result.votingSlot).toEqual(SlotNumber(7));
     });
 
     it('returns correct round and voting slot for slot in second round', () => {
-      const result = getRoundForSlot(15n, constants);
+      const result = getRoundForSlot(SlotNumber(15), constants);
       expect(result.round).toEqual(1n);
-      expect(result.votingSlot).toEqual(5n);
+      expect(result.votingSlot).toEqual(SlotNumber(5));
     });
 
     it('returns correct round and voting slot for exact round boundary', () => {
-      const result = getRoundForSlot(20n, constants);
+      const result = getRoundForSlot(SlotNumber(20), constants);
       expect(result.round).toEqual(2n);
-      expect(result.votingSlot).toEqual(0n);
+      expect(result.votingSlot).toEqual(SlotNumber(0));
     });
   });
 
   describe('getRoundsForEpoch', () => {
     it('returns correct rounds for epoch 0', () => {
-      const [startRound, endRound] = getRoundsForEpoch(0n, constants);
+      const [startRound, endRound] = getRoundsForEpoch(EpochNumber.fromBigInt(0n), constants);
       expect(startRound).toEqual(0n);
       expect(endRound).toEqual(0n);
     });
 
     it('returns correct rounds for epoch that spans multiple rounds', () => {
       const largeEpochConstants = { ...constants, epochDuration: 25 };
-      const [startRound, endRound] = getRoundsForEpoch(1n, largeEpochConstants);
+      const [startRound, endRound] = getRoundsForEpoch(EpochNumber.fromBigInt(1n), largeEpochConstants);
       expect(startRound).toEqual(2n);
       expect(endRound).toEqual(4n);
     });
 
     it('returns same round for epoch within single round', () => {
-      const [startRound, endRound] = getRoundsForEpoch(1n, constants);
+      const [startRound, endRound] = getRoundsForEpoch(EpochNumber.fromBigInt(1n), constants);
       expect(startRound).toEqual(endRound);
     });
   });
@@ -65,24 +67,24 @@ describe('SlashingHelpers', () => {
   describe('getEpochsForRound', () => {
     it('returns correct epochs for round 0', () => {
       const epochs = getEpochsForRound(0n, constants);
-      expect(epochs).toEqual([0n, 1n, 2n]);
+      expect(epochs).toEqual([EpochNumber(0), EpochNumber(1), EpochNumber(2)]);
     });
 
     it('returns correct epochs for round 1', () => {
       const epochs = getEpochsForRound(1n, constants);
-      expect(epochs).toEqual([2n, 3n, 4n]);
+      expect(epochs).toEqual([EpochNumber(2), EpochNumber(3), EpochNumber(4)]);
     });
 
     it('returns single epoch when round size equals epoch duration', () => {
       const singleEpochConstants = { slashingRoundSize: 4, epochDuration: 4 };
       const epochs = getEpochsForRound(2n, singleEpochConstants);
-      expect(epochs).toEqual([2n]);
+      expect(epochs).toEqual([EpochNumber(2)]);
     });
 
     it('returns correct epochs when round size is multiple of epoch duration', () => {
       const singleEpochConstants = { slashingRoundSize: 12, epochDuration: 4 };
       const epochs = getEpochsForRound(1n, singleEpochConstants);
-      expect(epochs).toEqual([3n, 4n, 5n]);
+      expect(epochs).toEqual([EpochNumber(3), EpochNumber(4), EpochNumber(5)]);
     });
   });
 
@@ -93,7 +95,7 @@ describe('SlashingHelpers', () => {
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
       };
       const slot = getSlotForOffense(offense, constants);
-      expect(slot).toEqual(25n);
+      expect(slot).toEqual(SlotNumber(25));
     });
 
     it('returns first slot of epoch for epoch-based offenses', () => {
@@ -102,7 +104,7 @@ describe('SlashingHelpers', () => {
         offenseType: OffenseType.INACTIVITY,
       };
       const slot = getSlotForOffense(offense, constants);
-      expect(slot).toEqual(20n); // epoch 5 * epochDuration 4 = slot 20
+      expect(slot).toEqual(SlotNumber(20)); // epoch 5 * epochDuration 4 = slot 20
     });
   });
 

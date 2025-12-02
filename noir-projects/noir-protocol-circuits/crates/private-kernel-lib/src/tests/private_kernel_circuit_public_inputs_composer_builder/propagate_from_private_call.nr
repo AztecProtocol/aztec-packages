@@ -18,7 +18,6 @@ fn propagate_from_private_call_empty_data_succeeds() {
     assert(output.validation_requests.note_hash_read_requests.is_empty());
     assert(output.validation_requests.nullifier_read_requests.is_empty());
     assert(output.validation_requests.scoped_key_validation_requests_and_generators.is_empty());
-    assert(output.validation_requests.split_counter.is_empty());
     assert_eq(output.include_by_timestamp, include_by_timestamp);
     assert(output.public_teardown_call_request.is_empty());
     assert(output.fee_payer.is_empty());

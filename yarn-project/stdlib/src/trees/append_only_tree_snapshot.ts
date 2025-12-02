@@ -1,4 +1,3 @@
-import type { ViemAppendOnlyTreeSnapshot } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -72,23 +71,23 @@ export class AppendOnlyTreeSnapshot {
     return new AppendOnlyTreeSnapshot(reader.readField(), Number(reader.readField().toBigInt()));
   }
 
-  static fromViem(snapshot: ViemAppendOnlyTreeSnapshot) {
-    return new AppendOnlyTreeSnapshot(Fr.fromString(snapshot.root), snapshot.nextAvailableLeafIndex);
-  }
-
-  toViem(): ViemAppendOnlyTreeSnapshot {
-    return {
-      root: this.root.toString(),
-      nextAvailableLeafIndex: this.nextAvailableLeafIndex,
-    };
-  }
-
   toAbi(): [`0x${string}`, number] {
     return [this.root.toString(), this.nextAvailableLeafIndex];
   }
 
   static empty() {
     return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
+  }
+
+  /**
+   * Creates an AppendOnlyTreeSnapshot instance from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing AppendOnlyTreeSnapshot fields
+   * @returns An AppendOnlyTreeSnapshot instance
+   */
+  static fromPlainObject(obj: any): AppendOnlyTreeSnapshot {
+    return new AppendOnlyTreeSnapshot(Fr.fromPlainObject(obj.root), obj.nextAvailableLeafIndex);
   }
 
   isEmpty(): boolean {

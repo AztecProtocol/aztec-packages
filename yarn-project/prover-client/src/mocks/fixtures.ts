@@ -1,5 +1,4 @@
-import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -11,10 +10,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { type CircuitSimulator, NativeACVMSimulator, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { CheckpointConstantData } from '@aztec/stdlib/rollup';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { ProcessedTx } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { promises as fs } from 'fs';
@@ -88,25 +84,6 @@ export async function getSimulator(
   return new WASMSimulatorWithBlobs();
 }
 
-// Updates the expectedDb trees based on the new note hashes, contracts, and nullifiers from these txs
-export const updateExpectedTreesFromTxs = async (db: MerkleTreeWriteOperations, txs: ProcessedTx[]) => {
-  await db.appendLeaves(
-    MerkleTreeId.NOTE_HASH_TREE,
-    txs.flatMap(tx => padArrayEnd(tx.txEffect.noteHashes, Fr.zero(), MAX_NOTE_HASHES_PER_TX)),
-  );
-  await db.batchInsert(
-    MerkleTreeId.NULLIFIER_TREE,
-    txs.flatMap(tx => padArrayEnd(tx.txEffect.nullifiers, Fr.zero(), MAX_NULLIFIERS_PER_TX).map(x => x.toBuffer())),
-    NULLIFIER_TREE_HEIGHT,
-  );
-  for (const tx of txs) {
-    await db.sequentialInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      tx.txEffect.publicDataWrites.map(write => write.toBuffer()),
-    );
-  }
-};
-
 export const makeGlobals = (
   blockNumber: number,
   slotNumber = blockNumber,
@@ -117,8 +94,8 @@ export const makeGlobals = (
     chainId: checkpointConstants.chainId,
     version: checkpointConstants.version,
     blockNumber /** block number */,
-    slotNumber: new Fr(slotNumber) /** slot number */,
-    timestamp: BigInt(blockNumber) /** block number as pseudo-timestamp for testing */,
+    slotNumber: SlotNumber(slotNumber) /** slot number */,
+    timestamp: BigInt(blockNumber * 123) /** block number * 123 as pseudo-timestamp for testing */,
     coinbase: checkpointConstants.coinbase,
     feeRecipient: checkpointConstants.feeRecipient,
     gasFees: checkpointConstants.gasFees,
@@ -136,7 +113,7 @@ export const makeCheckpointConstants = (
     vkTreeRoot: getVKTreeRoot(),
     protocolContractsHash,
     proverId: Fr.ZERO,
-    slotNumber: new Fr(slotNumber),
+    slotNumber: SlotNumber(slotNumber),
     coinbase: EthAddress.ZERO,
     feeRecipient: AztecAddress.ZERO,
     gasFees: GasFees.empty(),

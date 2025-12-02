@@ -5,7 +5,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import type { SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
-import type { StateReference, Tx } from '@aztec/stdlib/tx';
+import type { Tx } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import { z } from 'zod';
@@ -41,6 +41,9 @@ export interface ValidatorClientConfig {
 
   /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the currnet committee */
   alwaysReexecuteBlockProposals?: boolean;
+
+  /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
+  fishermanMode?: boolean;
 }
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
@@ -61,6 +64,7 @@ export const ValidatorClientConfigSchema = z.object({
   validatorReexecute: z.boolean(),
   validatorReexecuteDeadlineMs: z.number().min(0),
   alwaysReexecuteBlockProposals: z.boolean().optional(),
+  fishermanMode: z.boolean().optional(),
 }) satisfies ZodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>;
 
 export const ValidatorClientFullConfigSchema = ValidatorClientConfigSchema.extend({
@@ -79,7 +83,6 @@ export interface Validator {
     blockNumber: number,
     header: CheckpointHeader,
     archive: Fr,
-    stateReference: StateReference,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,

@@ -43,12 +43,12 @@ library Errors {
     uint32 storedDeadline,
     uint32 deadlinePassed
   ); // 0x5e789f34
-  error Outbox__RootAlreadySetAtBlock(uint256 l2BlockNumber); // 0x3eccfd3e
+  error Outbox__RootAlreadySetAtCheckpoint(uint256 checkpointNumber); // 0x6eb83cef
   error Outbox__InvalidRecipient(address expected, address actual); // 0x57aad581
-  error Outbox__AlreadyNullified(uint256 l2BlockNumber, uint256 leafIndex); // 0xfd71c2d4
-  error Outbox__NothingToConsumeAtBlock(uint256 l2BlockNumber); // 0xa4508f22
-  error Outbox__BlockNotProven(uint256 l2BlockNumber); // 0x0e194a6d
-  error Outbox__BlockAlreadyProven(uint256 l2BlockNumber);
+  error Outbox__AlreadyNullified(uint256 checkpointNumber, uint256 leafIndex); // 0xfd71c2d4
+  error Outbox__NothingToConsumeAtCheckpoint(uint256 checkpointNumber); // 0x0279277d
+  error Outbox__CheckpointNotProven(uint256 checkpointNumber); // 0x104bcfc1
+  error Outbox__CheckpointAlreadyProven(uint256 checkpointNumber);
   error Outbox__PathTooLong();
   error Outbox__LeafIndexOutOfBounds(uint256 leafIndex, uint256 pathLength);
 
@@ -56,7 +56,7 @@ library Errors {
   error Rollup__InsufficientBondAmount(uint256 minimum, uint256 provided); // 0xa165f276
   error Rollup__InsufficientFundsInEscrow(uint256 required, uint256 available); // 0xa165f276
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
-  error Rollup__InvalidBlockNumber(uint256 expected, uint256 actual); // 0xe5edf847
+  error Rollup__InvalidCheckpointNumber(uint256 expected, uint256 actual); // 0xd1ba9bfa
   error Rollup__InvalidInHash(bytes32 expected, bytes32 actual); // 0xcd6f4233
   error Rollup__InvalidPreviousArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
   error Rollup__InvalidProof(); // 0xa5b2ba17
@@ -65,8 +65,8 @@ library Errors {
   error Rollup__InvalidAttestations();
   error Rollup__AttestationsAreValid();
   error Rollup__InvalidAttestationIndex();
-  error Rollup__BlockAlreadyProven();
-  error Rollup__BlockNotInPendingChain();
+  error Rollup__CheckpointAlreadyProven();
+  error Rollup__CheckpointNotInPendingChain();
   error Rollup__InvalidBlobHash(bytes32 expected, bytes32 actual); // 0x13031e6a
   error Rollup__InvalidBlobProof(bytes32 blobHash); // 0x5ca17bef
   error Rollup__NoEpochToProve(); // 0xcbaa3951
@@ -75,15 +75,15 @@ library Errors {
   error Rollup__SlotAlreadyInChain(Slot lastSlot, Slot proposedSlot); // 0x83510bd0
   error Rollup__TimestampInFuture(Timestamp max, Timestamp actual); // 0x89f30690
   error Rollup__TimestampTooOld(); // 0x72ed9c81
-  error Rollup__TryingToProveNonExistingBlock(); // 0x34ef4954
+  error Rollup__TryingToProveNonExistingCheckpoint(); // 0xdd65748c
   error Rollup__UnavailableTxs(bytes32 txsHash); // 0x414906c3
   error Rollup__NonZeroDaFee(); // 0xd9c75f52
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
   error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
   error Rollup__StartAndEndNotSameEpoch(Epoch start, Epoch end); // 0xb64ec33e
-  error Rollup__StartIsNotFirstBlockOfEpoch(); // 0x4ef11e0d
+  error Rollup__StartIsNotFirstCheckpointOfEpoch(); // 0x19ceb206
   error Rollup__StartIsNotBuildingOnProven(); // 0x4a59f42e
-  error Rollup__TooManyBlocksInEpoch(uint256 expected, uint256 actual); // 0x7d5b1408
+  error Rollup__TooManyCheckpointsInEpoch(uint256 expected, uint256 actual); // 0xdf838503
   error Rollup__NotPastDeadline(Epoch deadline, Epoch currentEpoch);
   error Rollup__PastDeadline(Epoch deadline, Epoch currentEpoch);
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
@@ -93,8 +93,10 @@ library Errors {
   error Rollup__TooSoonToSetRewardsClaimable(uint256 earliestRewardsClaimableTimestamp, uint256 currentTimestamp);
   error Rollup__InvalidFirstEpochProof();
   error Rollup__InvalidCoinbase();
-  error Rollup__UnavailableTempBlockLog(uint256 blockNumber, uint256 pendingBlockNumber, uint256 upperLimit);
-  error Rollup__NoBlobsInBlock();
+  error Rollup__UnavailableTempCheckpointLog(
+    uint256 checkpointNumber, uint256 pendingCheckpointNumber, uint256 upperLimit
+  );
+  error Rollup__NoBlobsInCheckpoint();
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -117,6 +119,8 @@ library Errors {
   error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
   error ValidatorSelection__InsufficientValidatorSetSize(uint256 actual, uint256 expected); // 0xf4f28e99
   error ValidatorSelection__ProposerIndexTooLarge(uint256 index);
+  error ValidatorSelection__EpochNotStable(uint256 queriedEpoch, uint32 currentTimestamp);
+  error ValidatorSelection__InvalidLagInEpochs(uint256 lagInEpochsForValidatorSet, uint256 lagInEpochsForRandao);
 
   // Staking
   error Staking__AlreadyQueued(address _attester);
@@ -167,6 +171,7 @@ library Errors {
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
   error FeeLib__AlreadyPreheated();
+  error FeeLib__InvalidManaLimit(uint256 maximum, uint256 provided);
 
   // SignatureLib (duplicated)
   error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c

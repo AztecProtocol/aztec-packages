@@ -24,8 +24,8 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b",
-    "build:dev": "tsc -b --watch",
+    "build": "yarn clean && tsgo -b",
+    "build:dev": "tsgo -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
@@ -96,9 +96,12 @@
     "semver": "^7.5.4",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
-    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0"
+    "viem": "npm:@aztec/viem@2.38.2"
   },
   "devDependencies": {
+    "@aztec/aztec-node": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/lodash.chunk": "^4.2.9",
@@ -107,6 +110,7 @@
     "@types/node": "^22.15.17",
     "@types/semver": "^7.5.2",
     "@types/source-map-support": "^0.5.10",
+    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-jest": "^29.4.0",
@@ -127,7 +131,8 @@
   "files": [
     "dest",
     "src",
-    "!*.test.*"
+    "!*.test.*",
+    "public_include_metric_prefixes.json"
   ],
   "types": "./dest/index.d.ts",
   "engines": {

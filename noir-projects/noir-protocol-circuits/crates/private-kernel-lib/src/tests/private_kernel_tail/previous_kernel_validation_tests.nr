@@ -39,13 +39,6 @@ fn non_empty_key_validations() {
     let _ = builder.execute();
 }
 
-#[test(should_fail_with = "split_counter must be 0 for pure private tx")]
-fn non_zero_validation_requests_split_counter() {
-    let mut builder = TestBuilder::new();
-    builder.previous_kernel.validation_requests_split_counter = Option::some(123);
-    let _ = builder.execute();
-}
-
 // --- fee_payer ---
 
 #[test(should_fail_with = "Fee payer can't be empty")]
@@ -65,6 +58,14 @@ fn is_not_private_only() {
 }
 
 // --- claimed_first_nullifier ---
+
+#[test(should_fail_with = "TX must create at least one nullifier")]
+fn no_nullifiers() {
+    let mut builder = TestBuilder::new();
+    builder.previous_kernel.nullifiers = BoundedVec::new();
+    builder.previous_kernel.claimed_first_nullifier = 0;
+    let _ = builder.execute();
+}
 
 #[test(should_fail_with = "First nullifier claim was not satisfied")]
 fn first_nullifier_validation() {

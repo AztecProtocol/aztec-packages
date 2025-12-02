@@ -19,7 +19,7 @@ pub contract NFTPunk {
         admin: PublicImmutable<AztecAddress, Context>,
         minter: PublicImmutable<AztecAddress, Context>,
         nfts: Map<Field, DelayedPublicMutable<bool, 2, Context>, Context>,
-        owners: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
+        owners: PrivateSet<NFTNote, Context>,
     }
     #[external("public")]
     #[initializer]

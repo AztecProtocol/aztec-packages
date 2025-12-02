@@ -45,7 +45,6 @@ TYPED_TEST(CycleScalarTest, TestFromWitness)
 
     EXPECT_EQ(scalar.get_value(), scalar_val);
     EXPECT_FALSE(scalar.is_constant());
-    EXPECT_EQ(scalar.num_bits(), cycle_scalar::NUM_BITS);
 
     // Check that lo and hi reconstruct to the original value
     uint256_t lo_val = uint256_t(scalar.lo().get_value());
@@ -55,61 +54,6 @@ TYPED_TEST(CycleScalarTest, TestFromWitness)
     EXPECT_EQ(ScalarField(reconstructed), scalar_val);
 
     check_circuit_and_gate_count(builder, 2761);
-}
-
-/**
- * @brief Test construction from uint256_t witness
- */
-TYPED_TEST(CycleScalarTest, TestFromU256Witness)
-{
-    using cycle_scalar = typename TestFixture::cycle_scalar;
-    using ScalarField = typename TestFixture::ScalarField;
-
-    TypeParam builder;
-    uint256_t value(123456789);
-    auto scalar = cycle_scalar::from_u256_witness(&builder, value);
-
-    EXPECT_EQ(scalar.get_value(), ScalarField(value));
-    EXPECT_FALSE(scalar.is_constant());
-    EXPECT_EQ(scalar.num_bits(), 256);
-
-    // Check that lo and hi reconstruct to the original value
-    uint256_t lo_val = uint256_t(scalar.lo().get_value());
-    uint256_t hi_val = uint256_t(scalar.hi().get_value());
-    uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
-
-    EXPECT_EQ(reconstructed, value);
-
-    check_circuit_and_gate_count(builder, 0);
-}
-
-/**
- * @brief Test creation from bn254 scalar field element
- */
-TYPED_TEST(CycleScalarTest, TestCreateFromBn254Scalar)
-{
-    using cycle_scalar = typename TestFixture::cycle_scalar;
-    using ScalarField = typename TestFixture::ScalarField;
-    using field_t = typename TestFixture::field_t;
-    using NativeField = typename TestFixture::NativeField;
-
-    TypeParam builder;
-    auto native_val = NativeField::random_element(&engine);
-    auto field_val = field_t::from_witness(&builder, native_val);
-
-    auto scalar = cycle_scalar::create_from_bn254_scalar(field_val);
-
-    EXPECT_EQ(scalar.get_value(), ScalarField(uint256_t(native_val)));
-    EXPECT_FALSE(scalar.is_constant());
-
-    // Check that lo and hi reconstruct to the original value
-    uint256_t lo_val = uint256_t(scalar.lo().get_value());
-    uint256_t hi_val = uint256_t(scalar.hi().get_value());
-    uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
-
-    EXPECT_EQ(NativeField(reconstructed), field_val.get_value());
-
-    check_circuit_and_gate_count(builder, 2762);
 }
 
 /**

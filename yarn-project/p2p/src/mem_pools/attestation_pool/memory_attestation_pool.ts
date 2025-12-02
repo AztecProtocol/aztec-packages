@@ -1,14 +1,20 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import type { AttestationPool } from './attestation_pool.js';
+import { ATTESTATION_CAP_BUFFER, MAX_PROPOSALS_PER_SLOT } from './kv_attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;
 
-  private attestations: Map</*slot=*/ bigint, Map</*proposalId*/ string, Map</*address=*/ string, BlockAttestation>>>;
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  private attestations: Map<
+    /*slot=*/ SlotNumber,
+    Map</*proposalId*/ string, Map</*address=*/ string, BlockAttestation>>
+  >;
   private proposals: Map<string, BlockProposal>;
 
   constructor(
@@ -30,7 +36,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve(this.attestations.size === 0);
   }
 
-  public getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
+  public getAttestationsForSlot(slot: SlotNumber): Promise<BlockAttestation[]> {
     return Promise.resolve(
       Array.from(this.attestations.get(slot)?.values() ?? []).flatMap(proposalAttestationMap =>
         Array.from(proposalAttestationMap.values()),
@@ -38,7 +44,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     );
   }
 
-  public getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
+  public getAttestationsForSlotAndProposal(slot: SlotNumber, proposalId: string): Promise<BlockAttestation[]> {
     const slotAttestationMap = this.attestations.get(slot);
     if (slotAttestationMap) {
       const proposalAttestationMap = slotAttestationMap.get(proposalId);
@@ -59,7 +65,7 @@ export class InMemoryAttestationPool implements AttestationPool {
 
       // Skip attestations with invalid signatures
       if (!sender) {
-        this.log.warn(`Skipping attestation with invalid signature for slot ${slotNumber.toBigInt()}`, {
+        this.log.warn(`Skipping attestation with invalid signature for slot ${slotNumber}`, {
           signature: attestation.signature.toString(),
           slotNumber,
           proposalId,
@@ -67,11 +73,11 @@ export class InMemoryAttestationPool implements AttestationPool {
         continue;
       }
 
-      const slotAttestationMap = getSlotOrDefault(this.attestations, slotNumber.toBigInt());
+      const slotAttestationMap = getSlotOrDefault(this.attestations, slotNumber);
       const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
       proposalAttestationMap.set(sender.toString(), attestation);
 
-      this.log.verbose(`Added attestation for slot ${slotNumber.toBigInt()} from ${sender}`, {
+      this.log.verbose(`Added attestation for slot ${slotNumber} from ${sender}`, {
         signature: attestation.signature.toString(),
         slotNumber,
         address: sender,
@@ -82,7 +88,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve();
   }
 
-  #getNumberOfAttestationsInSlot(slot: bigint): number {
+  #getNumberOfAttestationsInSlot(slot: SlotNumber): number {
     let total = 0;
     const slotAttestationMap = getSlotOrDefault(this.attestations, slot);
 
@@ -94,7 +100,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     return total;
   }
 
-  public async deleteAttestationsOlderThan(oldestSlot: bigint): Promise<void> {
+  public async deleteAttestationsOlderThan(oldestSlot: SlotNumber): Promise<void> {
     const olderThan = [];
 
     // Entries are iterated in insertion order, so we can break as soon as we find a slot that is older than the oldestSlot.
@@ -115,7 +121,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve();
   }
 
-  public deleteAttestationsForSlot(slot: bigint): Promise<void> {
+  public deleteAttestationsForSlot(slot: SlotNumber): Promise<void> {
     // We count the number of attestations we are removing
     const numberOfAttestations = this.#getNumberOfAttestationsInSlot(slot);
     const proposalIdsToDelete = this.attestations.get(slot)?.keys();
@@ -133,7 +139,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve();
   }
 
-  public deleteAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<void> {
+  public deleteAttestationsForSlotAndProposal(slot: SlotNumber, proposalId: string): Promise<void> {
     const slotAttestationMap = getSlotOrDefault(this.attestations, slot);
     if (slotAttestationMap) {
       if (slotAttestationMap.has(proposalId)) {
@@ -152,7 +158,7 @@ export class InMemoryAttestationPool implements AttestationPool {
   public deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
       const slotNumber = attestation.payload.header.slotNumber;
-      const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());
+      const slotAttestationMap = this.attestations.get(slotNumber);
       if (slotAttestationMap) {
         const proposalId = attestation.archive.toString();
         const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
@@ -161,7 +167,7 @@ export class InMemoryAttestationPool implements AttestationPool {
 
           // Skip attestations with invalid signatures
           if (!sender) {
-            this.log.warn(`Skipping deletion of attestation with invalid signature for slot ${slotNumber.toBigInt()}`);
+            this.log.warn(`Skipping deletion of attestation with invalid signature for slot ${slotNumber}`);
             continue;
           }
 
@@ -183,7 +189,7 @@ export class InMemoryAttestationPool implements AttestationPool {
       return Promise.resolve(false);
     }
 
-    const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());
+    const slotAttestationMap = this.attestations.get(slotNumber);
     if (!slotAttestationMap) {
       return Promise.resolve(false);
     }
@@ -199,7 +205,7 @@ export class InMemoryAttestationPool implements AttestationPool {
   public addBlockProposal(blockProposal: BlockProposal): Promise<void> {
     // We initialize slot-proposal mapping if it does not exist
     // This is important to ensure we can delete this proposal if there were not attestations for it
-    const slotProposalMapping = getSlotOrDefault(this.attestations, blockProposal.slotNumber.toBigInt());
+    const slotProposalMapping = getSlotOrDefault(this.attestations, blockProposal.slotNumber);
     slotProposalMapping.set(blockProposal.payload.archive.toString(), new Map<string, BlockAttestation>());
 
     this.proposals.set(blockProposal.payload.archive.toString(), blockProposal);
@@ -214,6 +220,33 @@ export class InMemoryAttestationPool implements AttestationPool {
     const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.payload.archive.toString();
     return Promise.resolve(this.proposals.has(id));
   }
+
+  public hasReachedProposalCap(slot: SlotNumber): Promise<boolean> {
+    const slotAttestationMap = this.attestations.get(slot);
+    const proposalCount = slotAttestationMap?.size ?? 0;
+    return Promise.resolve(proposalCount >= MAX_PROPOSALS_PER_SLOT);
+  }
+
+  public hasReachedAttestationCap(slot: SlotNumber, proposalId: string, committeeSize: number): Promise<boolean> {
+    const limit = committeeSize + ATTESTATION_CAP_BUFFER;
+    const count = this.attestations.get(slot)?.get(proposalId)?.size ?? 0;
+    return Promise.resolve(limit <= 0 || count >= limit);
+  }
+
+  public async canAddProposal(block: BlockProposal): Promise<boolean> {
+    return this.proposals.has(block.archive.toString()) || !(await this.hasReachedProposalCap(block.slotNumber));
+  }
+
+  public async canAddAttestation(attestation: BlockAttestation, committeeSize: number): Promise<boolean> {
+    const sender = attestation.getSender();
+    const slot = attestation.payload.header.slotNumber;
+    const pid = attestation.archive.toString();
+    return (
+      !!sender &&
+      ((this.attestations.get(slot)?.get(pid)?.has(sender.toString()) ?? false) ||
+        !(await this.hasReachedAttestationCap(slot, pid, committeeSize)))
+    );
+  }
 }
 
 /**
@@ -225,8 +258,9 @@ export class InMemoryAttestationPool implements AttestationPool {
  * @returns The slot mapping
  */
 function getSlotOrDefault(
-  map: Map<bigint, Map<string, Map<string, BlockAttestation>>>,
-  slot: bigint,
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  map: Map<SlotNumber, Map<string, Map<string, BlockAttestation>>>,
+  slot: SlotNumber,
 ): Map<string, Map<string, BlockAttestation>> {
   if (!map.has(slot)) {
     map.set(slot, new Map<string, Map<string, BlockAttestation>>());

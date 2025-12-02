@@ -127,6 +127,7 @@ pub struct FixtureBuilder {
     pub is_static_call: bool,
     pub is_private_only: bool,
     pub claimed_first_nullifier: Field,
+    pub claimed_revertible_counter: u32,
     pub include_by_timestamp: u64,
 
     // Fees.
@@ -162,7 +163,6 @@ pub struct FixtureBuilder {
     pub note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pub scoped_key_validation_requests_and_generators: BoundedVec<Scoped<KeyValidationRequestAndGenerator>, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
-    pub validation_requests_split_counter: Option<u32>,
 
     // Function.
     pub function_data: FunctionData,
@@ -204,6 +204,8 @@ pub struct FixtureBuilder {
     pub min_revertible_side_effect_counter: u32,
     pub counter_start: u32,
     pub counter: u32,
+    pub expected_non_revertible_side_effect_counter: u32,
+    pub expected_revertible_side_effect_counter: u32,
 
     // States.
     pub start_state: PartialStateReference,
@@ -214,7 +216,7 @@ pub struct FixtureBuilder {
 
 impl FixtureBuilder {
     pub fn new() -> Self {
-        FixtureBuilder::new_from_counter(0)
+        FixtureBuilder::new_from_counter(2)
     }
 
     pub fn new_from_counter(counter_start: u32) -> Self {
@@ -369,11 +371,11 @@ impl FixtureBuilder {
             is_fee_payer: self.is_fee_payer,
             include_by_timestamp: self.include_by_timestamp,
             note_hash_read_requests: ClaimedLengthArray {
-                array: subarray(self.note_hash_read_requests.storage().map(|r| r.inner)),
+                array: subarray(self.note_hash_read_requests.storage()),
                 length: self.note_hash_read_requests.len(),
             },
             nullifier_read_requests: ClaimedLengthArray {
-                array: subarray(self.nullifier_read_requests.storage().map(|r| r.inner)),
+                array: subarray(self.nullifier_read_requests.storage()),
                 length: self.nullifier_read_requests.len(),
             },
             key_validation_requests_and_generators: ClaimedLengthArray {
@@ -409,6 +411,9 @@ impl FixtureBuilder {
             },
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
+            expected_non_revertible_side_effect_counter: self
+                .expected_non_revertible_side_effect_counter,
+            expected_revertible_side_effect_counter: self.expected_revertible_side_effect_counter,
             private_logs: ClaimedLengthArray {
                 array: subarray(self.private_logs.storage().map(|l| l.inner)),
                 length: self.private_logs.len(),
@@ -514,8 +519,9 @@ impl FixtureBuilder {
     }
 
     pub fn to_private_call_data(mut self) -> PrivateCallData {
+        let public_inputs = self.to_private_circuit_public_inputs();
         PrivateCallData {
-            public_inputs: self.to_private_circuit_public_inputs(),
+            public_inputs,
             vk: self.vk,
             verification_key_hints: self.to_private_verification_key_hints(),
         }
@@ -596,7 +602,6 @@ impl FixtureBuilder {
             scoped_key_validation_requests_and_generators: claimed_length_array_from_bounded_vec(
                 self.scoped_key_validation_requests_and_generators,
             ),
-            split_counter: self.validation_requests_split_counter,
         }
     }
 
@@ -616,6 +621,7 @@ impl FixtureBuilder {
             include_by_timestamp: self.include_by_timestamp,
             is_private_only: self.is_private_only,
             claimed_first_nullifier: self.claimed_first_nullifier,
+            claimed_revertible_counter: self.claimed_revertible_counter,
         }
     }
 
@@ -903,24 +909,26 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_note_hash_read_request(&mut self, value: Field) -> u32 {
+    pub fn add_settled_note_hash_read_request(&mut self, value: Field) -> u32 {
         let read_request_index = self.note_hash_read_requests.len();
-        let read_request = Counted::new(value, self.next_counter()).scope(self.contract_address);
+        let read_request = Counted::new(value, self.next_counter()).scope(AztecAddress::zero());
         self.note_hash_read_requests.push(read_request);
         read_request_index
     }
 
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u32) -> u32 {
         let value = self.mock_note_hash_value(note_hash_index);
-        self.add_note_hash_read_request(value)
+        let read_request_index = self.note_hash_read_requests.len();
+        let read_request = Counted::new(value, self.next_counter()).scope(self.contract_address);
+        self.note_hash_read_requests.push(read_request);
+        read_request_index
     }
 
     pub fn append_note_hash_read_requests(&mut self, num_reads: u32) {
         let index_offset = self.note_hash_read_requests.len();
         for i in 0..self.note_hash_read_requests.max_len() {
             if i < num_reads {
-                let value = self.mock_note_hash_read_value(index_offset + i);
-                let _ = self.add_note_hash_read_request(value);
+                let _ = self.add_read_request_for_pending_note_hash(index_offset + i);
             }
         }
     }
@@ -1203,6 +1211,7 @@ impl FixtureBuilder {
 
     pub fn end_setup(&mut self) {
         self.min_revertible_side_effect_counter = self.counter;
+        self.claimed_revertible_counter = self.counter;
     }
 
     fn get_split_side_effects<T, let N: u32>(

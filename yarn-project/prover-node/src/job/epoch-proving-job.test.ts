@@ -1,9 +1,11 @@
-import { BatchedBlob } from '@aztec/blob-lib';
+import { BatchedBlob } from '@aztec/blob-lib/types';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { CommitteeAttestation, L2Block, type L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { EpochProver, MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -56,7 +58,7 @@ describe('epoch-proving-job', () => {
     const data: EpochProvingJobData = {
       blocks,
       txs: txsMap,
-      epochNumber: BigInt(epochNumber),
+      epochNumber: EpochNumber(epochNumber),
       l1ToL2Messages: fromEntries(blocks.map(b => [b.number, []])),
       previousBlockHeader: initialHeader,
       attestations,
@@ -131,11 +133,13 @@ describe('epoch-proving-job', () => {
     expect(publicProcessor.process).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publicProcessorFactory.create).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publicProcessorFactory.create.mock.calls.map(call => /* config */ call[2])).toEqual(
-      new Array(NUM_BLOCKS).fill({
-        skipFeeEnforcement: true,
-        clientInitiatedSimulation: false,
-        proverId: proverId.toField(),
-      }),
+      new Array(NUM_BLOCKS).fill(
+        PublicSimulatorConfig.from({
+          proverId: proverId.toField(),
+          collectHints: true,
+          maxDebugLogMemoryReads: 0,
+        }),
+      ),
     );
     expect(publisher.submitEpochProof).toHaveBeenCalledWith(
       expect.objectContaining({ epochNumber, proof, publicInputs, attestations: attestations.map(a => a.toViem()) }),

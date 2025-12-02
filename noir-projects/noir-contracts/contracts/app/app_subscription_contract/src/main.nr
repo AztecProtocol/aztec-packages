@@ -44,11 +44,11 @@ pub contract AppSubscription {
 
     use aztec::{
         authwit::auth::assert_current_call_valid_authwit,
-        macros::{functions::{external, initializer}, storage::storage},
+        macros::{functions::{external, initializer, nophasecheck}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
         protocol_types::address::AztecAddress,
-        state_vars::{Map, PrivateMutable, PublicImmutable},
+        state_vars::{PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };
     use router::utils::privately_check_block_number;
@@ -57,13 +57,14 @@ pub contract AppSubscription {
     #[storage]
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
-        subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
+        subscriptions: PrivateMutable<SubscriptionNote, Context>,
     }
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS: u32 = 5;
     global SUBSCRIPTION_TXS: u32 = 5;
 
     #[external("private")]
+    #[nophasecheck]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
@@ -154,9 +155,7 @@ pub contract AppSubscription {
             .storage
             .subscriptions
             .at(subscriber)
-            .initialize_or_replace(|_| {
-                SubscriptionNote::new(subscriber, expiry_block_number, tx_count)
-            })
+            .initialize_or_replace(|_| SubscriptionNote::new(expiry_block_number, tx_count))
             .emit(subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 

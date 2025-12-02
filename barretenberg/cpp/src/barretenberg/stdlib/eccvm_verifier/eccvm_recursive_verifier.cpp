@@ -9,6 +9,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb {
 ECCVMRecursiveVerifier::ECCVMRecursiveVerifier(Builder* builder,
@@ -64,6 +65,9 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
+    // Receive Gemini masking polynomial commitment (for ZK-PCS)
+    commitments.gemini_masking_poly = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
+
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
@@ -102,7 +106,9 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
+    std::vector<FF> padding_indicator_array(CONST_ECCVM_LOG_N, FF(1));
+
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
@@ -117,9 +123,6 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
 
     FF one{ 1 };
     one.convert_constant_to_fixed_witness(builder);
-
-    std::array<FF, CONST_ECCVM_LOG_N> padding_indicator_array;
-    std::ranges::fill(padding_indicator_array, one);
 
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
@@ -214,6 +217,12 @@ void ECCVMRecursiveVerifier::compute_translation_opening_claims(const std::vecto
         small_ipa_evaluations[idx] = transcript->template receive_from_prover<FF>(labels[idx]);
         opening_claims[idx] = { { evaluation_points[idx], small_ipa_evaluations[idx] },
                                 small_ipa_commitments.get_all()[idx] };
+    }
+
+    // OriginTag false positive: Small IPA evaluations need to satisfy an identity where they are mixing without
+    // challenges, it is safe because these evaluations are opened in Shplonk.
+    for (auto& eval : small_ipa_evaluations) {
+        eval.clear_round_provenance();
     }
 
     // Check Grand Sum Identity at r

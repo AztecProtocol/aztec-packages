@@ -20,12 +20,12 @@ function print_usage {
   echo
   echo_cmd "fast"           "Spin up an EC2 instance and run bootstrap ci-fast."
   echo_cmd "full"           "Spin up an EC2 instance and run bootstrap ci-full."
+  echo_cmd "full-no-test-cache" "Spin up an EC2 instance and run bootstrap ci-full-no-test-cache."
   echo_cmd "docs"           "Spin up an EC2 instance and run docs-only CI."
   echo_cmd "barretenberg"   "Spin up an EC2 instance and run barretenberg-only CI."
   echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
   echo_cmd "network-deploy" "Spin up an EC2 instance to deploy a network."
   echo_cmd "network-tests"  "Spin up an EC2 instance to run tests on a network."
-  echo_cmd "nightly"        "Spin up an EC2 instance and run bootstrap nightly."
   echo_cmd "release"        "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"      "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"          "Drop into a shell in the current running build instance container."
@@ -80,54 +80,19 @@ function prep_vars {
   export DENOISE_WIDTH=32
 }
 
-# We want to run CI with caching - even though it internally uses caching - to quickly catch no-ops that have the same
-# git contents.
-function run_ci_with_cache {
-  local ci_mode=$1
-  local job_id=$2
-  local bootstrap_cmd=$3
-
-  # Check if CI already succeeded for this content
-  local content_hash=$(git rev-parse HEAD^{tree} | cut -c1-16)
-  local cache_key="ci-success-${ci_mode}-${content_hash}.txt"
-
-  if cache_download "$cache_key" 2>/dev/null; then
-    if [ -f "$cache_key" ] && grep -q "success" "$cache_key"; then
-      echo "Found cached success for ${ci_mode} mode with hash $content_hash"
-      exit 0
-    fi
-  fi
-
-  # Spin up ec2 instance and run the CI flow
-  export JOB_ID="$job_id"
-  bootstrap_ec2 "$bootstrap_cmd"
-
-  # Upload success marker
-  echo "success" > success.txt
-  cache_upload "$cache_key" success.txt
-  rm success.txt
-}
-
 case "$cmd" in
-  "fast")
-    run_ci_with_cache "fast" "x1-fast" "./bootstrap.sh ci-fast"
-    ;;
-  "full")
-    run_ci_with_cache "full" "x1-full" "./bootstrap.sh ci-full"
-    ;;
-  "docs")
-    run_ci_with_cache "docs" "x1-docs" "./bootstrap.sh ci-docs"
-    ;;
-  "barretenberg")
-    run_ci_with_cache "barretenberg" "x1-barretenberg" "./bootstrap.sh ci-barretenberg"
+  fast|full|full-no-test-cache|full-no-test-cache-makefile|docs|barretenberg)
+    export JOB_ID="x1-$cmd"
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   "grind")
+    prep_vars
     # Spin up ec2 instance and run the merge-queue flow.
     run() {
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
-    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --line-buffered --halt now,fail=1  'run $USER-x{}-full amd64 ci-full'
+    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered 'run $USER-x{}-full amd64 ci-full-no-test-cache'
     ;;
   "merge-queue")
     prep_vars
@@ -138,10 +103,10 @@ case "$cmd" in
     export -f run
     # We perform two full runs of all tests on x86, and a single fast run on arm64 (allowing use of test cache).
     parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x1-full amd64 ci-full' \
-      'run x2-full amd64 ci-full' \
-      'run x3-full amd64 ci-full' \
-      'run x4-full amd64 ci-full' \
+      'run x1-full amd64 ci-full-no-test-cache' \
+      'run x2-full amd64 ci-full-no-test-cache' \
+      'run x3-full amd64 ci-full-no-test-cache-makefile' \
+      'run x4-full amd64 ci-full-no-test-cache-makefile' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
   "network-deploy")
@@ -235,34 +200,6 @@ case "$cmd" in
     [ ! -t 0 ] && pager=cat
     redis_getz $1 | $pager
     ;;
-  "tlog")
-    if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
-      echo "No redis available for test query."
-      exit 1
-    fi
-    pager=${PAGER:-less}
-    key=$(hash_str "$1")
-    log_key=$(redis_cli --raw GET $key)
-    if [ -n "$log_key" ]; then
-      redis_getz $log_key | $pager
-    else
-      echo "No test log found for: $key"
-      exit 1
-    fi
-    ;;
-  "tilog")
-    # Given a test cmd, tail it's a live log.
-    ./ci.sh llog $(hash_str "$1")
-  ;;
-  "llog")
-    # If the log file exists locally, tail it, otherwise assume it's remote.
-    key=$1
-    if [ -f /tmp/$key ]; then
-      tail -F -n +1 /tmp/$key
-    else
-      ./ci.sh shell tail -F -n +1 /tmp/$key
-    fi
-  ;;
   "kill")
     existing_instance=$(aws ec2 describe-instances \
       --region us-east-2 \
@@ -315,6 +252,9 @@ case "$cmd" in
     ;;
   "gh-bench")
     cache_download bench-$(git rev-parse HEAD^{tree}).tar.gz
+    ;;
+  "gh-deploy-bench")
+    cache_download deploy-bench-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
   "uncached-tests")
     if [ -z "$CI_REDIS_AVAILABLE" ]; then

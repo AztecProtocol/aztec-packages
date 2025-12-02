@@ -1,9 +1,10 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 
+import type { BatchedBlob } from './batched_blob.js';
 import { Blob } from './blob.js';
-import { deserializeEncodedBlobToFields } from './deserialize.js';
-import { computeBlobFieldsHash, computeBlobsHash } from './hash.js';
+import { type CheckpointBlobData, decodeCheckpointBlobDataFromBuffer } from './encoding/index.js';
+import { computeBlobsHash, computeEthVersionedBlobHash } from './hash.js';
 
 /**
  * @param blobs - The blobs to emit.
@@ -40,26 +41,13 @@ export function getBlobsPerL1Block(fields: Fr[]): Blob[] {
 }
 
 /**
- * Get the fields from all blobs in the checkpoint. Ignoring the fields beyond the length specified by the
- * checkpoint prefix (the first field).
- *
- * @param blobs - The blobs to read fields from. Should be all the blobs in the L1 block proposing the checkpoint.
- * @param checkEncoding - Whether to check if the entire encoded blob fields are valid. If false, it will still check
- * the checkpoint prefix and throw if there's not enough fields.
- * @returns The fields added throughout the checkpoint.
+ * Get the encoded data from all blobs in the checkpoint.
+ * @param blobs - The blobs to read data from. Should be all the blobs for the L1 block proposing the checkpoint.
+ * @returns The encoded data of the checkpoint.
  */
-export function getBlobFieldsInCheckpoint(blobs: Blob[], checkEncoding = false): Fr[] {
-  return deserializeEncodedBlobToFields(Buffer.concat(blobs.map(b => b.data)), checkEncoding);
-}
-
-export async function computeBlobFieldsHashFromBlobs(blobs: Blob[]): Promise<Fr> {
-  const fields = blobs.map(b => b.toFields()).flat();
-  const numBlobFields = fields[0].toNumber();
-  if (numBlobFields > fields.length) {
-    throw new Error(`The prefix indicates ${numBlobFields} fields. Got ${fields.length}.`);
-  }
-
-  return await computeBlobFieldsHash(fields.slice(0, numBlobFields));
+export function decodeCheckpointBlobDataFromBlobs(blobs: Blob[]): CheckpointBlobData {
+  const buf = Buffer.concat(blobs.map(b => b.data));
+  return decodeCheckpointBlobDataFromBuffer(buf);
 }
 
 export function computeBlobsHashFromBlobs(blobs: Blob[]): Fr {
@@ -68,4 +56,26 @@ export function computeBlobsHashFromBlobs(blobs: Blob[]): Fr {
 
 export function getBlobCommitmentsFromBlobs(blobs: Blob[]): BLS12Point[] {
   return blobs.map(b => BLS12Point.decompress(b.commitment));
+}
+
+/**
+ * Returns a proof of opening of the blobs to verify on L1 using the point evaluation precompile:
+ *
+ * input[:32]     - versioned_hash
+ * input[32:64]   - z
+ * input[64:96]   - y
+ * input[96:144]  - commitment C
+ * input[144:192] - commitment Q (a 'proof' committing to the quotient polynomial q(X))
+ *
+ * See https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
+ */
+export function getEthBlobEvaluationInputs(batchedBlob: BatchedBlob): `0x${string}` {
+  const buf = Buffer.concat([
+    computeEthVersionedBlobHash(batchedBlob.commitment.compress()),
+    batchedBlob.z.toBuffer(),
+    batchedBlob.y.toBuffer(),
+    batchedBlob.commitment.compress(),
+    batchedBlob.q.compress(),
+  ]);
+  return `0x${buf.toString('hex')}`;
 }

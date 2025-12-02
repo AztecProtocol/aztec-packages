@@ -37,42 +37,42 @@ void RetrievedBytecodesTreeCheckTraceBuilder::process(
         bool append = event.append_data.has_value();
         if (append) {
             updated_low_leaf_next_key = class_id;
-            updated_low_leaf_next_index = event.prev_snapshot.nextAvailableLeafIndex;
+            updated_low_leaf_next_index = event.prev_snapshot.next_available_leaf_index;
             updated_low_leaf_hash = event.append_data->updated_low_leaf_hash;
             new_leaf_hash = event.append_data->new_leaf_hash;
             intermediate_root = event.append_data->intermediate_root;
         }
 
-        trace.set(
-            row,
-            { {
-                { C::retrieved_bytecodes_tree_check_sel, 1 },
-                { C::retrieved_bytecodes_tree_check_write, event.write },
-                { C::retrieved_bytecodes_tree_check_class_id, class_id },
-                { C::retrieved_bytecodes_tree_check_root, event.prev_snapshot.root },
-                { C::retrieved_bytecodes_tree_check_write_root, event.next_snapshot.root },
-                { C::retrieved_bytecodes_tree_check_tree_size_before_write,
-                  event.prev_snapshot.nextAvailableLeafIndex },
-                { C::retrieved_bytecodes_tree_check_tree_size_after_write, event.next_snapshot.nextAvailableLeafIndex },
-                { C::retrieved_bytecodes_tree_check_low_leaf_class_id, event.low_leaf_preimage.leaf.class_id },
-                { C::retrieved_bytecodes_tree_check_low_leaf_next_index, event.low_leaf_preimage.nextIndex },
-                { C::retrieved_bytecodes_tree_check_low_leaf_next_class_id, event.low_leaf_preimage.nextKey },
-                { C::retrieved_bytecodes_tree_check_updated_low_leaf_next_index, updated_low_leaf_next_index },
-                { C::retrieved_bytecodes_tree_check_updated_low_leaf_next_class_id, updated_low_leaf_next_key },
-                { C::retrieved_bytecodes_tree_check_low_leaf_index, event.low_leaf_index },
-                { C::retrieved_bytecodes_tree_check_should_insert, append },
-                { C::retrieved_bytecodes_tree_check_low_leaf_hash, event.low_leaf_hash },
-                { C::retrieved_bytecodes_tree_check_intermediate_root, intermediate_root },
-                { C::retrieved_bytecodes_tree_check_updated_low_leaf_hash, updated_low_leaf_hash },
-                { C::retrieved_bytecodes_tree_check_tree_height, AVM_RETRIEVED_BYTECODES_TREE_HEIGHT },
-                { C::retrieved_bytecodes_tree_check_leaf_not_exists, !exists },
-                { C::retrieved_bytecodes_tree_check_class_id_low_leaf_class_id_diff_inv,
-                  class_id_low_leaf_class_id_diff }, // Will be inverted in batch later
-                { C::retrieved_bytecodes_tree_check_next_class_id_is_nonzero, next_class_id_is_nonzero },
-                { C::retrieved_bytecodes_tree_check_next_class_id_inv,
-                  next_class_id }, // Will be inverted in batch later
-                { C::retrieved_bytecodes_tree_check_new_leaf_hash, new_leaf_hash },
-            } });
+        trace.set(row,
+                  { {
+                      { C::retrieved_bytecodes_tree_check_sel, 1 },
+                      { C::retrieved_bytecodes_tree_check_write, event.write },
+                      { C::retrieved_bytecodes_tree_check_class_id, class_id },
+                      { C::retrieved_bytecodes_tree_check_root, event.prev_snapshot.root },
+                      { C::retrieved_bytecodes_tree_check_write_root, event.next_snapshot.root },
+                      { C::retrieved_bytecodes_tree_check_tree_size_before_write,
+                        event.prev_snapshot.next_available_leaf_index },
+                      { C::retrieved_bytecodes_tree_check_tree_size_after_write,
+                        event.next_snapshot.next_available_leaf_index },
+                      { C::retrieved_bytecodes_tree_check_low_leaf_class_id, event.low_leaf_preimage.leaf.class_id },
+                      { C::retrieved_bytecodes_tree_check_low_leaf_next_index, event.low_leaf_preimage.nextIndex },
+                      { C::retrieved_bytecodes_tree_check_low_leaf_next_class_id, event.low_leaf_preimage.nextKey },
+                      { C::retrieved_bytecodes_tree_check_updated_low_leaf_next_index, updated_low_leaf_next_index },
+                      { C::retrieved_bytecodes_tree_check_updated_low_leaf_next_class_id, updated_low_leaf_next_key },
+                      { C::retrieved_bytecodes_tree_check_low_leaf_index, event.low_leaf_index },
+                      { C::retrieved_bytecodes_tree_check_should_insert, append },
+                      { C::retrieved_bytecodes_tree_check_low_leaf_hash, event.low_leaf_hash },
+                      { C::retrieved_bytecodes_tree_check_intermediate_root, intermediate_root },
+                      { C::retrieved_bytecodes_tree_check_updated_low_leaf_hash, updated_low_leaf_hash },
+                      { C::retrieved_bytecodes_tree_check_tree_height, AVM_RETRIEVED_BYTECODES_TREE_HEIGHT },
+                      { C::retrieved_bytecodes_tree_check_leaf_not_exists, !exists },
+                      { C::retrieved_bytecodes_tree_check_class_id_low_leaf_class_id_diff_inv,
+                        class_id_low_leaf_class_id_diff }, // Will be inverted in batch later
+                      { C::retrieved_bytecodes_tree_check_next_class_id_is_nonzero, next_class_id_is_nonzero },
+                      { C::retrieved_bytecodes_tree_check_next_class_id_inv,
+                        next_class_id }, // Will be inverted in batch later
+                      { C::retrieved_bytecodes_tree_check_new_leaf_hash, new_leaf_hash },
+                  } });
         row++;
     }
 

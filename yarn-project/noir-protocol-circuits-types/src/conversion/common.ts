@@ -8,6 +8,7 @@ import {
   MAX_PROTOCOL_CONTRACTS,
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { type Serializable, type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
@@ -20,7 +21,6 @@ import {
   ClaimedLengthArray,
   CountedLogHash,
   LogHash,
-  OptionalNumber,
   PrivateToPublicAccumulatedData,
   PrivateToPublicKernelCircuitPublicInputs,
   PrivateToRollupAccumulatedData,
@@ -75,7 +75,6 @@ import type {
   Field as NoirField,
   EmbeddedCurvePoint as NoirPoint,
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
-  Option as OptionalNumberNoir,
   PartialStateReference as PartialStateReferenceNoir,
   Log as PrivateLogNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
@@ -413,17 +412,6 @@ export function mapBlockHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
   );
 }
 
-export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir {
-  return {
-    _is_some: option.isSome,
-    _value: mapNumberToNoir(option.value),
-  };
-}
-
-export function mapOptionalNumberFromNoir(option: OptionalNumberNoir) {
-  return new OptionalNumber(option._is_some, mapNumberFromNoir(option._value));
-}
-
 /**
  * Maps a L2 to L1 message to a noir L2 to L1 message.
  * @param message - The L2 to L1 message.
@@ -560,7 +548,7 @@ export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): Glob
     chain_id: mapFieldToNoir(globalVariables.chainId),
     version: mapFieldToNoir(globalVariables.version),
     block_number: mapNumberToNoir(globalVariables.blockNumber),
-    slot_number: mapFieldToNoir(globalVariables.slotNumber),
+    slot_number: mapFieldToNoir(new Fr(globalVariables.slotNumber)),
     timestamp: mapBigIntToNoir(globalVariables.timestamp),
     coinbase: mapEthAddressToNoir(globalVariables.coinbase),
     fee_recipient: mapAztecAddressToNoir(globalVariables.feeRecipient),
@@ -578,7 +566,7 @@ export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir)
     mapFieldFromNoir(globalVariables.chain_id),
     mapFieldFromNoir(globalVariables.version),
     mapNumberFromNoir(globalVariables.block_number),
-    mapFieldFromNoir(globalVariables.slot_number),
+    SlotNumber(mapFieldFromNoir(globalVariables.slot_number).toNumber()),
     mapBigIntFromNoir(globalVariables.timestamp),
     mapEthAddressFromNoir(globalVariables.coinbase),
     mapAztecAddressFromNoir(globalVariables.fee_recipient),

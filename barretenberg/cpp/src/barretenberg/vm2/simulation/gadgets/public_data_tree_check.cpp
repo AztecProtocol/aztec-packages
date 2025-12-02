@@ -86,7 +86,7 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
         updated_low_leaf_preimage.leaf.value = value;
     } else {
         // Update pointers
-        updated_low_leaf_preimage.nextIndex = prev_snapshot.nextAvailableLeafIndex;
+        updated_low_leaf_preimage.nextIndex = prev_snapshot.next_available_leaf_index;
         updated_low_leaf_preimage.nextKey = leaf_slot;
     }
 
@@ -97,7 +97,7 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
 
     AppendOnlyTreeSnapshot next_snapshot = AppendOnlyTreeSnapshot{
         .root = intermediate_root,
-        .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex,
+        .next_available_leaf_index = prev_snapshot.next_available_leaf_index,
     };
     FF new_leaf_hash = 0;
     PublicDataTreeLeafPreimage new_leaf = PublicDataTreeLeafPreimage::empty();
@@ -108,8 +108,8 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
 
         new_leaf_hash = poseidon2.hash(new_leaf.get_hash_inputs());
         next_snapshot.root = merkle_check.write(
-            FF(0), new_leaf_hash, prev_snapshot.nextAvailableLeafIndex, insertion_sibling_path, intermediate_root);
-        next_snapshot.nextAvailableLeafIndex++;
+            FF(0), new_leaf_hash, prev_snapshot.next_available_leaf_index, insertion_sibling_path, intermediate_root);
+        next_snapshot.next_available_leaf_index++;
     }
 
     // The protocol writes happen outside execution, at the end of the tx simulation.

@@ -32,8 +32,10 @@
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm2/api_avm.hpp"
+#include <atomic>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 
 namespace bb {
 
@@ -324,7 +326,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Builtin flag: --version
      ***************************************************************************************************************/
-    app.set_version_flag("--version", BB_VERSION_PLACEHOLDER, "Print the version string.");
+    app.set_version_flag("--version", BB_VERSION, "Print the version string.");
 
     /***************************************************************************************************************
      * Subcommand: check
@@ -509,21 +511,37 @@ int parse_and_run_cli_command(int argc, char* argv[])
         "aztec_process",
         "Process Aztec contract artifacts: transpile and generate verification keys for all private functions.\n"
         "If input is a directory (and no output specified), recursively processes all artifacts found in the "
-        "directory.");
+        "directory.\n"
+        "Multiple -i flags can be specified when no -o flag is present for parallel processing.");
 
-    std::string artifact_input_path;
+    std::vector<std::string> artifact_input_paths;
     std::string artifact_output_path;
     bool force_regenerate = false;
 
+    aztec_process->add_option("-i,--input",
+                              artifact_input_paths,
+                              "Input artifact JSON path or directory to search (optional, defaults to current "
+                              "directory). Can be specified multiple times when no -o flag is present.");
     aztec_process->add_option(
-        "-i,--input",
-        artifact_input_path,
-        "Input artifact JSON path or directory to search (optional, defaults to current directory)");
-    aztec_process->add_option(
-        "-o,--output", artifact_output_path, "Output artifact JSON path (optional, same as input if not specified)");
+        "-o,--output",
+        artifact_output_path,
+        "Output artifact JSON path (optional, same as input if not specified). Cannot be used with multiple -i flags.");
     aztec_process->add_flag("-f,--force", force_regenerate, "Force regeneration of verification keys");
     add_verbose_flag(aztec_process);
     add_debug_flag(aztec_process);
+
+    /***************************************************************************************************************
+     * Subcommand: aztec_process cache_paths
+     ***************************************************************************************************************/
+    CLI::App* cache_paths_command =
+        aztec_process->add_subcommand("cache_paths",
+                                      "Output cache paths for verification keys in an artifact.\n"
+                                      "Format: <hash>:<cache_path>:<function_name> (one per line).");
+
+    std::string cache_paths_input;
+    cache_paths_command->add_option("input", cache_paths_input, "Input artifact JSON path (required).")->required();
+    add_verbose_flag(cache_paths_command);
+    add_debug_flag(cache_paths_command);
 
     /***************************************************************************************************************
      * Subcommand: msgpack
@@ -547,10 +565,22 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string msgpack_input_file;
     msgpack_run_command->add_option(
         "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
-    int max_clients = 1;
+    size_t request_ring_size = 1024 * 1024; // 1MB default
     msgpack_run_command
         ->add_option(
-            "--max-clients", max_clients, "Maximum concurrent clients for shared memory IPC server (default: 1)")
+            "--request-ring-size", request_ring_size, "Request ring buffer size for shared memory IPC (default: 1MB)")
+        ->check(CLI::PositiveNumber);
+    size_t response_ring_size = 1024 * 1024; // 1MB default
+    msgpack_run_command
+        ->add_option("--response-ring-size",
+                     response_ring_size,
+                     "Response ring buffer size for shared memory IPC (default: 1MB)")
+        ->check(CLI::PositiveNumber);
+    int max_clients = 1;
+    msgpack_run_command
+        ->add_option("--max-clients",
+                     max_clients,
+                     "Maximum concurrent clients for socket IPC servers (default: 1, only used for .sock files)")
         ->check(CLI::PositiveNumber);
 
     /***************************************************************************************************************
@@ -625,14 +655,60 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return 0;
         }
         if (msgpack_run_command->parsed()) {
-            return execute_msgpack_run(msgpack_input_file, max_clients);
+            return execute_msgpack_run(msgpack_input_file, max_clients, request_ring_size, response_ring_size);
         }
         if (aztec_process->parsed()) {
 #ifdef __wasm__
             throw_or_abort("Aztec artifact processing is not supported in WASM builds.");
 #else
-            // Default input to current directory if not specified
-            std::string input = artifact_input_path.empty() ? "." : artifact_input_path;
+            // Handle cache_paths subcommand
+            if (cache_paths_command->parsed()) {
+                return get_cache_paths(cache_paths_input) ? 0 : 1;
+            }
+
+            // Check for invalid combination of multiple inputs with output path
+            if (!artifact_output_path.empty() && artifact_input_paths.size() > 1) {
+                throw_or_abort("Cannot specify --output when multiple --input flags are provided.");
+            }
+
+            // Default to current directory if no inputs specified
+            if (artifact_input_paths.empty()) {
+                artifact_input_paths.push_back(".");
+            }
+
+            // Handle multiple inputs (process in parallel)
+            if (artifact_input_paths.size() > 1) {
+                // Validate all inputs are files, not directories
+                for (const auto& input : artifact_input_paths) {
+                    if (std::filesystem::is_directory(input)) {
+                        throw_or_abort("When using multiple --input flags, all inputs must be files, not directories.");
+                    }
+                }
+
+                // Process all artifacts in parallel
+                std::atomic<bool> all_success = true;
+                std::vector<std::string> failures;
+                std::mutex failures_mutex;
+
+                parallel_for(artifact_input_paths.size(), [&](size_t i) {
+                    const auto& input = artifact_input_paths[i];
+                    if (!process_aztec_artifact(input, input, force_regenerate)) {
+                        all_success = false;
+                        std::lock_guard<std::mutex> lock(failures_mutex);
+                        failures.push_back(input);
+                    }
+                });
+
+                if (!all_success) {
+                    info("Failed to process ", failures.size(), " artifact(s)");
+                    return 1;
+                }
+                info("Successfully processed ", artifact_input_paths.size(), " artifact(s)");
+                return 0;
+            }
+
+            // Single input case
+            std::string input = artifact_input_paths[0];
 
             // Check if input is a directory
             if (std::filesystem::is_directory(input)) {

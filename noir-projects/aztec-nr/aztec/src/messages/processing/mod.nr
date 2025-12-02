@@ -70,11 +70,18 @@ pub(crate) unconstrained fn get_private_logs(
 /// `NoteHash::compute_nullifier`. PXE will verify that the siloed unique note hash was inserted into the tree
 /// at `tx_hash`, and will store the nullifier to later check for nullification.
 ///
-/// `recipient` is the account to which the note was sent to. Other accounts will not be able to access this note (e.g.
-/// other accounts will not be able to see one another's token balance notes, even in the same PXE) unless authorized.
+/// `owner` is the address used in note hash and nullifier computation, often requiring knowledge of their
+/// nullifier secret key.
+///
+/// `recipient` is the account to which the note message was delivered (i.e. the address the message was encrypted to).
+/// This determines which PXE account can see the note - other accounts will not be able to access it (e.g. other
+/// accounts will not be able to see one another's token balance notes, even in the same PXE) unless authorized. In most
+/// cases `recipient` equals `owner`, but they can differ in scenarios like delegated discovery.
 pub(crate) unconstrained fn enqueue_note_for_validation(
     contract_address: AztecAddress,
+    owner: AztecAddress,
     storage_slot: Field,
+    randomness: Field,
     note_nonce: Field,
     packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
     note_hash: Field,
@@ -87,7 +94,9 @@ pub(crate) unconstrained fn enqueue_note_for_validation(
     CapsuleArray::at(contract_address, NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
         NoteValidationRequest {
             contract_address,
+            owner,
             storage_slot,
+            randomness,
             note_nonce,
             packed_note,
             note_hash,

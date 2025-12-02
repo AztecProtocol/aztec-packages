@@ -3,13 +3,14 @@ import { SchnorrAccountContract } from '@aztec/accounts/schnorr/lazy';
 import { getStubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub/lazy';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
 import type { Aliased } from '@aztec/aztec.js/wallet';
-import { type Account, type AccountContract, SignerlessAccount } from '@aztec/aztec.js/account';
+import { type Account, type AccountContract, type ChainInfo, SignerlessAccount } from '@aztec/aztec.js/account';
 import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
-import { AccountManager, BaseWallet } from '@aztec/aztec.js/wallet';
+import { AccountManager } from '@aztec/aztec.js/wallet';
+import { BaseWallet } from '@aztec/wallet-sdk/base-wallet';
 import { getPXEConfig, type PXEConfig } from '@aztec/pxe/config';
 import { createPXE, PXE } from '@aztec/pxe/client/lazy';
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
@@ -20,6 +21,7 @@ import { convertFromUTF8BufferAsString } from '../utils/conversion';
 import { WebLogger } from '../utils/web_logger';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import { NETWORKS } from '../utils/networks';
 
 /**
  * Data for generating an account.
@@ -48,8 +50,16 @@ export class EmbeddedWallet extends BaseWallet {
     super(pxe, aztecNode);
   }
 
-  static async create(nodeURL: string) {
-    const aztecNode = createAztecNodeClient(nodeURL);
+  static async create(chainInfo: ChainInfo) {
+    const network = NETWORKS.find(
+      network => new Fr(network.chainId).equals(chainInfo.chainId) && new Fr(network.version).equals(chainInfo.version),
+    );
+    if (!network) {
+      throw new Error(
+        `Cannot create an embedded wallet for chainId ${chainInfo.chainId} and rollup version ${chainInfo.version}`,
+      );
+    }
+    const aztecNode = createAztecNodeClient(network.nodeURL);
 
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const rollupAddress = l1Contracts.rollupAddress;
@@ -152,7 +162,7 @@ export class EmbeddedWallet extends BaseWallet {
     const testAccountData = await getInitialTestAccountsData();
     const [sampleAccount] = testAccountData;
     let i = 0;
-    // Assume we're in a network with test accounts (sandbox) if the first of them
+    // Assume we're in a network with test accounts (local network) if the first of them
     // is initialized
     if (
       !aliasedAccounts.find(aliased => aliased.item.equals(sampleAccount.address)) &&
@@ -228,8 +238,8 @@ export class EmbeddedWallet extends BaseWallet {
     opts: SimulateInteractionOptions,
   ): Promise<TxSimulationResult> {
     const feeOptions = opts.fee?.estimateGas
-      ? await this.getFeeOptionsForGasEstimation(opts.from, opts.fee)
-      : await this.getDefaultFeeOptions(opts.from, opts.fee);
+      ? await this.completeFeeOptionsForEstimation(opts.from, executionPayload.feePayer, opts.fee?.gasSettings)
+      : await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce: Fr.random(),

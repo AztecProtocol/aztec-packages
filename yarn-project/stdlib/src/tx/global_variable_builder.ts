@@ -1,4 +1,5 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { SlotNumber } from '@aztec/foundation/schemas';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import type { GasFees } from '../gas/gas_fees.js';
@@ -23,6 +24,6 @@ export interface GlobalVariableBuilder {
     blockNumber: UInt32,
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
-    slotNumber?: bigint,
+    slotNumber?: SlotNumber,
   ): Promise<GlobalVariables>;
 }

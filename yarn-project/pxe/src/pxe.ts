@@ -35,7 +35,8 @@ import type {
   PrivateKernelExecutionProofOutput,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
-import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
+import type { NotesFilter } from '@aztec/stdlib/note';
+import { NoteDao } from '@aztec/stdlib/note';
 import {
   type ContractOverrides,
   PrivateExecutionResult,
@@ -672,25 +673,12 @@ export class PXE {
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+  public async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
     // We need to manually trigger private state sync to have a guarantee that all the notes are available.
-    await this.simulateUtility('sync_private_state', [], filter.contractAddress);
+    const call = await this.#getFunctionCall('sync_private_state', [], filter.contractAddress);
+    await this.simulateUtility(call);
 
-    const noteDaos = await this.noteDataProvider.getNotes(filter);
-
-    const uniqueNotes = noteDaos.map(async dao => {
-      const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
-      const completeAddressIndex = completeAddresses.findIndex(completeAddress =>
-        completeAddress.address.equals(dao.recipient),
-      );
-      const completeAddress = completeAddresses[completeAddressIndex];
-      if (completeAddress === undefined) {
-        throw new Error(`Cannot find complete address for recipient ${dao.recipient.toString()}`);
-      }
-      const recipient = completeAddress.address;
-      return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.noteNonce);
-    });
-    return Promise.all(uniqueNotes);
+    return this.noteDataProvider.getNotes(filter);
   }
 
   /**
@@ -1009,21 +997,15 @@ export class PXE {
   /**
    * Simulate the execution of a contract utility function.
    *
-   * @param functionName - The name of the utility contract function to be called.
-   * @param args - The arguments to be provided to the function.
-   * @param to - The address of the contract to be called.
+   * @param call - The function call containing the function details, arguments, and target contract address.
    * @param authwits - (Optional) The authentication witnesses required for the function call.
-   * @param from - (Optional) The msg sender to set for the call.
    * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will
    * default to all.
    * @returns The result of the utility function call, structured based on the function ABI.
    */
   public simulateUtility(
-    functionName: string,
-    args: any[],
-    to: AztecAddress,
+    call: FunctionCall,
     authwits?: AuthWitness[],
-    _from?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<UtilitySimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
@@ -1035,20 +1017,14 @@ export class PXE {
         const syncTimer = new Timer();
         await this.synchronizer.sync();
         const syncTime = syncTimer.ms();
-        const functionCall = await this.#getFunctionCall(functionName, args, to);
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        const executionResult = await this.#simulateUtility(
-          contractFunctionSimulator,
-          functionCall,
-          authwits ?? [],
-          scopes,
-        );
+        const executionResult = await this.#simulateUtility(contractFunctionSimulator, call, authwits ?? [], scopes);
         const functionTime = functionTimer.ms();
 
         const totalTime = totalTimer.ms();
 
-        const perFunction = [{ functionName, time: functionTime }];
+        const perFunction = [{ functionName: call.name, time: functionTime }];
 
         const timings: SimulationTimings = {
           total: totalTime,
@@ -1060,10 +1036,11 @@ export class PXE {
         const simulationStats = contractFunctionSimulator.getStats();
         return { result: executionResult, stats: { timings, nodeRPCCalls: simulationStats.nodeRPCCalls } };
       } catch (err: any) {
+        const { to, name, args } = call;
         const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
         throw this.#contextualizeError(
           err,
-          `simulateUtility ${to}:${functionName}(${stringifiedArgs})`,
+          `simulateUtility ${to}:${name}(${stringifiedArgs})`,
           `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
         );
       }
@@ -1093,7 +1070,8 @@ export class PXE {
     this.log.verbose(`Getting private events for ${contractAddress.toString()} from ${from} to ${from + numBlocks}`);
 
     // We need to manually trigger private state sync to have a guarantee that all the events are available.
-    await this.simulateUtility('sync_private_state', [], contractAddress);
+    const call = await this.#getFunctionCall('sync_private_state', [], contractAddress);
+    await this.simulateUtility(call);
 
     return this.privateEventDataProvider.getPrivateEvents(contractAddress, from, numBlocks, recipients, eventSelector);
   }

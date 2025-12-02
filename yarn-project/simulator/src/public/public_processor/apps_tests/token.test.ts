@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -43,12 +44,8 @@ describe.each([
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
     const simulator = useCppSimulator
-      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
-          doMerkleOperations: true,
-        })
-      : new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
-          doMerkleOperations: true,
-        });
+      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, PublicSimulatorConfig.empty())
+      : new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, PublicSimulatorConfig.empty());
 
     processor = new PublicProcessor(
       globals,

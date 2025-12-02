@@ -6,6 +6,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { timesAsync } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
@@ -20,7 +21,7 @@ import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import type { InBlock } from '../block/in_block.js';
+import type { DataInBlock } from '../block/in_block.js';
 import { CommitteeAttestation, L2BlockHash, type L2BlockNumber } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
@@ -200,6 +201,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual(GasFees.empty());
   });
 
+  it('getMaxPriorityFees', async () => {
+    const response = await context.client.getMaxPriorityFees();
+    expect(response).toEqual(GasFees.empty());
+  });
+
   it('getBlockNumber', async () => {
     const response = await context.client.getBlockNumber();
     expect(response).toBe(1);
@@ -357,11 +363,11 @@ describe('AztecNodeApiSchema', () => {
             count: 1,
             total: 1,
           },
-          history: [{ slot: 1n, status: 'block-mined' }],
+          history: [{ slot: SlotNumber(1), status: 'block-mined' }],
         },
       },
-      lastProcessedSlot: 20n,
-      initialSlot: 1n,
+      lastProcessedSlot: SlotNumber(20),
+      initialSlot: SlotNumber(1),
       slotWindow: 10,
     };
     const response = await context.client.getValidatorsStats();
@@ -371,7 +377,7 @@ describe('AztecNodeApiSchema', () => {
   it('getValidatorsStats(empty)', async () => {
     handler.validatorStats = {
       stats: {},
-      initialSlot: 1n,
+      initialSlot: SlotNumber(1),
       slotWindow: 10,
     };
     const response = await context.client.getValidatorsStats();
@@ -404,11 +410,11 @@ describe('AztecNodeApiSchema', () => {
         totalSlots: 5,
         missedAttestations: { currentStreak: 0, count: 0, total: 1 },
         missedProposals: { currentStreak: 0, count: 0, total: 1 },
-        history: [{ slot: 1n, status: 'block-mined' }],
+        history: [{ slot: SlotNumber(1), status: 'block-mined' }],
       },
       allTimeProvenPerformance: [],
-      lastProcessedSlot: 10n,
-      initialSlot: 1n,
+      lastProcessedSlot: SlotNumber(10),
+      initialSlot: SlotNumber(1),
       slotWindow: 100,
     };
 
@@ -429,15 +435,15 @@ describe('AztecNodeApiSchema', () => {
         totalSlots: 3,
         missedAttestations: { currentStreak: 0, count: 0, total: 0 },
         missedProposals: { currentStreak: 0, count: 0, total: 0 },
-        history: [{ slot: 5n, status: 'attestation-sent' }],
+        history: [{ slot: SlotNumber(5), status: 'attestation-sent' }],
       },
       allTimeProvenPerformance: [],
-      lastProcessedSlot: 10n,
-      initialSlot: 5n,
+      lastProcessedSlot: SlotNumber(10),
+      initialSlot: SlotNumber(5),
       slotWindow: 5,
     };
 
-    const response = await context.client.getValidatorStats(validatorAddress, 5n, 10n);
+    const response = await context.client.getValidatorStats(validatorAddress, SlotNumber(5), SlotNumber(10));
     expect(response).toEqual(handler.singleValidatorStats);
   });
 
@@ -524,7 +530,7 @@ class MockAztecNode implements AztecNode {
     blockNumber: number | 'latest',
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]> {
+  ): Promise<(DataInBlock<bigint> | undefined)[]> {
     expect(leafValues).toHaveLength(2);
     expect(leafValues[0]).toBeInstanceOf(Fr);
     expect(leafValues[1]).toBeInstanceOf(Fr);
@@ -624,6 +630,9 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(BlockHeader.empty());
   }
   getCurrentBaseFees(): Promise<GasFees> {
+    return Promise.resolve(GasFees.empty());
+  }
+  getMaxPriorityFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());
   }
   getBlockNumber(): Promise<number> {
@@ -751,15 +760,15 @@ class MockAztecNode implements AztecNode {
   }
   getValidatorStats(
     validatorAddress: EthAddress,
-    fromSlot?: bigint,
-    toSlot?: bigint,
+    fromSlot?: SlotNumber,
+    toSlot?: SlotNumber,
   ): Promise<SingleValidatorStats | undefined> {
     expect(validatorAddress).toBeInstanceOf(EthAddress);
     if (fromSlot !== undefined) {
-      expect(typeof fromSlot).toBe('bigint');
+      expect(typeof fromSlot).toBe('number');
     }
     if (toSlot !== undefined) {
-      expect(typeof toSlot).toBe('bigint');
+      expect(typeof toSlot).toBe('number');
     }
     return Promise.resolve(this.singleValidatorStats);
   }

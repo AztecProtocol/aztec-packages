@@ -35,7 +35,7 @@ fn validate_propagated_from_private_call_to_init__note_hash_read_requests_output
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with = "propagated contract address does not match")]
+#[test(should_fail_with = "source item does not append to dest")]
 fn validate_propagated_from_private_call_to_init__note_hash_read_requests_mismatch_contract_address_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 

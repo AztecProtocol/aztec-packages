@@ -2,11 +2,9 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cmd=${1:-}
-
 hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
-export GIT_COMMIT="$(cat ../noir/noir-repo-ref | head -n1)-aztec"
+export GIT_COMMIT=$(git -C ../noir/noir-repo rev-parse HEAD)
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
@@ -81,26 +79,13 @@ function build {
 }
 
 case "$cmd" in
-  "clean")
-    git clean -fdx
-    ;;
-  ""|"fast"|"full"|"ci")
+  "")
     build
-    ;;
-  build_native)
-    build_native
-    ;;
-  build_cross)
-    shift
-    build_cross "$@"
-    ;;
-  "test")
-    echo "No tests."
     ;;
   "hash")
     echo $hash
     ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
+    ;;
 esac

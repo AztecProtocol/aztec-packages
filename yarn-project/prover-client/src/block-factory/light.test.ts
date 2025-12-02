@@ -1,5 +1,5 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
-import { SpongeBlob } from '@aztec/blob-lib';
+import { SpongeBlob, encodeBlockEndBlobData } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
   CHONK_PROOF_LENGTH,
@@ -19,8 +19,6 @@ import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-co
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { createBlockEndMarker } from '@aztec/stdlib/block';
-import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import {
@@ -40,7 +38,7 @@ import {
   TxMergeRollupPrivateInputs,
   type TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
-import { makeBloatedProcessedTx } from '@aztec/stdlib/testing';
+import { mockProcessedTx } from '@aztec/stdlib/testing';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { GlobalVariables, type ProcessedTx } from '@aztec/stdlib/tx';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
@@ -204,8 +202,8 @@ describe('LightBlockBuilder', () => {
     feePayerBalance = new Fr(feePayerBalance.toBigInt() - expectedTxFee.toBigInt());
     const feePaymentPublicDataWrite = new PublicDataWrite(feePayerSlot, feePayerBalance);
 
-    return makeBloatedProcessedTx({
-      header: fork.getInitialHeader(),
+    return mockProcessedTx({
+      anchorBlockHeader: fork.getInitialHeader(),
       globalVariables,
       vkTreeRoot,
       protocolContracts: ProtocolContractsList,
@@ -245,14 +243,10 @@ describe('LightBlockBuilder', () => {
     );
     const lastL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
 
-    const numBlobFields = getCheckpointBlobFields([txs.map(tx => tx.txEffect)]).length;
-    const startSpongeBlob = await SpongeBlob.init(numBlobFields);
-
     const parityOutput = await getParityOutput(l1ToL2Messages);
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
 
-    // Clone the sponge blob to avoid mutating the start state.
-    const spongeBlobState = startSpongeBlob.clone();
+    const spongeBlobState = SpongeBlob.init();
     const rollupOutputs = await getPrivateBaseRollupOutputs(txs, lastArchive, newL1ToL2Snapshot, spongeBlobState);
 
     const previousRollups = await getTopMerges!(rollupOutputs);
@@ -263,8 +257,32 @@ describe('LightBlockBuilder', () => {
       lastArchiveSiblingPath,
       lastL1ToL2Snapshot,
       lastL1ToL2MessageSubtreeRootSiblingPath,
-      startSpongeBlob,
     );
+
+    // Absorb blob end states into the sponge blob.
+    const noteHashSnapshot = await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, expectsFork);
+    const nullifierSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, expectsFork);
+    const publicDataSnapshot = await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, expectsFork);
+    const blockEndStates = encodeBlockEndBlobData({
+      blockEndMarker: {
+        blockNumber: globalVariables.blockNumber,
+        timestamp: globalVariables.timestamp,
+        numTxs: txs.length,
+      },
+      blockEndStateField: {
+        l1ToL2MessageNextAvailableLeafIndex: newL1ToL2Snapshot.nextAvailableLeafIndex,
+        noteHashNextAvailableLeafIndex: noteHashSnapshot.nextAvailableLeafIndex,
+        nullifierNextAvailableLeafIndex: nullifierSnapshot.nextAvailableLeafIndex,
+        publicDataNextAvailableLeafIndex: publicDataSnapshot.nextAvailableLeafIndex,
+        totalManaUsed: txs.reduce((acc, tx) => acc + BigInt(tx.gasUsed.totalGas.l2Gas), 0n),
+      },
+      lastArchiveRoot: lastArchive.root,
+      noteHashRoot: noteHashSnapshot.root,
+      nullifierRoot: nullifierSnapshot.root,
+      publicDataRoot: publicDataSnapshot.root,
+      l1ToL2MessageRoot: newL1ToL2Snapshot.root,
+    });
+    await spongeBlobState.absorb(blockEndStates);
 
     const expectedHeader = await buildHeaderFromCircuitOutputs(rootOutput);
     expect(expectedHeader.spongeBlobHash).toEqual(await spongeBlobState.squeeze());
@@ -310,7 +328,6 @@ describe('LightBlockBuilder', () => {
       expect(result.inputs.accumulatedFees).toEqual(expectedTxFee);
       rollupOutputs.push(result.inputs);
     }
-    await spongeBlobState.absorb([createBlockEndMarker(txs.length)]);
     return rollupOutputs;
   };
 
@@ -347,7 +364,6 @@ describe('LightBlockBuilder', () => {
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     lastL1ToL2Snapshot: AppendOnlyTreeSnapshot,
     lastL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
-    startSpongeBlob: SpongeBlob,
   ) => {
     const mergeRollupVk = getVkData(
       previousRollups.length === 1 ? 'PrivateTxBaseRollupArtifact' : 'TxMergeRollupArtifact',
@@ -379,7 +395,6 @@ describe('LightBlockBuilder', () => {
         previousState: previousBlockHeader.state,
         previousArchive: lastArchive,
         constants,
-        startSpongeBlob,
         timestamp: globalVariables.timestamp,
         newArchiveSiblingPath,
         newL1ToL2MessageSubtreeRootSiblingPath,
