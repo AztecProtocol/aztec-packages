@@ -361,8 +361,8 @@ describe('e2e_p2p_add_rollup', () => {
         });
 
         // We check that MessageConsumed event was emitted with the expected message hash and leaf id
-        expect(topics.args.messageHash).toStrictEqual(leaf.toString());
-        expect(topics.args.leafId).toStrictEqual(leafId);
+        expect((topics.args as any).messageHash).toStrictEqual(leaf.toString());
+        expect((topics.args as any).leafId).toStrictEqual(leafId);
       }
     };
 
