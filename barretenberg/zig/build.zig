@@ -10,7 +10,7 @@ pub fn build(b: *std.Build) void {
     });
     _ = lib;
 
-    // Create tests - Zig 0.15 uses different API
+    // Create tests
     const tests = b.addTest(.{
         .name = "barretenberg-tests",
         .root_module = b.createModule(.{

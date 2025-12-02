@@ -1,0 +1,12 @@
+.{
+    .name = .zig,
+    .version = "0.15.1",
+    .dependencies = .{
+        .zig_msgpack = .{
+            .url = "https://github.com/zigcc/zig-msgpack/archive/main.tar.gz",
+            .hash = "zig_msgpack-0.0.14-evvueGolBQBs_m726tBf4ISJQqC926AM96EtxZy9LUaI",
+        },
+    },
+    .paths = .{""},
+    .fingerprint = 0xc1ce108177d81dae,
+}

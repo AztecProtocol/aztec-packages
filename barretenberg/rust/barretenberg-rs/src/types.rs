@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct Fr(pub [u8; 32]);
 
 impl Fr {
-    /// Create a new field element from a u64 value
+    /// Create a new field element from a u64 value (little-endian encoding)
     pub fn from_u64(value: u64) -> Self {
         let mut bytes = [0u8; 32];
         bytes[0..8].copy_from_slice(&value.to_le_bytes());
@@ -42,21 +42,6 @@ impl Fr {
     /// Convert to a byte buffer (as used in msgpack)
     pub fn to_buffer(&self) -> Vec<u8> {
         self.0.to_vec()
-    }
-
-    /// Create a random field element
-    #[cfg(feature = "native")]
-    pub fn random() -> Self {
-        use std::time::SystemTime;
-        let nanos = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-
-        let mut bytes = [0u8; 32];
-        bytes[0..16].copy_from_slice(&nanos.to_le_bytes());
-        bytes[16..24].copy_from_slice(&(nanos >> 64).to_le_bytes()[0..8]);
-        Fr(bytes)
     }
 }
 

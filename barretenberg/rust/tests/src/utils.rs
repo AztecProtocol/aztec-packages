@@ -1,6 +1,21 @@
 //! Utility functions and helpers for tests
 
 use std::time::Instant;
+use barretenberg_rs::Fr;
+
+/// Generate a pseudo-random Fr for testing (NOT cryptographically secure)
+pub fn random_fr() -> Fr {
+    use std::time::SystemTime;
+    let nanos = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+
+    let mut bytes = [0u8; 32];
+    bytes[0..16].copy_from_slice(&nanos.to_le_bytes());
+    bytes[16..24].copy_from_slice(&(nanos >> 64).to_le_bytes()[0..8]);
+    Fr(bytes)
+}
 
 /// Timer for performance measurements
 ///

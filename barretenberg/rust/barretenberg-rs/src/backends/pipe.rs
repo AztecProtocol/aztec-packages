@@ -46,10 +46,7 @@ impl PipeBackend {
         let stdout = process.stdout.take()
             .ok_or_else(|| BarretenbergError::Backend("Failed to get stdout handle".to_string()))?;
 
-        // Give the process a moment to initialize
-        std::thread::sleep(std::time::Duration::from_millis(100));
-
-        // Check if process is still running
+        // Check if process exited immediately (indicates startup failure)
         if let Ok(Some(status)) = process.try_wait() {
             return Err(BarretenbergError::Backend(
                 format!("BB process exited immediately with status: {}", status)

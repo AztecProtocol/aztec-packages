@@ -7,7 +7,7 @@
 #[cfg(test)]
 use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
 #[cfg(test)]
-use crate::utils::{get_bb_binary_path, Timer};
+use crate::utils::{get_bb_binary_path, random_fr, Timer};
 #[cfg(test)]
 use crate::require_bb_binary;
 
@@ -47,7 +47,7 @@ fn test_poseidon2_hash_perf() {
     let loops = 1000;
     let mut fields = Vec::with_capacity(loops * 2);
     for _ in 0..loops * 2 {
-        fields.push(Fr::random().to_buffer());
+        fields.push(random_fr().to_buffer());
     }
 
     let timer = Timer::new();
