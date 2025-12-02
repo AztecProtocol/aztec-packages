@@ -1834,7 +1834,6 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
     return {
         .success = result.success,
         .gas_used = result.gas_used,
-        .output = std::nullopt, // The gadgets do not need to return data.
     };
 }
 
