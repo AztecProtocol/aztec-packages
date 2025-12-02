@@ -197,7 +197,7 @@ describe('e2e_avm_simulator', () => {
         // The nested call reverts and by default caller rethrows
         await expect(
           avmContract.methods.nested_call_to_nothing().simulate({ from: defaultAccountAddress }),
-        ).rejects.toThrow(/No bytecode/);
+        ).rejects.toThrow(/not deployed/);
       });
 
       it('Nested CALL instruction to non-existent contract returns failure, but caller can recover', async () => {

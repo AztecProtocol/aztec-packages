@@ -104,7 +104,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
 
     if (!bytecode) {
       return await this.handleFailureToRetrieveBytecode(
-        `No bytecode found, or limit encountered for max calls to unique contract class IDs. Contract address: ${this.context.environment.address}. Reverting...`,
+        `No bytecode found. Contract is not deployed, or limit encountered for max calls to unique contract class IDs. Contract address: ${this.context.environment.address}. Reverting...`,
       );
     }
 
