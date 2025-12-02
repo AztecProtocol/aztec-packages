@@ -54,12 +54,12 @@ endef
 
 # Fast bootstrap
 all: release-image barretenberg boxes playground docs aztec-up \
-		 bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests
+		 bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests
 
 # Full bootstrap
 full: release-image barretenberg boxes playground docs aztec-up \
 			bb-cpp-full yarn-project-benches \
-		  bb-full-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests
+		  bb-full-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests
 
 # Release. Everything plus copy bb cross compiles to ts projects.
 release: all bb-cpp-release-dir bb-ts-cross-copy
@@ -293,6 +293,9 @@ yarn-project-benches: yarn-project
 release-image: yarn-project
 	$(call build,$@,release-image)
 
+release-image-tests: release-image
+	$(call test,$@,release-image)
+
 boxes: yarn-project
 	$(call build,$@,boxes)
 
@@ -305,7 +308,6 @@ playground: yarn-project
 playground-tests: playground
 	$(call test,$@,playground)
 
-# Docs - Project documentation
 docs: yarn-project
 	$(call build,$@,docs)
 
