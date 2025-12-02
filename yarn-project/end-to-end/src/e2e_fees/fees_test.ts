@@ -117,7 +117,7 @@ export class FeesTest extends BaseEndToEndTest {
   }
 
   async getBlockRewards() {
-    const blockReward = await this.rollupContract.getBlockReward();
+    const blockReward = await this.rollupContract.getCheckpointReward();
     const rewardConfig = await this.rollupContract.getRewardConfig();
 
     const balance = await this.feeJuiceBridgeTestHarness.getL1FeeJuiceBalance(

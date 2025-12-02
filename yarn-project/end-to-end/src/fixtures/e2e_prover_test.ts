@@ -15,6 +15,7 @@ import { SecretValue } from '@aztec/foundation/config';
 import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -51,6 +52,7 @@ export class FullProverTest extends BaseEndToEndTest {
   provenWallet!: TestWallet;
   deployedAccounts!: InitialAccountData[];
   fakeProofsAsset!: TokenContract;
+  fakeProofsAssetInstance!: ContractInstanceWithAddress;
   tokenSim!: TokenSimulator;
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
@@ -92,7 +94,7 @@ export class FullProverTest extends BaseEndToEndTest {
 
     // Deploy token contract
     this.logger.verbose(`Deploying TokenContract...`);
-    const asset = await TokenContract.deploy(
+    const { contract: asset, instance } = await TokenContract.deploy(
       this.wallet,
       this.accounts[0],
       FullProverTest.TOKEN_NAME,
@@ -100,10 +102,11 @@ export class FullProverTest extends BaseEndToEndTest {
       FullProverTest.TOKEN_DECIMALS,
     )
       .send({ from: this.accounts[0] })
-      .deployed();
+      .wait();
     this.logger.verbose(`Token deployed to ${asset.address}`);
 
     this.fakeProofsAsset = await TokenContract.at(asset.address, this.wallet);
+    this.fakeProofsAssetInstance = instance;
     this.logger.verbose(`Token contract address: ${this.fakeProofsAsset.address}`);
 
     this.tokenSim = new TokenSimulator(this.fakeProofsAsset, this.wallet, this.accounts[0], this.logger, this.accounts);
@@ -172,16 +175,12 @@ export class FullProverTest extends BaseEndToEndTest {
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
       this.aztecNode,
-      {
-        proverEnabled: this.realProofs,
-        bbBinaryPath: bbConfig?.bbBinaryPath,
-        bbWorkingDirectory: bbConfig?.bbWorkingDirectory,
-      },
+      { proverEnabled: this.realProofs },
       undefined,
       true,
     );
     this.logger.debug(`Contract address ${this.fakeProofsAsset.address}`);
-    await provenWallet.registerContract(this.fakeProofsAsset);
+    await provenWallet.registerContract(this.fakeProofsAssetInstance, TokenContract.artifact);
 
     for (let i = 0; i < 2; i++) {
       await provenWallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
