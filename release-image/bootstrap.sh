@@ -40,6 +40,11 @@ function build {
   denoise "build_image"
 }
 
+function test_cmds {
+  # Very simple sanity test.
+  echo "$hash docker run --rm aztecprotocol/aztec --version"
+}
+
 function release {
   echo_header "release-image release"
 

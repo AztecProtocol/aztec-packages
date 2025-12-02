@@ -10,6 +10,8 @@ function aztec {
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
+export AZTEC_SHELL_WRAPPER=1
+
 case $cmd in
   test)
     export LOG_LEVEL="${LOG_LEVEL:-info}"

@@ -31,9 +31,10 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
 
   program.configureHelp({ sortSubcommands: true });
 
-  program.addHelpText(
-    'after',
-    `
+  if (process.env.AZTEC_SHELL_WRAPPER) {
+    program.addHelpText(
+      'after',
+      `
 
   Additional commands:
 
@@ -73,7 +74,8 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       Example:
         $ aztec preload-crs             # preloads CRS data
     `,
-  );
+    );
+  }
 
   program
     .command('preload-crs')
