@@ -156,8 +156,17 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
         poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
-    NoteHashTreeCheck note_hash_tree_check(
-        hints.tx.non_revertible_accumulated_data.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
+
+    // The protocol requires at least one non-revertible nullifier in the transaction (used for uniqueness of note
+    // hashes).
+    if (hints.tx.non_revertible_accumulated_data.nullifiers.empty()) {
+        throw std::runtime_error("Non-revertible nullifiers are empty in the transaction.");
+    }
+
+    NoteHashTreeCheck note_hash_tree_check(hints.tx.non_revertible_accumulated_data.nullifiers.at(0),
+                                           poseidon2,
+                                           merkle_check,
+                                           note_hash_tree_check_emitter);
     L1ToL2MessageTreeCheck l1_to_l2_msg_tree_check(merkle_check, l1_to_l2_msg_tree_check_emitter);
     EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
@@ -187,8 +196,9 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 
     // Side effect tracking is only strictly needed for logs and L2-to-L1 messages.
     SideEffectTracker side_effect_tracker;
+
     SideEffectTrackingDB merkle_db(
-        hints.tx.non_revertible_accumulated_data.nullifiers[0], base_merkle_db, side_effect_tracker);
+        hints.tx.non_revertible_accumulated_data.nullifiers.at(0), base_merkle_db, side_effect_tracker);
 
     UpdateCheck update_check(
         poseidon2, range_check, greater_than, merkle_db, update_check_emitter, hints.global_variables);
@@ -364,10 +374,17 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     SideEffectTracker side_effect_tracker;
     PureContractDB contract_db(raw_contract_db);
 
+    // The protocol requires at least one non-revertible nullifier in the transaction (used for uniqueness of note
+    // hashes).
+    if (tx.non_revertible_accumulated_data.nullifiers.empty()) {
+        throw std::runtime_error("Non-revertible nullifiers are empty in the transaction.");
+    }
+
     PureMerkleDB base_merkle_db(
-        tx.non_revertible_accumulated_data.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
+        tx.non_revertible_accumulated_data.nullifiers.at(0), raw_merkle_db, written_public_data_slots_tree_check);
     SideEffectTrackingDB merkle_db(
-        tx.non_revertible_accumulated_data.nullifiers[0], base_merkle_db, side_effect_tracker);
+
+        tx.non_revertible_accumulated_data.nullifiers.at(0), base_merkle_db, side_effect_tracker);
 
     // NoopUpdateCheck update_check;
     // TODO(#18161): Note that if we need to gather hints here, we can't use the NoopUpdateCheck as it will skip

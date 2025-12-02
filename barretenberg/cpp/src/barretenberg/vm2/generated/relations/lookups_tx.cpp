@@ -27,7 +27,6 @@ namespace bb::avm2 {
 
 INSTANTIATE_LOOKUP(lookup_tx_read_phase_spec_relation);
 INSTANTIATE_LOOKUP(lookup_tx_read_phase_length_relation);
-INSTANTIATE_LOOKUP(lookup_tx_read_calldata_hash_relation);
 INSTANTIATE_LOOKUP(lookup_tx_read_public_call_request_phase_relation);
 INSTANTIATE_LOOKUP(lookup_tx_read_tree_insert_value_relation);
 INSTANTIATE_LOOKUP(lookup_tx_note_hash_append_relation);
