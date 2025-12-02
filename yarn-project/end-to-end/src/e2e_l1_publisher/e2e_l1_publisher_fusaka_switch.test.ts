@@ -7,7 +7,11 @@ import { createLogger } from '@aztec/aztec.js/log';
 import { GlobalVariables } from '@aztec/aztec.js/tx';
 import { getBlobsPerL1Block } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import { MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import {
+  GENESIS_BLOCK_HEADER_HASH,
+  MAX_NULLIFIERS_PER_TX,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+} from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   type DeployL1ContractsArgs,
@@ -22,7 +26,7 @@ import {
 import { L1TxUtilsWithBlobs, createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { sha256ToField } from '@aztec/foundation/crypto';
@@ -187,13 +191,19 @@ describe('L1Publisher integration', () => {
         const latestBlock = blocks.at(-1);
         const res = latestBlock
           ? { number: latestBlock.number, hash: latestBlock.hash.toString() }
-          : { number: 0, hash: undefined };
+          : { number: 0, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
 
         return Promise.resolve({
           latest: res,
           proven: res,
           finalized: res,
         } as L2Tips);
+      },
+      getBlockNumber(): Promise<BlockNumber> {
+        return Promise.resolve(blocks.at(-1)?.number ?? BlockNumber.ZERO);
+      },
+      getProvenBlockNumber(): Promise<BlockNumber> {
+        return Promise.resolve(blocks.at(-1)?.number ?? BlockNumber.ZERO);
       },
     });
 
@@ -289,7 +299,7 @@ describe('L1Publisher integration', () => {
 
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
     await worldStateSynchronizer.syncImmediate();
-    const tempFork = await worldStateSynchronizer.fork(globalVariables.blockNumber - 1);
+    const tempFork = await worldStateSynchronizer.fork(BlockNumber(globalVariables.blockNumber - 1));
     const block = await buildBlockWithCleanDB(txs, globalVariables, l1ToL2Messages, tempFork);
     await tempFork.close();
     return block;
@@ -300,7 +310,7 @@ describe('L1Publisher integration', () => {
       await setup();
     });
 
-    const buildAndPublishBlock = async (numTxs: number, l2BlockNumber: number, warpToTime?: bigint) => {
+    const buildAndPublishBlock = async (numTxs: number, l2BlockNumber: BlockNumber, warpToTime?: bigint) => {
       // random recipient address, just kept consistent for easy testing ts/sol.
       const recipientAddress = AztecAddress.fromString(
         '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
@@ -410,7 +420,7 @@ describe('L1Publisher integration', () => {
       const fakeTime = BigInt(timestamp) * 1000n;
       jest.setSystemTime(Number(fakeTime));
 
-      await buildAndPublishBlock(0, 1, BigInt(timestamp));
+      await buildAndPublishBlock(0, BlockNumber(1), BigInt(timestamp));
       expect(isFusakaBlobTransaction).toBeDefined();
       expect(isFusakaBlobTransaction).toBe(false);
     });
@@ -442,7 +452,7 @@ describe('L1Publisher integration', () => {
 
       const fakeTime = BigInt(timestamp) * 1000n;
       jest.setSystemTime(Number(fakeTime));
-      await buildAndPublishBlock(0, 1, BigInt(timestamp));
+      await buildAndPublishBlock(0, BlockNumber(1), BigInt(timestamp));
       expect(isFusakaBlobTransaction).toBeDefined();
       expect(isFusakaBlobTransaction).toBe(true);
     });

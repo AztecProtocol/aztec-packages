@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -74,7 +75,7 @@ export class L2BlockStream {
       }
 
       if (latestBlockNumber < localTips.latest.number) {
-        latestBlockNumber = Math.min(latestBlockNumber, sourceTips.latest.number); // see #13471
+        latestBlockNumber = BlockNumber(Math.min(latestBlockNumber, sourceTips.latest.number)); // see #13471
         const hash = sourceCache.get(latestBlockNumber) ?? (await this.getBlockHashFromSource(latestBlockNumber));
         if (latestBlockNumber !== 0 && !hash) {
           throw new Error(`Block hash not found in block source for block number ${latestBlockNumber}`);
@@ -85,7 +86,7 @@ export class L2BlockStream {
 
       // If we are just starting, use the starting block number from the options.
       if (latestBlockNumber === 0 && this.opts.startingBlock !== undefined) {
-        latestBlockNumber = Math.max(this.opts.startingBlock - 1, 0);
+        latestBlockNumber = BlockNumber(Math.max(this.opts.startingBlock - 1, 0));
       }
 
       // Only log this entry once (for sanity)
@@ -108,7 +109,11 @@ export class L2BlockStream {
       while (nextBlockNumber <= sourceTips.latest.number) {
         const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.latest.number - nextBlockNumber + 1);
         this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit} proven=${this.opts.proven}`);
-        const blocks = await this.l2BlockSource.getPublishedBlocks(nextBlockNumber, limit, this.opts.proven);
+        const blocks = await this.l2BlockSource.getPublishedBlocks(
+          BlockNumber(nextBlockNumber),
+          limit,
+          this.opts.proven,
+        );
         if (blocks.length === 0) {
           break;
         }
@@ -139,7 +144,7 @@ export class L2BlockStream {
    * @param blockNumber - The block number to test.
    * @param args - A cache of data already requested from source, to avoid re-requesting it.
    */
-  private async areBlockHashesEqualAt(blockNumber: number, args: { sourceCache: BlockHashCache }) {
+  private async areBlockHashesEqualAt(blockNumber: BlockNumber, args: { sourceCache: BlockHashCache }) {
     if (blockNumber === 0) {
       return true;
     }
@@ -163,7 +168,7 @@ export class L2BlockStream {
     return localBlockHash === sourceBlockHash;
   }
 
-  private getBlockHashFromSource(blockNumber: number) {
+  private getBlockHashFromSource(blockNumber: BlockNumber) {
     return this.l2BlockSource
       .getBlockHeader(blockNumber)
       .then(h => h?.hash())

@@ -1,4 +1,5 @@
 import { BLOCK_END_PREFIX } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 
 import { BlobDeserializationError } from '../errors.js';
@@ -11,7 +12,7 @@ const NUM_TXS_BIT_SIZE = 16n;
 
 export interface BlockEndMarker {
   timestamp: bigint;
-  blockNumber: number;
+  blockNumber: BlockNumber;
   numTxs: number;
 }
 
@@ -30,7 +31,7 @@ export function decodeBlockEndMarker(field: Fr): BlockEndMarker {
   let value = field.toBigInt();
   const numTxs = Number(value & (2n ** NUM_TXS_BIT_SIZE - 1n));
   value >>= NUM_TXS_BIT_SIZE;
-  const blockNumber = Number(value & (2n ** BLOCK_NUMBER_BIT_SIZE - 1n));
+  const blockNumber = BlockNumber(Number(value & (2n ** BLOCK_NUMBER_BIT_SIZE - 1n)));
   value >>= BLOCK_NUMBER_BIT_SIZE;
   const timestamp = value & (2n ** TIMESTAMP_BIT_SIZE - 1n);
   value >>= TIMESTAMP_BIT_SIZE;

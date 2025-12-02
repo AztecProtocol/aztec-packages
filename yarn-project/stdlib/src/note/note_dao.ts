@@ -1,4 +1,5 @@
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -50,7 +51,7 @@ export class NoteDao {
     public txHash: TxHash,
     /** The L2 block number in which the tx with this note was included. Used for note management while processing
      * reorgs.*/
-    public l2BlockNumber: number,
+    public l2BlockNumber: BlockNumber,
     /** The L2 block hash in which the tx with this note was included. Used for note management while processing
      * reorgs.*/
     public l2BlockHash: string,
@@ -87,7 +88,7 @@ export class NoteDao {
     const noteHash = Fr.fromBuffer(reader);
     const siloedNullifier = Fr.fromBuffer(reader);
     const txHash = reader.readObject(TxHash);
-    const l2BlockNumber = reader.readNumber();
+    const l2BlockNumber = BlockNumber(reader.readNumber());
     const l2BlockHash = Fr.fromBuffer(reader).toString();
     const index = toBigIntBE(reader.readBytes(32));
 
@@ -138,7 +139,7 @@ export class NoteDao {
     noteHash = Fr.random(),
     siloedNullifier = Fr.random(),
     txHash = TxHash.random(),
-    l2BlockNumber = Math.floor(Math.random() * 1000),
+    l2BlockNumber = BlockNumber(Math.floor(Math.random() * 1000)),
     l2BlockHash = Fr.random().toString(),
     index = Fr.random().toBigInt(),
   }: Partial<NoteDao> = {}) {

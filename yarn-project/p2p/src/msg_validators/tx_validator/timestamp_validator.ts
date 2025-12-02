@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import {
   type AnyTx,
@@ -17,7 +18,7 @@ export class TimestampTxValidator<T extends AnyTx> implements TxValidator<T> {
       // being built.
       timestamp: UInt64;
       // Block number in which the tx is considered to be included.
-      blockNumber: number;
+      blockNumber: BlockNumber;
     },
   ) {}
 
