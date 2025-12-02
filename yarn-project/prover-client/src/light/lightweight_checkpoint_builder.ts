@@ -1,5 +1,6 @@
 import { SpongeBlob, computeBlobsHashFromBlobs, encodeCheckpointEndMarker, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -25,13 +26,13 @@ import {
  */
 export class LightweightCheckpointBuilder {
   private readonly logger = createLogger('lightweight-checkpoint-builder');
-
   private lastArchives: AppendOnlyTreeSnapshot[] = [];
   private spongeBlob: SpongeBlob;
   private blocks: L2BlockNew[] = [];
   private blobFields: Fr[] = [];
 
   constructor(
+    private checkpointNumber: CheckpointNumber,
     private constants: CheckpointConstantData,
     private l1ToL2Messages: Fr[],
     private db: MerkleTreeWriteOperations,
@@ -41,6 +42,7 @@ export class LightweightCheckpointBuilder {
   }
 
   static async startNewCheckpoint(
+    checkpointNumber: CheckpointNumber,
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     db: MerkleTreeWriteOperations,
@@ -51,7 +53,7 @@ export class LightweightCheckpointBuilder {
       padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
     );
 
-    return new LightweightCheckpointBuilder(constants, l1ToL2Messages, db);
+    return new LightweightCheckpointBuilder(checkpointNumber, constants, l1ToL2Messages, db);
   }
 
   async addBlock(globalVariables: GlobalVariables, endState: StateReference, txs: ProcessedTx[]): Promise<L2BlockNew> {
@@ -136,6 +138,6 @@ export class LightweightCheckpointBuilder {
       totalManaUsed,
     });
 
-    return new Checkpoint(newArchive, header, blocks);
+    return new Checkpoint(newArchive, header, blocks, this.checkpointNumber);
   }
 }

@@ -41,13 +41,7 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
    rm -rf ~/.aztec/v2.1.4/data/archiver
    ```
 
-3. Update to the latest version:
-
-   ```bash
-   aztec-up -v latest
-   ```
-
-4. Restart your node with your normal startup command
+3. Restart your node with your normal startup command
 
 :::warning Data Loss and Resync
 This process removes local state and requires full resynchronization. Consider using snapshot sync mode (`--sync-mode snapshot`) to speed up recovery. See the [syncing best practices guide](../setup/syncing_best_practices.md) for more information.
@@ -215,43 +209,9 @@ Sequencers with insufficient funds in their publisher account risk being slashed
 
 ## Updates and Maintenance
 
-### Updating to Latest Version
-
-**Issue**: You need to update your node to the latest Aztec version.
-
-**Solution**:
-
-#### For CLI Method:
-
-```bash
-# Update the Aztec binary
-aztec-up -v latest
-
-# Verify the new version
-aztec --version
-
-# Restart your node with your normal startup command
-```
-
-#### For Docker Compose Method:
-
-```bash
-# Pull the latest image
-docker compose pull
-
-# Stop the current container
-docker compose down
-
-# Start with the new image
-docker compose up -d
-
-# Verify it's running
-docker compose logs -f aztec-sequencer
-```
-
 #### Version-Specific Updates:
 
-To update to a specific version instead of latest:
+To update to a specific version:
 
 ```bash
 # CLI method

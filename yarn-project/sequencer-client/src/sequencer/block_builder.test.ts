@@ -1,4 +1,5 @@
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -87,7 +88,7 @@ describe('BlockBuilder', () => {
       new Fr(chainId),
       new Fr(version),
       newBlockNumber,
-      new Fr(newSlotNumber),
+      SlotNumber(newSlotNumber),
       /*timestamp=*/ 0n,
       coinbase,
       feeRecipient,
@@ -162,7 +163,7 @@ describe('BlockBuilder', () => {
     expect(publicProcessor.process).toHaveBeenCalledWith(iterator, {}, validator);
     logger.info('Built Block', blockResult.block);
     expect(blockResult.block.header.globalVariables.blockNumber).toBe(newBlockNumber);
-    expect(blockResult.block.header.globalVariables.slotNumber.toNumber()).toBe(newSlotNumber);
+    expect(blockResult.block.header.globalVariables.slotNumber).toBe(newSlotNumber);
     expect(blockResult.block.header.globalVariables.coinbase.toString()).toBe(coinbase.toString());
     expect(blockResult.block.header.globalVariables.feeRecipient.toString()).toBe(feeRecipient.toString());
     expect(blockResult.block.header.globalVariables.gasFees).toEqual(GasFees.empty());

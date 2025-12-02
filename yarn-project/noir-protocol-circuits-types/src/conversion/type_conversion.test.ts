@@ -2,7 +2,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { makeHeader } from '@aztec/stdlib/testing';
+import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { FunctionData } from '@aztec/stdlib/tx';
 
 import { mapFunctionDataFromNoir, mapFunctionDataToNoir } from './client.js';
@@ -57,7 +57,7 @@ describe('Noir<>stdlib type conversion test suite', () => {
     });
 
     it('should map block header', () => {
-      const header = makeHeader(35, undefined);
+      const header = makeBlockHeader(35);
       expect(mapBlockHeaderFromNoir(mapBlockHeaderToNoir(header))).toEqual(header);
     });
   });

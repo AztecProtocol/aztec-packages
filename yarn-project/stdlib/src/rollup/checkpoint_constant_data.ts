@@ -1,3 +1,4 @@
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -24,7 +25,7 @@ export class CheckpointConstantData {
     /** Identifier of the prover. */
     public proverId: Fr,
     /** Slot number of the checkpoint. */
-    public slotNumber: Fr,
+    public slotNumber: SlotNumber,
     /** Coinbase address of the rollup. */
     public coinbase: EthAddress,
     /** Address to receive fees. */
@@ -58,7 +59,7 @@ export class CheckpointConstantData {
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
-      Fr.ZERO,
+      SlotNumber.ZERO,
       EthAddress.ZERO,
       AztecAddress.ZERO,
       GasFees.empty(),
@@ -66,7 +67,17 @@ export class CheckpointConstantData {
   }
 
   toBuffer() {
-    return serializeToBuffer(...CheckpointConstantData.getFields(this));
+    return serializeToBuffer(
+      this.chainId,
+      this.version,
+      this.vkTreeRoot,
+      this.protocolContractsHash,
+      this.proverId,
+      new Fr(this.slotNumber),
+      this.coinbase,
+      this.feeRecipient,
+      this.gasFees,
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -77,11 +88,19 @@ export class CheckpointConstantData {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      SlotNumber(Fr.fromBuffer(reader).toNumber()),
       reader.readObject(EthAddress),
       reader.readObject(AztecAddress),
       reader.readObject(GasFees),
     );
+  }
+
+  /**
+   * Returns the slot number as a SlotNumber branded type.
+   * @deprecated Use slotNumber directly instead.
+   */
+  getSlotNumber(): SlotNumber {
+    return this.slotNumber;
   }
 
   toInspect() {
@@ -91,7 +110,7 @@ export class CheckpointConstantData {
       vkTreeRoot: this.vkTreeRoot.toString(),
       protocolContractsHash: this.protocolContractsHash.toString(),
       proverId: this.proverId.toString(),
-      slotNumber: this.slotNumber.toNumber(),
+      slotNumber: this.slotNumber,
       coinbase: this.coinbase.toString(),
       feeRecipient: this.feeRecipient.toString(),
       gasFees: this.gasFees.toInspect(),

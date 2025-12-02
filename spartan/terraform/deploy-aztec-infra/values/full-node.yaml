@@ -1,4 +1,5 @@
 node:
+  nodeType: "full-node"
   env:
     OTEL_SERVICE_NAME: "full-node"
 

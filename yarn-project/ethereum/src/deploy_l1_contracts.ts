@@ -1,4 +1,5 @@
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue, getActiveNetworkName } from '@aztec/foundation/config';
 import { keccak256String } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -1519,13 +1520,13 @@ export const deployL1Contracts = async (
       // Need to get the time
       const currentSlot = await rollup.getSlotNumber();
 
-      if (BigInt(currentSlot) === 0n) {
-        const ts = Number(await rollup.getTimestampForSlot(1n));
+      if (currentSlot === 0) {
+        const ts = Number(await rollup.getTimestampForSlot(SlotNumber(1)));
         await rpcCall('evm_setNextBlockTimestamp', [ts]);
         await rpcCall('hardhat_mine', [1]);
         const currentSlot = await rollup.getSlotNumber();
 
-        if (BigInt(currentSlot) !== 1n) {
+        if (currentSlot !== 1) {
           throw new Error(`Error jumping time: current slot is ${currentSlot}`);
         }
         logger.info(`Jumped to slot 1`);

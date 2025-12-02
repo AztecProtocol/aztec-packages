@@ -1,3 +1,4 @@
+import type { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
@@ -112,32 +113,32 @@ export interface L2BlockSource {
   /**
    * Returns the current L2 slot number based on the currently synced L1 timestamp.
    */
-  getL2SlotNumber(): Promise<bigint | undefined>;
+  getL2SlotNumber(): Promise<SlotNumber | undefined>;
 
   /**
    * Returns the current L2 epoch number based on the currently synced L1 timestamp.
    */
-  getL2EpochNumber(): Promise<bigint | undefined>;
+  getL2EpochNumber(): Promise<EpochNumber | undefined>;
 
   /**
    * Returns all blocks for a given epoch.
    * @dev Use this method only with recent epochs, since it walks the block list backwards.
    * @param epochNumber - The epoch number to return blocks for.
    */
-  getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]>;
+  getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]>;
 
   /**
    * Returns all block headers for a given epoch.
    * @dev Use this method only with recent epochs, since it walks the block list backwards.
    * @param epochNumber - The epoch number to return headers for.
    */
-  getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]>;
+  getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]>;
 
   /**
    * Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
    * @param epochNumber - The epoch number to check.
    */
-  isEpochComplete(epochNumber: bigint): Promise<boolean>;
+  isEpochComplete(epochNumber: EpochNumber): Promise<boolean>;
 
   /**
    * Returns the tips of the L2 chain.
@@ -231,13 +232,13 @@ export enum L2BlockSourceEvents {
 export type L2BlockProvenEvent = {
   type: 'l2BlockProven';
   blockNumber: bigint;
-  slotNumber: bigint;
-  epochNumber: bigint;
+  slotNumber: SlotNumber;
+  epochNumber: EpochNumber;
 };
 
 export type L2BlockPruneEvent = {
   type: 'l2PruneDetected';
-  epochNumber: bigint;
+  epochNumber: EpochNumber;
   blocks: L2Block[];
 };
 

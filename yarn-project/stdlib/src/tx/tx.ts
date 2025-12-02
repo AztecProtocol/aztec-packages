@@ -300,8 +300,9 @@ export class Tx extends Gossipable {
   }
 
   /** Recomputes the tx hash. Used for testing purposes only when a property of the tx was mutated. */
-  public async recomputeHash() {
+  public async recomputeHash(): Promise<TxHash> {
     (this as any).txHash = await Tx.computeTxHash(this);
+    return this.txHash;
   }
 
   #combinePublicCallRequestWithCallData(request: PublicCallRequest) {

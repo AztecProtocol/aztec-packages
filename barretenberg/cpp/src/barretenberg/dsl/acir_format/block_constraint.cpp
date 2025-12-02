@@ -15,26 +15,9 @@ namespace acir_format {
 
 using namespace bb;
 
-template <typename Builder>
-stdlib::field_t<Builder> arithmetic_triple_to_field_ct(const arithmetic_triple poly, Builder& builder)
-{
-    using field_ct = stdlib::field_t<Builder>;
-
-    BB_ASSERT_EQ(poly.q_m, 0);
-    BB_ASSERT_EQ(poly.q_r, 0);
-    BB_ASSERT_EQ(poly.q_o, 0);
-    if (poly.q_l == 0) {
-        return field_ct(poly.q_c);
-    }
-    field_ct x = field_ct::from_witness_index(&builder, poly.a);
-    x.additive_constant = poly.q_c;
-    x.multiplicative_constant = poly.q_l;
-    return x;
-}
-
 /**
  * @brief Create block constraints; Specialization for Ultra arithmetization
- * @details Ultra does not support DataBus operations so calldata/returndata are treated as ROM ops
+ * @details Ultra does not support DataBus operations
  *
  */
 template <>
@@ -45,24 +28,28 @@ void create_block_constraints(UltraCircuitBuilder& builder,
     using field_ct = bb::stdlib::field_t<UltraCircuitBuilder>;
 
     std::vector<field_ct> init;
-    for (auto i : constraint.init) {
-        field_ct value = arithmetic_triple_to_field_ct(i, builder);
-        init.push_back(value);
+    init.reserve(constraint.init.size());
+    for (const auto idx : constraint.init) {
+        init.push_back(field_ct::from_witness_index(&builder, idx));
     }
 
     switch (constraint.type) {
     // Note: CallData/ReturnData require DataBus, which is only available in Mega and in particular is _not_ supported
-    // by Ultra. They are therefore interpreted as ROM calls instead.
-    case BlockType::CallData:
-    case BlockType::ReturnData:
+    // by Ultra. If we encounter them in an Ultra circuit, we return an error.
     case BlockType::ROM:
         process_ROM_operations(builder, constraint, has_valid_witness_assignments, init);
         break;
     case BlockType::RAM:
         process_RAM_operations(builder, constraint, has_valid_witness_assignments, init);
         break;
+    case BlockType::CallData:
+    case BlockType::ReturnData:
+        bb::assert_failure(
+            "UltraCircuitBuilder (standalone Noir application) does not support CallData/ReturnData "
+            "block constraints. Use MegaCircuitBuilder (Aztec app) or fall back to RAM and ROM operations.");
+        break;
     default:
-        throw_or_abort("Unexpected block constraint type.");
+        bb::assert_failure("Unexpected block constraint type.");
         break;
     }
 }
@@ -79,9 +66,9 @@ void create_block_constraints(MegaCircuitBuilder& builder,
     using field_ct = stdlib::field_t<MegaCircuitBuilder>;
 
     std::vector<field_ct> init;
-    for (auto i : constraint.init) {
-        field_ct value = arithmetic_triple_to_field_ct(i, builder);
-        init.push_back(value);
+    init.reserve(constraint.init.size());
+    for (const auto idx : constraint.init) {
+        init.push_back(field_ct::from_witness_index(&builder, idx));
     }
 
     switch (constraint.type) {
@@ -98,7 +85,7 @@ void create_block_constraints(MegaCircuitBuilder& builder,
         process_return_data_operations(builder, constraint, init);
     } break;
     default:
-        throw_or_abort("Unexpected block constraint type.");
+        bb::assert_failure("Unexpected block constraint type.");
         break;
     }
 }
@@ -112,22 +99,25 @@ void process_ROM_operations(Builder& builder,
     using field_ct = stdlib::field_t<Builder>;
     using rom_table_ct = stdlib::rom_table<Builder>;
 
-    rom_table_ct table(init);
+    rom_table_ct table(&builder, init);
     for (const auto& op : constraint.trace) {
-        BB_ASSERT_EQ(op.access_type, 0);
-        field_ct value = arithmetic_triple_to_field_ct(op.value, builder);
-        field_ct index = arithmetic_triple_to_field_ct(op.index, builder);
-        // For a ROM table, constant read should be already optimized out by the Noir compiler. Note that the
-        // `rom_table` indeed can perform constant reads, so this assert is present just to make sure the Noir compiler
-        // is acting as-it-should.
-        BB_ASSERT(op.index.q_l != 0, "witness index should be non-constant.");
+        field_ct value = to_field_ct(op.value, builder);
+        field_ct index = to_field_ct(op.index, builder);
 
         // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
         // ROM table
-        if (!has_valid_witness_assignments) {
+        if (!has_valid_witness_assignments && !index.is_constant()) {
             builder.set_variable(index.get_witness_index(), 0);
         }
-        value.assert_equal(table[index]);
+
+        switch (op.access_type) {
+        case AccessType::Read:
+            value.assert_equal(table[index]);
+            break;
+        default:
+            bb::assert_failure("Invalid AccessType for ROM memory operation.");
+            break;
+        }
     }
 }
 
@@ -140,21 +130,27 @@ void process_RAM_operations(Builder& builder,
     using field_ct = stdlib::field_t<Builder>;
     using ram_table_ct = stdlib::ram_table<Builder>;
 
-    ram_table_ct table(init);
+    ram_table_ct table(&builder, init);
     for (const auto& op : constraint.trace) {
-        field_ct value = arithmetic_triple_to_field_ct(op.value, builder);
-        field_ct index = arithmetic_triple_to_field_ct(op.index, builder);
+        field_ct value = to_field_ct(op.value, builder);
+        field_ct index = to_field_ct(op.index, builder);
+
         // In case of invalid witness assignment, we set the value of index value to zero to not hit an out-of-bounds
         // index in the RAM table
-        if (!has_valid_witness_assignments) {
+        if (!has_valid_witness_assignments && !index.is_constant()) {
             builder.set_variable(index.get_witness_index(), 0);
         }
 
-        if (op.access_type == 0) {
+        switch (op.access_type) {
+        case AccessType::Read:
             value.assert_equal(table.read(index));
-        } else {
-            BB_ASSERT_EQ(op.access_type, 1);
+            break;
+        case AccessType::Write:
             table.write(index, value);
+            break;
+        default:
+            bb::assert_failure("Invalid AccessType for RAM memory operation.");
+            break;
         }
     }
 }
@@ -176,25 +172,37 @@ void process_call_data_operations(Builder& builder,
         calldata_array.set_values(init); // Initialize the data in the bus array
 
         for (const auto& op : constraint.trace) {
-            BB_ASSERT_EQ(op.access_type, 0);
-            field_ct value = arithmetic_triple_to_field_ct(op.value, builder);
-            field_ct index = arithmetic_triple_to_field_ct(op.index, builder);
+            field_ct value = to_field_ct(op.value, builder);
+            field_ct index = to_field_ct(op.index, builder);
+
             // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
-            // calldata-array
-            if (!has_valid_witness_assignments) {
+            // ROM table
+            if (!has_valid_witness_assignments && !index.is_constant()) {
                 builder.set_variable(index.get_witness_index(), 0);
             }
-            value.assert_equal(calldata_array[index]);
+
+            switch (op.access_type) {
+            case AccessType::Read:
+                value.assert_equal(calldata_array[index]);
+                break;
+            default:
+                bb::assert_failure("Invalid AccessType for CallData memory operation.");
+                break;
+            }
         }
     };
 
     // Process primary or secondary calldata based on calldata_id
-    if (constraint.calldata_id == 0) {
+    switch (constraint.calldata_id) {
+    case CallDataType::Primary:
         process_calldata(databus.calldata);
-    } else if (constraint.calldata_id == 1) {
+        break;
+    case CallDataType::Secondary:
         process_calldata(databus.secondary_calldata);
-    } else {
-        throw_or_abort("Databus only supports two calldata arrays.");
+        break;
+    default:
+        bb::assert_failure("Databus only supports two calldata arrays.");
+        break;
     }
 }
 
@@ -204,6 +212,9 @@ void process_return_data_operations(Builder& builder,
                                     std::vector<bb::stdlib::field_t<Builder>>& init)
 {
     using databus_ct = stdlib::databus<Builder>;
+    // Return data opcodes simply copy the data from the initialization vector to the return data vector in the databus.
+    // There is no operation happening.
+    BB_ASSERT_EQ(constraint.trace.size(), 0U, "Return data opcodes should have empty traces");
 
     databus_ct databus;
 
@@ -218,7 +229,6 @@ void process_return_data_operations(Builder& builder,
         value.assert_equal(databus.return_data[c]);
         c++;
     }
-    BB_ASSERT_EQ(constraint.trace.size(), 0U);
 }
 
 } // namespace acir_format

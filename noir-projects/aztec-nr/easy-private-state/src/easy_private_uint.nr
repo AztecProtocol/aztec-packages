@@ -39,16 +39,16 @@ impl EasyPrivateUint<&mut PrivateContext> {
     // Very similar to `value_note::utils::increment`.
     pub fn add(self, addend: u64, owner: AztecAddress) {
         // Creates new note for the owner.
-        let addend_note = ValueNote::new(addend as Field, owner);
+        let addend_note = ValueNote::new(addend as Field);
 
         // Insert the new note to the owner's set of notes.
-        self.set.insert(addend_note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.set.at(owner).insert(addend_note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Very similar to `value_note::utils::decrement`.
     pub fn sub(self, subtrahend: u64, owner: AztecAddress) {
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
-        let notes = self.set.pop_notes(options);
+        let notes = self.set.at(owner).pop_notes(options);
         let mut minuend: u64 = 0;
         for i in 0..options.limit {
             if i < notes.len() {
@@ -62,13 +62,13 @@ impl EasyPrivateUint<&mut PrivateContext> {
 
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
-        let result_note = ValueNote::new(result_value as Field, owner);
-        self.set.insert(result_note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        let result_note = ValueNote::new(result_value as Field);
+        self.set.at(owner).insert(result_note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 }
 
 impl EasyPrivateUint<UtilityContext> {
-    pub unconstrained fn get_value(self) -> Field {
-        balance_utils::get_balance(self.set)
+    pub unconstrained fn get_value(self, owner: AztecAddress) -> Field {
+        balance_utils::get_balance(self.set, owner)
     }
 }

@@ -1,3 +1,4 @@
+import type { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fq, Fr, Point } from '@aztec/foundation/fields';
@@ -64,6 +65,12 @@ export const schemas = {
 
   /** Accepts a hex string. */
   EventSelector: EventSelector.schema,
+
+  /** Accepts a number, bigint, or string and coerces to SlotNumber. */
+  SlotNumber: foundationSchemas.SlotNumber as ZodFor<SlotNumber>,
+
+  /** Accepts a number, bigint, or string and coerces to EpochNumber. */
+  EpochNumber: foundationSchemas.EpochNumber as ZodFor<EpochNumber>,
 
   GasUsed: z.object({
     totalGas: Gas.schema,

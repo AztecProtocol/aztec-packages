@@ -1,3 +1,4 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { Offense, ProposerSlashAction, SlashPayloadRound } from '@aztec/stdlib/slashing';
 
@@ -38,7 +39,7 @@ export interface SlasherClientInterface {
    * @param slotNumber - The current slot number
    * @returns The actions to take
    */
-  getProposerActions(slotNumber: bigint): Promise<ProposerSlashAction[]>;
+  getProposerActions(slotNumber: SlotNumber): Promise<ProposerSlashAction[]>;
 
   /** Returns the current config */
   getConfig(): SlasherConfig;

@@ -7,6 +7,7 @@ pub contract NoConstructor {
     use aztec::{
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
+        protocol_types::address::AztecAddress,
         state_vars::PrivateMutable,
     };
 
@@ -27,18 +28,19 @@ pub contract NoConstructor {
     /// no constructor/initializer.
     #[external("private")]
     fn initialize_private_mutable(value: Field) {
-        let note = ValueNote::new(value, self.msg_sender().unwrap());
+        let owner = self.msg_sender().unwrap();
+        let note = ValueNote::new(value);
 
-        self.storage.private_mutable.initialize(note).emit(
-            self.msg_sender().unwrap(),
+        self.storage.private_mutable.at(owner).initialize(note).emit(
+            owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
 
     /// Helper function used to test that call to `initialize_private_mutable` was successful or not yet performed.
     #[external("utility")]
-    unconstrained fn is_private_mutable_initialized() -> bool {
-        self.storage.private_mutable.is_initialized()
+    unconstrained fn is_private_mutable_initialized(owner: AztecAddress) -> bool {
+        self.storage.private_mutable.at(owner).is_initialized()
     }
 
 }

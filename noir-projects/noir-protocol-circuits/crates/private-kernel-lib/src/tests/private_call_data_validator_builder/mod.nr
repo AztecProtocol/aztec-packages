@@ -1,12 +1,11 @@
 mod validate_against_call_request;
 mod validate_against_previous_kernel;
 mod validate_against_tx_request;
-mod validate_arrays;
 mod validate_as_first_call;
 mod restrict_side_effects;
 mod validate_call_requests;
 mod validate_contract_address;
-mod validate_counters;
+mod validate_side_effect_counters;
 mod validate_private_call_requests;
 mod verify_proof;
 mod validate_claimed_lengths;

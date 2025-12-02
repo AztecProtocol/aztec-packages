@@ -44,11 +44,11 @@ describe('e2e_deploy_contract private initialization', () => {
   it('executes a function in a contract without initializer', async () => {
     const contract = await t.registerContract(wallet, NoConstructorContract);
     await expect(
-      contract.methods.is_private_mutable_initialized().simulate({ from: defaultAccountAddress }),
+      contract.methods.is_private_mutable_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
     ).resolves.toEqual(false);
     await contract.methods.initialize_private_mutable(42).send({ from: defaultAccountAddress }).wait();
     await expect(
-      contract.methods.is_private_mutable_initialized().simulate({ from: defaultAccountAddress }),
+      contract.methods.is_private_mutable_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
     ).resolves.toEqual(true);
   });
 

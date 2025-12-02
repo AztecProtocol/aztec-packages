@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { countWhile, filterAsync, fromEntries, getEntries, mapValues } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -40,9 +41,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   protected blockStream!: L2BlockStream;
   protected l2TipsStore: L2TipsStore;
 
-  protected initialSlot: bigint | undefined;
-  protected lastProcessedSlot: bigint | undefined;
-  protected slotNumberToBlock: Map<bigint, { blockNumber: number; archive: string; attestors: EthAddress[] }> =
+  protected initialSlot: SlotNumber | undefined;
+  protected lastProcessedSlot: SlotNumber | undefined;
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  protected slotNumberToBlock: Map<SlotNumber, { blockNumber: number; archive: string; attestors: EthAddress[] }> =
     new Map();
 
   constructor(
@@ -134,7 +136,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     await this.handleProvenPerformance(epoch, performance);
   }
 
-  protected async computeProvenPerformance(epoch: bigint): Promise<ValidatorsEpochPerformance> {
+  protected async computeProvenPerformance(epoch: EpochNumber): Promise<ValidatorsEpochPerformance> {
     const [fromSlot, toSlot] = getSlotRangeForEpoch(epoch, this.epochCache.getL1Constants());
     const { committee } = await this.epochCache.getCommittee(fromSlot);
     if (!committee) {
@@ -142,7 +144,11 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return {};
     }
 
-    const stats = await this.computeStats({ fromSlot, toSlot, validators: committee });
+    const stats = await this.computeStats({
+      fromSlot,
+      toSlot,
+      validators: committee,
+    });
     this.logger.debug(`Stats for epoch ${epoch}`, { ...stats, fromSlot, toSlot, epoch });
 
     // Note that we are NOT using the total slots in the epoch as `total` here, since we only
@@ -165,7 +171,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    */
   protected async checkPastInactivity(
     validator: EthAddress,
-    currentEpoch: bigint,
+    currentEpoch: EpochNumber,
     requiredConsecutiveEpochs: number,
   ): Promise<boolean> {
     if (requiredConsecutiveEpochs === 0) {
@@ -192,7 +198,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       .every(p => p.missed / p.total >= this.config.slashInactivityTargetPercentage);
   }
 
-  protected async handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
+  protected async handleProvenPerformance(epoch: EpochNumber, performance: ValidatorsEpochPerformance) {
     if (this.config.slashInactivityPenalty === 0n) {
       return;
     }
@@ -216,7 +222,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       validator: EthAddress.fromString(address),
       amount: this.config.slashInactivityPenalty,
       offenseType: OffenseType.INACTIVITY,
-      epochOrSlot: epoch,
+      epochOrSlot: BigInt(epoch),
     }));
 
     if (criminals.length > 0) {
@@ -257,8 +263,13 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    * We also don't move past the archiver last synced L2 slot, as we don't want to process data that is not yet available.
    * Last, we check the p2p is synced with the archiver, so it has pulled all attestations from it.
    */
-  protected async isReadyToProcess(currentSlot: bigint) {
-    const targetSlot = currentSlot - 2n;
+  protected async isReadyToProcess(currentSlot: SlotNumber): Promise<SlotNumber | false> {
+    if (currentSlot < 2) {
+      this.logger.trace(`Current slot ${currentSlot} too early.`);
+      return false;
+    }
+
+    const targetSlot = SlotNumber(currentSlot - 2);
     if (this.lastProcessedSlot && this.lastProcessedSlot >= targetSlot) {
       this.logger.trace(`Already processed slot ${targetSlot}`, { lastProcessedSlot: this.lastProcessedSlot });
       return false;
@@ -295,7 +306,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    * Gathers committee and proposer data for a given slot, computes slot stats,
    * and updates overall stats.
    */
-  protected async processSlot(slot: bigint) {
+  protected async processSlot(slot: SlotNumber) {
     const { epoch, seed, committee } = await this.epochCache.getCommittee(slot);
     if (!committee || committee.length === 0) {
       this.logger.trace(`No committee found for slot ${slot} at epoch ${epoch}`);
@@ -311,7 +322,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   }
 
   /** Computes activity for a given slot. */
-  protected async getSlotActivity(slot: bigint, epoch: bigint, proposer: EthAddress, committee: EthAddress[]) {
+  protected async getSlotActivity(slot: SlotNumber, epoch: EpochNumber, proposer: EthAddress, committee: EthAddress[]) {
     this.logger.debug(`Computing stats for slot ${slot} at epoch ${epoch}`, { slot, epoch, proposer, committee });
 
     // Check if there is an L2 block in L1 for this L2 slot
@@ -373,7 +384,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   }
 
   /** Push the status for each slot for each validator. */
-  protected updateValidators(slot: bigint, stats: Record<`0x${string}`, ValidatorStatusInSlot | undefined>) {
+  protected updateValidators(slot: SlotNumber, stats: Record<`0x${string}`, ValidatorStatusInSlot | undefined>) {
     return this.store.updateValidators(slot, stats);
   }
 
@@ -382,13 +393,13 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     fromSlot,
     toSlot,
     validators,
-  }: { fromSlot?: bigint; toSlot?: bigint; validators?: EthAddress[] } = {}): Promise<ValidatorsStats> {
+  }: { fromSlot?: SlotNumber; toSlot?: SlotNumber; validators?: EthAddress[] } = {}): Promise<ValidatorsStats> {
     const histories = validators
       ? fromEntries(await Promise.all(validators.map(async v => [v.toString(), await this.store.getHistory(v)])))
       : await this.store.getHistories();
 
     const slotNow = this.epochCache.getEpochAndSlotNow().slot;
-    fromSlot ??= (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
+    fromSlot ??= SlotNumber(Math.max((this.lastProcessedSlot ?? slotNow) - this.store.getHistoryLength(), 0));
     toSlot ??= this.lastProcessedSlot ?? slotNow;
 
     const stats = mapValues(histories, (history, address) =>
@@ -406,8 +417,8 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   /** Computes stats for a single validator. */
   public async getValidatorStats(
     validatorAddress: EthAddress,
-    fromSlot?: bigint,
-    toSlot?: bigint,
+    fromSlot?: SlotNumber,
+    toSlot?: SlotNumber,
   ): Promise<SingleValidatorStats | undefined> {
     const history = await this.store.getHistory(validatorAddress);
 
@@ -416,13 +427,14 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
 
     const slotNow = this.epochCache.getEpochAndSlotNow().slot;
-    const effectiveFromSlot = fromSlot ?? (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
+    const effectiveFromSlot =
+      fromSlot ?? SlotNumber(Math.max((this.lastProcessedSlot ?? slotNow) - this.store.getHistoryLength(), 0));
     const effectiveToSlot = toSlot ?? this.lastProcessedSlot ?? slotNow;
 
     const historyLength = BigInt(this.store.getHistoryLength());
-    if (effectiveToSlot - effectiveFromSlot > historyLength) {
+    if (BigInt(effectiveToSlot) - BigInt(effectiveFromSlot) > historyLength) {
       throw new Error(
-        `Slot range (${effectiveToSlot - effectiveFromSlot}) exceeds history length (${historyLength}). ` +
+        `Slot range (${BigInt(effectiveToSlot) - BigInt(effectiveFromSlot)}) exceeds history length (${historyLength}). ` +
           `Requested range: ${effectiveFromSlot} to ${effectiveToSlot}.`,
       );
     }
@@ -433,11 +445,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       effectiveFromSlot,
       effectiveToSlot,
     );
-    const allTimeProvenPerformance = await this.store.getProvenPerformance(validatorAddress);
 
     return {
       validator,
-      allTimeProvenPerformance,
+      allTimeProvenPerformance: await this.store.getProvenPerformance(validatorAddress),
       lastProcessedSlot: this.lastProcessedSlot,
       initialSlot: this.initialSlot,
       slotWindow: this.store.getHistoryLength(),
@@ -447,11 +458,11 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   protected computeStatsForValidator(
     address: `0x${string}`,
     allHistory: ValidatorStatusHistory,
-    fromSlot?: bigint,
-    toSlot?: bigint,
+    fromSlot?: SlotNumber,
+    toSlot?: SlotNumber,
   ): ValidatorStats {
-    let history = fromSlot ? allHistory.filter(h => h.slot >= fromSlot) : allHistory;
-    history = toSlot ? history.filter(h => h.slot <= toSlot) : history;
+    let history = fromSlot ? allHistory.filter(h => BigInt(h.slot) >= fromSlot) : allHistory;
+    history = toSlot ? history.filter(h => BigInt(h.slot) <= toSlot) : history;
     const lastProposal = history.filter(h => h.status === 'block-proposed' || h.status === 'block-mined').at(-1);
     const lastAttestation = history.filter(h => h.status === 'attestation-sent').at(-1);
     return {
@@ -480,7 +491,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     };
   }
 
-  protected computeFromSlot(slot: bigint | undefined) {
+  protected computeFromSlot(slot: SlotNumber | undefined) {
     if (slot === undefined) {
       return undefined;
     }

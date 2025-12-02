@@ -63,6 +63,11 @@ void mutate_switch_to_non_terminated_block(SwitchToNonTerminatedBlock& instr, st
     mutate_uint16_t(instr.non_terminated_block_idx, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
 }
 
+void mutate_insert_internal_call(InsertInternalCall& instr, std::mt19937_64& rng)
+{
+    mutate_uint16_t(instr.target_program_block_instruction_block_idx, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+}
+
 CFGInstruction generate_cfg_instruction(std::mt19937_64& rng)
 {
     CFGInstructionGenerationOptions option = BASIC_CFG_INSTRUCTION_GENERATION_CONFIGURATION.select(rng);
@@ -83,6 +88,8 @@ CFGInstruction generate_cfg_instruction(std::mt19937_64& rng)
                                                 generate_random_uint16(rng)));
     case CFGInstructionGenerationOptions::SwitchToNonTerminatedBlock:
         return SwitchToNonTerminatedBlock(generate_random_uint16(rng));
+    case CFGInstructionGenerationOptions::InsertInternalCall:
+        return InsertInternalCall(generate_random_uint16(rng));
     }
 }
 
@@ -95,7 +102,8 @@ void mutate_cfg_instruction(CFGInstruction& cfg_instruction, std::mt19937_64& rn
                    [&](JumpToBlock& instr) { mutate_jump_to_block(instr, rng); },
                    [&](JumpIfToBlock& instr) { mutate_jump_if_to_block(instr, rng); },
                    [&](FinalizeWithReturn& instr) { mutate_finalize_with_return(instr, rng); },
-                   [&](SwitchToNonTerminatedBlock& instr) { mutate_switch_to_non_terminated_block(instr, rng); } },
+                   [&](SwitchToNonTerminatedBlock& instr) { mutate_switch_to_non_terminated_block(instr, rng); },
+                   [&](InsertInternalCall& instr) { mutate_insert_internal_call(instr, rng); } },
                cfg_instruction);
 }
 
