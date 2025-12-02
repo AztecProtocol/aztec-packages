@@ -1,3 +1,4 @@
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
   type ContractInstanceWithAddress,
   getContractInstanceFromInstantiationParams,
@@ -13,11 +14,11 @@ async function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> {
   });
 }
 
-export async function getSponsoredFPCAddress() {
+export async function getSponsoredFPCAddress(): Promise<AztecAddress> {
   return (await getSponsoredFPCInstance()).address;
 }
 
-export async function registerDeployedSponsoredFPCInWalletAndGetAddress(wallet: Wallet) {
+export async function registerDeployedSponsoredFPCInWalletAndGetAddress(wallet: Wallet): Promise<AztecAddress> {
   const fpc = await getSponsoredFPCInstance();
   // The following is no-op if the contract is already registered
   await wallet.registerContract(fpc, SponsoredFPCContract.artifact);

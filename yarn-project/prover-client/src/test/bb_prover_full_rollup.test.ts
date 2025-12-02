@@ -1,5 +1,6 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec/constants';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -52,19 +53,17 @@ describe('prover/bb_prover/full-rollup', () => {
       );
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
 
       for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
-        const { constants, blocks, l1ToL2Messages, totalNumBlobFields, previousBlockHeader } =
-          checkpoints[checkpointIndex];
+        const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
 
         log.info(`Starting new checkpoint #${checkpointIndex}`);
         await context.orchestrator.startNewCheckpoint(
           checkpointIndex,
           constants,
           l1ToL2Messages,
-          1,
-          totalNumBlobFields,
+          EpochNumber(1),
           previousBlockHeader,
         );
 

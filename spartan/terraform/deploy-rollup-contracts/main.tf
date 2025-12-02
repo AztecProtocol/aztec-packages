@@ -42,7 +42,8 @@ locals {
     LOG_LEVEL       = "debug"
     BOOTSTRAP_NODES = "asdf"
     } : { for k, v in {
-      AZTEC_LAG_IN_EPOCHS                      = var.AZTEC_LAG_IN_EPOCHS
+      AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET    = var.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET
+      AZTEC_LAG_IN_EPOCHS_FOR_RANDAO           = var.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO
       AZTEC_SLOT_DURATION                      = var.AZTEC_SLOT_DURATION
       AZTEC_EPOCH_DURATION                     = var.AZTEC_EPOCH_DURATION
       AZTEC_TARGET_COMMITTEE_SIZE              = var.AZTEC_TARGET_COMMITTEE_SIZE

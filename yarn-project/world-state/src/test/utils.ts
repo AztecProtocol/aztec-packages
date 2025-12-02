@@ -20,9 +20,9 @@ export async function mockBlock(
   blockNum: number,
   size: number,
   fork: MerkleTreeWriteOperations,
-  maxEffects: number | undefined = undefined,
+  maxEffects: number | undefined = 1000, // Defaults to the maximum tx effects.
 ) {
-  const l2Block = await L2Block.random(blockNum, size, maxEffects);
+  const l2Block = await L2Block.random(blockNum, size, undefined, undefined, undefined, undefined, maxEffects);
   const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.random);
 
   {

@@ -1,9 +1,10 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 
+import type { BatchedBlob } from './batched_blob.js';
 import { Blob } from './blob.js';
 import { type CheckpointBlobData, decodeCheckpointBlobDataFromBuffer } from './encoding/index.js';
-import { computeBlobFieldsHash, computeBlobsHash } from './hash.js';
+import { computeBlobsHash, computeEthVersionedBlobHash } from './hash.js';
 
 /**
  * @param blobs - The blobs to emit.
@@ -49,20 +50,32 @@ export function decodeCheckpointBlobDataFromBlobs(blobs: Blob[]): CheckpointBlob
   return decodeCheckpointBlobDataFromBuffer(buf);
 }
 
-export async function computeBlobFieldsHashFromBlobs(blobs: Blob[]): Promise<Fr> {
-  const fields = blobs.map(b => b.toFields()).flat();
-  const numBlobFields = fields[0].toNumber();
-  if (numBlobFields > fields.length) {
-    throw new Error(`The prefix indicates ${numBlobFields} fields. Got ${fields.length}.`);
-  }
-
-  return await computeBlobFieldsHash(fields.slice(0, numBlobFields));
-}
-
 export function computeBlobsHashFromBlobs(blobs: Blob[]): Fr {
   return computeBlobsHash(blobs.map(b => b.getEthVersionedBlobHash()));
 }
 
 export function getBlobCommitmentsFromBlobs(blobs: Blob[]): BLS12Point[] {
   return blobs.map(b => BLS12Point.decompress(b.commitment));
+}
+
+/**
+ * Returns a proof of opening of the blobs to verify on L1 using the point evaluation precompile:
+ *
+ * input[:32]     - versioned_hash
+ * input[32:64]   - z
+ * input[64:96]   - y
+ * input[96:144]  - commitment C
+ * input[144:192] - commitment Q (a 'proof' committing to the quotient polynomial q(X))
+ *
+ * See https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
+ */
+export function getEthBlobEvaluationInputs(batchedBlob: BatchedBlob): `0x${string}` {
+  const buf = Buffer.concat([
+    computeEthVersionedBlobHash(batchedBlob.commitment.compress()),
+    batchedBlob.z.toBuffer(),
+    batchedBlob.y.toBuffer(),
+    batchedBlob.commitment.compress(),
+    batchedBlob.q.compress(),
+  ]);
+  return `0x${buf.toString('hex')}`;
 }

@@ -434,11 +434,11 @@ export function mapPrivateCircuitPublicInputsToNoir(
     returns_hash: mapFieldToNoir(privateCircuitPublicInputs.returnsHash),
     note_hash_read_requests: mapClaimedLengthArrayToNoir(
       privateCircuitPublicInputs.noteHashReadRequests,
-      mapReadRequestToNoir,
+      mapScopedReadRequestToNoir,
     ),
     nullifier_read_requests: mapClaimedLengthArrayToNoir(
       privateCircuitPublicInputs.nullifierReadRequests,
-      mapReadRequestToNoir,
+      mapScopedReadRequestToNoir,
     ),
     key_validation_requests_and_generators: mapClaimedLengthArrayToNoir(
       privateCircuitPublicInputs.keyValidationRequestsAndGenerators,

@@ -5,7 +5,9 @@ use dep::protocol_types::{address::AztecAddress, traits::Packable};
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
 /// transaction. This note should only be added to the non-volatile database if found in an actual block.
 pub fn notify_created_note<let N: u32>(
+    owner: AztecAddress,
     storage_slot: Field,
+    randomness: Field,
     note_type_id: Field,
     packed_note: [Field; N],
     note_hash: Field,
@@ -15,7 +17,9 @@ pub fn notify_created_note<let N: u32>(
     // to call.
     unsafe {
         notify_created_note_oracle_wrapper(
+            owner,
             storage_slot,
+            randomness,
             note_type_id,
             packed_note,
             note_hash,
@@ -41,18 +45,30 @@ pub fn notify_created_nullifier(nullifier: Field) {
 }
 
 unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
+    owner: AztecAddress,
     storage_slot: Field,
+    randomness: Field,
     note_type_id: Field,
     packed_note: [Field; N],
     note_hash: Field,
     counter: u32,
 ) {
-    notify_created_note_oracle(storage_slot, note_type_id, packed_note, note_hash, counter);
+    notify_created_note_oracle(
+        owner,
+        storage_slot,
+        randomness,
+        note_type_id,
+        packed_note,
+        note_hash,
+        counter,
+    );
 }
 
 #[oracle(privateNotifyCreatedNote)]
 unconstrained fn notify_created_note_oracle<let N: u32>(
+    _owner: AztecAddress,
     _storage_slot: Field,
+    _randomness: Field,
     _note_type_id: Field,
     _packed_note: [Field; N],
     _note_hash: Field,
@@ -79,6 +95,7 @@ unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) {}
 
 #[oracle(utilityGetNotes)]
 unconstrained fn get_notes_oracle<Note, let M: u32, let MaxNotes: u32>(
+    _owner: AztecAddress,
     _storage_slot: Field,
     _num_selects: u8,
     _select_by_indexes: [u8; M],
@@ -105,6 +122,7 @@ where
 {}
 
 pub unconstrained fn get_notes<Note, let M: u32, let MaxNotes: u32>(
+    owner: AztecAddress,
     storage_slot: Field,
     num_selects: u8,
     select_by_indexes: [u8; M],
@@ -125,6 +143,7 @@ where
 {
     let packed_retrieved_notes: BoundedVec<[Field; <RetrievedNote<Note> as Packable>::N], MaxNotes>
          = get_notes_oracle::<Note, M, MaxNotes>(
+            owner,
             storage_slot,
             num_selects,
             select_by_indexes,

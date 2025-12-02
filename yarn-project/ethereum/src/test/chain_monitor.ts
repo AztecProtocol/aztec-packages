@@ -1,4 +1,5 @@
 import { InboxContract, type RollupContract } from '@aztec/ethereum/contracts';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -10,11 +11,13 @@ import type { ViemClient } from '../types.js';
 
 export type ChainMonitorEventMap = {
   'l1-block': [{ l1BlockNumber: number; timestamp: bigint }];
-  'l2-block': [{ l2BlockNumber: number; l1BlockNumber: number; l2SlotNumber: number; timestamp: bigint }];
-  'l2-block-proven': [{ l2ProvenBlockNumber: number; l1BlockNumber: number; timestamp: bigint }];
+  checkpoint: [
+    { checkpointNumber: CheckpointNumber; l1BlockNumber: number; l2SlotNumber: SlotNumber; timestamp: bigint },
+  ];
+  'checkpoint-proven': [{ provenCheckpointNumber: CheckpointNumber; l1BlockNumber: number; timestamp: bigint }];
   'l2-messages': [{ totalL2Messages: number; l1BlockNumber: number }];
-  'l2-epoch': [{ l2EpochNumber: number; timestamp: bigint; committee: EthAddress[] | undefined }];
-  'l2-slot': [{ l2SlotNumber: number; timestamp: bigint }];
+  'l2-epoch': [{ l2EpochNumber: EpochNumber; timestamp: bigint; committee: EthAddress[] | undefined }];
+  'l2-slot': [{ l2SlotNumber: SlotNumber; timestamp: bigint }];
 };
 
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
@@ -27,20 +30,20 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
 
   /** Current L1 block number */
   public l1BlockNumber!: number;
-  /** Current L2 block number */
-  public l2BlockNumber!: number;
-  /** Current L2 proven block number */
-  public l2ProvenBlockNumber!: number;
-  /** L1 timestamp for the current L2 block */
-  public l2BlockTimestamp!: bigint;
-  /** L1 timestamp for the proven L2 block */
-  public l2ProvenBlockTimestamp!: bigint;
+  /** Current checkpoint number */
+  public checkpointNumber!: CheckpointNumber;
+  /** Current proven checkpoint number */
+  public provenCheckpointNumber!: CheckpointNumber;
+  /** L1 timestamp for the current checkpoint */
+  public checkpointTimestamp!: bigint;
+  /** L1 timestamp for the proven checkpoint */
+  public provenCheckpointTimestamp!: bigint;
   /** Total number of L2 messages pushed into the Inbox */
   public totalL2Messages: number = 0;
   /** Current L2 epoch number */
-  public l2EpochNumber!: bigint;
+  public l2EpochNumber!: EpochNumber;
   /** Current L2 slot number */
-  public l2SlotNumber!: bigint;
+  public l2SlotNumber!: SlotNumber;
 
   constructor(
     private readonly rollup: RollupContract,
@@ -114,28 +117,28 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     this.emit('l1-block', { l1BlockNumber: newL1BlockNumber, timestamp });
     let msg = `L1 block ${newL1BlockNumber} mined at ${timestampString}`;
 
-    const newL2BlockNumber = Number(await this.rollup.getBlockNumber());
-    if (this.l2BlockNumber !== newL2BlockNumber) {
-      const epochNumber = await this.rollup.getEpochNumberForBlock(BigInt(newL2BlockNumber));
-      msg += ` with new L2 block ${newL2BlockNumber} for epoch ${epochNumber}`;
-      this.l2BlockNumber = newL2BlockNumber;
-      this.l2BlockTimestamp = timestamp;
-      this.emit('l2-block', {
-        l2BlockNumber: newL2BlockNumber,
+    const newCheckpointNumber = await this.rollup.getCheckpointNumber();
+    if (this.checkpointNumber !== newCheckpointNumber) {
+      const epochNumber = await this.rollup.getEpochNumberForCheckpoint(newCheckpointNumber);
+      msg += ` with new checkpoint ${newCheckpointNumber} for epoch ${epochNumber}`;
+      this.checkpointNumber = newCheckpointNumber;
+      this.checkpointTimestamp = timestamp;
+      this.emit('checkpoint', {
+        checkpointNumber: newCheckpointNumber,
         l1BlockNumber: newL1BlockNumber,
-        l2SlotNumber: Number(l2SlotNumber),
+        l2SlotNumber,
         timestamp,
       });
     }
 
-    const newL2ProvenBlockNumber = Number(await this.rollup.getProvenBlockNumber());
-    if (this.l2ProvenBlockNumber !== newL2ProvenBlockNumber) {
-      const epochNumber = await this.rollup.getEpochNumberForBlock(BigInt(newL2ProvenBlockNumber));
-      msg += ` with proof up to L2 block ${newL2ProvenBlockNumber} for epoch ${epochNumber}`;
-      this.l2ProvenBlockNumber = newL2ProvenBlockNumber;
-      this.l2ProvenBlockTimestamp = timestamp;
-      this.emit('l2-block-proven', {
-        l2ProvenBlockNumber: newL2ProvenBlockNumber,
+    const newProvenCheckpointNumber = await this.rollup.getProvenCheckpointNumber();
+    if (this.provenCheckpointNumber !== newProvenCheckpointNumber) {
+      const epochNumber = await this.rollup.getEpochNumberForCheckpoint(newProvenCheckpointNumber);
+      msg += ` with proof up to checkpoint ${newProvenCheckpointNumber} for epoch ${epochNumber}`;
+      this.provenCheckpointNumber = newProvenCheckpointNumber;
+      this.provenCheckpointTimestamp = timestamp;
+      this.emit('checkpoint-proven', {
+        provenCheckpointNumber: newProvenCheckpointNumber,
         l1BlockNumber: newL1BlockNumber,
         timestamp,
       });
@@ -153,13 +156,13 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     if (l2Epoch !== this.l2EpochNumber) {
       this.l2EpochNumber = l2Epoch;
       committee = (await this.rollup.getCurrentEpochCommittee())?.map(addr => EthAddress.fromString(addr));
-      this.emit('l2-epoch', { l2EpochNumber: Number(l2Epoch), timestamp, committee });
+      this.emit('l2-epoch', { l2EpochNumber: l2Epoch, timestamp, committee });
       msg += ` starting new epoch ${this.l2EpochNumber} `;
     }
 
     if (l2SlotNumber !== this.l2SlotNumber) {
       this.l2SlotNumber = l2SlotNumber;
-      this.emit('l2-slot', { l2SlotNumber: Number(l2SlotNumber), timestamp });
+      this.emit('l2-slot', { l2SlotNumber, timestamp });
     }
 
     this.logger.info(msg, {
@@ -168,8 +171,8 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
       l1BlockNumber: this.l1BlockNumber,
       l2SlotNumber,
       l2Epoch,
-      l2BlockNumber: this.l2BlockNumber,
-      l2ProvenBlockNumber: this.l2ProvenBlockNumber,
+      checkpointNumber: this.checkpointNumber,
+      provenCheckpointNumber: this.provenCheckpointNumber,
       totalL2Messages: this.totalL2Messages,
       committee,
     });
@@ -177,14 +180,13 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     return this;
   }
 
-  public waitUntilL2Slot(slot: number | bigint): Promise<void> {
-    const targetSlot = typeof slot === 'bigint' ? slot.valueOf() : slot;
-    if (this.l2SlotNumber >= targetSlot) {
+  public waitUntilL2Slot(slot: SlotNumber): Promise<void> {
+    if (this.l2SlotNumber >= slot) {
       return Promise.resolve();
     }
     return new Promise(resolve => {
-      const listener = (data: { l2SlotNumber: number; timestamp: bigint }) => {
-        if (data.l2SlotNumber >= targetSlot) {
+      const listener = (data: { l2SlotNumber: SlotNumber; timestamp: bigint }) => {
+        if (data.l2SlotNumber >= slot) {
           this.off('l2-slot', listener);
           resolve();
         }
@@ -225,19 +227,18 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     });
   }
 
-  public waitUntilL2Block(l2BlockNumber: number | bigint): Promise<void> {
-    const targetBlock = typeof l2BlockNumber === 'bigint' ? l2BlockNumber.valueOf() : l2BlockNumber;
-    if (this.l2BlockNumber >= targetBlock) {
+  public waitUntilCheckpoint(checkpointNumber: CheckpointNumber): Promise<void> {
+    if (this.checkpointNumber >= checkpointNumber) {
       return Promise.resolve();
     }
     return new Promise(resolve => {
-      const listener = (data: { l2BlockNumber: number; timestamp: bigint }) => {
-        if (data.l2BlockNumber >= targetBlock) {
-          this.off('l2-block', listener);
+      const listener = (data: { checkpointNumber: CheckpointNumber; timestamp: bigint }) => {
+        if (data.checkpointNumber >= checkpointNumber) {
+          this.off('checkpoint', listener);
           resolve();
         }
       };
-      this.on('l2-block', listener);
+      this.on('checkpoint', listener);
     });
   }
 }

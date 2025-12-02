@@ -45,17 +45,23 @@ pub contract StaticChild {
     #[external("private")]
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let note = ValueNote::new(new_value, owner);
-        self.storage.a_private_value.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        let note = ValueNote::new(new_value);
+        self.storage.a_private_value.at(owner).insert(note).emit(
+            owner,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         new_value
     }
 
     // Modify a note
     #[external("private")]
     fn private_set_value(new_value: Field, owner: AztecAddress, sender: AztecAddress) -> Field {
-        let note = ValueNote::new(new_value, owner);
+        let note = ValueNote::new(new_value);
 
-        self.storage.a_private_value.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.a_private_value.at(owner).insert(note).emit(
+            owner,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         new_value
     }
 
@@ -64,11 +70,8 @@ pub contract StaticChild {
     #[view]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let mut options = NoteGetterOptions::new();
-        options = options
-            .select(ValueNote::properties().value, Comparator.EQ, amount)
-            .select(ValueNote::properties().owner, Comparator.EQ, owner)
-            .set_limit(1);
-        let retrieved_notes = self.storage.a_private_value.get_notes(options);
+        options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);
+        let retrieved_notes = self.storage.a_private_value.at(owner).get_notes(options);
         retrieved_notes.get(0).note.value()
     }
 

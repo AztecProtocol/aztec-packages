@@ -170,7 +170,10 @@ impl TestEnvironment {
     ///   state_var.read()
     /// });
     /// ```
-    pub unconstrained fn public_context<Env, T>(self: Self, f: fn[Env](PublicContext) -> T) -> T {
+    pub unconstrained fn public_context<Env, T>(
+        self: Self,
+        f: unconstrained fn[Env](PublicContext) -> T,
+    ) -> T {
         self.public_context_opts(PublicContextOptions { contract_address: Option::none() }, f)
     }
 
@@ -179,7 +182,7 @@ impl TestEnvironment {
     pub unconstrained fn public_context_at<Env, T>(
         self: Self,
         addr: AztecAddress,
-        f: fn[Env](PublicContext) -> T,
+        f: unconstrained fn[Env](PublicContext) -> T,
     ) -> T {
         self.public_context_opts(PublicContextOptions { contract_address: Option::some(addr) }, f)
     }
@@ -187,7 +190,7 @@ impl TestEnvironment {
     unconstrained fn public_context_opts<Env, T>(
         _self: Self,
         opts: PublicContextOptions,
-        f: fn[Env](PublicContext) -> T,
+        f: unconstrained fn[Env](PublicContext) -> T,
     ) -> T {
         txe_oracles::set_public_txe_context(opts.contract_address);
 
@@ -234,7 +237,7 @@ impl TestEnvironment {
     /// ```
     pub unconstrained fn private_context<Env, T>(
         self: Self,
-        f: fn[Env](&mut PrivateContext) -> T,
+        f: unconstrained fn[Env](&mut PrivateContext) -> T,
     ) -> T {
         self.private_context_opts(
             PrivateContextOptions {
@@ -250,7 +253,7 @@ impl TestEnvironment {
     pub unconstrained fn private_context_at<Env, T>(
         self: Self,
         addr: AztecAddress,
-        f: fn[Env](&mut PrivateContext) -> T,
+        f: unconstrained fn[Env](&mut PrivateContext) -> T,
     ) -> T {
         self.private_context_opts(
             PrivateContextOptions {
@@ -265,7 +268,7 @@ impl TestEnvironment {
     pub unconstrained fn private_context_opts<Env, T>(
         _self: Self,
         opts: PrivateContextOptions,
-        f: fn[Env](&mut PrivateContext) -> T,
+        f: unconstrained fn[Env](&mut PrivateContext) -> T,
     ) -> T {
         let mut context = PrivateContext::new(
             txe_oracles::set_private_txe_context(opts.contract_address, opts.anchor_block_number),
@@ -305,7 +308,10 @@ impl TestEnvironment {
     ///   state_var.view_note()
     /// });
     /// ```
-    pub unconstrained fn utility_context<Env, T>(self: Self, f: fn[Env](UtilityContext) -> T) -> T {
+    pub unconstrained fn utility_context<Env, T>(
+        self: Self,
+        f: unconstrained fn[Env](UtilityContext) -> T,
+    ) -> T {
         self.utility_context_opts(UtilityContextOptions { contract_address: Option::none() }, f)
     }
 
@@ -314,7 +320,7 @@ impl TestEnvironment {
     pub unconstrained fn utility_context_at<Env, T>(
         self: Self,
         addr: AztecAddress,
-        f: fn[Env](UtilityContext) -> T,
+        f: unconstrained fn[Env](UtilityContext) -> T,
     ) -> T {
         self.utility_context_opts(UtilityContextOptions { contract_address: Option::some(addr) }, f)
     }
@@ -322,7 +328,7 @@ impl TestEnvironment {
     unconstrained fn utility_context_opts<Env, T>(
         _self: Self,
         opts: UtilityContextOptions,
-        f: fn[Env](UtilityContext) -> T,
+        f: unconstrained fn[Env](UtilityContext) -> T,
     ) -> T {
         txe_oracles::set_utility_txe_context(opts.contract_address);
         let context = UtilityContext::new();
@@ -398,7 +404,7 @@ impl TestEnvironment {
 
         let _ = self.call_private(
             AztecAddress::zero(),
-            PrivateCall::<_, ()>::new(
+            PrivateCall::<_, _, ()>::new(
                 address,
                 comptime { FunctionSelector::from_signature("constructor(Field,Field)") },
                 "constructor",
@@ -494,10 +500,10 @@ impl TestEnvironment {
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.call_private(caller, SampleContract::at(contract_addr).sample_private_function());
     /// ```
-    pub unconstrained fn call_private<T, let M: u32>(
+    pub unconstrained fn call_private<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call: PrivateCall<M, T>,
+        call: PrivateCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
@@ -518,9 +524,9 @@ impl TestEnvironment {
     ///
     /// Unlike `call_private`, no transaction is created and no block is mined (since `#[view]` functions are only
     /// executable in a static context, and these produce no side effects).
-    pub unconstrained fn view_private<T, let M: u32>(
+    pub unconstrained fn view_private<let M: u32, let N: u32, T>(
         _self: Self,
-        call: PrivateStaticCall<M, T>,
+        call: PrivateStaticCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
@@ -546,7 +552,10 @@ impl TestEnvironment {
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.simulate_utility(SampleContract::at(contract_addr).sample_utility_function());
     /// ```
-    pub unconstrained fn simulate_utility<T, let M: u32>(_self: Self, call: UtilityCall<M, T>) -> T
+    pub unconstrained fn simulate_utility<let M: u32, let N: u32, T>(
+        _self: Self,
+        call: UtilityCall<M, N, T>,
+    ) -> T
     where
         T: Deserialize,
     {
@@ -574,10 +583,10 @@ impl TestEnvironment {
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.call_public(caller, SampleContract::at(contract_addr).sample_public_function());
     /// ```
-    pub unconstrained fn call_public<T, let M: u32>(
+    pub unconstrained fn call_public<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call: PublicCall<M, T>,
+        call: PublicCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
@@ -595,10 +604,10 @@ impl TestEnvironment {
     /// Performs a public contract function call, including the processing of any nested public calls. Returns the
     /// result of the called function.
     /// Variant of `call_public`, but the `from` address (`msg_sender`) is set to "null".
-    pub unconstrained fn call_public_incognito<T, let M: u32>(
+    pub unconstrained fn call_public_incognito<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call: PublicCall<M, T>,
+        call: PublicCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
@@ -618,7 +627,10 @@ impl TestEnvironment {
     ///
     /// Unlike `call_public`, no transaction is created and no block is mined (since `#[view]` functions are only
     /// executable in a static context, and these produce no side effects).
-    pub unconstrained fn view_public<T, let M: u32>(_self: Self, call: PublicStaticCall<M, T>) -> T
+    pub unconstrained fn view_public<let M: u32, let N: u32, T>(
+        _self: Self,
+        call: PublicStaticCall<M, N, T>,
+    ) -> T
     where
         T: Deserialize,
     {
@@ -637,9 +649,9 @@ impl TestEnvironment {
     ///
     /// Unlike `call_public`, no transaction is created and no block is mined (since `#[view]` functions are only
     /// executable in a static context, and these produce no side effects).
-    pub unconstrained fn view_public_incognito<T, let M: u32>(
+    pub unconstrained fn view_public_incognito<let M: u32, let N: u32, T>(
         _self: Self,
-        call: PublicStaticCall<M, T>,
+        call: PublicStaticCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
@@ -730,7 +742,9 @@ impl TestEnvironment {
         // sized).
         let message_plaintext = BoundedVec::from_array(private_note_to_message_plaintext(
             emission.content.note,
+            emission.content.owner,
             emission.content.storage_slot,
+            emission.content.randomness,
         ));
 
         // Then we fetch the transaction effects from the latest transaction, in which the note from the emission is
@@ -754,23 +768,26 @@ impl TestEnvironment {
         // We also need to provide an implementation for the `compute_note_hash_and_nullifier` function, which would
         // typically be created by the macros for the different notes in a given contract. Here we build one specialized
         // for `Note`.
-        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, storage_slot, note_type_id, contract_address, note_nonce| {
+        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
             assert_eq(note_type_id, Note::get_id());
             assert_eq(packed_note.len(), <Note as Packable>::N);
 
             let note = Note::unpack(subarray(packed_note.storage(), 0));
 
-            let note_hash = note.compute_note_hash(storage_slot);
+            let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
             let note_hash_for_nullification = compute_note_hash_for_nullification(
                 RetrievedNote {
                     note,
                     contract_address,
+                    randomness,
                     metadata: SettledNoteMetadata::new(note_nonce).into(),
                 },
+                owner,
                 storage_slot,
             );
 
-            let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullification);
+            let inner_nullifier =
+                note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
 
             Option::some(NoteHashAndNullifier { note_hash, inner_nullifier })
         };

@@ -24,7 +24,7 @@ pub contract BobToken {
         public_balances: Map<AztecAddress, PublicMutable<u64, Context>, Context>,
         // docs:end:public_storage
         // Private balances - only the owner can see these
-        private_balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
+        private_balances: EasyPrivateUint<Context>,
     }
     // docs:end:storage
 
@@ -80,7 +80,7 @@ pub contract BobToken {
         // This will enqueue a public function to deduct from public balance
         self.enqueue_self._deduct_public_balance(sender, amount);
         // Add to private balance
-        self.storage.private_balances.at(sender).add(amount, sender);
+        self.storage.private_balances.add(amount, sender);
     }
     // docs:end:public_to_private
 
@@ -100,16 +100,16 @@ pub contract BobToken {
     fn transfer_private(to: AztecAddress, amount: u64) {
         let sender = self.msg_sender().unwrap();
         // Spend sender's notes (consumes existing notes)
-        self.storage.private_balances.at(sender).sub(amount, sender);
+        self.storage.private_balances.sub(amount, sender);
         // Create new notes for recipient
-        self.storage.private_balances.at(to).add(amount, to);
+        self.storage.private_balances.add(amount, to);
     }
     // docs:end:transfer_private
 
     // docs:start:check_balances
     #[external("utility")]
     unconstrained fn private_balance_of(owner: AztecAddress) -> Field {
-        self.storage.private_balances.at(owner).get_value()
+        self.storage.private_balances.get_value(owner)
     }
 
     #[external("utility")]
@@ -133,7 +133,7 @@ pub contract BobToken {
         self.enqueue_self._assert_is_owner(self.msg_sender().unwrap());
 
         // If check passes, mint tokens privately
-        self.storage.private_balances.at(employee).add(amount, employee);
+        self.storage.private_balances.add(amount, employee);
     }
     // docs:end:mint_private
 
@@ -143,7 +143,7 @@ pub contract BobToken {
     fn private_to_public(amount: u64) {
         let sender = self.msg_sender().unwrap();
         // Remove from private balance
-        self.storage.private_balances.at(sender).sub(amount, sender);
+        self.storage.private_balances.sub(amount, sender);
         // Enqueue public credit
         self.enqueue_self._credit_public_balance(sender, amount);
     }

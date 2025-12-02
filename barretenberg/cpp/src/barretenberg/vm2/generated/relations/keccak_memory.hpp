@@ -58,26 +58,26 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
     static constexpr size_t SR_VAL02 = 22;
     static constexpr size_t SR_VAL03 = 23;
     static constexpr size_t SR_VAL04 = 24;
-    static constexpr size_t SR_VAL10 = 25;
-    static constexpr size_t SR_VAL11 = 26;
-    static constexpr size_t SR_VAL12 = 27;
-    static constexpr size_t SR_VAL13 = 28;
-    static constexpr size_t SR_VAL14 = 29;
-    static constexpr size_t SR_VAL20 = 30;
-    static constexpr size_t SR_VAL21 = 31;
-    static constexpr size_t SR_VAL22 = 32;
-    static constexpr size_t SR_VAL23 = 33;
-    static constexpr size_t SR_VAL24 = 34;
-    static constexpr size_t SR_VAL30 = 35;
-    static constexpr size_t SR_VAL31 = 36;
-    static constexpr size_t SR_VAL32 = 37;
-    static constexpr size_t SR_VAL33 = 38;
-    static constexpr size_t SR_VAL34 = 39;
-    static constexpr size_t SR_VAL40 = 40;
-    static constexpr size_t SR_VAL41 = 41;
-    static constexpr size_t SR_VAL42 = 42;
-    static constexpr size_t SR_VAL43 = 43;
-    static constexpr size_t SR_VAL44 = 44;
+    static constexpr size_t SR_VAL05 = 25;
+    static constexpr size_t SR_VAL06 = 26;
+    static constexpr size_t SR_VAL07 = 27;
+    static constexpr size_t SR_VAL8 = 28;
+    static constexpr size_t SR_VAL09 = 29;
+    static constexpr size_t SR_VAL10 = 30;
+    static constexpr size_t SR_VAL11 = 31;
+    static constexpr size_t SR_VAL12 = 32;
+    static constexpr size_t SR_VAL13 = 33;
+    static constexpr size_t SR_VAL14 = 34;
+    static constexpr size_t SR_VAL15 = 35;
+    static constexpr size_t SR_VAL41 = 36;
+    static constexpr size_t SR_VAL17 = 37;
+    static constexpr size_t SR_VAL18 = 38;
+    static constexpr size_t SR_VAL19 = 39;
+    static constexpr size_t SR_VAL20 = 40;
+    static constexpr size_t SR_VAL21 = 41;
+    static constexpr size_t SR_VAL22 = 42;
+    static constexpr size_t SR_VAL23 = 43;
+    static constexpr size_t SR_VAL24 = 44;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -122,6 +122,16 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
             return "VAL03";
         case SR_VAL04:
             return "VAL04";
+        case SR_VAL05:
+            return "VAL05";
+        case SR_VAL06:
+            return "VAL06";
+        case SR_VAL07:
+            return "VAL07";
+        case SR_VAL8:
+            return "VAL8";
+        case SR_VAL09:
+            return "VAL09";
         case SR_VAL10:
             return "VAL10";
         case SR_VAL11:
@@ -132,6 +142,16 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
             return "VAL13";
         case SR_VAL14:
             return "VAL14";
+        case SR_VAL15:
+            return "VAL15";
+        case SR_VAL41:
+            return "VAL41";
+        case SR_VAL17:
+            return "VAL17";
+        case SR_VAL18:
+            return "VAL18";
+        case SR_VAL19:
+            return "VAL19";
         case SR_VAL20:
             return "VAL20";
         case SR_VAL21:
@@ -142,26 +162,6 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
             return "VAL23";
         case SR_VAL24:
             return "VAL24";
-        case SR_VAL30:
-            return "VAL30";
-        case SR_VAL31:
-            return "VAL31";
-        case SR_VAL32:
-            return "VAL32";
-        case SR_VAL33:
-            return "VAL33";
-        case SR_VAL34:
-            return "VAL34";
-        case SR_VAL40:
-            return "VAL40";
-        case SR_VAL41:
-            return "VAL41";
-        case SR_VAL42:
-            return "VAL42";
-        case SR_VAL43:
-            return "VAL43";
-        case SR_VAL44:
-            return "VAL44";
         }
         return std::to_string(index);
     }

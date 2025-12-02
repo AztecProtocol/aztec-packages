@@ -147,7 +147,8 @@ impl TestBuilder {
 
     pub fn read_settled_note_hash(&mut self, preimage_index: u32) {
         let preimage = self.note_hash_preimages[preimage_index];
-        let read_request_index = self.previous_kernel.add_note_hash_read_request(preimage.value);
+        let read_request_index =
+            self.previous_kernel.add_settled_note_hash_read_request(preimage.value);
         let leaf_index = preimage_index as Field;
         let membership_witness = MembershipWitness {
             leaf_index,

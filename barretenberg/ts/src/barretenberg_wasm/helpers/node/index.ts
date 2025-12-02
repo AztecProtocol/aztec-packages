@@ -1,4 +1,4 @@
-import { Worker } from 'worker_threads';
+import { Worker, parentPort } from 'worker_threads';
 import os from 'os';
 import { wrap } from 'comlink';
 import { nodeEndpoint } from './node_endpoint.js';
@@ -25,12 +25,19 @@ export function getNumCpu() {
 }
 
 /**
- * In node, the message passing is different to the browser. When using 'debug' in the browser, we seemingly always
- * get our logs, but in node it looks like it's dependent on the chain of workers from child to main thread be
- * unblocked. If one of our threads aborts, we can't see it as the parent is blocked waiting on threads to join.
- * To work around this in node, threads will by default write directly to stdout.
+ * Returns a logger function for worker threads.
+ * When a custom logger is provided, posts messages back to the main thread.
+ * Otherwise, writes directly to stdout.
  */
-export function threadLogger(): ((msg: string) => void) | undefined {
+export function threadLogger(useCustomLogger: boolean): ((msg: string) => void) | undefined {
+  if (useCustomLogger) {
+    return (msg: string) => {
+      if (parentPort) {
+        parentPort.postMessage({ type: 'log', msg });
+      }
+    };
+  }
+  // Write directly to stdout when no custom logger is provided
   return (msg: string) => {
     writeSync(1, msg + '\n');
   };

@@ -2,9 +2,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
-import { NoteStatus } from '@aztec/stdlib/note';
+import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
-import { NoteDao } from './note_dao.js';
 import { NoteDataProvider } from './note_data_provider.js';
 
 // -----------------------------------------------------------------------------
@@ -41,7 +40,6 @@ describe('NoteDataProvider', () => {
     return NoteDao.random({
       contractAddress: overrides.contractAddress ?? CONTRACT_A,
       storageSlot: overrides.storageSlot ?? SLOT_X,
-      recipient: overrides.recipient ?? SCOPE_1,
       index: overrides.index ?? 0n,
       l2BlockNumber: overrides.l2BlockNumber ?? 1,
       siloedNullifier: overrides.siloedNullifier ?? Fr.random(),
@@ -60,21 +58,18 @@ describe('NoteDataProvider', () => {
     const note1 = await mkNote({
       contractAddress: CONTRACT_A,
       storageSlot: SLOT_X,
-      recipient: SCOPE_1,
       siloedNullifier: DUMMY_SILOED_NULLIFIER_1,
       index: 1n,
     });
     const note2 = await mkNote({
       contractAddress: CONTRACT_A,
       storageSlot: SLOT_Y,
-      recipient: SCOPE_1,
       siloedNullifier: DUMMY_SILOED_NULLIFIER_2,
       index: 2n,
     });
     const note3 = await mkNote({
       contractAddress: CONTRACT_B,
       storageSlot: SLOT_X,
-      recipient: SCOPE_2,
       siloedNullifier: DUMMY_SILOED_NULLIFIER_3,
       index: 3n,
     });
@@ -121,8 +116,8 @@ describe('NoteDataProvider', () => {
       await provider1.addScope(SCOPE_1);
       await provider1.addScope(SCOPE_2);
 
-      const noteA = await mkNote({ contractAddress: CONTRACT_A, recipient: SCOPE_1, index: 1n });
-      const noteB = await mkNote({ contractAddress: CONTRACT_B, recipient: SCOPE_2, index: 2n });
+      const noteA = await mkNote({ contractAddress: CONTRACT_A, index: 1n });
+      const noteB = await mkNote({ contractAddress: CONTRACT_B, index: 2n });
       await provider1.addNotes([noteA, noteB], FAKE_ADDRESS);
 
       const provider2 = await NoteDataProvider.create(store);
@@ -173,7 +168,6 @@ describe('NoteDataProvider', () => {
       const note4 = await mkNote({
         contractAddress: CONTRACT_A,
         storageSlot: SLOT_X,
-        recipient: SCOPE_2,
         index: 4n,
       });
       await provider.addNotes([note4], SCOPE_2);
@@ -456,7 +450,7 @@ describe('NoteDataProvider', () => {
 
       const byScope = await provider.getNotes({
         contractAddress: CONTRACT_A,
-        scopes: [note1.recipient],
+        scopes: [SCOPE_1],
         status: NoteStatus.ACTIVE_OR_NULLIFIED,
       });
       expect(new Set(getIndexes(byScope))).toEqual(new Set([1n, 2n]));

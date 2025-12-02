@@ -1,7 +1,0 @@
-validator:
-  replicas: 16
-  resources:
-    requests:
-      memory: "512Mi"
-  validator:
-    disabled: false

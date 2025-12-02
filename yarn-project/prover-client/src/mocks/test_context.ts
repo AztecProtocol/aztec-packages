@@ -1,7 +1,7 @@
 import type { BBProverConfig } from '@aztec/bb-prover';
 import { TestCircuitProver } from '@aztec/bb-prover';
-import { getTotalNumBlobFieldsFromTxs } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd, times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
@@ -187,7 +187,8 @@ export class TestContext {
     }
 
     const checkpointIndex = this.nextCheckpointIndex++;
-    const slotNumber = checkpointIndex + 1;
+    const checkpointNumber = CheckpointNumber(checkpointIndex + 1);
+    const slotNumber = checkpointNumber * 15; // times an arbitrary number to make it different to the checkpoint number
 
     const constants = makeCheckpointConstants(slotNumber, constantOpts);
 
@@ -239,12 +240,12 @@ export class TestContext {
     });
 
     const cleanFork = await this.worldState.fork();
-    const builder = new LightweightCheckpointBuilder(cleanFork);
-
-    const totalNumBlobFields = getTotalNumBlobFieldsFromTxs(
-      blockTxs.map(txs => txs.map(tx => tx.txEffect.getTxStartMarker())),
+    const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
+      checkpointNumber,
+      constants,
+      l1ToL2Messages,
+      cleanFork,
     );
-    await builder.startNewCheckpoint(constants, l1ToL2Messages, totalNumBlobFields);
 
     // Add tx effects to db and build block headers.
     const blocks = [];
@@ -272,7 +273,6 @@ export class TestContext {
       header: checkpoint.header,
       blocks,
       l1ToL2Messages,
-      totalNumBlobFields,
       previousBlockHeader,
     };
   }

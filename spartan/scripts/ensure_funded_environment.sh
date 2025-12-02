@@ -2,8 +2,9 @@
 
 set -euo pipefail
 
-# Script to ensure all publisher keys for an environment are funded
+# Script to ensure all publisher keys and bot accounts for an environment are funded
 # Uses the existing ensure_eth_balances.sh script but calculates the correct indices
+# Includes: validator publishers, prover publishers, bot transfers, and bot swaps
 
 # Resolve spartan directory
 spartan=$(git rev-parse --show-toplevel)/spartan
@@ -69,20 +70,20 @@ echo "Low watermark: $LOW_WATERMARK ETH"
 echo "High watermark: $HIGH_WATERMARK ETH"
 echo ""
 
-# Calculate all publisher indices using the helper script
-echo "Calculating publisher key indices..."
+# Calculate all publisher and bot account indices using the helper script
+echo "Calculating publisher and bot account indices..."
 PUBLISHER_INDICES=$("${spartan}/scripts/calculate_publisher_indices.sh" "$ENVIRONMENT_NAME")
 
 if [ -z "$PUBLISHER_INDICES" ]; then
-    echo "Warning: No publisher indices calculated. This may indicate a configuration issue."
+    echo "Warning: No publisher/bot indices calculated. This may indicate a configuration issue."
     exit 1
 fi
 
-echo "Publisher indices: $PUBLISHER_INDICES"
+echo "Account indices: $PUBLISHER_INDICES"
 echo ""
 
-# Check each publisher account and fund if below low watermark
-echo "Checking publisher account balances..."
+# Check each account and fund if below low watermark
+echo "Checking account balances..."
 echo ""
 
 # We'll build a list of accounts that need funding
@@ -127,7 +128,7 @@ echo "  - Already funded: $ACCOUNTS_ALREADY_FUNDED accounts"
 if [ -z "$ACCOUNTS_TO_FUND" ]; then
     echo "  - Need funding: 0 accounts"
     echo ""
-    echo "✅ All publisher accounts are sufficiently funded!"
+    echo "✅ All publisher and bot accounts are sufficiently funded!"
     echo "==================================================="
     exit 0
 fi

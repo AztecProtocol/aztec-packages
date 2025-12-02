@@ -109,6 +109,7 @@ MpscConsumer MpscConsumer::create(const std::string& name, size_t num_producers,
 
     // Initialize doorbell (use placement new to avoid memset on non-trivial type)
     new (doorbell) MpscDoorbell{};
+    doorbell->consumer_blocked.store(false, std::memory_order_release);
 
     // Create all SPSC rings
     std::vector<SpscShm> rings;
@@ -151,21 +152,32 @@ int MpscConsumer::wait_for_data(uint32_t timeout_ns)
 {
     size_t num_rings = rings_.size();
 
-    // Phase 1: Quick poll all rings starting from NEXT after last_served (round-robin)
+    // Phase 1: Quick poll - check if data already available
     for (size_t i = 0; i < num_rings; i++) {
         size_t idx = (last_served_ + 1 + i) % num_rings;
         if (rings_[idx].available() > 0) {
             last_served_ = idx;
+            previous_had_data_ = true; // Found data - enable spinning on next call
             return static_cast<int>(idx);
         }
     }
 
-    // Hardcoded 10ms spin phase
-    constexpr uint64_t SPIN_NS = 10000000; // 10ms
-    uint64_t spin_duration = (timeout_ns < SPIN_NS) ? timeout_ns : SPIN_NS;
-    uint64_t remaining_timeout = (timeout_ns > SPIN_NS) ? (timeout_ns - SPIN_NS) : 0;
+    // Adaptive spinning: only spin if previous call found data
+    constexpr uint64_t SPIN_NS = 100000; // 100us
+    uint64_t spin_duration;
+    uint64_t remaining_timeout;
 
-    // Phase 2: Spin phase
+    if (previous_had_data_) {
+        // Previous call found data - do full spin (optimistic)
+        spin_duration = (timeout_ns < SPIN_NS) ? timeout_ns : SPIN_NS;
+        remaining_timeout = (timeout_ns > SPIN_NS) ? (timeout_ns - SPIN_NS) : 0;
+    } else {
+        // Previous call timed out - skip spinning (idle channel)
+        spin_duration = 0;
+        remaining_timeout = timeout_ns;
+    }
+
+    // Phase 2: Spin phase (only if previous call found data)
     if (spin_duration > 0) {
         uint64_t start = mono_ns_now();
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
@@ -174,62 +186,69 @@ int MpscConsumer::wait_for_data(uint32_t timeout_ns)
                 size_t idx = (last_served_ + 1 + i) % num_rings;
                 if (rings_[idx].available() > 0) {
                     last_served_ = idx;
+                    previous_had_data_ = true; // Found data during spin
                     return static_cast<int>(idx);
                 }
             }
             IPC_PAUSE();
         } while ((mono_ns_now() - start) < spin_duration);
-    }
 
-    // Check again after spin
-    for (size_t i = 0; i < num_rings; i++) {
-        size_t idx = (last_served_ + 1 + i) % num_rings;
-        if (rings_[idx].available() > 0) {
-            last_served_ = idx;
-            return static_cast<int>(idx);
+        // Check after spin
+        for (size_t i = 0; i < num_rings; i++) {
+            size_t idx = (last_served_ + 1 + i) % num_rings;
+            if (rings_[idx].available() > 0) {
+                last_served_ = idx;
+                previous_had_data_ = true; // Found data after spin
+                return static_cast<int>(idx);
+            }
         }
     }
 
-    // If timeout already expired during spin, return -1
+    // No more time or didn't spin - check if we can block
     if (remaining_timeout == 0) {
+        previous_had_data_ = false; // Timeout - disable spinning on next call
         return -1;
     }
 
-    // Phase 3: Sleep on doorbell with timeout for remaining duration
+    // About to block - load seq, final check, then block
     uint32_t seq = doorbell_->seq.load(std::memory_order_acquire);
 
-    // Check again before sleeping to avoid race
+    // Final check before blocking
     for (size_t i = 0; i < num_rings; i++) {
         size_t idx = (last_served_ + 1 + i) % num_rings;
         if (rings_[idx].available() > 0) {
             last_served_ = idx;
+            previous_had_data_ = true; // Found data before blocking
             return static_cast<int>(idx);
         }
     }
 
+    // Set blocked flag RIGHT BEFORE futex_wait
+    doorbell_->consumer_blocked.store(true, std::memory_order_release);
     futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), seq, remaining_timeout);
+    // Clear blocked flag RIGHT AFTER futex_wait returns
+    doorbell_->consumer_blocked.store(false, std::memory_order_relaxed);
 
     // After waking, poll again
     for (size_t i = 0; i < num_rings; i++) {
         size_t idx = (last_served_ + 1 + i) % num_rings;
         if (rings_[idx].available() > 0) {
             last_served_ = idx;
+            previous_had_data_ = true; // Found data after waking
             return static_cast<int>(idx);
         }
     }
 
-    return -1; // No data available (timeout or spurious wakeup)
+    previous_had_data_ = false; // Timeout or spurious wakeup - disable spinning on next call
+    return -1;                  // No data available (timeout or spurious wakeup)
 }
 
-void* MpscConsumer::peek(size_t ring_idx, size_t* n)
+void* MpscConsumer::peek(size_t ring_idx, size_t want, uint32_t timeout_ns)
 {
     if (ring_idx >= rings_.size()) {
-        if (n != nullptr) {
-            *n = 0;
-        }
         return nullptr;
     }
-    return rings_[ring_idx].peek(n);
+    return rings_[ring_idx].peek(want, timeout_ns);
 }
 
 void MpscConsumer::release(size_t ring_idx, size_t n)
@@ -342,9 +361,9 @@ MpscProducer MpscProducer::connect(const std::string& name, size_t producer_id)
     return MpscProducer(std::move(ring), doorbell_fd, doorbell_len, doorbell, producer_id);
 }
 
-void* MpscProducer::claim(size_t want, size_t* granted)
+void* MpscProducer::claim(size_t want, uint32_t timeout_ns)
 {
-    return ring_.claim(want, granted);
+    return ring_.claim(want, timeout_ns);
 }
 
 void MpscProducer::publish(size_t n)
@@ -353,14 +372,13 @@ void MpscProducer::publish(size_t n)
     ring_.publish(n);
 
     // Ring doorbell to wake consumer
-    // Note: We always ring the doorbell - see spsc_shm.cpp for explanation
+    // Always increment seq (for futex synchronization)
     doorbell_->seq.fetch_add(1, std::memory_order_release);
-    futex_wake(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), 1);
-}
 
-bool MpscProducer::wait_for_space(size_t need, uint32_t spin_ns)
-{
-    return ring_.wait_for_space(need, spin_ns);
+    // Conditional wake: Only wake if consumer is blocked on futex
+    if (doorbell_->consumer_blocked.load(std::memory_order_acquire)) {
+        futex_wake(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), 1);
+    }
 }
 
 } // namespace bb::ipc

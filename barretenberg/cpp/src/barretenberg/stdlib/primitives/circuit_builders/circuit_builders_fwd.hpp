@@ -41,6 +41,13 @@ class MultilinearBatchingFlavor;
 class MultilinearBatchingRecursiveFlavor;
 class AvmRecursiveFlavor;
 
+// Forward declare SumcheckTestFlavor template and Grumpkin ZK variant
+namespace curve {
+class Grumpkin;
+}
+template <typename CurveType, bool HasZK_, bool UseShortMonomials_> class SumcheckTestFlavor_;
+using SumcheckTestFlavorGrumpkinZK = SumcheckTestFlavor_<curve::Grumpkin, true, true>;
+
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;
 template <typename BuilderType> class UltraKeccakRecursiveFlavor_;

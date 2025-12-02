@@ -16,7 +16,7 @@ The OpenTelemetry Collector receives metrics from your Aztec node and exports th
 
 ### Step 1: Create Configuration File
 
-Create an `otel-collector-config.yml` file in the same directory of your existing `docker-compose.yml`:
+Create an `otel-collector-config.yml` file in the same directory as your existing `docker-compose.yml`:
 
 ```yaml
 receivers:
@@ -64,17 +64,17 @@ services:
       - 4317:4317  # OTLP gRPC receiver
       - 4318:4318  # OTLP HTTP receiver
     volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - ./otel-collector-config.yml:/etc/otel-collector-config.yml
     command: >-
-      --config=/etc/otel-collector-config.yaml
+      --config=/etc/otel-collector-config.yml
     networks:
       - aztec
     restart: always
 ```
 
-### Step 3: Configure Node to Export Metrics
+### Step 3: Configure Your Node to Export Metrics
 
-Update your Aztec node's environment variables to export metrics to the OTEL collector.
+Configure your Aztec node to export metrics to the OTEL collector.
 
 **Step 3a: Add to .env file**
 
@@ -97,7 +97,7 @@ services:
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT}
 ```
 
-**Network configuration:** As your node and OTEL collector are in the same Docker Compose file and share the `aztec` network, you can use the service name `otel-collector` in the endpoint URL (as shown above).
+**Network configuration:** Since your node and OTEL collector share the same Docker Compose file and `aztec` network, use the service name `otel-collector` in the endpoint URL as shown above.
 
 ### Step 4: Start Services
 

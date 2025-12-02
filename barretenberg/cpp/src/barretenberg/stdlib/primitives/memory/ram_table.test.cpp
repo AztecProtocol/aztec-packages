@@ -125,8 +125,8 @@ TYPED_TEST(RamTableTests, RamTableReadWriteConsistency)
     const size_t num_reads = 2 * table_size;
 
     std::vector<fr> table_values(table_size);
-
-    ram_table_ct table(&builder, table_size);
+    std::vector<field_ct> zeros(table_size, field_ct(0));
+    ram_table_ct table(&builder, zeros);
 
     for (size_t i = 0; i < table_size; ++i) {
         table.write(i, 0);

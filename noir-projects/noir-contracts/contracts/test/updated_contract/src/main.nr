@@ -6,7 +6,9 @@ contract Updated {
     use aztec::{
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol_types::constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+        protocol_types::{
+            address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+        },
         state_vars::{PrivateMutable, PublicMutable},
     };
     use contract_instance_registry::ContractInstanceRegistry;
@@ -27,7 +29,7 @@ contract Updated {
     fn set_private_value() {
         let owner = self.msg_sender().unwrap();
 
-        self.storage.private_value.replace(|_old| ValueNote::new(27, owner)).emit(
+        self.storage.private_value.at(owner).replace(|_old| ValueNote::new(27)).emit(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -40,8 +42,8 @@ contract Updated {
     }
 
     #[external("utility")]
-    unconstrained fn get_private_value() -> Field {
-        self.storage.private_value.view_note().value()
+    unconstrained fn get_private_value(owner: AztecAddress) -> Field {
+        self.storage.private_value.at(owner).view_note().value()
     }
 
     #[external("utility")]

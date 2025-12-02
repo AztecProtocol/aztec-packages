@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { SiblingPath, UnbalancedMerkleTreeCalculator, computeUnbalancedMerkleTreeRoot } from '@aztec/foundation/trees';
+import { SiblingPath, UnbalancedMerkleTreeCalculator, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
 
 export interface MessageRetrieval {
   getL2ToL1Messages(l2BlockNumber: number): Promise<Fr[][] | undefined>;
@@ -58,7 +58,7 @@ export function computeL2ToL1MembershipWitnessFromMessagesForAllTxs(
       return Fr.fromBuffer(txOutHash);
     }
 
-    const root = computeUnbalancedMerkleTreeRoot(messages.map(msg => msg.toBuffer()));
+    const root = computeUnbalancedShaRoot(messages.map(msg => msg.toBuffer()));
     return Fr.fromBuffer(root);
   });
 

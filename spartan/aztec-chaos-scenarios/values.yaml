@@ -11,12 +11,7 @@ global:
 networkShaping:
   # Master switch to enable network shaping
   enabled: false
-
-  # Default settings
-  defaultSettings:
-    mode: all
-    # Set duration to 1 year so the experiment will run indefinitely unless overridden
-    duration: 8760h
+  duration: # leave this undefined to keep run indefinetely
 
   # Network conditions to apply
   conditions:
@@ -24,6 +19,12 @@ networkShaping:
     latency:
       # Enable / disable latency configuration
       enabled: false
+      components:
+        - sequencer-node
+        - prover-node
+        - full-node
+        - rpc-node
+        - node
       delay:
         # Base latency of all network traffic
         # can be defined in ms / s
@@ -38,32 +39,43 @@ networkShaping:
         # Eg: 75 means the current delay will be 75% influenced by the previous delay
         correlation: "75"
 
-    packetLoss:
-      # Enable / disable packet loss configuration
-      enabled: false
-      # Packet drop percentage
-      # 2 = 2% of packets will disappear into the ether
-      loss: "2"
-
-      # Correlation
-      # Higher values mean packet losses happen in bursts
-      # 25 = 25% influenced by the previous loss
-      correlation: "25"
-
     bandwidth:
       # Enable / disable bandwidth configuration
       enabled: false
+      rate: "25mbps"
+      components:
+        - sequencer-node
+        - prover-node
+        - full-node
+        - rpc-node
+        - node
 
-      # Target bandwidth rate
-      # kbps, mbps, gbps
-      rate: "1024kbps"
+    packetLoss:
+      # Enable / disable packet loss configuration
+      enabled: false
+      loss:
+        # Packet drop percentage
+        # 2 = 2% of packets will disappear into the ether
+        loss: "2"
 
-      # Burst size, buffer to allow before bandwidth limiting is applied
-      # Not a string!
-      limit: 20971520
+        # Correlation
+        # Higher values mean packet losses happen in bursts
+        # 25 = 25% influenced by the previous loss
+        correlation: "25"
 
-      # Buffer = smoother bandwidth restriction but higher memory usage
-      buffer: 1000
+      components:
+        - sequencer-node
+        - prover-node
+        - full-node
+        - rpc-node
+        - node
+
+    isolatePeers:
+      enabled: false
+      components:
+        - sequencer-node
+        - prover-node
+        - rpc-node
 
 proverFailure:
   enabled: false

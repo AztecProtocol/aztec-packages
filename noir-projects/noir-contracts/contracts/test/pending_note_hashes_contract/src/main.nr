@@ -17,13 +17,13 @@ pub contract PendingNoteHashes {
             constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL},
             traits::{Packable, ToField},
         },
-        state_vars::{Map, PrivateSet},
+        state_vars::PrivateSet,
     };
     use value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
     #[storage]
     struct Storage<Context> {
-        balances: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
+        balances: PrivateSet<ValueNote, Context>,
     }
 
     // TODO(dbanks12): consolidate code into internal helper functions
@@ -40,7 +40,7 @@ pub contract PendingNoteHashes {
     ) -> Field {
         let owner_balance = self.storage.balances.at(owner);
 
-        let note = ValueNote::new(amount, owner);
+        let note = ValueNote::new(amount);
 
         // Insert note
         owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -68,7 +68,7 @@ pub contract PendingNoteHashes {
         assert(notes.len() == 0);
 
         // Insert note
-        let note = ValueNote::new(amount, owner);
+        let note = ValueNote::new(amount);
         owner_balance.insert(note).discard();
 
         0
@@ -83,7 +83,7 @@ pub contract PendingNoteHashes {
     fn insert_note(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
-        let note = ValueNote::new(amount, owner);
+        let note = ValueNote::new(amount);
 
         // Insert note
         owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -96,10 +96,9 @@ pub contract PendingNoteHashes {
     fn insert_note_static_randomness(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
-        let randomness = 2;
         // Note that the following is severely misusing the Packable trait as we should never be messing with internal
         // encoding. This is brittle but I don't care.
-        let note = ValueNote::unpack([amount.to_field(), owner.to_field(), randomness.to_field()]);
+        let note = ValueNote::unpack([amount.to_field()]);
 
         // Insert note
         owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -111,7 +110,7 @@ pub contract PendingNoteHashes {
     fn insert_note_extra_emit(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
-        let note = ValueNote::new(amount, owner);
+        let note = ValueNote::new(amount);
 
         // Insert note
         let emission = owner_balance.insert(note);
@@ -327,7 +326,7 @@ pub contract PendingNoteHashes {
     fn test_emit_bad_note_log(owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
-        let good_note = ValueNote::new(10, owner);
+        let good_note = ValueNote::new(10);
         // Insert good note with real log
         let good_note_emission = owner_balance.insert(good_note);
         good_note_emission.emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -336,8 +335,10 @@ pub contract PendingNoteHashes {
         // This note has not been inserted...
         // ...but we need a 'good' note's storage slot and note hash counter to get the context to add the note log
         let bad_note_emission = NoteEmission::new(
-            ValueNote::new(5, owner),
+            ValueNote::new(5),
+            owner,
             good_note_emission.content.storage_slot,
+            good_note_emission.content.randomness,
             good_note_emission.content.note_hash_counter,
             self.context,
         );
@@ -350,7 +351,7 @@ pub contract PendingNoteHashes {
         let owner_balance = self.storage.balances.at(owner);
 
         for i in 0..self.internal.max_notes_per_call() {
-            let note = ValueNote::new(i as Field, owner);
+            let note = ValueNote::new(i as Field);
             owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }

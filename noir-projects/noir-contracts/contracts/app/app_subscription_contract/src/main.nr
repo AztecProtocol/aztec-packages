@@ -48,7 +48,7 @@ pub contract AppSubscription {
         messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
         protocol_types::address::AztecAddress,
-        state_vars::{Map, PrivateMutable, PublicImmutable},
+        state_vars::{PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };
     use router::utils::privately_check_block_number;
@@ -57,7 +57,7 @@ pub contract AppSubscription {
     #[storage]
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
-        subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
+        subscriptions: PrivateMutable<SubscriptionNote, Context>,
     }
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS: u32 = 5;
@@ -155,9 +155,7 @@ pub contract AppSubscription {
             .storage
             .subscriptions
             .at(subscriber)
-            .initialize_or_replace(|_| {
-                SubscriptionNote::new(subscriber, expiry_block_number, tx_count)
-            })
+            .initialize_or_replace(|_| SubscriptionNote::new(expiry_block_number, tx_count))
             .emit(subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
