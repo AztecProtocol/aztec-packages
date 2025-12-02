@@ -112,7 +112,7 @@ In ECCVM terms, full scalar muls cost ~2× the rows of short scalar muls. So eac
 
 Note: The Merge protocol's ECCVM cost is present in both the naive Goblin approach and in Chonk - it's inherent to maintaining the op queue across circuits.
 
-For a chain of $k$ circuits, ECCVM must handle $O(k \cdot$ `NUM_UNSHIFTED_ENTITIES` + `NUM_SHIFTED_ENTITIES`  $+ 2\log N)$ short scalar operations.
+For a chain of $k$ circuits, ECCVM must handle $O(k \cdot ($ `NUM_UNSHIFTED_ENTITIES` + `NUM_SHIFTED_ENTITIES`  $+ 2\log N))$ short scalar operations.
 
 ### HyperNova Folding: Deferring PCS Verification
 
