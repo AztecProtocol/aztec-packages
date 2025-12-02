@@ -96,8 +96,8 @@ describe('veto slash', () => {
       },
     });
 
-    await t.setupValidators();
     await t.setup();
+    await t.setupValidators();
 
     nodes = await createNodes(
       t.ctx.config,

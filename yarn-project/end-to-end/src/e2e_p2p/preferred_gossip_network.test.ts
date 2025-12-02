@@ -141,8 +141,8 @@ describe('e2e_p2p_preferred_network', () => {
       },
     });
 
-    await t.setupValidators();
     await t.setup();
+    await t.setupValidators();
   });
 
   afterEach(async () => {

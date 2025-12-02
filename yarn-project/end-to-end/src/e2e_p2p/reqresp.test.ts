@@ -41,8 +41,8 @@ describe('e2e_p2p_reqresp_tx', () => {
         aztecEpochDuration: 64, // stable committee
       },
     });
-    await t.setupValidators();
     await t.setup();
+    await t.setupValidators();
   });
 
   afterEach(async () => {

@@ -50,11 +50,11 @@ describe('e2e_p2p_reex', () => {
       },
     });
 
-    t.logger.info('Apply base snapshots');
-    await t.setupValidators();
-
     t.logger.info('Setup snapshot manager');
     await t.setup();
+
+    t.logger.info('Apply base snapshots');
+    await t.setupValidators();
 
     t.logger.info('Stopping main node sequencer');
     await t.ctx.aztecNode.getSequencer()?.stop();

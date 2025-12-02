@@ -74,8 +74,8 @@ describe('e2e_p2p_data_withholding_slash', () => {
       },
     });
 
-    await t.setupValidators();
     await t.setup();
+    await t.setupValidators();
   });
 
   afterEach(async () => {

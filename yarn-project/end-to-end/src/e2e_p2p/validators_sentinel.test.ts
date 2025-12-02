@@ -53,8 +53,8 @@ describe('e2e_p2p_validators_sentinel', () => {
       },
     });
 
-    await t.setupValidators();
     await t.setup();
+    await t.setupValidators();
 
     nodes = await createNodes(
       t.ctx.config,

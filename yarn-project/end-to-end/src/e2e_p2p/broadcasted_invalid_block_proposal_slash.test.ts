@@ -70,8 +70,8 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
       },
     });
 
-    await t.setupValidators();
     await t.setup();
+    await t.setupValidators();
   });
 
   afterEach(async () => {

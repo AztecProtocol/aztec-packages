@@ -83,8 +83,8 @@ describe('e2e_p2p_add_rollup', () => {
       },
     });
 
-    await t.setupValidators();
     await t.setup();
+    await t.setupValidators();
     await t.removeInitialNode();
 
     l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);

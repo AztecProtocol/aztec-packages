@@ -35,8 +35,8 @@ describe('e2e_p2p_rediscovery', () => {
         listenAddress: '127.0.0.1',
       },
     });
-    await t.setupValidators();
     await t.setup();
+    await t.setupValidators();
   });
 
   afterEach(async () => {

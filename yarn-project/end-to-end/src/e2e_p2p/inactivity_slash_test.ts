@@ -82,8 +82,8 @@ export class P2PInactivityTest {
   }
 
   public async setup() {
-    await this.test.setupValidators();
     await this.test.setup();
+    await this.test.setupValidators();
 
     // Set slashing penalties for inactivity
     const { rollup } = await this.test.getContracts();
