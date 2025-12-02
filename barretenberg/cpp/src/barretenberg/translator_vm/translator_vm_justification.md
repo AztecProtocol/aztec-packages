@@ -4,9 +4,32 @@
 
 This document analyzes whether the Translator VM (7 relation types, 139 subrelations) could be replaced with simpler bigfield-based computation.
 
-**Conclusion: The bigfield approach is viable if we can accept ~0.75s slower client-side proving** (~2s vs ~1.25s for 2000 ops). The trade-off is significant code simplification (~400 lines vs ~7,000 lines) and easier auditing.
+**Conclusion: The Translator VM should be retained.** While bigfield offers significant code simplification (~400 lines vs ~7,000 lines), the optimized bigfield path is blocked by a fundamental obstruction (app-generated ops cannot be soundly range-constrained), and the standard bigfield path is 2x slower with 4x larger circuits.
 
-**Note on LightZK**: Current benchmarks use MegaFlavor for bigfield (non-ZK). With greedy memory allocation, LightZK should match or slightly beat MegaFlavor in proving time while using less memory.
+## Critical Obstruction: App-Generated Ops
+
+The optimized bigfield approach (2^18 circuit) relies on Px/Py coordinates being pre-decomposed into 68-bit limbs and range-constrained before reaching the translator. However, **apps can create ECC ops directly**, and these ops bypass kernels entirely.
+
+### Why This Is Unsound
+
+The `unsafe_construct_from_limbs` function trusts that limbs are valid 68-bit values. If an attacker provides malformed limbs (values exceeding 68 bits), they could break the accumulator computation. For soundness, every Px/Py coordinate must be range-constrained somewhere.
+
+### Paths Considered and Rejected
+
+| Approach | Obstruction |
+|----------|-------------|
+| **Pre-constrain in kernels** | Apps create ops outside kernels - kernels never see these ops |
+| **Range-constrain per-op in op queue** | Would require significantly more complex ECC op queue relation logic and/or substantial gate overhead. Cannot use permutation argument due to Goblin delegation complexity. Feasibility and cost are difficult to assess. |
+| **Delegate op polynomials to kernels** | Kernels must have **constant circuit structure** for IVC (fixed VK). Variable ops per kernel would break this. Also adds significant architectural complexity. |
+
+### Implications
+
+- The **optimized bigfield path (2^18) is not viable** for general use
+- Only the **standard bigfield path (2^19)** with full range constraints is sound
+- Standard bigfield is **2x slower** (2.6s vs 1.25s) and **4x larger** (2^19 vs 2^17) than Translator VM
+- The code simplification benefits do not justify this performance regression
+
+---
 
 ## Current Translator VM
 
@@ -84,9 +107,9 @@ Translator processes 16 mini-circuits of 2^13 rows, interleaved into 2^17 polyno
 
 Even with pre-decomposed Px/Py limbs (skipping ~143K gates of range constraints), the circuit is still 2^18 (~181K gates) - larger than Translator's 2^17.
 
-## Bigfield Advantages
+## Bigfield Advantages (Insufficient to Justify Adoption)
 
-Despite being slower, the bigfield approach has significant advantages:
+The bigfield approach offers real benefits, but they do not outweigh the 2x performance and 4x circuit size regression:
 
 1. **Simpler codebase**: ~400 lines vs ~7,000 lines (4,600 in translator_vm/ + 2,300 in relations/)
 2. **Easier auditing**: Reuses standard bigfield primitives vs 7 custom relation types with 139 subrelations
@@ -94,7 +117,11 @@ Despite being slower, the bigfield approach has significant advantages:
 4. **Smaller recursive verifier**: KZG verifier MSM is 58 points vs 119 points (2x smaller)
 5. **Standard PCS flow**: No interleaving trick required
 
+These benefits would matter if the optimized path (2^18) were viable, bringing performance closer to Translator VM. With only the standard path (2^19) available, the trade-off is unfavorable.
+
 ## Pre-decomposed Limbs: Implementation Details
+
+> **Note**: This section documents the optimized approach for completeness. As explained in "Critical Obstruction" above, this path is **not viable** due to the inability to soundly range-constrain app-generated ops.
 
 ### Current Op Queue Layout (2 rows per op)
 
@@ -186,3 +213,23 @@ fq_ct result = BigfieldTranslator::compute_accumulator(builder, x, v, /*use_pred
 | 4095 (12-bit) | ~12,000 | Partial limbs |
 | Other | ~14,000 | Small constraints |
 | **Total** | **~115,000** | → ~29K delta_range gates |
+
+---
+
+## Final Decision
+
+**The Translator VM is retained.**
+
+| Criteria | Translator VM | Bigfield (Standard) | Bigfield (Optimized) |
+|----------|---------------|---------------------|----------------------|
+| Circuit size | 2^17 | 2^19 | 2^18 |
+| Proving time | 1.25s | ~2.6s | ~1.8s |
+| Peak memory | 264 MB | 406 MB | 353-406 MB |
+| Code complexity | 7,000 lines | 400 lines | 400 lines |
+| **Viable?** | ✅ Yes | ⚠️ 2x slower | ❌ Unsound |
+
+The optimized bigfield path would have been competitive (~1.44x slower), but the app-generated ops obstruction makes it unsound. The standard bigfield path is too slow to justify the trade-off.
+
+### Additional Consideration: Op Queue Scaling
+
+Increasing transaction depth may require doubling the fixed op queue size (e.g., 2^12 → 2^13 ops). Translator VM is purpose-built for this computation and scales efficiently with increased capacity. Bigfield reuses the general-purpose Ultra circuit builder, which incurs overhead that compounds as the fixed size grows - widening the performance and memory gap further.
