@@ -21,6 +21,7 @@ echo "Running test $name..."
 docker run --rm ${args:-} \
   -e FORCE_COLOR=1 \
   --name $name \
+  --tmpfs /home/ubuntu/.nvm:exec,size=4g \
   --tmpfs /home/ubuntu/.npm:exec,size=2g \
   -v$(git rev-parse --show-toplevel):/home/ubuntu/aztec-packages:ro \
   -v$HOME/.bb-crs:/home/ubuntu/.bb-crs \
