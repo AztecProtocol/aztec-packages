@@ -270,10 +270,10 @@ void BytecodeTraceBuilder::process_instruction_fetching(
 {
     using C = Column;
     using simulation::InstructionFetchingEvent;
-    using simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
-    using simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE;
-    using simulation::InstrDeserializationError::PC_OUT_OF_RANGE;
-    using simulation::InstrDeserializationError::TAG_OUT_OF_RANGE;
+    using simulation::InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE;
+    using simulation::InstrDeserializationEventError::OPCODE_OUT_OF_RANGE;
+    using simulation::InstrDeserializationEventError::PC_OUT_OF_RANGE;
+    using simulation::InstrDeserializationEventError::TAG_OUT_OF_RANGE;
 
     // We start from row 1 because we need a row of zeroes for the shifts.
     uint32_t row = 1;

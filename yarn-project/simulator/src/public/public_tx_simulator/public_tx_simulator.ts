@@ -129,7 +129,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       const setupResult = await this.simulatePhase(TxExecutionPhase.SETUP, context);
       if (setupResult.reverted) {
         throw new Error(
-          `Setup phase reverted! The transaction will be thrown out. ${setupResult.revertReason?.message}`,
+          `[SETUP] UNRECOVERABLE ERROR! The transaction will be thrown out. ${setupResult.revertReason?.message}`,
         );
       }
       processedPhases.push(setupResult);

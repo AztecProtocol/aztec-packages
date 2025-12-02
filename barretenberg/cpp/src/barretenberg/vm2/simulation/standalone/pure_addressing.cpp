@@ -44,14 +44,20 @@ std::vector<Operand> PureAddressing::resolve(const Instruction& instruction, Mem
             if (!base_address) {
                 MemoryValue maybe_base_address = memory.get(0);
                 if (!memory.is_valid_address(maybe_base_address)) {
-                    throw AddressingException();
+                    throw AddressingException(
+                        format("Addressing error: Base address (mem[0]) is not a valid address (has tag ",
+                               std::to_string(maybe_base_address.get_tag()),
+                               ")"));
                 }
                 base_address = maybe_base_address.as<MemoryAddress>();
             }
-            uint64_t offset = operand.as<MemoryAddress>();
-            offset += *base_address;
+            const uint64_t rel_offset = operand.as<MemoryAddress>();
+            const uint64_t offset = rel_offset + *base_address;
             if (offset > AVM_HIGHEST_MEM_ADDRESS) {
-                throw AddressingException();
+                throw AddressingException(format("Addressing error: Relative address out of range. Base address ",
+                                                 *base_address,
+                                                 ", relative offset ",
+                                                 rel_offset));
             }
             operand = Operand::from(static_cast<MemoryAddress>(offset));
         }
@@ -60,7 +66,12 @@ std::vector<Operand> PureAddressing::resolve(const Instruction& instruction, Mem
         if (is_operand_indirect(instruction.indirect, i)) {
             const MemoryValue& indirect_value = memory.get(operand.as<MemoryAddress>());
             if (!memory.is_valid_address(indirect_value)) {
-                throw AddressingException();
+                throw AddressingException(
+                    format("Addressing error: Address after indirection is not a valid address (address ",
+                           operand.to_string(),
+                           ") has tag ",
+                           std::to_string(indirect_value.get_tag()),
+                           ")"));
             }
             operand = indirect_value;
         }

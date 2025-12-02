@@ -75,7 +75,7 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu add operation failed");
+        throw OpcodeExecutionException("Alu add operation failed: " + std::string(e.what()));
     }
 }
 
@@ -115,7 +115,7 @@ void Execution::mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu mul operation failed");
+        throw OpcodeExecutionException("Alu mul operation failed: " + std::string(e.what()));
     }
 }
 
@@ -135,7 +135,7 @@ void Execution::div(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu div operation failed");
+        throw OpcodeExecutionException("Alu div operation failed: " + std::string(e.what()));
     }
 }
 
@@ -155,7 +155,7 @@ void Execution::fdiv(ContextInterface& context, MemoryAddress a_addr, MemoryAddr
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu fdiv operation failed");
+        throw OpcodeExecutionException("Alu fdiv operation failed: " + std::string(e.what()));
     }
 }
 
@@ -175,7 +175,7 @@ void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu eq operation failed");
+        throw OpcodeExecutionException("Alu eq operation failed: " + std::string(e.what()));
     }
 }
 
@@ -195,7 +195,7 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu lt operation failed");
+        throw OpcodeExecutionException("Alu lt operation failed: " + std::string(e.what()));
     }
 }
 
@@ -215,7 +215,7 @@ void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu lte operation failed");
+        throw OpcodeExecutionException("Alu lte operation failed: " + std::string(e.what()));
     }
 }
 
@@ -234,7 +234,7 @@ void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, Memory
         memory.set(dst_addr, b);
         set_output(opcode, b);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu not operation failed");
+        throw OpcodeExecutionException("Alu not operation failed: " + std::string(e.what()));
     }
 }
 
@@ -660,7 +660,7 @@ void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (const BitwiseException& e) {
-        throw OpcodeExecutionException("Bitwise AND Exeception");
+        throw OpcodeExecutionException("Bitwise AND Exeception: " + std::string(e.what()));
     }
 }
 
@@ -682,7 +682,7 @@ void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAdd
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (const BitwiseException& e) {
-        throw OpcodeExecutionException("Bitwise OR Exception");
+        throw OpcodeExecutionException("Bitwise OR Exception: " + std::string(e.what()));
     }
 }
 
@@ -704,7 +704,7 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (const BitwiseException& e) {
-        throw OpcodeExecutionException("Bitwise XOR Exception");
+        throw OpcodeExecutionException("Bitwise XOR Exception: " + std::string(e.what()));
     }
 }
 
@@ -742,7 +742,8 @@ void Execution::sstore(ContextInterface& context, MemoryAddress src_addr, Memory
     get_gas_tracker().consume_gas({ .l2_gas = 0, .da_gas = da_gas_factor });
 
     if (context.get_is_static()) {
-        throw OpcodeExecutionException("SSTORE: Cannot write to storage in static context");
+        throw OpcodeExecutionException(
+            "SSTORE: Static call cannot update the state. Cannot write to storage in static context");
     }
 
     if (!was_slot_written_before &&
@@ -822,7 +823,8 @@ void Execution::emit_nullifier(ContextInterface& context, MemoryAddress nullifie
     get_gas_tracker().consume_gas();
 
     if (context.get_is_static()) {
-        throw OpcodeExecutionException("EMITNULLIFIER: Cannot emit nullifier in static context");
+        throw OpcodeExecutionException(
+            "EMITNULLIFIER: Static call cannot update the state. Cannot emit nullifier in static context");
     }
 
     if (merkle_db.get_tree_state().nullifier_tree.counter == MAX_NULLIFIERS_PER_TX) {
@@ -858,7 +860,7 @@ void Execution::get_contract_instance(ContextInterface& context,
     try {
         get_contract_instance_component.get_contract_instance(memory, contract_address, dst_offset, member_enum);
     } catch (const GetContractInstanceException& e) {
-        throw OpcodeExecutionException("GetContractInstance Exception");
+        throw OpcodeExecutionException("GetContractInstance Exception: " + std::string(e.what()));
     }
 
     // No `set_output` here since the dedicated component handles memory writes.
@@ -876,7 +878,8 @@ void Execution::emit_note_hash(ContextInterface& context, MemoryAddress note_has
     get_gas_tracker().consume_gas();
 
     if (context.get_is_static()) {
-        throw OpcodeExecutionException("EMITNOTEHASH: Cannot emit note hash in static context");
+        throw OpcodeExecutionException(
+            "EMITNOTEHASH: Static call cannot update the state. Cannot emit note hash in static context");
     }
 
     if (merkle_db.get_tree_state().note_hash_tree.counter == MAX_NOTE_HASHES_PER_TX) {
@@ -1041,7 +1044,7 @@ void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress lo
         emit_unencrypted_log_component.emit_unencrypted_log(
             memory, context, context.get_address(), log_offset, log_size_int);
     } catch (const EmitUnencryptedLogException& e) {
-        throw OpcodeExecutionException("EmitUnencryptedLog Exception");
+        throw OpcodeExecutionException("EmitUnencryptedLog Exception: " + std::string(e.what()));
     }
 }
 
@@ -1058,7 +1061,8 @@ void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recip
     get_gas_tracker().consume_gas();
 
     if (context.get_is_static()) {
-        throw OpcodeExecutionException("SENDL2TOL1MSG: Cannot send L2 to L1 message in static context");
+        throw OpcodeExecutionException(
+            "SENDL2TOL1MSG: Static call cannot update the state. Cannot send L2 to L1 message in static context");
     }
 
     auto& side_effect_tracker = context.get_side_effect_tracker();
