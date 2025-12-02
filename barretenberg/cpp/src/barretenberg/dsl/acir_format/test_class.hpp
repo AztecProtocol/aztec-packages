@@ -232,7 +232,11 @@ template <TestBase Base> class TestClass {
             error_msgs.emplace_back(builder_err);
 
             if (target != InvalidWitness::Target::None) {
-                EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the
+                // CircuitChecker failed, or the builder error resulted from an assert_eq.
+                bool circuit_check_failed = !circuit_checker_result;
+                bool assert_eq_error_present = (builder_err.find("assert_eq") != std::string::npos);
+                EXPECT_TRUE(circuit_check_failed || assert_eq_error_present)
                     << "Circuit checker succeeded unexpectedly and no assert_eq failure for invalid witness target " +
                            label;
                 EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly for invalid witness target " + label;
