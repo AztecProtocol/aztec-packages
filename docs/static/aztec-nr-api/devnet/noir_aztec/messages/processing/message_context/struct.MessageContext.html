@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<title>Struct MessageContext documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct MessageContext</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#first_nullifier_in_tx">first_nullifier_in_tx</a></li>
+<li><a href="#recipient">recipient</a></li>
+<li><a href="#tx_hash">tx_hash</a></li>
+<li><a href="#unique_note_hashes_in_tx">unique_note_hashes_in_tx</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-MessageContext">Deserialize</a></li>
+<li><a href="#impl-Eq-for-MessageContext">Eq</a></li>
+</ul>
+<h2>In module message_context</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.MessageContext.html">MessageContext</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">processing</a>::<a href="index.html">message_context</a></div>
+<h1>Struct <span id="struct" class="struct">MessageContext</span></h1>
+<pre><code>pub struct MessageContext {
+    pub tx_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub unique_note_hashes_in_tx: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 64&gt;,
+    pub first_nullifier_in_tx: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+}
+</code></pre>
+<div class="comments">
+<p>Additional information needed to process a message.</p>
+<p>All messages exist in the context of a transaction, and information about that transaction is typically required
+in order to perform validation, store results, etc. For example, messages containing notes require knowledge of note
+hashes and the first nullifier in order to find the note's nonce.</p>
+</div>
+<h2>Fields</h2>
+<div id="tx_hash" class="struct-field"><code class="code-header">tx_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="unique_note_hashes_in_tx" class="struct-field"><code class="code-header">unique_note_hashes_in_tx: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 64&gt;</code></div>
+<div class="padded-description"></div><div id="first_nullifier_in_tx" class="struct-field"><code class="code-header">first_nullifier_in_tx: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="recipient" class="struct-field"><code class="code-header">recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-MessageContext"><code class="code-header">impl <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../noir_aztec/messages/processing/message_context/struct.MessageContext.html" class="struct">MessageContext</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 68]) -> Self</code>
+
+</div><h3 id="impl-Eq-for-MessageContext"><code class="code-header">impl <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../noir_aztec/messages/processing/message_context/struct.MessageContext.html" class="struct">MessageContext</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div></main>
+</body>
+</html>

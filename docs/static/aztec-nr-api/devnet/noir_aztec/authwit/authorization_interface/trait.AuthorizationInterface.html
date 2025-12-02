@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Trait AuthorizationInterface documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait AuthorizationInterface</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#get_authorization_selector">get_authorization_selector</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-AuthorizationInterface-for-CallAuthorization">CallAuthorization</a></li>
+</ul>
+<h2>In module authorization_interface</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.AuthorizationInterface.html">AuthorizationInterface</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">authwit</a>::<a href="index.html">authorization_interface</a></div>
+<h1>Trait <span id="trait" class="trait">AuthorizationInterface</span></h1>
+<pre><code>pub trait AuthorizationInterface {
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#get_authorization_selector"><span class="fn">get_authorization_selector</span></a>(self) -> <a href="../../../noir_aztec/authwit/authorization_selector/struct.AuthorizationSelector.html" class="struct">AuthorizationSelector</a>;
+}</code></pre>
+
+<div class="comments">
+<p>Allows getting the selector for an authorization struct (see src/macros/authorization.nr)
+used to uniquely identify them and avoiding collisions. This is important
+because authorizations are emitted as offchain effects and their
+unique selector allows users/wallets to decode them correctly</p>
+</div>
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="get_authorization_selector" class="code-header">pub fn <span class="fn">get_authorization_selector</span>(self) -> <a href="../../../noir_aztec/authwit/authorization_selector/struct.AuthorizationSelector.html" class="struct">AuthorizationSelector</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the unique identifier of the authorization type.</p>
+</div>
+</div></div><h2>Implementors</h2>
+<h3 id="impl-AuthorizationInterface-for-CallAuthorization"><code class="code-header">impl <a href="../../../noir_aztec/authwit/authorization_interface/trait.AuthorizationInterface.html" class="trait">AuthorizationInterface</a> for CallAuthorization</code></h3>
+
+</main>
+</body>
+</html>
