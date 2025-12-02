@@ -187,23 +187,6 @@ void print_acir_format_gates(const AcirFormat& acir_format)
 {
     std::cerr << "\n=== RESULTING GATES ===" << std::endl;
 
-    std::cerr << "\nArithmetic Triple Constraints (" << acir_format.arithmetic_triple_constraints.size()
-              << " total):" << std::endl;
-    for (size_t i = 0; i < acir_format.arithmetic_triple_constraints.size(); ++i) {
-        const auto& gate = acir_format.arithmetic_triple_constraints[i];
-        std::cerr << "\nTriple Gate " << i << ":" << std::endl;
-        std::cerr << "  a=" << gate.a << ", b=" << gate.b << ", c=" << gate.c << std::endl;
-        std::cerr << "  q_m=" << gate.q_m << " (mul coeff)" << std::endl;
-        std::cerr << "  q_l=" << gate.q_l << " (left coeff)" << std::endl;
-        std::cerr << "  q_r=" << gate.q_r << " (right coeff)" << std::endl;
-        std::cerr << "  q_o=" << gate.q_o << " (output coeff)" << std::endl;
-        std::cerr << "  q_c=" << gate.q_c << " (constant)" << std::endl;
-
-        std::cerr << "  Represents: " << gate.q_m << "*w" << gate.a << "*w" << gate.b << " + " << gate.q_l << "*w"
-                  << gate.a << " + " << gate.q_r << "*w" << gate.b << " + " << gate.q_o << "*w" << gate.c << " + "
-                  << gate.q_c << " = 0" << std::endl;
-    }
-
     std::cerr << "\nQuad Constraints (" << acir_format.quad_constraints.size() << " total):" << std::endl;
     for (size_t i = 0; i < acir_format.quad_constraints.size(); ++i) {
         const auto& gate = acir_format.quad_constraints[i];
@@ -868,8 +851,9 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
         // Build circuit using the proper constructor that initializes witnesses
         // NOTE: Must use the witness-aware constructor, not default constructor!
         // The default constructor leaves witnesses uninitialized, causing false negatives.
-        UltraCircuitBuilder builder{ /*size_hint*/ 0 };
-        builder.initialize_from_acir_data(acir_format.max_witness_index, witness_vec, acir_format.public_inputs);
+        UltraCircuitBuilder builder{
+            /*size_hint*/ 0, witness_vec, acir_format.public_inputs, /*is_write_vk_mode=*/false
+        };
 
         build_constraints(builder, acir_format, ProgramMetadata{});
 
