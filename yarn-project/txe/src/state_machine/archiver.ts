@@ -1,6 +1,6 @@
 import { ArchiverStoreHelper, KVArchiverDataStore, type PublishedL2Block } from '@aztec/archiver';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -90,7 +90,7 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     return this.getPublishedBlocks(from, limit).then(blocks => blocks.map(b => b.block));
   }
 
-  public getL2SlotNumber(): Promise<bigint> {
+  public getL2SlotNumber(): Promise<SlotNumber | undefined> {
     throw new Error('TXE Archiver does not implement "getL2SlotNumber"');
   }
 

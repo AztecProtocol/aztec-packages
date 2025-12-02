@@ -57,34 +57,33 @@ MergeProver::Polynomial MergeProver::compute_shplonk_batched_quotient(
     const Polynomial& reversed_batched_left_tables,
     const std::vector<FF>& evals)
 {
-    // Q s.t. Q * (X - \kappa) * (X - \kappa^{-1}) =
-    //   (X - \kappa^{-1}) * (\sum_i \beta_i (L_i - l_i) + \sum_i \beta_i (R_i - r_i) + \sum_i \beta_i (M_i - m_i))
-    // + (X - \kappa) * \beta_i (G - g)
+    // Q such that Q·(X - κ)·(X - κ⁻¹) =
+    //   (X - κ⁻¹)·(Σᵢ βᵢ(Lᵢ - lᵢ) + Σᵢ βᵢ(Rᵢ - rᵢ) + Σᵢ βᵢ(Mᵢ - mᵢ)) + (X - κ)·β(G - g)
     Polynomial shplonk_batched_quotient(merged_table[0].size());
 
-    // Handle polynomials opened at \kappa
+    // Handle polynomials opened at κ
     for (size_t idx_table = 0; idx_table < 3; idx_table++) {
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
             FF challenge = shplonk_batching_challenges[(idx_table * NUM_WIRES) + idx];
             FF eval = evals[(idx_table * NUM_WIRES) + idx];
             if (idx_table == 0) {
-                // Q += L_i * \beta_i
+                // Q += Lᵢ·βᵢ
                 shplonk_batched_quotient.add_scaled(left_table[idx], challenge);
             } else if (idx_table == 1) {
-                // Q += R_i * \beta_i
+                // Q += Rᵢ·βᵢ
                 shplonk_batched_quotient.add_scaled(right_table[idx], challenge);
             } else {
-                // Q += M_i * \beta_i
+                // Q += Mᵢ·βᵢ
                 shplonk_batched_quotient.add_scaled(merged_table[idx], challenge);
             }
-            // Q -= eval * \beta_i
+            // Q -= eval·βᵢ
             shplonk_batched_quotient.at(0) -= challenge * eval;
         }
     }
-    // Q /= (X - \kappa)
+    // Q /= (X - κ)
     shplonk_batched_quotient.factor_roots(kappa);
 
-    // Q += (G - g) / (X - \kappa^{-1}) * \beta_i
+    // Q += (G - g)/(X - κ⁻¹)·β
     Polynomial reversed_batched_left_tables_copy(reversed_batched_left_tables);
     reversed_batched_left_tables_copy.at(0) -= evals.back();
     reversed_batched_left_tables_copy.factor_roots(kappa_inv);
@@ -106,35 +105,31 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
     const std::vector<FF>& evals)
 {
     // Q' (partially evaluated batched quotient) =
-    //  -Q * (z - \kappa) +
-    //      + (\sum_i \beta_i (L_i - l_i) + \sum_i \beta_i (R_i - r_i) + \sum_i \beta_i (M_i - m_i))
-    //      + (z - \kappa) / (z - \kappa^{-1}) * \beta_i (G - g)
-
-    //
+    //   -Q·(z - κ) + Σᵢ βᵢ(Lᵢ - lᵢ) + Σᵢ βᵢ(Rᵢ - rᵢ) + Σᵢ βᵢ(Mᵢ - mᵢ) + (z - κ)/(z - κ⁻¹)·β(G - g)
     Polynomial shplonk_partially_evaluated_batched_quotient(std::move(shplonk_batched_quotient));
     shplonk_partially_evaluated_batched_quotient *= -(shplonk_opening_challenge - kappa);
 
-    // Handle polynomials opened at \kappa
+    // Handle polynomials opened at κ
     for (size_t idx_table = 0; idx_table < 3; idx_table++) {
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
             FF challenge = shplonk_batching_challenges[(idx_table * NUM_WIRES) + idx];
             FF eval = evals[(idx_table * NUM_WIRES) + idx];
             if (idx_table == 0) {
-                // Q' += L_i * \beta_i
+                // Q' += Lᵢ·βᵢ
                 shplonk_partially_evaluated_batched_quotient.add_scaled(left_table[idx], challenge);
             } else if (idx_table == 1) {
-                // Q' += R_i * \beta_i
+                // Q' += Rᵢ·βᵢ
                 shplonk_partially_evaluated_batched_quotient.add_scaled(right_table[idx], challenge);
             } else {
-                // Q' += M_i * \beta_i
+                // Q' += Mᵢ·βᵢ
                 shplonk_partially_evaluated_batched_quotient.add_scaled(merged_table[idx], challenge);
             }
-            // Q' -= eval * \beta_i
+            // Q' -= eval·βᵢ
             shplonk_partially_evaluated_batched_quotient.at(0) -= challenge * eval;
         }
     }
 
-    // Q' += (G - g) / (z - \kappa^{-1}) * (z - \kappa) * \beta_i
+    // Q' += (G - g)·(z - κ)/(z - κ⁻¹)·β
     reversed_batched_left_tables.at(0) -= evals.back();
     shplonk_partially_evaluated_batched_quotient.add_scaled(reversed_batched_left_tables,
                                                             shplonk_batching_challenges.back() *
@@ -148,29 +143,14 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
 }
 
 /**
- * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
- * @details Let \f$L_j\f$, \f$R_j\f$, \f$M_j\f$ be three vectors. The Merge prover wants to convince the verifier that,
- * for j = 1, 2, 3, 4:
- *      - \f$M_j(X) = L_j(X) + X^l R_j(X)\f$      (1)
- *      - \f$deg(L_j(X)) < k\f$                   (2)
- * where k = shift_size.
+ * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j.
+ * @details Proves that M_j(X) = L_j(X) + X^k * R_j(X) and deg(L_j) < k for j = 1,2,3,4.
+ * Uses degree-check polynomial G(X) and Shplonk for batched openings.
  *
- * 1. The prover commits to \f$L_i, R_j, M_j\f$ and receives from the verifier batching challenges \f$alpha_1, \dots,
- *    \alpha_4\f$
- * 2. The prover sends a commitment to \f$G(X) = X^{k-1}(\sum_i \alpha_i L_i(X))\f$.
- * 3. The prover receives from the verifier an evaluation challenge \f$\kappa\f$ and sends evaluations
- *    \f$l_j = L_j(\kappa), r_j = R_j(\kappa), m_j = M_j(\kappa), g = G(\kappa^{-1}\f$.
- * 4. The prover uses Shplonk to open the commitments to the relevant points.
+ * For PREPEND: L = subtable (t), R = previous table (T_prev)
+ * For APPEND:  L = previous table (T_prev), R = subtable (t)
  *
- * In the Goblin scenario, we have:
- * - \f$L_i = t_j, R_j = T_{prev,j}, M_j = T_j\f$ if we are prepending the subtable
- * - \f$L_j = T_{prev,j}, R_j = t_j, M_j = T_j\f$ if we are appending the subtable
- *
- * @note The prover doesn't commit to t_j because it shares a transcript with the HN instance that folds
- * the present circuit, and therefore t_j has already been added to the transcript by HN. Similarly, it doesn't commit
- * to T_{prev, j} because the transcript is shared by entire recursive verification and therefore T_{prev, j} has been
- * added to the transcript in the previous round of Merge verification.
- *
+ * @see MERGE_PROTOCOL.md for complete protocol specification.
  * @return MergeProver::MergeProof
  */
 MergeProver::MergeProof MergeProver::construct_proof()
@@ -214,7 +194,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
 
-    // Send evaluations of [L_i], [R_i], [M_i] at kappa
+    // Send evaluations of [Lᵢ], [Rᵢ], [Mᵢ] at κ
     std::vector<FF> evals;
     evals.reserve((3 * NUM_WIRES) + 1);
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -230,7 +210,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
         transcript->send_to_verifier("MERGED_TABLE_EVAL_" + std::to_string(idx), evals.back());
     }
 
-    // Send evaluation of G at 1/kappa
+    // Send evaluation of G at 1/κ
     evals.emplace_back(reversed_batched_left_tables.evaluate(kappa_inv));
     transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES_EVAL", evals.back());
 

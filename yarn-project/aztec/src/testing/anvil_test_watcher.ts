@@ -1,5 +1,6 @@
 import type { ViemClient } from '@aztec/ethereum';
 import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -20,7 +21,7 @@ export class AnvilTestWatcher {
 
   private rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
   private rollupCheatCodes: RollupCheatCodes;
-  private l2SlotDuration!: bigint;
+  private l2SlotDuration!: number;
 
   private filledRunningPromise?: RunningPromise;
   private syncDateProviderPromise?: RunningPromise;
@@ -123,12 +124,13 @@ export class AnvilTestWatcher {
 
   async warpTimeIfNeeded() {
     try {
-      const currentSlot = await this.rollup.read.getCurrentSlot();
-      const pendingCheckpointNumber = BigInt(await this.rollup.read.getPendingCheckpointNumber());
+      const currentSlot = SlotNumber.fromBigInt(await this.rollup.read.getCurrentSlot());
+      const pendingCheckpointNumber = await this.rollup.read.getPendingCheckpointNumber();
       const checkpointLog = await this.rollup.read.getCheckpoint([pendingCheckpointNumber]);
-      const nextSlotTimestamp = Number(await this.rollup.read.getTimestampForSlot([currentSlot + 1n]));
+      const nextSlot = SlotNumber(currentSlot + 1);
+      const nextSlotTimestamp = Number(await this.rollup.read.getTimestampForSlot([BigInt(nextSlot)]));
 
-      if (currentSlot === checkpointLog.slotNumber) {
+      if (BigInt(currentSlot) === checkpointLog.slotNumber) {
         // We should jump to the next slot
         try {
           await this.cheatcodes.warp(nextSlotTimestamp, {

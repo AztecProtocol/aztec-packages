@@ -1,12 +1,11 @@
 use aztec::{
     macros::notes::note,
     messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
-    protocol_types::{address::AztecAddress, traits::{FromField, Packable}},
+    protocol_types::traits::Packable,
 };
 
 #[note]
 pub struct InvalidNote {
-    pub owner: AztecAddress,
 }
 
 impl Packable for InvalidNote {
@@ -16,7 +15,7 @@ impl Packable for InvalidNote {
         std::mem::zeroed()
     }
 
-    fn unpack(packed: [Field; Self::N]) -> Self {
-        Self { owner: AztecAddress::from_field(packed[0]) }
+    fn unpack(_packed: [Field; Self::N]) -> Self {
+        Self {}
     }
 }

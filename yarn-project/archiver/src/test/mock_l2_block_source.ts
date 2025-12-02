@@ -1,6 +1,6 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -187,7 +187,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     const epochDuration = DefaultL1ContractsConfig.aztecEpochDuration;
     const [start, end] = getSlotRangeForEpoch(epochNumber, { epochDuration });
     const blocks = this.l2Blocks.filter(b => {
-      const slot = b.header.globalVariables.slotNumber.toBigInt();
+      const slot = b.header.globalVariables.slotNumber;
       return slot >= start && slot <= end;
     });
     return Promise.resolve(blocks);
@@ -273,7 +273,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     throw new Error('Method not implemented.');
   }
 
-  getL2SlotNumber(): Promise<bigint> {
+  getL2SlotNumber(): Promise<SlotNumber> {
     throw new Error('Method not implemented.');
   }
 

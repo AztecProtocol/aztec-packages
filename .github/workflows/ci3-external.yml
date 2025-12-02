@@ -23,9 +23,6 @@ jobs:
     # exclusive with ci3.yml, only run on forks.
     if: github.event.pull_request.head.repo.fork
     steps:
-      #############
-      # Prepare Env
-      #############
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -40,7 +37,6 @@ jobs:
         run: echo "CI is not run on drafts." && exit 1
 
       - name: External Contributor Checks
-        # Run only if a pull request event type and we have a forked repository origin.
         run: |
           set -o pipefail
           git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1 &>/dev/null
@@ -61,89 +57,38 @@ jobs:
             echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run."
             exit 1
           fi
-          # Remove any ci-external-once labels.
           GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
 
-      - name: CI Merge Queue Override (grind on PR)
-        if: contains(github.event.pull_request.labels.*.name, 'ci-merge-queue')
-        run: echo "CI_MERGE_QUEUE=1" >> $GITHUB_ENV
-
-      - name: CI Full Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-full')
-        run: echo "CI_FULL=1" >> $GITHUB_ENV
-
-      - name: Cache Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
-        run: echo "NO_CACHE=1" >> $GITHUB_ENV
-
-      - name: Fail Fast Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-no-fail-fast')
-        run: echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
-
-      - name: Setup
-        run: |
-          # Ensure we can SSH into the spot instances we request.
-          mkdir -p ~/.ssh
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-
-      - name: Get Tree Hash
-        run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
-
-      - name: Check CI Cache
-        id: ci_cache
-        uses: actions/cache@v3
-        with:
-          path: ci-success.txt
-          key: ci-external-${{ env.CI_MERGE_QUEUE == '1' && 'merge-queue' }}-${{ env.CI_FULL == '1' && 'full' }}-${{ env.NO_CACHE == '1' && 'no-cache' }}-${{ env.NO_FAIL_FAST == '1' && 'no-fail-fast' }}-${{ env.TREE_HASH }}
-
-      - name: CI Cached
-        if: steps.ci_cache.outputs.cache-hit == 'true'
-        run: |
-          echo "Previous run: $(cat ci-success.txt)"
-
-      #############
-      # Run
-      #############
       - name: Run
-        if: steps.ci_cache.outputs.cache-hit != 'true'
         env:
+          REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
+          # We only test on amd64.
+          ARCH: amd64
           # We need to pass these creds to start the AWS ec2 instance.
           # They are not injected into that instance. Instead, it has minimal
           # creds for being able to upload to cache.
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
-          # We only test on amd64.
-          ARCH: amd64
-          RUN_ID: ${{ github.run_id }}
-        run: |
-          if [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
-            exec ./ci.sh merge-queue
-          elif [ "${CI_FULL:-0}" -eq 1 ]; then
-            exec ./ci.sh full
-          else
-            exec ./ci.sh fast
-          fi
-
-      - name: Save CI Success
-        if: steps.ci_cache.outputs.cache-hit != 'true'
-        run: echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" > ci-success.txt
-
-      # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
-      # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
-      - name: CI Squash and Merge
-        if: contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge')
-        env:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: |
-          # Reauth the git repo with our GITHUB_TOKEN
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
-          # Get the base commit (merge-base) for the PR
-          ./scripts/merge-train/squash-pr.sh \
-            "${{ github.event.pull_request.number }}" \
-            "${{ github.event.pull_request.head.ref }}" \
-            "${{ github.event.pull_request.base.ref }}" \
-            "${{ github.event.pull_request.base.sha }}"
-          gh pr edit "${{ github.event.pull_request.number }}" --remove-label "ci-squash-and-merge"
-          gh pr merge "${{ github.event.pull_request.number }}" --auto -m || true
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_COMMITS: ${{ github.event.pull_request.commits }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: ./.github/ci3.sh "${{ join(github.event.pull_request.labels.*.name, ',') }}"
+
+      - name: Post-Actions
+        if: always()
+        env:
+          SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
+          SHOULD_UPLOAD_BENCHMARKS: "0"
+          # For updating success cache.
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: ./.github/ci3-post.sh

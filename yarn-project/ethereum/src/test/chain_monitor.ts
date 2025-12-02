@@ -1,5 +1,5 @@
 import { InboxContract, type RollupContract } from '@aztec/ethereum/contracts';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -11,11 +11,13 @@ import type { ViemClient } from '../types.js';
 
 export type ChainMonitorEventMap = {
   'l1-block': [{ l1BlockNumber: number; timestamp: bigint }];
-  checkpoint: [{ checkpointNumber: number; l1BlockNumber: number; l2SlotNumber: number; timestamp: bigint }];
-  'checkpoint-proven': [{ provenCheckpointNumber: number; l1BlockNumber: number; timestamp: bigint }];
+  checkpoint: [
+    { checkpointNumber: CheckpointNumber; l1BlockNumber: number; l2SlotNumber: SlotNumber; timestamp: bigint },
+  ];
+  'checkpoint-proven': [{ provenCheckpointNumber: CheckpointNumber; l1BlockNumber: number; timestamp: bigint }];
   'l2-messages': [{ totalL2Messages: number; l1BlockNumber: number }];
   'l2-epoch': [{ l2EpochNumber: EpochNumber; timestamp: bigint; committee: EthAddress[] | undefined }];
-  'l2-slot': [{ l2SlotNumber: number; timestamp: bigint }];
+  'l2-slot': [{ l2SlotNumber: SlotNumber; timestamp: bigint }];
 };
 
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
@@ -29,9 +31,9 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   /** Current L1 block number */
   public l1BlockNumber!: number;
   /** Current checkpoint number */
-  public checkpointNumber!: number;
+  public checkpointNumber!: CheckpointNumber;
   /** Current proven checkpoint number */
-  public provenCheckpointNumber!: number;
+  public provenCheckpointNumber!: CheckpointNumber;
   /** L1 timestamp for the current checkpoint */
   public checkpointTimestamp!: bigint;
   /** L1 timestamp for the proven checkpoint */
@@ -41,7 +43,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   /** Current L2 epoch number */
   public l2EpochNumber!: EpochNumber;
   /** Current L2 slot number */
-  public l2SlotNumber!: bigint;
+  public l2SlotNumber!: SlotNumber;
 
   constructor(
     private readonly rollup: RollupContract,
@@ -115,23 +117,23 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     this.emit('l1-block', { l1BlockNumber: newL1BlockNumber, timestamp });
     let msg = `L1 block ${newL1BlockNumber} mined at ${timestampString}`;
 
-    const newCheckpointNumber = Number(await this.rollup.getCheckpointNumber());
+    const newCheckpointNumber = await this.rollup.getCheckpointNumber();
     if (this.checkpointNumber !== newCheckpointNumber) {
-      const epochNumber = await this.rollup.getEpochNumberForCheckpoint(BigInt(newCheckpointNumber));
+      const epochNumber = await this.rollup.getEpochNumberForCheckpoint(newCheckpointNumber);
       msg += ` with new checkpoint ${newCheckpointNumber} for epoch ${epochNumber}`;
       this.checkpointNumber = newCheckpointNumber;
       this.checkpointTimestamp = timestamp;
       this.emit('checkpoint', {
         checkpointNumber: newCheckpointNumber,
         l1BlockNumber: newL1BlockNumber,
-        l2SlotNumber: Number(l2SlotNumber),
+        l2SlotNumber,
         timestamp,
       });
     }
 
-    const newProvenCheckpointNumber = Number(await this.rollup.getProvenCheckpointNumber());
+    const newProvenCheckpointNumber = await this.rollup.getProvenCheckpointNumber();
     if (this.provenCheckpointNumber !== newProvenCheckpointNumber) {
-      const epochNumber = await this.rollup.getEpochNumberForCheckpoint(BigInt(newProvenCheckpointNumber));
+      const epochNumber = await this.rollup.getEpochNumberForCheckpoint(newProvenCheckpointNumber);
       msg += ` with proof up to checkpoint ${newProvenCheckpointNumber} for epoch ${epochNumber}`;
       this.provenCheckpointNumber = newProvenCheckpointNumber;
       this.provenCheckpointTimestamp = timestamp;
@@ -160,7 +162,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
 
     if (l2SlotNumber !== this.l2SlotNumber) {
       this.l2SlotNumber = l2SlotNumber;
-      this.emit('l2-slot', { l2SlotNumber: Number(l2SlotNumber), timestamp });
+      this.emit('l2-slot', { l2SlotNumber, timestamp });
     }
 
     this.logger.info(msg, {
@@ -178,14 +180,13 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     return this;
   }
 
-  public waitUntilL2Slot(slot: number | bigint): Promise<void> {
-    const targetSlot = typeof slot === 'bigint' ? slot.valueOf() : slot;
-    if (this.l2SlotNumber >= targetSlot) {
+  public waitUntilL2Slot(slot: SlotNumber): Promise<void> {
+    if (this.l2SlotNumber >= slot) {
       return Promise.resolve();
     }
     return new Promise(resolve => {
-      const listener = (data: { l2SlotNumber: number; timestamp: bigint }) => {
-        if (data.l2SlotNumber >= targetSlot) {
+      const listener = (data: { l2SlotNumber: SlotNumber; timestamp: bigint }) => {
+        if (data.l2SlotNumber >= slot) {
           this.off('l2-slot', listener);
           resolve();
         }
@@ -226,14 +227,13 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     });
   }
 
-  public waitUntilCheckpoint(checkpointNumber: number | bigint): Promise<void> {
-    const targetBlock = typeof checkpointNumber === 'bigint' ? checkpointNumber.valueOf() : checkpointNumber;
-    if (this.checkpointNumber >= targetBlock) {
+  public waitUntilCheckpoint(checkpointNumber: CheckpointNumber): Promise<void> {
+    if (this.checkpointNumber >= checkpointNumber) {
       return Promise.resolve();
     }
     return new Promise(resolve => {
-      const listener = (data: { checkpointNumber: number; timestamp: bigint }) => {
-        if (data.checkpointNumber >= targetBlock) {
+      const listener = (data: { checkpointNumber: CheckpointNumber; timestamp: bigint }) => {
+        if (data.checkpointNumber >= checkpointNumber) {
           this.off('checkpoint', listener);
           resolve();
         }
