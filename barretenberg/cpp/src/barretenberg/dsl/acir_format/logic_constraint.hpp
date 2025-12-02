@@ -19,7 +19,7 @@ struct LogicConstraint {
     WitnessOrConstant<bb::fr> b;
     uint32_t result;
     uint32_t num_bits;
-    uint32_t is_xor_gate;
+    bool is_xor_gate;
 
     friend bool operator==(LogicConstraint const& lhs, LogicConstraint const& rhs) = default;
 
