@@ -2,7 +2,7 @@ import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
 import type { DeployAccountOptions, Wallet } from '@aztec/aztec.js/wallet';
-import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
@@ -51,7 +51,7 @@ describe('Deployment benchmark', () => {
           const benchysAccountManager = await t.createBenchmarkingAccountManager(userWallet, accountType);
 
           if (benchmarkingPaymentMethod === 'sponsored_fpc') {
-            await userWallet.registerContract(sponsoredFPC);
+            await userWallet.registerContract(t.sponsoredFPCInstance, SponsoredFPCContract.artifact);
           }
 
           const benchysAddress = benchysAccountManager.address;

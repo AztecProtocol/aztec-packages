@@ -1,8 +1,8 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
@@ -61,10 +61,10 @@ describe('Bridging benchmark', () => {
         // Register admin as sender in benchy's wallet, since we need it to discover the minted bananas
         await userWallet.registerSender(adminAddress);
         // Register both FPC and BananCoin on the user's PXE so we can simulate and prove
-        await userWallet.registerContract(bananaFPC);
-        await userWallet.registerContract(bananaCoin);
+        await userWallet.registerContract(t.bananaFPCInstance, FPCContract.artifact);
+        await userWallet.registerContract(t.bananaCoinInstance, TokenContract.artifact);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
-        await userWallet.registerContract(sponsoredFPC);
+        await userWallet.registerContract(t.sponsoredFPCInstance, SponsoredFPCContract.artifact);
       });
 
       function privateClaimTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {

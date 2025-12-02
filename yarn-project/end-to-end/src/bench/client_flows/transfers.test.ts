@@ -49,17 +49,11 @@ describe('Transfer benchmark', () => {
     await t.deployCandyBarToken();
     await t.deploySponsoredFPC();
 
-    ({
-      adminWallet,
-      userWallet,
-      adminAddress,
-      aztecNode: node,
-      bananaFPCInstance,
-      bananaCoinInstance,
-      candyBarCoin,
-      candyBarCoinInstance,
-      sponsoredFPCInstance,
-    } = await t.setup());
+    ({ adminWallet, userWallet, adminAddress, aztecNode: node, candyBarCoin } = await t.setup());
+    bananaFPCInstance = t.bananaFPCInstance;
+    bananaCoinInstance = t.bananaCoinInstance;
+    candyBarCoinInstance = t.candyBarCoinInstance;
+    sponsoredFPCInstance = t.sponsoredFPCInstance;
   });
 
   afterAll(async () => {

@@ -2,9 +2,9 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
-import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import { AMMContract } from '@aztec/noir-contracts.js/AMM';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
@@ -76,15 +76,15 @@ describe('AMM benchmark', () => {
         // Register admin as sender in benchy's wallet, since we need it to discover the minted bananas
         await userWallet.registerSender(adminAddress);
         // Register both FPC and BananCoin on the user's Wallet so we can simulate and prove
-        await userWallet.registerContract(bananaFPC);
-        await userWallet.registerContract(bananaCoin);
+        await userWallet.registerContract(t.bananaFPCInstance, FPCContract.artifact);
+        await userWallet.registerContract(t.bananaCoinInstance, TokenContract.artifact);
         // Register the CandyBarCoin on the user's Wallet so we can simulate and prove
-        await userWallet.registerContract(candyBarCoin);
+        await userWallet.registerContract(t.candyBarCoinInstance, TokenContract.artifact);
         // Register the AMM and liquidity token on the user's Wallet so we can simulate and prove
-        await userWallet.registerContract(amm);
-        await userWallet.registerContract(liquidityToken);
+        await userWallet.registerContract(t.ammInstance, AMMContract.artifact);
+        await userWallet.registerContract(t.liquidityTokenInstance, TokenContract.artifact);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
-        await userWallet.registerContract(sponsoredFPC);
+        await userWallet.registerContract(t.sponsoredFPCInstance, SponsoredFPCContract.artifact);
       });
 
       function addLiquidityTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {

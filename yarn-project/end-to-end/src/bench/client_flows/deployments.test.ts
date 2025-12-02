@@ -28,7 +28,8 @@ describe('Deployment benchmark', () => {
     await t.setupBasicContracts();
     await t.deploySponsoredFPC();
 
-    ({ aztecNode: node, userWallet, sponsoredFPCInstance } = await t.setup());
+    ({ aztecNode: node, userWallet } = await t.setup());
+    sponsoredFPCInstance = t.sponsoredFPCInstance;
   });
 
   afterAll(async () => {
