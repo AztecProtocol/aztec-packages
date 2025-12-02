@@ -79,8 +79,9 @@ export class FullProverTest extends BaseEndToEndTest {
    * Sets up base state:
    * 1. Add 2 accounts.
    * 2. Publicly deploy accounts, deploy token contract
+   * This is called internally by setup() and should not be called directly by tests.
    */
-  async applyBaseSnapshots() {
+  private async setupContracts() {
     // Accounts are already deployed by setup(), just use the deployed ones
     this.deployedAccounts = this.initialFundedAccounts.slice(0, 2);
     this.accounts = this.deployedAccounts.map(a => a.address);
@@ -121,7 +122,7 @@ export class FullProverTest extends BaseEndToEndTest {
     });
 
     // Initialize contracts and accounts
-    await this.applyBaseSnapshots();
+    await this.setupContracts();
 
     // We don't wish to mark as proven automatically, so we set the flag to false
     this.context.watcher!.setIsMarkingAsProven(false);
@@ -278,7 +279,7 @@ export class FullProverTest extends BaseEndToEndTest {
     await super.teardown();
   }
 
-  async applyMintSnapshot() {
+  async mintTokens() {
     const { fakeProofsAsset: asset, accounts } = this;
     const privateAmount = 10000n;
     const publicAmount = 10000n;

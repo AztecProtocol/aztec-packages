@@ -44,7 +44,7 @@ describe('full_prover', () => {
     t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
 
     await t.setup();
-    await t.applyMintSnapshot();
+    await t.mintTokens();
 
     ({ provenAsset, accounts, tokenSim, logger, cheatCodes, provenWallet, aztecNode } = t);
     [sender, recipient] = accounts;
