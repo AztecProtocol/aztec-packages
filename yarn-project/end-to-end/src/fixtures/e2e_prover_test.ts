@@ -237,7 +237,7 @@ export class FullProverTest extends BaseEndToEndTest {
     };
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const { prefilledPublicData } = await getGenesisValues(
-      this.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
+      this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
     );
     this.proverNodeInstance = await createProverNode(
       proverConfig,
