@@ -1165,6 +1165,7 @@ __metadata:
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^30.0.0"
     "@libp2p/peer-id-factory": "npm:^3.0.4"
+    "@scure/bip32": "npm:^1.6.2"
     "@scure/bip39": "npm:^2.0.1"
     "@types/jest": "npm:^30.0.0"
     "@types/lodash.chunk": "npm:^4.2.9"
@@ -6163,7 +6164,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@scure/bip32@npm:1.7.0, @scure/bip32@npm:^1.7.0":
+"@scure/bip32@npm:1.7.0, @scure/bip32@npm:^1.6.2, @scure/bip32@npm:^1.7.0":
   version: 1.7.0
   resolution: "@scure/bip32@npm:1.7.0"
   dependencies:

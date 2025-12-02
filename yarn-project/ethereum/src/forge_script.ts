@@ -9,8 +9,18 @@ import { type Chain, createPublicClient, getContract, http } from 'viem';
 import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from './client.js';
+import { type ForgeDeploymentConfig, buildForgeJsonConfig } from './forge_deploy_config.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import type { ExtendedViemWalletClient } from './types.js';
+
+// Re-export config types for convenience
+export type { ForgeDeploymentConfig, ForgeDeploymentJsonConfig } from './forge_deploy_config.js';
+export {
+  DEFAULT_FORGE_DEPLOYMENT_CONFIG,
+  buildForgeEnvVars,
+  buildForgeJsonConfig,
+  parseForgeDeploymentConfig,
+} from './forge_deploy_config.js';
 
 // Minimal ABI for Rollup contract to get addresses
 const RollupAddressesAbi = [
@@ -241,55 +251,8 @@ export interface ForgeDeployL1ContractsReturnType {
   rollupVersion: number;
 }
 
-/**
- * Configuration options for forge-based L1 contract deployment.
- * All parameters map to environment variables in the Solidity E2EConfiguration contract.
- */
-export interface ForgeDeploymentOptions {
-  /** Chain to deploy to (defaults to foundry/anvil) */
-  chain?: Chain;
-  /** Logger instance */
-  logger?: Logger;
-  /** VK tree root (hex string) */
-  vkTreeRoot?: string;
-  /** Protocol contracts hash (hex string) */
-  protocolContractsHash?: string;
-  /** Genesis archive root (hex string) */
-  genesisArchiveRoot?: string;
-  /** Use real verifier (HonkVerifier) instead of MockVerifier */
-  realVerifier?: boolean;
-  /** Fund the reward distributor with tokens (default: true) */
-  fundRewardDistributor?: boolean;
-  /** L2 slot duration in seconds (default: 36) */
-  aztecSlotDuration?: number;
-  /** L2 epoch duration in slots (default: 32) */
-  aztecEpochDuration?: number;
-  /** Target committee size (default: 0 for e2e tests) */
-  targetCommitteeSize?: number;
-  /** Slasher flavor: 'none' | 'empire' | 'tally' (default: 'none') */
-  slasherFlavor?: 'none' | 'empire' | 'tally';
-  /** GSE activation threshold in wei */
-  activationThreshold?: bigint;
-  /** GSE ejection threshold in wei */
-  ejectionThreshold?: bigint;
-  /** Amount to fund the reward distributor */
-  rewardDistributorFunding?: bigint;
-}
-
-/**
- * Converts slasher flavor string to numeric value for forge env.
- */
-function slasherFlavorToEnvValue(flavor?: 'none' | 'empire' | 'tally'): string {
-  switch (flavor) {
-    case 'empire':
-      return '1';
-    case 'tally':
-      return '2';
-    case 'none':
-    default:
-      return '0';
-  }
-}
+// ForgeDeploymentOptions is now an alias for ForgeDeploymentConfig for backwards compatibility
+export type ForgeDeploymentOptions = ForgeDeploymentConfig;
 
 /**
  * Deploys L1 contracts using forge and returns a result compatible with the TypeScript deployL1Contracts function.
@@ -311,67 +274,22 @@ export async function setupL1ContractsViaForge(
   const logger = options.logger ?? createLogger('setup-l1-contracts-forge');
   const chain = options.chain ?? foundry;
 
-  // Build environment variables for forge script
-  // FAKE_PROOFS controls MockVerifier vs HonkVerifier
-  const fakeProofs = options.realVerifier === true ? '0' : '1';
-  logger.info(`Using ${fakeProofs === '1' ? 'MockVerifier' : 'HonkVerifier'} (FAKE_PROOFS=${fakeProofs})`);
+  // Build JSON config string to pass as script parameter
+  // DeploymentConfig.sol parses the JSON and applies defaults for missing values
+  const jsonConfig = buildForgeJsonConfig(options);
+  const jsonConfigStr = JSON.stringify(jsonConfig);
 
-  // Build env object with all configuration
-  const env: Record<string, string> = {
-    FAKE_PROOFS: fakeProofs,
-  };
-
-  // Genesis state
-  if (options.vkTreeRoot) {
-    env.VK_TREE_ROOT = options.vkTreeRoot;
-  }
-  if (options.protocolContractsHash) {
-    env.PROTOCOL_CONTRACTS_HASH = options.protocolContractsHash;
-  }
-  if (options.genesisArchiveRoot) {
-    env.GENESIS_ARCHIVE_ROOT = options.genesisArchiveRoot;
-  }
-
-  // Deployment options
-  if (options.fundRewardDistributor !== undefined) {
-    env.FUND_REWARD_DISTRIBUTOR = options.fundRewardDistributor ? '1' : '0';
-  }
-
-  // Rollup configuration
-  if (options.aztecSlotDuration !== undefined) {
-    env.AZTEC_SLOT_DURATION = options.aztecSlotDuration.toString();
-  }
-  if (options.aztecEpochDuration !== undefined) {
-    env.AZTEC_EPOCH_DURATION = options.aztecEpochDuration.toString();
-  }
-  if (options.targetCommitteeSize !== undefined) {
-    env.TARGET_COMMITTEE_SIZE = options.targetCommitteeSize.toString();
-  }
-  if (options.slasherFlavor !== undefined) {
-    env.SLASHER_FLAVOR = slasherFlavorToEnvValue(options.slasherFlavor);
-  }
-
-  // GSE configuration
-  if (options.activationThreshold !== undefined) {
-    env.ACTIVATION_THRESHOLD = options.activationThreshold.toString();
-  }
-  if (options.ejectionThreshold !== undefined) {
-    env.EJECTION_THRESHOLD = options.ejectionThreshold.toString();
-  }
-
-  // Reward distributor
-  if (options.rewardDistributorFunding !== undefined) {
-    env.REWARD_DISTRIBUTOR_FUNDING = options.rewardDistributorFunding.toString();
-  }
-
-  logger.verbose('Forge deployment environment', env);
+  const useMockVerifier = options.realVerifier !== true;
+  logger.info(`Using ${useMockVerifier ? 'MockVerifier' : 'HonkVerifier'}`);
+  logger.verbose('Forge deployment config', jsonConfig);
 
   const result = await runForgeScript(
     [
       'script',
       'script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts',
       '--sig',
-      'run()',
+      'run(string)',
+      jsonConfigStr,
       '--rpc-url',
       rpcUrl,
       '--private-key',
@@ -380,7 +298,6 @@ export async function setupL1ContractsViaForge(
       '-vvv',
     ],
     {
-      env,
       logger,
     },
   );
@@ -444,7 +361,6 @@ export async function setupL1ContractsViaForge(
       ],
       {
         env: {
-          ...env,
           STAKING_ASSET: addresses.stakingAssetAddress,
           REGISTRY: addresses.registryAddress,
         },

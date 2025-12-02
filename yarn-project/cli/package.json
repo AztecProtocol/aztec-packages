@@ -89,6 +89,7 @@
     "@ethersproject/wallet": "^5.8.0",
     "@iarna/toml": "^2.2.5",
     "@libp2p/peer-id-factory": "^3.0.4",
+    "@scure/bip32": "^1.6.2",
     "@scure/bip39": "^2.0.1",
     "commander": "^12.1.0",
     "lodash.chunk": "^4.2.0",

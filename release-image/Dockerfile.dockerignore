@@ -28,3 +28,6 @@
 
 # Needed to generate list of env vars to know what to be able to inject into the container.
 !/yarn-project/foundation/src/config/env_var.ts
+
+# l1-contracts needed for forge script deployment
+!/l1-contracts/

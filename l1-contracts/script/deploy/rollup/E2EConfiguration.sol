@@ -44,18 +44,22 @@ struct DeploymentConfiguration {
  *
  *         All configuration values can be overridden via environment variables:
  *
- *         FAKE_PROOFS              - 1=MockVerifier (default), 0=HonkVerifier
- *         FUND_REWARD_DISTRIBUTOR  - 1=fund reward distributor (default), 0=skip
- *         VK_TREE_ROOT             - Verification key tree root (default: 0)
- *         PROTOCOL_CONTRACTS_HASH  - Protocol contracts hash (default: 0)
- *         GENESIS_ARCHIVE_ROOT     - Genesis archive root (default: 0)
- *         ACTIVATION_THRESHOLD     - GSE activation threshold in wei (default: 100_000e18)
- *         EJECTION_THRESHOLD       - GSE ejection threshold in wei (default: 50_000e18)
- *         AZTEC_SLOT_DURATION      - L2 slot duration in seconds (default: 36)
- *         AZTEC_EPOCH_DURATION     - L2 epoch duration in slots (default: 32)
- *         TARGET_COMMITTEE_SIZE    - Target committee size (default: 0 for e2e)
- *         SLASHER_FLAVOR           - 0=NONE, 1=EMPIRE, 2=TALLY (default: 0)
- *         REWARD_DISTRIBUTOR_FUNDING - Amount to fund reward distributor (default: 50_000_000e18)
+ *         FAKE_PROOFS                     - 1=MockVerifier (default), 0=HonkVerifier
+ *         FUND_REWARD_DISTRIBUTOR         - 1=fund reward distributor (default), 0=skip
+ *         VK_TREE_ROOT                    - Verification key tree root (default: 0)
+ *         PROTOCOL_CONTRACTS_HASH         - Protocol contracts hash (default: 0)
+ *         GENESIS_ARCHIVE_ROOT            - Genesis archive root (default: 0)
+ *         ACTIVATION_THRESHOLD            - GSE activation threshold in wei (default: 100_000e18)
+ *         EJECTION_THRESHOLD              - GSE ejection threshold in wei (default: 50_000e18)
+ *         AZTEC_SLOT_DURATION             - L2 slot duration in seconds (default: 36)
+ *         AZTEC_EPOCH_DURATION            - L2 epoch duration in slots (default: 32)
+ *         TARGET_COMMITTEE_SIZE           - Target committee size (default: 0 for e2e)
+ *         SLASHER_FLAVOR                  - 0=NONE, 1=EMPIRE, 2=TALLY (default: 0)
+ *         SLASHING_ROUND_SIZE_IN_EPOCHS   - Number of epochs per slashing round (default: 4)
+ *         SLASHING_ROUND_SIZE             - Overrides calculated roundSize (default: roundSizeInEpochs * epochDuration)
+ *         SLASHING_QUORUM                 - Overrides calculated quorum (default: roundSize/2 + 1)
+ *         SLASHING_OFFSET_IN_ROUNDS       - Slash offset (default: 2 for TALLY, 0 for others)
+ *         REWARD_DISTRIBUTOR_FUNDING      - Amount to fund reward distributor (default: 50_000_000e18)
  */
 contract E2EConfiguration is Script {
     // ============ GSE Configuration ============
@@ -171,11 +175,23 @@ contract E2EConfiguration is Script {
 
         // Slashing config - default to NONE for e2e tests
         config.slasherFlavor = _parseSlasherFlavor(vm.envOr("SLASHER_FLAVOR", uint256(0)));
-        config.slashingQuorum = vm.envOr("SLASHING_QUORUM", uint256(6));
-        config.slashingRoundSize = vm.envOr("SLASHING_ROUND_SIZE", uint256(10));
+
+        // slashingRoundSize can be set directly, or calculated from roundSizeInEpochs * epochDuration
+        uint256 roundSizeInEpochs = vm.envOr("SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
+        uint256 defaultRoundSize = roundSizeInEpochs * config.aztecEpochDuration;
+        config.slashingRoundSize = vm.envOr("SLASHING_ROUND_SIZE", defaultRoundSize);
+
+        // slashingQuorum defaults to roundSize/2 + 1 (must be > roundSize/2)
+        uint256 defaultQuorum = config.slashingRoundSize / 2 + 1;
+        config.slashingQuorum = vm.envOr("SLASHING_QUORUM", defaultQuorum);
+
         config.slashingLifetimeInRounds = vm.envOr("SLASHING_LIFETIME_IN_ROUNDS", uint256(5));
         config.slashingExecutionDelayInRounds = vm.envOr("SLASHING_EXECUTION_DELAY_IN_ROUNDS", uint256(0));
-        config.slashingOffsetInRounds = vm.envOr("SLASHING_OFFSET_IN_ROUNDS", uint256(0));
+
+        // slashingOffsetInRounds must be > 0 for TALLY, default to 2 for TALLY, 0 for others
+        uint256 defaultOffset = config.slasherFlavor == SlasherFlavor.TALLY ? uint256(2) : uint256(0);
+        config.slashingOffsetInRounds = vm.envOr("SLASHING_OFFSET_IN_ROUNDS", defaultOffset);
+
         config.slashingDisableDuration = vm.envOr("SLASHING_DISABLE_DURATION", uint256(5 days));
         config.slashingVetoer = vm.envOr("SLASHING_VETOER", address(0));
         config.slashAmounts = [

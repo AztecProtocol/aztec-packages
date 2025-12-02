@@ -24,36 +24,31 @@ import {FeeAssetHandler} from "@aztec/mock/FeeAssetHandler.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {HonkVerifier} from "../../../generated/HonkVerifier.sol";
 
-import {
-    E2EConfiguration,
-    DeploymentConfiguration,
-    GseConfiguration,
-    GovernanceProposerConfiguration,
-    CoinIssuerConfiguration
-} from "./E2EConfiguration.sol";
+import {DeploymentConfig} from "./DeploymentConfig.sol";
 
 /**
  * @title DeployL1Contracts
- * @notice Deploy Aztec L1 contracts for e2e tests.
- * @dev Uses E2EConfiguration to determine deployment parameters including
- *      whether to use MockVerifier (FAKE_PROOFS=1) or HonkVerifier (FAKE_PROOFS=0).
+ * @notice Deploy Aztec L1 contracts.
+ * @dev Configuration is passed as a JSON string parameter to run().
+ *      See DeploymentConfig.sol for the JSON structure.
  *
  * Usage:
- *   # With mock verifier (default, FAKE_PROOFS=1):
+ *   # With JSON config (passed as parameter):
+ *   forge script script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts \
+ *     --sig "run(string)" '{"deployment":{"useMockVerifier":true}}' \
+ *     --rpc-url $RPC_URL \
+ *     --private-key $PRIVATE_KEY \
+ *     --broadcast \
+ *     -vvv
+ *
+ *   # Without config (uses defaults):
  *   forge script script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts \
  *     --rpc-url $RPC_URL \
  *     --private-key $PRIVATE_KEY \
  *     --broadcast \
  *     -vvv
- *
- *   # With real verifier (FAKE_PROOFS=0):
- *   FAKE_PROOFS=0 forge script script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts \
- *     --rpc-url $RPC_URL \
- *     --private-key $PRIVATE_KEY \
- *     --broadcast \
- *     -vvv
  */
-contract DeployL1Contracts is Script, Test {
+contract DeployL1Contracts is Script, Test, DeploymentConfig {
     // Wallets
     address public deployer;
 
@@ -71,10 +66,6 @@ contract DeployL1Contracts is Script, Test {
     bytes32 internal vkTreeRoot;
     bytes32 internal protocolContractsHash;
     bytes32 internal genesisArchiveRoot;
-    // Note: rollupConfig can't be cached because it depends on REWARD_DISTRIBUTOR_CONTRACT
-    // which isn't known until after deployRegistry(). We use a helper contract created
-    // before the broadcast to get it.
-    E2EConfiguration internal configHelper;
 
     // Deployed contracts
     IERC20 public FEE_ASSET_CONTRACT;
@@ -91,50 +82,58 @@ contract DeployL1Contracts is Script, Test {
 
     function setUp() public virtual {
         deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
+    }
 
-        // Create configuration and cache all values before any broadcasts
+    /// @notice Cache configuration values from DeploymentConfig.
+    ///         Must be called after _loadConfig() and before any broadcasts.
+    function _cacheConfig() internal {
+        // Cache all configuration values before any broadcasts
         // (cheatcodes and staticcalls can't be made after vm.broadcast)
-        E2EConfiguration config = new E2EConfiguration();
-        configHelper = config; // Store for later use (rollup config needs reward distributor address)
 
         // Deployment config
-        DeploymentConfiguration memory deployConfig = config.getDeploymentConfiguration();
-        useMockVerifier = deployConfig.useMockVerifier;
-        fundRewardDistributor = deployConfig.fundRewardDistributor;
+        DeploymentOptions memory deployOpts = getDeploymentOptions();
+        useMockVerifier = deployOpts.useMockVerifier;
+        fundRewardDistributor = deployOpts.fundRewardDistributor;
 
         // Coin issuer config
-        CoinIssuerConfiguration memory coinIssuerConfig = config.getCoinIssuerConfiguration();
+        CoinIssuerConfiguration memory coinIssuerConfig = getCoinIssuerConfiguration();
         coinIssuerRate = coinIssuerConfig.coinIssuerRate;
 
         // GSE config
-        GseConfiguration memory gseConfig = config.getGseConfiguration();
+        GseConfiguration memory gseConfig = getGseConfiguration();
         gseActivationThreshold = gseConfig.activationThreshold;
         gseEjectionThreshold = gseConfig.ejectionThreshold;
 
         // Governance proposer config
-        GovernanceProposerConfiguration memory govProposerConfig = config.getGovernanceProposerConfiguration();
+        GovernanceProposerConfiguration memory govProposerConfig = getGovernanceProposerConfiguration();
         governanceProposerQuorum = govProposerConfig.quorum;
         governanceProposerRoundSize = govProposerConfig.roundSize;
 
         // Governance config
-        governanceConfig = config.getGovernanceConfiguration();
+        governanceConfig = getGovernanceConfiguration();
 
         // Reward distributor funding
-        rewardDistributorFunding = config.getRewardDistributorFunding();
+        rewardDistributorFunding = getRewardDistributorFunding();
 
-        // Genesis state from env vars
-        vkTreeRoot = bytes32(vm.envOr("VK_TREE_ROOT", uint256(0)));
-        protocolContractsHash = bytes32(vm.envOr("PROTOCOL_CONTRACTS_HASH", uint256(0)));
-        genesisArchiveRoot = bytes32(vm.envOr("GENESIS_ARCHIVE_ROOT", uint256(0)));
+        // Genesis state
+        GenesisConfiguration memory genesis = getGenesisConfiguration();
+        vkTreeRoot = genesis.vkTreeRoot;
+        protocolContractsHash = genesis.protocolContractsHash;
+        genesisArchiveRoot = genesis.genesisArchiveRoot;
     }
 
-    function run() public {
+    /// @notice Entry point with JSON config parameter.
+    /// @param configJson JSON configuration string (can be empty for defaults)
+    function run(string memory configJson) public {
+        _loadConfig(configJson);
+        _cacheConfig();
         deployAztecContracts();
         logDeployedAddresses();
     }
 
-    function getRewardDistributorFunding() public view returns (uint256) {
-        return rewardDistributorFunding;
+    /// @notice Entry point without config (uses all defaults).
+    function run() public {
+        run("");
     }
 
     function deployAztecContracts() public {
@@ -253,9 +252,8 @@ contract DeployL1Contracts is Script, Test {
             genesisArchiveRoot: genesisArchiveRoot
         });
 
-        // Build rollup config using the configHelper created in setUp
-        // (the configHelper was created before any broadcasts)
-        RollupConfigInput memory rollupConfig = configHelper.getRollupConfiguration(
+        // Build rollup config from JSON/defaults
+        RollupConfigInput memory rollupConfig = getRollupConfiguration(
             IRewardDistributor(address(REWARD_DISTRIBUTOR_CONTRACT))
         );
 
