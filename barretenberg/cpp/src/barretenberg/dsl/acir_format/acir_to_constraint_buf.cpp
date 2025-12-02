@@ -29,7 +29,7 @@ using namespace bb;
 
 /// ========= HELPERS ========= ///
 
-WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input, [[maybe_unused]] AcirFormat& af)
+WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
 {
     WitnessOrConstant<bb::fr> result = std::visit(
         [&](auto&& e) {
@@ -48,7 +48,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input, [[maybe_unused]
                 };
             } else {
                 bb::assert_failure("acir_format::parse_input: unrecognized Acir::FunctionInput variant. An error here "
-                                   "means tehre was a serialization error.");
+                                   "means there was a serialization error.");
             }
         },
         input.value);
@@ -581,7 +581,7 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
 
 void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index)
 {
-    auto to_witness_or_constant = [&](auto& e) { return parse_input(e, af); };
+    auto to_witness_or_constant = [&](auto& e) { return parse_input(e); };
     auto to_witness = [&](auto& e) { return e.value; };
     auto to_witness_from_input = [&](auto& e) { return get_witness_from_function_input(e); };
 
@@ -590,8 +590,8 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
             using T = std::decay_t<decltype(arg)>;
             if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::AND>) {
                 af.logic_constraints.push_back(LogicConstraint{
-                    .a = parse_input(arg.lhs, af),
-                    .b = parse_input(arg.rhs, af),
+                    .a = parse_input(arg.lhs),
+                    .b = parse_input(arg.rhs),
                     .result = to_witness(arg.output),
                     .num_bits = arg.num_bits,
                     .is_xor_gate = false,
@@ -599,8 +599,8 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::XOR>) {
                 af.logic_constraints.push_back(LogicConstraint{
-                    .a = parse_input(arg.lhs, af),
-                    .b = parse_input(arg.rhs, af),
+                    .a = parse_input(arg.lhs),
+                    .b = parse_input(arg.rhs),
                     .result = to_witness(arg.output),
                     .num_bits = arg.num_bits,
                     .is_xor_gate = true,
@@ -632,7 +632,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .inputs = transform::map(arg.inputs,
                                              [&](auto& e) {
                                                  return Blake2sInput{
-                                                     .blackbox_input = parse_input(e, af),
+                                                     .blackbox_input = parse_input(e),
                                                      .num_bits = 8,
                                                  };
                                              }),
@@ -643,7 +643,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.blake3_constraints.push_back(Blake3Constraint{
                     .inputs = transform::map(
                         arg.inputs,
-                        [&](auto& e) { return Blake3Input{ .blackbox_input = parse_input(e, af), .num_bits = 8 }; }),
+                        [&](auto& e) { return Blake3Input{ .blackbox_input = parse_input(e), .num_bits = 8 }; }),
                     .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
@@ -654,7 +654,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .signature = transform::map(*arg.signature, to_witness_from_input),
                     .pub_x_indices = transform::map(*arg.public_key_x, to_witness_from_input),
                     .pub_y_indices = transform::map(*arg.public_key_y, to_witness_from_input),
-                    .predicate = parse_input(arg.predicate, af),
+                    .predicate = parse_input(arg.predicate),
                     .result = to_witness(arg.output),
                 });
                 af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
@@ -665,7 +665,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .signature = transform::map(*arg.signature, to_witness_from_input),
                     .pub_x_indices = transform::map(*arg.public_key_x, to_witness_from_input),
                     .pub_y_indices = transform::map(*arg.public_key_y, to_witness_from_input),
-                    .predicate = parse_input(arg.predicate, af),
+                    .predicate = parse_input(arg.predicate),
                     .result = to_witness(arg.output),
                 });
                 af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
@@ -673,7 +673,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
                     .points = transform::map(arg.points, to_witness_or_constant),
                     .scalars = transform::map(arg.scalars, to_witness_or_constant),
-                    .predicate = parse_input(arg.predicate, af),
+                    .predicate = parse_input(arg.predicate),
                     .out_point_x = to_witness((*arg.outputs)[0]),
                     .out_point_y = to_witness((*arg.outputs)[1]),
                     .out_point_is_infinite = to_witness((*arg.outputs)[2]),
@@ -681,13 +681,13 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EmbeddedCurveAdd>) {
                 af.ec_add_constraints.push_back(EcAdd{
-                    .input1_x = parse_input((*arg.input1)[0], af),
-                    .input1_y = parse_input((*arg.input1)[1], af),
-                    .input1_infinite = parse_input((*arg.input1)[2], af),
-                    .input2_x = parse_input((*arg.input2)[0], af),
-                    .input2_y = parse_input((*arg.input2)[1], af),
-                    .input2_infinite = parse_input((*arg.input2)[2], af),
-                    .predicate = parse_input(arg.predicate, af),
+                    .input1_x = parse_input((*arg.input1)[0]),
+                    .input1_y = parse_input((*arg.input1)[1]),
+                    .input1_infinite = parse_input((*arg.input1)[2]),
+                    .input2_x = parse_input((*arg.input2)[0]),
+                    .input2_y = parse_input((*arg.input2)[1]),
+                    .input2_infinite = parse_input((*arg.input2)[2]),
+                    .predicate = parse_input(arg.predicate),
                     .result_x = to_witness((*arg.outputs)[0]),
                     .result_y = to_witness((*arg.outputs)[1]),
                     .result_infinite = to_witness((*arg.outputs)[2]),
@@ -700,7 +700,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 });
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::RecursiveAggregation>) {
-                auto predicate = parse_input(arg.predicate, af);
+                auto predicate = parse_input(arg.predicate);
                 if (predicate.is_constant && predicate.value.is_zero()) {
                     // No constraint if the recursion is disabled
                     return;

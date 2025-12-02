@@ -18,7 +18,7 @@ namespace acir_format {
 /**
  * @brief Parse an Acir::FunctionInput (which can either be a witness or a constant) into a WitnessOrConstant.
  */
-WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input, [[maybe_unused]] AcirFormat& af);
+WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input);
 
 /**
  * @brief Extract the witness index from an Acir::FunctionInput representing a witness.
