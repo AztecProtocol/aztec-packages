@@ -1289,46 +1289,41 @@ template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_multiplication(
     const non_native_multiplication_witnesses<FF>& input)
 {
-    std::array<fr, 4> a{
-        this->get_variable(input.a[0]),
-        this->get_variable(input.a[1]),
-        this->get_variable(input.a[2]),
-        this->get_variable(input.a[3]),
-    };
-    std::array<fr, 4> b{
-        this->get_variable(input.b[0]),
-        this->get_variable(input.b[1]),
-        this->get_variable(input.b[2]),
-        this->get_variable(input.b[3]),
-    };
-    std::array<fr, 4> q{
-        this->get_variable(input.q[0]),
-        this->get_variable(input.q[1]),
-        this->get_variable(input.q[2]),
-        this->get_variable(input.q[3]),
-    };
-    std::array<fr, 4> r{
-        this->get_variable(input.r[0]),
-        this->get_variable(input.r[1]),
-        this->get_variable(input.r[2]),
-        this->get_variable(input.r[3]),
-    };
+    const auto [a0, a1, a2, a3] = std::array{ this->get_variable(input.a[0]),
+                                              this->get_variable(input.a[1]),
+                                              this->get_variable(input.a[2]),
+                                              this->get_variable(input.a[3]) };
+    const auto [b0, b1, b2, b3] = std::array{ this->get_variable(input.b[0]),
+                                              this->get_variable(input.b[1]),
+                                              this->get_variable(input.b[2]),
+                                              this->get_variable(input.b[3]) };
+    const auto [q0, q1, q2, q3] = std::array{ this->get_variable(input.q[0]),
+                                              this->get_variable(input.q[1]),
+                                              this->get_variable(input.q[2]),
+                                              this->get_variable(input.q[3]) };
+    const auto [r0, r1, r2, r3] = std::array{ this->get_variable(input.r[0]),
+                                              this->get_variable(input.r[1]),
+                                              this->get_variable(input.r[2]),
+                                              this->get_variable(input.r[3]) };
+    const auto& p_neg = input.neg_modulus;
+
     constexpr FF LIMB_SHIFT = uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     constexpr FF LIMB_RSHIFT = FF(1) / FF(uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     constexpr FF LIMB_RSHIFT_2 = FF(1) / FF(uint256_t(1) << (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
 
-    FF lo_0 = a[0] * b[0] - r[0] + ((a[1] * b[0] + a[0] * b[1]) * LIMB_SHIFT);
-    FF lo_1 = (lo_0 + q[0] * input.neg_modulus[0] +
-               (q[1] * input.neg_modulus[0] + q[0] * input.neg_modulus[1] - r[1]) * LIMB_SHIFT) *
-              LIMB_RSHIFT_2;
+    // lo_0 = (a0·b0 - r0) + (a1·b0 + a0·b1)·2^L
+    FF lo_0 = (a0 * b0 - r0) + (a1 * b0 + a0 * b1) * LIMB_SHIFT;
+    // lo_1 = (lo_0 + q0·p0' + (q1·p0' + q0·p1' - r1)·2^L) / 2^2L
+    FF lo_1 = (lo_0 + q0 * p_neg[0] + (q1 * p_neg[0] + q0 * p_neg[1] - r1) * LIMB_SHIFT) * LIMB_RSHIFT_2;
 
-    FF hi_0 = a[2] * b[0] + a[0] * b[2] + ((a[0] * b[3] + a[3] * b[0] - r[3]) * LIMB_SHIFT);
-    FF hi_1 = hi_0 + a[1] * b[1] - r[2] + ((a[1] * b[2] + a[2] * b[1]) * LIMB_SHIFT);
-    FF hi_2 = (hi_1 + lo_1 + (q[2] * input.neg_modulus[0]) +
-               ((q[3] * input.neg_modulus[0] + q[2] * input.neg_modulus[1]) * LIMB_SHIFT));
-    FF hi_3 = (hi_2 + (q[0] * input.neg_modulus[3] + q[1] * input.neg_modulus[2]) * LIMB_SHIFT +
-               (q[0] * input.neg_modulus[2] + q[1] * input.neg_modulus[1])) *
-              LIMB_RSHIFT_2;
+    // hi_0 = (a2·b0 + a0·b2) + (a0·b3 + a3·b0 - r3)·2^L
+    FF hi_0 = (a2 * b0 + a0 * b2) + (a0 * b3 + a3 * b0 - r3) * LIMB_SHIFT;
+    // hi_1 = hi_0 + (a1·b1 - r2) + (a1·b2 + a2·b1)·2^L
+    FF hi_1 = hi_0 + (a1 * b1 - r2) + (a1 * b2 + a2 * b1) * LIMB_SHIFT;
+    // hi_2 = hi_1 + lo_1 + q2·p0' + (q3·p0' + q2·p1')·2^L
+    FF hi_2 = hi_1 + lo_1 + q2 * p_neg[0] + (q3 * p_neg[0] + q2 * p_neg[1]) * LIMB_SHIFT;
+    // hi_3 = (hi_2 + q0·p2' + q1·p1' + (q0·p3' + q1·p2')·2^L) / 2^2L
+    FF hi_3 = (hi_2 + q0 * p_neg[2] + q1 * p_neg[1] + (q0 * p_neg[3] + q1 * p_neg[2]) * LIMB_SHIFT) * LIMB_RSHIFT_2;
 
     const uint32_t lo_0_idx = this->add_variable(lo_0);
     const uint32_t lo_1_idx = this->add_variable(lo_1);
