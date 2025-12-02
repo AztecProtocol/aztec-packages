@@ -8,8 +8,11 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 
+#include "barretenberg/vm2/simulation/gadgets/data_copy.hpp"
+#include "barretenberg/vm2/simulation/gadgets/emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/lib/call_stack_metadata_collector.hpp"
 #include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/hinting_dbs.hpp"
@@ -227,6 +230,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
         execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
 
     NoopDebugLogger debug_log_component;
+    NoopCallStackMetadataCollector call_stack_metadata_collector;
 
     Execution execution(alu,
                         bitwise,
@@ -246,7 +250,8 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
                         get_contract_instance,
                         emit_unencrypted_log_component,
                         debug_log_component,
-                        merkle_db);
+                        merkle_db,
+                        call_stack_metadata_collector);
 
     TxExecution tx_execution(execution,
                              context_provider,
@@ -257,6 +262,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
                              side_effect_tracker,
                              field_gt,
                              poseidon2,
+                             call_stack_metadata_collector,
                              tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
@@ -395,15 +401,22 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     GetContractInstance get_contract_instance(
         execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
 
-    std::unique_ptr<DebugLoggerInterface> debug_log_component;
-    if (config.collect_debug_logs) {
-        // TODO(fcarreiro): add debug log level?
-        const DebugLogLevel debug_log_level = DebugLogLevel::INFO;
-        debug_log_component = std::make_unique<DebugLogger>(
-            debug_log_level, config.max_debug_log_memory_reads, [](const std::string& message) { info(message); });
-    } else {
-        debug_log_component = std::make_unique<NoopDebugLogger>();
-    }
+    std::unique_ptr<DebugLoggerInterface> debug_log_component = [&config]() -> std::unique_ptr<DebugLoggerInterface> {
+        if (config.collect_debug_logs) {
+            // TODO(fcarreiro): add debug log level?
+            const DebugLogLevel debug_log_level = DebugLogLevel::INFO;
+            return std::make_unique<DebugLogger>(debug_log_level,
+                                                 config.collection_limits.max_debug_log_memory_reads,
+                                                 [](const std::string& message) { info(message); });
+        } else {
+            return std::make_unique<NoopDebugLogger>();
+        }
+    }();
+    auto call_stack_metadata_collector =
+        config.collect_call_metadata ? static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
+                                           std::make_unique<CallStackMetadataCollector>(config.collection_limits))
+                                     : static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
+                                           std::make_unique<NoopCallStackMetadataCollector>());
 
     HybridExecution execution(alu,
                               bitwise,
@@ -423,7 +436,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                               get_contract_instance,
                               emit_unencrypted_log_component,
                               *debug_log_component,
-                              merkle_db);
+                              merkle_db,
+                              *call_stack_metadata_collector);
     TxExecution tx_execution(execution,
                              context_provider,
                              contract_db,
@@ -433,9 +447,9 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                              side_effect_tracker,
                              field_gt,
                              poseidon2,
+                             *call_stack_metadata_collector,
                              tx_event_emitter,
-                             config.skip_fee_enforcement,
-                             config.collect_call_metadata);
+                             config.skip_fee_enforcement);
 
     PublicInputsBuilder public_inputs_builder;
     public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, config.prover_id, raw_merkle_db);
@@ -455,7 +469,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
         // Simulation.
         .gas_used = tx_execution_result.gas_used,
         .revert_code = tx_execution_result.revert_code,
-        .app_logic_return_values = std::move(tx_execution_result.app_logic_return_values),
+        .call_stack_metadata = call_stack_metadata_collector->dump_call_stack_metadata(),
         .logs = debug_log_component->dump_logs(),
         // Proving request data.
         .public_inputs = public_inputs_builder.build(),

@@ -521,8 +521,8 @@ export class PublicProcessor implements Traceable {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const { hints, publicInputs, gasUsed, revertCode, revertReason, appLogicReturnValues } =
-      await this.publicTxSimulator.simulate(tx);
+    const result = await this.publicTxSimulator.simulate(tx);
+    const { hints, publicInputs, gasUsed, revertCode /*callStackMetadata*/ } = result;
 
     if (!hints) {
       this.metrics.recordFailedTx();
@@ -539,9 +539,13 @@ export class PublicProcessor implements Traceable {
     );
 
     // TODO(fcarreiro): remove phase count metric.
-    const phaseCount = 1;
     const durationMs = timer.ms();
-    this.metrics.recordTx(phaseCount, durationMs, gasUsed.publicGas);
+    this.metrics.recordTx(/*phaseCount=*/ 1, durationMs, gasUsed.publicGas);
+
+    // Extract the return values from the call stack metadata.
+    const appLogicReturnValues: NestedProcessReturnValues[] = result.getAppLogicReturnValues();
+    // Extract the revert reason from the call stack metadata.
+    const revertReason = result.findRevertReason();
 
     const processedTx = makeProcessedTxFromTxWithPublicCalls(
       tx,
@@ -551,7 +555,7 @@ export class PublicProcessor implements Traceable {
       revertReason,
     );
 
-    return [processedTx, appLogicReturnValues ?? []];
+    return [processedTx, appLogicReturnValues];
   }
 
   /**

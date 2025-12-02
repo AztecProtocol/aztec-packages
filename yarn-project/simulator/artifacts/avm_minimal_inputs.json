@@ -91,13 +91,7 @@
         "commitment": "0x253955340ab6819b564797927db2433e18decc4b3f37cbd27dcf3b4d6222a694"
       }
     ],
-    "debugFunctionNames": [
-      {
-        "address": "0x03deefb26b3b88ef515e0ce5bd1402ea3a7c12569597cddb19ce6260444d625f",
-        "selector": "0x000000000000000000000000000000000000000000000000000000000d6ab3ae",
-        "name": "0x0d6ab3ae"
-      }
-    ],
+    "debugFunctionNames": [],
     "contractDbCreateCheckpointHints": [{ "actionCounter": 0, "oldCheckpointId": 0, "newCheckpointId": 1 }],
     "contractDbCommitCheckpointHints": [{ "actionCounter": 1, "oldCheckpointId": 1, "newCheckpointId": 0 }],
     "contractDbRevertCheckpointHints": [],

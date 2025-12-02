@@ -18,12 +18,33 @@
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
+#include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
+#include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
+#include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
+#include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
+#include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/context.hpp"
 #include "barretenberg/vm2/simulation/gadgets/gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/interfaces/alu.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
+#include "barretenberg/vm2/simulation/interfaces/call_stack_metadata_collector.hpp"
+#include "barretenberg/vm2/simulation/interfaces/context_provider.hpp"
+#include "barretenberg/vm2/simulation/interfaces/data_copy.hpp"
+#include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/ecc.hpp"
+#include "barretenberg/vm2/simulation/interfaces/emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/execution_components.hpp"
+#include "barretenberg/vm2/simulation/interfaces/get_contract_instance.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/interfaces/sha256.hpp"
+#include "barretenberg/vm2/simulation/interfaces/to_radix.hpp"
+#include "barretenberg/vm2/simulation/lib/call_stack_metadata_collector.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -500,7 +521,9 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
     set_execution_result({ .rd_offset = ret_offset,
                            .rd_size = rd_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
-                           .success = true });
+                           .success = true,
+                           .halting_pc = context.get_pc(),
+                           .halting_message = std::nullopt });
 
     context.halt();
 }
@@ -518,7 +541,9 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
     set_execution_result({ .rd_offset = rev_offset,
                            .rd_size = rev_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
-                           .success = false });
+                           .success = false,
+                           .halting_pc = context.get_pc(),
+                           .halting_message = "Assertion failed: " });
 
     context.halt();
 }
@@ -554,7 +579,7 @@ void Execution::internal_call(ContextInterface& context, uint32_t loc)
 
     auto& internal_call_stack_manager = context.get_internal_call_stack_manager();
     // The next pc is pushed onto the internal call stack. This will become return_pc later.
-    internal_call_stack_manager.push(context.get_next_pc());
+    internal_call_stack_manager.push(context.get_pc(), context.get_next_pc());
     context.set_next_pc(loc);
 }
 
@@ -1066,6 +1091,11 @@ void Execution::sha256_compression(ContextInterface& context,
 EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
 {
     BB_BENCH_NAME("Execution::execute");
+    call_stack_metadata_collector.notify_enter_call(enqueued_call_context->get_address(),
+                                                    0,
+                                                    make_calldata_provider(*enqueued_call_context),
+                                                    enqueued_call_context->get_is_static(),
+                                                    enqueued_call_context->get_gas_limit());
     external_call_stack.push(std::move(enqueued_call_context));
 
     while (!external_call_stack.empty()) {
@@ -1117,27 +1147,27 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
         catch (const BytecodeRetrievalError& e) {
             vinfo("Bytecode retrieval error:: ", e.what());
             ex_event.error = ExecutionError::BYTECODE_RETRIEVAL;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const InstructionFetchingError& e) {
             vinfo("Instruction fetching error: ", e.what());
             ex_event.error = ExecutionError::INSTRUCTION_FETCHING;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const AddressingException& e) {
             vinfo("Addressing exception: ", e.what());
             ex_event.error = ExecutionError::ADDRESSING;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const RegisterValidationException& e) {
             vinfo("Register validation exception: ", e.what());
             ex_event.error = ExecutionError::REGISTER_READ;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const OutOfGasException& e) {
             vinfo("Out of gas exception: ", e.what());
             ex_event.error = ExecutionError::GAS;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const OpcodeExecutionException& e) {
             vinfo("Opcode execution exception: ", e.what());
             ex_event.error = ExecutionError::OPCODE_EXECUTION;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const std::exception& e) {
             // This is a coding error, we should not get here.
             // All exceptions should fall in the above catch blocks.
@@ -1169,13 +1199,19 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
     return {
         .success = result.success,
         .gas_used = result.gas_used,
-        .output = std::nullopt, // The gadgets do not need to return data.
     };
 }
 
 void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context)
 {
     const auto& side_effects = parent_context.get_side_effect_tracker().get_side_effects();
+
+    // Optionally collect call stack metadata.
+    call_stack_metadata_collector.notify_enter_call(child_context->get_address(),
+                                                    parent_context.get_pc(),
+                                                    make_calldata_provider(*child_context),
+                                                    child_context->get_is_static(),
+                                                    child_context->get_gas_limit());
 
     ctx_stack_events.emit({
         .id = parent_context.get_context_id(),
@@ -1208,8 +1244,18 @@ void Execution::handle_exit_call()
 
     // NOTE: the current (child) context should not be modified here, since it was already emitted.
     std::unique_ptr<ContextInterface> child_context = std::move(external_call_stack.top());
-    external_call_stack.pop();
+
     const ExecutionResult& result = get_execution_result();
+
+    // Optionally collect call stack metadata.
+    call_stack_metadata_collector.notify_exit_call(
+        result.success,
+        result.halting_pc,
+        result.halting_message,
+        make_return_data_provider(*child_context, result.rd_offset, result.rd_size),
+        make_internal_call_stack_provider(child_context->get_internal_call_stack_manager()));
+
+    external_call_stack.pop();
 
     // We only handle reverting/committing of nested calls. Enqueued calls are handled by TX execution.
     if (!external_call_stack.empty()) {
@@ -1243,7 +1289,7 @@ void Execution::handle_exit_call()
     // Else: was top level. ExecutionResult is already set and that will be returned.
 }
 
-void Execution::handle_exceptional_halt(ContextInterface& context)
+void Execution::handle_exceptional_halt(ContextInterface& context, const std::string& halting_message)
 {
     context.set_gas_used(context.get_gas_limit()); // Consume all gas.
     context.halt();
@@ -1252,6 +1298,8 @@ void Execution::handle_exceptional_halt(ContextInterface& context)
         .rd_size = 0,
         .gas_used = context.get_gas_used(),
         .success = false,
+        .halting_pc = context.get_pc(),
+        .halting_message = halting_message,
     });
 }
 

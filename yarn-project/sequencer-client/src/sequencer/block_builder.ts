@@ -130,7 +130,6 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
         skipFeeEnforcement: false,
         collectDebugLogs: false,
         collectHints: false,
-        maxDebugLogMemoryReads: 0,
         collectStatistics: false,
         collectCallMetadata: false,
       }),
