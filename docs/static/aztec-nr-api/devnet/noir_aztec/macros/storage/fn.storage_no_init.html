@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Function storage_no_init documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module storage</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.storage.html">storage</a></div></li>
+<li><a href="fn.storage_no_init.html">storage_no_init</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.STORAGE_LAYOUT_NAME.html">STORAGE_LAYOUT_NAME</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">macros</a>::<a href="index.html">storage</a></div>
+<h1>Function <span class="fn">storage_no_init</span></h1>
+<pre><code>pub comptime fn storage_no_init(s: <a href="../../../std/primitive.TypeDefinition.html" class="primitive">TypeDefinition</a>)</code></pre>
+
+<div class="comments">
+<p>Same as <code>storage</code>, except the user is in charge of providing an implementation of the <code>init</code> constructor function
+with signature <code>fn init&lt;Context&gt;(context: Context) -&gt; Self</code>, which allows for manual control of storage slot
+allocation. Similarly, no <code>StorageLayout</code> struct will be created.</p>
+<p>The contract's storage is accessed via the <code>storage</code> variable, which will will automatically be made available in
+all functions as an instance of the struct this macro was applied to.</p>
+<p>Only a single struct in the entire contract can have this macro (or storage_no_init) applied to it, and the struct
+has to be called 'Storage'.</p>
+</div>
+</main>
+</body>
+</html>

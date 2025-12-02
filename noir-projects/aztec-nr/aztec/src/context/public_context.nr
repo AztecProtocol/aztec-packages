@@ -645,7 +645,7 @@ impl PublicContext {
     ///   tx is indeed urgent).
     /// - the wealth of the user.
     /// - the exact user (if the gas price is explicitly chosen by the user to
-    ///   be some unique number like 0.123456789, or their favourite number).
+    ///   be some unique number like 0.123456789, or their favorite number).
     /// Wallet devs might wish to consider fuzzing the choice of gas price.
     ///
     pub fn base_fee_per_l2_gas(_self: Self) -> u128 {

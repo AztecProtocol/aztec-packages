@@ -734,8 +734,8 @@ impl PrivateContext {
     ///   publicly-known value (e.g. the time when a contract upgrades), then
     ///   the wallet might wish to set an even lower one to avoid revealing that
     ///   this tx is interacting with said contract.
-    ///   Ideally, all wallets should standardise on an approach in order to
-    ///   provide users with a large anonymity set -- although the exact apprach
+    ///   Ideally, all wallets should standardize on an approach in order to
+    ///   provide users with a large anonymity set -- although the exact approach
     ///   will need to be discussed. Wallets that deviate from a standard might
     ///   accidentally reveal which wallet each transaction originates from.
     ///
@@ -922,7 +922,7 @@ impl PrivateContext {
     /// offchain zero-knowledge proofs. It is up to an app developer whether
     /// they choose to make use of a user's outgoing keypair within their
     /// application logic, or instead simply use the same keypair (the address
-    /// keypair (which is effectively the same as the "incooming" keypair)) for
+    /// keypair (which is effectively the same as the "incoming" keypair)) for
     /// all incoming & outgoing messages to a user.
     ///
     /// Currently, all of the exposed encryption functions in aztec-nr ignore
@@ -1240,13 +1240,13 @@ impl PrivateContext {
     ///   of the transaction, so devs should be careful in their contract
     ///   designs. If it can be done in a private function, then that will give
     ///   the best privacy.
-    /// - Not padding the side-effects of a tx to some standardised, uniform
+    /// - Not padding the side-effects of a tx to some standardized, uniform
     ///   size. The kernel circuits can take hints to pad side-effects, so a
     ///   wallet should be able to request for a particular amount of padding.
     ///   Wallets should ideally agree on some standard.
     ///   - Padding should include:
     ///     - Padding the lengths of note & nullifier arrays
-    ///     - Padding private logs with random fields, up to some standardised
+    ///     - Padding private logs with random fields, up to some standardized
     ///       size.
     /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
     ///
