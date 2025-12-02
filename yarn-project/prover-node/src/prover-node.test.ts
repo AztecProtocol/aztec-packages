@@ -1,5 +1,5 @@
 import { RollupContract } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -7,7 +7,8 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { P2PClient, TxProvider } from '@aztec/p2p';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
-import { CommitteeAttestation, L2Block, type L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
+import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -18,7 +19,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { type BlockHeader, type Tx, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, type Tx, TxHash } from '@aztec/stdlib/tx';
 import { L1Metrics } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -53,9 +54,9 @@ describe('prover-node', () => {
   // Subject under test
   let proverNode: TestProverNode;
 
-  // Blocks returned by the archiver
-  let blocks: L2Block[];
-  let lastBlock: PublishedL2Block;
+  // Checkpoints returned by the archiver
+  let checkpoints: Checkpoint[];
+  let lastPublishedCheckpoint: PublishedCheckpoint;
   let previousBlockHeader: BlockHeader;
 
   // Address of the publisher
@@ -130,36 +131,34 @@ describe('prover-node', () => {
     address = EthAddress.random();
     publisher.getSenderAddress.mockReturnValue(address);
 
-    // We create 3 fake blocks with 1 tx effect each
-    blocks = await timesParallel(3, async i => await L2Block.random(i + 20, 1));
-    previousBlockHeader = await L2Block.random(19).then(b => b.getBlockHeader());
-    lastBlock = { block: blocks.at(-1)!, attestations: [CommitteeAttestation.random()] } as PublishedL2Block;
-
-    // Archiver returns a bunch of fake blocks
-    l2BlockSource.getBlocks.mockImplementation((from, limit) => {
-      const startBlockIndex = blocks.findIndex(b => b.number === from);
-      if (startBlockIndex > -1) {
-        return Promise.resolve(blocks.slice(startBlockIndex, startBlockIndex + limit));
-      } else {
-        return Promise.resolve([]);
-      }
-    });
+    // We create 3 fake checkpoints with 1 block and 1 tx effect each
+    const startBlockNumber = 20;
+    checkpoints = await timesParallel(
+      3,
+      async i =>
+        await Checkpoint.random(CheckpointNumber(i + 1), { numBlocks: 1, startBlockNumber: startBlockNumber + i }),
+    );
+    previousBlockHeader = BlockHeader.random({ blockNumber: startBlockNumber - 1 });
+    lastPublishedCheckpoint = {
+      checkpoint: checkpoints.at(-1)!,
+      attestations: [CommitteeAttestation.random()],
+    } as PublishedCheckpoint;
 
     l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
     l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
-    l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
-    l2BlockSource.getPublishedBlocks.mockResolvedValue([lastBlock]);
+    l2BlockSource.getCheckpointsForEpoch.mockResolvedValue(checkpoints);
+    l2BlockSource.getPublishedCheckpoints.mockResolvedValue([lastPublishedCheckpoint]);
     l2BlockSource.getL2Tips.mockResolvedValue({
-      latest: { number: blocks.at(-1)!.number, hash: (await blocks.at(-1)!.hash()).toString() },
+      latest: { number: checkpoints.at(-1)!.number, hash: checkpoints.at(-1)!.hash().toString() },
       proven: { number: 0, hash: undefined },
       finalized: { number: 0, hash: undefined },
     });
     l2BlockSource.getBlockHeader.mockImplementation(number =>
-      Promise.resolve(number === blocks[0].number - 1 ? previousBlockHeader : undefined),
+      Promise.resolve(number === checkpoints[0].blocks[0].number - 1 ? previousBlockHeader : undefined),
     );
 
     // L1 to L2 message source returns no messages
-    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
+    l1ToL2MessageSource.getL1ToL2MessagesForCheckpoint.mockResolvedValue([]);
 
     // Tx provider plays along and returns a tx whenever requested
     txProvider.getTxsForBlock.mockImplementation(block =>
@@ -191,8 +190,8 @@ describe('prover-node', () => {
     expect(publisherFactory.create).toHaveBeenCalledTimes(1);
   });
 
-  it('does not start a proof if there are no blocks in the epoch', async () => {
-    l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
+  it('does not start a proof if there are no checkpoints in the epoch', async () => {
+    l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([]);
     await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
     expect(proverNode.totalJobCount).toEqual(0);
   });

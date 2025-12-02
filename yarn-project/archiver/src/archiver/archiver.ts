@@ -1234,6 +1234,19 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     );
   }
 
+  public async getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
+    // TODO: Create store and apis for checkpoints.
+    // This only works when we have one block per checkpoint.
+    const blocks = await this.getBlocksForEpoch(epochNumber);
+    return blocks.map(b => b.toCheckpoint());
+  }
+
+  public getL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    // TODO: Create dedicated api for checkpoints.
+    // This only works when we have one block per checkpoint.
+    return this.getL1ToL2Messages(checkpointNumber);
+  }
+
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
