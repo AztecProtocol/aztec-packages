@@ -303,7 +303,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     );
 
     if (result.reverted) {
-      const culprit = `${contractAddress}:${callRequest.functionSelector}`;
+      const culprit = `${contractAddress}:${fnName}`;
       context.revert(phase, result.revertReason, culprit);
     }
 
