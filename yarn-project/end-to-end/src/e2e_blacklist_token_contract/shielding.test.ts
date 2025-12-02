@@ -9,8 +9,8 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
   let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
-    await t.mintTokensAndSetupRoles(); // Beware that we are adding the admin as minter here
     await t.setup();
+    await t.mintTokensAndSetupRoles(); // Beware that we are adding the admin as minter here
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t);
   }, 600_000);

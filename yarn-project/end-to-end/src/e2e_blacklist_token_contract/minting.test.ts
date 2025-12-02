@@ -10,9 +10,9 @@ describe('e2e_blacklist_token_contract mint', () => {
   let { asset, tokenSim, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
+    await t.setup();
     // Beware that we are adding the admin as minter here, which is very slow because it needs multiple blocks.
     await t.mintTokensAndSetupRoles();
-    await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, adminAddress, otherAddress, blacklistedAddress } = t);
   }, 600_000);
