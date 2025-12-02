@@ -14,7 +14,6 @@ import { unpack } from 'msgpackr';
 import { SchemaVisitor, type CompiledSchema } from './schema_visitor.js';
 import { TypeScriptCodegen } from './typescript_codegen.js';
 import { RustCodegen } from './rust_codegen.js';
-import { ZigCodegen } from './zig_codegen.js';
 
 const execAsync = promisify(exec);
 
@@ -46,17 +45,6 @@ const LANGUAGE_GENERATORS: LanguageGenerator[] = [
       return [
         { path: '../../../rust/barretenberg-rs/src/generated_types.rs', content: rustGen.generateTypes(compiled) },
         { path: '../../../rust/barretenberg-rs/src/api.rs', content: rustGen.generateApi(compiled) },
-      ];
-    },
-  },
-  {
-    name: 'Zig',
-    enabled: true,
-    generate: (compiled) => {
-      const zigGen = new ZigCodegen();
-      return [
-        { path: '../../../zig/src/generated_types.zig', content: zigGen.generateTypes(compiled) },
-        { path: '../../../zig/src/api.zig', content: zigGen.generateApi(compiled) },
       ];
     },
   },
