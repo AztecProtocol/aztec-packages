@@ -162,6 +162,7 @@ locals {
         "validator.node.env.SEQ_MAX_TX_PER_BLOCK"               = var.SEQ_MAX_TX_PER_BLOCK
         "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "validator.node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "validator.node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -196,6 +197,7 @@ locals {
         "agent.replicaCount"                               = var.PROVER_REPLICAS
         "agent.node.env.BOOTSTRAP_NODES"                   = "asdf"
         "agent.node.env.AGENT_COUNT"                       = var.PROVER_AGENTS_PER_PROVER
+        "agent.node.env.WS_NUM_HISTORIC_BLOCKS"            = var.WS_NUM_HISTORIC_BLOCKS
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
@@ -242,6 +244,7 @@ locals {
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -261,6 +264,7 @@ locals {
         "node.env.NETWORK"                            = var.NETWORK
         "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"

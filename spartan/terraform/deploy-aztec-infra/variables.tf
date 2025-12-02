@@ -252,6 +252,13 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
   default     = "8"
 }
 
+variable "WS_NUM_HISTORIC_BLOCKS" {
+  description = "Number of historic blocks for world state"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "SENTINEL_ENABLED" {
   description = "Whether to enable sentinel"
   type        = string
