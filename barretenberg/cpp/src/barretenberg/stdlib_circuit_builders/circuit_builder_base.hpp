@@ -95,7 +95,12 @@ template <typename FF_> class CircuitBuilderBase {
      * object) to an index into the variables array. This extra layer of indirection is used to support copy
      * constraints by allowing, for example, two witnesses with differing witness indices to have the same "real
      * variable index" and thus the same witness value. If the witness is not involved in any copy constraints, then
-     * real_variable_index[index] == index, i.e., it is the identity map
+     * real_variable_index[index] == index, i.e., it is the identity map.
+     *
+     * @note If there is a copy constraint between witness indices idx_a and idx_b, then their they will both point to
+     * the same element in real_variable_index.
+     * @note Copy cycles, the mediating data structure used to translate copy constraint into sigma polynomials, will be
+     * indexed on those real_variable_indices that are actually pointed to at the end of circuit construction.
      */
     std::vector<uint32_t> real_variable_index;
     /**
