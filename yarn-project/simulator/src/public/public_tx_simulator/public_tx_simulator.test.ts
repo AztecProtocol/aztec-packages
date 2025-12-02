@@ -14,7 +14,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import { PublicDataWrite, PublicSimulatorConfig, type PublicTxResult, RevertCode } from '@aztec/stdlib/avm';
+import { PublicDataWrite, PublicSimulatorConfig, PublicTxResult, RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
@@ -310,7 +310,7 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
-    expect(txResult.revertReason).toBe(undefined);
+    expect(txResult.findRevertReason()).toBeUndefined();
 
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(2); // For 2 setup calls.
     const expectedTotalGas = privateGasUsed.add(expectedPublicGasUsed);
@@ -344,7 +344,7 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
-    expect(txResult.revertReason).toBe(undefined);
+    expect(txResult.findRevertReason()).toBeUndefined();
 
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(2); // For 2 app logic calls.
     const expectedTotalGas = privateGasUsed.add(expectedPublicGasUsed);
@@ -378,7 +378,7 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
-    expect(txResult.revertReason).toBe(undefined);
+    expect(txResult.findRevertReason()).toBeUndefined();
 
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
     const expectedTotalGas = privateGasUsed.add(expectedTeardownGasUsed);
@@ -413,7 +413,7 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
-    expect(txResult.revertReason).toBe(undefined);
+    expect(txResult.findRevertReason()).toBeUndefined();
 
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(3); // 2 for setup and 1 for app logic.
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
@@ -591,7 +591,7 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
-    expect(txResult.revertReason).toBeUndefined();
+    expect(txResult.findRevertReason()).toBeUndefined();
 
     const expectedSetupGas = enqueuedCallGasUsed;
     const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
@@ -722,7 +722,7 @@ describe('public_tx_simulator', () => {
 
     expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
     // tx reports app logic failure
-    expect(txResult.revertReason).toBe(appLogicFailure);
+    expect(txResult.findRevertReason()).toEqual(appLogicFailure);
 
     const expectedSetupGas = enqueuedCallGasUsed;
     const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
@@ -842,7 +842,7 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     expect(txResult.revertCode).toEqual(RevertCode.TEARDOWN_REVERTED);
-    expect(txResult.revertReason).toBe(teardownFailure);
+    expect(txResult.findRevertReason()).toEqual(teardownFailure);
 
     const expectedSetupGas = enqueuedCallGasUsed;
     const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
@@ -952,7 +952,7 @@ describe('public_tx_simulator', () => {
 
     expect(txResult.revertCode).toEqual(RevertCode.BOTH_REVERTED);
     // tx reports app logic failure
-    expect(txResult.revertReason).toBe(appLogicFailure);
+    expect(txResult.findRevertReason()).toEqual(appLogicFailure);
 
     const expectedSetupGas = enqueuedCallGasUsed;
     const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
@@ -1047,6 +1047,7 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
     expect(txResult.revertCode).toEqual(RevertCode.OK);
+    expect(txResult.findRevertReason()).toBeUndefined();
 
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(2); // 1 for setup and 1 for app logic.
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
@@ -1084,6 +1085,7 @@ describe('public_tx_simulator', () => {
 
       const txResult = await simulator.simulate(tx);
       expect(txResult.revertCode).toEqual(RevertCode.OK);
+      expect(txResult.findRevertReason()).toBeUndefined();
     });
 
     it('fails if fee payer cant pay for the tx', async () => {
@@ -1115,6 +1117,7 @@ describe('public_tx_simulator', () => {
         }),
       );
       expect(txResult.revertCode).toEqual(RevertCode.OK);
+      expect(txResult.findRevertReason()).toBeUndefined();
     });
   });
 
@@ -1137,8 +1140,9 @@ describe('public_tx_simulator', () => {
     expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
 
     // Verify that the SimulationError contains information about the nullifier collision
-    const simulationError = txResult.revertReason as SimulationError;
-    expect(simulationError.getOriginalMessage()).toContain('Nullifier collision');
+    const revertReason = txResult.findRevertReason();
+    expect(revertReason).toBeDefined();
+    expect(revertReason?.getOriginalMessage()).toContain('Nullifier collision');
   });
 
   describe('prover id', () => {
@@ -1280,7 +1284,9 @@ describe('public_tx_simulator', () => {
 
       const txResult = await simulator.simulate(tx);
       expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
-      expect(txResult.revertReason?.message).toContain(new NullifierLimitReachedError().message);
+      const revertReason = txResult.findRevertReason();
+      expect(revertReason).toBeDefined();
+      expect(revertReason?.getOriginalMessage()).toContain(new NullifierLimitReachedError().message);
     });
 
     it('"Checked" error during revertible note hash insertion should be caught', async () => {
@@ -1301,7 +1307,9 @@ describe('public_tx_simulator', () => {
       });
       const txResult = await simulator.simulate(tx);
       expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
-      expect(txResult.revertReason?.message).toContain(new NoteHashLimitReachedError().message);
+      const revertReason = txResult.findRevertReason();
+      expect(revertReason).toBeDefined();
+      expect(revertReason?.getOriginalMessage()).toContain(new NoteHashLimitReachedError().message);
     });
 
     it('"Checked" error during revertible l2 to l1 message insertion should be caught', async () => {
@@ -1326,7 +1334,9 @@ describe('public_tx_simulator', () => {
 
       const txResult = await simulator.simulate(tx);
       expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
-      expect(txResult.revertReason?.message).toContain(new L2ToL1MessageLimitReachedError().message);
+      const revertReason = txResult.findRevertReason();
+      expect(revertReason).toBeDefined();
+      expect(revertReason?.getOriginalMessage()).toContain(new L2ToL1MessageLimitReachedError().message);
     });
   });
 

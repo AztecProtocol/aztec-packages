@@ -40,9 +40,16 @@ describe.each([
     const merkleTrees = await worldStateService.fork();
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
+    const config = PublicSimulatorConfig.from({
+      skipFeeEnforcement: false,
+      collectDebugLogs: true,
+      collectHints: false,
+      collectStatistics: false,
+      collectCallMetadata: true,
+    });
     const simulator = useCppSimulator
-      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, PublicSimulatorConfig.empty())
-      : new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, PublicSimulatorConfig.empty());
+      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config)
+      : new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);
 
     processor = new PublicProcessor(
       globals,

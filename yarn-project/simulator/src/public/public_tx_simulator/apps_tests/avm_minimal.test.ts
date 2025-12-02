@@ -1,6 +1,6 @@
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { readTestData, writeTestData } from '@aztec/foundation/testing/files';
-import { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { AvmCircuitInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { executeAvmMinimalPublicTx, readAvmMinimalPublicTxInputsFromFile } from '../../fixtures/minimal_public_tx.js';
@@ -12,6 +12,14 @@ describe.each([
 ])('Public TX simulator apps tests: AvmMinimalTestContract ($simulatorName)', ({ useCppSimulator }) => {
   let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
+  // Make sure we collect hints
+  const config: PublicSimulatorConfig = PublicSimulatorConfig.from({
+    skipFeeEnforcement: false,
+    collectCallMetadata: true,
+    collectDebugLogs: false,
+    collectHints: true,
+    collectStatistics: false,
+  });
 
   beforeEach(async () => {
     worldStateService = await NativeWorldStateService.tmp();
@@ -20,6 +28,7 @@ describe.each([
       /*globals=*/ undefined,
       /*metrics=*/ undefined,
       useCppSimulator,
+      config,
     );
   });
 

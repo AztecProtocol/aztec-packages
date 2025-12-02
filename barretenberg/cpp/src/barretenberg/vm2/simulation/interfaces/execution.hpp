@@ -18,8 +18,6 @@ class ContextInterface;
 struct EnqueuedCallResult {
     bool success;
     Gas gas_used;
-    // Optional: if set, contains the actual return data.
-    std::optional<std::vector<FF>> output;
 };
 
 class ExecutionInterface {

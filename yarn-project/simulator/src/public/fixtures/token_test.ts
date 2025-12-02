@@ -133,7 +133,7 @@ async function checkBalance(
   );
   expectToBeTrue(balResult.revertCode.isOK());
   // should be 1 call with 1 return value that is expectedBalance
-  expectToBeTrue(balResult.appLogicReturnValues.length == 1);
-  expectToBeTrue(balResult.appLogicReturnValues[0].values!.length == 1);
-  expectToBeTrue(balResult.appLogicReturnValues[0].values![0].toBigInt() == expectedBalance);
+  const appLogicReturnValues = balResult.getAppLogicReturnValues();
+  expectToBeTrue(appLogicReturnValues.length === 1);
+  expectToBeTrue(appLogicReturnValues[0].values?.[0]?.toBigInt() === expectedBalance);
 }
