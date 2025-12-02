@@ -73,13 +73,13 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
         FF::batch_invert(to_invert);
     };
     if constexpr (UseMultithreading) {
-        const size_t min_iterations_per_thread = 128;
-        size_t num_threads = bb::calculate_num_threads_pow2(inverse_polynomial.size(), min_iterations_per_thread);
-        const size_t rows_per_thread = inverse_polynomial.size() / num_threads;
-        parallel_for(num_threads, [&](size_t thread_idx) {
-            const size_t start = thread_idx * rows_per_thread;
-            const size_t end = (thread_idx == num_threads - 1) ? circuit_size : (thread_idx + 1) * rows_per_thread;
-            compute_inverses(start, end);
+        parallel_for([&](const ThreadChunk& chunk) {
+            auto range = chunk.range(inverse_polynomial.size());
+            if (!range.empty()) {
+                size_t start = *range.begin();
+                size_t end = start + range.size();
+                compute_inverses(start, end);
+            }
         });
     } else {
         compute_inverses(0, inverse_polynomial.size());

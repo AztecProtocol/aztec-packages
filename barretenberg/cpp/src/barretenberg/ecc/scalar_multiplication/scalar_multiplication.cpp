@@ -57,27 +57,23 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
 {
     const size_t num_cpus = get_num_cpus();
 
-    const size_t scalars_per_thread = numeric::ceil_div(scalars.size(), num_cpus);
     std::vector<std::vector<uint32_t>> thread_indices(num_cpus);
-    parallel_for(num_cpus, [&](size_t thread_idx) {
-        bool empty_thread = (thread_idx * scalars_per_thread >= scalars.size());
-        bool last_thread = ((thread_idx + 1) * scalars_per_thread) >= scalars.size();
-        const size_t start = thread_idx * scalars_per_thread;
-        const size_t end = last_thread ? scalars.size() : (thread_idx + 1) * scalars_per_thread;
-        if (!empty_thread) {
-            BB_ASSERT_DEBUG(end > start);
-            std::vector<uint32_t>& thread_scalar_indices = thread_indices[thread_idx];
-            thread_scalar_indices.reserve(end - start);
-            for (size_t i = start; i < end; ++i) {
-                BB_ASSERT_DEBUG(i < scalars.size());
-                auto& scalar = scalars[i];
-                scalar.self_from_montgomery_form();
+    parallel_for([&](const ThreadChunk& chunk) {
+        auto range = chunk.range(scalars.size());
+        if (range.empty()) {
+            return;
+        }
+        std::vector<uint32_t>& thread_scalar_indices = thread_indices[chunk.thread_index];
+        thread_scalar_indices.reserve(range.size());
+        for (size_t i : range) {
+            BB_ASSERT_DEBUG(i < scalars.size());
+            auto& scalar = scalars[i];
+            scalar.self_from_montgomery_form();
 
-                bool is_zero =
-                    (scalar.data[0] == 0) && (scalar.data[1] == 0) && (scalar.data[2] == 0) && (scalar.data[3] == 0);
-                if (!is_zero) {
-                    thread_scalar_indices.push_back(static_cast<uint32_t>(i));
-                }
+            bool is_zero =
+                (scalar.data[0] == 0) && (scalar.data[1] == 0) && (scalar.data[2] == 0) && (scalar.data[3] == 0);
+            if (!is_zero) {
+                thread_scalar_indices.push_back(static_cast<uint32_t>(i));
             }
         }
     });
@@ -89,15 +85,15 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
     }
     consolidated_indices.resize(num_entries);
 
-    parallel_for(num_cpus, [&](size_t thread_idx) {
+    parallel_for([&](const ThreadChunk& chunk) {
         size_t offset = 0;
-        for (size_t i = 0; i < thread_idx; ++i) {
+        for (size_t i = 0; i < chunk.thread_index; ++i) {
             BB_ASSERT_LT(i, thread_indices.size());
             offset += thread_indices[i].size();
         }
-        for (size_t i = offset; i < offset + thread_indices[thread_idx].size(); ++i) {
+        for (size_t i = offset; i < offset + thread_indices[chunk.thread_index].size(); ++i) {
             BB_ASSERT_LT(i, scalars.size());
-            consolidated_indices[i] = thread_indices[thread_idx][i - offset];
+            consolidated_indices[i] = thread_indices[chunk.thread_index][i - offset];
         }
     });
 }
