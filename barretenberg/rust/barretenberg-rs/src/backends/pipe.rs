@@ -110,13 +110,3 @@ impl Drop for PipeBackend {
         let _ = self.destroy();
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_pipe_backend_structure() {
-        // This test just verifies the structure compiles
-        // Actual functionality requires BB binary
-        assert!(true);
-    }
-}
