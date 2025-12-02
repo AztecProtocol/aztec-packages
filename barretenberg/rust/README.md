@@ -24,7 +24,6 @@ api.destroy()?;
 The crate provides a pluggable backend system:
 
 - **PipeBackend**: Production backend communicating via stdin/stdout with the BB binary
-- **MockBackend**: Testing backend with predefined responses
 - **Custom Backend**: Implement the `Backend` trait for WASM, FFI, or other IPC
 
 ## Testing
@@ -32,9 +31,6 @@ The crate provides a pluggable backend system:
 ```bash
 # Run tests (requires BB binary)
 cargo test --release
-
-# Run with mock backend only (no BB binary needed)
-cargo test --release mock
 ```
 
 ## Generated Code
