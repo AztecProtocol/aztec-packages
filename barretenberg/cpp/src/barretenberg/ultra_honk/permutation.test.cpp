@@ -1,4 +1,5 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "failure_test_utils.hpp"
 #include "ultra_honk.test.hpp"
@@ -336,54 +337,185 @@ TYPED_TEST(PermutationNonZKTests, ZPermShiftNotZeroAtLagrangeLastFailure)
 }
 
 /**
- * @brief Test that tampering with declared public inputs causes verification failure via public_input_delta mismatch.
+ * @brief Test that tampering with a sigma polynomial breaks the permutation argument boundary check.
+ *
+ * @details The sigma polynomials encode copy cycles. In this test, we tamper with sigma in a place implicated by the
+ * copy-constriant and ensure that the relevant subrelation fails, both when we don't update `z_perm` and when we do.
+ *
+ *
+ * @note There are no tags/multiset-equality checks in this test.
+ * @note We exclude ZK flavors because we manually tamper with precomputed polynomials.
+ */
+TYPED_TEST(PermutationNonZKTests, SigmaCorruptionFailure)
+{
+    using Flavor = TypeParam;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using Prover = typename TestFixture::Prover;
+
+    auto builder = UltraCircuitBuilder();
+
+    // Create variables with a copy constraint
+    auto a = fr::random_element();
+    auto b = fr::random_element();
+    auto c = a + b;
+
+    uint32_t a_idx = builder.add_variable(a);
+    uint32_t a_copy_idx = builder.add_variable(a);
+    uint32_t b_idx = builder.add_variable(b);
+    uint32_t c_idx = builder.add_variable(c);
+
+    // Gates using a_idx and a_copy_idx (which should be equal)
+    builder.create_add_gate({ a_idx, b_idx, c_idx, 1, 1, -1, 0 });
+    builder.create_add_gate({ a_copy_idx, b_idx, c_idx, 1, 1, -1, 0 });
+    // copy cycle we'll break
+    builder.assert_equal(a_copy_idx, a_idx);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    // Construct proof to compute z_perm
+    Prover prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+
+    // The Permutation relation holds before tampering
+    auto permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+        prover_instance->polynomials, prover_instance->relation_parameters, "Permutation Relation - Before Tampering");
+    ASSERT_TRUE(permutation_relation_failures.empty());
+
+    // TAMPER: Corrupt sigma_1 at a row that's part of the copy cycle.
+
+    auto& sigma_1 = prover_instance->polynomials.sigma_1;
+    auto& id_1 = prover_instance->polynomials.id_1;
+
+    // Find the first row that's part of a non-trivial cycle (sigma != id)
+    size_t row_to_corrupt = 0;
+    for (size_t row = 1; row < sigma_1.size(); ++row) {
+        if (sigma_1.at(row) != id_1.at(row)) {
+            row_to_corrupt = row;
+            vinfo("Found copy cycle at row ", row, "; will corrupt this one");
+            break;
+        }
+    }
+    ASSERT_NE(row_to_corrupt, 0) << "No copy cycle found in sigma_1!";
+
+    fr original_value = sigma_1.at(row_to_corrupt);
+    sigma_1.at(row_to_corrupt) = original_value + fr(1); // Break the cycle by pointing elsewhere
+    // We perform two distinct tests.
+    //
+    // Failure test 1: make sure that the subrelation fails when when we change sigma_1 without updating z_perm.
+    {
+        auto failures_of_tampered_instance = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+            prover_instance->polynomials,
+            prover_instance->relation_parameters,
+            "Permutation Relation - After corrupting sigma_1");
+
+        ASSERT_TRUE(failures_of_tampered_instance.at(0));
+    }
+    // Failure test 2: make sure the subrelation fails when we DO update z_perm
+    {
+        // Sanity check: if we are recompute z_perm, the first different value will be at `row_to_corrupt + 1`. Store
+        // this to ensure that this value indeed changes.
+        auto& z_perm = prover_instance->polynomials.z_perm;
+        auto z_perm_before = z_perm.at(row_to_corrupt + 1);
+
+        // Recompute z_perm with the corrupted sigma.
+        size_t real_circuit_size = prover_instance->get_final_active_wire_idx() + 1;
+        compute_grand_product<Flavor, UltraPermutationRelation<fr>>(
+            prover_instance->polynomials, prover_instance->relation_parameters, real_circuit_size);
+        prover_instance->polynomials.set_shifted(); // Refresh z_perm_shift
+
+        // Verify z_perm actually changed after recomputation with corrupted sigma
+        auto z_perm_after = z_perm.at(row_to_corrupt + 1);
+        ASSERT_NE(z_perm_before, z_perm_after) << "z_perm should change after recomputing with corrupted sigma";
+
+        // After recomputing z_perm, we expect a failure at the very last active wire.
+        auto failures_of_tampered_instance = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+            prover_instance->polynomials,
+            prover_instance->relation_parameters,
+            "Permutation Relation - After corrupting sigma_1 and recomputing z_perm");
+
+        ASSERT_EQ(failures_of_tampered_instance.at(0), real_circuit_size - 1)
+            << "Expected failure at row " << (real_circuit_size - 1) << " (the recomputation boundary)";
+    }
+}
+
+/**
+ * @brief Test that tampering with public_input_delta causes the permutation relation to fail.
  *
  * @details The permutation argument intentionally "breaks" cycles for public inputs by setting
- * σ⁰(i) = -(i+1) instead of the normal cycle mapping. The verifier recomputes δ_pub from the
- * public inputs in the proof:
+ * σ⁰(i) = -(i+1) instead of the normal cycle mapping, where i is the index of a public input. The public_input_delta
+ * compensates for this:
  *
  *        δ_pub = ∏ (γ + xᵢ + β(n+i)) / ∏ (γ + xᵢ - β(1+i))
  *
  * The prover's z_perm grand product is computed using the actual wire values at public input positions.
- * If a malicious prover sends different public input values in the proof than what's in the wires,
- * the verifier's δ_pub won't match what z_perm expects, causing verification to fail.
+ * If public_input_delta is recomputed with different public input values, it won't match what z_perm
+ * expects, causing the permutation relation to fail.
  *
- * This test creates a valid circuit, then corrupts the declared public_inputs in the prover instance
- * (simulating a prover lying about public inputs). The z_perm was computed with the real wire values,
- * but the proof claims different public input values, so the verifier computes the wrong δ_pub.
+ * @note We exclude ZK flavors because we manually tamper with relation parameters.
  */
-TYPED_TEST(PermutationTests, PermutationPublicInputDeltaMismatch)
+TYPED_TEST(PermutationNonZKTests, PublicInputDeltaMismatch)
 {
     using Flavor = TypeParam;
-    using FF = typename Flavor::FF;
     using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using Prover = typename TestFixture::Prover;
 
     auto builder = UltraCircuitBuilder();
 
     // Add a public input
-    FF public_value = FF(12345);
+    fr public_value = fr(314159);
     auto pub_var = builder.add_public_variable(public_value);
 
     // Use the public input in a simple constraint so it appears in the trace
-    auto private_var = builder.add_variable(FF(100));
-    auto result_var = builder.add_variable(public_value + FF(100));
-    builder.create_add_gate({ pub_var, private_var, result_var, FF(1), FF(1), FF(-1), FF(0) });
+    auto private_val = fr::random_element();
+    auto private_var = builder.add_variable(private_val);
+    auto result_var = builder.add_variable(public_value + private_val);
+    builder.create_add_gate({ pub_var, private_var, result_var, 1, 1, -1, 0 });
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
 
-    // Good instance should pass
-    auto good_instance = std::make_shared<ProverInstance>(builder);
-    TestFixture::prove_and_verify(good_instance, /*expected_result=*/true);
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
 
-    // Bad instance: corrupt the declared public_inputs (what goes into the proof)
-    // The wire polynomials still have the original value, but we claim a different public input
-    auto bad_instance = std::make_shared<ProverInstance>(builder);
+    // Construct proof to compute z_perm (with correct public_input_delta)
+    Prover prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
 
-    // The prover's z_perm was computed with wire values = 12345
-    // But we lie and claim the public input is 99999
-    // Verifier will compute δ_pub using 99999, which won't match z_perm
-    FF malicious_value = FF(99999);
-    bad_instance->public_inputs[0] = malicious_value;
+    // Verify the permutation relation holds before tampering
+    auto permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+        prover_instance->polynomials, prover_instance->relation_parameters, "Permutation Relation - Before Tampering");
+    ASSERT_TRUE(permutation_relation_failures.empty());
 
-    TestFixture::prove_and_verify(bad_instance, /*expected_result=*/false);
+    // Store the original public_input_delta
+    fr original_delta = prover_instance->relation_parameters.public_input_delta;
+
+    // TAMPER: Recompute public_input_delta with a different public input value
+    // The wire polynomials still contain the original value (314159), but we compute delta as if it were 99999
+    fr tampered_public_val = fr(99999);
+    std::vector<fr> tampered_public_inputs = { tampered_public_val };
+    fr tampered_delta = compute_public_input_delta<Flavor>(tampered_public_inputs,
+                                                           prover_instance->relation_parameters.beta,
+                                                           prover_instance->relation_parameters.gamma,
+                                                           prover_instance->pub_inputs_offset());
+
+    // Sanity check: the tampered delta should differ from the original
+    ASSERT_NE(original_delta, tampered_delta) << "Tampered delta should differ from original";
+
+    // Apply the tampered delta
+    prover_instance->relation_parameters.public_input_delta = tampered_delta;
+
+    // Verify the permutation relation now fails
+    auto failures_of_tampered_instance = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+        prover_instance->polynomials,
+        prover_instance->relation_parameters,
+        "Permutation Relation - After tampering with public_input_delta");
+    // The failure should be in subrelation 0 (the recurrence relation) since z_perm was computed with
+    // a different public_input_delta than what we're now using in the relation check
+    ASSERT_TRUE(failures_of_tampered_instance.contains(0)) << "Expected subrelation 0 to fail";
+    size_t final_active_wire_idx = prover_instance->get_final_active_wire_idx();
+    ASSERT_TRUE(failures_of_tampered_instance.at(0) == final_active_wire_idx);
 }
