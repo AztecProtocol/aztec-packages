@@ -45,7 +45,7 @@ case $cmd in
 
     aztec start "$@"
     ;;
-  compile|new|init)
+  compile|new|init|flamegraph)
     $script_dir/${cmd}.sh "$@"
     ;;
   fmt|check|lsp)
@@ -55,12 +55,4 @@ case $cmd in
   *)
     aztec $cmd "$@"
     ;;
-  # flamegraph)
-  #   docker run -it \
-  #     --entrypoint /usr/src/noir-projects/noir-contracts/scripts/flamegraph.sh \
-  #     --env SERVE=${SERVE:-0} \
-  #     $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
-  #     -v $(realpath $(dirname $2))/:/tmp \
-  #     $DOCKER_REPO:$VERSION /tmp/$(basename $2) $3
-  #   ;;
 esac
