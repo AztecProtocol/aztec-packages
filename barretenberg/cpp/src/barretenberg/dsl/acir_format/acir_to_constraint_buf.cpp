@@ -47,7 +47,8 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input, [[maybe_unused]
                     .is_constant = true,
                 };
             } else {
-                bb::assert_failure("acir_format::parse_input: unrecognized Acir::FunctionInput variant.");
+                bb::assert_failure("acir_format::parse_input: unrecognized Acir::FunctionInput variant. An error here "
+                                   "means tehre was a serialization error.");
             }
         },
         input.value);
@@ -57,7 +58,8 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input, [[maybe_unused]
 uint32_t get_witness_from_function_input(Acir::FunctionInput input)
 {
     BB_ASSERT(std::holds_alternative<Acir::FunctionInput::Witness>(input.value),
-              "get_witness_from_function_input: input must be a Witness variant");
+              "acir_format::get_witness_from_function_input: input must be a Witness variant. An error here means "
+              "there was a serialization error.");
 
     return std::get<Acir::FunctionInput::Witness>(input.value).value.value;
 }
@@ -296,7 +298,7 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
                 // In experiments bincode data was parsed as 0.
                 // All the top level formats we look for are MAP types.
                 if (o.type == msgpack::type::MAP) {
-                    BB_ASSERT(false, "Msgpack is not currently supported.");
+                    BB_ASSERT(false, "acir_format::deserialize_any_format: Msgpack is not currently supported.");
                     return decode_msgpack(o);
                 }
             }
@@ -348,14 +350,15 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryOp>) {
                     auto block = block_id_to_block_constraint.find(arg.block_id.value);
                     if (block == block_id_to_block_constraint.end()) {
-                        bb::assert_failure("unitialized MemoryOp");
+                        bb::assert_failure("acir_format::circuit_serder_to_acir_format: unitialized MemoryOp.");
                     }
                     handle_memory_op(arg, block->second.first);
                     block->second.second.push_back(i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
                     // This is a no-op in barretenberg
                 } else {
-                    bb::assert_failure("circuit_serde_to_acir_format: Unrecognized Acir Opcode.");
+                    bb::assert_failure("acir_format::circuit_serde_to_acir_format: Unrecognized Acir Opcode. An error "
+                                       "here means there was a serialization error.");
                 }
             },
             gate.value);
@@ -384,7 +387,8 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
                 program.functions = program_wob.functions;
             } catch (const msgpack::type_error&) {
                 std::cerr << o << std::endl;
-                bb::assert_failure("failed to convert msgpack data to Program");
+                bb::assert_failure(
+                    "acir_format::circuit_buf_to_acir_format: failed to convert msgpack data to Program");
             }
             return program;
         },
@@ -405,13 +409,15 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
                 o.convert(witness_stack);
             } catch (const msgpack::type_error&) {
                 std::cerr << o << std::endl;
-                bb::assert_failure("failed to convert msgpack data to WitnessStack");
+                bb::assert_failure(
+                    "acir_format::witness_buf_to_witness_vector: failed to convert msgpack data to WitnessStack");
             }
             return witness_stack;
         },
         &Witnesses::WitnessStack::bincodeDeserialize);
-    BB_ASSERT_EQ(
-        witness_stack.stack.size(), 1U, "witness_buf_to_witness_vector: expected single WitnessMap in WitnessStack");
+    BB_ASSERT_EQ(witness_stack.stack.size(),
+                 1U,
+                 "acir_format::witness_buf_to_witness_vector: expected single WitnessMap in WitnessStack");
 
     return witness_map_to_witness_vector(witness_stack.stack[0].witness);
 }
@@ -733,7 +739,8 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     af.original_opcode_indices.chonk_recursion_constraints.push_back(opcode_index);
                     break;
                 default:
-                    bb::assert_failure("Invalid PROOF_TYPE in RecursionConstraint!");
+                    bb::assert_failure(
+                        "acir_format::handle_black_box_fun_call: Invalid PROOF_TYPE in RecursionConstraint.");
                 }
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Poseidon2Permutation>) {
                 af.poseidon2_constraints.push_back(Poseidon2Constraint{
@@ -742,7 +749,8 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 });
                 af.original_opcode_indices.poseidon2_constraints.push_back(opcode_index);
             } else {
-                bb::assert_failure("handle_blackbox_func_call: Unrecognized BlackBoxFuncCall variant.");
+                bb::assert_failure("acir_format::handle_blackbox_func_call: Unrecognized BlackBoxFuncCall variant. An "
+                                   "error here means there was a serialization error.");
             }
         },
         arg.value.value);
