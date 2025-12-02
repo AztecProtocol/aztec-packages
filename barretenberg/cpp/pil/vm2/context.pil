@@ -159,6 +159,10 @@ namespace execution;
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_id' - parent_id) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (parent_id' - context_id) = 0;
 
+    // `instr_length` is from execution.pil and constrained when `sel_instruction_fetching_success == 1`.
+    #[NEXT_PC]
+    sel_instruction_fetching_success * (pc + instr_length - next_pc) = 0;
+
     // nested_exit_call = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> pc' = 0
     // internal_call    = 1 ==> pc' = resolved operand 0
@@ -167,7 +171,7 @@ namespace execution;
     #[PC_NEXT_ROW_DEFAULT]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
     #[PC_NEXT_ROW_EXT_CALL]
-    NOT_LAST_EXEC * sel_enter_call  * pc' = 0;
+    sel' * (sel_enter_call + enqueued_call_start') * pc' = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> msg_sender' = contract_address
