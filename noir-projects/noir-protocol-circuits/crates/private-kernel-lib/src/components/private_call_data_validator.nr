@@ -1,7 +1,7 @@
 pub(crate) mod find_index_of_first_fully_revertible_private_call_request;
 mod validate_contract_address;
 mod validate_min_revertible_side_effect_counter;
-mod validate_side_effect_counters;
+pub(crate) mod validate_side_effect_counters;
 
 use dep::types::{
     abis::{
@@ -46,10 +46,7 @@ impl PrivateCallDataValidator {
         self.validate_private_call_requests();
         self.validate_public_call_requests();
 
-        validate_unique_and_within_bounds_side_effect_counters(
-            self.data.public_inputs,
-            self.data.side_effect_uniqueness_hints,
-        );
+        validate_unique_and_within_bounds_side_effect_counters(self.data.public_inputs);
     }
 
     /// For Init only.
