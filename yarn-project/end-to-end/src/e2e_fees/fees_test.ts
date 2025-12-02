@@ -281,6 +281,8 @@ export class FeesTest extends BaseEndToEndTest {
     const sponsoredFPC = await setupSponsoredFPC(this.wallet);
     this.logger.info(`SponsoredFPC at ${sponsoredFPC.address}`);
 
+    await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(sponsoredFPC.address, this.aliceAddress);
+
     this.sponsoredFPC = SponsoredFPCContract.at(sponsoredFPC.address, this.wallet);
   }
 
