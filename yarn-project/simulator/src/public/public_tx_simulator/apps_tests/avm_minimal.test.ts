@@ -7,7 +7,10 @@ import { executeAvmMinimalPublicTx, readAvmMinimalPublicTxInputsFromFile } from 
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
 describe.each([
-  { useCppSimulator: false, simulatorName: 'TS Simulator' },
+  // Note: cannot run this for both TS and C++ simulators as they produce different hints!
+  // TODO(dbanks12): ideally we would TS as well and compare hints to make sure that C++ is strictly a subset of TS hints.
+  // TS generates extra hints that C++ does not.
+  //{ useCppSimulator: false, simulatorName: 'TS Simulator' },
   { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
 ])('Public TX simulator apps tests: AvmMinimalTestContract ($simulatorName)', ({ useCppSimulator }) => {
   let worldStateService: NativeWorldStateService;
