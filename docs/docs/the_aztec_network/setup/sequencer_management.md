@@ -112,12 +112,17 @@ aztec validator-keys new \
   --l1-rpc-urls $ETH_RPC
 ```
 
-**Required parameters:**
+**Relevant parameters:**
 - `--fee-recipient`: Set to all zeros (not currently used by the protocol)
 - `--staker-output`: Generate the public keystore for the staking dashboard
 - `--gse-address`: The GSE (Governance Staking Escrow) contract address (`0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f` for mainnet)
 - `--l1-rpc-urls`: Your Ethereum L1 RPC endpoint
   - Set `ETH_RPC` environment variable, or replace `$ETH_RPC` with your RPC URL (e.g., `https://mainnet.infura.io/v3/YOUR_API_KEY`)
+- `--count`: Number of validator identities to generate (default: 1)
+  - Use this to generate multiple attester identities in a single keystore
+  - Example: `--count 5` generates 5 validator identities with sequential addresses
+  - All identities are derived from the same mnemonic using different derivation paths
+  - Useful for operators running multiple sequencer identities or delegated staking providers
 
 
 **This command creates two JSON files:**
@@ -132,7 +137,7 @@ Where `N` is an auto-incrementing number (e.g., `key1.json`, `key2.json`, etc.)
 - Computes BLS public keys (G1 and G2) and proof of possession
 - Outputs your attester address and BLS public key to the console
 
-**Example output:**
+**Example output (single validator):**
 ```
 No mnemonic provided, generating new one...
 Using new mnemonic:
@@ -146,6 +151,30 @@ acc1:
   attester:
     eth: 0xA55aB561877E479361BA033c4ff7B516006CF547
     bls: 0xa931139040533679ff3990bfc4f40b63f50807815d77346e3c02919d71891dc1
+```
+
+**Example output (multiple validators with `--count 3`):**
+```
+No mnemonic provided, generating new one...
+Using new mnemonic:
+
+word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12
+
+Wrote validator keystore to /Users/aztec/.aztec/keystore/key1.json
+Wrote staker output for 3 validator(s) to /Users/aztec/.aztec/keystore/key1_staker_output.json
+
+acc1:
+  attester:
+    eth: 0xA55aB561877E479361BA033c4ff7B516006CF547
+    bls: 0xa931139040533679ff3990bfc4f40b63f50807815d77346e3c02919d71891dc1
+acc2:
+  attester:
+    eth: 0xB66bC672988F590472CA144e5D8d9F82307DA658
+    bls: 0xb842240151644780ff4991cfd5f51c74f61918926e88457f4d13020e82902ed2
+acc3:
+  attester:
+    eth: 0xC77cD783999F601583DB255f6E9e0F93418EB769
+    bls: 0xc953351262755891ff5aa2dfe6f62d85f72a29a37f99568f5e24131f93a13fe3
 ```
 
 **Critical: Save your mnemonic phrase!**
@@ -182,6 +211,23 @@ aztec validator-keys new \
   --l1-rpc-urls $ETH_RPC \
   --mnemonic "your twelve word mnemonic phrase here"
 ```
+:::
+
+:::tip Generate Multiple Validator Identities
+To generate multiple validator identities (useful for delegated staking providers or operators running multiple sequencers):
+```bash
+# Generate 5 validator identities from the same mnemonic
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --staker-output \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+  --l1-rpc-urls $ETH_RPC \
+  --count 5
+```
+
+Each identity gets a unique attester address derived from sequential derivation paths. All identities are included in:
+- The same private keystore file (`keyN.json`)
+- The same public keystore file (`keyN_staker_output.json`)
 :::
 
 For detailed instructions, advanced options, and complete examples, see the [Creating Sequencer Keystores guide](../operation/keystore/creating_keystores.md).
@@ -315,7 +361,7 @@ docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
 ```
 :::
 
-This configuration includes only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
+This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
 
 ### Step 6: Start the Sequencer
 
