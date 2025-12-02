@@ -90,13 +90,6 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
     bool has_hn_recursion_constraints = !hn_recursion_data.first.empty();
     bool has_chonk_recursion_constraints = !chonk_recursion_data.first.empty();
 
-    // We only handle:
-    // - Chonk recursion constraints (Private Base Rollup)
-    // - HONK + AVM recursion constraints (Public Base Rollup)
-    // - HONK recursion constraints
-    // - AVM recursion constraints
-    // However, as mock protocol circuits use Chonk + AVM (mock Public Base Rollup), instead of throwing an assert
-    // we return a vinfo for the case of Chonk + AVM
     BB_ASSERT(!has_hn_recursion_constraints,
               "Invalid circuit: HN recursion constraints are present with UltraBuilder.");
     BB_ASSERT(!(has_chonk_recursion_constraints && has_honk_recursion_constraints),

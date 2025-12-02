@@ -79,6 +79,24 @@ struct RecursionConstraint {
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 };
 
+/**
+ * @brief Single entrypoint to process recursion constraints
+ *
+ * @details This functions processes the recursion constraints that have to be added to the builder. It has two
+ * specializations:
+ *   - MegaCircuitBuilder: only Honk and HyperNova recursion constraints are processed. AVM and Chonk are not handled
+ *     and a WARNING is output in case they are encountered. We fail if both Honk and HyperNova recursion constraints
+ *     are present.
+ *   - UltraCircuitBuilder: Honk, AVM and Chonk recursion constraints are processed. HyperNova recursion constraints are
+ *     not handled and we fail if we encounter them. We handle // We only handle:
+ *       - Chonk recursion constraints (Private Base Rollup)
+ *       - Honk + AVM recursion constraints (Public Base Rollup)
+ *       - Honk recursion constraints
+ *       - AVM recursion constraints
+ *     However, as mock protocol circuits use Chonk + AVM (mock Public Base Rollup), instead of throwing an assert we
+ *     return a vinfo for the case of Chonk + AVM
+ *
+ */
 template <typename Builder>
 HonkRecursionConstraintsOutput<Builder> create_recursion_constraints(
     Builder& builder,
@@ -90,6 +108,10 @@ HonkRecursionConstraintsOutput<Builder> create_recursion_constraints(
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& chonk_recursion_data);
 
+/**
+ * @brief Process HyperNova recursion constraints and complete kernel logic
+ *
+ */
 void process_hn_recursion_constraints(
     MegaCircuitBuilder& builder,
     GateCounter<MegaCircuitBuilder>& gate_counter,
