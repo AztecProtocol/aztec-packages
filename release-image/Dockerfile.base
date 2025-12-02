@@ -1,3 +1,20 @@
+# Build foundry for use in release-image..
+FROM aztecprotocol/build:3.0 AS foundry
+ENV FOUNDRY_VERSION=v1.4.1
+ENV FOUNDRY_BIN_DIR="/root/.foundry/bin"
+ENV RUSTUP_HOME=/opt/rust/rustup
+ENV CARGO_HOME=/opt/rust/cargo
+ENV PATH="/opt/rust/cargo/bin:$PATH"
+ENV RUSTFLAGS="-C target-cpu=generic"
+RUN curl -L https://foundry.paradigm.xyz | bash \
+    && $FOUNDRY_BIN_DIR/foundryup -i $FOUNDRY_VERSION \
+    && mkdir -p /opt/foundry/bin \
+    && for t in forge cast anvil ; do \
+        mv $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \
+        strip /opt/foundry/bin/$t; \
+    done \
+    && rm -rf $FOUNDRY_BIN_DIR
+
 # Create an image that installs yarn-projects production dependencies.
 FROM aztecprotocol/build:3.0 AS build
 # Copy files explicitly listed in Dockerfile.base.dockerignore into container.
@@ -28,10 +45,11 @@ RUN apt update && apt install -y \
       echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
       apt update && apt install nodejs && \
       rm -rf /var/lib/apt/lists/*
-# Install anvil.
-COPY --from=build /opt/foundry/bin/anvil /opt/foundry/bin/anvil
-COPY --from=build /opt/foundry/bin/cast /opt/foundry/bin/cast
-ENV PATH="/opt/foundry/bin:$PATH" FOUNDRY_DISABLE_NIGHTLY_WARNING="1"
+
+# Copy forge from foundry install. Currently the only foundry utility used..
+COPY --from=foundry /opt/foundry/bin/forge /opt/foundry/bin/forge
+ENV PATH="/opt/foundry/bin:$PATH"
+
 # Copy in production dependencies.
 COPY --from=build /usr/src/yarn-project/node_modules /usr/src/yarn-project/node_modules
 # We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
