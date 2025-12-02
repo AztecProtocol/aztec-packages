@@ -5,6 +5,8 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
+import type { Checkpoint } from '../checkpoint/checkpoint.js';
+import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
@@ -65,6 +67,8 @@ export interface L2BlockSource {
    */
   getBlocks(from: number, limit: number, proven?: boolean): Promise<L2Block[]>;
 
+  getPublishedCheckpoints(from: number, limit: number): Promise<PublishedCheckpoint[]>;
+
   /** Equivalent to getBlocks but includes publish data. */
   getPublishedBlocks(from: number, limit: number, proven?: boolean): Promise<PublishedL2Block[]>;
 
@@ -119,6 +123,13 @@ export interface L2BlockSource {
    * Returns the current L2 epoch number based on the currently synced L1 timestamp.
    */
   getL2EpochNumber(): Promise<EpochNumber | undefined>;
+
+  /**
+   * Returns all checkpoints for a given epoch.
+   * @dev Use this method only with recent epochs, since it walks the checkpoint list backwards.
+   * @param epochNumber - The epoch number to return checkpoints for.
+   */
+  getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]>;
 
   /**
    * Returns all blocks for a given epoch.
