@@ -105,9 +105,9 @@ sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
 
 pol commit sel_bytecode_retrieval_failure;
 
-// TODO(dbanks12): since this lookup is no longer active for all rows,
-// we likely need to constrain that bytecode_id does not change during a context,
-// or we need to otherwise consider the implications of this.
+// We perform this lookup "only" on the first row of the context and therefore,
+// we need to propagate `bytecode_id`, etc. down to the subsequent rows in the context.
+// This is done in context.pil.
 #[BYTECODE_RETRIEVAL_RESULT]
 sel_first_row_in_context {
     bytecode_id,
@@ -130,6 +130,13 @@ sel_first_row_in_context {
     bc_retrieval.next_retrieved_bytecodes_tree_size,
     bc_retrieval.error
 };
+
+// We need to propagate `sel_bytecode_retrieval_failure` to the subsequent rows in the context.
+// If `sel_bytecode_retrieval_failure == 1`, we get `sel_error == 1` and we exit the call.
+// Therefore, we do not need to propagate `sel_bytecode_retrieval_failure` but can enforce
+// it to be 0 for all subsequent rows in the context.
+#[BYTECODE_RETRIEVAL_NO_FAILURE]
+sel * (1 - sel_first_row_in_context) * sel_bytecode_retrieval_failure = 0;
 
 pol commit sel_bytecode_retrieval_success;
 // If sel = 0, we want sel_bytecode_retrieval_success = 0. We shouldn't be using it.
