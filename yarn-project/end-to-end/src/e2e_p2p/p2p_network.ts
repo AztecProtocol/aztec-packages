@@ -307,7 +307,7 @@ export class P2PNetworkTest extends BaseEndToEndTest {
 
     const spamContract = await SpamContract.deploy(this.wallet).send({ from: this.defaultAccountAddress! }).deployed();
 
-    this.spamContract = await SpamContract.at(spamContract.address, this.wallet);
+    this.spamContract = SpamContract.at(spamContract.address, this.wallet);
   }
 
   async removeInitialNode() {

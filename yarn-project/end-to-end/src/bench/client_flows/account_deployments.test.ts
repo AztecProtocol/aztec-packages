@@ -18,8 +18,6 @@ describe('Deployment benchmark', () => {
   let adminWallet: Wallet;
   // The admin that aids in the setup of the test
   let adminAddress: AztecAddress;
-  // Sponsored FPC contract
-  let sponsoredFPC: SponsoredFPCContract;
   // Benchmarking configuration
   const config = t.config.accountDeployments;
   // Benchmarking user's Wallet
@@ -28,7 +26,7 @@ describe('Deployment benchmark', () => {
   beforeAll(async () => {
     await t.setupBasicContracts();
     await t.deploySponsoredFPC();
-    ({ adminWallet, adminAddress, sponsoredFPC, userWallet } = await t.setup());
+    ({ adminWallet, adminAddress, userWallet } = await t.setup());
     // Ensure the ECDSAR1 contract is already registered, to avoid benchmarking an extra call to the ContractClassRegistry
     // The typical interaction would be for a user to deploy an account contract that is already registered in the
     // network.

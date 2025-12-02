@@ -105,7 +105,7 @@ export class FullProverTest extends BaseEndToEndTest {
       .wait();
     this.logger.verbose(`Token deployed to ${asset.address}`);
 
-    this.fakeProofsAsset = await TokenContract.at(asset.address, this.wallet);
+    this.fakeProofsAsset = TokenContract.at(asset.address, this.wallet);
     this.fakeProofsAssetInstance = instance;
     this.logger.verbose(`Token contract address: ${this.fakeProofsAsset.address}`);
 
@@ -187,7 +187,7 @@ export class FullProverTest extends BaseEndToEndTest {
       await this.wallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
     }
 
-    const asset = await TokenContract.at(this.fakeProofsAsset.address, provenWallet);
+    const asset = TokenContract.at(this.fakeProofsAsset.address, provenWallet);
     this.provenComponents.push({
       wallet: provenWallet,
       teardown: provenTeardown,

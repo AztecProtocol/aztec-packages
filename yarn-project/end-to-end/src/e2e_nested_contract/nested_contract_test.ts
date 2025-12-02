@@ -43,7 +43,7 @@ export class NestedContractTest extends BaseEndToEndTest {
       .deployed();
     const childContract = await ChildContract.deploy(this.wallet).send({ from: this.defaultAccountAddress }).deployed();
 
-    this.parentContract = await ParentContract.at(parentContract.address, this.wallet);
-    this.childContract = await ChildContract.at(childContract.address, this.wallet);
+    this.parentContract = ParentContract.at(parentContract.address, this.wallet);
+    this.childContract = ChildContract.at(childContract.address, this.wallet);
   }
 }

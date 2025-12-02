@@ -19,12 +19,6 @@ describe('Bridging benchmark', () => {
   let userWallet: Wallet;
   // The admin that aids in the setup of the test
   let adminAddress: AztecAddress;
-  // FPC that accepts bananas
-  let bananaFPC: FPCContract;
-  // BananaCoin Token contract, which we want to use to pay for the bridging
-  let bananaCoin: TokenContract;
-  // Sponsored FPC contract
-  let sponsoredFPC: SponsoredFPCContract;
   // Benchmarking configuration
   const config = t.config.bridging;
 
@@ -33,7 +27,7 @@ describe('Bridging benchmark', () => {
     await t.deployBananaToken();
     await t.setupFPC();
     await t.deploySponsoredFPC();
-    ({ userWallet, bananaFPC, bananaCoin, adminAddress, sponsoredFPC } = await t.setup());
+    ({ userWallet, adminAddress } = await t.setup());
   });
 
   afterAll(async () => {

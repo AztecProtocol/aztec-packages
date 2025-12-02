@@ -28,18 +28,12 @@ describe('AMM benchmark', () => {
   let userWallet: TestWallet;
   // The admin that aids in the setup of the test
   let adminAddress: AztecAddress;
-  // FPC that accepts bananas
-  let bananaFPC: FPCContract;
   // BananaCoin Token contract, just used to pay fees in this scenario
   let bananaCoin: TokenContract;
   // CandyBarCoin Token contract, which we want to amm
   let candyBarCoin: TokenContract;
   // AMM contract
   let amm: AMMContract;
-  // Liquidity contract for the AMM
-  let liquidityToken: TokenContract;
-  // Sponsored FPC contract
-  let sponsoredFPC: SponsoredFPCContract;
   // Benchmarking configuration
   const config = t.config.amm;
 
@@ -50,8 +44,7 @@ describe('AMM benchmark', () => {
     await t.deployCandyBarToken();
     await t.deployAMM();
     await t.deploySponsoredFPC();
-    ({ adminWallet, userWallet, adminAddress, bananaFPC, bananaCoin, candyBarCoin, amm, liquidityToken, sponsoredFPC } =
-      await t.setup());
+    ({ adminWallet, userWallet, adminAddress, bananaCoin, candyBarCoin, amm } = await t.setup());
   });
 
   afterAll(async () => {

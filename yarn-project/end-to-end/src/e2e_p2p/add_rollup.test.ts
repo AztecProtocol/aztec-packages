@@ -16,7 +16,7 @@ import {
   deployL1Contract,
   deployRollupForUpgrade,
 } from '@aztec/ethereum';
-import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import {

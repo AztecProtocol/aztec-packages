@@ -90,8 +90,8 @@ export class CrossChainMessagingTest extends BaseEndToEndTest {
     const crossChainContext = this.crossChainTestHarness.toCrossChainContext();
 
     // Restore logic - setup contracts from context
-    this.l2Token = await TokenContract.at(crossChainContext.l2Token, this.wallet);
-    this.l2Bridge = await TokenBridgeContract.at(crossChainContext.l2Bridge, this.wallet);
+    this.l2Token = TokenContract.at(crossChainContext.l2Token, this.wallet);
+    this.l2Bridge = TokenBridgeContract.at(crossChainContext.l2Bridge, this.wallet);
 
     // There is an issue with the reviver so we are getting strings sometimes. Working around it here.
     this.ethAccount = EthAddress.fromString(crossChainContext.ethAccount.toString());

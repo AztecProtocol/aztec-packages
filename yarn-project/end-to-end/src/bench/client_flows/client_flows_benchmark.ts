@@ -192,7 +192,7 @@ export class ClientFlowsBenchmark extends BaseEndToEndTest {
     this.sequencerAddress = this.accounts[1];
 
     const canonicalFeeJuice = await getCanonicalFeeJuice();
-    this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.adminWallet);
+    this.feeJuiceContract = FeeJuiceContract.at(canonicalFeeJuice.address, this.adminWallet);
     this.coinbase = EthAddress.random();
 
     const userPXEConfig = getPXEConfig();
@@ -209,7 +209,7 @@ export class ClientFlowsBenchmark extends BaseEndToEndTest {
   }
 
   async setupFeeJuice() {
-    this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.adminWallet);
+    this.feeJuiceContract = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.adminWallet);
 
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
       aztecNode: this.aztecNode,
@@ -231,7 +231,7 @@ export class ClientFlowsBenchmark extends BaseEndToEndTest {
       .send({ from: this.adminAddress })
       .wait();
     this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
-    this.bananaCoin = await BananaCoin.at(bananaCoin.address, this.adminWallet);
+    this.bananaCoin = BananaCoin.at(bananaCoin.address, this.adminWallet);
     this.bananaCoinInstance = instance;
   }
 
@@ -246,7 +246,7 @@ export class ClientFlowsBenchmark extends BaseEndToEndTest {
       .send({ from: this.adminAddress })
       .wait();
     this.logger.info(`CandyBarCoin deployed at ${candyBarCoin.address}`);
-    this.candyBarCoin = await TokenContract.at(candyBarCoin.address, this.adminWallet);
+    this.candyBarCoin = TokenContract.at(candyBarCoin.address, this.adminWallet);
     this.candyBarCoinInstance = instance;
   }
 
@@ -267,14 +267,14 @@ export class ClientFlowsBenchmark extends BaseEndToEndTest {
 
     await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(bananaFPC.address, this.adminAddress);
 
-    this.bananaFPC = await FPCContract.at(bananaFPC.address, this.adminWallet);
+    this.bananaFPC = FPCContract.at(bananaFPC.address, this.adminWallet);
     this.bananaFPCInstance = instance;
   }
 
   async deploySponsoredFPC() {
     const instance = await setupSponsoredFPC(this.adminWallet);
     this.logger.info(`SponsoredFPC at ${instance.address}`);
-    this.sponsoredFPC = await SponsoredFPCContract.at(instance.address, this.adminWallet);
+    this.sponsoredFPC = SponsoredFPCContract.at(instance.address, this.adminWallet);
     this.sponsoredFPCInstance = instance;
   }
 
@@ -344,9 +344,9 @@ export class ClientFlowsBenchmark extends BaseEndToEndTest {
     this.logger.info(`AMM deployed at ${amm.address}`);
     await liquidityToken.methods.set_minter(amm.address, true).send({ from: this.adminAddress }).wait();
 
-    this.liquidityToken = await TokenContract.at(liquidityToken.address, this.adminWallet);
+    this.liquidityToken = TokenContract.at(liquidityToken.address, this.adminWallet);
     this.liquidityTokenInstance = liquidityTokenInstance;
-    this.amm = await AMMContract.at(amm.address, this.adminWallet);
+    this.amm = AMMContract.at(amm.address, this.adminWallet);
     this.ammInstance = ammInstance;
   }
 

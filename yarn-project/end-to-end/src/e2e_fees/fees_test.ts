@@ -171,7 +171,7 @@ export class FeesTest extends BaseEndToEndTest {
     this.fpcAdmin = this.aliceAddress;
 
     const canonicalFeeJuice = await getCanonicalFeeJuice();
-    this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.wallet);
+    this.feeJuiceContract = FeeJuiceContract.at(canonicalFeeJuice.address, this.wallet);
   }
 
   async publishAccountContracts() {
@@ -179,7 +179,7 @@ export class FeesTest extends BaseEndToEndTest {
   }
 
   async setupFeeJuice() {
-    this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.wallet);
+    this.feeJuiceContract = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.wallet);
 
     this.getGasBalanceFn = getBalancesFn(
       '⛽',
@@ -203,7 +203,7 @@ export class FeesTest extends BaseEndToEndTest {
       .deployed();
     this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
 
-    this.bananaCoin = await BananaCoin.at(bananaCoin.address, this.wallet);
+    this.bananaCoin = BananaCoin.at(bananaCoin.address, this.wallet);
     this.getBananaPublicBalanceFn = getBalancesFn(
       '🍌.public',
       this.bananaCoin.methods.balance_of_public,
@@ -231,7 +231,7 @@ export class FeesTest extends BaseEndToEndTest {
 
     await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(bananaFPC.address, this.aliceAddress);
 
-    this.bananaFPC = await FPCContract.at(bananaFPC.address, this.wallet);
+    this.bananaFPC = FPCContract.at(bananaFPC.address, this.wallet);
 
     const l1FeeJuiceAddress = this.feeJuiceBridgeTestHarness.l1FeeJuiceAddress;
 
@@ -281,7 +281,7 @@ export class FeesTest extends BaseEndToEndTest {
     const sponsoredFPC = await setupSponsoredFPC(this.wallet);
     this.logger.info(`SponsoredFPC at ${sponsoredFPC.address}`);
 
-    this.sponsoredFPC = await SponsoredFPCContract.at(sponsoredFPC.address, this.wallet);
+    this.sponsoredFPC = SponsoredFPCContract.at(sponsoredFPC.address, this.wallet);
   }
 
   public async fundAliceWithBananas() {

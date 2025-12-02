@@ -76,7 +76,7 @@ export class TokenContractTest extends BaseEndToEndTest {
     this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
     // Setup asset reference
-    this.asset = await TokenContract.at(asset.address, this.wallet);
+    this.asset = TokenContract.at(asset.address, this.wallet);
     this.logger.verbose(`Token contract address: ${this.asset.address}`);
 
     this.tokenSim = new TokenSimulator(this.asset, this.wallet, this.adminAddress, this.logger, [
