@@ -224,7 +224,7 @@ export class NoteDataProvider {
    * parameters.
    *
    * @param filter - Filter criteria including contractAddress (required), and optional
-   *                 storageSlot, status, scopes and siloedNullifier.
+   *                 owner, storageSlot, status, scopes, and siloedNullifier.
    * @returns Promise resolving to array of NoteDao objects matching the filter
    * @throws If filtering by an empty scopes array. Scopes have to be set to undefined or to a non-empty array.
    */
@@ -304,6 +304,10 @@ export class NoteDataProvider {
 
         const note = NoteDao.fromBuffer(serializedNote);
         if (!note.contractAddress.equals(filter.contractAddress)) {
+          continue;
+        }
+
+        if (filter.owner && !note.owner.equals(filter.owner)) {
           continue;
         }
 

@@ -742,6 +742,7 @@ impl TestEnvironment {
         // sized).
         let message_plaintext = BoundedVec::from_array(private_note_to_message_plaintext(
             emission.content.note,
+            emission.content.owner,
             emission.content.storage_slot,
             emission.content.randomness,
         ));
@@ -767,13 +768,13 @@ impl TestEnvironment {
         // We also need to provide an implementation for the `compute_note_hash_and_nullifier` function, which would
         // typically be created by the macros for the different notes in a given contract. Here we build one specialized
         // for `Note`.
-        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
+        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
             assert_eq(note_type_id, Note::get_id());
             assert_eq(packed_note.len(), <Note as Packable>::N);
 
             let note = Note::unpack(subarray(packed_note.storage(), 0));
 
-            let note_hash = note.compute_note_hash(storage_slot, randomness);
+            let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
             let note_hash_for_nullification = compute_note_hash_for_nullification(
                 RetrievedNote {
                     note,
@@ -781,10 +782,12 @@ impl TestEnvironment {
                     randomness,
                     metadata: SettledNoteMetadata::new(note_nonce).into(),
                 },
+                owner,
                 storage_slot,
             );
 
-            let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullification);
+            let inner_nullifier =
+                note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
 
             Option::some(NoteHashAndNullifier { note_hash, inner_nullifier })
         };

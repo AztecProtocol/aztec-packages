@@ -33,8 +33,6 @@ import {
   ScopedPrivateLogData,
   ScopedReadRequest,
   SettledReadHint,
-  SideEffectCounterRange,
-  SideEffectUniquenessHints,
   TransientDataSquashingHint,
 } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
@@ -72,8 +70,6 @@ import type {
   ReadRequestHints as ReadRequestHintsNoir,
   Scoped,
   SettledReadHint as SettledReadHintNoir,
-  SideEffectCounterRange as SideEffectCounterRangeNoir,
-  SideEffectUniquenessHints as SideEffectUniquenessHintsNoir,
   TransientDataSquashingHint as TransientDataSquashingHintNoir,
   TxRequest as TxRequestNoir,
 } from '../types/index.js';
@@ -538,34 +534,6 @@ export function mapPrivateVerificationKeyHintsToNoir(
   };
 }
 
-function mapSideEffectCounterRangeToNoir(sideEffectCounterRange: SideEffectCounterRange): SideEffectCounterRangeNoir {
-  return {
-    start: mapNumberToNoir(sideEffectCounterRange.start),
-    end: mapNumberToNoir(sideEffectCounterRange.end),
-    side_effect_global_index: mapNumberToNoir(sideEffectCounterRange.sideEffectGlobalIndex),
-  };
-}
-
-function mapSideEffectUniquenessHintsToNoir(
-  sideEffectUniquenessHints: SideEffectUniquenessHints,
-): SideEffectUniquenessHintsNoir {
-  return {
-    side_effect_ranges: mapTuple(sideEffectUniquenessHints.sideEffectRanges, mapSideEffectCounterRangeToNoir),
-    note_hash_read_request_indices: mapTuple(sideEffectUniquenessHints.noteHashReadRequestIndices, mapNumberToNoir),
-    nullifier_read_request_indices: mapTuple(sideEffectUniquenessHints.nullifierReadRequestIndices, mapNumberToNoir),
-    note_hashes_indices: mapTuple(sideEffectUniquenessHints.noteHashesIndices, mapNumberToNoir),
-    nullifiers_indices: mapTuple(sideEffectUniquenessHints.nullifiersIndices, mapNumberToNoir),
-    private_call_requests_indices: mapTuple(sideEffectUniquenessHints.privateCallRequestsIndices, mapNumberToNoir),
-    public_call_requests_indices: mapTuple(sideEffectUniquenessHints.publicCallRequestsIndices, mapNumberToNoir),
-    l2_to_l1_msgs_indices: mapTuple(sideEffectUniquenessHints.l2ToL1MsgsIndices, mapNumberToNoir),
-    private_logs_indices: mapTuple(sideEffectUniquenessHints.privateLogsIndices, mapNumberToNoir),
-    contract_class_logs_hashes_indices: mapTuple(
-      sideEffectUniquenessHints.contractClassLogsHashesIndices,
-      mapNumberToNoir,
-    ),
-  };
-}
-
 /**
  * Maps a private call data to a noir private call data.
  * @param privateCallData - The private call data.
@@ -575,7 +543,6 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
   return {
     vk: mapVerificationKeyToNoir(privateCallData.vk, MEGA_VK_LENGTH_IN_FIELDS),
     verification_key_hints: mapPrivateVerificationKeyHintsToNoir(privateCallData.verificationKeyHints),
-    side_effect_uniqueness_hints: mapSideEffectUniquenessHintsToNoir(privateCallData.sideEffectUniquenessHints),
   };
 }
 

@@ -21,6 +21,8 @@ export interface NoteData {
   note: Note;
   /** The address of the contract that owns the note. */
   contractAddress: AztecAddress;
+  /** The owner of the note. */
+  owner: AztecAddress;
   /** The storage slot of the note. */
   storageSlot: Fr;
   /** The randomness injected to the note */
@@ -76,6 +78,7 @@ export interface IUtilityExecutionOracle {
   utilityGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress>;
   utilityGetAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
   utilityGetNotes(
+    owner: AztecAddress,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -132,6 +135,7 @@ export interface IPrivateExecutionOracle {
   privateStoreInExecutionCache(values: Fr[], hash: Fr): void;
   privateLoadFromExecutionCache(hash: Fr): Promise<Fr[]>;
   privateNotifyCreatedNote(
+    owner: AztecAddress,
     storageSlot: Fr,
     randomness: Fr,
     noteTypeId: NoteSelector,
