@@ -20,6 +20,7 @@ using namespace bb;
 class UltraCircuitBuilderNonNative : public ::testing::Test {
   protected:
     static constexpr size_t LIMB_BITS = UltraCircuitBuilder::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+    static inline const uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (LIMB_BITS * 4);
 
     // Number of NNF gates produced by a single partial multiplication
     static constexpr size_t NNF_GATES_PER_PARTIAL_MUL = 4;
@@ -64,7 +65,6 @@ class UltraCircuitBuilderNonNative : public ::testing::Test {
                                                                     const uint256_t& modulus)
     {
         // Compute negative modulus: (-p) := 2^T - p
-        const uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (LIMB_BITS * 4);
         auto modulus_limbs = split_into_limbs(BINARY_BASIS_MODULUS - uint512_t(modulus));
 
         // Add a, b, q, r as circuit variables
@@ -565,7 +565,7 @@ TEST_F(UltraCircuitBuilderNonNative, PartialMultiplicationDeduplication)
 }
 
 // Verifies deduplication correctly handles duplicates that result from an assert_equal
-TEST_F(UltraCircuitBuilderNonNative, PartialMultiplicationWithAliasedVariables)
+TEST_F(UltraCircuitBuilderNonNative, PartialMultiplicationDedupeAssertEqual)
 {
     UltraCircuitBuilder builder;
     std::array<fr, 4> a_limbs = random_limbs();
