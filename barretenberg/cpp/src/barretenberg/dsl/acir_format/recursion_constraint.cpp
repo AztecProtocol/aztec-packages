@@ -50,12 +50,10 @@ HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
 
             if (constraint.proof_type == HONK_ZK) {
                 honk_recursion_constraint =
-                    create_honk_recursion_constraints<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>(
-                        builder, constraint, !builder.has_dummy_witnesses());
+                    create_honk_recursion_constraints<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>(builder, constraint);
             } else if (constraint.proof_type == HONK) {
                 honk_recursion_constraint =
-                    create_honk_recursion_constraints<UltraRecursiveFlavor_<MegaCircuitBuilder>>(
-                        builder, constraint, !builder.has_dummy_witnesses());
+                    create_honk_recursion_constraints<UltraRecursiveFlavor_<MegaCircuitBuilder>>(builder, constraint);
             } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
                 bb::assert_failure("Rollup Honk proof type not supported on MegaBuilder");
             } else {
@@ -107,16 +105,15 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
 
             if (constraint.proof_type == HONK_ZK) {
                 honk_recursion_constraint =
-                    create_honk_recursion_constraints<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>(
-                        builder, constraint, !builder.has_dummy_witnesses());
+                    create_honk_recursion_constraints<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>(builder,
+                                                                                                    constraint);
             } else if (constraint.proof_type == HONK) {
                 honk_recursion_constraint =
-                    create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>>(
-                        builder, constraint, !builder.has_dummy_witnesses());
+                    create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>>(builder, constraint);
             } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
                 honk_recursion_constraint =
-                    create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(
-                        builder, constraint, !builder.has_dummy_witnesses());
+                    create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(builder,
+                                                                                                        constraint);
             } else {
                 bb::assert_failure("Invalid Honk proof type");
             }
@@ -136,7 +133,7 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
     if (has_chonk_recursion_constraints) {
         for (const auto& [constraint, opcode_idx] : zip_view(chonk_recursion_data.first, chonk_recursion_data.second)) {
             HonkRecursionConstraintOutput<UltraCircuitBuilder> honk_output =
-                create_chonk_recursion_constraints(builder, constraint, !builder.has_dummy_witnesses());
+                create_chonk_recursion_constraints(builder, constraint);
 
             // Update the output
             output.update(honk_output, /*update_ipa_data=*/true);
@@ -148,7 +145,7 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
     if (has_avm_recursion_constraints) {
         for (const auto& [constraint, opcode_idx] : zip_view(avm_recursion_data.first, avm_recursion_data.second)) {
             HonkRecursionConstraintOutput<UltraCircuitBuilder> honk_output =
-                create_avm2_recursion_constraints_goblin(builder, constraint, !builder.has_dummy_witnesses());
+                create_avm2_recursion_constraints_goblin(builder, constraint);
 
             // Update the output
             output.update(honk_output, /*update_ipa_data=*/true);
@@ -180,7 +177,7 @@ void process_hn_recursion_constraints(
 
         // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
         // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
-        if (builder.has_dummy_witnesses()) {
+        if (builder.is_write_vk_mode()) {
             // Create stdlib representations of each {proof, vkey} pair to be recursively verified
             for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->verification_queue)) {
                 populate_dummy_vk_in_constraint(builder, queue_entry.honk_vk, constraint.key);
