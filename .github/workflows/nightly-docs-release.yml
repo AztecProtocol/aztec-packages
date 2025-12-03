@@ -114,6 +114,18 @@ jobs:
         run: |
           ./scripts/cleanup_nightly_versions.sh
 
+      - name: Install Noir toolchain
+        uses: noir-lang/noirup@v0.1.4
+        with:
+          toolchain: nightly
+
+      - name: Generate Aztec.nr API documentation
+        working-directory: ./docs
+        run: |
+          # Generate aztec-nr API docs for this version
+          ./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh ${{ env.NIGHTLY_TAG }}
+          echo "Generated Aztec.nr API docs for: ${{ env.NIGHTLY_TAG }}"
+
       - name: Create Aztec nightly docs version
         working-directory: ./docs
         run: |

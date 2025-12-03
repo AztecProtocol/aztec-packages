@@ -179,6 +179,7 @@ locals {
         "validator.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
         "validator.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
         "validator.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
+        "validator.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -230,6 +231,7 @@ locals {
           "node.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
           "node.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
           "node.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
+          "node.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
         },
         # Only set web3signerUrl if proof publishing is enabled
         !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
@@ -297,6 +299,7 @@ locals {
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
         "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
+        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
         },
         # Only set RPC mnemonic config in fisherman mode)
         var.FISHERMAN_MODE ? {
@@ -341,6 +344,7 @@ locals {
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
         "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
+        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -370,6 +374,7 @@ locals {
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
         "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
+        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"

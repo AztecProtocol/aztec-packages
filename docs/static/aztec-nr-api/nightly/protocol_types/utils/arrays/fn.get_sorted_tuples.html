@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Function get_sorted_tuples documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module arrays</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ClaimedLengthArray.html">ClaimedLengthArray</a></div></li>
+<li><a href="struct.SortedTuple.html">SortedTuple</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.array_length.html">array_length</a></div></li>
+<li><a href="fn.array_length_until.html">array_length_until</a></div></li>
+<li><a href="fn.array_merge.html">array_merge</a></div></li>
+<li><a href="fn.array_padded_with.html">array_padded_with</a></div></li>
+<li><a href="fn.assert_trailing_zeros.html">assert_trailing_zeros</a></div></li>
+<li><a href="fn.check_permutation.html">check_permutation</a></div></li>
+<li><a href="fn.find_first_index.html">find_first_index</a></div></li>
+<li><a href="fn.find_index_hint.html">find_index_hint</a></div></li>
+<li><a href="fn.find_index_hint_in_reverse.html">find_index_hint_in_reverse</a></div></li>
+<li><a href="fn.find_last_index.html">find_last_index</a></div></li>
+<li><a href="fn.get_sorted_tuples.html">get_sorted_tuples</a></div></li>
+<li><a href="fn.subarray.html">subarray</a></div></li>
+<li><a href="fn.trimmed_array_length_hint.html">trimmed_array_length_hint</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">utils</a>::<a href="index.html">arrays</a></div>
+<h1>Function <span class="fn">get_sorted_tuples</span></h1>
+<pre><code>pub unconstrained fn get_sorted_tuples&lt;T, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, Env&gt;(
+    array: [T; N],
+    ordering: fn[Env](T, T) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
+) -> [<a href="../../../protocol_types/utils/arrays/struct.SortedTuple.html" class="struct">SortedTuple</a>&lt;T&gt;; N]
+<div class="where-clause">where
+    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></pre>
+
+</main>
+</body>
+</html>
