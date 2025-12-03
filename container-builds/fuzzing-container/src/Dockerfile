@@ -26,10 +26,10 @@ WORKDIR /home/fuzzer
 # Build argument to avoid layer caching
 ARG COMMIT=latest
 
-RUN git clone https://github.com/AztecProtocol/aztec-packages.git && \
-    cd aztec-packages &&                                             \
-    if [ "$COMMIT" != "latest" ]; then                               \
-        git checkout $COMMIT || exit 1;                              \
+RUN git clone https://github.com/AztecProtocol/aztec-packages.git --depth 1 && \
+    cd aztec-packages &&                                                       \
+    if [ "$COMMIT" != "latest" ]; then                                         \
+        git checkout $COMMIT || exit 1;                                        \
     fi
 
 # Download crs
@@ -67,6 +67,8 @@ RUN apt-get update && \
         libelf1 \
         libdwarf1 \
         llvm-18 \
+        curl \
+        unzip \
         ca-certificates && \
     apt-get -y autoremove && \
     apt-get clean && \
@@ -80,6 +82,7 @@ COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing/b
 COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-noasm/bin ./build-fuzzing-noasm/bin
 COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-asan/bin ./build-fuzzing-asan/bin
 COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-cov/bin ./build-fuzzing-cov/bin
+COPY --from=builder /root/.bb-crs /root/.bb-crs
 
 # Copy entrypoint script
 COPY entrypoint.sh .
