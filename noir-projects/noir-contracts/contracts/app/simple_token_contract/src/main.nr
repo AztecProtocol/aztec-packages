@@ -41,7 +41,7 @@ pub contract SimpleToken {
 
     #[storage]
     struct Storage<Context> {
-        balances: Map<AztecAddress, BalanceSet<Context>, Context>,
+        balances: BalanceSet<Context>,
         total_supply: PublicMutable<u128, Context>,
         public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
         symbol: PublicImmutable<FieldCompressedString, Context>,
@@ -126,10 +126,7 @@ pub contract SimpleToken {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        self.storage.balances.at(from).sub(from, amount).emit(
-            from,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        self.storage.balances.at(from).sub(amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
         self.enqueue_self._increase_public_balance(to, amount);
     }
 
@@ -138,11 +135,8 @@ pub contract SimpleToken {
         let from = self.msg_sender().unwrap();
 
         let change = self.internal.subtract_balance(from, amount, INITIAL_TRANSFER_CALL_MAX_NOTES);
-        self.storage.balances.at(from).add(from, change).emit(
-            from,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
-        );
-        self.storage.balances.at(to).add(to, amount).emit(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).add(change).emit(from, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.at(to).add(amount).emit(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
         self.emit(Transfer { from, to, amount }, to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
@@ -150,10 +144,7 @@ pub contract SimpleToken {
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        self.storage.balances.at(from).sub(from, amount).emit(
-            from,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        self.storage.balances.at(from).sub(amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
         self.enqueue_self._reduce_total_supply(amount);
     }
 
@@ -174,7 +165,7 @@ pub contract SimpleToken {
     fn _prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
         let partial_note = UintNote::partial(
             to,
-            self.storage.balances.at(to).set.storage_slot,
+            self.storage.balances.set.storage_slot,
             self.context,
             to,
             self.context.msg_sender().unwrap(),

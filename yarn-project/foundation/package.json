@@ -12,6 +12,7 @@
     "./async-map": "./dest/async-map/index.js",
     "./async-pool": "./dest/async-pool/index.js",
     "./bigint": "./dest/bigint/index.js",
+    "./branded-types": "./dest/branded-types/index.js",
     "./collection": "./dest/collection/index.js",
     "./config": "./dest/config/index.js",
     "./crypto": "./dest/crypto/index.js",
@@ -57,8 +58,8 @@
     "./number": "./dest/number/index.js"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b",
-    "build:dev": "tsc -b --watch",
+    "build": "yarn clean && tsgo -b",
+    "build:dev": "tsgo -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "generate": "true",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
@@ -143,6 +144,7 @@
     "@types/node": "^22.15.17",
     "@types/pako": "^2.0.0",
     "@types/supertest": "^2.0.12",
+    "@typescript/native-preview": "7.0.0-dev.20251126.1",
     "comlink": "^4.4.1",
     "eslint": "^9.26.0",
     "eslint-config-prettier": "^10.1.5",

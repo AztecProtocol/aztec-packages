@@ -187,12 +187,8 @@ contract RollupBase is DecoderBase {
       }
     }
 
-    ProposeArgs memory args = ProposeArgs({
-      header: full.checkpoint.header,
-      archive: full.checkpoint.archive,
-      stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0)
-    });
+    ProposeArgs memory args =
+      ProposeArgs({header: full.checkpoint.header, archive: full.checkpoint.archive, oracleInput: OracleInput(0)});
 
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);

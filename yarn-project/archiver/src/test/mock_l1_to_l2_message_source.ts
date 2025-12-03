@@ -1,3 +1,4 @@
+import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import type { L2Tips } from '@aztec/stdlib/block';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -16,6 +17,11 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
 
   public setBlockNumber(blockNumber: number) {
     this.blockNumber = blockNumber;
+  }
+
+  getL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
+    return this.getL1ToL2Messages(checkpointNumber);
   }
 
   getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {

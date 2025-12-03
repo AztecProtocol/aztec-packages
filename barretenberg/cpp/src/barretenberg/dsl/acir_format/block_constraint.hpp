@@ -5,16 +5,32 @@
 // =====================
 
 #pragma once
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <cstdint>
 #include <vector>
 
 namespace acir_format {
 
+enum AccessType : std::uint8_t {
+    Read = 0,
+    Write = 1,
+};
+
+enum CallDataType : std::uint8_t {
+    None = 0,
+    Primary = 1,
+    Secondary = 2,
+};
+
+/**
+ * @brief Memory operation. Index and value store the index of the memory location, and value is the value to be read or
+ * written.
+ */
 struct MemOp {
-    uint8_t access_type; // always binary: `0` corresponds to a READ and `1` corresponds to a WRITE.
-    bb::arithmetic_triple index;
-    bb::arithmetic_triple value;
+    AccessType access_type;
+    WitnessOrConstant<bb::fr> index;
+    WitnessOrConstant<bb::fr> value;
 };
 
 enum BlockType : std::uint8_t {
@@ -24,11 +40,20 @@ enum BlockType : std::uint8_t {
     ReturnData = 3,
 };
 
+/**
+ * @brief Struct holding the data required to add memory constraints to a circuit.
+ *
+ * @details 1. init holds the initial values of the RAM/ROM/CallData/ReturnData table
+ *          2. trace holds the sequence of memory operations (reads/writes) performed on the table
+ *          3. type indicates the type of memory being constrained (RAM/ROM/CallData/ReturnData)
+ *          4. calldata_id (used only for CallData) indicates whether we are operating on primary (kernel) or secondary
+ *             (app) calldata
+ */
 struct BlockConstraint {
-    std::vector<bb::arithmetic_triple> init;
+    std::vector<uint32_t> init;
     std::vector<MemOp> trace;
     BlockType type;
-    uint32_t calldata_id{ 0 };
+    CallDataType calldata_id;
 };
 
 template <typename Builder>

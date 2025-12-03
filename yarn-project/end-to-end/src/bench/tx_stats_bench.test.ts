@@ -114,13 +114,18 @@ describe('transaction benchmarks', () => {
     'makes both public and private transfers',
     () => {
       const compressTx = (
-        txAsBuffer: Buffer,
+        tx: Tx,
         compress: (data: Buffer) => Buffer,
         uncompress: (data: Buffer) => Buffer,
         name: string,
         txType: string,
       ) => {
         logger.info(`Compressing ${txType} tx with ${name}`);
+        const chonkProofBuffer = tx.chonkProof.toBuffer();
+        const proofSize = chonkProofBuffer.length;
+        const compressedProof = compress(chonkProofBuffer);
+        const proofSizeCompressed = compressedProof.length;
+        const txAsBuffer = tx.toBuffer();
         const numIterations = 50;
         const uncompressed: Buffer[] = Array.from({ length: numIterations }, () => Buffer.alloc(0));
         const compressed: Buffer[] = Array.from({ length: numIterations }, () => Buffer.alloc(0));
@@ -161,33 +166,44 @@ describe('transaction benchmarks', () => {
           value: compressed[0].length,
           unit: 'bytes',
         });
+        results.push({
+          name: `Tx Compression/${txType}/${name}/Uncompressed Size`,
+          value: txAsBuffer.length,
+          unit: 'bytes',
+        });
+        results.push({
+          name: `Tx Compression/${txType}/${name}/Chonk Proof Size`,
+          value: proofSize,
+          unit: 'bytes',
+        });
+        results.push({
+          name: `Tx Compression/${txType}/${name}/Chonk Proof Size Compressed`,
+          value: proofSizeCompressed,
+          unit: 'bytes',
+        });
       };
 
-      const privateTxAsBuffer = privateProvenTx.toBuffer();
-
       compressTx(
-        privateTxAsBuffer,
+        privateProvenTx,
         compressSync,
         (data: Buffer) => uncompressSync(data) as Buffer,
         'Snappy',
         'Private Transfer',
       );
-      compressTx(privateTxAsBuffer, zstdCompressSync, zstdDecompressSync, 'Zstd', 'Private Transfer');
-      compressTx(privateTxAsBuffer, deflateSync, inflateSync, 'Deflate', 'Private Transfer');
-      compressTx(privateTxAsBuffer, brotliCompressSync, brotliDecompressSync, 'Brotli', 'Private Transfer');
-
-      const publicTxAsBuffer = publicProvenTx.toBuffer();
+      compressTx(privateProvenTx, zstdCompressSync, zstdDecompressSync, 'Zstd', 'Private Transfer');
+      compressTx(privateProvenTx, deflateSync, inflateSync, 'Deflate', 'Private Transfer');
+      compressTx(privateProvenTx, brotliCompressSync, brotliDecompressSync, 'Brotli', 'Private Transfer');
 
       compressTx(
-        publicTxAsBuffer,
+        publicProvenTx,
         compressSync,
         (data: Buffer) => uncompressSync(data) as Buffer,
         'Snappy',
         'Public Transfer',
       );
-      compressTx(publicTxAsBuffer, zstdCompressSync, zstdDecompressSync, 'Zstd', 'Public Transfer');
-      compressTx(publicTxAsBuffer, deflateSync, inflateSync, 'Deflate', 'Public Transfer');
-      compressTx(publicTxAsBuffer, brotliCompressSync, brotliDecompressSync, 'Brotli', 'Public Transfer');
+      compressTx(publicProvenTx, zstdCompressSync, zstdDecompressSync, 'Zstd', 'Public Transfer');
+      compressTx(publicProvenTx, deflateSync, inflateSync, 'Deflate', 'Public Transfer');
+      compressTx(publicProvenTx, brotliCompressSync, brotliDecompressSync, 'Brotli', 'Public Transfer');
     },
     TIMEOUT,
   );

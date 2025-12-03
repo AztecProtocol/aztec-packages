@@ -17,6 +17,7 @@ import {
   createEthereumChain,
   getPublicClient,
 } from '@aztec/ethereum';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -48,7 +49,7 @@ import {
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type InBlock,
+  type DataInBlock,
   type L2Block,
   L2BlockHash,
   type L2BlockNumber,
@@ -62,7 +63,7 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
-import type { GasFees } from '@aztec/stdlib/gas';
+import { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import {
   type AztecNode,
@@ -595,6 +596,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return await this.globalVariableBuilder.getCurrentBaseFees();
   }
 
+  public async getMaxPriorityFees(): Promise<GasFees> {
+    for await (const tx of this.p2pClient.iteratePendingTxs()) {
+      return tx.getGasSettings().maxPriorityFeesPerGas;
+    }
+
+    return GasFees.from({ feePerDaGas: 0n, feePerL2Gas: 0n });
+  }
+
   /**
    * Method to fetch the latest block number synchronized by the node.
    * @returns The block number.
@@ -786,7 +795,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]> {
+  ): Promise<(DataInBlock<bigint> | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
     const maybeIndices = await committedDb.findLeafIndices(
       treeId,
@@ -823,7 +832,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
     }
 
-    // Create InBlock objects by combining indices, blockNumbers and blockHashes and return them.
+    // Create DataInBlock objects by combining indices, blockNumbers and blockHashes and return them.
     return maybeIndices.map((index, i) => {
       if (index === undefined) {
         return undefined;
@@ -1243,8 +1252,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public getValidatorStats(
     validatorAddress: EthAddress,
-    fromSlot?: bigint,
-    toSlot?: bigint,
+    fromSlot?: SlotNumber,
+    toSlot?: SlotNumber,
   ): Promise<SingleValidatorStats | undefined> {
     return this.validatorsSentinel?.getValidatorStats(validatorAddress, fromSlot, toSlot) ?? Promise.resolve(undefined);
   }

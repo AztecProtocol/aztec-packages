@@ -85,8 +85,6 @@ The governance process follows these stages:
 5. **Execution Delay** (12 hours): After passing the vote, another mandatory delay before execution (allows time for node upgrades).
 6. **Execution**: Anyone can execute the proposal, which applies the changes.
 
-**Note:** These timeline values are specific to testnet and are subject to change for future network phases.
-
 ## Signaling Support for a Payload
 
 As a sequencer, you initiate proposals through signaling. When you propose a block, you can automatically signal support for a specific payload. Once enough sequencers signal support within a round, the payload qualifies to become an official proposal.

@@ -21,6 +21,7 @@ import { formatEther, formatUnits } from 'viem';
 export class ProverNodeJobMetrics {
   proverEpochExecutionDuration: Histogram;
   provingJobDuration: Histogram;
+  provingJobCheckpoints: Gauge;
   provingJobBlocks: Gauge;
   provingJobTransactions: Gauge;
 
@@ -39,6 +40,10 @@ export class ProverNodeJobMetrics {
       unit: 's',
       valueType: ValueType.DOUBLE,
     });
+    this.provingJobCheckpoints = this.meter.createGauge(Metrics.PROVER_NODE_JOB_CHECKPOINTS, {
+      description: 'Number of checkpoints in a proven epoch',
+      valueType: ValueType.INT,
+    });
     this.provingJobBlocks = this.meter.createGauge(Metrics.PROVER_NODE_JOB_BLOCKS, {
       description: 'Number of blocks in a proven epoch',
       valueType: ValueType.INT,
@@ -49,9 +54,16 @@ export class ProverNodeJobMetrics {
     });
   }
 
-  public recordProvingJob(executionTimeMs: number, totalTimeMs: number, numBlocks: number, numTxs: number) {
+  public recordProvingJob(
+    executionTimeMs: number,
+    totalTimeMs: number,
+    numCheckpoints: number,
+    numBlocks: number,
+    numTxs: number,
+  ) {
     this.proverEpochExecutionDuration.record(Math.ceil(executionTimeMs));
     this.provingJobDuration.record(totalTimeMs / 1000);
+    this.provingJobCheckpoints.record(Math.floor(numCheckpoints));
     this.provingJobBlocks.record(Math.floor(numBlocks));
     this.provingJobTransactions.record(Math.floor(numTxs));
   }
@@ -97,7 +109,7 @@ export class ProverNodeRewardsMetrics {
       // look at the prev epoch so that we get an accurate value, after proof submission window has closed
       // For example, if proof submission window is 1 epoch, and we are in epoch 2, we should be looking at epoch 0.
       // Similarly, if the proof submission window is 0, and we are in epoch 1, we should be looking at epoch 0.
-      const closedEpoch = epoch - BigInt(this.proofSubmissionEpochs) - 1n;
+      const closedEpoch = BigInt(epoch) - BigInt(this.proofSubmissionEpochs) - 1n;
       const rewards = await this.rollup.getSpecificProverRewardsForEpoch(closedEpoch, this.coinbase);
 
       const fmt = parseFloat(formatUnits(rewards, 18));

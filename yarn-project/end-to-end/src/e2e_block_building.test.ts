@@ -7,6 +7,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -645,7 +646,9 @@ describe('e2e_block_building', () => {
 
       logger.info('Advancing past the proof submission window');
 
-      await cheatCodes.rollup.advanceToEpoch(getProofSubmissionDeadlineEpoch(2n, { proofSubmissionEpochs: 1 }));
+      await cheatCodes.rollup.advanceToEpoch(
+        getProofSubmissionDeadlineEpoch(EpochNumber(2), { proofSubmissionEpochs: 1 }),
+      );
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);

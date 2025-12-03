@@ -1,4 +1,5 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -407,11 +408,11 @@ describe('P2P Client', () => {
 
       await advanceToFinalizedBlock(10);
       expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(1);
-      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(10n);
+      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(10));
 
       await advanceToFinalizedBlock(15);
       expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(2);
-      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(15n);
+      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(15));
     });
   });
 

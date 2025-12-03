@@ -192,6 +192,7 @@ export const PROVING_AGENT_IDLE = 'aztec.proving_queue.agent.idle';
 
 export const PROVER_NODE_EXECUTION_DURATION = 'aztec.prover_node.execution.duration';
 export const PROVER_NODE_JOB_DURATION = 'aztec.prover_node.job_duration';
+export const PROVER_NODE_JOB_CHECKPOINTS = 'aztec.prover_node.job_checkpoints';
 export const PROVER_NODE_JOB_BLOCKS = 'aztec.prover_node.job_blocks';
 export const PROVER_NODE_JOB_TRANSACTIONS = 'aztec.prover_node.job_transactions';
 export const PROVER_NODE_REWARDS_TOTAL = 'aztec.prover_node.rewards_total';

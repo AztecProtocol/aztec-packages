@@ -3,25 +3,24 @@ use aztec::macros::aztec;
 #[aztec]
 contract BoxReact {
     use aztec::{
-        messages::message_delivery::MessageDelivery,
         macros::{functions::{external, initializer}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
-        state_vars::{Map, PrivateMutable},
+        state_vars::PrivateMutable,
     };
     use value_note::value_note::ValueNote;
 
     #[storage]
     struct Storage<Context> {
-        numbers: Map<AztecAddress, PrivateMutable<ValueNote, Context>, Context>,
+        numbers: PrivateMutable<ValueNote, Context>,
     }
 
     #[external("private")]
     #[initializer]
     fn constructor(number: Field, owner: AztecAddress) {
-        let numbers = self.storage.numbers;
-        let new_number = ValueNote::new(number, owner);
+        let new_number = ValueNote::new(number);
 
-        numbers.at(owner).initialize(new_number).emit(
+        self.storage.numbers.at(owner).initialize(new_number).emit(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -29,22 +28,14 @@ contract BoxReact {
 
     #[external("private")]
     fn setNumber(number: Field, owner: AztecAddress) {
-        let numbers = self.storage.numbers;
-
-        numbers.at(owner)
-            .replace(|_old| {
-                ValueNote::new(number, owner)
-            }) 
-            .emit(
-                owner,
-                MessageDelivery.CONSTRAINED_ONCHAIN,
-            );
+        self.storage.numbers.at(owner).replace(|_old| ValueNote::new(number)).emit(
+            owner,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
-
 
     #[external("utility")]
     unconstrained fn getNumber(owner: AztecAddress) -> ValueNote {
-        let numbers = self.storage.numbers;
-        numbers.at(owner).view_note()
+        self.storage.numbers.at(owner).view_note()
     }
 }

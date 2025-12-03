@@ -135,7 +135,7 @@ describe('a test that passively observes the network in the presence of network 
     // note, don't forget that normally an epoch doesn't need epochDuration worth of blocks,
     // but here we do double duty:
     // we want a handful of blocks, and we want to pass the epoch boundary
-    await awaitL2BlockNumber(rollupCheatCodes, epochDuration, 60 * 6, debugLogger);
+    await awaitL2BlockNumber(rollupCheatCodes, BigInt(epochDuration) * BigInt(slotDuration), 60 * 6, debugLogger);
 
     let deploymentOutput: string = '';
     deploymentOutput = await applyNetworkShaping({
@@ -165,7 +165,7 @@ describe('a test that passively observes the network in the presence of network 
       debugLogger.info(deploymentOutput);
       debugLogger.info(`Waiting for chain to progress by at least 1 block`);
       const controlTips = await rollupCheatCodes.getTips();
-      const timeoutSeconds = Math.ceil(Number(epochDuration * slotDuration) * 2);
+      const timeoutSeconds = Math.ceil(Number(BigInt(epochDuration) * BigInt(slotDuration)) * 2);
       await awaitL2BlockNumber(rollupCheatCodes, controlTips.pending + 1n, timeoutSeconds, debugLogger);
       const newTips = await rollupCheatCodes.getTips();
 
