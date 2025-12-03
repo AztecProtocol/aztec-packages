@@ -23,12 +23,24 @@ class ECCVMVerifier {
     using PCS = Flavor::PCS;
 
   public:
+    using TranslatorInputData = TranslatorInputData_<FF>;
+
     explicit ECCVMVerifier(const std::shared_ptr<Transcript>& transcript)
         : transcript(transcript) {};
 
     bool verify_proof(const ECCVMProof& proof);
     void compute_translation_opening_claims(
         const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
+    void compute_accumulated_result();
+
+    /**
+     * @brief Get the data required by the TranslatorVerifier
+     * @return TranslatorInputData containing evaluation_challenge_x, batching_challenge_v, and accumulated_result
+     */
+    TranslatorInputData get_translator_input_data() const
+    {
+        return { evaluation_challenge_x, batching_challenge_v, accumulated_result };
+    }
 
     uint32_t circuit_size;
     // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
@@ -43,12 +55,15 @@ class ECCVMVerifier {
 
     TranslationEvaluations_<FF> translation_evaluations;
 
+    bool translation_masking_consistency_checked = false;
+
+  private:
     // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
     FF evaluation_challenge_x;
     FF batching_challenge_v;
     // The value ∑ mᵢ(x) ⋅ vⁱ which needs to be propagated to TranslatorVerifier
     FF translation_masking_term_eval;
-
-    bool translation_masking_consistency_checked = false;
+    // The accumulated result computed from translation evaluations, to be used by TranslatorVerifier
+    FF accumulated_result;
 };
 } // namespace bb

@@ -33,10 +33,6 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     static constexpr size_t comm_frs = FrCodec::calc_num_fields<Commitment>(); // 4
     static constexpr size_t eval_frs = FrCodec::calc_num_fields<FF>();         // 1
 
-    // The `op` wire commitment is currently the second element of the proof, following the
-    // `accumulated_result` which is a BN254 BaseField element.
-    static constexpr size_t offset = FrCodec::calc_num_fields<BF>();
-
     struct ProverOutput {
         GoblinProof proof;
         Goblin::VerificationKey verifier_input;
@@ -45,20 +41,11 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     };
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
     // Better recursion testing - create more flexible proof tampering tests.
-    // Modify the `op` commitment which a part of the Merge protocol.
-    static void tamper_with_op_commitment(HonkProof& translator_proof)
+    // Tamper with the `op` commitment in the merge commitments (op commitments are no longer in translator proof)
+    static void tamper_with_op_commitment(MergeCommitments& merge_commitments)
     {
-
-        // Extract `op` fields and convert them to a Commitment object
-        auto element_frs = std::span{ translator_proof }.subspan(offset, comm_frs);
-        auto op_commitment = NativeTranscript::template deserialize<Commitment>(element_frs);
-        // Modify the commitment
-        op_commitment = op_commitment * FF(2);
-        // Serialize the tampered commitment into the proof (overwriting the valid one).
-        auto op_commitment_reserialized = NativeTranscript::serialize(op_commitment);
-        std::copy(op_commitment_reserialized.begin(),
-                  op_commitment_reserialized.end(),
-                  translator_proof.begin() + static_cast<std::ptrdiff_t>(offset));
+        // The first commitment in merged table is the `op` wire commitment
+        merge_commitments.t_commitments[0] = merge_commitments.t_commitments[0] * FF(2);
     };
 
     // Translator proof ends with [..., Libra:quotient_eval, Shplonk:Q, KZG:W]. We invalidate the proof by multiplying
@@ -265,26 +252,34 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 {
     auto [proof, verifier_input, merge_commitments, _] = create_goblin_prover_output();
 
-    // Tamper with the Translator proof preamble
+    // Tamper with the op commitment in merge commitments (used by Translator verifier)
     {
-        GoblinProof tampered_proof = proof;
-        tamper_with_op_commitment(tampered_proof.translator_proof);
+        MergeCommitments tampered_merge_commitments = merge_commitments;
+        tamper_with_op_commitment(tampered_merge_commitments);
         Builder builder;
 
         RecursiveMergeCommitments recursive_merge_commitments;
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             recursive_merge_commitments.t_commitments[idx] =
-                RecursiveCommitment::from_witness(&builder, merge_commitments.t_commitments[idx]);
+                RecursiveCommitment::from_witness(&builder, tampered_merge_commitments.t_commitments[idx]);
             recursive_merge_commitments.T_prev_commitments[idx] =
-                RecursiveCommitment::from_witness(&builder, merge_commitments.T_prev_commitments[idx]);
+                RecursiveCommitment::from_witness(&builder, tampered_merge_commitments.T_prev_commitments[idx]);
             recursive_merge_commitments.t_commitments[idx].fix_witness();
             recursive_merge_commitments.T_prev_commitments[idx].fix_witness();
         }
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        [[maybe_unused]] auto goblin_rec_verifier_output =
-            verifier.verify(tampered_proof, recursive_merge_commitments, MergeSettings::APPEND);
-        EXPECT_FALSE(CircuitChecker::check(builder));
+        auto goblin_rec_verifier_output = verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
+
+        // Circuit is correct but pairing check should fail
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        // Check that the pairing fails natively
+        bb::PairingPoints<curve::BN254> native_pairing_points(
+            goblin_rec_verifier_output.points_accumulator.P0.get_value(),
+            goblin_rec_verifier_output.points_accumulator.P1.get_value());
+        bool pairing_result = native_pairing_points.check();
+        EXPECT_FALSE(pairing_result);
     }
     // Tamper with the Translator proof non - preamble values
     {
@@ -350,16 +345,35 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         // Check natively that the proof is correct.
         EXPECT_TRUE(Goblin::verify(proof, merge_commitments, verifier_transcript, MergeSettings::APPEND));
 
-        tamper_with_op_commitment(proof.translator_proof);
+        // Tamper with the op commitment in merge commitments (used by Translator verifier)
+        MergeCommitments tampered_merge_commitments = merge_commitments;
+        tamper_with_op_commitment(tampered_merge_commitments);
+
         // Construct and check the Goblin Recursive Verifier circuit
 
+        RecursiveMergeCommitments tampered_recursive_merge_commitments;
+        for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
+            tampered_recursive_merge_commitments.t_commitments[idx] =
+                RecursiveCommitment::from_witness(&builder, tampered_merge_commitments.t_commitments[idx]);
+            tampered_recursive_merge_commitments.T_prev_commitments[idx] =
+                RecursiveCommitment::from_witness(&builder, tampered_merge_commitments.T_prev_commitments[idx]);
+            tampered_recursive_merge_commitments.t_commitments[idx].fix_witness();
+            tampered_recursive_merge_commitments.T_prev_commitments[idx].fix_witness();
+        }
+
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        [[maybe_unused]] auto goblin_rec_verifier_output =
-            verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
+        auto goblin_rec_verifier_output =
+            verifier.verify(proof, tampered_recursive_merge_commitments, MergeSettings::APPEND);
 
-        EXPECT_FALSE(CircuitChecker::check(builder));
+        // Circuit is correct but pairing check should fail
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        // Check that the pairing fails natively
+        bb::PairingPoints<curve::BN254> native_pairing_points(
+            goblin_rec_verifier_output.points_accumulator.P0.get_value(),
+            goblin_rec_verifier_output.points_accumulator.P1.get_value());
+        bool pairing_result = native_pairing_points.check();
+        EXPECT_FALSE(pairing_result);
     }
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/787)
 }
 } // namespace bb::stdlib::recursion::honk

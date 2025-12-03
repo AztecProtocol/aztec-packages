@@ -28,10 +28,10 @@ class GoblinRecursiveVerifier {
     using Builder = UltraCircuitBuilder;
     using MergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier<Builder>;
     using Transcript = UltraStdlibTranscript;
-
     using TranslatorFlavor = TranslatorRecursiveFlavor;
     using TranslatorVerifier = TranslatorRecursiveVerifier;
     using TranslationEvaluations = TranslatorVerifier::TranslationEvaluations;
+    using TranslatorInputData = TranslatorInputData_<TranslatorRecursiveVerifier::BF>;
 
     using ECCVMVerifier = ECCVMRecursiveVerifier;
 

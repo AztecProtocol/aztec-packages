@@ -75,7 +75,7 @@ TEST(MockVerifierInputsTest, MockIPAProofSize)
  */
 TEST(MockVerifierInputsTest, MockTranslatorProofSize)
 {
-    size_t CURRENT_TRANSLATOR_PROOF_SIZE = 804;
+    size_t CURRENT_TRANSLATOR_PROOF_SIZE = 786;
     EXPECT_EQ(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS, CURRENT_TRANSLATOR_PROOF_SIZE)
         << "The length of the Translator proof changed.";
 
@@ -244,7 +244,7 @@ TEST(MockVerifierInputsTest, MockChonkProofSize)
 
     // If this value changes, we need to update the corresponding constants in noir and in yarn-project. Also, we need
     // to update the Prover.toml file for rollup-tx-private to reflect the new length of the Chonk proof.
-    size_t CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 1993;
+    size_t CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 1905;
     HonkProof chonk_proof = create_mock_chonk_proof<Builder>();
     EXPECT_EQ(chonk_proof.size(), Chonk::Proof::PROOF_LENGTH());
     EXPECT_EQ(chonk_proof.size(),
