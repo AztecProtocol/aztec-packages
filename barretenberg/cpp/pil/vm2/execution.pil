@@ -713,6 +713,30 @@ sel_execute_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // W
  sel_execute_notehash_exists + sel_execute_l1_to_l2_message_exists +
  sel_execute_nullifier_exists) * sel_opcode_error = 0;
 
+ // The other execution opcodes constrain sel_opcode_error in their respective files:
+ // - GETENVVAR (get_env_var.pil)
+ // - INTERNAL_RETURN (internal_call.pil)
+ // - SSTORE (sstore.pil)
+ // - EMIT_NOTEHASH (emit_notehash.pil)
+ // - EMIT_NULLIFIER (emit_nullifier.pil)
+ // - SEND_L2_TO_L1_MSG (send_l2_to_l1_msg.pil)
+
+ // For all other subtraces, sel_opcode_error is dispatched to the respective subtrace
+ // as part of the dispatching lookups below:
+ // - ALU: #[DISPATCH_TO_ALU]
+ // - BITWISE: #[DISPATCH_TO_BITWISE]
+ // - CAST: #[DISPATCH_TO_CAST]
+ // - CALLDATA_COPY: #[DISPATCH_TO_CD_COPY]
+ // - RETURNDATA_COPY: #[DISPATCH_TO_RD_COPY]
+ // - SET: #[DISPATCH_TO_SET]
+ // - GET_CONTRACT_INSTANCE: #[DISPATCH_TO_GET_CONTRACT_INSTANCE]
+ // - EMIT_UNENCRYPTED_LOG: #[DISPATCH_TO_EMIT_UNENCRYPTED_LOG]
+ // - POSEIDON2_PERM: #[DISPATCH_TO_POSEIDON2_PERM]
+ // - SHA256_COMPRESSION: #[DISPATCH_TO_SHA256_COMPRESSION]
+ // - KECCAKF1600: #[DISPATCH_TO_KECCAKF1600]
+ // - ECC_ADD: #[DISPATCH_TO_ECC_ADD]
+ // - TO_RADIX: #[DISPATCH_TO_TO_RADIX]
+
 /**************************************************************************************************
  *  Temporality group 6: Register write.
  **************************************************************************************************/
@@ -730,7 +754,8 @@ sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
 // sel_error is 1 iff any kind of error happens at the execution level.
 pol commit sel_error;
 // Observe that the errors are mutually exclusive.
-sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + sel_addressing_error + sel_register_read_error + sel_out_of_gas + sel_opcode_error;
+sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + sel_addressing_error
+          + sel_register_read_error + sel_out_of_gas + sel_opcode_error;
 
 /**************************************************************************************************
  *  Dispatching to other subtraces
@@ -739,7 +764,6 @@ sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + 
 // This contains all the lookups dispatching opcode computation to their pertaining sub-trace.
 // For every entry in the enum SubtraceSel, there is a lookup table except for SubtraceSel::EXECUTION
 // which are handled by the execution subtrace.
-// These lookups are placed in this file for code organization purposes but are fully part of the execution trace.
 
 #[DISPATCH_TO_ALU]
 sel_exec_dispatch_alu {
