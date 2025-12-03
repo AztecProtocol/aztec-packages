@@ -136,7 +136,8 @@ TEST(stdlib_blake3s, test_multiple_sized_blocks)
     }
 }
 
-// Edge case that caused addition overflow issues in Blake
+// Edge case that caused addition overflow issues in Blake. See https://hackmd.io/@aztec-network/SyTHLkAWZx for a
+// detailed description of the addition overflow issue.
 TEST(stdlib_blake3s, test_edge_case_addition_overflow)
 {
     std::array<uint8_t, 34> v = { 0xC3, 0x2B, 0xC3, 0x91, 0x23, 0xFF, 0xFF, 0xFF, 0xFF, 0xC3, 0xFF, 0xFF,
