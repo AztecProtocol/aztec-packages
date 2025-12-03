@@ -1,3 +1,4 @@
+
 # We push using git subrepo (https://github.com/ingydotnet/git-subrepo)
 # with some logic to recover from squashed parent commits
 # We first identify ourselves, needed to commit.
@@ -35,13 +36,10 @@ jobs:
           # This avoids us having to update our commit metadata file,
           # but is slower.
           # Clone the barretenberg repository
-          git clone https://github.com/AztecProtocol/barretenberg /tmp/barretenberg-repo
+          gh repo clone https://github.com/AztecProtocol/barretenberg /tmp/barretenberg-repo
           cd /tmp/barretenberg-repo
-          
-          # Fetch the specific commit and push to master
-          git fetch origin $SUBREPO_COMMIT
-          git checkout $SUBREPO_COMMIT
-          git push --force https://github.com/AztecProtocol/barretenberg HEAD:master
+          git reset --hard $SUBREPO_COMMIT
+          git push --force
           cd -
       
           if ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=master; then
