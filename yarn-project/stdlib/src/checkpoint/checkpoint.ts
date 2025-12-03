@@ -1,5 +1,5 @@
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
-import { CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -80,7 +80,7 @@ export class Checkpoint {
     const header = CheckpointHeader.random(options);
 
     const blocks = await Promise.all(
-      Array.from({ length: numBlocks }, (_, i) => L2BlockNew.random(startBlockNumber + i, options)),
+      Array.from({ length: numBlocks }, (_, i) => L2BlockNew.random(BlockNumber(startBlockNumber + i), options)),
     );
 
     return new Checkpoint(AppendOnlyTreeSnapshot.random(), header, blocks, checkpointNumber);

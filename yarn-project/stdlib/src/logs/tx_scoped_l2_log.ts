@@ -1,3 +1,4 @@
+import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
 import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
@@ -26,7 +27,7 @@ export class TxScopedL2Log {
     /*
      * The block this log is included in
      */
-    public blockNumber: number,
+    public blockNumber: BlockNumber,
     /*
      * The log data as either a PrivateLog or PublicLog
      */
@@ -43,7 +44,7 @@ export class TxScopedL2Log {
         txHash: TxHash.schema,
         dataStartIndexForTx: z.number(),
         logIndexInTx: z.number(),
-        blockNumber: z.number(),
+        blockNumber: BlockNumberSchema,
         log: z.union([PrivateLog.schema, PublicLog.schema]),
       })
       .transform(
@@ -69,7 +70,7 @@ export class TxScopedL2Log {
     const txHash = reader.readObject(TxHash);
     const dataStartIndexForTx = reader.readNumber();
     const logIndexInTx = reader.readNumber();
-    const blockNumber = reader.readNumber();
+    const blockNumber = BlockNumber(reader.readNumber());
     const isFromPublic = reader.readBoolean();
     const log = isFromPublic ? PublicLog.fromBuffer(reader) : PrivateLog.fromBuffer(reader);
 
@@ -78,7 +79,7 @@ export class TxScopedL2Log {
 
   static async random(isFromPublic = Math.random() < 0.5) {
     const log = isFromPublic ? await PublicLog.random() : PrivateLog.random();
-    return new TxScopedL2Log(TxHash.random(), 1, 1, 1, log);
+    return new TxScopedL2Log(TxHash.random(), 1, 1, BlockNumber(1), log);
   }
 
   equals(other: TxScopedL2Log) {

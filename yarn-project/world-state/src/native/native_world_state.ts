@@ -1,4 +1,5 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -150,7 +151,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return new MerkleTreesFacade(this.instance, this.initialHeader!, WorldStateRevision.empty());
   }
 
-  public getSnapshot(blockNumber: number): MerkleTreeReadOperations {
+  public getSnapshot(blockNumber: BlockNumber): MerkleTreeReadOperations {
     return new MerkleTreesFacade(
       this.instance,
       this.initialHeader!,
@@ -158,16 +159,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     );
   }
 
-  public async fork(blockNumber?: number): Promise<MerkleTreeWriteOperations> {
+  public async fork(blockNumber?: BlockNumber): Promise<MerkleTreeWriteOperations> {
     const resp = await this.instance.call(WorldStateMessageType.CREATE_FORK, {
       latest: blockNumber === undefined,
-      blockNumber: blockNumber ?? 0,
+      blockNumber: blockNumber ?? BlockNumber.ZERO,
       canonical: true,
     });
     return new MerkleTreesForkFacade(
       this.instance,
       this.initialHeader!,
-      new WorldStateRevision(/*forkId=*/ resp.forkId, /* blockNumber=*/ 0, /* includeUncommitted=*/ true),
+      new WorldStateRevision(
+        /*forkId=*/ resp.forkId,
+        /* blockNumber=*/ BlockNumber.ZERO,
+        /* includeUncommitted=*/ true,
+      ),
     );
   }
 
@@ -256,7 +261,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @param toBlockNumber The block number that is now the tip of the finalized chain
    * @returns The new WorldStateStatus
    */
-  public async setFinalized(toBlockNumber: bigint) {
+  public async setFinalized(toBlockNumber: BlockNumber) {
     try {
       await this.instance.call(
         WorldStateMessageType.FINALIZE_BLOCKS,
@@ -279,7 +284,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @param toBlockNumber The block number of the new oldest historical block
    * @returns The new WorldStateStatus
    */
-  public async removeHistoricalBlocks(toBlockNumber: bigint) {
+  public async removeHistoricalBlocks(toBlockNumber: BlockNumber) {
     try {
       return await this.instance.call(
         WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
@@ -301,7 +306,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @param toBlockNumber The block number of the new tip of the pending chain,
    * @returns The new WorldStateStatus
    */
-  public async unwindBlocks(toBlockNumber: bigint) {
+  public async unwindBlocks(toBlockNumber: BlockNumber) {
     try {
       return await this.instance.call(
         WorldStateMessageType.UNWIND_BLOCKS,

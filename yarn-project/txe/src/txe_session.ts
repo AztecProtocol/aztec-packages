@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
@@ -29,7 +30,6 @@ import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/stdlib/testing';
 import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
-import type { UInt32 } from '@aztec/stdlib/types';
 
 import { z } from 'zod';
 
@@ -102,7 +102,7 @@ export type TXEOracleFunctionName = Exclude<
 export interface TXESessionStateHandler {
   enterTopLevelState(): Promise<void>;
   enterPublicState(contractAddress?: AztecAddress): Promise<void>;
-  enterPrivateState(contractAddress?: AztecAddress, anchorBlockNumber?: UInt32): Promise<PrivateContextInputs>;
+  enterPrivateState(contractAddress?: AztecAddress, anchorBlockNumber?: BlockNumber): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
 }
 
@@ -271,7 +271,7 @@ export class TXESession implements TXESessionStateHandler {
 
   async enterPrivateState(
     contractAddress: AztecAddress = DEFAULT_ADDRESS,
-    anchorBlockNumber?: UInt32,
+    anchorBlockNumber?: BlockNumber,
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
 
@@ -289,7 +289,7 @@ export class TXESession implements TXESessionStateHandler {
     const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
 
     const nextBlockGlobalVariables = makeGlobalVariables(undefined, {
-      blockNumber: latestBlock!.globalVariables.blockNumber + 1,
+      blockNumber: BlockNumber(latestBlock!.globalVariables.blockNumber + 1),
       timestamp: this.nextBlockTimestamp,
       version: this.version,
       chainId: this.chainId,
@@ -331,7 +331,7 @@ export class TXESession implements TXESessionStateHandler {
     // the test. The block therefore gets the *next* block number and timestamp.
     const latestBlockNumber = (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.blockNumber;
     const globalVariables = makeGlobalVariables(undefined, {
-      blockNumber: latestBlockNumber + 1,
+      blockNumber: BlockNumber(latestBlockNumber + 1),
       timestamp: this.nextBlockTimestamp,
       version: this.version,
       chainId: this.chainId,
