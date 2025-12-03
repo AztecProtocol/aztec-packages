@@ -305,144 +305,14 @@ template <typename Curve> class GeminiProver_ {
 
 }; // namespace bb
 
+/**
+ * @brief Gemini Verifier utility methods used by ShpleminiVerifier
+ */
 template <typename Curve> class GeminiVerifier_ {
     using Fr = typename Curve::ScalarField;
-    using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
-    using ClaimBatcher = ClaimBatcher_<Curve>;
 
   public:
-    /**
-     * @brief Returns univariate opening claims for the Fold polynomials to be checked later
-     *
-     * @param multilinear_evaluations the MLE evaluation point u
-     * @param batched_evaluation batched evaluation from multivariate evals at the point u
-     * @param batched_commitment_unshifted batched commitment to unshifted polynomials
-     * @param batched_commitment_to_be_shifted batched commitment to to-be-shifted polynomials
-     * @param proof commitments to the m-1 folded polynomials, and alleged evaluations.
-     * @param transcript
-     * @return Fold polynomial opening claims: (r, A₀(r), C₀₊), (-r, A₀(-r), C₀₋), and
-     * (Cⱼ, Aⱼ(-r^{2ʲ}), -r^{2}), j = [1, ..., m-1]
-     */
-    static std::vector<OpeningClaim<Curve>> reduce_verification(std::span<Fr> multilinear_challenge,
-                                                                ClaimBatcher& claim_batcher,
-                                                                auto& transcript)
-
-    {
-        const size_t log_n = multilinear_challenge.size();
-        const bool has_interleaved = claim_batcher.interleaved.has_value();
-
-        const Fr rho = transcript->template get_challenge<Fr>("rho");
-
-        GroupElement batched_commitment_unshifted = GroupElement::zero();
-        GroupElement batched_commitment_to_be_shifted = GroupElement::zero();
-
-        Fr batched_evaluation = Fr(0);
-        Fr batching_scalar = Fr(1);
-        for (auto [eval, comm] :
-             zip_view(claim_batcher.get_unshifted().evaluations, claim_batcher.get_unshifted().commitments)) {
-            batched_evaluation += eval * batching_scalar;
-            batched_commitment_unshifted += comm * batching_scalar;
-            batching_scalar *= rho;
-        }
-
-        for (auto [eval, comm] :
-             zip_view(claim_batcher.get_shifted().evaluations, claim_batcher.get_shifted().commitments)) {
-            batched_evaluation += eval * batching_scalar;
-            batched_commitment_to_be_shifted += comm * batching_scalar;
-            batching_scalar *= rho;
-        }
-
-        // Get polynomials Fold_i, i = 1,...,m-1 from transcript
-        const std::vector<Commitment> commitments = get_fold_commitments(log_n, transcript);
-
-        // compute vector of powers of random evaluation point r
-        const Fr r = transcript->template get_challenge<Fr>("Gemini:r");
-        const std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r, log_n);
-
-        // Get evaluations a_i, i = 0,...,m-1 from transcript
-        const std::vector<Fr> evaluations = get_gemini_evaluations(log_n, transcript);
-
-        // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ], the commitment to A₀₊
-        // C₀_r_neg = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ], the commitment to  A₀₋
-        GroupElement C0_r_pos = batched_commitment_unshifted;
-        GroupElement C0_r_neg = batched_commitment_unshifted;
-
-        Fr r_inv = r.invert();
-        if (!batched_commitment_to_be_shifted.is_point_at_infinity()) {
-            batched_commitment_to_be_shifted = batched_commitment_to_be_shifted * r_inv;
-            C0_r_pos += batched_commitment_to_be_shifted;
-            C0_r_neg -= batched_commitment_to_be_shifted;
-        }
-
-        // If verifying the opening for the translator VM, we reconstruct the commitment of the batched interleaved
-        // polynomials, "partially evaluated" in r and -r, using the commitments in the interleaved groups
-        GroupElement C_P_pos = GroupElement::zero();
-        GroupElement C_P_neg = GroupElement::zero();
-        if (has_interleaved) {
-            size_t interleaved_group_size = claim_batcher.get_groups_to_be_interleaved_size();
-            Fr current_r_shift_pos = Fr(1);
-            Fr current_r_shift_neg = Fr(1);
-            std::vector<Fr> r_shifts_pos;
-            std::vector<Fr> r_shifts_neg;
-            for (size_t i = 0; i < interleaved_group_size; ++i) {
-                r_shifts_pos.emplace_back(current_r_shift_pos);
-                r_shifts_neg.emplace_back(current_r_shift_neg);
-                current_r_shift_pos *= r;
-                current_r_shift_neg *= (-r);
-            }
-
-            for (auto [group_commitments, interleaved_evaluation] : zip_view(
-                     claim_batcher.get_interleaved().commitments_groups, claim_batcher.get_interleaved().evaluations)) {
-                // Compute the contribution from each group j of commitments Gⱼ = {C₀, C₁, C₂, C₃, ..., Cₛ₋₁} where
-                // s is assumed even C_P_pos += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ rⁱ ⋅ Cᵢ C_P_neg += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ (-r)ⁱ ⋅ Cᵢ
-                for (size_t i = 0; i < interleaved_group_size; ++i) {
-                    C_P_pos += group_commitments[i] * batching_scalar * r_shifts_pos[i];
-                    C_P_neg += group_commitments[i] * batching_scalar * r_shifts_neg[i];
-                }
-                batched_evaluation += interleaved_evaluation * batching_scalar;
-                batching_scalar *= rho;
-            }
-        }
-
-        Fr p_neg = Fr(0);
-        Fr p_pos = Fr(0);
-        if (has_interleaved) {
-            p_pos = transcript->template receive_from_prover<Fr>("Gemini:P_0_pos");
-            p_neg = transcript->template receive_from_prover<Fr>("Gemini:P_0_neg");
-        }
-        std::vector<Fr> padding_indicator_array(log_n, Fr{ 1 });
-
-        // Compute the evaluations  Aₗ(r^{2ˡ}) for l = 0, ..., m-1
-        std::vector<Fr> gemini_fold_pos_evaluations = compute_fold_pos_evaluations(
-            padding_indicator_array, batched_evaluation, multilinear_challenge, r_squares, evaluations, p_neg);
-        // Extract the evaluation A₀(r) = A₀₊(r) + P₊(r^s)
-        auto full_a_0_pos = gemini_fold_pos_evaluations[0];
-        std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
-        fold_polynomial_opening_claims.reserve(2 * log_n + 2);
-
-        // ( [A₀₊], r, A₀₊(r) )
-        fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r, full_a_0_pos - p_pos }, C0_r_pos });
-        // ( [A₀₋], -r, A₀-(-r) )
-        fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { -r, evaluations[0] }, C0_r_neg });
-        for (size_t l = 0; l < log_n - 1; ++l) {
-            // ([Aₗ], r^{2ˡ}, Aₗ(r^{2ˡ}) )
-            fold_polynomial_opening_claims.emplace_back(
-                OpeningClaim<Curve>{ { r_squares[l + 1], gemini_fold_pos_evaluations[l + 1] }, commitments[l] });
-            // ([Aₗ], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
-            fold_polynomial_opening_claims.emplace_back(
-                OpeningClaim<Curve>{ { -r_squares[l + 1], evaluations[l + 1] }, commitments[l] });
-        }
-        if (has_interleaved) {
-            uint32_t interleaved_group_size = claim_batcher.get_groups_to_be_interleaved_size();
-            Fr r_pow = r.pow(interleaved_group_size);
-            fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r_pow, p_pos }, C_P_pos });
-            fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r_pow, p_neg }, C_P_neg });
-        }
-
-        return fold_polynomial_opening_claims;
-    }
-
     /**
      * @brief Receive the fold commitments from the prover. This method is used by Shplemini where padding may be
      * enabled, i.e. the verifier receives the same number of commitments independent of the actual circuit size.
