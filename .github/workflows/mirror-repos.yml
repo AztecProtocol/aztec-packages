@@ -31,12 +31,18 @@ jobs:
           # Parse the commit hash from .gitrepo
           SUBREPO_COMMIT=$(grep -E '^\s*commit\s*=' $SUBREPO_PATH/.gitrepo | sed 's/.*=\s*\([a-f0-9]*\).*/\1/')
           
-          # Force push barretenberg repo to the commit from .gitrepo
+          # Force push barretenberg repo to master branch
           # This avoids us having to update our commit metadata file,
           # but is slower.
-          cd $SUBREPO_PATH
-          git push --force https://github.com/AztecProtocol/barretenberg HEAD:$SUBREPO_COMMIT
-          cd ..
+          # Clone the barretenberg repository
+          git clone https://github.com/AztecProtocol/barretenberg /tmp/barretenberg-repo
+          cd /tmp/barretenberg-repo
+          
+          # Fetch the specific commit and push to master
+          git fetch origin $SUBREPO_COMMIT
+          git checkout $SUBREPO_COMMIT
+          git push --force https://github.com/AztecProtocol/barretenberg HEAD:master
+          cd -
       
           if ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=master; then
             git fetch origin next
