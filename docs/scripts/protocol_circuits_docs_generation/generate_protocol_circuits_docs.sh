@@ -72,6 +72,14 @@ echo_info "Output directory: $OUTPUT_DIR"
 # Change to protocol-circuits directory
 cd "$PROTOCOL_CIRCUITS_DIR"
 
+# Generate Nargo.toml and circuit variants if not present (required for nargo doc)
+if [[ ! -f "$PROTOCOL_CIRCUITS_DIR/Nargo.toml" ]]; then
+    echo_info "Nargo.toml not found, generating from template..."
+    yarn && yarn generate_variants
+else
+    echo_info "Nargo.toml already exists, skipping generation"
+fi
+
 # Generate documentation
 echo_info "Generating noir-protocol-circuits documentation..."
 $NARGO doc --workspace
