@@ -27,12 +27,19 @@ jobs:
           SUBREPO_PATH=barretenberg
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
-
+      
+          # Parse the commit hash from .gitrepo
+          SUBREPO_COMMIT=$(grep -E '^\s*commit\s*=' $SUBREPO_PATH/.gitrepo | sed 's/.*=\s*\([a-f0-9]*\).*/\1/')
+          
+          # Force push barretenberg repo to the commit from .gitrepo
+          # This avoids us having to update our commit metadata file,
+          # but is slower.
+          cd $SUBREPO_PATH
+          git push --force https://github.com/AztecProtocol/barretenberg HEAD:$SUBREPO_COMMIT
+          cd ..
+      
           if ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=master; then
             git fetch origin next
             git rebase origin/next
             git commit --amend -m "$(git log -1 --pretty=%B) [skip ci]"
-            # We rely on the fixup logic instead
-            # git push origin next
           fi
-
