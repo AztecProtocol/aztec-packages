@@ -561,19 +561,6 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_NO_OPS_START + NUM_RANDOM_OPS_START),
                              ultra_ops.begin() + static_cast<std::ptrdiff_t>(ops_end));
 
-    // DEBUG: Print first 32 ultra ops to see order
-    info("=== TRANSLATOR: First 32 ultra ops ===");
-    for (size_t i = 0; i < std::min(ultra_ops.size(), size_t(32)); ++i) {
-        const auto& op = ultra_ops[i];
-        auto [x_256, y_256] = op.get_base_point_standard_form();
-        if (op.op_code.is_random_op) {
-            info("  [", i, "] opcode=RANDOM x=", x_256, " y=", y_256);
-        } else {
-            info("  [", i, "] opcode=", op.op_code.value(), " x=", x_256, " y=", y_256);
-        }
-    }
-    info("=== END TRANSLATOR DEBUG ===");
-
     // Pre-compute accumulator values for each step since the circuit processes values in reverse order
     // and requires knowledge of the previous accumulator to construct each gate. Both accumulator computation
     // and gate creation skip the initial no-ops and also the random operations at the beginning and end of the oqueue ,

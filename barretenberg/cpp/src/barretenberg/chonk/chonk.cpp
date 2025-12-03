@@ -463,11 +463,7 @@ void Chonk::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 {
     // Use random Fq field elements - not necessarily on the curve
     using Fq = curve::Grumpkin::ScalarField; // Same as BN254::BaseField
-    Fq random_Px = 13;                       // TODO: restore to Fq::random_element()
-    Fq random_Py = 77;                       // TODO: restore to Fq::random_element()
-
-    // Add the hiding op to both the op queue and circuit gates
-    circuit.queue_ecc_hiding_op(random_Px, random_Py);
+    circuit.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
 }
 
 /**

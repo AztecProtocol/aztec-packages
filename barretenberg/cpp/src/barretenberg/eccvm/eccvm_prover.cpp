@@ -33,20 +33,6 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
     // Construct the proving key; populates all polynomials except for witness polys
     key = std::make_shared<ProvingKey>(builder);
 
-    // DEBUG: Print first 32 rows of ECCVM transcript_op, transcript_Px, transcript_Py polynomials
-    info("=== ECCVM Prover: First 32 rows of transcript polys ===");
-    for (size_t i = 0; i < std::min(key->circuit_size, size_t(32)); ++i) {
-        info("  [",
-             i,
-             "] op=",
-             key->polynomials.transcript_op.at(i),
-             " Px=",
-             key->polynomials.transcript_Px.at(i),
-             " Py=",
-             key->polynomials.transcript_Py.at(i));
-    }
-    info("=== END ECCVM Prover DEBUG ===");
-
     key->commitment_key = CommitmentKey(key->circuit_size);
 }
 
