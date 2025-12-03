@@ -14,6 +14,10 @@ namespace acir_format {
 
 using Builder = bb::UltraCircuitBuilder;
 
+/**
+ * @brief Logic constraint representation in ACIR format. NOTE: num_bits must be <= MAX_NO_WRAP_INTEGER_BIT_LENGTH (252)
+ *
+ */
 struct LogicConstraint {
     WitnessOrConstant<bb::fr> a;
     WitnessOrConstant<bb::fr> b;

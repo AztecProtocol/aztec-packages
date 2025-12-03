@@ -24,7 +24,7 @@ struct LogicConstraintTestParams {
  * @brief Testing functions to generate the LogicConstraintTest test suite. Constancy specifies which inputs to the
  * constraints should be constant.
  */
-template <typename Builder_, InputConstancy Constancy, size_t num_bits, bool is_xor_gate>
+template <typename Builder_, InputConstancy Constancy, uint32_t num_bits, bool is_xor_gate>
 class LogicConstraintTestingFunctions {
   public:
     using Builder = Builder_;
@@ -35,23 +35,17 @@ class LogicConstraintTestingFunctions {
       public:
         enum class Target : uint8_t {
             None,
-            Input1Value,   // Invalidate first input
+            Inputs,        // Invalidate first input
             Input1BitSize, // Invalidate first input
-            Input2Value,   // Invalidate second input
             Input2BitSize, // Invalidate second input
-            Result         // Invalidate result output
         };
 
         static std::vector<Target> get_all()
         {
-            return { Target::None,        Target::Input1Value,   Target::Input1BitSize,
-                     Target::Input2Value, Target::Input2BitSize, Target::Result };
+            return { Target::None, Target::Inputs, Target::Input1BitSize, Target::Input2BitSize };
         }
 
-        static std::vector<std::string> get_labels()
-        {
-            return { "None", "Input1Value", "Input1BitSize", "Input2Value", "Input2BitSize", "Result" };
-        }
+        static std::vector<std::string> get_labels() { return { "None", "Inputs", "Input1BitSize", "Input2BitSize" }; }
     };
 
     static void generate_constraints(AcirConstraint& logic_constraint, WitnessVector& witness_values)
@@ -67,10 +61,14 @@ class LogicConstraintTestingFunctions {
             return WitnessOrConstant<FF>::from_index(input_index);
         };
 
-        bb::fr lhs = FF::random_element();
-        lhs = FF(static_cast<uint256_t>(lhs) >> (256 - num_bits)); // Mask to num_bits
-        bb::fr rhs = FF::random_element();
-        rhs = FF(static_cast<uint256_t>(rhs) >> (256 - num_bits)); // Mask to num_bits
+        bb::fr lhs = FF(
+            "0x0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"); // Max value for masking (252 bits)
+        lhs = FF(static_cast<uint256_t>(lhs) >>
+                 (bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH - num_bits)); // Mask to num_bits
+        bb::fr rhs = FF(
+            "0x0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"); // Max value for masking (252 bits)
+        rhs = FF(static_cast<uint256_t>(rhs) >>
+                 (bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH - num_bits)); // Mask to num_bits
         bb::fr result = is_xor_gate ? (static_cast<uint256_t>(lhs) ^ static_cast<uint256_t>(rhs))
                                     : (static_cast<uint256_t>(lhs) & static_cast<uint256_t>(rhs));
 
@@ -78,8 +76,8 @@ class LogicConstraintTestingFunctions {
             .a = construct_input(lhs, (Constancy == InputConstancy::Input1 || Constancy == InputConstancy::Both)),
             .b = construct_input(rhs, (Constancy == InputConstancy::Input2 || Constancy == InputConstancy::Both)),
             .result = add_to_witness_and_track_indices(witness_values, result),
-            .num_bits = static_cast<uint32_t>(num_bits),
-            .is_xor_gate = static_cast<uint32_t>(is_xor_gate),
+            .num_bits = num_bits,
+            .is_xor_gate = is_xor_gate,
         };
     };
 
@@ -90,39 +88,33 @@ class LogicConstraintTestingFunctions {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
             break;
-        case InvalidWitness::Target::Input1Value: {
-            if (Constancy != InputConstancy::Input1 && Constancy != InputConstancy::Both) {
-                uint32_t witness_index = constraint.a.index;
-                witness_values[witness_index] += FF::one(); // Tamper input 1 value
+        case InvalidWitness::Target::Inputs: {
+            // Set rhs = 1 << num_bits
+            if (Constancy != InputConstancy::Input2 && Constancy != InputConstancy::Both) {
+                witness_values[constraint.b.index] = FF(static_cast<uint256_t>(1) << num_bits);
+            } else {
+                constraint.b.value = FF(static_cast<uint256_t>(1) << num_bits);
             }
+            // Set result to incorrect value: lhs ^ (1 << num_bits) = 0, lhs & (1 << num_bits) = 1
+            witness_values[constraint.result] = is_xor_gate ? FF::one() : FF::zero();
             break;
         }
         case InvalidWitness::Target::Input1BitSize: {
             if (Constancy != InputConstancy::Input1 && Constancy != InputConstancy::Both) {
-                uint32_t witness_index = constraint.a.index;
-                witness_values[witness_index] +=
-                    (static_cast<uint256_t>(witness_values[witness_index]) << 1); // Tamper input 1 bit size
-            }
-            break;
-        }
-        case InvalidWitness::Target::Input2Value: {
-            if (Constancy != InputConstancy::Input2 && Constancy != InputConstancy::Both) {
-                uint32_t witness_index = constraint.b.index;
-                witness_values[witness_index] += FF::one(); // Tamper input 2 value
+                witness_values[constraint.a.index] +=
+                    (static_cast<uint256_t>(witness_values[constraint.a.index]) << 1); // Tamper input 1 bit size
+            } else {
+                constraint.a.value = static_cast<uint256_t>(constraint.a.value) << 1; // Tamper input 1 bit size
             }
             break;
         }
         case InvalidWitness::Target::Input2BitSize: {
             if (Constancy != InputConstancy::Input2 && Constancy != InputConstancy::Both) {
-                uint32_t witness_index = constraint.b.index;
-                witness_values[witness_index] +=
-                    (static_cast<uint256_t>(witness_values[witness_index]) << 1); // Tamper input 1 bit size
+                witness_values[constraint.b.index] +=
+                    (static_cast<uint256_t>(witness_values[constraint.b.index]) << 1); // Tamper input 1 bit size
+            } else {
+                constraint.b.value = static_cast<uint256_t>(constraint.b.value) << 1; // Tamper input 1 bit size
             }
-            break;
-        }
-        case InvalidWitness::Target::Result: {
-            uint32_t witness_index = constraint.result;
-            witness_values[witness_index] += FF::one(); // Tamper result value
             break;
         }
         }
@@ -131,22 +123,22 @@ class LogicConstraintTestingFunctions {
 
 template <InputConstancy Constancy>
 using LogicTestConfigs =
-    testing::Types<LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 32, false>, // Ultra, AND
-                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 16, false>,
-                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 8, false>,
-                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 4, false>,
-                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 32, true>, // Ultra, XOR
+    testing::Types<LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 251, false>, // Ultra, AND, max bits
+                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 128, false>, // Ultra, AND, random bits
+                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 16, false>,  // Ultra, AND, < 32 bits
+                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 1, false>,   // Ultra, AND, min bits
+                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 251, true>,  // Ultra, XOR
+                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 128, true>,
                    LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 16, true>,
-                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 8, true>,
-                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 4, true>,
-                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 32, false>, // Mega, AND
+                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 1, true>,
+                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 251, false>, // Mega, AND
+                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 128, false>,
                    LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 16, false>,
-                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 8, false>,
-                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 4, false>,
-                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 32, true>, // Mega, XOR
+                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 1, false>,
+                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 251, true>, // Mega, XOR
+                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 128, true>,
                    LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 16, true>,
-                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 8, true>,
-                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 4, true>>;
+                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 1, true>>;
 
 template <typename Params>
 class LogicConstraintTestsNoneConstant : public ::testing::Test,
