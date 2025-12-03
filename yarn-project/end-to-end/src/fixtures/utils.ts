@@ -447,7 +447,7 @@ export async function setup(
       config.publisherPrivateKeys = [new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const)];
     }
 
-    config.coinbase = EthAddress.fromString(publisherHdAccount.address);
+    config.coinbase = opts.coinbase ?? EthAddress.fromString(publisherHdAccount.address);
 
     const initialFundedAccounts =
       opts.initialFundedAccounts ??
