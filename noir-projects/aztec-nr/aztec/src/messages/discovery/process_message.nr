@@ -31,12 +31,21 @@ pub unconstrained fn process_message_ciphertext<Env>(
     message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     message_context: MessageContext,
 ) {
-    process_message_plaintext(
-        contract_address,
-        compute_note_hash_and_nullifier,
-        AES128::decrypt(message_ciphertext, message_context.recipient),
-        message_context,
-    );
+    let message_plaintext_option = AES128::decrypt(message_ciphertext, message_context.recipient);
+
+    if message_plaintext_option.is_some() {
+        process_message_plaintext(
+            contract_address,
+            compute_note_hash_and_nullifier,
+            message_plaintext_option.unwrap(),
+            message_context,
+        );
+    } else {
+        debug_log_format(
+            "Found invalid message from tx {0}, ignoring",
+            [message_context.tx_hash],
+        );
+    }
 }
 
 pub unconstrained fn process_message_plaintext<Env>(
