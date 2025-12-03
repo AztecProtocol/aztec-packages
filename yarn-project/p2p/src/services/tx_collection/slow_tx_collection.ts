@@ -1,4 +1,4 @@
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { chunk } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { boundInclusive } from '@aztec/foundation/number';
@@ -203,7 +203,7 @@ export class SlowTxCollection {
    * Stop collecting all txs for blocks less than or requal to the block number specified.
    * To be called when we no longer care about gathering txs up to a certain block, eg when they become proven or finalized.
    */
-  public stopCollectingForBlocksUpTo(blockNumber: number): void {
+  public stopCollectingForBlocksUpTo(blockNumber: BlockNumber): void {
     for (const [txHash, info] of this.missingTxs.entries()) {
       if (info.blockNumber <= blockNumber) {
         this.missingTxs.delete(txHash);
@@ -215,7 +215,7 @@ export class SlowTxCollection {
    * Stop collecting all txs for blocks greater than the block number specified.
    * To be called when there is a chain prune and previously mined txs are no longer relevant.
    */
-  public stopCollectingForBlocksAfter(blockNumber: number): void {
+  public stopCollectingForBlocksAfter(blockNumber: BlockNumber): void {
     for (const [txHash, info] of this.missingTxs.entries()) {
       if (info.blockNumber > blockNumber) {
         this.missingTxs.delete(txHash);

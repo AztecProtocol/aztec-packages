@@ -1,5 +1,6 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -156,14 +157,14 @@ describe('PXE', () => {
   describe('getPrivateEvents', () => {
     let contractAddress: AztecAddress;
     let eventSelector: EventSelector;
-    let blockNumber: number;
+    let blockNumber: BlockNumber;
     let blockHash: L2BlockHash;
     let recipient: AztecAddress;
     let privateEventDataProvider: PrivateEventDataProvider;
 
     beforeEach(async () => {
       // Set up basic state
-      blockNumber = 42;
+      blockNumber = BlockNumber(42);
       const globalVariables = GlobalVariables.empty({
         blockNumber,
       });

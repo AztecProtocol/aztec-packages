@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { SerialQueue } from '@aztec/foundation/queue';
 import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type {
@@ -126,7 +127,7 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
     treeId: ID,
     leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]> {
+  ): Promise<(BlockNumber | undefined)[]> {
     return this.guardAndPush(() => this.target.getBlockNumbersForLeafIndices(treeId, leafIndices));
   }
   createCheckpoint(): Promise<void> {

@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import type { Logger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -15,9 +16,9 @@ import type { PeerId } from '@libp2p/interface';
 export class StatusMessage {
   constructor(
     readonly compressedComponentsVersion: string,
-    readonly latestBlockNumber: number,
+    readonly latestBlockNumber: BlockNumber,
     readonly latestBlockHash: string,
-    readonly finalizedBlockNumber: number,
+    readonly finalizedBlockNumber: BlockNumber,
     //TODO: add finalizedBlockHash
     //readonly finalizedBlockHash: string,
   ) {}
@@ -31,9 +32,9 @@ export class StatusMessage {
     const reader = BufferReader.asReader(buffer);
     return new StatusMessage(
       reader.readString(), // compressedComponentsVersion
-      reader.readNumber(), // latestBlockNumber
+      BlockNumber(reader.readNumber()), // latestBlockNumber
       reader.readString(), // latestBlockHash
-      reader.readNumber(), // finalizedBlockNumber
+      BlockNumber(reader.readNumber()), // finalizedBlockNumber
       //TODO: add finalizedBlockHash
       //reader.readString(), // finalizedBlockHash
     );
@@ -63,9 +64,9 @@ export class StatusMessage {
   static fromWorldStateSyncStatus(version: string, syncStatus: WorldStateSyncStatus): StatusMessage {
     return new StatusMessage(
       version,
-      syncStatus.latestBlockNumber,
+      BlockNumber(syncStatus.latestBlockNumber),
       syncStatus.latestBlockHash,
-      syncStatus.finalizedBlockNumber,
+      BlockNumber(syncStatus.finalizedBlockNumber),
       //TODO: add finalizedBlockHash
     );
   }
@@ -73,9 +74,9 @@ export class StatusMessage {
   static random(): StatusMessage {
     return new StatusMessage(
       '1.0.0',
-      Math.floor(Math.random() * 100),
+      BlockNumber(Math.floor(Math.random() * 100)),
       Buffer32.random().toString(),
-      Math.floor(Math.random() * 100),
+      BlockNumber(Math.floor(Math.random() * 100)),
       //TODO: add finalizedBlockHash
     );
   }
