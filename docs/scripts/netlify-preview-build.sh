@@ -19,6 +19,9 @@ nargo --version
 echo "=== Generating aztec-nr API documentation ==="
 "$SCRIPT_DIR/aztec_nr_docs_generation/generate_aztec_nr_docs.sh"
 
+echo "=== Generating protocol circuits API documentation ==="
+"$SCRIPT_DIR/protocol_circuits_docs_generation/generate_protocol_circuits_docs.sh"
+
 echo "=== Running yarn build ==="
 cd "$DOCS_ROOT"
 yarn build
