@@ -507,9 +507,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     // side-effect, which the AVM then expects to exist in order to use it as the nonce generator when siloing notes as
     // unique.
     const nonRevertibleAccumulatedData = PrivateToPublicAccumulatedData.empty();
-    if (!isStaticCall) {
-      nonRevertibleAccumulatedData.nullifiers[0] = getSingleTxBlockRequestHash(blockNumber);
-    }
+    nonRevertibleAccumulatedData.nullifiers[0] = getSingleTxBlockRequestHash(blockNumber);
 
     // The enqueued public call itself we make be revertible so that the public execution is itself revertible, as tests
     // may require producing reverts.
