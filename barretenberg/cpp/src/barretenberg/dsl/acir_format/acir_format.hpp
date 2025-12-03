@@ -71,7 +71,6 @@ struct AcirFormatOriginalOpcodeIndices {
 
 struct AcirFormat {
     uint32_t max_witness_index = 0;
-    uint32_t acir_gates_offset;
     uint32_t num_acir_opcodes;
 
     std::vector<uint32_t> public_inputs;

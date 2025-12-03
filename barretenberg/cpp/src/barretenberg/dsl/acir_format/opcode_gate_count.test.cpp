@@ -40,6 +40,14 @@ template <typename Builder> class OpcodeGateCountTests : public ::testing::Test 
 using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
 TYPED_TEST_SUITE(OpcodeGateCountTests, BuilderTypes);
 
+TYPED_TEST(OpcodeGateCountTests, BuilderOffsets)
+{
+    static constexpr size_t EXPECTED_RESULT = IsMegaBuilder<TypeParam> ? ZERO_GATE + MEGA_OFFSET<TypeParam> : ZERO_GATE;
+
+    TypeParam builder;
+    EXPECT_EQ(builder.num_gates(), EXPECTED_RESULT);
+}
+
 TYPED_TEST(OpcodeGateCountTests, Quad)
 {
     bb::mul_quad_<fr> quad{
