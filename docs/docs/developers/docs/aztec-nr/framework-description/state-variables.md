@@ -250,7 +250,7 @@ Notes are user-defined data that can be stored privately on the blockchain. A no
 
 They also have some metadata, including a storage slot to avoid collisions with other notes, a `randomness` value that helps hide the content, and an `owner` who can nullify the note.
 
-The note content, plus the metadata, are all hashed together, and it is this hash that gets stored on-chain in the note hash tree. This hash is called a commitment. The underlying note content (the note hash preimage) is not stored anywhere on-chain, and so third parties cannot access it and it remains private.
+The note content, plus the metadata, are all hashed together, and it is this hash that gets stored onchain in the note hash tree. This hash is called a commitment. The underlying note content (the note hash preimage) is not stored anywhere onchain, and so third parties cannot access it and it remains private.
 
 Note: Aztec.nr comes with some prebuilt note types, including [`UintNote`](https://github.com/AztecProtocol/aztec-packages/tree/08935f75dbc3052ce984add225fc7a0dac863050/noir-projects/aztec-nr/uint-note) and [`AddressNote`](https://github.com/AztecProtocol/aztec-packages/tree/08935f75dbc3052ce984add225fc7a0dac863050/noir-projects/aztec-nr/address-note), but users are also free to create their own with the `#[note]` macro.
 
