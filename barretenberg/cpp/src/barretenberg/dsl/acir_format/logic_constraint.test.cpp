@@ -89,13 +89,13 @@ class LogicConstraintTestingFunctions {
         case InvalidWitness::Target::None:
             break;
         case InvalidWitness::Target::Inputs: {
-            // Set rhs = 1 << num_bits
+            // Set rhs = 1 << (num_bits - 1)
             if (Constancy != InputConstancy::Input2 && Constancy != InputConstancy::Both) {
-                witness_values[constraint.b.index] = FF(static_cast<uint256_t>(1) << num_bits);
+                witness_values[constraint.b.index] = FF(static_cast<uint256_t>(1) << (num_bits - 1));
             } else {
-                constraint.b.value = FF(static_cast<uint256_t>(1) << num_bits);
+                constraint.b.value = FF(static_cast<uint256_t>(1) << (num_bits - 1));
             }
-            // Set result to incorrect value: lhs ^ (1 << num_bits) = 0, lhs & (1 << num_bits) = 1
+            // Set result to incorrect value: lhs ^ (1 << (num_bits - 1)) = 0, lhs & (1 << (num_bits - 1)) = 1
             witness_values[constraint.result] = is_xor_gate ? FF::one() : FF::zero();
             break;
         }
@@ -194,7 +194,6 @@ TYPED_TEST(LogicConstraintTestsNoneConstant, GenerateVKFromConstraints)
 
 TYPED_TEST(LogicConstraintTestsNoneConstant, Tampering)
 {
-    BB_DISABLE_ASSERTS();
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }
 
@@ -207,7 +206,6 @@ TYPED_TEST(LogicConstraintTestsInput1Constant, GenerateVKFromConstraints)
 
 TYPED_TEST(LogicConstraintTestsInput1Constant, Tampering)
 {
-    BB_DISABLE_ASSERTS();
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }
 
@@ -220,7 +218,6 @@ TYPED_TEST(LogicConstraintTestsInput2Constant, GenerateVKFromConstraints)
 
 TYPED_TEST(LogicConstraintTestsInput2Constant, Tampering)
 {
-    BB_DISABLE_ASSERTS();
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }
 
@@ -233,6 +230,34 @@ TYPED_TEST(LogicConstraintTestsBothConstant, GenerateVKFromConstraints)
 
 TYPED_TEST(LogicConstraintTestsBothConstant, Tampering)
 {
-    BB_DISABLE_ASSERTS();
-    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+    // We need to test tampering by hand because when both inputs are constant making the bit size invalid will not make
+    // the builder fail, it will raise an error.
+    {
+        auto [circuit_checker_result, builder_failed, builder_err] =
+            TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::None);
+
+        EXPECT_TRUE(circuit_checker_result) << "Circuit checker failed unexpectedly for invalid witness target None";
+        EXPECT_FALSE(builder_failed) << "Builder failed unexpectedly for invalid witness target None";
+    }
+
+    {
+        auto [circuit_checker_result, builder_failed, builder_err] =
+            TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::Inputs);
+        bool circuit_check_failed = !circuit_checker_result;
+        bool assert_eq_error_present = (builder_err.find("assert_eq") != std::string::npos);
+        EXPECT_TRUE(circuit_check_failed || assert_eq_error_present)
+            << "Circuit checker succeeded unexpectedly and no assert_eq failure for invalid witness target Inputs";
+        EXPECT_TRUE(builder_failed) << "Builder succeeded for invalid witness target Inputs";
+    }
+
+    {
+        EXPECT_THROW_OR_ABORT(TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::Input1BitSize),
+                              ::testing::HasSubstr("field_t: Left operand in logic gate exceeds specified bit length"));
+    }
+
+    {
+        EXPECT_THROW_OR_ABORT(
+            TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::Input2BitSize),
+            ::testing::HasSubstr("field_t: Right operand in logic gate exceeds specified bit length"));
+    }
 }
