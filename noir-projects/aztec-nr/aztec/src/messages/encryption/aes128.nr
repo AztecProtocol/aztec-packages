@@ -3,13 +3,11 @@ use dep::protocol_types::{
     constants::{GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2},
     hash::poseidon2_hash_with_separator,
     point::Point,
+    public_keys::AddressPoint,
 };
 
 use crate::{
-    keys::{
-        ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
-        ephemeral::generate_ephemeral_key_pair,
-    },
+    keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_ephemeral_key_pair},
     messages::{
         encoding::{
             EPH_PK_SIGN_BYTE_SIZE_IN_BYTES, EPH_PK_X_SIZE_IN_FIELDS,
@@ -21,7 +19,9 @@ use crate::{
             get_arr_of_size__message_bytes_padding__from_PT,
         },
     },
-    oracle::{aes128_decrypt::aes128_decrypt_oracle, shared_secret::get_shared_secret},
+    oracle::{
+        aes128_decrypt::aes128_decrypt_oracle, random::random, shared_secret::get_shared_secret,
+    },
     utils::{
         array,
         conversion::{
@@ -174,10 +174,28 @@ impl MessageEncryption for AES128 {
         let eph_pk_sign_byte: u8 = get_sign_of_point(eph_pk) as u8;
 
         // (not to be confused with the tagging shared secret)
-        // TODO (#17158): Currently we unwrap the Option returned by derive_ecdh_shared_secret_using_aztec_address.
+        // TODO (#17158): Currently we unwrap the Option returned by derive_ecdh_shared_secret.
         // We need to handle the case where the ephemeral public key is invalid to prevent potential DoS vectors.
-        let ciphertext_shared_secret =
-            derive_ecdh_shared_secret_using_aztec_address(eph_sk, recipient).unwrap();
+        let ciphertext_shared_secret = derive_ecdh_shared_secret(
+            eph_sk,
+            recipient
+                .to_address_point()
+                .unwrap_or(
+                    // Safety: if the recipient is an invalid address, then it is not possible to encrypt a message for
+                    // them because we cannot establish a shared secret. This is never expected to occur during normal
+                    // operation. However, it is technically possible for us to receive an invalid address, and we must
+                    // therefore handle it.
+                    // We could simply fail, but that'd introduce a potential security issue in which an attacker forces
+                    // a contract to encrypt a message for an invalid address, resulting in an impossible transaction -
+                    // this is sometimes called a 'king of the hill' attack.
+                    // We choose instead to not fail and encrypt the plaintext regardless using the shared secret that
+                    // results from a random valid address. The sender is free to choose this address and hence shared
+                    // secret, but this has no security implications as they already know not only the full plaintext
+                    // but also the ephemeral private key anyway.
+                    unsafe { random_address_point() },
+                )
+                .inner,
+        );
         // TODO: also use this shared secret for deriving note randomness.
 
         // *****************************************************************************
@@ -385,15 +403,34 @@ impl MessageEncryption for AES128 {
     }
 }
 
+/// Produces a random valid address point, i.e. one that is on the curve. This is equivalent to calling
+/// [AztecAddress::to_address_point] on a random valid address.
+unconstrained fn random_address_point() -> AddressPoint {
+    let mut result = std::mem::zeroed();
+
+    loop {
+        // We simply produce random x coordinates until we find one that is on the curve. About half of the x
+        // coordinates fulfill this condition, so this should only take a few iterations at most.
+        let x_coord = random();
+        let point = point_from_x_coord_and_sign(x_coord, true);
+        if point.is_some() {
+            result = AddressPoint { inner: point.unwrap() };
+            break;
+        }
+    }
+
+    result
+}
+
 mod test {
     use crate::{
-        keys::ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
+        keys::ecdh_shared_secret::derive_ecdh_shared_secret,
         messages::{
             encoding::MESSAGE_PLAINTEXT_LEN, encryption::message_encryption::MessageEncryption,
         },
         test::helpers::test_environment::TestEnvironment,
     };
-    use super::AES128;
+    use super::{AES128, random_address_point};
     use protocol_types::{address::AztecAddress, traits::FromField};
     use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
 
@@ -422,12 +459,12 @@ mod test {
             let encrypted_message = BoundedVec::from_array(AES128::encrypt(plaintext, recipient));
 
             // Mock shared secret for deterministic test
-            let shared_secret = derive_ecdh_shared_secret_using_aztec_address(
+            let shared_secret = derive_ecdh_shared_secret(
                 EmbeddedCurveScalar::from_field(eph_sk),
-                recipient,
+                recipient.to_address_point().unwrap().inner,
             );
 
-            let _ = OracleMock::mock("utilityGetSharedSecret").returns(shared_secret.unwrap());
+            let _ = OracleMock::mock("utilityGetSharedSecret").returns(shared_secret);
 
             // Decrypt the message
             let decrypted = AES128::decrypt(encrypted_message, recipient).unwrap();
@@ -466,6 +503,26 @@ mod test {
                 BoundedVec::from_array(plaintext),
             );
         });
+    }
+
+    #[test]
+    unconstrained fn encrypt_to_invalid_address() {
+        // x = 3 is a non-residue for this curve, resulting in an invalid address
+        let invalid_address = AztecAddress { inner: 3 };
+
+        // We just test that we produced some output and did not crash - the result is gibberish as it is encrypted
+        // using a public key for which we do not know the private key.
+        let _ = AES128::encrypt([1, 2, 3, 4], invalid_address);
+    }
+
+    #[test]
+    unconstrained fn random_address_point_produces_valid_points() {
+        // About half of random addresses are invalid, so testing just a couple gives us high confidence that
+        // `random_address_point` is indeed producing valid addresses.
+        for _ in 0..10 {
+            let random_address = AztecAddress { inner: random_address_point().inner.x };
+            assert(random_address.to_address_point().is_some());
+        }
     }
 
     #[test]
