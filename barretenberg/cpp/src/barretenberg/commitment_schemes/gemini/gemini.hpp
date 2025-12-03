@@ -126,10 +126,6 @@ template <typename Curve> class GeminiProver_ {
     class PolynomialBatcher {
 
         size_t full_batched_size = 0; // size of the full batched polynomial (generally the circuit size)
-        bool batched_unshifted_initialized = false;
-
-        Polynomial random_polynomial; // random polynomial used for ZK
-        bool has_random_polynomial = false;
 
         Polynomial batched_unshifted;            // linear combination of unshifted polynomials
         Polynomial batched_to_be_shifted_by_one; // linear combination of to-be-shifted polynomials
@@ -158,13 +154,6 @@ template <typename Curve> class GeminiProver_ {
         void set_unshifted(RefVector<Polynomial> polynomials) { unshifted = polynomials; }
         void set_to_be_shifted_by_one(RefVector<Polynomial> polynomials) { to_be_shifted_by_one = polynomials; }
 
-        // Initialize the random polynomial used to add randomness to the batched polynomials for ZK
-        void set_random_polynomial(Polynomial&& random)
-        {
-            has_random_polynomial = true;
-            random_polynomial = random;
-        }
-
         void set_interleaved(RefVector<Polynomial> results, std::vector<RefVector<Polynomial>> groups)
         {
             // Ensure the Gemini subprotocol for interleaved polynomials operates correctly
@@ -177,10 +166,8 @@ template <typename Curve> class GeminiProver_ {
 
         /**
          * @brief Compute batched polynomial A₀ = F + G/X as the linear combination of all polynomials to be opened
-         * @details If the random polynomial is set, it is added to the batched polynomial for ZK
          *
          * @param challenge batching challenge
-         * @param running_scalar power of the batching challenge
          * @return Polynomial A₀
          */
         Polynomial compute_batched(const Fr& challenge)
@@ -196,11 +183,6 @@ template <typename Curve> class GeminiProver_ {
             };
 
             Polynomial full_batched(full_batched_size);
-
-            // if necessary, add randomness to the full batched polynomial for ZK
-            if (has_random_polynomial) {
-                full_batched += random_polynomial; // A₀ += rand
-            }
 
             // compute the linear combination F of the unshifted polynomials
             if (has_unshifted()) {
@@ -239,21 +221,16 @@ template <typename Curve> class GeminiProver_ {
         }
 
         /**
-         * @brief Compute partially evaluated batched polynomials A₀(X, r) = A₀₊ = F + G/r, A₀(X, -r) = A₀₋ = F -
-         * G/r
-         * @details If the random polynomial is set, it is added to each batched polynomial for ZK
+         * @brief Compute partially evaluated batched polynomials A₀(X, r) = A₀₊ = F + G/r, A₀(X, -r) = A₀₋ = F - G/r
          *
          * @param r_challenge partial evaluation challenge
          * @return std::pair<Polynomial, Polynomial> {A₀₊, A₀₋}
          */
         std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(const Fr& r_challenge)
         {
-            // Initialize A₀₊ and compute A₀₊ += Random and A₀₊ += F as necessary
+            // Initialize A₀₊ and compute A₀₊ += F as necessary
             Polynomial A_0_pos(full_batched_size); // A₀₊
 
-            if (has_random_polynomial) {
-                A_0_pos += random_polynomial; // A₀₊ += random
-            }
             if (has_unshifted()) {
                 A_0_pos += batched_unshifted; // A₀₊ += F
             }
