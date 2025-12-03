@@ -127,7 +127,7 @@ TYPED_TEST(OpcodeGateCountTests, LogicXor32)
         .b = WitnessOrConstant<bb::fr>::from_index(1),
         .result = 2,
         .num_bits = 32,
-        .is_xor_gate = 1,
+        .is_xor_gate = true,
     };
 
     WitnessVector witness{ 5, 10, 15 };
@@ -159,7 +159,7 @@ TYPED_TEST(OpcodeGateCountTests, LogicAnd32)
         .b = WitnessOrConstant<bb::fr>::from_index(1),
         .result = 2,
         .num_bits = 32,
-        .is_xor_gate = 0,
+        .is_xor_gate = false,
     };
 
     WitnessVector witness{ 5, 10, 0 };
