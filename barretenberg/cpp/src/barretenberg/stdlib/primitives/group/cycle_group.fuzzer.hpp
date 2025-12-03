@@ -218,7 +218,6 @@ template <typename Builder> class CycleGroupBase {
             ASSERT_EQUAL,
             COND_ASSIGN,
             SET,
-            SET_INF,
             ADD,
             SUBTRACT,
             NEG,
@@ -317,7 +316,6 @@ template <typename Builder> class CycleGroupBase {
             case OPCODE::NEG:
             case OPCODE::ASSERT_EQUAL:
             case OPCODE::SET:
-            case OPCODE::SET_INF:
                 in = static_cast<uint8_t>(rng.next() & 0xff);
                 out = static_cast<uint8_t>(rng.next() & 0xff);
                 return { .id = instruction_opcode, .arguments.twoArgs = { .in = in, .out = out } };
@@ -585,7 +583,6 @@ template <typename Builder> class CycleGroupBase {
             case OPCODE::NEG:
             case OPCODE::ASSERT_EQUAL:
             case OPCODE::SET:
-            case OPCODE::SET_INF:
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.in);
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.out);
                 break;
@@ -668,7 +665,6 @@ template <typename Builder> class CycleGroupBase {
         static constexpr size_t NEG = 2;
         static constexpr size_t ASSERT_EQUAL = 2;
         static constexpr size_t SET = 2;
-        static constexpr size_t SET_INF = 2;
         static constexpr size_t ADD = 3;
         static constexpr size_t SUBTRACT = 3;
         static constexpr size_t COND_ASSIGN = 4;
@@ -704,7 +700,6 @@ template <typename Builder> class CycleGroupBase {
         static constexpr size_t MULTIPLY = 2;
 #endif
         static constexpr size_t ASSERT_EQUAL = 2;
-        static constexpr size_t SET_INF = 2;
 
 #ifndef DISABLE_BATCH_MUL
         static constexpr size_t BATCH_MUL = 4;
@@ -741,7 +736,6 @@ template <typename Builder> class CycleGroupBase {
             case Instruction::OPCODE::NEG:
             case Instruction::OPCODE::ASSERT_EQUAL:
             case Instruction::OPCODE::SET:
-            case Instruction::OPCODE::SET_INF:
                 instr.arguments.twoArgs = { .in = *Data, .out = *(Data + 1) };
                 break;
             case Instruction::OPCODE::ADD:
@@ -807,7 +801,6 @@ template <typename Builder> class CycleGroupBase {
             case Instruction::OPCODE::NEG:
             case Instruction::OPCODE::ASSERT_EQUAL:
             case Instruction::OPCODE::SET:
-            case Instruction::OPCODE::SET_INF:
                 *(Data + 1) = instruction.arguments.twoArgs.in;
                 *(Data + 2) = instruction.arguments.twoArgs.out;
                 break;
@@ -936,29 +929,16 @@ template <typename Builder> class CycleGroupBase {
          * @param base_res Result point for native computation
          * @return ExecutionHandler with point at infinity via various code paths
          */
-        ExecutionHandler handle_add_infinity_case(Builder* builder,
-                                                  const ExecutionHandler& other,
+        ExecutionHandler handle_add_infinity_case(const ExecutionHandler& other,
                                                   const ScalarField& base_scalar_res,
                                                   const GroupElement& base_res)
         {
-            uint8_t inf_path = VarianceRNG.next() % 4;
+            uint8_t inf_path = VarianceRNG.next() % 2;
             cycle_group_t res;
             switch (inf_path) {
             case 0:
-                debug_log("left.set_point_at_infinity(");
-                res = this->cg();
-                // Need to split logs here, since `set_point_at_infinity` produces extra logs
-                res.set_point_at_infinity(this->construct_predicate(builder, true));
-                debug_log(");", "\n");
-                return ExecutionHandler(base_scalar_res, base_res, res);
-            case 1:
-                debug_log("right.set_point_at_infinity();", "\n");
-                res = other.cg();
-                res.set_point_at_infinity(this->construct_predicate(builder, true));
-                return ExecutionHandler(base_scalar_res, base_res, res);
-            case 2:
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
-            case 3:
+            case 1:
                 return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
             }
             return {};
@@ -1013,7 +993,7 @@ template <typename Builder> class CycleGroupBase {
 
             // Test infinity path when points are negations
             if (other.cg().get_value() == -this->cg().get_value()) {
-                return handle_add_infinity_case(builder, other, base_scalar_res, base_res);
+                return handle_add_infinity_case(other, base_scalar_res, base_res);
             }
 
             // Test normal addition paths
@@ -1047,29 +1027,11 @@ template <typename Builder> class CycleGroupBase {
         /**
          * @brief Handle subtraction when points are equal: x - x = 0 (point at infinity)
          */
-        ExecutionHandler handle_sub_infinity_case(Builder* builder,
-                                                  const ExecutionHandler& other,
+        ExecutionHandler handle_sub_infinity_case(const ExecutionHandler& other,
                                                   const ScalarField& base_scalar_res,
                                                   const GroupElement& base_res)
         {
-            uint8_t inf_path = VarianceRNG.next() % 3;
-            cycle_group_t res;
-
-            switch (inf_path) {
-            case 0:
-                debug_log("left.set_point_at_infinity();", "\n");
-                res = this->cg();
-                res.set_point_at_infinity(this->construct_predicate(builder, true));
-                return ExecutionHandler(base_scalar_res, base_res, res);
-            case 1:
-                debug_log("right.set_point_at_infinity();", "\n");
-                res = other.cg();
-                res.set_point_at_infinity(this->construct_predicate(builder, true));
-                return ExecutionHandler(base_scalar_res, base_res, res);
-            case 2:
-                return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
-            }
-            return {};
+            return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
         }
 
         /**
@@ -1110,7 +1072,7 @@ template <typename Builder> class CycleGroupBase {
                 return handle_sub_doubling_case(builder, other, base_scalar_res, base_res);
             }
             if (other.cg().get_value() == this->cg().get_value()) {
-                return handle_sub_infinity_case(builder, other, base_scalar_res, base_res);
+                return handle_sub_infinity_case(other, base_scalar_res, base_res);
             }
             return handle_sub_normal_case(other, base_scalar_res, base_res);
         }
@@ -1243,17 +1205,6 @@ template <typename Builder> class CycleGroupBase {
                 abort();
             }
         }
-        /* Explicit re-instantiation using the various cycle_group_t constructors + set inf in the end*/
-        ExecutionHandler set_inf(Builder* builder)
-        {
-            auto res = this->set(builder);
-            const bool set_inf =
-                res.cycle_group.is_point_at_infinity().get_value() ? true : static_cast<bool>(VarianceRNG.next() & 1);
-            debug_log("el.set_point_at_infinty();", "\n");
-            res.set_point_at_infinity(this->construct_predicate(builder, set_inf));
-            return res;
-        }
-
         /**
          * @brief Execute the constant instruction (push constant cycle group to the stack)
          *
@@ -1447,39 +1398,6 @@ template <typename Builder> class CycleGroupBase {
             } else {
                 result = stack[first_index].set(builder);
             }
-            // If the output index is larger than the number of elements in stack, append
-            if (output_index >= stack.size()) {
-                stack.push_back(result);
-            } else {
-                stack[output_index] = result;
-            }
-            return 0;
-        };
-
-        /**
-         * @brief Execute the SET_INF instruction
-         *
-         * @param builder
-         * @param stack
-         * @param instruction
-         * @return 0 to continue, 1 to stop
-         */
-        static inline size_t execute_SET_INF(Builder* builder,
-                                             std::vector<ExecutionHandler>& stack,
-                                             Instruction& instruction)
-        {
-            (void)builder;
-            if (stack.size() == 0) {
-                return 1;
-            }
-            size_t first_index = instruction.arguments.twoArgs.in % stack.size();
-            size_t output_index = instruction.arguments.twoArgs.out;
-
-            if constexpr (SHOW_FUZZING_INFO) {
-                auto args = format_single_arg(stack, first_index, output_index);
-                debug_log(args.out, " = ", args.rhs, "\n");
-            }
-            ExecutionHandler result = stack[first_index].set_inf(builder);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);
@@ -1733,17 +1651,6 @@ template <typename Builder> class CycleGroupBase {
             if ((AffineElement::one() * element.base_scalar) != AffineElement(element.base)) {
                 std::cerr << "Failed at " << i << " with actual mul value " << element.base
                           << " and value in scalar * CG " << element.cycle_group.get_value() * element.base_scalar
-                          << std::endl;
-                return false;
-            }
-
-            // Check that infinity points always have (0,0) coordinates
-            bool is_infinity_with_bad_coords = element.cycle_group.is_point_at_infinity().get_value();
-            is_infinity_with_bad_coords &=
-                (element.cycle_group.x().get_value() != 0) || (element.cycle_group.y().get_value() != 0);
-            if (is_infinity_with_bad_coords) {
-                std::cerr << "Failed at " << i << "; point at infinity with non-zero coordinates: ("
-                          << element.cycle_group.x().get_value() << ", " << element.cycle_group.y().get_value() << ")"
                           << std::endl;
                 return false;
             }
