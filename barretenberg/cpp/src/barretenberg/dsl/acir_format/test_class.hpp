@@ -469,14 +469,16 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
  * @brief Build an Acir::Circuit from opcodes and witness count.
  *
  * @param opcodes The ACIR opcodes to include in the circuit
- * @param varnum The number of witnesses in the circuit
+ * @param max_witness_index The maximum witness index in the circuit
  * @return Acir::Circuit The constructed circuit
+ *
+ * @note max_witness_index is not used by circuit_serde_to_acir_format, but we pass it for completeness
  */
-inline Acir::Circuit build_acir_circuit(const std::vector<Acir::Opcode>& opcodes, uint32_t varnum)
+inline Acir::Circuit build_acir_circuit(const std::vector<Acir::Opcode>& opcodes, uint32_t max_witness_index)
 {
     return Acir::Circuit{
         .function_name = "test_circuit",
-        .current_witness_index = varnum > 0 ? varnum - 1 : 0,
+        .current_witness_index = max_witness_index,
         .opcodes = opcodes,
         .private_parameters = {},
         .public_parameters = Acir::PublicInputs{ .value = {} },
@@ -596,8 +598,8 @@ template <TestBase Base> class TestClass {
         auto [constraint, witness_values] = generate_constraints(invalid_witness_target);
 
         // Use the full ACIR flow: constraint -> Acir::Opcode -> Acir::Circuit -> circuit_serde_to_acir_format
-        AcirFormat constraint_system =
-            constraint_to_acir_format(constraint, static_cast<uint32_t>(witness_values.size()));
+        AcirFormat constraint_system = constraint_to_acir_format(
+            constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
 
         AcirProgram program{ constraint_system, witness_values };
         auto builder = create_circuit<Builder>(program);
@@ -624,8 +626,8 @@ template <TestBase Base> class TestClass {
         auto [constraint, witness_values] = generate_constraints();
 
         // Use the full ACIR flow: constraint -> Acir::Opcode -> Acir::Circuit -> circuit_serde_to_acir_format
-        AcirFormat constraint_system =
-            constraint_to_acir_format(constraint, static_cast<uint32_t>(witness_values.size()));
+        AcirFormat constraint_system = constraint_to_acir_format(
+            constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
 
         // Construct the vks
         std::shared_ptr<VerificationKey> vk_from_witness;
