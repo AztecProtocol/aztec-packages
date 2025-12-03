@@ -20,7 +20,7 @@ pub contract StaticParent {
         self.context.call_public_function(
             target_contract,
             target_selector,
-            [arg].as_slice(),
+            [arg],
             GasOpts::default(),
         )[0]
     }
@@ -136,7 +136,7 @@ pub contract StaticParent {
         self.context.static_call_public_function(
             target_contract,
             target_selector,
-            args.as_slice(),
+            args,
             GasOpts::default(),
         )[0]
     }

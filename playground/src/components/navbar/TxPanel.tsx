@@ -14,6 +14,7 @@ import { TxHash, TxStatus } from '@aztec/aztec.js/tx';
 import { TransactionModal } from '../common/TransactionModal';
 import { useLocalStorage } from '@uidotdev/usehooks';
 import { CopyToClipboardButton } from '../common/CopyToClipboardButton';
+import { colors, commonStyles } from '../../global.styles';
 
 const TX_ERRORS = [
   'error',
@@ -26,29 +27,34 @@ const TX_ERRORS = [
 const container = css({
   width: '320px',
   height: '100%',
+  maxHeight: 'calc(100vh - 280px)',
   position: 'relative',
-  backgroundColor: '#ffffff38',
-  borderRadius: '10px',
+  backgroundColor: commonStyles.glassPaper,
+  backdropFilter: commonStyles.backdropBlur,
+  border: commonStyles.borderLight,
+  borderRadius: commonStyles.borderRadius,
   display: 'flex',
   flexDirection: 'column',
   transition: 'all 0.3s ease-out',
-  padding: '1rem',
+  overflow: 'hidden',
   scrollbarWidth: 'none',
   marginBottom: '2rem',
   '@media (max-width: 900px)': {
-    padding: '12px',
     width: '100%',
     height: 'auto',
+    maxHeight: 'none',
     minHeight: '300px',
+    overflow: 'visible',
   },
 });
 
 const minimizedTx = css({
   width: '100%',
   height: '75px',
-  backgroundColor: '#ffffff69',
+  backgroundColor: commonStyles.glassDark,
+  border: commonStyles.borderNormal,
   padding: '6px 10px',
-  borderRadius: '8px',
+  borderRadius: commonStyles.borderRadius,
   display: 'flex',
   alignItems: 'center',
   gap: '10px',
@@ -57,8 +63,8 @@ const minimizedTx = css({
   margin: '0.5rem 0',
   transition: 'all 0.3s ease',
   '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+    backgroundColor: commonStyles.glassDarker,
+    borderColor: commonStyles.borderHover,
   },
 });
 
@@ -74,7 +80,7 @@ const minimizedTxTitle = css({
 const minimizedTxLog = css({
   fontWeight: 300,
   fontSize: '11px',
-  color: 'var(--mui-palette-text-secondary)',
+  color: colors.text.secondary,
   overflow: 'hidden',
   lineHeight: '1.2',
   height: '2.4em',
@@ -87,7 +93,9 @@ const funFactsCss = css({
   flexDirection: 'row',
   alignItems: 'center',
   fontSize: '14px',
-  background: '#ffffff69',
+  background: commonStyles.glassDark,
+  border: commonStyles.borderNormal,
+  borderRadius: commonStyles.borderRadius,
   marginBottom: '2rem',
 });
 
@@ -97,14 +105,15 @@ const txData = css({
   alignItems: 'flex-start',
   width: '100%',
   padding: '10px 14px',
-  backgroundColor: '#ffffff38',
-  color: 'var(--mui-palette-text-primary)',
-  borderRadius: '6px',
+  backgroundColor: commonStyles.glassDark,
+  border: commonStyles.borderNormal,
+  color: colors.text.primary,
+  borderRadius: commonStyles.borderRadius,
   cursor: 'pointer',
   marginBottom: '10px',
   '&:hover': {
-    backgroundColor: '#FFFFFF',
-    color: 'var(--mui-palette-text-primary)',
+    backgroundColor: commonStyles.glassDarker,
+    borderColor: commonStyles.borderHover,
   },
 });
 
@@ -113,7 +122,7 @@ const arrowDown = css({
   height: 0,
   borderLeft: '8px solid transparent',
   borderRight: '8px solid transparent',
-  borderTop: '8px solid white',
+  borderTop: `8px solid ${commonStyles.glassPaperDark}`,
   position: 'absolute',
   left: '50%',
   bottom: '-8px',
@@ -124,11 +133,13 @@ const popoverCss = css({
   transform: 'translateY(-130px) translateX(10px)',
   overflow: 'visible',
   '& .MuiPaper-root': {
-    backgroundColor: 'white',
-    color: 'var(--mui-palette-text-primary)',
+    backgroundColor: commonStyles.glassPaperDark,
+    backdropFilter: commonStyles.backdropBlur,
+    border: commonStyles.borderMedium,
+    borderRadius: commonStyles.borderRadius,
+    color: colors.text.primary,
     overflowX: 'visible',
     overflowY: 'visible',
-    // boxShadow: 'none',
     animation: 'fadeIn 0.3s ease-in-out',
     animationDelay: '1s',
     animationFillMode: 'backwards',
@@ -136,6 +147,22 @@ const popoverCss = css({
       from: { opacity: 0 },
       to: { opacity: 1 },
     },
+  },
+});
+
+const pendingTxSection = css({
+  padding: '1rem 1rem 0 1rem',
+  flexShrink: 0,
+});
+
+const transactionsList = css({
+  flexGrow: 1,
+  overflowY: 'auto',
+  padding: '1rem',
+  minHeight: 0,
+  '@media (max-width: 900px)': {
+    overflowY: 'visible',
+    minHeight: 'auto',
   },
 });
 
@@ -246,7 +273,7 @@ export function TxPanel() {
   return (
     <div css={container}>
       {pendingTx && (
-        <>
+        <div css={pendingTxSection}>
           <Popover
             open={!seenPendingTxPopover && !isTransactionModalOpen}
             anchorEl={document.getElementById('pending-tx')}
@@ -273,7 +300,7 @@ export function TxPanel() {
                 color="primary"
                 onClick={() => setSeenPendingTxPopover(true)}
                 size="small"
-                sx={{ marginTop: '1rem', borderRadius: '6px', width: '70px' }}
+                sx={{ marginTop: '1rem', borderRadius: '0', width: '100px' }}
               >
                 Got it
               </Button>
@@ -301,7 +328,7 @@ export function TxPanel() {
                   style={{
                     marginLeft: '0.4rem',
                     fontSize: '30px',
-                    color: '#8d7dff',
+                    color: colors.primary.main,
                   }}
                 />
               )}
@@ -319,18 +346,16 @@ export function TxPanel() {
               </Box>
             </div>
           </div>
-        </>
-      )}
 
-      {pendingTx && (
-        <Card sx={funFactsCss}>
-          <LightbulbIcon sx={{ marginRight: '12px', color: '#FFB74D', fontSize: '30px' }} />
-          <Typography variant="body1" sx={{ fontSize: '15px', lineHeight: '1.1' }}>
-            {FUN_FACTS[currentFunFactIndex]}
-          </Typography>
-        </Card>
+          <Card sx={funFactsCss}>
+            <LightbulbIcon sx={{ marginRight: '12px', color: '#FFB74D', fontSize: '30px' }} />
+            <Typography variant="body1" sx={{ fontSize: '15px', lineHeight: '1.1' }}>
+              {FUN_FACTS[currentFunFactIndex]}
+            </Typography>
+          </Card>
+        </div>
       )}
-      <div style={{ flexGrow: 0.75, overflowY: 'auto', marginTop: '0rem' }}>
+      <div css={transactionsList}>
         {transactions.length > 0 && (
           <>
             <Typography variant="overline">Past Transactions</Typography>

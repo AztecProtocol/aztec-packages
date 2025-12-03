@@ -1,5 +1,6 @@
 import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
@@ -14,7 +15,6 @@ import {
   hexToBigInt,
   http,
 } from 'viem';
-import { foundry } from 'viem/chains';
 
 import { EthCheatCodes } from './eth_cheat_codes.js';
 
@@ -30,7 +30,7 @@ export class RollupCheatCodes {
     addresses: Pick<L1ContractAddresses, 'rollupAddress'>,
   ) {
     this.client = createPublicClient({
-      chain: foundry,
+      chain: ethCheatCodes.chain,
       transport: fallback(ethCheatCodes.rpcUrls.map(url => http(url))),
     });
     this.rollup = getContract({
@@ -50,15 +50,15 @@ export class RollupCheatCodes {
   }
 
   /** Returns the current slot */
-  public async getSlot() {
+  public async getSlot(): Promise<SlotNumber> {
     const ts = BigInt((await this.client.getBlock()).timestamp);
-    return await this.rollup.read.getSlotAt([ts]);
+    return SlotNumber.fromBigInt(await this.rollup.read.getSlotAt([ts]));
   }
 
   /** Returns the current epoch */
-  public async getEpoch() {
+  public async getEpoch(): Promise<EpochNumber> {
     const slotNumber = await this.getSlot();
-    return await this.rollup.read.getEpochAtSlot([slotNumber]);
+    return EpochNumber.fromBigInt(await this.rollup.read.getEpochAtSlot([BigInt(slotNumber)]));
   }
 
   /**
@@ -69,11 +69,7 @@ export class RollupCheatCodes {
     /** The pending chain tip */ pending: bigint;
     /** The proven chain tip */ proven: bigint;
   }> {
-    const res = await this.rollup.read.getTips();
-    return {
-      pending: res.pendingBlockNumber,
-      proven: res.provenBlockNumber,
-    };
+    return await this.rollup.read.getTips();
   }
 
   /**
@@ -81,16 +77,16 @@ export class RollupCheatCodes {
    */
   public async debugRollup() {
     const rollup = new RollupContract(this.client, this.rollup.address);
-    const pendingNum = await rollup.getBlockNumber();
-    const provenNum = await rollup.getProvenBlockNumber();
+    const pendingNum = await rollup.getCheckpointNumber();
+    const provenNum = await rollup.getProvenCheckpointNumber();
     const validators = await rollup.getAttesters();
     const committee = await rollup.getCurrentEpochCommittee();
     const archive = await rollup.archive();
     const slot = await this.getSlot();
     const epochNum = await rollup.getEpochNumberForSlotNumber(slot);
 
-    this.logger.info(`Pending block num: ${pendingNum}`);
-    this.logger.info(`Proven block num: ${provenNum}`);
+    this.logger.info(`Pending checkpoint num: ${pendingNum}`);
+    this.logger.info(`Proven checkpoint num: ${provenNum}`);
     this.logger.info(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
     this.logger.info(`Committee: ${committee?.map(v => v.toString()).join(', ')}`);
     this.logger.info(`Archive: ${archive}`);
@@ -101,13 +97,13 @@ export class RollupCheatCodes {
   /** Fetches the epoch and slot duration config from the rollup contract */
   public async getConfig(): Promise<{
     /** Epoch duration */ epochDuration: bigint;
-    /** Slot duration */ slotDuration: bigint;
+    /** Slot duration */ slotDuration: number;
   }> {
     const [epochDuration, slotDuration] = await Promise.all([
       this.rollup.read.getEpochDuration(),
       this.rollup.read.getSlotDuration(),
     ]);
-    return { epochDuration, slotDuration };
+    return { epochDuration, slotDuration: Number(slotDuration) };
   }
 
   /**
@@ -116,15 +112,15 @@ export class RollupCheatCodes {
    * @param opts - Options
    */
   public async advanceToEpoch(
-    epoch: bigint | number,
+    epoch: EpochNumber,
     opts: {
       /** Offset in seconds */
       offset?: number;
     } = {},
   ) {
     const { epochDuration: slotsInEpoch } = await this.getConfig();
-    const timestamp =
-      (await this.rollup.read.getTimestampForSlot([BigInt(epoch) * slotsInEpoch])) + BigInt(opts.offset ?? 0);
+    const slotNumber = SlotNumber(epoch * Number(slotsInEpoch));
+    const timestamp = (await this.rollup.read.getTimestampForSlot([BigInt(slotNumber)])) + BigInt(opts.offset ?? 0);
     try {
       await this.ethCheatCodes.warp(Number(timestamp), { ...opts, silent: true, resetBlockInterval: true });
       this.logger.warn(`Warped to epoch ${epoch}`);
@@ -138,8 +134,8 @@ export class RollupCheatCodes {
   public async advanceToNextEpoch() {
     const slot = await this.getSlot();
     const { epochDuration, slotDuration } = await this.getConfig();
-    const slotsUntilNextEpoch = epochDuration - (slot % epochDuration) + 1n;
-    const timeToNextEpoch = slotsUntilNextEpoch * slotDuration;
+    const slotsUntilNextEpoch = epochDuration - (BigInt(slot) % epochDuration) + 1n;
+    const timeToNextEpoch = slotsUntilNextEpoch * BigInt(slotDuration);
     const l1Timestamp = BigInt((await this.client.getBlock()).timestamp);
     await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), {
       silent: true,
@@ -151,10 +147,11 @@ export class RollupCheatCodes {
   /** Warps time in L1 until the beginning of the next slot. */
   public async advanceToNextSlot() {
     const currentSlot = await this.getSlot();
-    const timestamp = await this.rollup.read.getTimestampForSlot([currentSlot + 1n]);
+    const nextSlot = SlotNumber(currentSlot + 1);
+    const timestamp = await this.rollup.read.getTimestampForSlot([BigInt(nextSlot)]);
     await this.ethCheatCodes.warp(Number(timestamp), { silent: true, resetBlockInterval: true });
-    this.logger.warn(`Advanced to slot ${currentSlot + 1n}`);
-    return [timestamp, currentSlot + 1n];
+    this.logger.warn(`Advanced to slot ${nextSlot}`);
+    return [timestamp, nextSlot];
   }
 
   /**
@@ -163,42 +160,42 @@ export class RollupCheatCodes {
    */
   public async advanceSlots(howMany: number) {
     const l1Timestamp = (await this.client.getBlock()).timestamp;
-    const slotDuration = await this.rollup.read.getSlotDuration();
-    const timeToWarp = BigInt(howMany) * slotDuration;
+    const slotDuration = Number(await this.rollup.read.getSlotDuration());
+    const timeToWarp = BigInt(howMany) * BigInt(slotDuration);
     await this.ethCheatCodes.warp(l1Timestamp + timeToWarp, { silent: true, resetBlockInterval: true });
     const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);
     this.logger.warn(`Advanced ${howMany} slots up to slot ${slot} in epoch ${epoch}`);
   }
 
   /**
-   * Marks the specified block (or latest if none) as proven
-   * @param maybeBlockNumber - The block number to mark as proven (defaults to latest pending)
+   * Marks the specified checkpoint (or latest if none) as proven
+   * @param maybeCheckpointNumber - The checkpoint number to mark as proven (defaults to latest pending)
    */
-  public markAsProven(maybeBlockNumber?: number | bigint) {
+  public markAsProven(maybeCheckpointNumber?: number | bigint) {
     return this.ethCheatCodes.execWithPausedAnvil(async () => {
       const tipsBefore = await this.getTips();
       const { pending, proven } = tipsBefore;
 
-      let blockNumber = maybeBlockNumber;
-      if (blockNumber === undefined || blockNumber > pending) {
-        blockNumber = pending;
+      let checkpointNumber = maybeCheckpointNumber;
+      if (checkpointNumber === undefined || checkpointNumber > pending) {
+        checkpointNumber = pending;
       }
-      if (blockNumber <= proven) {
-        this.logger.debug(`Block ${blockNumber} is already proven`);
+      if (checkpointNumber <= proven) {
+        this.logger.debug(`Checkpoint ${checkpointNumber} is already proven`);
         return;
       }
 
       // @note @LHerskind this is heavily dependent on the storage layout and size of values
       // The rollupStore is a struct and if the size of elements or the struct changes, this can break
-      const provenBlockNumberSlot = hexToBigInt(RollupContract.stfStorageSlot);
+      const provenCheckpointNumberSlot = hexToBigInt(RollupContract.stfStorageSlot);
 
       // Need to pack it as a single 32 byte word
-      const newValue = (BigInt(tipsBefore.pending) << 128n) | BigInt(blockNumber);
-      await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), provenBlockNumberSlot, newValue);
+      const newValue = (BigInt(tipsBefore.pending) << 128n) | BigInt(checkpointNumber);
+      await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), provenCheckpointNumberSlot, newValue);
 
       const tipsAfter = await this.getTips();
       if (tipsAfter.pending < tipsAfter.proven) {
-        throw new Error('Overwrote pending tip to a block in the past');
+        throw new Error('Overwrote pending tip to a checkpoint in the past');
       }
 
       this.logger.info(
@@ -209,7 +206,7 @@ export class RollupCheatCodes {
 
   /**
    * Overrides the inProgress field of the Inbox contract state
-   * @param howMuch - How many blocks to move it forward
+   * @param howMuch - How many checkpoints to move it forward
    */
   public advanceInboxInProgress(howMuch: number | bigint): Promise<bigint> {
     return this.ethCheatCodes.execWithPausedAnvil(async () => {

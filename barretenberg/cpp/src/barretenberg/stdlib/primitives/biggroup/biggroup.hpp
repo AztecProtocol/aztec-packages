@@ -37,8 +37,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     element();
     element(const typename NativeGroup::affine_element& input);
-    element(const Fq& x, const Fq& y);
-    element(const Fq& x, const Fq& y, const bool_ct& is_infinity);
+
+    // Construct a biggroup element from its coordinates
+    // By default, we validate that the point is on the curve
+    element(const Fq& x, const Fq& y, const bool assert_on_curve = true);
+    element(const Fq& x, const Fq& y, const bool_ct& is_infinity, bool assert_on_curve = true);
 
     element(const element& other);
     element(element&& other) noexcept;
@@ -72,9 +75,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
         const Fq x = Fq::reconstruct_from_public(x_limbs);
         const Fq y = Fq::reconstruct_from_public(y_limbs);
-        const element result = element(x, y);
-        result.validate_on_curve();
-        return result;
+        return element(x, y);
     }
 
     /**
@@ -178,7 +179,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         uint256_t y = uint256_t(NativeGroup::one.y);
         Fq x_fq(ctx, x);
         Fq y_fq(ctx, y);
-        return element(x_fq, y_fq);
+        return element(x_fq, y_fq, /*assert_on_curve=*/false);
     }
 
     static element point_at_infinity(Builder* ctx)
@@ -187,7 +188,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         zero.unset_free_witness_tag();
         Fq x_fq(zero, zero);
         Fq y_fq(zero, zero);
-        element result(x_fq, y_fq);
+        element result(x_fq, y_fq, /*assert_on_curve=*/false);
         result.set_point_at_infinity(true);
         return result;
     }
@@ -970,7 +971,7 @@ class element_test_accessor {
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, element<C, Fq, Fr, G> const& v)
 {
-    return os << "{ " << v._x << " , " << v._y << " }";
+    return os << "{ " << v.x() << " , " << v.y() << " }";
 }
 } // namespace bb::stdlib::element_default
 

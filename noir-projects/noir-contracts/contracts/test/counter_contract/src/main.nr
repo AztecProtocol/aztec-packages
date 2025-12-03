@@ -9,7 +9,6 @@ pub contract Counter {
         macros::{functions::{external, initializer}, storage::storage},
         oracle::debug_log::debug_log_format,
         protocol_types::{address::AztecAddress, traits::ToField},
-        state_vars::Map,
     };
     use easy_private_state::EasyPrivateUint;
     // docs:end:imports
@@ -17,7 +16,7 @@ pub contract Counter {
     // docs:start:storage_struct
     #[storage]
     struct Storage<Context> {
-        counters: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
+        counters: EasyPrivateUint<Context>,
     }
     // docs:end:storage_struct
 
@@ -26,8 +25,7 @@ pub contract Counter {
     #[external("private")]
     // We can name our initializer anything we want as long as it's marked as aztec(initializer)
     fn initialize(headstart: u64, owner: AztecAddress) {
-        let counters = self.storage.counters;
-        counters.at(owner).add(headstart, owner);
+        self.storage.counters.add(headstart, owner);
     }
     // docs:end:constructor
 
@@ -35,8 +33,7 @@ pub contract Counter {
     #[external("private")]
     fn increment(owner: AztecAddress) {
         debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
-        let counters = self.storage.counters;
-        counters.at(owner).add(1, owner);
+        self.storage.counters.add(1, owner);
     }
     // docs:end:increment
 
@@ -46,9 +43,8 @@ pub contract Counter {
             "Incrementing counter twice for owner {0}",
             [owner.to_field()],
         );
-        let counters = self.storage.counters;
-        counters.at(owner).add(1, owner);
-        counters.at(owner).add(1, owner);
+        self.storage.counters.add(1, owner);
+        self.storage.counters.add(1, owner);
     }
 
     #[external("private")]
@@ -57,22 +53,20 @@ pub contract Counter {
             "Incrementing and decrementing counter for owner {0}",
             [owner.to_field()],
         );
-        let counters = self.storage.counters;
-        counters.at(owner).add(1, owner);
-        counters.at(owner).sub(1, owner);
+        self.storage.counters.add(1, owner);
+        self.storage.counters.sub(1, owner);
     }
 
     #[external("private")]
     fn decrement(owner: AztecAddress) {
         debug_log_format("Decrementing counter for owner {0}", [owner.to_field()]);
-        let counters = self.storage.counters;
-        counters.at(owner).sub(1, owner);
+        self.storage.counters.sub(1, owner);
     }
 
     // docs:start:get_counter
     #[external("utility")]
     unconstrained fn get_counter(owner: AztecAddress) -> Field {
-        self.storage.counters.at(owner).get_value()
+        self.storage.counters.get_value(owner)
     }
     // docs:end:get_counter
 
@@ -80,8 +74,7 @@ pub contract Counter {
     fn increment_self_and_other(other_counter: AztecAddress, owner: AztecAddress) {
         debug_log_format("Incrementing counter for other {0}", [owner.to_field()]);
 
-        let counters = self.storage.counters;
-        counters.at(owner).add(1, owner);
+        self.storage.counters.add(1, owner);
 
         self.call(Counter::at(other_counter).increment(owner));
     }

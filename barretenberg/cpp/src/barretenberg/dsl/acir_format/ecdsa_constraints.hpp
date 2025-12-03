@@ -66,9 +66,7 @@ struct EcdsaConstraint {
 };
 
 template <typename Curve>
-void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
-                                     const EcdsaConstraint& input,
-                                     bool has_valid_witness_assignments = true);
+void create_ecdsa_verify_constraints(typename Curve::Builder& builder, const EcdsaConstraint& input);
 
 template <typename Curve>
 void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,

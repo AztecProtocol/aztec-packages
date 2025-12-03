@@ -1,3 +1,4 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import {
   type ProofUri,
   type ProvingJob,
@@ -43,7 +44,7 @@ export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
     return Promise.resolve();
   }
 
-  deleteAllProvingJobsOlderThanEpoch(epochNumber: number): Promise<void> {
+  deleteAllProvingJobsOlderThanEpoch(epochNumber: EpochNumber): Promise<void> {
     const toDelete = [
       ...Array.from(this.jobs.keys()).filter(x => getEpochFromProvingJobId(x) < epochNumber),
       ...Array.from(this.results.keys()).filter(x => getEpochFromProvingJobId(x) < epochNumber),

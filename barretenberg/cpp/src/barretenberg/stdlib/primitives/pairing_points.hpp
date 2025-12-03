@@ -248,8 +248,9 @@ template <typename Curve> struct PairingPoints {
         Fq x1(DEFAULT_PAIRING_POINTS_P1_X);
         Fq y1(DEFAULT_PAIRING_POINTS_P1_Y);
 
-        Group P0(x0, y0);
-        Group P1(x1, y1);
+        // These are known, valid points, so we can skip the curve checks.
+        Group P0(x0, y0, /*assert_on_curve=*/false);
+        Group P1(x1, y1, /*assert_on_curve=*/false);
 
         return { P0, P1 };
     }

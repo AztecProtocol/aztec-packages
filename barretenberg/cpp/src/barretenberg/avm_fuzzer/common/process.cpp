@@ -1,4 +1,5 @@
 #include "process.hpp"
+#include <cstring>
 
 Process::Process(const std::string& command)
 {
@@ -49,6 +50,7 @@ void Process::write_line(const std::string& line) const
 {
     std::string command = line + "\n";
     write(stdin_fd, command.c_str(), command.size());
+    fsync(stdin_fd);
 }
 
 std::string Process::read_line() const
@@ -56,11 +58,15 @@ std::string Process::read_line() const
     char buffer[4096]; // NOLINT
     std::string response;
     ssize_t bytes_read = 0;
+    fsync(stdout_fd);
     while ((bytes_read = read(stdout_fd, buffer, sizeof(buffer))) > 0) {
         response.append(buffer, static_cast<size_t>(bytes_read));
         if (response.find('\n') != std::string::npos) {
             break;
         }
+    }
+    if (bytes_read < 0 && errno != EINTR) {
+        throw std::runtime_error("read() error: " + std::string(std::strerror(errno)));
     }
     return response;
 }

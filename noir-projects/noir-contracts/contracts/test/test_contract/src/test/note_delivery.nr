@@ -33,7 +33,7 @@ unconstrained fn create_note_private_only_tx_and_read_in_private() {
     // The 'from' param is irrelevant in this case
     let retrieved = env.call_private(
         recipient,
-        test_contract.call_get_notes(STORAGE_SLOT, ACTIVE_OR_NULLIFIED),
+        test_contract.call_get_notes(recipient, STORAGE_SLOT, ACTIVE_OR_NULLIFIED),
     );
     assert_eq(retrieved, VALUE);
 }
@@ -49,8 +49,11 @@ unconstrained fn create_note_private_only_tx_and_read_in_utility() {
         test_contract.call_create_note(VALUE, recipient, STORAGE_SLOT, make_tx_hybrid),
     );
 
-    let retrieved =
-        env.simulate_utility(test_contract.call_view_notes(STORAGE_SLOT, ACTIVE_OR_NULLIFIED));
+    let retrieved = env.simulate_utility(test_contract.call_view_notes(
+        recipient,
+        STORAGE_SLOT,
+        ACTIVE_OR_NULLIFIED,
+    ));
     assert_eq(retrieved, VALUE);
 }
 
@@ -68,7 +71,7 @@ unconstrained fn create_note_hybrid_tx_and_read_in_private() {
     // The 'from' param is irrelevant in this case
     let retrieved = env.call_private(
         recipient,
-        test_contract.call_get_notes(STORAGE_SLOT, ACTIVE_OR_NULLIFIED),
+        test_contract.call_get_notes(recipient, STORAGE_SLOT, ACTIVE_OR_NULLIFIED),
     );
     assert_eq(retrieved, VALUE);
 }
@@ -84,8 +87,11 @@ unconstrained fn create_note_hybrid_tx_and_read_in_utility() {
         test_contract.call_create_note(VALUE, recipient, STORAGE_SLOT, make_tx_hybrid),
     );
 
-    let retrieved =
-        env.simulate_utility(test_contract.call_view_notes(STORAGE_SLOT, ACTIVE_OR_NULLIFIED));
+    let retrieved = env.simulate_utility(test_contract.call_view_notes(
+        recipient,
+        STORAGE_SLOT,
+        ACTIVE_OR_NULLIFIED,
+    ));
     assert_eq(retrieved, VALUE);
 }
 
@@ -102,7 +108,7 @@ unconstrained fn create_partial_note_in_one_tx_and_read_in_private() {
     // The 'from' param is irrelevant in this case
     let retrieved = env.call_private(
         recipient,
-        test_contract.call_get_notes(STORAGE_SLOT, ACTIVE_OR_NULLIFIED),
+        test_contract.call_get_notes(recipient, STORAGE_SLOT, ACTIVE_OR_NULLIFIED),
     );
     assert_eq(retrieved, VALUE);
 }
@@ -117,8 +123,11 @@ unconstrained fn create_partial_note_in_one_tx_and_read_in_utility() {
         test_contract.call_create_and_complete_partial_note(recipient, STORAGE_SLOT, VALUE),
     );
 
-    let retrieved =
-        env.simulate_utility(test_contract.call_view_notes(STORAGE_SLOT, ACTIVE_OR_NULLIFIED));
+    let retrieved = env.simulate_utility(test_contract.call_view_notes(
+        recipient,
+        STORAGE_SLOT,
+        ACTIVE_OR_NULLIFIED,
+    ));
     assert_eq(retrieved, VALUE);
 }
 
@@ -135,7 +144,7 @@ unconstrained fn create_partial_note_in_two_txs_and_read_in_private() {
     // The 'from' param is irrelevant in this case
     let retrieved = env.call_private(
         recipient,
-        test_contract.call_get_notes(STORAGE_SLOT, ACTIVE_OR_NULLIFIED),
+        test_contract.call_get_notes(recipient, STORAGE_SLOT, ACTIVE_OR_NULLIFIED),
     );
     assert_eq(retrieved, VALUE);
 }
@@ -150,7 +159,10 @@ unconstrained fn create_partial_note_in_two_txs_and_read_in_utility() {
 
     env.call_public(sender, test_contract.call_complete_partial_note(partial_note, VALUE));
 
-    let retrieved =
-        env.simulate_utility(test_contract.call_view_notes(STORAGE_SLOT, ACTIVE_OR_NULLIFIED));
+    let retrieved = env.simulate_utility(test_contract.call_view_notes(
+        recipient,
+        STORAGE_SLOT,
+        ACTIVE_OR_NULLIFIED,
+    ));
     assert_eq(retrieved, VALUE);
 }

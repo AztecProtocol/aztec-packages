@@ -211,8 +211,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void process_non_native_field_multiplications();
 
-    UltraCircuitBuilder_(const size_t size_hint = 0)
-        : CircuitBuilderBase<FF>(size_hint)
+    UltraCircuitBuilder_(const size_t size_hint = 0, bool is_write_vk_mode = false)
+        : CircuitBuilderBase<FF>(size_hint, is_write_vk_mode)
     {
         this->set_zero_idx(put_constant_variable(FF::zero()));
         this->_tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
@@ -224,35 +224,24 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * @param size_hint
      * @param witness_values witnesses values known to acir
      * @param public_inputs indices of public inputs in witness array
-     * @param varnum number of known witness
+     * @param is_write_vk_mode true if the builder is use to generate the vk of a circuit
      *
      * @note witness_values is the vector of witness values known at the time of acir generation. It is filled with
-     * witness values which are interleaved with zeros when witnesses are optimized away. Not all witness values are
-     * known at the time of acir generation. The number of values that are not known is given by varnum -
-     * witness_values.size(). For each of these witnesses with unknown value, we add to the builder a variable with
-     * value equal to zero.
+     * witness values which are interleaved with zeros when witnesses are optimized away.
      *
-     * @note varnum is in general less than total number of variables/witnesses that might be present for a circuit
-     * generated from acir, since many gates will depend on the details of the bberg implementation (or more generally
-     * on the backend used to process acir).
+     * @note The length of the witness vector is in general less than total number of variables/witnesses that might be
+     * present for a circuit generated from acir, since many gates will depend on the details of the bberg
+     * implementation (or more generally on the backend used to process acir).
      *
      */
     UltraCircuitBuilder_(const size_t size_hint,
                          const std::vector<FF>& witness_values,
                          const std::vector<uint32_t>& public_inputs,
-                         size_t varnum)
-        : CircuitBuilderBase<FF>(size_hint, witness_values.empty())
+                         const bool is_write_vk_mode)
+        : CircuitBuilderBase<FF>(size_hint, is_write_vk_mode)
     {
-        BB_ASSERT_LTE(
-            witness_values.size(),
-            varnum,
-            "UltraCircuitBuilder_: varnum should be bigger or equal than the size of the witness_values vector");
         for (const auto value : witness_values) {
             this->add_variable(value);
-        }
-        for (size_t idx = witness_values.size(); idx < varnum; ++idx) {
-            // Add dummy variables for the witnesses with unknown value at acir generation time
-            this->add_variable(FF::zero());
         }
 
         // Initialize the builder public_inputs directly from the acir public inputs.
@@ -296,14 +285,12 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void add_gates_to_ensure_all_polys_are_non_zero();
 
-    void create_add_gate(const add_triple_<FF>& in) override;
+    void create_add_gate(const add_triple_<FF>& in);
     void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate(const add_quad_<FF>& in, const bool use_next_gate_w_4 = false);
-    void create_big_mul_gate(const mul_quad_<FF>& in);
 
-    void create_mul_gate(const mul_triple_<FF>& in) override;
-    void create_bool_gate(const uint32_t a) override;
-    void create_poly_gate(const poly_triple_<FF>& in) override;
+    void create_bool_gate(const uint32_t a);
+    void create_arithmetic_gate(const arithmetic_triple_<FF>& in);
     void create_ecc_add_gate(const ecc_add_gate_<FF>& in);
     void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in);
 
@@ -331,7 +318,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
              *    num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM is correctly enforced in the circuit.
              *    Longer term, as Zac says, we would need to refactor the composer to fix this.
              **/
-            create_poly_gate(poly_triple_<FF>{
+            create_arithmetic_gate(arithmetic_triple_<FF>{
                 .a = variable_index,
                 .b = variable_index,
                 .c = variable_index,

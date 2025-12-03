@@ -14,7 +14,9 @@ use protocol_types::{address::AztecAddress, traits::Packable};
 pub struct NoteEmissionContent<Note> {
     // The struct fields are exposed only because of tests.
     pub note: Note,
+    pub owner: AztecAddress,
     pub storage_slot: Field,
+    pub randomness: Field,
     pub note_hash_counter: u32, // a note_hash_counter of 0 means settled
 }
 
@@ -37,11 +39,22 @@ where
 {
     pub fn new(
         note: Note,
+        owner: AztecAddress,
         storage_slot: Field,
+        randomness: Field,
         note_hash_counter: u32,
         context: &mut PrivateContext,
     ) -> Self {
-        Self { content: NoteEmissionContent { note, storage_slot, note_hash_counter }, context }
+        Self {
+            content: NoteEmissionContent {
+                note,
+                owner,
+                storage_slot,
+                randomness,
+                note_hash_counter,
+            },
+            context,
+        }
     }
 
     /// Emits a note that can be delivered either via private logs or offchain messages, with configurable encryption and
@@ -63,10 +76,18 @@ where
         // TODO(#14565): Add constrained tagging
         let _constrained_tagging = delivery_mode == MessageDelivery.CONSTRAINED_ONCHAIN;
 
+        // Do not capture `self` in the lambda.
+        let content = self.content;
+
         let ciphertext = remove_constraints_if(
             !constrained_encryption,
             || AES128::encrypt(
-                private_note_to_message_plaintext(self.content.note, self.content.storage_slot),
+                private_note_to_message_plaintext(
+                    content.note,
+                    content.owner,
+                    content.storage_slot,
+                    content.randomness,
+                ),
                 recipient,
             ),
         );

@@ -3,6 +3,7 @@
 #include <random>
 
 #include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
+#include "barretenberg/avm_fuzzer/mutations/calldata/calldata_vec.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 #include "barretenberg/avm_fuzzer/mutations/control_flow/control_flow_vec.hpp"
 #include "barretenberg/avm_fuzzer/mutations/control_flow/return_options.hpp"
@@ -28,7 +29,12 @@ void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng)
             mutate_return_options(fuzzer_data.return_options, rng, BASIC_RETURN_OPTIONS_MUTATION_CONFIGURATION);
             break;
         case FuzzerDataMutationOptions::CalldataMutation:
-            // TODO(defkit): implement calldata mutation
+            mutate_calldata_vec(fuzzer_data.calldata, rng);
+            if (fuzzer_data.calldata.size() > 0) {
+                // For ts simulator, Selector must fit in 4 bytes (1st calldata element is perceived as the selector)
+                // just setting it to 0
+                fuzzer_data.calldata[0] = bb::avm2::FF(0);
+            }
             break;
         }
     }

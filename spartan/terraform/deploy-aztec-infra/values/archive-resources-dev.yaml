@@ -1,7 +1,5 @@
 replicaCount: 1
 
-hostNetwork: true
-
 node:
   resources:
     requests:

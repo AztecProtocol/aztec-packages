@@ -18,14 +18,14 @@ pub contract Benchmarking {
 
     #[storage]
     struct Storage<Context> {
-        notes: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
+        notes: PrivateSet<ValueNote, Context>,
         balances: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
     }
 
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
-        let note = ValueNote::new(value, owner);
+        let note = ValueNote::new(value);
         self.storage.notes.at(owner).insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
     // Deletes a note at a specific index in the set and creates a new one with the same value.

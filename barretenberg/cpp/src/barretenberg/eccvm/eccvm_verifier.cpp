@@ -76,8 +76,9 @@ template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<F
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+    std::vector<FF> padding_indicator_array(CONST_ECCVM_LOG_N, FF(1));
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
@@ -89,8 +90,6 @@ template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<F
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
-
-    std::vector<FF> padding_indicator_array(CONST_ECCVM_LOG_N, FF(1));
 
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(padding_indicator_array,

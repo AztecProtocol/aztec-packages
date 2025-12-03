@@ -11,7 +11,7 @@
     "deploy": "docusaurus deploy",
     "clear": "./scripts/clean.sh",
     "serve": "docusaurus serve",
-    "typecheck": "tsc",
+    "typecheck": "yarn tsgo",
     "test": "TS_NODE_PROJECT=./tsconfig.test.json mocha",
     "preprocess": "node src/preprocess/index.js",
     "preprocess:clean": "node src/preprocess/index.js clean"
@@ -50,7 +50,8 @@
     "ts-mocha": "^11.1.0",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "~5.6.2"
+    "typescript": "~5.6.2",
+    "@typescript/native-preview": "7.0.0-dev.20251126.1"
   },
   "browserslist": {
     "production": [

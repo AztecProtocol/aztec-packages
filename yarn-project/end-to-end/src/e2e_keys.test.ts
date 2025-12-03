@@ -81,7 +81,10 @@ describe('Keys', () => {
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 
-      await testContract.methods.call_destroy_note(noteStorageSlot).send({ from: defaultAccountAddress }).wait();
+      await testContract.methods
+        .call_destroy_note(defaultAccountAddress, noteStorageSlot)
+        .send({ from: defaultAccountAddress })
+        .wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(1);
     });

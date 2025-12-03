@@ -3,6 +3,8 @@
 set -e
 
 # Installs required dependencies for running an Aztec Bootnode, creates a start script for starting the bootnode and a systemd entry
+# This script fetches the canonical bootnode list from the network config in AztecProtocol/networks repo
+# The list includes ENRs from all bootnode operators (not just ours)
 
 # From terraform
 LOCATION="${LOCATION}"
@@ -113,13 +115,25 @@ if [[ -n "$OTEL_COLLECTOR_URL" ]]; then
   export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="$OTEL_COLLECTOR_URL/v1/metrics"
 fi
 
-cat << 'EOF' > /home/$SSH_USER/start.sh
+cat <<EOF > /home/$SSH_USER/start.sh
 #!/usr/bin/env bash
 source ./tag.sh
 echo "Starting bootnode container..."
-JSON=$(curl -s http://static.aztec.network/$NETWORK_NAME/bootnodes.json)
+
+# Try primary URL first, fallback to metadata.aztec.network if unreachable
+JSON=$(curl -s --fail http://static.aztec.network/$NETWORK_NAME/bootnodes.json 2>/dev/null)
+if [ -z "$JSON" ]; then
+  echo "Primary URL unreachable, trying fallback..."
+  JSON=$(curl -s --fail https://metadata.aztec.network/network_config.json 2>/dev/null)
+  if [ -z "$JSON" ]; then
+    echo "Error: Could not fetch bootnode data from any source"
+    exit 1
+  fi
+fi
+
 export BOOTSTRAP_NODES=$(echo "$JSON" | jq -r '.bootnodes | join(",")')
 echo "Bootnode enrs: $BOOTSTRAP_NODES"
+
 docker system prune -f
 docker pull $REPO/$IMAGE:$TAG
 docker run \

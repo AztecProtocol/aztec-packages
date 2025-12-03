@@ -117,7 +117,7 @@ contract TokenPortal {
    * @param _recipient - The address to send the funds to
    * @param _amount - The amount to withdraw
    * @param _withCaller - Flag to use `msg.sender` as caller, otherwise address(0)
-   * @param _l2BlockNumber - The address to send the funds to
+   * @param _checkpointNumber - The checkpoint number containing the message to consume
    * @param _leafIndex - The amount to withdraw
    * @param _path - Flag to use `msg.sender` as caller, otherwise address(0)
    * Must match the caller of the message (specified from L2) to consume it.
@@ -126,7 +126,7 @@ contract TokenPortal {
     address _recipient,
     uint256 _amount,
     bool _withCaller,
-    uint256 _l2BlockNumber,
+    uint256 _checkpointNumber,
     uint256 _leafIndex,
     bytes32[] calldata _path
   ) external {
@@ -142,7 +142,7 @@ contract TokenPortal {
       )
     });
 
-    outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
+    outbox.consume(message, _checkpointNumber, _leafIndex, _path);
 
     underlying.safeTransfer(_recipient, _amount);
   }

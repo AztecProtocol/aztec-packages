@@ -1,5 +1,6 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
@@ -8,7 +9,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { Hex } from '@aztec/foundation/string';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
-import { unfreeze } from '@aztec/foundation/types';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import {
   AuthRequest,
@@ -56,6 +56,7 @@ describe('ValidatorClient', () => {
     p2pClient = mock<P2P>();
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     p2pClient.handleAuthRequestFromPeer.mockResolvedValue(StatusMessage.random());
+    p2pClient.broadcastAttestations.mockResolvedValue();
     blockBuilder = mock<IFullNodeBlockBuilder>();
     blockBuilder.getConfig.mockReturnValue({ l1GenesisTime: 1n, slotDuration: 24, l1ChainId: 1, rollupVersion: 1 });
     epochCache = mock<EpochCache>();
@@ -120,7 +121,6 @@ describe('ValidatorClient', () => {
         header.globalVariables.blockNumber,
         header.toCheckpointHeader(),
         archive,
-        header.state,
         txs,
         EthAddress.fromString(validatorAccounts[0].address),
         { publishFullTxs: false },
@@ -160,7 +160,7 @@ describe('ValidatorClient', () => {
         makeBlockAttestation({ signer: attestor2, archive, txHashes }),
       ];
       p2pClient.getAttestationsForSlot.mockImplementation((slot, proposalId) => {
-        if (slot === proposal.payload.header.slotNumber.toBigInt() && proposalId === proposal.archive.toString()) {
+        if (proposal.payload.header.slotNumber === slot && proposalId === proposal.archive.toString()) {
           return Promise.resolve(expectedAttestations);
         }
         return Promise.resolve([]);
@@ -206,7 +206,7 @@ describe('ValidatorClient', () => {
       const invalidAttestation = makeBlockAttestation({ signer: attestor2, archive: Fr.random(), txHashes });
 
       p2pClient.getAttestationsForSlot.mockImplementation((slot, proposalId) =>
-        slot === proposal.payload.header.slotNumber.toBigInt() && proposalId === proposal.archive.toString()
+        proposal.payload.header.slotNumber === slot && proposalId === proposal.archive.toString()
           ? Promise.resolve([validAttestation, invalidAttestation])
           : Promise.resolve([]),
       );
@@ -234,15 +234,15 @@ describe('ValidatorClient', () => {
       blockBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
     };
 
-    beforeEach(async () => {
-      const emptyInHash = await computeInHashFromL1ToL2Messages([]);
+    beforeEach(() => {
+      const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
       const blockHeader = makeL2BlockHeader(1, 100, 100, { contentCommitment });
       blockNumber = blockHeader.getBlockNumber();
       proposal = makeBlockProposal({ header: blockHeader });
       // Set the current time to the start of the slot of the proposal
       const genesisTime = 1n;
-      const slotTime = genesisTime + proposal.slotNumber.toBigInt() * BigInt(blockBuilder.getConfig().slotDuration);
+      const slotTime = genesisTime + BigInt(proposal.slotNumber) * BigInt(blockBuilder.getConfig().slotDuration);
       dateProvider.setTime(Number(slotTime * 1000n));
       sender = { toString: () => 'proposal-sender-peer-id' } as PeerId;
 
@@ -261,15 +261,15 @@ describe('ValidatorClient', () => {
       epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
         currentProposer: proposal.getSender(),
         nextProposer: proposal.getSender(),
-        currentSlot: proposal.slotNumber.toBigInt(),
-        nextSlot: proposal.slotNumber.toBigInt() + 1n,
+        currentSlot: proposal.slotNumber,
+        nextSlot: SlotNumber(proposal.slotNumber + 1),
       });
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
 
       // Return parent block when requested
       blockSource.getBlockHeaderByArchive.mockResolvedValue({
         getBlockNumber: () => blockNumber - 1,
-        getSlot: () => blockHeader.getSlot() - 1n,
+        getSlot: () => blockHeader.getSlot() - SlotNumber(1),
       } as BlockHeader);
 
       blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
@@ -339,9 +339,9 @@ describe('ValidatorClient', () => {
     });
 
     it('should not attest to proposal if a random field in the proposal does not match', async () => {
-      // Block builder returns a block with a different nullifier tree root
+      // Block builder returns a block with a different archive root
       enableReexecution();
-      unfreeze(blockBuildResult.block.header.state.partial).nullifierTree.root = Fr.random();
+      blockBuildResult.block.archive.root = Fr.random();
 
       // We should not attest to the proposal
       const attestations = await validatorClient.attestToProposal(proposal, sender);
@@ -426,8 +426,8 @@ describe('ValidatorClient', () => {
         Promise.resolve({
           currentProposer: EthAddress.random(),
           nextProposer: EthAddress.random(),
-          currentSlot: proposal.slotNumber.toBigInt(),
-          nextSlot: proposal.slotNumber.toBigInt() + 1n,
+          currentSlot: proposal.slotNumber,
+          nextSlot: SlotNumber(proposal.slotNumber + 1),
         }),
       );
 
@@ -448,8 +448,8 @@ describe('ValidatorClient', () => {
       epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
         currentProposer: proposal.getSender(),
         nextProposer: proposal.getSender(),
-        currentSlot: proposal.slotNumber.toBigInt() + 20n,
-        nextSlot: proposal.slotNumber.toBigInt() + 21n,
+        currentSlot: SlotNumber(proposal.slotNumber + 20),
+        nextSlot: SlotNumber(proposal.slotNumber + 21),
       });
 
       const attestation = await validatorClient.attestToProposal(proposal, sender);

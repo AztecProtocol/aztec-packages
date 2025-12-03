@@ -63,7 +63,7 @@ class AcirToSmtLoader {
      * - Circuit modulus from schema
      * - Default solver configuration
      * - Minimum bit width of 16
-     * - Maximum bit width of 240
+     * - Maximum bit width of 255
      */
     smt_solver::Solver get_smt_solver();
 

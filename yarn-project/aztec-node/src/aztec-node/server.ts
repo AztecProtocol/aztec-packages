@@ -17,12 +17,12 @@ import {
   createEthereumChain,
   getPublicClient,
 } from '@aztec/ethereum';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { SerialQueue } from '@aztec/foundation/queue';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
@@ -49,7 +49,7 @@ import {
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type InBlock,
+  type DataInBlock,
   type L2Block,
   L2BlockHash,
   type L2BlockNumber,
@@ -63,7 +63,7 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
-import type { GasFees } from '@aztec/stdlib/gas';
+import { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import {
   type AztecNode,
@@ -133,9 +133,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
 
-  // Serial queue to ensure that we only send one tx at a time
-  private txQueue: SerialQueue = new SerialQueue();
-
   public readonly tracer: Tracer;
 
   constructor(
@@ -161,7 +158,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
-    this.txQueue.start();
 
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
@@ -288,7 +284,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       options.prefilledPublicData,
       telemetry,
     );
-    const circuitVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+    const circuitVerifier = config.realProofs
+      ? await BBCircuitVerifier.new(config)
+      : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);
     }
@@ -598,6 +596,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return await this.globalVariableBuilder.getCurrentBaseFees();
   }
 
+  public async getMaxPriorityFees(): Promise<GasFees> {
+    for await (const tx of this.p2pClient.iteratePendingTxs()) {
+      return tx.getGasSettings().maxPriorityFeesPerGas;
+    }
+
+    return GasFees.from({ feePerDaGas: 0n, feePerL2Gas: 0n });
+  }
+
   /**
    * Method to fetch the latest block number synchronized by the node.
    * @returns The block number.
@@ -686,7 +692,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
-    await this.txQueue.put(() => this.#sendTx(tx));
+    await this.#sendTx(tx);
   }
 
   async #sendTx(tx: Tx) {
@@ -733,7 +739,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    */
   public async stop() {
     this.log.info(`Stopping Aztec Node`);
-    await this.txQueue.end();
     await tryStop(this.validatorsSentinel);
     await tryStop(this.epochPruneWatcher);
     await tryStop(this.slasherClient);
@@ -790,7 +795,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]> {
+  ): Promise<(DataInBlock<bigint> | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
     const maybeIndices = await committedDb.findLeafIndices(
       treeId,
@@ -827,7 +832,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
     }
 
-    // Create InBlock objects by combining indices, blockNumbers and blockHashes and return them.
+    // Create DataInBlock objects by combining indices, blockNumbers and blockHashes and return them.
     return maybeIndices.map((index, i) => {
       if (index === undefined) {
         return undefined;
@@ -1247,8 +1252,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public getValidatorStats(
     validatorAddress: EthAddress,
-    fromSlot?: bigint,
-    toSlot?: bigint,
+    fromSlot?: SlotNumber,
+    toSlot?: SlotNumber,
   ): Promise<SingleValidatorStats | undefined> {
     return this.validatorsSentinel?.getValidatorStats(validatorAddress, fromSlot, toSlot) ?? Promise.resolve(undefined);
   }

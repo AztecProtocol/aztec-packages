@@ -1,7 +1,7 @@
 import { BarretenbergNativeSocketAsyncBackend } from './native_socket.js';
 import { BarretenbergWasmSyncBackend, BarretenbergWasmAsyncBackend } from '../wasm.js';
 import { BarretenbergNativeShmSyncBackend } from './native_shm.js';
-import { SyncToAsyncAdapter } from '../sync_to_async_adapter.js';
+import { BarretenbergNativeShmAsyncBackend } from './native_shm_async.js';
 import { findBbBinary, findNapiBinary } from './platform.js';
 import { Barretenberg, BarretenbergSync } from '../../barretenberg/index.js';
 import { BackendOptions, BackendType } from '../index.js';
@@ -37,17 +37,10 @@ export async function createAsyncBackend(
       }
       const napiPath = findNapiBinary();
       if (!napiPath) {
-        throw new Error('Native sync backend requires napi client stub.');
+        throw new Error('Native async backend requires napi client stub.');
       }
-      logger(`Using native shared memory backend (via sync adapter): ${bbPath}`);
-      // Use sync backend with adapter to provide async interface
-      const syncBackend = await BarretenbergNativeShmSyncBackend.new(
-        bbPath,
-        options.threads,
-        options.maxClients,
-        options.logger,
-      );
-      const asyncBackend = new SyncToAsyncAdapter(syncBackend);
+      logger(`Using native shared memory async backend: ${bbPath}`);
+      const asyncBackend = await BarretenbergNativeShmAsyncBackend.new(bbPath, options.threads, options.logger);
       return new Barretenberg(asyncBackend, options);
     }
 
@@ -94,12 +87,7 @@ export async function createSyncBackend(
         throw new Error('Native sync backend requires napi client stub.');
       }
       logger(`Using native shared memory backend: ${bbPath}`);
-      const shm = await BarretenbergNativeShmSyncBackend.new(
-        bbPath,
-        options.threads,
-        options.maxClients,
-        options.logger,
-      );
+      const shm = await BarretenbergNativeShmSyncBackend.new(bbPath, options.threads, options.logger);
       return new BarretenbergSync(shm);
     }
 

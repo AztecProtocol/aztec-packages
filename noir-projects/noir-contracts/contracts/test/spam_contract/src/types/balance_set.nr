@@ -1,57 +1,64 @@
-// This file is copied from the token contract.
-use crate::types::token_note::OwnedNote;
 use dep::aztec::{
     context::{PrivateContext, UtilityContext},
-    note::note_emission::OuterNoteEmission,
-    protocol_types::{
-        address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
-    },
-    state_vars::storage::HasStorageSlot,
-};
-use dep::aztec::{
     note::{
-        note_getter_options::NoteGetterOptions,
-        note_interface::{NoteHash, NoteType},
+        note_emission::OuterNoteEmission,
+        note_getter_options::{NoteGetterOptions, SortOrder},
+        note_interface::NoteProperties,
         note_viewer_options::NoteViewerOptions,
         retrieved_note::RetrievedNote,
     },
-    state_vars::PrivateSet,
+    protocol_types::{
+        address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
+    },
+    state_vars::{private_set::OwnedPrivateSet, PrivateSet, storage::HasStorageSlot},
 };
+use dep::uint_note::uint_note::UintNote;
 use std::ops::Add;
 
-pub struct BalanceSet<Note, Context> {
-    set: PrivateSet<Note, Context>,
+pub struct BalanceSet<Context> {
+    pub set: PrivateSet<UintNote, Context>,
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Note, Context> HasStorageSlot<1> for BalanceSet<Note, Context> {
+impl<Context> HasStorageSlot<1> for BalanceSet<Context> {
     fn get_storage_slot(self) -> Field {
         self.set.get_storage_slot()
     }
 }
 
-impl<Note, Context> BalanceSet<Note, Context> {
+impl<Context> BalanceSet<Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { set: PrivateSet::new(context, storage_slot) }
     }
+
+    pub fn at(self, owner: AztecAddress) -> OwnedBalanceSet<Context> {
+        OwnedBalanceSet::new(self.set.at(owner))
+    }
 }
 
-impl<Note> BalanceSet<Note, UtilityContext>
-where
-    Note: NoteType + NoteHash + OwnedNote + Packable + Eq,
-{
+pub struct OwnedBalanceSet<Context> {
+    owned_set: OwnedPrivateSet<UintNote, Context>,
+}
+
+impl<Context> OwnedBalanceSet<Context> {
+    pub fn new(owned_set: OwnedPrivateSet<UintNote, Context>) -> Self {
+        Self { owned_set }
+    }
+}
+
+impl OwnedBalanceSet<UtilityContext> {
     pub unconstrained fn balance_of(self: Self) -> u128 {
         self.balance_of_with_offset(0)
     }
 
     pub unconstrained fn balance_of_with_offset(self: Self, offset: u32) -> u128 {
         let mut balance = 0 as u128;
-        let mut options = NoteViewerOptions::new();
-        let notes = self.set.view_notes(options.set_offset(offset));
+        let mut options = NoteViewerOptions::<UintNote, <UintNote as Packable>::N>::new();
+        let notes = self.owned_set.view_notes(options.set_offset(offset));
         for i in 0..options.limit {
             if i < notes.len() {
-                balance = balance + notes.get_unchecked(i).get_amount();
+                balance = balance + notes.get_unchecked(i).get_value();
             }
         }
         if (notes.len() == options.limit) {
@@ -62,32 +69,26 @@ where
     }
 }
 
-impl<Note> BalanceSet<Note, &mut PrivateContext> {
-    pub fn add(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<Note>
-    where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable,
-    {
-        let content_option = if addend == 0 as u128 {
+impl OwnedBalanceSet<&mut PrivateContext> {
+    pub fn add(self: Self, addend: u128) -> OuterNoteEmission<UintNote> {
+        let content = if addend == 0 as u128 {
             Option::none()
         } else {
-            let mut addend_note = Note::new(addend, owner);
+            let addend_note = UintNote::new(addend);
 
-            Option::some(self.set.insert(addend_note).content)
+            Option::some(self.owned_set.insert(addend_note).content)
         };
 
-        OuterNoteEmission::new(content_option, self.set.context)
+        OuterNoteEmission::new(content, self.owned_set.context)
     }
 
-    pub fn sub(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<Note>
-    where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable,
-    {
+    pub fn sub(self: Self, amount: u128) -> OuterNoteEmission<UintNote> {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
         // try_sub may have subtracted more or less than amount. We must ensure that we subtracted at least as much as
         // we needed, and then create a new note for the owner for the change (if any).
         assert(subtracted >= amount, "Balance too low");
-        self.add(owner, subtracted - amount)
+        self.add(subtracted - amount)
     }
 
     // Attempts to remove 'target_amount' from the owner's balance. try_sub returns how much was actually subtracted
@@ -99,24 +100,22 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
     // The `max_notes` parameter is used to fine-tune the number of constraints created by this function. The gate count
     // scales relatively linearly with `max_notes`, but a lower `max_notes` parameter increases the likelihood of
     // `try_sub` subtracting an amount smaller than `target_amount`.
-    pub fn try_sub(self: Self, target_amount: u128, max_notes: u32) -> u128
-    where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable,
-    {
+    pub fn try_sub(self: Self, target_amount: u128, max_notes: u32) -> u128 {
         // We are using a preprocessor here (filter applied in an unconstrained context) instead of a filter because
         // we do not need to prove correct execution of the preprocessor.
         // Because the `min_sum` notes is not constrained, users could choose to e.g. not call it. However, all this
         // might result in is simply higher DA costs due to more nullifiers being emitted. Since we don't care
         // about proving optimal note usage, we can save these constraints and make the circuit smaller.
         let options = NoteGetterOptions::with_preprocessor(preprocess_notes_min_sum, target_amount)
+            .sort(UintNote::properties().value, SortOrder.DESC)
             .set_limit(max_notes);
-        let notes = self.set.pop_notes(options);
+        let notes = self.owned_set.pop_notes(options);
 
         let mut subtracted = 0 as u128;
         for i in 0..options.limit {
             if i < notes.len() {
                 let note = notes.get_unchecked(i);
-                subtracted = subtracted + note.get_amount();
+                subtracted = subtracted + note.get_value();
             }
         }
 
@@ -129,13 +128,10 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
 // The preprocessor (a filter applied in an unconstrained context) does not check if total sum is larger or equal to
 // 'min_sum' - all it does is remove extra notes if it does reach that value.
 // Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
-pub fn preprocess_notes_min_sum<Note>(
-    notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+pub fn preprocess_notes_min_sum(
+    notes: [Option<RetrievedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: u128,
-) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
-where
-    Note: NoteType + NoteHash + OwnedNote,
-{
+) -> [Option<RetrievedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = 0 as u128;
     for i in 0..notes.len() {
@@ -146,7 +142,7 @@ where
         if notes[i].is_some() & sum < min_sum {
             let retrieved_note = notes[i].unwrap_unchecked();
             selected[i] = Option::some(retrieved_note);
-            sum = sum.add(retrieved_note.note.get_amount());
+            sum = sum.add(retrieved_note.note.get_value());
         }
     }
     selected

@@ -1,49 +1,55 @@
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestation } from '@aztec/stdlib/block';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { BlockHeader, Tx } from '@aztec/stdlib/tx';
 
 /** All data from an epoch used in proving. */
 export type EpochProvingJobData = {
-  epochNumber: bigint;
-  blocks: L2Block[];
+  epochNumber: EpochNumber;
+  checkpoints: Checkpoint[];
   txs: Map<string, Tx>;
-  l1ToL2Messages: Record<number, Fr[]>;
+  l1ToL2Messages: Record<CheckpointNumber, Fr[]>;
   previousBlockHeader: BlockHeader;
   attestations: CommitteeAttestation[];
 };
 
 export function validateEpochProvingJobData(data: EpochProvingJobData) {
-  if (data.blocks.length > 0 && data.previousBlockHeader.getBlockNumber() + 1 !== data.blocks[0].number) {
+  if (data.checkpoints.length === 0) {
+    throw new Error('No checkpoints to prove');
+  }
+
+  const firstBlockNumber = data.checkpoints[0].blocks[0].number;
+  const previousBlockNumber = data.previousBlockHeader.getBlockNumber();
+  if (previousBlockNumber + 1 !== firstBlockNumber) {
     throw new Error(
-      `Initial block number ${
-        data.blocks[0].number
-      } does not match previous block header ${data.previousBlockHeader.getBlockNumber()}`,
+      `Initial block number ${firstBlockNumber} does not match previous block header ${previousBlockNumber}`,
     );
   }
 
-  for (const blockNumber of data.blocks.map(block => block.number)) {
-    if (!(blockNumber in data.l1ToL2Messages)) {
-      throw new Error(`Missing L1 to L2 messages for block number ${blockNumber}`);
+  for (const checkpoint of data.checkpoints) {
+    if (!(checkpoint.number in data.l1ToL2Messages)) {
+      throw new Error(`Missing L1 to L2 messages for checkpoint number ${checkpoint.number}`);
     }
   }
 }
 
 export function serializeEpochProvingJobData(data: EpochProvingJobData): Buffer {
-  const blocks = data.blocks.map(block => block.toBuffer());
+  const checkpoints = data.checkpoints.map(checkpoint => checkpoint.toBuffer());
   const txs = Array.from(data.txs.values()).map(tx => tx.toBuffer());
-  const l1ToL2Messages = Object.entries(data.l1ToL2Messages).map(([blockNumber, messages]) => [
-    Number(blockNumber),
+  const l1ToL2Messages = Object.entries(data.l1ToL2Messages).map(([checkpointNumber, messages]) => [
+    Number(checkpointNumber),
     messages.length,
     ...messages,
   ]);
   const attestations = data.attestations.map(attestation => attestation.toBuffer());
 
   return serializeToBuffer(
-    Number(data.epochNumber),
+    data.epochNumber,
     data.previousBlockHeader,
-    blocks.length,
-    ...blocks,
+    checkpoints.length,
+    ...checkpoints,
     txs.length,
     ...txs,
     l1ToL2Messages.length,
@@ -55,22 +61,22 @@ export function serializeEpochProvingJobData(data: EpochProvingJobData): Buffer 
 
 export function deserializeEpochProvingJobData(buf: Buffer): EpochProvingJobData {
   const reader = BufferReader.asReader(buf);
-  const epochNumber = BigInt(reader.readNumber());
+  const epochNumber = EpochNumber(reader.readNumber());
   const previousBlockHeader = reader.readObject(BlockHeader);
-  const blocks = reader.readVector(L2Block);
+  const checkpoints = reader.readVector(Checkpoint);
   const txArray = reader.readVector(Tx);
 
-  const l1ToL2MessageBlockCount = reader.readNumber();
+  const l1ToL2MessageCheckpointCount = reader.readNumber();
   const l1ToL2Messages: Record<number, Fr[]> = {};
-  for (let i = 0; i < l1ToL2MessageBlockCount; i++) {
-    const blockNumber = reader.readNumber();
+  for (let i = 0; i < l1ToL2MessageCheckpointCount; i++) {
+    const checkpointNumber = CheckpointNumber(reader.readNumber());
     const messages = reader.readVector(Fr);
-    l1ToL2Messages[blockNumber] = messages;
+    l1ToL2Messages[checkpointNumber] = messages;
   }
 
   const attestations = reader.readVector(CommitteeAttestation);
 
   const txs = new Map<string, Tx>(txArray.map(tx => [tx.getTxHash().toString(), tx]));
 
-  return { epochNumber, previousBlockHeader, blocks, txs, l1ToL2Messages, attestations };
+  return { epochNumber, previousBlockHeader, checkpoints, txs, l1ToL2Messages, attestations };
 }

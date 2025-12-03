@@ -69,6 +69,65 @@ program.option('-v, --verbose', 'verbose logging');
 program.option('-c, --crs-path <path>', 'ignored (here for compatibility)');
 
 program
+  .command('test_console_capture')
+  .description('Test that browser console logs from bbLogger are captured correctly')
+  .action(async () => {
+    const capturedLogs: string[] = [];
+    const browser = await chromium.launch();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    // Capture console messages (this is what CI benchmark scripts rely on)
+    page.on('console', msg => {
+      const text = msg.text();
+      capturedLogs.push(text);
+      console.log(`[Captured] ${text}`);
+    });
+
+    await page.goto(`http://localhost:${PORT}`, { waitUntil: 'networkidle' });
+
+    // Wait for the browser test app to load
+    await page.evaluate(async () => {
+      for (let i = 0; i < 100; i++) {
+        if (typeof (window as any).testBbLogger === 'function') return;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      throw new Error('window.testBbLogger function not available after 10 seconds');
+    });
+
+    // Actually instantiate Barretenberg to trigger real bb.js logging
+    // This will use bbLogger which logs to both pino and console.log
+    // We're verifying that the console.log part is captured by Playwright
+    await page.evaluate(async () => {
+      return await (window as any).testBbLogger();
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await browser.close();
+
+    // Verify logs were captured from actual bb.js execution
+    console.log('\n=== Test Results ===');
+    console.log(`Captured ${capturedLogs.length} log(s) from browser`);
+
+    // bb.js internal logs come from barretenberg_wasm_base and include memory stats
+    const hasMemPattern = capturedLogs.some(log => log.match(/\(mem: [\d.]+MiB\)/));
+
+    console.log(`✓ Memory pattern from bb.js captured: ${hasMemPattern}`);
+    console.log(`  Sample logs: ${capturedLogs.slice(0, 3).join('; ')}`);
+
+    if (!hasMemPattern) {
+      console.error('❌ Console capture test FAILED');
+      console.error('   bb.js memory stats are not being captured by Playwright');
+      console.error('   This means CI benchmark scripts cannot parse memory usage');
+      process.exit(1);
+    }
+
+    console.log('✅ Console capture test PASSED');
+    console.log('   Real bb.js logs (with memory stats) are captured by Playwright');
+    console.log('   CI benchmark scripts can successfully parse memory usage from these logs');
+  });
+
+program
   .command('prove_and_verify')
   .description('Generate a proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the path to the ACIR artifact json file', './target/acir.json')

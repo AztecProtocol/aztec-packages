@@ -11,21 +11,21 @@ use protocol_types::{
     traits::{Deserialize, ToField},
 };
 
-pub unconstrained fn deploy<let N: u32, let P: u32>(
+pub unconstrained fn deploy<let M: u32, let N: u32, let P: u32>(
     path: str<N>,
     initializer: str<P>,
-    args: [Field],
+    args: [Field; M],
     secret: Field,
 ) -> ContractInstance {
     let instance_fields = deploy_oracle(path, initializer, args, secret);
     ContractInstance::deserialize(instance_fields)
 }
 
-pub unconstrained fn private_call_new_flow<let N: u32>(
+pub unconstrained fn private_call_new_flow<let M: u32, let N: u32>(
     from: AztecAddress,
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
-    args: [Field],
+    args: [Field; M],
     args_hash: Field,
     is_static_call: bool,
 ) -> [Field; N] {
@@ -39,24 +39,24 @@ pub unconstrained fn private_call_new_flow<let N: u32>(
     )
 }
 
-pub unconstrained fn public_call_new_flow<let N: u32>(
+pub unconstrained fn public_call_new_flow<let M: u32, let N: u32>(
     from: Option<AztecAddress>,
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
-    args: [Field],
+    args: [Field; M],
     is_static_call: bool,
 ) -> [Field; N] {
-    let calldata = args.push_front(function_selector.to_field());
+    let calldata = [function_selector.to_field()].concat(args);
 
     let from = from.unwrap_or(NULL_MSG_SENDER_CONTRACT_ADDRESS);
 
     public_call_new_flow_oracle(from, contract_address, calldata, is_static_call)
 }
 
-pub unconstrained fn simulate_utility_function<let N: u32>(
+pub unconstrained fn simulate_utility_function<let M: u32, let N: u32>(
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
-    args: [Field],
+    args: [Field; M],
 ) -> [Field; N] {
     simulate_utility_function_oracle(contract_address, function_selector, args)
 }
@@ -97,28 +97,28 @@ pub unconstrained fn add_account(secret: Field) -> TestAccount {}
 pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {}
 
 #[oracle(txePrivateCallNewFlow)]
-unconstrained fn private_call_new_flow_oracle<let N: u32>(
+unconstrained fn private_call_new_flow_oracle<let M: u32, let N: u32>(
     _from: AztecAddress,
     _contract_address: AztecAddress,
     _function_selector: FunctionSelector,
-    _args: [Field],
+    _args: [Field; M],
     _args_hash: Field,
     _is_static_call: bool,
 ) -> [Field; N] {}
 
 #[oracle(txePublicCallNewFlow)]
-unconstrained fn public_call_new_flow_oracle<let N: u32>(
+unconstrained fn public_call_new_flow_oracle<let M: u32, let N: u32>(
     from: AztecAddress,
     contract_address: AztecAddress,
-    calldata: [Field],
+    calldata: [Field; M],
     is_static_call: bool,
 ) -> [Field; N] {}
 
 #[oracle(txeSimulateUtilityFunction)]
-unconstrained fn simulate_utility_function_oracle<let N: u32>(
+unconstrained fn simulate_utility_function_oracle<let M: u32, let N: u32>(
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
-    args: [Field],
+    args: [Field; M],
 ) -> [Field; N] {}
 
 #[oracle(txeSetTopLevelTXEContext)]
