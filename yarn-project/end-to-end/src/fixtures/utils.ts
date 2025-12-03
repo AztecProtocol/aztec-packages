@@ -448,15 +448,26 @@ export async function setup(
     }
 
     config.coinbase = opts.coinbase ?? EthAddress.fromString(publisherHdAccount.address);
+    logger.info(`[SETUP] Coinbase address: ${config.coinbase.toString()}`);
+    logger.info(`[SETUP] Publisher HD account: ${publisherHdAccount.address}`);
+    logger.info(`[SETUP] Coinbase from opts: ${opts.coinbase?.toString() ?? 'not provided'}`);
 
     const initialFundedAccounts =
       opts.initialFundedAccounts ??
       (await generateSchnorrAccounts(opts.numberOfInitialFundedAccounts ?? numberOfAccounts));
+    logger.info(`[SETUP] Number of initial funded accounts: ${initialFundedAccounts.length}`);
+    logger.info(
+      `[SETUP] Initial funded account addresses: ${initialFundedAccounts.map(a => a.address.toString()).join(', ')}`,
+    );
+
     const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(
       initialFundedAccounts.map(a => a.address),
       opts.initialAccountFeeJuice,
       opts.genesisPublicData,
     );
+    logger.info(`[SETUP] Genesis archive root: ${genesisArchiveRoot.toString()}`);
+    logger.info(`[SETUP] Prefilled public data count: ${prefilledPublicData.length}`);
+    logger.info(`[SETUP] Funding needed for fee juice portal: ${fundingNeeded}`);
 
     const wasAutomining = await ethCheatCodes.isAutoMining();
     const enableAutomine = opts.automineL1Setup && !wasAutomining && isAnvilTestChain(chain.id);
@@ -488,6 +499,7 @@ export async function setup(
 
     if (opts.fundRewardDistributor) {
       // Mints block rewards for 10000 blocks to the rewardDistributor contract
+      logger.info(`[SETUP] fundRewardDistributor is enabled, funding reward distributor...`);
 
       const rollup = new RollupContract(
         deployL1ContractsValues.l1Client,
@@ -496,6 +508,10 @@ export async function setup(
 
       const blockReward = await rollup.getCheckpointReward();
       const mintAmount = 10_000n * (blockReward as bigint);
+      logger.info(`[SETUP] Block reward: ${blockReward}, mint amount for 10k blocks: ${mintAmount}`);
+      logger.info(
+        `[SETUP] Reward distributor address: ${deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString()}`,
+      );
 
       const feeJuice = getContract({
         address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
@@ -508,7 +524,9 @@ export async function setup(
         {} as any,
       );
       await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
-      logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
+      logger.info(`[SETUP] Funding rewardDistributor in tx ${rewardDistributorMintTxHash}`);
+    } else {
+      logger.info(`[SETUP] fundRewardDistributor is disabled, skipping reward distributor funding`);
     }
 
     if (enableAutomine) {
@@ -603,11 +621,16 @@ export async function setup(
       }
     }
 
+    logger.info(`[SETUP] Creating Aztec node with ${prefilledPublicData.length} prefilled public data entries`);
+    logger.info(`[SETUP] Config.minTxsPerBlock: ${config.minTxsPerBlock} (original: ${originalMinTxsPerBlock})`);
+    logger.info(`[SETUP] Config.coinbase: ${config.coinbase.toString()}`);
+
     const aztecNode = await AztecNodeService.createAndSync(
       config, // REFACTOR: createAndSync mutates this config
       { dateProvider, blobSinkClient, telemetry, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
       { prefilledPublicData },
     );
+    logger.info(`[SETUP] Aztec node created and synced`);
     const sequencerClient = aztecNode.getSequencer();
 
     if (sequencerClient) {
@@ -617,11 +640,15 @@ export async function setup(
 
     let proverNode: ProverNode | undefined = undefined;
     if (opts.startProverNode) {
+      logger.info('[SETUP] startProverNode is enabled, creating prover node...');
       logger.verbose('Creating and syncing a simulated prover node...');
       const proverNodePrivateKey = getPrivateKeyFromIndex(2);
       const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
       const proverNodeDataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
       const proverNodeConfig = { ...config.proverNodeConfig, dataDirectory: proverNodeDataDirectory };
+      logger.info(
+        `[SETUP] Prover node will be created with ${prefilledPublicData.length} prefilled public data entries`,
+      );
       proverNode = await createAndSyncProverNode(
         proverNodePrivateKeyHex,
         config,
@@ -629,6 +656,9 @@ export async function setup(
         aztecNode,
         prefilledPublicData,
       );
+      logger.info('[SETUP] Prover node created and synced');
+    } else {
+      logger.info('[SETUP] startProverNode is disabled, skipping prover node creation');
     }
 
     logger.verbose('Creating a pxe...');

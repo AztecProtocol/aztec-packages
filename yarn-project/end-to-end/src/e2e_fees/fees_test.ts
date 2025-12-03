@@ -220,19 +220,23 @@ export class FeesTest extends BaseEndToEndTest {
   }
 
   public async setupFPC() {
+    this.logger.info('[FEES-TEST] Setting up FPC...');
     const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
     expect((await this.wallet.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
     const bananaCoin = this.bananaCoin;
+    this.logger.info(`[FEES-TEST] Deploying FPC with banana coin ${bananaCoin.address} and admin ${this.fpcAdmin}`);
     const bananaFPC = await FPCContract.deploy(this.wallet, bananaCoin.address, this.fpcAdmin)
       .send({ from: this.aliceAddress })
       .deployed();
 
-    this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
+    this.logger.info(`[FEES-TEST] BananaPay deployed at ${bananaFPC.address}`);
 
+    this.logger.info(`[FEES-TEST] Bridging gas from L1 to FPC at ${bananaFPC.address}`);
     await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(bananaFPC.address, this.aliceAddress);
 
     this.bananaFPC = FPCContract.at(bananaFPC.address, this.wallet);
+    this.logger.info(`[FEES-TEST] FPC setup complete`);
 
     const l1FeeJuiceAddress = this.feeJuiceBridgeTestHarness.l1FeeJuiceAddress;
 
@@ -249,6 +253,9 @@ export class FeesTest extends BaseEndToEndTest {
     this.getCoinbaseSequencerRewards = async () => {
       return await this.rollupContract.getSequencerRewards(this.coinbase);
     };
+
+    this.logger.info(`[FEES-TEST] Coinbase address for rewards tracking: ${this.coinbase.toString()}`);
+    this.logger.info(`[FEES-TEST] Config coinbase: ${this.context.config.coinbase.toString()}`);
 
     this.getProverFee = async (blockNumber: number) => {
       const block = await this.aztecNode.getBlock(blockNumber);

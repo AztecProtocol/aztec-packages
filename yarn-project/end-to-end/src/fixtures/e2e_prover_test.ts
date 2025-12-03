@@ -236,9 +236,23 @@ export class FullProverTest extends BaseEndToEndTest {
       proverNodeEpochProvingDelayMs: undefined,
     };
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
-    const { prefilledPublicData } = await getGenesisValues(
-      this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
+    this.logger.info(`[PROVER] Sponsored FPC address: ${sponsoredFPCAddress.toString()}`);
+    this.logger.info(
+      `[PROVER] Initial funded accounts count from context: ${this.context.initialFundedAccounts.length}`,
     );
+    this.logger.info(
+      `[PROVER] Initial funded account addresses: ${this.context.initialFundedAccounts.map(a => a.address.toString()).join(', ')}`,
+    );
+
+    const genesisAddresses = this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress);
+    this.logger.info(`[PROVER] Total genesis addresses for prover node: ${genesisAddresses.length}`);
+
+    const { prefilledPublicData } = await getGenesisValues(genesisAddresses);
+    this.logger.info(`[PROVER] Prefilled public data count for prover node: ${prefilledPublicData.length}`);
+    this.logger.info(
+      `[PROVER] Context prefilled public data count: ${this.context.prefilledPublicData?.length ?? 'undefined'}`,
+    );
+
     this.proverNodeInstance = await createProverNode(
       proverConfig,
       {
@@ -248,7 +262,9 @@ export class FullProverTest extends BaseEndToEndTest {
       },
       { prefilledPublicData },
     );
+    this.logger.info(`[PROVER] Prover node created, starting...`);
     await this.proverNodeInstance.start();
+    this.logger.info(`[PROVER] Prover node started`);
 
     this.logger.warn(`Proofs are now enabled`);
     return this;
