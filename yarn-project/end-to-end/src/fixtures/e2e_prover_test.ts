@@ -235,22 +235,16 @@ export class FullProverTest extends BaseEndToEndTest {
       proverNodeFailedEpochStore: undefined,
       proverNodeEpochProvingDelayMs: undefined,
     };
-    const sponsoredFPCAddress = await getSponsoredFPCAddress();
-    this.logger.info(`[PROVER] Sponsored FPC address: ${sponsoredFPCAddress.toString()}`);
-    this.logger.info(
-      `[PROVER] Initial funded accounts count from context: ${this.context.initialFundedAccounts.length}`,
-    );
-    this.logger.info(
-      `[PROVER] Initial funded account addresses: ${this.context.initialFundedAccounts.map(a => a.address.toString()).join(', ')}`,
-    );
+    // IMPORTANT: Use the same prefilledPublicData that was used to initialize the main Aztec node.
+    // Recalculating genesis values with additional addresses (like sponsored FPC) will cause a world state mismatch.
+    const prefilledPublicData = this.context.prefilledPublicData;
+    if (!prefilledPublicData) {
+      throw new Error('context.prefilledPublicData is undefined - cannot create prover node');
+    }
 
-    const genesisAddresses = this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress);
-    this.logger.info(`[PROVER] Total genesis addresses for prover node: ${genesisAddresses.length}`);
-
-    const { prefilledPublicData } = await getGenesisValues(genesisAddresses);
-    this.logger.info(`[PROVER] Prefilled public data count for prover node: ${prefilledPublicData.length}`);
+    this.logger.info(`[PROVER] Using prefilledPublicData from context: ${prefilledPublicData.length} entries`);
     this.logger.info(
-      `[PROVER] Context prefilled public data count: ${this.context.prefilledPublicData?.length ?? 'undefined'}`,
+      `[PROVER] Initial funded accounts in context: ${this.context.initialFundedAccounts.map(a => a.address.toString()).join(', ')}`,
     );
 
     this.proverNodeInstance = await createProverNode(
