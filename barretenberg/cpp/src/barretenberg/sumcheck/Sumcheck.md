@@ -76,29 +76,29 @@ Bullet point 2 is quite easy to handle, as the evaluation of the sumcheck multiv
 Now let's tackle bullet point 1. Let us refer to the round univariate without taking into consideration the `RowDisablingPoly` as $S_{F,i}$ and the round univariate of the corrected poly $S'_{F,i}$.
 
 Recalling the definition of the round univariates of sumcheck we have that:
-\begin{aligned}
+\begin{align}
 S'_{F,i} &= \sum_{\gamma_i\in\{0,1\}} (F\times (1-L))(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1}) \\
 &= S_F - \sum_{\gamma_i\in\{0,1\}} F\times L(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1})
-\end{aligned}
+\end{align}
 For $i=0$, $\Pi$ is only non-zero when for all $i>1$ $\gamma_i =1$ this means:
-\begin{aligned}
+\begin{align}
 S'_{F,0}
 &= S_F - \sum_{\gamma_1\in\{0,1\}} F\times L(X,\gamma_{1},1,\dots,1) \\
 & = S_F - \sum_{\gamma_1\in\{0,1\}} F(X,\gamma_{1},1,\dots,1)
-\end{aligned}
+\end{align}
 for $i=1$,
-\begin{aligned}
+\begin{align}
 S'_{F,1}
 &= S_F - F\times L(u_0,X,,1,\dots,1)\\
 &= S_F - F(u_0,X,1,\dots,1)
-\end{aligned}
+\end{align}
 
 For $i>1$,
-\begin{aligned}
+\begin{align}
 S'_{F,i}
 &= S_F - F\times L(u_0,\dots,u_{i-1}X,1,\dots,1)\\
 &= S_F - \Pi_{j=2}^{i-1}u_j \times X\times F(u_0,\dots,u_{i-1}X,1,\dots,1)
-\end{aligned}
+\end{align}
 
 
 ### Computing round univariates:
@@ -152,12 +152,12 @@ S_{F,i}' &= S_{F,i} + \rho \times 2^{d-i-1}[a_0+g_0(u_0) + \dots + g_{i-1}(u_{i-
 
 Now let us separate this poly into different chunks.
 - let's call $2^{d-i-1}(a_0 + g_0(u_0)+ \dots+ g_{{i-1}}(u_{i-1}))$ as $2^{d-i-1} \textsf{prefix-sum}_i$
-- and $2^{d-i-1}\cdot\sum_{i+1}^{d-1}\left(g_j(0)+g_j(1)\right)/2$ as $\textsf{suffix_sum}_i$
+- and $2^{d-i-1}\cdot\sum_{i+1}^{d-1}\left(g_j(0)+g_j(1)\right)/2$ as $\textsf{suffix\_sum}_i$
 
 Now let us see, how these values should be updated when a new challenge $u_{i+1}$ is received. We have the following two equalities:
 \begin{align}
-&\textsf{prefix_sum}_{i+1} = (\textsf{prefix_sum}_i)/2 + g_i(u_i)/2^{d-i-2}\\
-& \textsf{suffix_sum}_{i+1} = \textsf{suffix_sum}_i/2 - (g_{i+1}(0) + g_{i+1}(1))/2
+&\textsf{prefix\_sum}_{i+1} = (\textsf{prefix\_sum}_i)/2 + g_i(u_i)/2^{d-i-2}\\
+& \textsf{suffix\_sum}_{i+1} = \textsf{suffix\_sum}_i/2 - (g_{i+1}(0) + g_{i+1}(1))/2
 \end{align}
 
 In the code, the sum of `prefix_sum` and `suffix_sum` are labeled as `libra_running_sum`. The method `update_zk_sumcheck_data` does the updating described above for each round.
@@ -243,7 +243,7 @@ The rounds are categorized as:
 #### Non-ZK Flavors
 For virtual rounds, the prover computes the round univariate by treating all polynomials as extended by zero:
 
-$$P_i(X_0, \ldots, X_{d-1}) \mapsto P_i(X_0, \ldots, X_{d-1}) \cdot \tau(X_d, \ldots, X_{\text{virtual_log_n} - 1})$$
+$$P_i(X_0, \ldots, X_{d-1}) \to P_i(X_0, \ldots, X_{d-1}) \cdot \tau(X_d, \ldots, X_{\text{virtual\_log\_n} - 1})$$
 
 where $\tau(X_d, \ldots, X_k) = \prod_{j=d}^{k} (1 - X_j)$ is the indicator polynomial that is 1 only on the real rounds range.
 
@@ -272,7 +272,7 @@ The padding indicator array is computed on the verifier side, to disable the con
 
 The padding indicator array is a vector of size `virtual_log_n` where:
 
-$$\text{padding_indicator_array}[i] = \begin{cases} 1 & \text{if } i < \text{multivariate_d} \text{ (real round)} \\ 0 & \text{if } i \geq \text{multivariate_d} \text{ (padding round)} \end{cases}$$
+$$\text{padding\_indicator\_array}[i] = \begin{cases} 1 & \text{if } i < \text{multivariate\_d} \text{ (real round)} \\ 0 & \text{if } i \geq \text{multivariate\_d} \text{ (padding round)} \end{cases}$$
 
 ### Native vs Recursive Computation
 
@@ -287,9 +287,9 @@ for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
 **Recursive verification**: The array is computed in-circuit using Lagrange interpolation to ensure constant gate count regardless of the actual `log_n` value. This is implemented in `compute_padding_indicator_array`.
 
 The in-circuit computation:
-1. Constrains `log_n` to be in range $[1, \text{virtual_log_n}]$
-2. Evaluates Lagrange polynomials $L_i(\text{log_n} - 1)$
-3. Computes step functions: $b_i = \sum_{j=i}^{N-1} L_j(\text{log_n} - 1)$
+1. Constrains `log_n` to be in range $[1, \text{virtual\_log\_n}]$
+2. Evaluates Lagrange polynomials $L_i(\text{log\_n} - 1)$
+3. Computes step functions: $b_i = \sum_{j=i}^{N-1} L_j(\text{log\_n} - 1)$
 
 ### Usage in Verification
 
