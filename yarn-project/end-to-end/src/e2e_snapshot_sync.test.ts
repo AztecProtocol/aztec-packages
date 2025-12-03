@@ -32,10 +32,8 @@ describe('e2e_snapshot_sync', () => {
   let cleanupDirs: string[];
 
   beforeAll(async () => {
-    // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
-    // Forge deployment advances L1 time significantly, breaking tests that depend on slot timing.
     context = await setup(0, {
-      useForgeDeployment: false,
+      useForgeDeployment: true,
       minTxsPerBlock: 0,
       ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
       aztecSlotDuration: L1_BLOCK_TIME_IN_S * 2,

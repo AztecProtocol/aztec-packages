@@ -496,7 +496,11 @@ export async function setup(
         fundRewardDistributor: opts.fundRewardDistributor ?? true,
         deployerAddress: publisherHdAccount!.address,
       });
+      // Pass through all L1ContractsConfig options to forge deployment
       deployL1ContractsValues = await setupL1ContractsWithForge(config.l1RpcUrls[0], publisherPrivKeyHex!, logger, {
+        // L1ContractsConfig options (passed through to forge script)
+        ...opts,
+        // Forge-specific options
         genesisArchiveRoot: genesisArchiveRoot.toString() as `0x${string}`,
         realVerifier: opts.realProofs,
         fundRewardDistributor: opts.fundRewardDistributor,

@@ -3,6 +3,7 @@ import {
   type DeployL1ContractsArgs,
   type ForgeDeploymentOptions,
   type L1ContractsConfig,
+  type L1ContractsJsonConfig,
   L1Deployer,
   type Operator,
   RollupContract,
@@ -46,8 +47,9 @@ export const setupL1Contracts = async (
 
 /**
  * Options for forge-based L1 deployment in e2e tests.
+ * Includes all L1ContractsConfig options that should be passed to the forge script.
  */
-export interface SetupL1ContractsWithForgeOptions {
+export interface SetupL1ContractsWithForgeOptions extends Partial<L1ContractsConfig> {
   /** Genesis archive root (required for proper block validation) */
   genesisArchiveRoot?: `0x${string}`;
   /** Use real verifier (HonkVerifier) instead of MockVerifier */
@@ -77,6 +79,77 @@ export interface SetupL1ContractsWithForgeOptions {
  * @param options - Deployment options including genesisArchiveRoot, realVerifier, etc.
  * @returns The deployed contract addresses and client
  */
+/**
+ * Helper to convert bigint to string for JSON config.
+ */
+function bigintToStr(value: bigint | undefined): string | undefined {
+  return value !== undefined ? value.toString() : undefined;
+}
+
+/**
+ * Build the L1ContractsJsonConfig from SetupL1ContractsWithForgeOptions.
+ * This maps the flat L1ContractsConfig options to the nested JSON format expected by forge.
+ *
+ * Note: ethereumSlotDuration is NOT passed to forge because:
+ * 1. The forge script doesn't read this parameter - it's derived from L1 block time
+ * 2. The Rollup contract calculates slotNumber based on L1 timestamps, not ethereumSlotDuration config
+ */
+function buildL1ContractsJsonConfigFromOptions(
+  options: SetupL1ContractsWithForgeOptions,
+  vkTreeRoot: string,
+): L1ContractsJsonConfig {
+  return {
+    genesis: {
+      vkTreeRoot: BigInt(vkTreeRoot).toString(),
+      protocolContractsHash: BigInt(protocolContractsHash.toString()).toString(),
+      genesisArchiveRoot: options.genesisArchiveRoot ? BigInt(options.genesisArchiveRoot).toString() : undefined,
+    },
+    deployment: {
+      useMockVerifier: !(options.realVerifier ?? false),
+      fundRewardDistributor: options.fundRewardDistributor,
+    },
+    timing: {
+      // Note: ethereumSlotDuration is not passed to forge - L1 block time is inherent to the chain
+      aztecSlotDuration: options.aztecSlotDuration,
+      aztecEpochDuration: options.aztecEpochDuration,
+      targetCommitteeSize: options.aztecTargetCommitteeSize,
+    },
+    validatorSet: {
+      lagInEpochsForValidatorSet: options.lagInEpochsForValidatorSet,
+      lagInEpochsForRandao: options.lagInEpochsForRandao,
+      aztecProofSubmissionEpochs: options.aztecProofSubmissionEpochs,
+    },
+    gse: {
+      activationThreshold: bigintToStr(options.activationThreshold),
+      ejectionThreshold: bigintToStr(options.ejectionThreshold),
+    },
+    slashing: {
+      flavor: options.slasherFlavor,
+      roundSizeInEpochs: options.slashingRoundSizeInEpochs,
+      lifetimeInRounds: options.slashingLifetimeInRounds,
+      executionDelayInRounds: options.slashingExecutionDelayInRounds,
+      offsetInRounds: options.slashingOffsetInRounds,
+      disableDuration:
+        options.slashingDisableDuration !== undefined ? Number(options.slashingDisableDuration) : undefined,
+      vetoer: options.slashingVetoer?.toString(),
+      amountSmall: bigintToStr(options.slashAmountSmall),
+      amountMedium: bigintToStr(options.slashAmountMedium),
+      amountLarge: bigintToStr(options.slashAmountLarge),
+    },
+    fee: {
+      manaTarget: bigintToStr(options.manaTarget),
+      exitDelaySeconds: options.exitDelaySeconds,
+      provingCostPerMana: bigintToStr(options.provingCostPerMana),
+      localEjectionThreshold: bigintToStr(options.localEjectionThreshold),
+    },
+    governance: {
+      proposerQuorum: options.governanceProposerQuorum,
+      proposerRoundSize: options.governanceProposerRoundSize,
+    },
+    // stakingQueue is handled by forge_script.ts defaults using LocalEntryQueueConfig
+  };
+}
+
 export const setupL1ContractsWithForge = async (
   l1RpcUrl: string,
   privateKey: `0x${string}`,
@@ -90,6 +163,10 @@ export const setupL1ContractsWithForge = async (
     protocolContractsHash: protocolContractsHash.toString(),
     realVerifier: options.realVerifier ?? false,
     fundRewardDistributor: options.fundRewardDistributor ?? true,
+    manaTarget: options.manaTarget?.toString(),
+    aztecSlotDuration: options.aztecSlotDuration,
+    aztecEpochDuration: options.aztecEpochDuration,
+    ethereumSlotDuration: options.ethereumSlotDuration,
   });
 
   // Build stakingAssetHandler config, merging zkPassportArgs with any provided forgeOptions
@@ -100,21 +177,27 @@ export const setupL1ContractsWithForge = async (
     ...(options.zkPassportArgs?.zkPassportScope && { zkPassportScope: options.zkPassportArgs.zkPassportScope }),
   };
 
+  // Build the config from options, then merge with any explicit forgeOptions.config
+  const configFromOptions = buildL1ContractsJsonConfigFromOptions(options, vkTreeRoot.toString());
+
+  // Deep merge: forgeOptions.config overrides configFromOptions
+  const mergedConfig: L1ContractsJsonConfig = {
+    genesis: { ...configFromOptions.genesis, ...options.forgeOptions?.config?.genesis },
+    deployment: { ...configFromOptions.deployment, ...options.forgeOptions?.config?.deployment },
+    timing: { ...configFromOptions.timing, ...options.forgeOptions?.config?.timing },
+    validatorSet: { ...configFromOptions.validatorSet, ...options.forgeOptions?.config?.validatorSet },
+    gse: { ...configFromOptions.gse, ...options.forgeOptions?.config?.gse },
+    slashing: { ...configFromOptions.slashing, ...options.forgeOptions?.config?.slashing },
+    fee: { ...configFromOptions.fee, ...options.forgeOptions?.config?.fee },
+    governance: { ...configFromOptions.governance, ...options.forgeOptions?.config?.governance },
+    reward: options.forgeOptions?.config?.reward,
+    stakingQueue: options.forgeOptions?.config?.stakingQueue,
+  };
+
   const l1Data = await setupL1ContractsViaForge(l1RpcUrl, privateKey, {
     logger,
     chain: foundry,
-    config: {
-      genesis: {
-        vkTreeRoot: BigInt(vkTreeRoot.toString()).toString(),
-        protocolContractsHash: BigInt(protocolContractsHash.toString()).toString(),
-        genesisArchiveRoot: options.genesisArchiveRoot ? BigInt(options.genesisArchiveRoot).toString() : undefined,
-      },
-      deployment: {
-        useMockVerifier: !(options.realVerifier ?? false),
-        fundRewardDistributor: options.fundRewardDistributor,
-      },
-      ...options.forgeOptions?.config,
-    },
+    config: mergedConfig,
     stakingAssetHandler: Object.keys(stakingAssetHandler).length > 0 ? stakingAssetHandler : undefined,
   });
 
