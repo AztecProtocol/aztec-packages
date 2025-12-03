@@ -437,24 +437,27 @@ export async function setup(
       await ethCheatCodes.warp(opts.l1StartTime, { resetBlockInterval: true });
     }
 
-    let publisherPrivKey = undefined;
-    let publisherHdAccount = undefined;
+    let publisherPrivKeyHex: `0x${string}` | undefined = undefined;
+    let publisherHdAccount: HDAccount | PrivateKeyAccount | undefined = undefined;
 
     if (opts.l1PublisherKey && opts.l1PublisherKey.getValue() && opts.l1PublisherKey.getValue() != NULL_KEY) {
-      publisherHdAccount = privateKeyToAccount(opts.l1PublisherKey.getValue());
+      publisherPrivKeyHex = opts.l1PublisherKey.getValue();
+      publisherHdAccount = privateKeyToAccount(publisherPrivKeyHex);
     } else if (
       config.publisherPrivateKeys &&
       config.publisherPrivateKeys.length > 0 &&
       config.publisherPrivateKeys[0].getValue() != NULL_KEY
     ) {
-      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKeys[0].getValue());
+      publisherPrivKeyHex = config.publisherPrivateKeys[0].getValue();
+      publisherHdAccount = privateKeyToAccount(publisherPrivKeyHex);
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
     } else {
       publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
-      publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
-      config.publisherPrivateKeys = [new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const)];
+      const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+      publisherPrivKeyHex = `0x${publisherPrivKey!.toString('hex')}` as const;
+      config.publisherPrivateKeys = [new SecretValue(publisherPrivKeyHex)];
     }
 
     config.coinbase = EthAddress.fromString(publisherHdAccount.address);
@@ -484,16 +487,16 @@ export async function setup(
 
     // Deploy L1 contracts using either forge or TypeScript deployment
     let deployL1ContractsValues: DeployL1ContractsReturnType;
+
     if (opts.deployL1ContractsValues) {
       deployL1ContractsValues = opts.deployL1ContractsValues;
     } else if (opts.useForgeDeployment) {
-      // Get private key for forge deployment
-      const privateKeyHex = config.publisherPrivateKeys![0].getValue();
       logger.info('Using forge script for L1 contract deployment', {
         realVerifier: opts.realProofs ?? false,
         fundRewardDistributor: opts.fundRewardDistributor ?? true,
+        deployerAddress: publisherHdAccount!.address,
       });
-      deployL1ContractsValues = await setupL1ContractsWithForge(config.l1RpcUrls[0], privateKeyHex, logger, {
+      deployL1ContractsValues = await setupL1ContractsWithForge(config.l1RpcUrls[0], publisherPrivKeyHex!, logger, {
         genesisArchiveRoot: genesisArchiveRoot.toString() as `0x${string}`,
         realVerifier: opts.realProofs,
         fundRewardDistributor: opts.fundRewardDistributor,
@@ -516,6 +519,7 @@ export async function setup(
         logger.info(`Fee juice portal funded`);
       }
     } else {
+      logger.info('Using TypeScript deployment for L1 contracts');
       deployL1ContractsValues = await setupL1Contracts(
         config.l1RpcUrls,
         publisherHdAccount!,

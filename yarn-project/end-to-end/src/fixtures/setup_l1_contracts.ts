@@ -5,6 +5,7 @@ import {
   type L1ContractsConfig,
   L1Deployer,
   type Operator,
+  RollupContract,
   type ZKPassportArgs,
   addMultipleValidators,
   deployL1Contracts,
@@ -15,6 +16,14 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 
 import type { HDAccount, Hex, PrivateKeyAccount } from 'viem';
 import { foundry } from 'viem/chains';
+
+/**
+ * Helper to emit structured JSON logs for deployment tracking.
+ * Matches the logging format used in TypeScript deployment for comparison.
+ */
+function logJson(logger: Logger, data: Record<string, unknown>) {
+  logger.info(JSON.stringify({ ...data, timestamp: new Date().toISOString() }));
+}
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
@@ -57,6 +66,10 @@ export interface SetupL1ContractsWithForgeOptions {
  * Setup L1 contracts using forge deployment scripts.
  * This is an alternative to the TypeScript-based deployment that uses forge scripts
  * which are more production-like and match the ignition-monorepo deployment pattern.
+ *
+ * Note: Unlike setupL1Contracts which accepts an account object, this function requires
+ * a private key directly because the underlying forge script needs it and viem's
+ * PrivateKeyAccount doesn't expose the private key after creation (security feature).
  *
  * @param l1RpcUrl - The RPC URL to connect to
  * @param privateKey - The private key for the deployer (with 0x prefix)
@@ -105,6 +118,22 @@ export const setupL1ContractsWithForge = async (
     stakingAssetHandler: Object.keys(stakingAssetHandler).length > 0 ? stakingAssetHandler : undefined,
   });
 
+  // Create a Rollup contract instance for querying state
+  const rollup = new RollupContract(l1Data.l1Client, l1Data.l1ContractAddresses.rollupAddress.toString());
+
+  // Log genesis time and current L1 state after forge deployment
+  const [genesisTime, postForgeBlock] = await Promise.all([rollup.getL1GenesisTime(), l1Data.l1Client.getBlock()]);
+
+  logJson(logger, {
+    type: 'forge_deployment_complete',
+    rollupAddress: l1Data.l1ContractAddresses.rollupAddress.toString(),
+    registryAddress: l1Data.l1ContractAddresses.registryAddress.toString(),
+    rollupVersion: l1Data.rollupVersion,
+    genesisTime: genesisTime.toString(),
+    l1BlockNumber: postForgeBlock.number.toString(),
+    l1BlockTimestamp: postForgeBlock.timestamp.toString(),
+  });
+
   logger.info('L1 contracts deployed via forge', {
     rollupAddress: l1Data.l1ContractAddresses.rollupAddress.toString(),
     registryAddress: l1Data.l1ContractAddresses.registryAddress.toString(),
@@ -120,6 +149,23 @@ export const setupL1ContractsWithForge = async (
       throw new Error('GSE and staking asset addresses are required for adding validators');
     }
 
+    // Log state before adding validators
+    const [queueLengthBefore, activeAttestorsBefore, preValidatorBlock] = await Promise.all([
+      rollup.getEntryQueueLength(),
+      rollup.getActiveAttesterCount(),
+      l1Data.l1Client.getBlock(),
+    ]);
+
+    logJson(logger, {
+      type: 'add_validators_start',
+      rollupAddress: l1Data.l1ContractAddresses.rollupAddress.toString(),
+      validatorCount: options.initialValidators.length,
+      queueLengthBefore: queueLengthBefore.toString(),
+      activeAttestorsBefore: activeAttestorsBefore.toString(),
+      l1BlockNumber: preValidatorBlock.number.toString(),
+      l1BlockTimestamp: preValidatorBlock.timestamp.toString(),
+    });
+
     logger.info(`Adding ${options.initialValidators.length} initial validators after forge deployment`);
 
     const deployer = new L1Deployer(l1Data.l1Client, undefined, undefined, true, logger);
@@ -134,6 +180,29 @@ export const setupL1ContractsWithForge = async (
       true, // acceleratedTestDeployments
       logger,
     );
+
+    // Log state after adding validators
+    const [queueLengthAfter, activeAttestorsAfter, postValidatorBlock] = await Promise.all([
+      rollup.getEntryQueueLength(),
+      rollup.getActiveAttesterCount(),
+      l1Data.l1Client.getBlock(),
+    ]);
+
+    logJson(logger, {
+      type: 'add_validators_complete',
+      rollupAddress: l1Data.l1ContractAddresses.rollupAddress.toString(),
+      validatorsAdded: options.initialValidators.length,
+      queueLengthBefore: queueLengthBefore.toString(),
+      queueLengthAfter: queueLengthAfter.toString(),
+      activeAttestorsBefore: activeAttestorsBefore.toString(),
+      activeAttestorsAfter: activeAttestorsAfter.toString(),
+      l1BlockNumber: postValidatorBlock.number.toString(),
+      l1BlockTimestamp: postValidatorBlock.timestamp.toString(),
+      l1BlocksAdvanced: (postValidatorBlock.number - preValidatorBlock.number).toString(),
+      l1TimeAdvanced: (postValidatorBlock.timestamp - preValidatorBlock.timestamp).toString(),
+      genesisTime: genesisTime.toString(),
+      timeSinceGenesis: (postValidatorBlock.timestamp - genesisTime).toString(),
+    });
 
     logger.info('Initial validators added successfully');
   }
