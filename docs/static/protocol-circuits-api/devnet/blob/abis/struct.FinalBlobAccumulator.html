@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Struct FinalBlobAccumulator documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">blob</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct FinalBlobAccumulator</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#blob_commitments_hash">blob_commitments_hash</a></li>
+<li><a href="#c">c</a></li>
+<li><a href="#y">y</a></li>
+<li><a href="#z">z</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Eq-for-FinalBlobAccumulator">Eq</a></li>
+</ul>
+<h2>In module abis</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.BatchingBlobCommitment.html">BatchingBlobCommitment</a></div></li>
+<li><a href="struct.BlobAccumulator.html">BlobAccumulator</a></div></li>
+<li><a href="struct.FinalBlobAccumulator.html">FinalBlobAccumulator</a></div></li>
+<li><a href="struct.FinalBlobBatchingChallenges.html">FinalBlobBatchingChallenges</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.BLSPoint.html">BLSPoint</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">blob</a>::<a href="index.html">abis</a></div>
+<h1>Struct <span id="struct" class="struct">FinalBlobAccumulator</span></h1>
+<pre><code>pub struct FinalBlobAccumulator {
+    pub blob_commitments_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub z: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub y: <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a>,
+    pub c: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 2],
+}
+</code></pre>
+<div class="comments">
+<p>Final values of a batched blob. Output in the root rollup circuit and validated on L1.</p>
+<ul>
+<li>blob_commitments_hash = sha256( ...sha256(sha256(C_0), C_1) ... C_n)</li>
+<li>z = poseidon2( ...poseidon2(poseidon2(z_0, z_1), z_2) ... z_n)</li>
+<li>y = y_0 + gamma * y_1 + gamma^2 * y_2 + ... + gamma^n * y_n</li>
+<li>c = C_0 + gamma * C_1 + gamma^2 * C_2 + ... + gamma^n * C_n</li>
+</ul>
+<p>Gamma has served its purpose in the 'random' linear combination and is not required as a public input.</p>
+</div>
+<h2>Fields</h2>
+<div id="blob_commitments_hash" class="struct-field"><code class="code-header">blob_commitments_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="z" class="struct-field"><code class="code-header">z: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="y" class="struct-field"><code class="code-header">y: <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a></code></div>
+<div class="padded-description"></div><div id="c" class="struct-field"><code class="code-header">c: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 2]</code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Eq-for-FinalBlobAccumulator"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../blob/abis/struct.FinalBlobAccumulator.html" class="struct">FinalBlobAccumulator</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(self, other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div></main>
+</body>
+</html>

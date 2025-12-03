@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Module mnt4_753Fr documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">bignum</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#mod">Module mnt4_753Fr</a></h2>
+<h3>Module items</h3>
+<ul class="sidebar-list">
+<li><a href="#structs">Structs</a></li>
+<li><a href="#globals">Globals</a></li>
+</ul>
+<h2>In module fields</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="../bls12_377Fq/index.html">bls12_377Fq</a></div></li>
+<li><a href="../bls12_377Fr/index.html">bls12_377Fr</a></div></li>
+<li><a href="../bls12_381Fq/index.html">bls12_381Fq</a></div></li>
+<li><a href="../bls12_381Fr/index.html">bls12_381Fr</a></div></li>
+<li><a href="../bn254Fq/index.html">bn254Fq</a></div></li>
+<li><a href="../ed25519Fq/index.html">ed25519Fq</a></div></li>
+<li><a href="../ed25519Fr/index.html">ed25519Fr</a></div></li>
+<li><a href="../mnt4_753Fq/index.html">mnt4_753Fq</a></div></li>
+<li><a href="../mnt4_753Fr/index.html">mnt4_753Fr</a></div></li>
+<li><a href="../mnt6_753Fq/index.html">mnt6_753Fq</a></div></li>
+<li><a href="../mnt6_753Fr/index.html">mnt6_753Fr</a></div></li>
+<li><a href="../pallasFq/index.html">pallasFq</a></div></li>
+<li><a href="../pallasFr/index.html">pallasFr</a></div></li>
+<li><a href="../secp256k1Fq/index.html">secp256k1Fq</a></div></li>
+<li><a href="../secp256k1Fr/index.html">secp256k1Fr</a></div></li>
+<li><a href="../secp256r1Fq/index.html">secp256r1Fq</a></div></li>
+<li><a href="../secp256r1Fr/index.html">secp256r1Fr</a></div></li>
+<li><a href="../secp384r1Fq/index.html">secp384r1Fq</a></div></li>
+<li><a href="../secp384r1Fr/index.html">secp384r1Fr</a></div></li>
+<li><a href="../U1024/index.html">U1024</a></div></li>
+<li><a href="../U2048/index.html">U2048</a></div></li>
+<li><a href="../U256/index.html">U256</a></div></li>
+<li><a href="../U384/index.html">U384</a></div></li>
+<li><a href="../U4096/index.html">U4096</a></div></li>
+<li><a href="../U512/index.html">U512</a></div></li>
+<li><a href="../U768/index.html">U768</a></div></li>
+<li><a href="../U8192/index.html">U8192</a></div></li>
+<li><a href="../vestaFq/index.html">vestaFq</a></div></li>
+<li><a href="../vestaFr/index.html">vestaFr</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">noir-protocol-circuits</a> - <a href="../../index.html">bignum</a>::<a href="../index.html">fields</a>::mnt4_753Fr</div>
+<h1>Module <span id="mod" class="module">mnt4_753Fr</span></h1>
+<div class="comments">
+<p>Blurb sourced from https://github.com/arkworks-rs
+This library implements the scalar field of the MNT4_753 curve generated in
+<a href="https://eprint.iacr.org/2014/595">[BCTV14]</a>. The name denotes that it is a
+Miyaji--Nakabayashi--Takano curve of embedding degree 4, defined over a
+753-bit (prime) field. The main feature of this curve is that its scalar
+field and base field respectively equal the base field and scalar field of
+MNT6_753.</p>
+<p>Curve information:</p>
+<ul>
+<li>Base field: q = 0x01C4C62D92C41110229022EEE2CDADB7F997505B8FAFED5EB7E8F96C97D87307FDB925E8A0ED8D99D124D9A15AF79DB117E776F218059DB80F0DA5CB537E38685ACCE9767254A4638810719AC425F0E39D54522CDD119F5E9063DE245E8001</li>
+<li>Scalar field: r = 0x01C4C62D92C41110229022EEE2CDADB7F997505B8FAFED5EB7E8F96C97D87307FDB925E8A0ED8D99D124D9A15AF79DB26C5C28C859A99B3EEBCA9429212636B9DFF97634993AA4D6C381BC3F0057974EA099170FA13A4FD90776E240000001</li>
+<li>valuation(q - 1, 2) = 15</li>
+<li>valuation(r - 1, 2) = 30</li>
+<li>G1 curve equation: y^2 = x^3 + ax + b, where
+<ul>
+<li>a = 2</li>
+<li>b = 0x01373684A8C9DCAE7A016AC5D7748D3313CD8E39051C596560835DF0C9E50A5B59B882A92C78DC537E51A16703EC9855C77FC3D8BB21C8D68BB8CFB9DB4B8C8FBA773111C36C8B1B4E8F1ECE940EF9EAAD265458E06372009C9A0491678EF4</li>
+</ul>
+</li>
+<li>G2 curve equation: y^2 = x^3 + Ax + B, where
+<ul>
+<li>A = Fq2 = (a * NON_RESIDUE, 0)</li>
+<li>B = Fq2(0, b * NON_RESIDUE)</li>
+<li>NON_RESIDUE = 13 is the quadratic non-residue used to conpub struct  the
+extension field Fq2</li>
+</ul>
+</li>
+</ul>
+</div>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.MNT4_753_Fr.html" class="struct">MNT4_753_Fr</a></div><div class="item-description"></div></li>
+</ul>
+<h2 id="globals">Globals</h2><ul class="item-list">
+<li><div class="item-name"><a href="global.MNT4_753_Fr_PARAMS.html" class="global">MNT4_753_Fr_PARAMS</a></div><div class="item-description"></div></li>
+</ul>
+</main>
+</body>
+</html>

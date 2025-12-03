@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<title>Struct PrivateKernelResetCircuitPrivateInputs documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../all.html">All items</a></div>
+<h2 id="crate-name"><a href="index.html">private_kernel_lib</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PrivateKernelResetCircuitPrivateInputs</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#execute">execute</a></li>
+<li><a href="#new">new</a></li>
+</ul>
+<h2>In crate private_kernel_lib</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PaddedSideEffectAmounts.html">PaddedSideEffectAmounts</a></div></li>
+<li><a href="struct.PaddedSideEffects.html">PaddedSideEffects</a></div></li>
+<li><a href="struct.PrivateKernelInitCircuitPrivateInputs.html">PrivateKernelInitCircuitPrivateInputs</a></div></li>
+<li><a href="struct.PrivateKernelInnerCircuitPrivateInputs.html">PrivateKernelInnerCircuitPrivateInputs</a></div></li>
+<li><a href="struct.PrivateKernelResetCircuitPrivateInputs.html">PrivateKernelResetCircuitPrivateInputs</a></div></li>
+<li><a href="struct.PrivateKernelResetHints.html">PrivateKernelResetHints</a></div></li>
+<li><a href="struct.PrivateKernelTailCircuitPrivateInputs.html">PrivateKernelTailCircuitPrivateInputs</a></div></li>
+<li><a href="struct.PrivateKernelTailToPublicCircuitPrivateInputs.html">PrivateKernelTailToPublicCircuitPrivateInputs</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../index.html">noir-protocol-circuits</a> - <a href="index.html">private_kernel_lib</a></div>
+<h1>Struct <span id="struct" class="struct">PrivateKernelResetCircuitPrivateInputs</span></h1>
+<pre><code>pub struct PrivateKernelResetCircuitPrivateInputs&lt;let NoteHashPendingReadHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NoteHashSettledReadHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NullifierPendingReadHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NullifierSettledReadHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let KeyValidationHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let TransientDataSquashingHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;let KeyValidationHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NoteHashPendingReadHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NoteHashSettledReadHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NullifierPendingReadHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NullifierSettledReadHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let TransientDataSquashingHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../private_kernel_lib/struct.PrivateKernelResetCircuitPrivateInputs.html" class="struct">PrivateKernelResetCircuitPrivateInputs</a>&lt;NoteHashPendingReadHintsLen, NoteHashSettledReadHintsLen, NullifierPendingReadHintsLen, NullifierSettledReadHintsLen, KeyValidationHintsLen, TransientDataSquashingHintsLen&gt;</code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(
+    previous_kernel: <a href="../types/abis/private_kernel_data/struct.PrivateKernelDataWithoutPublicInputs.html" class="struct">PrivateKernelDataWithoutPublicInputs</a>,
+    previous_kernel_public_inputs: <a href="../types/abis/kernel_circuit_public_inputs/private_kernel_circuit_public_inputs/struct.PrivateKernelCircuitPublicInputs.html" class="struct">PrivateKernelCircuitPublicInputs</a>,
+    padded_side_effects: <a href="../private_kernel_lib/struct.PaddedSideEffects.html" class="struct">PaddedSideEffects</a>,
+    hints: <a href="../private_kernel_lib/struct.PrivateKernelResetHints.html" class="struct">PrivateKernelResetHints</a>&lt;NoteHashPendingReadHintsLen, NoteHashSettledReadHintsLen, NullifierPendingReadHintsLen, NullifierSettledReadHintsLen, KeyValidationHintsLen, TransientDataSquashingHintsLen&gt;,
+) -> Self</code>
+
+<code id="execute" class="code-header">pub fn <span class="fn">execute</span>&lt;let NoteHashPendingReadAmount: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NoteHashSettledReadAmount: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NullifierPendingReadAmount: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NullifierSettledReadAmount: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let KeyValidationAmount: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let TransientDataSquashingAmount: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NoteHashSiloingAmount: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NullifierSiloingAmount: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let PrivateLogSiloingAmount: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    self,
+) -> <a href="../types/abis/kernel_circuit_public_inputs/private_kernel_circuit_public_inputs/struct.PrivateKernelCircuitPublicInputs.html" class="struct">PrivateKernelCircuitPublicInputs</a></code>
+
+</div></main>
+</body>
+</html>

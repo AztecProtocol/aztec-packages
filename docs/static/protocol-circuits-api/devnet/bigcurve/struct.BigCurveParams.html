@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<title>Struct BigCurveParams documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../all.html">All items</a></div>
+<h2 id="crate-name"><a href="index.html">bigcurve</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct BigCurveParams</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#a">a</a></li>
+<li><a href="#b">b</a></li>
+<li><a href="#offset_generator">offset_generator</a></li>
+<li><a href="#offset_generator_final">offset_generator_final</a></li>
+<li><a href="#one">one</a></li>
+</ul>
+<h2>In module bigcurve</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="curves/index.html">curves</a></div></li>
+<li><a href="scalar_field/index.html">scalar_field</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.BigCurveParams.html">BigCurveParams</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.BigCurve.html">BigCurve</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.derive_curve_impl.html">derive_curve_impl</a></div></li>
+<li><a href="fn.msm.html">msm</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../index.html">noir-protocol-circuits</a> - <a href="index.html">bigcurve</a></div>
+<h1>Struct <span id="struct" class="struct">BigCurveParams</span></h1>
+<pre><code>pub struct BigCurveParams&lt;B&gt; {
+    pub a: B,
+    pub b: B,
+    pub offset_generator: [B; 2],
+    pub offset_generator_final: [B; 2],
+    pub one: [B; 2],
+}
+</code></pre>
+<div class="comments">
+<p>Implements an elliptic curve over a prime field that is not the circuit's native field.</p>
+</div>
+<h2>Fields</h2>
+<div id="a" class="struct-field"><code class="code-header">a: B</code></div>
+<div class="padded-description"></div><div id="b" class="struct-field"><code class="code-header">b: B</code></div>
+<div class="padded-description"></div><div id="offset_generator" class="struct-field"><code class="code-header">offset_generator: [B; 2]</code></div>
+<div class="padded-description"></div><div id="offset_generator_final" class="struct-field"><code class="code-header">offset_generator_final: [B; 2]</code></div>
+<div class="padded-description"></div><div id="one" class="struct-field"><code class="code-header">one: [B; 2]</code></div>
+<div class="padded-description"></div></main>
+</body>
+</html>

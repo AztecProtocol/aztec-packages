@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Struct Secp256k1_Fq documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">bignum</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct Secp256k1_Fq</a></h2>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Add-for-Secp256k1_Fq">Add</a></li>
+<li><a href="#impl-BigNum-for-Secp256k1_Fq">BigNum</a></li>
+<li><a href="#impl-Default-for-Secp256k1_Fq">Default</a></li>
+<li><a href="#impl-Div-for-Secp256k1_Fq">Div</a></li>
+<li><a href="#impl-Eq-for-Secp256k1_Fq">Eq</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-Secp256k1_Fq">From&lt;Field&gt;</a></li>
+<li><a href="#impl-Mul-for-Secp256k1_Fq">Mul</a></li>
+<li><a href="#impl-Neg-for-Secp256k1_Fq">Neg</a></li>
+<li><a href="#impl-Ord-for-Secp256k1_Fq">Ord</a></li>
+<li><a href="#impl-Sub-for-Secp256k1_Fq">Sub</a></li>
+</ul>
+<h2>In module secp256k1Fq</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.Secp256k1_Fq.html">Secp256k1_Fq</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.Secp256k1_Fq_PARAMS.html">Secp256k1_Fq_PARAMS</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">noir-protocol-circuits</a> - <a href="../../index.html">bignum</a>::<a href="../index.html">fields</a>::<a href="index.html">secp256k1Fq</a></div>
+<h1>Struct <span id="struct" class="struct">Secp256k1_Fq</span></h1>
+<pre><code>pub struct Secp256k1_Fq
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<h2>Trait implementations</h2>
+<h3 id="impl-Add-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../../std/ops/trait.Add.html" class="trait">Add</a> for <a href="../../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">add</span>(self, other: Self) -> Self</code>
+
+</div><h3 id="impl-BigNum-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">params</span>() -> <a href="../../../bignum/params/struct.BigNumParams.html" class="struct">BigNumParams</a>&lt;3, 256&gt;</code>
+
+<code class="code-header">pub fn <span class="fn">modulus_bits</span>(_: Self) -> <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+<code class="code-header">pub fn <span class="fn">num_limbs</span>(_: Self) -> <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+<code class="code-header">pub fn <span class="fn">modulus</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">new</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">zero</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">one</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">from_limbs</span>(limbs: [<a href="../../../std/primitive.u128.html" class="primitive">u128</a>; 3]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">get_limbs</span>(self) -> [<a href="../../../std/primitive.u128.html" class="primitive">u128</a>; 3]</code>
+
+<code class="code-header">pub fn <span class="fn">set_limb</span>(&mut self, idx: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, value: <a href="../../../std/primitive.u128.html" class="primitive">u128</a>)</code>
+
+<code class="code-header">pub fn <span class="fn">derive_from_seed</span>&lt;let SeedBytes: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(seed: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; SeedBytes]) -> Self</code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">__derive_from_seed</span>&lt;let SeedBytes: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    seed: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; SeedBytes],
+) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">from_be_bytes</span>(x: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; 32]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">to_be_bytes</span>(self) -> [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; 32]</code>
+
+<code class="code-header">pub fn <span class="fn">from_le_bytes</span>(x: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; 32]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">to_le_bytes</span>(self) -> [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; 32]</code>
+
+<code class="code-header">pub fn <span class="fn">get_limb</span>(self, idx: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">__eq</span>(self, other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">__is_zero</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">__neg</span>(self) -> Self</code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">__add</span>(self, other: Self) -> Self</code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">__sub</span>(self, other: Self) -> Self</code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">__mul</span>(self, other: Self) -> Self</code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">__div</span>(self, divisor: Self) -> Self</code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">__udiv_mod</span>(self, divisor: Self) -> (Self, Self)</code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">__invmod</span>(self) -> Self</code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">__pow</span>(self, exponent: Self) -> Self</code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">__tonelli_shanks_sqrt</span>(self) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;Self&gt;</code>
+
+<code class="code-header">pub fn <span class="fn">assert_is_not_equal</span>(self, other: Self)</code>
+
+<code class="code-header">pub fn <span class="fn">validate_in_range</span>(self)</code>
+
+<code class="code-header">pub fn <span class="fn">validate_in_field</span>(self)</code>
+
+<code class="code-header">pub fn <span class="fn">udiv_mod</span>(self, divisor: Self) -> (Self, Self)</code>
+
+<code class="code-header">pub fn <span class="fn">udiv</span>(self, divisor: Self) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">umod</span>(self, divisor: Self) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_zero</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Default-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../../std/default/trait.Default.html" class="trait">Default</a> for <a href="../../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">default</span>() -> Self</code>
+
+</div><h3 id="impl-Div-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../../std/ops/trait.Div.html" class="trait">Div</a> for <a href="../../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">div</span>(self, other: Self) -> Self</code>
+
+</div><h3 id="impl-Eq-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(self, other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-From&lt;Field&gt;-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">from</span>(input: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+</div><h3 id="impl-Mul-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../../std/ops/trait.Mul.html" class="trait">Mul</a> for <a href="../../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">mul</span>(self, other: Self) -> Self</code>
+
+</div><h3 id="impl-Neg-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">neg</span>(self) -> Self</code>
+
+</div><h3 id="impl-Ord-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">cmp</span>(self, other: Self) -> <a href="../../../std/cmp/struct.Ordering.html" class="struct">Ordering</a></code>
+
+</div><h3 id="impl-Sub-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../../std/ops/trait.Sub.html" class="trait">Sub</a> for <a href="../../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">sub</span>(self, other: Self) -> Self</code>
+
+</div></main>
+</body>
+</html>

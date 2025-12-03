@@ -179,6 +179,12 @@ jobs:
           ./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh ${{ steps.version.outputs.semver }}
           echo "Generated Aztec.nr API docs for: ${{ steps.version.outputs.semver }}"
 
+      - name: Generate Protocol Circuits API documentation
+        working-directory: ./docs
+        run: |
+          ./scripts/protocol_circuits_docs_generation/generate_protocol_circuits_docs.sh ${{ steps.version.outputs.semver }}
+          echo "Generated Protocol Circuits API docs for: ${{ steps.version.outputs.semver }}"
+
       - name: Cut Aztec Docs version
         working-directory: ./docs
         run: |

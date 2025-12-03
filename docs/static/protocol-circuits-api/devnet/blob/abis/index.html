@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Module abis documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">blob</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#mod">Module abis</a></h2>
+<h3>Module items</h3>
+<ul class="sidebar-list">
+<li><a href="#structs">Structs</a></li>
+<li><a href="#type-aliases">Type aliases</a></li>
+</ul>
+<h2>In crate abis</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="../abis/index.html">abis</a></div></li>
+<li><a href="../blob_batching/index.html">blob_batching</a></div></li>
+<li><a href="../mock_blob_oracle/index.html">mock_blob_oracle</a></div></li>
+<li><a href="../utils/index.html">utils</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">blob</a>::abis</div>
+<h1>Module <span id="mod" class="module">abis</span></h1>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.BatchingBlobCommitment.html" class="struct">BatchingBlobCommitment</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="struct.BlobAccumulator.html" class="struct">BlobAccumulator</a></div><div class="item-description">Contains all fields required to construct a batched KZG proof of ALL blobs in the epoch.
+Instead of calling the point evaluation precompile on L1 for each blob, we create a multi-opening proof
+with the scheme below, and call it just once:
+point_evaluation_precompile(b, z, y, C, BLS12_381_Fq)
+Where b (= kzg_to_versioned_hash(C)) and BLS12_381_Fq (= KZG proof) are computed outside the circuit. The other params are
+calculated here across the rollup circuits (until root, when .finalize() is called).
+Other notes:</p>
+<ul>
+<li>We use blob_commitments_hash to validate the commitments injected here correspond to blobs published on L1.</li>
+<li>We use gamma as the challenge for multi opening, so it can be discarded once the rollup is complete.</li>
+<li>We already know that the elements in each blob correspond to validated data from the kernels from the use of
+the blob_sponge and validating blob_sponge.squeeze() vs H(input_elements).</li>
+<li>We encompass all the blob elements in challenges (z_i) unique to each blob by using the above H(input_elements)
+and the blob's commitment (c_i).</li>
+</ul></div></li>
+<li><div class="item-name"><a href="struct.FinalBlobAccumulator.html" class="struct">FinalBlobAccumulator</a></div><div class="item-description">Final values of a batched blob. Output in the root rollup circuit and validated on L1.</div></li>
+<li><div class="item-name"><a href="struct.FinalBlobBatchingChallenges.html" class="struct">FinalBlobBatchingChallenges</a></div><div class="item-description">Final values z and gamma are injected into each block root circuit. We ensure they are correct by:</p>
+<ul>
+<li>Checking equality in each block merge circuit and propagating up</li>
+<li>Checking final z_acc == z in root circuit</li>
+<li>Checking final gamma_acc == gamma in root circuit</li>
+</ul></div></li>
+</ul>
+<h2 id="type-aliases">Type aliases</h2><ul class="item-list">
+<li><div class="item-name"><a href="type.BLSPoint.html" class="type">BLSPoint</a></div><div class="item-description"></div></li>
+</ul>
+</main>
+</body>
+</html>

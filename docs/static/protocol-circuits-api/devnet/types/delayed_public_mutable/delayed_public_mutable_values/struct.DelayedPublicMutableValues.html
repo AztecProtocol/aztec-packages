@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Struct DelayedPublicMutableValues documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct DelayedPublicMutableValues</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#sdc">sdc</a></li>
+<li><a href="#svc">svc</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#new">new</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Eq-for-DelayedPublicMutableValues<T, INITIAL_DELAY>">Eq</a></li>
+<li><a href="#impl-Hash-for-DelayedPublicMutableValues<T, INITIAL_DELAY>">Hash</a></li>
+<li><a href="#impl-Packable-for-DelayedPublicMutableValues<T, INITIAL_DELAY>">Packable</a></li>
+</ul>
+<h2>In module delayed_public_mutable_values</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.DelayedPublicMutableValues.html">DelayedPublicMutableValues</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.unpack_delay_change.html">unpack_delay_change</a></div></li>
+<li><a href="fn.unpack_value_change.html">unpack_value_change</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">noir-protocol-circuits</a> - <a href="../../index.html">types</a>::<a href="../index.html">delayed_public_mutable</a>::<a href="index.html">delayed_public_mutable_values</a></div>
+<h1>Struct <span id="struct" class="struct">DelayedPublicMutableValues</span></h1>
+<pre><code>pub struct DelayedPublicMutableValues&lt;T, let INITIAL_DELAY: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>&gt; {
+    pub svc: <a href="../../../types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;T&gt;,
+    pub sdc: <a href="../../../types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;INITIAL_DELAY&gt;,
+}
+</code></pre>
+<div class="comments">
+<p>DelayedPublicMutableValues is just a wrapper around ScheduledValueChange and ScheduledDelayChange that then allows us
+to wrap both of these values in WithHash. WithHash allows for efficient read of values in private.</p>
+<p>Note that the WithHash optimization does not work in public (due to there being no unconstrained). But we also want
+to be able to read the values efficiently in public and we want to be able to read each value separately. Reading
+the values separately is tricky because ScheduledValueChange and ScheduledDelayChange are packed together (sdc and
+svc.timestamp_of_change are stored in the same slot). For that reason we expose <code>unpack_value_change</code> and
+<code>unpack_delay_change</code> functions that can be used to extract the values from the packed representation. This
+is &quot;hacky&quot; but there is no way around it.</p>
+</div>
+<h2>Fields</h2>
+<div id="svc" class="struct-field"><code class="code-header">svc: <a href="../../../types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;T&gt;</code></div>
+<div class="padded-description"></div><div id="sdc" class="struct-field"><code class="code-header">sdc: <a href="../../../types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;INITIAL_DELAY&gt;</code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;let INITIAL_DELAY: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../../types/delayed_public_mutable/delayed_public_mutable_values/struct.DelayedPublicMutableValues.html" class="struct">DelayedPublicMutableValues</a>&lt;T, INITIAL_DELAY&gt;</code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(
+    svc: <a href="../../../types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;T&gt;,
+    sdc: <a href="../../../types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;INITIAL_DELAY&gt;,
+) -> Self</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Eq-for-DelayedPublicMutableValues<T, INITIAL_DELAY>"><code class="code-header">impl&lt;let INITIAL_DELAY: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../types/delayed_public_mutable/delayed_public_mutable_values/struct.DelayedPublicMutableValues.html" class="struct">DelayedPublicMutableValues</a>&lt;T, INITIAL_DELAY&gt;
+<div class="where-clause">where
+    T: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Hash-for-DelayedPublicMutableValues<T, INITIAL_DELAY>"><code class="code-header">impl&lt;let INITIAL_DELAY: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../../types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../../types/delayed_public_mutable/delayed_public_mutable_values/struct.DelayedPublicMutableValues.html" class="struct">DelayedPublicMutableValues</a>&lt;T, INITIAL_DELAY&gt;
+<div class="where-clause">where
+    T: <a href="../../../types/traits/trait.Packable.html" class="trait">Packable</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">hash</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h3 id="impl-Packable-for-DelayedPublicMutableValues<T, INITIAL_DELAY>"><code class="code-header">impl&lt;let INITIAL_DELAY: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../../types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../../types/delayed_public_mutable/delayed_public_mutable_values/struct.DelayedPublicMutableValues.html" class="struct">DelayedPublicMutableValues</a>&lt;T, INITIAL_DELAY&gt;
+<div class="where-clause">where
+    T: <a href="../../../types/traits/trait.Packable.html" class="trait">Packable</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;T as Packable&gt;::N * 2 + 1]</code>
+
+<code class="code-header">pub fn <span class="fn">unpack</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;T as Packable&gt;::N * 2 + 1]) -> Self</code>
+
+</div></main>
+</body>
+</html>

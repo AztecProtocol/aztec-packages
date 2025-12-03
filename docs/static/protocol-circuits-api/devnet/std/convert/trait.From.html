@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Trait From documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">std</a></h2>
+<div id="crate-version">1.0.0-beta.14</div>
+<h2><a href="#trait">Trait From</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#from">from</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-From&lt;Field&gt;-for-BLS12_377_Fq">BLS12_377_Fq</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-BLS12_377_Fr">BLS12_377_Fr</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-BLS12_381_Fq">BLS12_381_Fq</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-BLS12_381_Fr">BLS12_381_Fr</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-BN254_Fq">BN254_Fq</a></li>
+<li><a href="#impl-From&lt;[T; Len]&gt;-for-BoundedVec<T, MaxLen>">BoundedVec<T, MaxLen></a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-ED25519_Fq">ED25519_Fq</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-ED25519_Fr">ED25519_Fr</a></li>
+<li><a href="#impl-From&lt;bool&gt;-for-Field">Field</a></li>
+<li><a href="#impl-From&lt;u128&gt;-for-Field">Field</a></li>
+<li><a href="#impl-From&lt;u16&gt;-for-Field">Field</a></li>
+<li><a href="#impl-From&lt;u32&gt;-for-Field">Field</a></li>
+<li><a href="#impl-From&lt;u64&gt;-for-Field">Field</a></li>
+<li><a href="#impl-From&lt;u8&gt;-for-Field">Field</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-MNT4_753_Fq">MNT4_753_Fq</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-MNT4_753_Fr">MNT4_753_Fr</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-MNT6_753_Fq">MNT6_753_Fq</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-MNT6_753_Fr">MNT6_753_Fr</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-Pallas_Fq">Pallas_Fq</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-Pallas_Fr">Pallas_Fr</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-ScalarField<N>">ScalarField<N></a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-Secp256k1_Fq">Secp256k1_Fq</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-Secp256k1_Fr">Secp256k1_Fr</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-Secp256r1_Fq">Secp256r1_Fq</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-Secp256r1_Fr">Secp256r1_Fr</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-Secp384r1_Fq">Secp384r1_Fq</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-Secp384r1_Fr">Secp384r1_Fr</a></li>
+<li><a href="#impl-From&lt;T&gt;-for-T">T</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-U1024">U1024</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-U2048">U2048</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-U256">U256</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-U384">U384</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-U4096">U4096</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-U512">U512</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-U768">U768</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-U8192">U8192</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-Vesta_Fq">Vesta_Fq</a></li>
+<li><a href="#impl-From&lt;Field&gt;-for-Vesta_Fr">Vesta_Fr</a></li>
+<li><a href="#impl-From&lt;str&lt;N&gt;&gt;-for-[u8; N]">[u8; N]</a></li>
+<li><a href="#impl-From&lt;bool&gt;-for-i16">i16</a></li>
+<li><a href="#impl-From&lt;i8&gt;-for-i16">i16</a></li>
+<li><a href="#impl-From&lt;bool&gt;-for-i32">i32</a></li>
+<li><a href="#impl-From&lt;i16&gt;-for-i32">i32</a></li>
+<li><a href="#impl-From&lt;i8&gt;-for-i32">i32</a></li>
+<li><a href="#impl-From&lt;bool&gt;-for-i64">i64</a></li>
+<li><a href="#impl-From&lt;i16&gt;-for-i64">i64</a></li>
+<li><a href="#impl-From&lt;i32&gt;-for-i64">i64</a></li>
+<li><a href="#impl-From&lt;i8&gt;-for-i64">i64</a></li>
+<li><a href="#impl-From&lt;bool&gt;-for-i8">i8</a></li>
+<li><a href="#impl-From&lt;[u8; N]&gt;-for-str&lt;N&gt;">str&lt;N&gt;</a></li>
+<li><a href="#impl-From&lt;bool&gt;-for-u128">u128</a></li>
+<li><a href="#impl-From&lt;u16&gt;-for-u128">u128</a></li>
+<li><a href="#impl-From&lt;u32&gt;-for-u128">u128</a></li>
+<li><a href="#impl-From&lt;u64&gt;-for-u128">u128</a></li>
+<li><a href="#impl-From&lt;u8&gt;-for-u128">u128</a></li>
+<li><a href="#impl-From&lt;bool&gt;-for-u16">u16</a></li>
+<li><a href="#impl-From&lt;u8&gt;-for-u16">u16</a></li>
+<li><a href="#impl-From&lt;bool&gt;-for-u32">u32</a></li>
+<li><a href="#impl-From&lt;u16&gt;-for-u32">u32</a></li>
+<li><a href="#impl-From&lt;u8&gt;-for-u32">u32</a></li>
+<li><a href="#impl-From&lt;bool&gt;-for-u64">u64</a></li>
+<li><a href="#impl-From&lt;u16&gt;-for-u64">u64</a></li>
+<li><a href="#impl-From&lt;u32&gt;-for-u64">u64</a></li>
+<li><a href="#impl-From&lt;u8&gt;-for-u64">u64</a></li>
+<li><a href="#impl-From&lt;bool&gt;-for-u8">u8</a></li>
+</ul>
+<h2>In module convert</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.AsPrimitive.html">AsPrimitive</a></div></li>
+<li><a href="trait.From.html">From</a></div></li>
+<li><a href="trait.Into.html">Into</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">std</a>::<a href="index.html">convert</a></div>
+<h1>Trait <span id="trait" class="trait">From</span></h1>
+<pre><code>pub trait From&lt;T&gt; {
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#from"><span class="fn">from</span></a>(input: T) -> Self;
+}</code></pre>
+
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="from" class="code-header">pub fn <span class="fn">from</span>(input: T) -> Self</code>
+
+</div><h2>Implementors</h2>
+<h3 id="impl-From&lt;Field&gt;-for-BLS12_377_Fq"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/bls12_377Fq/struct.BLS12_377_Fq.html" class="struct">BLS12_377_Fq</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-BLS12_377_Fr"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/bls12_377Fr/struct.BLS12_377_Fr.html" class="struct">BLS12_377_Fr</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-BLS12_381_Fq"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/bls12_381Fq/struct.BLS12_381_Fq.html" class="struct">BLS12_381_Fq</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-BLS12_381_Fr"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-BN254_Fq"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/bn254Fq/struct.BN254_Fq.html" class="struct">BN254_Fq</a></code></h3>
+
+<h3 id="impl-From&lt;[T; Len]&gt;-for-BoundedVec<T, MaxLen>"><code class="code-header">impl&lt;let Len: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let MaxLen: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;[T; Len]&gt; for <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, MaxLen&gt;</code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-ED25519_Fq"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/ed25519Fq/struct.ED25519_Fq.html" class="struct">ED25519_Fq</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-ED25519_Fr"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/ed25519Fr/struct.ED25519_Fr.html" class="struct">ED25519_Fr</a></code></h3>
+
+<h3 id="impl-From&lt;bool&gt;-for-Field"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.bool.html" class="primitive">bool</a>&gt; for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
+
+<h3 id="impl-From&lt;u128&gt;-for-Field"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u128.html" class="primitive">u128</a>&gt; for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
+
+<h3 id="impl-From&lt;u16&gt;-for-Field"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u16.html" class="primitive">u16</a>&gt; for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
+
+<h3 id="impl-From&lt;u32&gt;-for-Field"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
+
+<h3 id="impl-From&lt;u64&gt;-for-Field"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u64.html" class="primitive">u64</a>&gt; for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
+
+<h3 id="impl-From&lt;u8&gt;-for-Field"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u8.html" class="primitive">u8</a>&gt; for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-MNT4_753_Fq"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-MNT4_753_Fr"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/mnt4_753Fr/struct.MNT4_753_Fr.html" class="struct">MNT4_753_Fr</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-MNT6_753_Fq"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/mnt6_753Fq/struct.MNT6_753_Fq.html" class="struct">MNT6_753_Fq</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-MNT6_753_Fr"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/mnt6_753Fr/struct.MNT6_753_Fr.html" class="struct">MNT6_753_Fr</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-Pallas_Fq"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/pallasFq/struct.Pallas_Fq.html" class="struct">Pallas_Fq</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-Pallas_Fr"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/pallasFr/struct.Pallas_Fr.html" class="struct">Pallas_Fr</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-ScalarField<N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bigcurve/scalar_field/struct.ScalarField.html" class="struct">ScalarField</a>&lt;N&gt;</code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-Secp256k1_Fr"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/secp256k1Fr/struct.Secp256k1_Fr.html" class="struct">Secp256k1_Fr</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-Secp256r1_Fq"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/secp256r1Fq/struct.Secp256r1_Fq.html" class="struct">Secp256r1_Fq</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-Secp256r1_Fr"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/secp256r1Fr/struct.Secp256r1_Fr.html" class="struct">Secp256r1_Fr</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-Secp384r1_Fq"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/secp384r1Fq/struct.Secp384r1_Fq.html" class="struct">Secp384r1_Fq</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-Secp384r1_Fr"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/secp384r1Fr/struct.Secp384r1_Fr.html" class="struct">Secp384r1_Fr</a></code></h3>
+
+<h3 id="impl-From&lt;T&gt;-for-T"><code class="code-header">impl&lt;T&gt; <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;T&gt; for T</code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-U1024"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/U1024/struct.U1024.html" class="struct">U1024</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-U2048"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/U2048/struct.U2048.html" class="struct">U2048</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-U256"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/U256/struct.U256.html" class="struct">U256</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-U384"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/U384/struct.U384.html" class="struct">U384</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-U4096"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/U4096/struct.U4096.html" class="struct">U4096</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-U512"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/U512/struct.U512.html" class="struct">U512</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-U768"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/U768/struct.U768.html" class="struct">U768</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-U8192"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/U8192/struct.U8192.html" class="struct">U8192</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-Vesta_Fq"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/vestaFq/struct.Vesta_Fq.html" class="struct">Vesta_Fq</a></code></h3>
+
+<h3 id="impl-From&lt;Field&gt;-for-Vesta_Fr"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt; for <a href="../../bignum/fields/vestaFr/struct.Vesta_Fr.html" class="struct">Vesta_Fr</a></code></h3>
+
+<h3 id="impl-From&lt;str&lt;N&gt;&gt;-for-[u8; N]"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.str.html" class="primitive">str</a>&lt;N&gt;&gt; for [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; N]</code></h3>
+
+<h3 id="impl-From&lt;bool&gt;-for-i16"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.bool.html" class="primitive">bool</a>&gt; for <a href="../../std/primitive.i16.html" class="primitive">i16</a></code></h3>
+
+<h3 id="impl-From&lt;i8&gt;-for-i16"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.i8.html" class="primitive">i8</a>&gt; for <a href="../../std/primitive.i16.html" class="primitive">i16</a></code></h3>
+
+<h3 id="impl-From&lt;bool&gt;-for-i32"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.bool.html" class="primitive">bool</a>&gt; for <a href="../../std/primitive.i32.html" class="primitive">i32</a></code></h3>
+
+<h3 id="impl-From&lt;i16&gt;-for-i32"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.i16.html" class="primitive">i16</a>&gt; for <a href="../../std/primitive.i32.html" class="primitive">i32</a></code></h3>
+
+<h3 id="impl-From&lt;i8&gt;-for-i32"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.i8.html" class="primitive">i8</a>&gt; for <a href="../../std/primitive.i32.html" class="primitive">i32</a></code></h3>
+
+<h3 id="impl-From&lt;bool&gt;-for-i64"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.bool.html" class="primitive">bool</a>&gt; for <a href="../../std/primitive.i64.html" class="primitive">i64</a></code></h3>
+
+<h3 id="impl-From&lt;i16&gt;-for-i64"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.i16.html" class="primitive">i16</a>&gt; for <a href="../../std/primitive.i64.html" class="primitive">i64</a></code></h3>
+
+<h3 id="impl-From&lt;i32&gt;-for-i64"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.i32.html" class="primitive">i32</a>&gt; for <a href="../../std/primitive.i64.html" class="primitive">i64</a></code></h3>
+
+<h3 id="impl-From&lt;i8&gt;-for-i64"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.i8.html" class="primitive">i8</a>&gt; for <a href="../../std/primitive.i64.html" class="primitive">i64</a></code></h3>
+
+<h3 id="impl-From&lt;bool&gt;-for-i8"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.bool.html" class="primitive">bool</a>&gt; for <a href="../../std/primitive.i8.html" class="primitive">i8</a></code></h3>
+
+<h3 id="impl-From&lt;[u8; N]&gt;-for-str&lt;N&gt;"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;[<a href="../../std/primitive.u8.html" class="primitive">u8</a>; N]&gt; for <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;N&gt;</code></h3>
+
+<h3 id="impl-From&lt;bool&gt;-for-u128"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.bool.html" class="primitive">bool</a>&gt; for <a href="../../std/primitive.u128.html" class="primitive">u128</a></code></h3>
+
+<h3 id="impl-From&lt;u16&gt;-for-u128"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u16.html" class="primitive">u16</a>&gt; for <a href="../../std/primitive.u128.html" class="primitive">u128</a></code></h3>
+
+<h3 id="impl-From&lt;u32&gt;-for-u128"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; for <a href="../../std/primitive.u128.html" class="primitive">u128</a></code></h3>
+
+<h3 id="impl-From&lt;u64&gt;-for-u128"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u64.html" class="primitive">u64</a>&gt; for <a href="../../std/primitive.u128.html" class="primitive">u128</a></code></h3>
+
+<h3 id="impl-From&lt;u8&gt;-for-u128"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u8.html" class="primitive">u8</a>&gt; for <a href="../../std/primitive.u128.html" class="primitive">u128</a></code></h3>
+
+<h3 id="impl-From&lt;bool&gt;-for-u16"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.bool.html" class="primitive">bool</a>&gt; for <a href="../../std/primitive.u16.html" class="primitive">u16</a></code></h3>
+
+<h3 id="impl-From&lt;u8&gt;-for-u16"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u8.html" class="primitive">u8</a>&gt; for <a href="../../std/primitive.u16.html" class="primitive">u16</a></code></h3>
+
+<h3 id="impl-From&lt;bool&gt;-for-u32"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.bool.html" class="primitive">bool</a>&gt; for <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></h3>
+
+<h3 id="impl-From&lt;u16&gt;-for-u32"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u16.html" class="primitive">u16</a>&gt; for <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></h3>
+
+<h3 id="impl-From&lt;u8&gt;-for-u32"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u8.html" class="primitive">u8</a>&gt; for <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></h3>
+
+<h3 id="impl-From&lt;bool&gt;-for-u64"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.bool.html" class="primitive">bool</a>&gt; for <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></h3>
+
+<h3 id="impl-From&lt;u16&gt;-for-u64"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u16.html" class="primitive">u16</a>&gt; for <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></h3>
+
+<h3 id="impl-From&lt;u32&gt;-for-u64"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; for <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></h3>
+
+<h3 id="impl-From&lt;u8&gt;-for-u64"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.u8.html" class="primitive">u8</a>&gt; for <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></h3>
+
+<h3 id="impl-From&lt;bool&gt;-for-u8"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.bool.html" class="primitive">bool</a>&gt; for <a href="../../std/primitive.u8.html" class="primitive">u8</a></code></h3>
+
+</main>
+</body>
+</html>

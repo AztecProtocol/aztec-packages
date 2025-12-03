@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Function batch_insert_no_update documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module indexed_tree</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.assert_check_valid_low_leaf.html">assert_check_valid_low_leaf</a></div></li>
+<li><a href="fn.batch_insert_no_update.html">batch_insert_no_update</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">noir-protocol-circuits</a> - <a href="../../index.html">types</a>::<a href="../index.html">merkle_tree</a>::<a href="index.html">indexed_tree</a></div>
+<h1>Function <span class="fn">batch_insert_no_update</span></h1>
+<pre><code>pub fn batch_insert_no_update&lt;Value, Leaf, let TreeHeight: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let SubtreeWidth: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let SubtreeHeight: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    start_snapshot: <a href="../../../types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
+    values_to_insert: [Value; SubtreeWidth],
+    sorted_values: [Value; SubtreeWidth],
+    sorted_values_indexes: [<a href="../../../std/primitive.u32.html" class="primitive">u32</a>; SubtreeWidth],
+    low_leaf_preimages: [Leaf; SubtreeWidth],
+    low_leaf_membership_witnesses: [<a href="../../../types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;TreeHeight&gt;; SubtreeWidth],
+    new_subtree_sibling_path: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; TreeHeight - SubtreeHeight],
+) -> <a href="../../../types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>
+<div class="where-clause">where
+    Value: <a href="../../../types/merkle_tree/leaf_preimage/trait.IndexedTreeLeafValue.html" class="trait">IndexedTreeLeafValue</a>,
+    Leaf: <a href="../../../types/merkle_tree/leaf_preimage/trait.IndexedTreeLeafPreimage.html" class="trait">IndexedTreeLeafPreimage</a>&lt;Value&gt;</div></code></pre>
+
+<div class="comments">
+<p>Batch insert values into the indexed tree by creating a subtree of the values and inserting the subtree root.
+This function does not allow updating the values of existing leaves.</p>
+</div>
+</main>
+</body>
+</html>

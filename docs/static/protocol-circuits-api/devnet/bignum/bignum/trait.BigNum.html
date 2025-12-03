@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Trait BigNum documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">bignum</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait BigNum</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#__add">__add</a></li>
+<li><a href="#__derive_from_seed">__derive_from_seed</a></li>
+<li><a href="#__div">__div</a></li>
+<li><a href="#__eq">__eq</a></li>
+<li><a href="#__invmod">__invmod</a></li>
+<li><a href="#__is_zero">__is_zero</a></li>
+<li><a href="#__mul">__mul</a></li>
+<li><a href="#__neg">__neg</a></li>
+<li><a href="#__pow">__pow</a></li>
+<li><a href="#__sub">__sub</a></li>
+<li><a href="#__tonelli_shanks_sqrt">__tonelli_shanks_sqrt</a></li>
+<li><a href="#__udiv_mod">__udiv_mod</a></li>
+<li><a href="#assert_is_not_equal">assert_is_not_equal</a></li>
+<li><a href="#derive_from_seed">derive_from_seed</a></li>
+<li><a href="#from_be_bytes">from_be_bytes</a></li>
+<li><a href="#from_le_bytes">from_le_bytes</a></li>
+<li><a href="#from_limbs">from_limbs</a></li>
+<li><a href="#get_limbs">get_limbs</a></li>
+<li><a href="#is_zero">is_zero</a></li>
+<li><a href="#modulus">modulus</a></li>
+<li><a href="#modulus_bits">modulus_bits</a></li>
+<li><a href="#new">new</a></li>
+<li><a href="#num_limbs">num_limbs</a></li>
+<li><a href="#one">one</a></li>
+<li><a href="#params">params</a></li>
+<li><a href="#set_limb">set_limb</a></li>
+<li><a href="#to_be_bytes">to_be_bytes</a></li>
+<li><a href="#to_le_bytes">to_le_bytes</a></li>
+<li><a href="#udiv">udiv</a></li>
+<li><a href="#udiv_mod">udiv_mod</a></li>
+<li><a href="#umod">umod</a></li>
+<li><a href="#validate_in_field">validate_in_field</a></li>
+<li><a href="#validate_in_range">validate_in_range</a></li>
+<li><a href="#zero">zero</a></li>
+</ul>
+<h3>Provided methods</h3>
+<ul class="sidebar-list">
+<li><a href="#get_limb">get_limb</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-BigNum-for-BLS12_377_Fq">BLS12_377_Fq</a></li>
+<li><a href="#impl-BigNum-for-BLS12_377_Fr">BLS12_377_Fr</a></li>
+<li><a href="#impl-BigNum-for-BLS12_381_Fq">BLS12_381_Fq</a></li>
+<li><a href="#impl-BigNum-for-BLS12_381_Fr">BLS12_381_Fr</a></li>
+<li><a href="#impl-BigNum-for-BN2048">BN2048</a></li>
+<li><a href="#impl-BigNum-for-BN254_Fq">BN254_Fq</a></li>
+<li><a href="#impl-BigNum-for-ED25519_Fq">ED25519_Fq</a></li>
+<li><a href="#impl-BigNum-for-ED25519_Fr">ED25519_Fr</a></li>
+<li><a href="#impl-BigNum-for-MNT4_753_Fq">MNT4_753_Fq</a></li>
+<li><a href="#impl-BigNum-for-MNT4_753_Fr">MNT4_753_Fr</a></li>
+<li><a href="#impl-BigNum-for-MNT6_753_Fq">MNT6_753_Fq</a></li>
+<li><a href="#impl-BigNum-for-MNT6_753_Fr">MNT6_753_Fr</a></li>
+<li><a href="#impl-BigNum-for-Pallas_Fq">Pallas_Fq</a></li>
+<li><a href="#impl-BigNum-for-Pallas_Fr">Pallas_Fr</a></li>
+<li><a href="#impl-BigNum-for-SecP224r1">SecP224r1</a></li>
+<li><a href="#impl-BigNum-for-Secp256k1_Fq">Secp256k1_Fq</a></li>
+<li><a href="#impl-BigNum-for-Secp256k1_Fr">Secp256k1_Fr</a></li>
+<li><a href="#impl-BigNum-for-Secp256r1_Fq">Secp256r1_Fq</a></li>
+<li><a href="#impl-BigNum-for-Secp256r1_Fr">Secp256r1_Fr</a></li>
+<li><a href="#impl-BigNum-for-Secp384r1_Fq">Secp384r1_Fq</a></li>
+<li><a href="#impl-BigNum-for-Secp384r1_Fr">Secp384r1_Fr</a></li>
+<li><a href="#impl-BigNum-for-U1024">U1024</a></li>
+<li><a href="#impl-BigNum-for-U2048">U2048</a></li>
+<li><a href="#impl-BigNum-for-U256">U256</a></li>
+<li><a href="#impl-BigNum-for-U384">U384</a></li>
+<li><a href="#impl-BigNum-for-U4096">U4096</a></li>
+<li><a href="#impl-BigNum-for-U512">U512</a></li>
+<li><a href="#impl-BigNum-for-U768">U768</a></li>
+<li><a href="#impl-BigNum-for-U8192">U8192</a></li>
+<li><a href="#impl-BigNum-for-Vesta_Fq">Vesta_Fq</a></li>
+<li><a href="#impl-BigNum-for-Vesta_Fr">Vesta_Fr</a></li>
+</ul>
+<h2>In module bignum</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.BigNum.html">BigNum</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.batch_invert.html">batch_invert</a></div></li>
+<li><a href="fn.batch_invert_slice.html">batch_invert_slice</a></div></li>
+<li><a href="fn.compute_quadratic_expression.html">compute_quadratic_expression</a></div></li>
+<li><a href="fn.conditional_select.html">conditional_select</a></div></li>
+<li><a href="fn.derive_bignum.html">derive_bignum</a></div></li>
+<li><a href="fn.evaluate_quadratic_expression.html">evaluate_quadratic_expression</a></div></li>
+<li><a href="fn.to_field.html">to_field</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">bignum</a>::<a href="index.html">bignum</a></div>
+<h1>Trait <span id="trait" class="trait">BigNum</span></h1>
+<pre><code>pub trait BigNum:
+    <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a>
+    + <a href="../../std/ops/trait.Add.html" class="trait">Add</a>
+    + <a href="../../std/ops/trait.Sub.html" class="trait">Sub</a>
+    + <a href="../../std/ops/trait.Mul.html" class="trait">Mul</a>
+    + <a href="../../std/ops/trait.Div.html" class="trait">Div</a>
+    + <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a>
+{
+    let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>;
+    let MOD_BITS: <a href="../../std/primitive.u32.html" class="primitive">u32</a>;
+
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#params"><span class="fn">params</span></a>() -> <a href="../../bignum/params/struct.BigNumParams.html" class="struct">BigNumParams</a>&lt;N, MOD_BITS&gt;;
+    pub fn <a href="#modulus_bits"><span class="fn">modulus_bits</span></a>(_: Self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a>;
+    pub fn <a href="#num_limbs"><span class="fn">num_limbs</span></a>(_: Self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a>;
+    pub fn <a href="#modulus"><span class="fn">modulus</span></a>() -> Self;
+    pub fn <a href="#new"><span class="fn">new</span></a>() -> Self;
+    pub fn <a href="#zero"><span class="fn">zero</span></a>() -> Self;
+    pub fn <a href="#one"><span class="fn">one</span></a>() -> Self;
+    pub fn <a href="#from_limbs"><span class="fn">from_limbs</span></a>(limbs: [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; N]) -> Self;
+    pub fn <a href="#get_limbs"><span class="fn">get_limbs</span></a>(self) -> [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; N];
+    pub fn <a href="#set_limb"><span class="fn">set_limb</span></a>(&mut self: &mut Self, idx: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, value: <a href="../../std/primitive.u128.html" class="primitive">u128</a>);
+    pub fn <a href="#derive_from_seed"><span class="fn">derive_from_seed</span></a>&lt;let SeedBytes: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(seed: [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; SeedBytes]) -> Self;
+    pub unconstrained fn <a href="#__derive_from_seed"><span class="fn">__derive_from_seed</span></a>&lt;let SeedBytes: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+        seed: [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; SeedBytes],
+    ) -> Self;
+    pub fn <a href="#from_be_bytes"><span class="fn">from_be_bytes</span></a>(x: [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; MOD_BITS + 7 / 8]) -> Self;
+    pub fn <a href="#to_be_bytes"><span class="fn">to_be_bytes</span></a>(self) -> [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; MOD_BITS + 7 / 8];
+    pub fn <a href="#from_le_bytes"><span class="fn">from_le_bytes</span></a>(x: [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; MOD_BITS + 7 / 8]) -> Self;
+    pub fn <a href="#to_le_bytes"><span class="fn">to_le_bytes</span></a>(self) -> [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; MOD_BITS + 7 / 8];
+    pub unconstrained fn <a href="#__eq"><span class="fn">__eq</span></a>(self, other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a>;
+    pub unconstrained fn <a href="#__is_zero"><span class="fn">__is_zero</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a>;
+    pub unconstrained fn <a href="#__neg"><span class="fn">__neg</span></a>(self) -> Self;
+    pub unconstrained fn <a href="#__add"><span class="fn">__add</span></a>(self, other: Self) -> Self;
+    pub unconstrained fn <a href="#__sub"><span class="fn">__sub</span></a>(self, other: Self) -> Self;
+    pub unconstrained fn <a href="#__mul"><span class="fn">__mul</span></a>(self, other: Self) -> Self;
+    pub unconstrained fn <a href="#__div"><span class="fn">__div</span></a>(self, other: Self) -> Self;
+    pub unconstrained fn <a href="#__udiv_mod"><span class="fn">__udiv_mod</span></a>(self, divisor: Self) -> (Self, Self);
+    pub unconstrained fn <a href="#__invmod"><span class="fn">__invmod</span></a>(self) -> Self;
+    pub unconstrained fn <a href="#__pow"><span class="fn">__pow</span></a>(self, exponent: Self) -> Self;
+    pub unconstrained fn <a href="#__tonelli_shanks_sqrt"><span class="fn">__tonelli_shanks_sqrt</span></a>(self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;Self&gt;;
+    pub fn <a href="#assert_is_not_equal"><span class="fn">assert_is_not_equal</span></a>(self, other: Self);
+    pub fn <a href="#validate_in_range"><span class="fn">validate_in_range</span></a>(self);
+    pub fn <a href="#validate_in_field"><span class="fn">validate_in_field</span></a>(self);
+    pub fn <a href="#udiv_mod"><span class="fn">udiv_mod</span></a>(self, divisor: Self) -> (Self, Self);
+    pub fn <a href="#udiv"><span class="fn">udiv</span></a>(self, divisor: Self) -> Self;
+    pub fn <a href="#umod"><span class="fn">umod</span></a>(self, divisor: Self) -> Self;
+    pub fn <a href="#is_zero"><span class="fn">is_zero</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a>;
+
+    <span class="comment">// Provided methods</span>
+    pub fn <a href="#get_limb"><span class="fn">get_limb</span></a>(self, idx: <a href="../../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../../std/primitive.u128.html" class="primitive">u128</a> { ... }
+}</code></pre>
+
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="params" class="code-header">pub fn <span class="fn">params</span>() -> <a href="../../bignum/params/struct.BigNumParams.html" class="struct">BigNumParams</a>&lt;N, MOD_BITS&gt;</code>
+
+<code id="modulus_bits" class="code-header">pub fn <span class="fn">modulus_bits</span>(_: Self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+<code id="num_limbs" class="code-header">pub fn <span class="fn">num_limbs</span>(_: Self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+<code id="modulus" class="code-header">pub fn <span class="fn">modulus</span>() -> Self</code>
+
+<code id="new" class="code-header">pub fn <span class="fn">new</span>() -> Self</code>
+
+<code id="zero" class="code-header">pub fn <span class="fn">zero</span>() -> Self</code>
+
+<code id="one" class="code-header">pub fn <span class="fn">one</span>() -> Self</code>
+
+<code id="from_limbs" class="code-header">pub fn <span class="fn">from_limbs</span>(limbs: [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; N]) -> Self</code>
+
+<code id="get_limbs" class="code-header">pub fn <span class="fn">get_limbs</span>(self) -> [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; N]</code>
+
+<code id="set_limb" class="code-header">pub fn <span class="fn">set_limb</span>(&mut self: &mut Self, idx: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, value: <a href="../../std/primitive.u128.html" class="primitive">u128</a>)</code>
+
+<code id="derive_from_seed" class="code-header">pub fn <span class="fn">derive_from_seed</span>&lt;let SeedBytes: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(seed: [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; SeedBytes]) -> Self</code>
+
+<code id="__derive_from_seed" class="code-header">pub unconstrained fn <span class="fn">__derive_from_seed</span>&lt;let SeedBytes: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    seed: [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; SeedBytes],
+) -> Self</code>
+
+<code id="from_be_bytes" class="code-header">pub fn <span class="fn">from_be_bytes</span>(x: [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; MOD_BITS + 7 / 8]) -> Self</code>
+
+<code id="to_be_bytes" class="code-header">pub fn <span class="fn">to_be_bytes</span>(self) -> [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; MOD_BITS + 7 / 8]</code>
+
+<code id="from_le_bytes" class="code-header">pub fn <span class="fn">from_le_bytes</span>(x: [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; MOD_BITS + 7 / 8]) -> Self</code>
+
+<code id="to_le_bytes" class="code-header">pub fn <span class="fn">to_le_bytes</span>(self) -> [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; MOD_BITS + 7 / 8]</code>
+
+<code id="__eq" class="code-header">pub unconstrained fn <span class="fn">__eq</span>(self, other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code id="__is_zero" class="code-header">pub unconstrained fn <span class="fn">__is_zero</span>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code id="__neg" class="code-header">pub unconstrained fn <span class="fn">__neg</span>(self) -> Self</code>
+
+<code id="__add" class="code-header">pub unconstrained fn <span class="fn">__add</span>(self, other: Self) -> Self</code>
+
+<code id="__sub" class="code-header">pub unconstrained fn <span class="fn">__sub</span>(self, other: Self) -> Self</code>
+
+<code id="__mul" class="code-header">pub unconstrained fn <span class="fn">__mul</span>(self, other: Self) -> Self</code>
+
+<code id="__div" class="code-header">pub unconstrained fn <span class="fn">__div</span>(self, other: Self) -> Self</code>
+
+<code id="__udiv_mod" class="code-header">pub unconstrained fn <span class="fn">__udiv_mod</span>(self, divisor: Self) -> (Self, Self)</code>
+
+<code id="__invmod" class="code-header">pub unconstrained fn <span class="fn">__invmod</span>(self) -> Self</code>
+
+<code id="__pow" class="code-header">pub unconstrained fn <span class="fn">__pow</span>(self, exponent: Self) -> Self</code>
+
+<code id="__tonelli_shanks_sqrt" class="code-header">pub unconstrained fn <span class="fn">__tonelli_shanks_sqrt</span>(self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;Self&gt;</code>
+
+<code id="assert_is_not_equal" class="code-header">pub fn <span class="fn">assert_is_not_equal</span>(self, other: Self)</code>
+
+<code id="validate_in_range" class="code-header">pub fn <span class="fn">validate_in_range</span>(self)</code>
+
+<code id="validate_in_field" class="code-header">pub fn <span class="fn">validate_in_field</span>(self)</code>
+
+<code id="udiv_mod" class="code-header">pub fn <span class="fn">udiv_mod</span>(self, divisor: Self) -> (Self, Self)</code>
+
+<code id="udiv" class="code-header">pub fn <span class="fn">udiv</span>(self, divisor: Self) -> Self</code>
+
+<code id="umod" class="code-header">pub fn <span class="fn">umod</span>(self, divisor: Self) -> Self</code>
+
+<code id="is_zero" class="code-header">pub fn <span class="fn">is_zero</span>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h2>Provided methods</h2>
+<div class="padded-methods"><code id="get_limb" class="code-header">pub fn <span class="fn">get_limb</span>(self, idx: <a href="../../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../../std/primitive.u128.html" class="primitive">u128</a></code>
+
+</div><h2>Implementors</h2>
+<h3 id="impl-BigNum-for-BLS12_377_Fq"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/bls12_377Fq/struct.BLS12_377_Fq.html" class="struct">BLS12_377_Fq</a></code></h3>
+
+<h3 id="impl-BigNum-for-BLS12_377_Fr"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/bls12_377Fr/struct.BLS12_377_Fr.html" class="struct">BLS12_377_Fr</a></code></h3>
+
+<h3 id="impl-BigNum-for-BLS12_381_Fq"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/bls12_381Fq/struct.BLS12_381_Fq.html" class="struct">BLS12_381_Fq</a></code></h3>
+
+<h3 id="impl-BigNum-for-BLS12_381_Fr"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a></code></h3>
+
+<h3 id="impl-BigNum-for-BN2048"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for BN2048</code></h3>
+
+<h3 id="impl-BigNum-for-BN254_Fq"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/bn254Fq/struct.BN254_Fq.html" class="struct">BN254_Fq</a></code></h3>
+
+<h3 id="impl-BigNum-for-ED25519_Fq"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/ed25519Fq/struct.ED25519_Fq.html" class="struct">ED25519_Fq</a></code></h3>
+
+<h3 id="impl-BigNum-for-ED25519_Fr"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/ed25519Fr/struct.ED25519_Fr.html" class="struct">ED25519_Fr</a></code></h3>
+
+<h3 id="impl-BigNum-for-MNT4_753_Fq"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a></code></h3>
+
+<h3 id="impl-BigNum-for-MNT4_753_Fr"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/mnt4_753Fr/struct.MNT4_753_Fr.html" class="struct">MNT4_753_Fr</a></code></h3>
+
+<h3 id="impl-BigNum-for-MNT6_753_Fq"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/mnt6_753Fq/struct.MNT6_753_Fq.html" class="struct">MNT6_753_Fq</a></code></h3>
+
+<h3 id="impl-BigNum-for-MNT6_753_Fr"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/mnt6_753Fr/struct.MNT6_753_Fr.html" class="struct">MNT6_753_Fr</a></code></h3>
+
+<h3 id="impl-BigNum-for-Pallas_Fq"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/pallasFq/struct.Pallas_Fq.html" class="struct">Pallas_Fq</a></code></h3>
+
+<h3 id="impl-BigNum-for-Pallas_Fr"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/pallasFr/struct.Pallas_Fr.html" class="struct">Pallas_Fr</a></code></h3>
+
+<h3 id="impl-BigNum-for-SecP224r1"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for SecP224r1</code></h3>
+
+<h3 id="impl-BigNum-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<h3 id="impl-BigNum-for-Secp256k1_Fr"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/secp256k1Fr/struct.Secp256k1_Fr.html" class="struct">Secp256k1_Fr</a></code></h3>
+
+<h3 id="impl-BigNum-for-Secp256r1_Fq"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/secp256r1Fq/struct.Secp256r1_Fq.html" class="struct">Secp256r1_Fq</a></code></h3>
+
+<h3 id="impl-BigNum-for-Secp256r1_Fr"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/secp256r1Fr/struct.Secp256r1_Fr.html" class="struct">Secp256r1_Fr</a></code></h3>
+
+<h3 id="impl-BigNum-for-Secp384r1_Fq"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/secp384r1Fq/struct.Secp384r1_Fq.html" class="struct">Secp384r1_Fq</a></code></h3>
+
+<h3 id="impl-BigNum-for-Secp384r1_Fr"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/secp384r1Fr/struct.Secp384r1_Fr.html" class="struct">Secp384r1_Fr</a></code></h3>
+
+<h3 id="impl-BigNum-for-U1024"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/U1024/struct.U1024.html" class="struct">U1024</a></code></h3>
+
+<h3 id="impl-BigNum-for-U2048"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/U2048/struct.U2048.html" class="struct">U2048</a></code></h3>
+
+<h3 id="impl-BigNum-for-U256"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/U256/struct.U256.html" class="struct">U256</a></code></h3>
+
+<h3 id="impl-BigNum-for-U384"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/U384/struct.U384.html" class="struct">U384</a></code></h3>
+
+<h3 id="impl-BigNum-for-U4096"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/U4096/struct.U4096.html" class="struct">U4096</a></code></h3>
+
+<h3 id="impl-BigNum-for-U512"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/U512/struct.U512.html" class="struct">U512</a></code></h3>
+
+<h3 id="impl-BigNum-for-U768"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/U768/struct.U768.html" class="struct">U768</a></code></h3>
+
+<h3 id="impl-BigNum-for-U8192"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/U8192/struct.U8192.html" class="struct">U8192</a></code></h3>
+
+<h3 id="impl-BigNum-for-Vesta_Fq"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/vestaFq/struct.Vesta_Fq.html" class="struct">Vesta_Fq</a></code></h3>
+
+<h3 id="impl-BigNum-for-Vesta_Fr"><code class="code-header">impl <a href="../../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a> for <a href="../../bignum/fields/vestaFr/struct.Vesta_Fr.html" class="struct">Vesta_Fr</a></code></h3>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<title>Struct ParityPublicInputs documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../all.html">All items</a></div>
+<h2 id="crate-name"><a href="index.html">parity_lib</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ParityPublicInputs</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#converted_root">converted_root</a></li>
+<li><a href="#sha_root">sha_root</a></li>
+<li><a href="#vk_tree_root">vk_tree_root</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-ParityPublicInputs">Deserialize</a></li>
+<li><a href="#impl-Empty-for-ParityPublicInputs">Empty</a></li>
+<li><a href="#impl-Eq-for-ParityPublicInputs">Eq</a></li>
+<li><a href="#impl-Serialize-for-ParityPublicInputs">Serialize</a></li>
+</ul>
+<h2>In crate parity_lib</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ParityBasePrivateInputs.html">ParityBasePrivateInputs</a></div></li>
+<li><a href="struct.ParityPublicInputs.html">ParityPublicInputs</a></div></li>
+<li><a href="struct.ParityRootPrivateInputs.html">ParityRootPrivateInputs</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../index.html">noir-protocol-circuits</a> - <a href="index.html">parity_lib</a></div>
+<h1>Struct <span id="struct" class="struct">ParityPublicInputs</span></h1>
+<pre><code>pub struct ParityPublicInputs {
+    pub sha_root: <a href="../std/primitive.Field.html" class="primitive">Field</a>,
+    pub converted_root: <a href="../std/primitive.Field.html" class="primitive">Field</a>,
+    pub vk_tree_root: <a href="../std/primitive.Field.html" class="primitive">Field</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="sha_root" class="struct-field"><code class="code-header">sha_root: <a href="../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="converted_root" class="struct-field"><code class="code-header">converted_root: <a href="../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="vk_tree_root" class="struct-field"><code class="code-header">vk_tree_root: <a href="../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-ParityPublicInputs"><code class="code-header">impl <a href="../types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../parity_lib/struct.ParityPublicInputs.html" class="struct">ParityPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../std/primitive.Field.html" class="primitive">Field</a>; 3]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-ParityPublicInputs"><code class="code-header">impl <a href="../types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../parity_lib/struct.ParityPublicInputs.html" class="struct">ParityPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-ParityPublicInputs"><code class="code-header">impl <a href="../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../parity_lib/struct.ParityPublicInputs.html" class="struct">ParityPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-ParityPublicInputs"><code class="code-header">impl <a href="../types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../parity_lib/struct.ParityPublicInputs.html" class="struct">ParityPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../std/primitive.Field.html" class="primitive">Field</a>; 3]</code>
+
+</div></main>
+</body>
+</html>

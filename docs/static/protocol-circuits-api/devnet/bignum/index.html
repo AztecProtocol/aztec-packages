@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<title>Crate bignum documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../all.html">All items</a></div>
+<h2 id="crate-name"><a href="index.html">bignum</a></h2>
+<div id="crate-version">0.0.0</div>
+<h3>Crate items</h3>
+<ul class="sidebar-list">
+<li><a href="#re-exports">Re-exports</a></li>
+<li><a href="#modules">Modules</a></li>
+<li><a href="#structs">Structs</a></li>
+</ul>
+<h3>Crates</h3>
+<ul class="sidebar-list">
+<li><a href="../types/index.html">types</a></li>
+<li><a href="../blob/index.html">blob</a></li>
+<li><a href="../parity_lib/index.html">parity_lib</a></li>
+<li><a href="../private_kernel_lib/index.html">private_kernel_lib</a></li>
+<li><a href="../hiding_kernel_to_rollup/index.html">hiding_kernel_to_rollup</a></li>
+<li><a href="../hiding_kernel_to_public/index.html">hiding_kernel_to_public</a></li>
+<li><a href="../rollup_lib/index.html">rollup_lib</a></li>
+</ul>
+</nav>
+<main>
+<div><a href="../index.html">noir-protocol-circuits</a> - bignum</div>
+<h1>Crate <span class="crate">bignum</span></h1>
+<h2 id="re-exports">Re-exports</h2><ul class="item-list">
+<li><div class="item-name"><code>pub use bignum::bignum::<a href="../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::bignum::<a href="../bignum/bignum/fn.derive_bignum.html" class="fn">derive_bignum</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::bls12_377Fq::<a href="../bignum/fields/bls12_377Fq/struct.BLS12_377_Fq.html" class="struct">BLS12_377_Fq</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::bls12_377Fr::<a href="../bignum/fields/bls12_377Fr/struct.BLS12_377_Fr.html" class="struct">BLS12_377_Fr</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::bls12_381Fq::<a href="../bignum/fields/bls12_381Fq/struct.BLS12_381_Fq.html" class="struct">BLS12_381_Fq</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::bls12_381Fr::<a href="../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::bn254Fq::<a href="../bignum/fields/bn254Fq/struct.BN254_Fq.html" class="struct">BN254_Fq</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::ed25519Fq::<a href="../bignum/fields/ed25519Fq/struct.ED25519_Fq.html" class="struct">ED25519_Fq</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::ed25519Fr::<a href="../bignum/fields/ed25519Fr/struct.ED25519_Fr.html" class="struct">ED25519_Fr</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::mnt4_753Fq::<a href="../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::mnt4_753Fr::<a href="../bignum/fields/mnt4_753Fr/struct.MNT4_753_Fr.html" class="struct">MNT4_753_Fr</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::mnt6_753Fq::<a href="../bignum/fields/mnt6_753Fq/struct.MNT6_753_Fq.html" class="struct">MNT6_753_Fq</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::mnt6_753Fr::<a href="../bignum/fields/mnt6_753Fr/struct.MNT6_753_Fr.html" class="struct">MNT6_753_Fr</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::pallasFq::<a href="../bignum/fields/pallasFq/struct.Pallas_Fq.html" class="struct">Pallas_Fq</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::pallasFr::<a href="../bignum/fields/pallasFr/struct.Pallas_Fr.html" class="struct">Pallas_Fr</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::secp256k1Fq::<a href="../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::secp256k1Fr::<a href="../bignum/fields/secp256k1Fr/struct.Secp256k1_Fr.html" class="struct">Secp256k1_Fr</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::secp256r1Fq::<a href="../bignum/fields/secp256r1Fq/struct.Secp256r1_Fq.html" class="struct">Secp256r1_Fq</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::secp256r1Fr::<a href="../bignum/fields/secp256r1Fr/struct.Secp256r1_Fr.html" class="struct">Secp256r1_Fr</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::secp384r1Fq::<a href="../bignum/fields/secp384r1Fq/struct.Secp384r1_Fq.html" class="struct">Secp384r1_Fq</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::secp384r1Fr::<a href="../bignum/fields/secp384r1Fr/struct.Secp384r1_Fr.html" class="struct">Secp384r1_Fr</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::U1024::<a href="../bignum/fields/U1024/struct.U1024.html" class="struct">U1024</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::U2048::<a href="../bignum/fields/U2048/struct.U2048.html" class="struct">U2048</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::U256::<a href="../bignum/fields/U256/struct.U256.html" class="struct">U256</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::U384::<a href="../bignum/fields/U384/struct.U384.html" class="struct">U384</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::U4096::<a href="../bignum/fields/U4096/struct.U4096.html" class="struct">U4096</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::U512::<a href="../bignum/fields/U512/struct.U512.html" class="struct">U512</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::U768::<a href="../bignum/fields/U768/struct.U768.html" class="struct">U768</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::U8192::<a href="../bignum/fields/U8192/struct.U8192.html" class="struct">U8192</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::vestaFq::<a href="../bignum/fields/vestaFq/struct.Vesta_Fq.html" class="struct">Vesta_Fq</a>;</code></div></li>
+<li><div class="item-name"><code>pub use bignum::fields::vestaFr::<a href="../bignum/fields/vestaFr/struct.Vesta_Fr.html" class="struct">Vesta_Fr</a>;</code></div></li>
+</ul>
+<h2 id="modules">Modules</h2><ul class="item-list">
+<li><div class="item-name"><a href="bignum/index.html" class="module">bignum</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fields/index.html" class="module">fields</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="params/index.html" class="module">params</a></div><div class="item-description"></div></li>
+</ul>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.RuntimeBigNum.html" class="struct">RuntimeBigNum</a></div><div class="item-description"></div></li>
+</ul>
+</main>
+</body>
+</html>

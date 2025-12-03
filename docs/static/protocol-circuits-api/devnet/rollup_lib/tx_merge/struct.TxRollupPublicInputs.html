@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Struct TxRollupPublicInputs documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">rollup_lib</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct TxRollupPublicInputs</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#accumulated_fees">accumulated_fees</a></li>
+<li><a href="#accumulated_mana_used">accumulated_mana_used</a></li>
+<li><a href="#constants">constants</a></li>
+<li><a href="#end_sponge_blob">end_sponge_blob</a></li>
+<li><a href="#end_tree_snapshots">end_tree_snapshots</a></li>
+<li><a href="#num_txs">num_txs</a></li>
+<li><a href="#out_hash">out_hash</a></li>
+<li><a href="#start_sponge_blob">start_sponge_blob</a></li>
+<li><a href="#start_tree_snapshots">start_tree_snapshots</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-TxRollupPublicInputs">Deserialize</a></li>
+<li><a href="#impl-Empty-for-TxRollupPublicInputs">Empty</a></li>
+<li><a href="#impl-Eq-for-TxRollupPublicInputs">Eq</a></li>
+<li><a href="#impl-Serialize-for-TxRollupPublicInputs">Serialize</a></li>
+</ul>
+<h2>In module tx_merge</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.TxMergeRollupPrivateInputs.html">TxMergeRollupPrivateInputs</a></div></li>
+<li><a href="struct.TxRollupPublicInputs.html">TxRollupPublicInputs</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">rollup_lib</a>::<a href="index.html">tx_merge</a></div>
+<h1>Struct <span id="struct" class="struct">TxRollupPublicInputs</span></h1>
+<pre><code>pub struct TxRollupPublicInputs {
+    pub num_txs: <a href="../../std/primitive.u16.html" class="primitive">u16</a>,
+    pub constants: <a href="../../types/abis/block_constant_data/struct.BlockConstantData.html" class="struct">BlockConstantData</a>,
+    pub start_tree_snapshots: <a href="../../types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a>,
+    pub end_tree_snapshots: <a href="../../types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a>,
+    pub start_sponge_blob: <a href="../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a>,
+    pub end_sponge_blob: <a href="../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a>,
+    pub out_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub accumulated_fees: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub accumulated_mana_used: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+}
+</code></pre>
+<div class="comments">
+<p>Public inputs for the tx base and tx merge rollup circuits.</p>
+</div>
+<h2>Fields</h2>
+<div id="num_txs" class="struct-field"><code class="code-header">num_txs: <a href="../../std/primitive.u16.html" class="primitive">u16</a></code></div>
+<div class="padded-description"></div><div id="constants" class="struct-field"><code class="code-header">constants: <a href="../../types/abis/block_constant_data/struct.BlockConstantData.html" class="struct">BlockConstantData</a></code></div>
+<div class="padded-description"></div><div id="start_tree_snapshots" class="struct-field"><code class="code-header">start_tree_snapshots: <a href="../../types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></div>
+<div class="padded-description"></div><div id="end_tree_snapshots" class="struct-field"><code class="code-header">end_tree_snapshots: <a href="../../types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></div>
+<div class="padded-description"></div><div id="start_sponge_blob" class="struct-field"><code class="code-header">start_sponge_blob: <a href="../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></div>
+<div class="padded-description"></div><div id="end_sponge_blob" class="struct-field"><code class="code-header">end_sponge_blob: <a href="../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></div>
+<div class="padded-description"></div><div id="out_hash" class="struct-field"><code class="code-header">out_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="accumulated_fees" class="struct-field"><code class="code-header">accumulated_fees: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="accumulated_mana_used" class="struct-field"><code class="code-header">accumulated_mana_used: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-TxRollupPublicInputs"><code class="code-header">impl <a href="../../types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../rollup_lib/tx_merge/struct.TxRollupPublicInputs.html" class="struct">TxRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 54]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-TxRollupPublicInputs"><code class="code-header">impl <a href="../../types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../rollup_lib/tx_merge/struct.TxRollupPublicInputs.html" class="struct">TxRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-TxRollupPublicInputs"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../rollup_lib/tx_merge/struct.TxRollupPublicInputs.html" class="struct">TxRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-TxRollupPublicInputs"><code class="code-header">impl <a href="../../types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../rollup_lib/tx_merge/struct.TxRollupPublicInputs.html" class="struct">TxRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 54]</code>
+
+</div></main>
+</body>
+</html>

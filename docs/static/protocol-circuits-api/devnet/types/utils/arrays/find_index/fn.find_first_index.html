@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<title>Function find_first_index documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module find_index</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.find_first_index.html">find_first_index</a></div></li>
+<li><a href="fn.find_last_index.html">find_last_index</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">noir-protocol-circuits</a> - <a href="../../../index.html">types</a>::<a href="../../index.html">utils</a>::<a href="../index.html">arrays</a>::<a href="index.html">find_index</a></div>
+<h1>Function <span class="fn">find_first_index</span></h1>
+<pre><code>pub unconstrained fn find_first_index&lt;T, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, Env&gt;(
+    array: [T; N],
+    find: fn[Env](T) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>,
+) -> <a href="../../../../std/primitive.u32.html" class="primitive">u32</a></code></pre>
+
+<div class="comments">
+<p>Helper function to find the index of the first element in an array that satisfies a given predicate.
+If the element is not found, the function returns the length of the array <code>N</code></p>
+</div>
+</main>
+</body>
+</html>

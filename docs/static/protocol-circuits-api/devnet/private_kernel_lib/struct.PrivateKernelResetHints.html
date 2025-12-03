@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<title>Struct PrivateKernelResetHints documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../all.html">All items</a></div>
+<h2 id="crate-name"><a href="index.html">private_kernel_lib</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PrivateKernelResetHints</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#key_validation_hints">key_validation_hints</a></li>
+<li><a href="#min_revertible_side_effect_counter">min_revertible_side_effect_counter</a></li>
+<li><a href="#note_hash_read_request_hints">note_hash_read_request_hints</a></li>
+<li><a href="#nullifier_read_request_hints">nullifier_read_request_hints</a></li>
+<li><a href="#transient_data_squashing_hints">transient_data_squashing_hints</a></li>
+</ul>
+<h2>In crate private_kernel_lib</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PaddedSideEffectAmounts.html">PaddedSideEffectAmounts</a></div></li>
+<li><a href="struct.PaddedSideEffects.html">PaddedSideEffects</a></div></li>
+<li><a href="struct.PrivateKernelInitCircuitPrivateInputs.html">PrivateKernelInitCircuitPrivateInputs</a></div></li>
+<li><a href="struct.PrivateKernelInnerCircuitPrivateInputs.html">PrivateKernelInnerCircuitPrivateInputs</a></div></li>
+<li><a href="struct.PrivateKernelResetCircuitPrivateInputs.html">PrivateKernelResetCircuitPrivateInputs</a></div></li>
+<li><a href="struct.PrivateKernelResetHints.html">PrivateKernelResetHints</a></div></li>
+<li><a href="struct.PrivateKernelTailCircuitPrivateInputs.html">PrivateKernelTailCircuitPrivateInputs</a></div></li>
+<li><a href="struct.PrivateKernelTailToPublicCircuitPrivateInputs.html">PrivateKernelTailToPublicCircuitPrivateInputs</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../index.html">noir-protocol-circuits</a> - <a href="index.html">private_kernel_lib</a></div>
+<h1>Struct <span id="struct" class="struct">PrivateKernelResetHints</span></h1>
+<pre><code>pub struct PrivateKernelResetHints&lt;let NoteHashPendingReadHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NoteHashSettledReadHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NullifierPendingReadHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NullifierSettledReadHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let KeyValidationHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let TransientDataSquashingHintsLen: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt; {
+    pub note_hash_read_request_hints: NoteHashReadRequestHints&lt;NoteHashPendingReadHintsLen, NoteHashSettledReadHintsLen&gt;,
+    pub nullifier_read_request_hints: NullifierReadRequestHints&lt;NullifierPendingReadHintsLen, NullifierSettledReadHintsLen&gt;,
+    pub key_validation_hints: [KeyValidationHint; KeyValidationHintsLen],
+    pub transient_data_squashing_hints: [TransientDataSquashingHint; TransientDataSquashingHintsLen],
+    pub min_revertible_side_effect_counter: <a href="../std/primitive.u32.html" class="primitive">u32</a>,
+}
+</code></pre>
+<div class="comments">
+<p>Hints provided to the private kernel reset circuit via private inputs.</p>
+</div>
+<h2>Fields</h2>
+<div id="note_hash_read_request_hints" class="struct-field"><code class="code-header">note_hash_read_request_hints: NoteHashReadRequestHints&lt;NoteHashPendingReadHintsLen, NoteHashSettledReadHintsLen&gt;</code></div>
+<div class="padded-description"></div><div id="nullifier_read_request_hints" class="struct-field"><code class="code-header">nullifier_read_request_hints: NullifierReadRequestHints&lt;NullifierPendingReadHintsLen, NullifierSettledReadHintsLen&gt;</code></div>
+<div class="padded-description"></div><div id="key_validation_hints" class="struct-field"><code class="code-header">key_validation_hints: [KeyValidationHint; KeyValidationHintsLen]</code></div>
+<div class="padded-description"></div><div id="transient_data_squashing_hints" class="struct-field"><code class="code-header">transient_data_squashing_hints: [TransientDataSquashingHint; TransientDataSquashingHintsLen]</code></div>
+<div class="padded-description"></div><div id="min_revertible_side_effect_counter" class="struct-field"><code class="code-header">min_revertible_side_effect_counter: <a href="../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div></main>
+</body>
+</html>

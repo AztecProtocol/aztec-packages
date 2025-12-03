@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Struct CheckpointRollupPublicInputs documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">rollup_lib</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct CheckpointRollupPublicInputs</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#checkpoint_header_hashes">checkpoint_header_hashes</a></li>
+<li><a href="#constants">constants</a></li>
+<li><a href="#end_blob_accumulator">end_blob_accumulator</a></li>
+<li><a href="#fees">fees</a></li>
+<li><a href="#final_blob_challenges">final_blob_challenges</a></li>
+<li><a href="#new_archive">new_archive</a></li>
+<li><a href="#previous_archive">previous_archive</a></li>
+<li><a href="#start_blob_accumulator">start_blob_accumulator</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#num_checkpoints">num_checkpoints</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-CheckpointRollupPublicInputs">Deserialize</a></li>
+<li><a href="#impl-Empty-for-CheckpointRollupPublicInputs">Empty</a></li>
+<li><a href="#impl-Eq-for-CheckpointRollupPublicInputs">Eq</a></li>
+<li><a href="#impl-Serialize-for-CheckpointRollupPublicInputs">Serialize</a></li>
+</ul>
+<h2>In module checkpoint_merge</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.CheckpointMergeRollupPrivateInputs.html">CheckpointMergeRollupPrivateInputs</a></div></li>
+<li><a href="struct.CheckpointRollupPublicInputs.html">CheckpointRollupPublicInputs</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">rollup_lib</a>::<a href="index.html">checkpoint_merge</a></div>
+<h1>Struct <span id="struct" class="struct">CheckpointRollupPublicInputs</span></h1>
+<pre><code>pub struct CheckpointRollupPublicInputs {
+    pub constants: <a href="../../types/abis/epoch_constant_data/struct.EpochConstantData.html" class="struct">EpochConstantData</a>,
+    pub previous_archive: <a href="../../types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
+    pub new_archive: <a href="../../types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
+    pub checkpoint_header_hashes: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 48],
+    pub fees: [<a href="../../types/abis/fee_recipient/struct.FeeRecipient.html" class="struct">FeeRecipient</a>; 48],
+    pub start_blob_accumulator: <a href="../../blob/abis/struct.BlobAccumulator.html" class="struct">BlobAccumulator</a>,
+    pub end_blob_accumulator: <a href="../../blob/abis/struct.BlobAccumulator.html" class="struct">BlobAccumulator</a>,
+    pub final_blob_challenges: <a href="../../blob/abis/struct.FinalBlobBatchingChallenges.html" class="struct">FinalBlobBatchingChallenges</a>,
+}
+</code></pre>
+<div class="comments">
+<p>Public inputs for the checkpoint root and checkpoint merge rollup circuits.</p>
+</div>
+<h2>Fields</h2>
+<div id="constants" class="struct-field"><code class="code-header">constants: <a href="../../types/abis/epoch_constant_data/struct.EpochConstantData.html" class="struct">EpochConstantData</a></code></div>
+<div class="padded-description"></div><div id="previous_archive" class="struct-field"><code class="code-header">previous_archive: <a href="../../types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></div>
+<div class="padded-description"></div><div id="new_archive" class="struct-field"><code class="code-header">new_archive: <a href="../../types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></div>
+<div class="padded-description"></div><div id="checkpoint_header_hashes" class="struct-field"><code class="code-header">checkpoint_header_hashes: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 48]</code></div>
+<div class="padded-description"></div><div id="fees" class="struct-field"><code class="code-header">fees: [<a href="../../types/abis/fee_recipient/struct.FeeRecipient.html" class="struct">FeeRecipient</a>; 48]</code></div>
+<div class="padded-description"></div><div id="start_blob_accumulator" class="struct-field"><code class="code-header">start_blob_accumulator: <a href="../../blob/abis/struct.BlobAccumulator.html" class="struct">BlobAccumulator</a></code></div>
+<div class="padded-description"></div><div id="end_blob_accumulator" class="struct-field"><code class="code-header">end_blob_accumulator: <a href="../../blob/abis/struct.BlobAccumulator.html" class="struct">BlobAccumulator</a></code></div>
+<div class="padded-description"></div><div id="final_blob_challenges" class="struct-field"><code class="code-header">final_blob_challenges: <a href="../../blob/abis/struct.FinalBlobBatchingChallenges.html" class="struct">FinalBlobBatchingChallenges</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../rollup_lib/checkpoint_root/struct.CheckpointRollupPublicInputs.html" class="struct">CheckpointRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code id="num_checkpoints" class="code-header">pub fn <span class="fn">num_checkpoints</span>(self) -> <a href="../../std/primitive.u16.html" class="primitive">u16</a></code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-CheckpointRollupPublicInputs"><code class="code-header">impl <a href="../../types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../rollup_lib/checkpoint_root/struct.CheckpointRollupPublicInputs.html" class="struct">CheckpointRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 193]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-CheckpointRollupPublicInputs"><code class="code-header">impl <a href="../../types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../rollup_lib/checkpoint_root/struct.CheckpointRollupPublicInputs.html" class="struct">CheckpointRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-CheckpointRollupPublicInputs"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../rollup_lib/checkpoint_root/struct.CheckpointRollupPublicInputs.html" class="struct">CheckpointRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-CheckpointRollupPublicInputs"><code class="code-header">impl <a href="../../types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../rollup_lib/checkpoint_root/struct.CheckpointRollupPublicInputs.html" class="struct">CheckpointRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 193]</code>
+
+</div></main>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Struct BlockRollupPublicInputs documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">rollup_lib</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct BlockRollupPublicInputs</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#accumulated_fees">accumulated_fees</a></li>
+<li><a href="#accumulated_mana_used">accumulated_mana_used</a></li>
+<li><a href="#constants">constants</a></li>
+<li><a href="#end_sponge_blob">end_sponge_blob</a></li>
+<li><a href="#end_state">end_state</a></li>
+<li><a href="#end_timestamp">end_timestamp</a></li>
+<li><a href="#in_hash">in_hash</a></li>
+<li><a href="#new_archive">new_archive</a></li>
+<li><a href="#out_hash">out_hash</a></li>
+<li><a href="#previous_archive">previous_archive</a></li>
+<li><a href="#start_sponge_blob">start_sponge_blob</a></li>
+<li><a href="#start_state">start_state</a></li>
+<li><a href="#start_timestamp">start_timestamp</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#num_blocks">num_blocks</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-BlockRollupPublicInputs">Deserialize</a></li>
+<li><a href="#impl-Eq-for-BlockRollupPublicInputs">Eq</a></li>
+<li><a href="#impl-Serialize-for-BlockRollupPublicInputs">Serialize</a></li>
+</ul>
+<h2>In module block_merge</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.BlockMergeRollupPrivateInputs.html">BlockMergeRollupPrivateInputs</a></div></li>
+<li><a href="struct.BlockRollupPublicInputs.html">BlockRollupPublicInputs</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">rollup_lib</a>::<a href="index.html">block_merge</a></div>
+<h1>Struct <span id="struct" class="struct">BlockRollupPublicInputs</span></h1>
+<pre><code>pub struct BlockRollupPublicInputs {
+    pub constants: <a href="../../types/abis/checkpoint_constant_data/struct.CheckpointConstantData.html" class="struct">CheckpointConstantData</a>,
+    pub previous_archive: <a href="../../types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
+    pub new_archive: <a href="../../types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
+    pub start_state: <a href="../../types/abis/state_reference/struct.StateReference.html" class="struct">StateReference</a>,
+    pub end_state: <a href="../../types/abis/state_reference/struct.StateReference.html" class="struct">StateReference</a>,
+    pub start_sponge_blob: <a href="../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a>,
+    pub end_sponge_blob: <a href="../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a>,
+    pub start_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a>,
+    pub end_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a>,
+    pub in_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub out_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub accumulated_fees: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub accumulated_mana_used: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+}
+</code></pre>
+<div class="comments">
+<p>Public inputs for the block root and block merge rollup circuits.</p>
+</div>
+<h2>Fields</h2>
+<div id="constants" class="struct-field"><code class="code-header">constants: <a href="../../types/abis/checkpoint_constant_data/struct.CheckpointConstantData.html" class="struct">CheckpointConstantData</a></code></div>
+<div class="padded-description"></div><div id="previous_archive" class="struct-field"><code class="code-header">previous_archive: <a href="../../types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></div>
+<div class="padded-description"></div><div id="new_archive" class="struct-field"><code class="code-header">new_archive: <a href="../../types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></div>
+<div class="padded-description"></div><div id="start_state" class="struct-field"><code class="code-header">start_state: <a href="../../types/abis/state_reference/struct.StateReference.html" class="struct">StateReference</a></code></div>
+<div class="padded-description"></div><div id="end_state" class="struct-field"><code class="code-header">end_state: <a href="../../types/abis/state_reference/struct.StateReference.html" class="struct">StateReference</a></code></div>
+<div class="padded-description"></div><div id="start_sponge_blob" class="struct-field"><code class="code-header">start_sponge_blob: <a href="../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></div>
+<div class="padded-description"></div><div id="end_sponge_blob" class="struct-field"><code class="code-header">end_sponge_blob: <a href="../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></div>
+<div class="padded-description"></div><div id="start_timestamp" class="struct-field"><code class="code-header">start_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></div>
+<div class="padded-description"></div><div id="end_timestamp" class="struct-field"><code class="code-header">end_timestamp: <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></div>
+<div class="padded-description"></div><div id="in_hash" class="struct-field"><code class="code-header">in_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="out_hash" class="struct-field"><code class="code-header">out_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="accumulated_fees" class="struct-field"><code class="code-header">accumulated_fees: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="accumulated_mana_used" class="struct-field"><code class="code-header">accumulated_mana_used: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../rollup_lib/block_root/struct.BlockRollupPublicInputs.html" class="struct">BlockRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code id="num_blocks" class="code-header">pub fn <span class="fn">num_blocks</span>(self) -> <a href="../../std/primitive.u16.html" class="primitive">u16</a></code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-BlockRollupPublicInputs"><code class="code-header">impl <a href="../../types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../rollup_lib/block_root/struct.BlockRollupPublicInputs.html" class="struct">BlockRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 58]) -> Self</code>
+
+</div><h3 id="impl-Eq-for-BlockRollupPublicInputs"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../rollup_lib/block_root/struct.BlockRollupPublicInputs.html" class="struct">BlockRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-BlockRollupPublicInputs"><code class="code-header">impl <a href="../../types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../rollup_lib/block_root/struct.BlockRollupPublicInputs.html" class="struct">BlockRollupPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 58]</code>
+
+</div></main>
+</body>
+</html>

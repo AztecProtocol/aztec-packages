@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<title>Trait BigCurve documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../all.html">All items</a></div>
+<h2 id="crate-name"><a href="index.html">bigcurve</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait BigCurve</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#a">a</a></li>
+<li><a href="#b">b</a></li>
+<li><a href="#evaluate_linear_expression">evaluate_linear_expression</a></li>
+<li><a href="#from_coordinates">from_coordinates</a></li>
+<li><a href="#hash_to_curve">hash_to_curve</a></li>
+<li><a href="#is_infinity">is_infinity</a></li>
+<li><a href="#mul">mul</a></li>
+<li><a href="#offset_generator">offset_generator</a></li>
+<li><a href="#offset_generator_final">offset_generator_final</a></li>
+<li><a href="#one">one</a></li>
+<li><a href="#point_at_infinity">point_at_infinity</a></li>
+<li><a href="#validate_on_curve">validate_on_curve</a></li>
+<li><a href="#x">x</a></li>
+<li><a href="#y">y</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-BigCurve&lt;BLS12_377_Fq&gt;-for-BLS12_377">BLS12_377</a></li>
+<li><a href="#impl-BigCurve&lt;BLS12_381_Fq&gt;-for-BLS12_381">BLS12_381</a></li>
+<li><a href="#impl-BigCurve&lt;BN254_Fq&gt;-for-BN254">BN254</a></li>
+<li><a href="#impl-BigCurve&lt;MNT4_753_Fq&gt;-for-MNT4_753">MNT4_753</a></li>
+<li><a href="#impl-BigCurve&lt;MNT6_753_Fq&gt;-for-MNT6_753">MNT6_753</a></li>
+<li><a href="#impl-BigCurve&lt;Pallas_Fq&gt;-for-Pallas">Pallas</a></li>
+<li><a href="#impl-BigCurve&lt;Secp256k1_Fq&gt;-for-Secp256k1">Secp256k1</a></li>
+<li><a href="#impl-BigCurve&lt;Secp256r1_Fq&gt;-for-Secp256r1">Secp256r1</a></li>
+<li><a href="#impl-BigCurve&lt;Secp384r1_Fq&gt;-for-Secp384r1">Secp384r1</a></li>
+<li><a href="#impl-BigCurve&lt;Vesta_Fq&gt;-for-Vesta">Vesta</a></li>
+</ul>
+<h2>In module bigcurve</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="curves/index.html">curves</a></div></li>
+<li><a href="scalar_field/index.html">scalar_field</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.BigCurveParams.html">BigCurveParams</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.BigCurve.html">BigCurve</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.derive_curve_impl.html">derive_curve_impl</a></div></li>
+<li><a href="fn.msm.html">msm</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../index.html">noir-protocol-circuits</a> - <a href="index.html">bigcurve</a></div>
+<h1>Trait <span id="trait" class="trait">BigCurve</span></h1>
+<pre><code>pub trait BigCurve&lt;B&gt;:
+    <a href="../std/cmp/trait.Eq.html" class="trait">Eq</a>
+    + <a href="../std/ops/trait.Add.html" class="trait">Add</a>
+    + <a href="../std/ops/trait.Sub.html" class="trait">Sub</a>
+    + <a href="../std/ops/trait.Neg.html" class="trait">Neg</a>
+<div class="where-clause">where
+    B: <a href="../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a></div>{
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#x"><span class="fn">x</span></a>(self) -> B;
+    pub fn <a href="#y"><span class="fn">y</span></a>(self) -> B;
+    pub fn <a href="#a"><span class="fn">a</span></a>() -> B;
+    pub fn <a href="#b"><span class="fn">b</span></a>() -> B;
+    pub fn <a href="#from_coordinates"><span class="fn">from_coordinates</span></a>(x: B, y: B, is_infinity: <a href="../std/primitive.bool.html" class="primitive">bool</a>) -> Self;
+    pub fn <a href="#point_at_infinity"><span class="fn">point_at_infinity</span></a>() -> Self;
+    pub fn <a href="#is_infinity"><span class="fn">is_infinity</span></a>(self) -> <a href="../std/primitive.bool.html" class="primitive">bool</a>;
+    pub fn <a href="#one"><span class="fn">one</span></a>() -> Self;
+    pub fn <a href="#offset_generator"><span class="fn">offset_generator</span></a>() -> Self;
+    pub fn <a href="#offset_generator_final"><span class="fn">offset_generator_final</span></a>() -> Self;
+    pub fn <a href="#validate_on_curve"><span class="fn">validate_on_curve</span></a>(self);
+    pub fn <a href="#mul"><span class="fn">mul</span></a>&lt;let NScalarSlices: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, scalar: <a href="../bigcurve/scalar_field/struct.ScalarField.html" class="struct">ScalarField</a>&lt;NScalarSlices&gt;) -> Self;
+    pub fn <a href="#hash_to_curve"><span class="fn">hash_to_curve</span></a>&lt;let N: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(seed: [<a href="../std/primitive.u8.html" class="primitive">u8</a>; N]) -> Self;
+    pub fn <a href="#evaluate_linear_expression"><span class="fn">evaluate_linear_expression</span></a>&lt;let NScalarSlices: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NMuls: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NAdds: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+        mul_points: [Self; NMuls],
+        mul_scalars: [<a href="../bigcurve/scalar_field/struct.ScalarField.html" class="struct">ScalarField</a>&lt;NScalarSlices&gt;; NMuls],
+        add_points: [Self; NAdds],
+    ) -> Self;
+}</code></pre>
+
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="x" class="code-header">pub fn <span class="fn">x</span>(self) -> B</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the x-coordinate of the point.</p>
+</div>
+</div><code id="y" class="code-header">pub fn <span class="fn">y</span>(self) -> B</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the y-coordinate of the point.</p>
+</div>
+</div><code id="a" class="code-header">pub fn <span class="fn">a</span>() -> B</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the a-coordinate of the curve.</p>
+</div>
+</div><code id="b" class="code-header">pub fn <span class="fn">b</span>() -> B</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the b-coordinate of the curve.</p>
+</div>
+</div><code id="from_coordinates" class="code-header">pub fn <span class="fn">from_coordinates</span>(x: B, y: B, is_infinity: <a href="../std/primitive.bool.html" class="primitive">bool</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates a point from its coordinates.</p>
+</div>
+</div><code id="point_at_infinity" class="code-header">pub fn <span class="fn">point_at_infinity</span>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the point at infinity (the identity element of the curve group).</p>
+</div>
+</div><code id="is_infinity" class="code-header">pub fn <span class="fn">is_infinity</span>(self) -> <a href="../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns true if the point is the point at infinity.</p>
+</div>
+</div><code id="one" class="code-header">pub fn <span class="fn">one</span>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the canonical generator point of the curve.</p>
+</div>
+</div><code id="offset_generator" class="code-header">pub fn <span class="fn">offset_generator</span>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns a generator point offset by a fixed value (implementation-specific).</p>
+</div>
+</div><code id="offset_generator_final" class="code-header">pub fn <span class="fn">offset_generator_final</span>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the final offset generator point (implementation-specific).</p>
+</div>
+</div><code id="validate_on_curve" class="code-header">pub fn <span class="fn">validate_on_curve</span>(self)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Validates that the point lies on the curve. May panic or fail if invalid.</p>
+</div>
+</div><code id="mul" class="code-header">pub fn <span class="fn">mul</span>&lt;let NScalarSlices: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, scalar: <a href="../bigcurve/scalar_field/struct.ScalarField.html" class="struct">ScalarField</a>&lt;NScalarSlices&gt;) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Multiplies the point by a scalar value, returning the resulting point.</p>
+</div>
+</div><code id="hash_to_curve" class="code-header">pub fn <span class="fn">hash_to_curve</span>&lt;let N: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(seed: [<a href="../std/primitive.u8.html" class="primitive">u8</a>; N]) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Hashes the provided <code>seed</code> to a point on the curve.</p>
+</div>
+</div><code id="evaluate_linear_expression" class="code-header">pub fn <span class="fn">evaluate_linear_expression</span>&lt;let NScalarSlices: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NMuls: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NAdds: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    mul_points: [Self; NMuls],
+    mul_scalars: [<a href="../bigcurve/scalar_field/struct.ScalarField.html" class="struct">ScalarField</a>&lt;NScalarSlices&gt;; NMuls],
+    add_points: [Self; NAdds],
+) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Evaluates a linear expression involving multiple points and scalars, returning the resulting point.</p>
+</div>
+</div></div><h2>Implementors</h2>
+<h3 id="impl-BigCurve&lt;BLS12_377_Fq&gt;-for-BLS12_377"><code class="code-header">impl <a href="../bigcurve/trait.BigCurve.html" class="trait">BigCurve</a>&lt;<a href="../bignum/fields/bls12_377Fq/struct.BLS12_377_Fq.html" class="struct">BLS12_377_Fq</a>&gt; for <a href="../bigcurve/curves/bls12_377/struct.BLS12_377.html" class="struct">BLS12_377</a></code></h3>
+
+<h3 id="impl-BigCurve&lt;BLS12_381_Fq&gt;-for-BLS12_381"><code class="code-header">impl <a href="../bigcurve/trait.BigCurve.html" class="trait">BigCurve</a>&lt;<a href="../bignum/fields/bls12_381Fq/struct.BLS12_381_Fq.html" class="struct">BLS12_381_Fq</a>&gt; for <a href="../bigcurve/curves/bls12_381/struct.BLS12_381.html" class="struct">BLS12_381</a></code></h3>
+
+<h3 id="impl-BigCurve&lt;BN254_Fq&gt;-for-BN254"><code class="code-header">impl <a href="../bigcurve/trait.BigCurve.html" class="trait">BigCurve</a>&lt;<a href="../bignum/fields/bn254Fq/struct.BN254_Fq.html" class="struct">BN254_Fq</a>&gt; for <a href="../bigcurve/curves/bn254/struct.BN254.html" class="struct">BN254</a></code></h3>
+
+<h3 id="impl-BigCurve&lt;MNT4_753_Fq&gt;-for-MNT4_753"><code class="code-header">impl <a href="../bigcurve/trait.BigCurve.html" class="trait">BigCurve</a>&lt;<a href="../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a>&gt; for <a href="../bigcurve/curves/mnt4_753/struct.MNT4_753.html" class="struct">MNT4_753</a></code></h3>
+
+<h3 id="impl-BigCurve&lt;MNT6_753_Fq&gt;-for-MNT6_753"><code class="code-header">impl <a href="../bigcurve/trait.BigCurve.html" class="trait">BigCurve</a>&lt;<a href="../bignum/fields/mnt6_753Fq/struct.MNT6_753_Fq.html" class="struct">MNT6_753_Fq</a>&gt; for <a href="../bigcurve/curves/mnt6_753/struct.MNT6_753.html" class="struct">MNT6_753</a></code></h3>
+
+<h3 id="impl-BigCurve&lt;Pallas_Fq&gt;-for-Pallas"><code class="code-header">impl <a href="../bigcurve/trait.BigCurve.html" class="trait">BigCurve</a>&lt;<a href="../bignum/fields/pallasFq/struct.Pallas_Fq.html" class="struct">Pallas_Fq</a>&gt; for <a href="../bigcurve/curves/pallas/struct.Pallas.html" class="struct">Pallas</a></code></h3>
+
+<h3 id="impl-BigCurve&lt;Secp256k1_Fq&gt;-for-Secp256k1"><code class="code-header">impl <a href="../bigcurve/trait.BigCurve.html" class="trait">BigCurve</a>&lt;<a href="../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a>&gt; for <a href="../bigcurve/curves/secp256k1/struct.Secp256k1.html" class="struct">Secp256k1</a></code></h3>
+
+<h3 id="impl-BigCurve&lt;Secp256r1_Fq&gt;-for-Secp256r1"><code class="code-header">impl <a href="../bigcurve/trait.BigCurve.html" class="trait">BigCurve</a>&lt;<a href="../bignum/fields/secp256r1Fq/struct.Secp256r1_Fq.html" class="struct">Secp256r1_Fq</a>&gt; for <a href="../bigcurve/curves/secp256r1/struct.Secp256r1.html" class="struct">Secp256r1</a></code></h3>
+
+<h3 id="impl-BigCurve&lt;Secp384r1_Fq&gt;-for-Secp384r1"><code class="code-header">impl <a href="../bigcurve/trait.BigCurve.html" class="trait">BigCurve</a>&lt;<a href="../bignum/fields/secp384r1Fq/struct.Secp384r1_Fq.html" class="struct">Secp384r1_Fq</a>&gt; for <a href="../bigcurve/curves/secp384r1/struct.Secp384r1.html" class="struct">Secp384r1</a></code></h3>
+
+<h3 id="impl-BigCurve&lt;Vesta_Fq&gt;-for-Vesta"><code class="code-header">impl <a href="../bigcurve/trait.BigCurve.html" class="trait">BigCurve</a>&lt;<a href="../bignum/fields/vestaFq/struct.Vesta_Fq.html" class="struct">Vesta_Fq</a>&gt; for <a href="../bigcurve/curves/vesta/struct.Vesta.html" class="struct">Vesta</a></code></h3>
+
+</main>
+</body>
+</html>

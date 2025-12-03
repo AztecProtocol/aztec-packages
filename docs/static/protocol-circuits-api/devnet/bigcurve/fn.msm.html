@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<title>Function msm documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../all.html">All items</a></div>
+<h2 id="crate-name"><a href="index.html">bigcurve</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module bigcurve</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="curves/index.html">curves</a></div></li>
+<li><a href="scalar_field/index.html">scalar_field</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.BigCurveParams.html">BigCurveParams</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.BigCurve.html">BigCurve</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.derive_curve_impl.html">derive_curve_impl</a></div></li>
+<li><a href="fn.msm.html">msm</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../index.html">noir-protocol-circuits</a> - <a href="index.html">bigcurve</a></div>
+<h1>Function <span class="fn">msm</span></h1>
+<pre><code>pub fn msm&lt;P, B, let NScalarSlices: <a href="../std/primitive.u32.html" class="primitive">u32</a>, let NMuls: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    mul_points: [P; NMuls],
+    mul_scalars: [<a href="../bigcurve/scalar_field/struct.ScalarField.html" class="struct">ScalarField</a>&lt;NScalarSlices&gt;; NMuls],
+) -> P
+<div class="where-clause">where
+    P: <a href="../bigcurve/trait.BigCurve.html" class="trait">BigCurve</a>&lt;B&gt;,
+    B: <a href="../bignum/bignum/trait.BigNum.html" class="trait">BigNum</a></div></code></pre>
+
+<div class="comments">
+<p>Multiplies a point by a scalar field value, returning the resulting point.</p>
+</div>
+</main>
+</body>
+</html>

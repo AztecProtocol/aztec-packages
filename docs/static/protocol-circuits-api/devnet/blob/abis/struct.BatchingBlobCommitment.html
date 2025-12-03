@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Struct BatchingBlobCommitment documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">blob</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct BatchingBlobCommitment</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#compressed">compressed</a></li>
+<li><a href="#point">point</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#from_limbs">from_limbs</a></li>
+<li><a href="#to_compressed_fields">to_compressed_fields</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Empty-for-BatchingBlobCommitment">Empty</a></li>
+<li><a href="#impl-Eq-for-BatchingBlobCommitment">Eq</a></li>
+</ul>
+<h2>In module abis</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.BatchingBlobCommitment.html">BatchingBlobCommitment</a></div></li>
+<li><a href="struct.BlobAccumulator.html">BlobAccumulator</a></div></li>
+<li><a href="struct.FinalBlobAccumulator.html">FinalBlobAccumulator</a></div></li>
+<li><a href="struct.FinalBlobBatchingChallenges.html">FinalBlobBatchingChallenges</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.BLSPoint.html">BLSPoint</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">blob</a>::<a href="index.html">abis</a></div>
+<h1>Struct <span id="struct" class="struct">BatchingBlobCommitment</span></h1>
+<pre><code>pub struct BatchingBlobCommitment {
+    pub point: <a href="../../blob/abis/type.BLSPoint.html" class="type">BLSPoint</a>,
+    pub compressed: [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; 48],
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="point" class="struct-field"><code class="code-header">point: <a href="../../blob/abis/type.BLSPoint.html" class="type">BLSPoint</a></code></div>
+<div class="padded-description"></div><div id="compressed" class="struct-field"><code class="code-header">compressed: [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; 48]</code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../blob/abis/struct.BatchingBlobCommitment.html" class="struct">BatchingBlobCommitment</a></code></h3>
+
+<div class="padded-methods"><code id="to_compressed_fields" class="code-header">pub fn <span class="fn">to_compressed_fields</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 2]</code>
+
+<code id="from_limbs" class="code-header">pub fn <span class="fn">from_limbs</span>(x_limbs: [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; 4], y_limbs: [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; 4]) -> Self</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Empty-for-BatchingBlobCommitment"><code class="code-header">impl <a href="../../types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../blob/abis/struct.BatchingBlobCommitment.html" class="struct">BatchingBlobCommitment</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-BatchingBlobCommitment"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../blob/abis/struct.BatchingBlobCommitment.html" class="struct">BatchingBlobCommitment</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(self, other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div></main>
+</body>
+</html>

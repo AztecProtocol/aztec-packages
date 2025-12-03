@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Struct UnbalancedMerkleTree documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct UnbalancedMerkleTree</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#root">root</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#get_root">get_root</a></li>
+<li><a href="#new_sha">new_sha</a></li>
+</ul>
+<h2>In module unbalanced_merkle_tree</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.UnbalancedMerkleTree.html">UnbalancedMerkleTree</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.compute_unbalanced_merkle_root.html">compute_unbalanced_merkle_root</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">noir-protocol-circuits</a> - <a href="../../index.html">types</a>::<a href="../index.html">merkle_tree</a>::<a href="index.html">unbalanced_merkle_tree</a></div>
+<h1>Struct <span id="struct" class="struct">UnbalancedMerkleTree</span></h1>
+<pre><code>pub struct UnbalancedMerkleTree {
+    pub root: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="root" class="struct-field"><code class="code-header">root: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../types/merkle_tree/unbalanced_merkle_tree/struct.UnbalancedMerkleTree.html" class="struct">UnbalancedMerkleTree</a></code></h3>
+
+<div class="padded-methods"><code id="new_sha" class="code-header">pub fn <span class="fn">new_sha</span>&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let MAX_SUBTREES: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    leaves: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N],
+    num_non_empty_leaves: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+) -> Self</code>
+
+<code id="get_root" class="code-header">pub fn <span class="fn">get_root</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div></main>
+</body>
+</html>

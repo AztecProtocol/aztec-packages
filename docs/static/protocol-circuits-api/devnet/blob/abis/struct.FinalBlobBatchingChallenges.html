@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Struct FinalBlobBatchingChallenges documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">blob</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct FinalBlobBatchingChallenges</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#gamma">gamma</a></li>
+<li><a href="#z">z</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-FinalBlobBatchingChallenges">Deserialize</a></li>
+<li><a href="#impl-Empty-for-FinalBlobBatchingChallenges">Empty</a></li>
+<li><a href="#impl-Eq-for-FinalBlobBatchingChallenges">Eq</a></li>
+<li><a href="#impl-Serialize-for-FinalBlobBatchingChallenges">Serialize</a></li>
+</ul>
+<h2>In module abis</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.BatchingBlobCommitment.html">BatchingBlobCommitment</a></div></li>
+<li><a href="struct.BlobAccumulator.html">BlobAccumulator</a></div></li>
+<li><a href="struct.FinalBlobAccumulator.html">FinalBlobAccumulator</a></div></li>
+<li><a href="struct.FinalBlobBatchingChallenges.html">FinalBlobBatchingChallenges</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.BLSPoint.html">BLSPoint</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">blob</a>::<a href="index.html">abis</a></div>
+<h1>Struct <span id="struct" class="struct">FinalBlobBatchingChallenges</span></h1>
+<pre><code>pub struct FinalBlobBatchingChallenges {
+    pub z: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub gamma: <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a>,
+}
+</code></pre>
+<div class="comments">
+<p>Final values z and gamma are injected into each block root circuit. We ensure they are correct by:</p>
+<ul>
+<li>
+<p>Checking equality in each block merge circuit and propagating up</p>
+</li>
+<li>
+<p>Checking final z_acc == z in root circuit</p>
+</li>
+<li>
+<p>Checking final gamma_acc == gamma in root circuit</p>
+</li>
+<li>
+<p>z = H(...H(H(z_0, z_1) z_2)..z_n)</p>
+<ul>
+<li>where z_i = H(H(fields of blob_i), C_i),</li>
+<li>used such that p_i(z) = y_i = Blob.evaluationY for all n blob polynomials p_i().</li>
+</ul>
+</li>
+<li>
+<p>gamma = H(H(...H(H(y_0, y_1) y_2)..y_n), z)</p>
+<ul>
+<li>used such that y = sum_i { gamma^i * y_i }, and C = sum_i { gamma^i * C_i }
+for all blob evaluations y_i (see above) and commitments C_i.</li>
+</ul>
+</li>
+</ul>
+<p>Iteratively calculated by BlobAccumulator.accumulate() above. See also precomputeBatchedBlobChallenges() in ts.</p>
+</div>
+<h2>Fields</h2>
+<div id="z" class="struct-field"><code class="code-header">z: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="gamma" class="struct-field"><code class="code-header">gamma: <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-FinalBlobBatchingChallenges"><code class="code-header">impl <a href="../../types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../blob/abis/struct.FinalBlobBatchingChallenges.html" class="struct">FinalBlobBatchingChallenges</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 4]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-FinalBlobBatchingChallenges"><code class="code-header">impl <a href="../../types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../blob/abis/struct.FinalBlobBatchingChallenges.html" class="struct">FinalBlobBatchingChallenges</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-FinalBlobBatchingChallenges"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../blob/abis/struct.FinalBlobBatchingChallenges.html" class="struct">FinalBlobBatchingChallenges</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(self, other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-FinalBlobBatchingChallenges"><code class="code-header">impl <a href="../../types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../blob/abis/struct.FinalBlobBatchingChallenges.html" class="struct">FinalBlobBatchingChallenges</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 4]</code>
+
+</div></main>
+</body>
+</html>

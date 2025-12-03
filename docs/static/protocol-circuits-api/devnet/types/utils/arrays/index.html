@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Module arrays documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#mod">Module arrays</a></h2>
+<h3>Module items</h3>
+<ul class="sidebar-list">
+<li><a href="#re-exports">Re-exports</a></li>
+<li><a href="#modules">Modules</a></li>
+<li><a href="#structs">Structs</a></li>
+<li><a href="#functions">Functions</a></li>
+</ul>
+<h2>In module utils</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="../arrays/index.html">arrays</a></div></li>
+<li><a href="../field/index.html">field</a></div></li>
+<li><a href="../for_loop/index.html">for_loop</a></div></li>
+<li><a href="../math/index.html">math</a></div></li>
+<li><a href="../reader/index.html">reader</a></div></li>
+<li><a href="../uint256/index.html">uint256</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">noir-protocol-circuits</a> - <a href="../../index.html">types</a>::<a href="../index.html">utils</a>::arrays</div>
+<h1>Module <span id="mod" class="module">arrays</span></h1>
+<h2 id="re-exports">Re-exports</h2><ul class="item-list">
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_array_appended::<a href="../../../types/utils/arrays/assert_array_appended/fn.assert_array_appended.html" class="fn">assert_array_appended</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_array_appended::<a href="../../../types/utils/arrays/assert_array_appended/fn.assert_array_appended_and_scoped.html" class="fn">assert_array_appended_and_scoped</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_array_appended::<a href="../../../types/utils/arrays/assert_array_appended/fn.assert_array_appended_reversed_to_empty_dest.html" class="fn">assert_array_appended_reversed_to_empty_dest</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_array_appended::<a href="../../../types/utils/arrays/assert_array_appended/fn.assert_array_appended_reversed_up_to_some_length.html" class="fn">assert_array_appended_reversed_up_to_some_length</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_array_appended::<a href="../../../types/utils/arrays/assert_array_appended/fn.assert_array_appended_to_empty_dest.html" class="fn">assert_array_appended_to_empty_dest</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_array_appended::<a href="../../../types/utils/arrays/assert_array_appended/fn.assert_array_appended_to_empty_dest_and_scoped.html" class="fn">assert_array_appended_to_empty_dest_and_scoped</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_array_prepended::<a href="../../../types/utils/arrays/assert_array_prepended/fn.assert_array_prepended.html" class="fn">assert_array_prepended</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_array_prepended::<a href="../../../types/utils/arrays/assert_array_prepended/fn.assert_array_prepended_up_to_some_length.html" class="fn">assert_array_prepended_up_to_some_length</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_exposed_sorted_transformed_value_array::<a href="../../../types/utils/arrays/assert_exposed_sorted_transformed_value_array/fn.assert_exposed_sorted_transformed_value_array.html" class="fn">assert_exposed_sorted_transformed_value_array</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_exposed_sorted_transformed_value_array::get_order_hints::<a href="../../../types/utils/arrays/assert_exposed_sorted_transformed_value_array/get_order_hints/fn.get_order_hints_asc.html" class="fn">get_order_hints_asc</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_exposed_sorted_transformed_value_array::get_order_hints::<a href="../../../types/utils/arrays/assert_exposed_sorted_transformed_value_array/get_order_hints/struct.OrderHint.html" class="struct">OrderHint</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_sorted_array::<a href="../../../types/utils/arrays/assert_sorted_array/fn.assert_sorted_array.html" class="fn">assert_sorted_array</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_sorted_transformed_padded_array::<a href="../../../types/utils/arrays/assert_sorted_transformed_padded_array/fn.assert_sorted_transformed_i_padded_array_capped_size.html" class="fn">assert_sorted_transformed_i_padded_array_capped_size</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_sorted_transformed_padded_array::<a href="../../../types/utils/arrays/assert_sorted_transformed_padded_array/fn.assert_sorted_transformed_padded_array_capped_size.html" class="fn">assert_sorted_transformed_padded_array_capped_size</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_sorted_transformed_padded_array::<a href="../../../types/utils/arrays/assert_sorted_transformed_padded_array/fn.check_padded_items.html" class="fn">check_padded_items</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_split_sorted_transformed_value_arrays::<a href="../../../types/utils/arrays/assert_split_sorted_transformed_value_arrays/fn.assert_split_sorted_transformed_value_arrays_asc.html" class="fn">assert_split_sorted_transformed_value_arrays_asc</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_split_sorted_transformed_value_arrays::get_split_order_hints::<a href="../../../types/utils/arrays/assert_split_sorted_transformed_value_arrays/get_split_order_hints/fn.get_split_order_hints_asc.html" class="fn">get_split_order_hints_asc</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_split_sorted_transformed_value_arrays::get_split_order_hints::<a href="../../../types/utils/arrays/assert_split_sorted_transformed_value_arrays/get_split_order_hints/struct.SplitOrderHints.html" class="struct">SplitOrderHints</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_split_transformed_padded_arrays::<a href="../../../types/utils/arrays/assert_split_transformed_padded_arrays/fn.assert_split_transformed_padded_arrays.html" class="fn">assert_split_transformed_padded_arrays</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::assert_trailing_zeros::<a href="../../../types/utils/arrays/assert_trailing_zeros/fn.assert_trailing_zeros.html" class="fn">assert_trailing_zeros</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::find_index::<a href="../../../types/utils/arrays/find_index/fn.find_first_index.html" class="fn">find_first_index</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::find_index::<a href="../../../types/utils/arrays/find_index/fn.find_last_index.html" class="fn">find_last_index</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::get_sorted_result::<a href="../../../types/utils/arrays/get_sorted_result/fn.get_sorted_result.html" class="fn">get_sorted_result</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::get_sorted_result::<a href="../../../types/utils/arrays/get_sorted_result/struct.SortedResult.html" class="struct">SortedResult</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::get_sorted_tuple::<a href="../../../types/utils/arrays/get_sorted_tuple/fn.get_sorted_tuple.html" class="fn">get_sorted_tuple</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::get_sorted_tuple::<a href="../../../types/utils/arrays/get_sorted_tuple/struct.SortedTuple.html" class="struct">SortedTuple</a>;</code></div></li>
+<li><div class="item-name"><code>pub use types::utils::arrays::sort_by_counter::<a href="../../../types/utils/arrays/sort_by_counter/fn.sort_by_counter_asc.html" class="fn">sort_by_counter_asc</a>;</code></div></li>
+</ul>
+<h2 id="modules">Modules</h2><ul class="item-list">
+<li><div class="item-name"><a href="assert_array_appended/index.html" class="module">assert_array_appended</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="assert_array_prepended/index.html" class="module">assert_array_prepended</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="assert_exposed_sorted_transformed_value_array/index.html" class="module">assert_exposed_sorted_transformed_value_array</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="assert_sorted_array/index.html" class="module">assert_sorted_array</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="assert_sorted_transformed_padded_array/index.html" class="module">assert_sorted_transformed_padded_array</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="assert_split_sorted_transformed_value_arrays/index.html" class="module">assert_split_sorted_transformed_value_arrays</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="assert_split_transformed_padded_arrays/index.html" class="module">assert_split_transformed_padded_arrays</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="assert_split_transformed_value_arrays/index.html" class="module">assert_split_transformed_value_arrays</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="assert_trailing_zeros/index.html" class="module">assert_trailing_zeros</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="find_index/index.html" class="module">find_index</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="get_sorted_result/index.html" class="module">get_sorted_result</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="get_sorted_tuple/index.html" class="module">get_sorted_tuple</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="sort_by/index.html" class="module">sort_by</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="sort_by_counter/index.html" class="module">sort_by_counter</a></div><div class="item-description"></div></li>
+</ul>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a></div><div class="item-description">ClaimedLengthArray - An array interpreted by Kernel circuits.
+Its <code>length</code> is merely a claim that must eventually be validated.
+Validation must include:</p>
+<ul>
+<li>Asserting all items to the LHS of the length are nonempty (dense).</li>
+<li>Asserting all items to the RHS of the length are empty.</li>
+</ul></div></li>
+</ul>
+<h2 id="functions">Functions</h2><ul class="item-list">
+<li><div class="item-name"><a href="fn.array_length.html" class="fn">array_length</a></div><div class="item-description">Deprecated.</div></li>
+<li><div class="item-name"><a href="fn.array_length_until.html" class="fn">array_length_until</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.array_merge.html" class="fn">array_merge</a></div><div class="item-description">This function assumes that <code>array1</code> and <code>array2</code> contain no more than N non-empty elements between them,
+if this is not the case then elements from the end of <code>array2</code> will be dropped.</div></li>
+<li><div class="item-name"><a href="fn.array_padded_with.html" class="fn">array_padded_with</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.array_to_bounded_vec.html" class="fn">array_to_bounded_vec</a></div><div class="item-description">Helper function to convert a validated array to BoundedVec.
+Important: Only use it for validated arrays: validate_array(array) should be true.</div></li>
+<li><div class="item-name"><a href="fn.check_permutation.html" class="fn">check_permutation</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.find_index_hint.html" class="fn">find_index_hint</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.find_index_hint_in_reverse.html" class="fn">find_index_hint_in_reverse</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.subarray.html" class="fn">subarray</a></div><div class="item-description">Helper fn to create a subarray from a given array.</div></li>
+<li><div class="item-name"><a href="fn.trimmed_array_length_hint.html" class="fn">trimmed_array_length_hint</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.validate_array.html" class="fn">validate_array</a></div><div class="item-description">Deprecated.</div></li>
+</ul>
+</main>
+</body>
+</html>

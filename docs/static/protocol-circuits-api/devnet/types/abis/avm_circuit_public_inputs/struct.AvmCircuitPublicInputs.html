@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Struct AvmCircuitPublicInputs documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct AvmCircuitPublicInputs</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#accumulated_data">accumulated_data</a></li>
+<li><a href="#accumulated_data_array_lengths">accumulated_data_array_lengths</a></li>
+<li><a href="#effective_gas_fees">effective_gas_fees</a></li>
+<li><a href="#end_gas_used">end_gas_used</a></li>
+<li><a href="#end_tree_snapshots">end_tree_snapshots</a></li>
+<li><a href="#fee_payer">fee_payer</a></li>
+<li><a href="#gas_settings">gas_settings</a></li>
+<li><a href="#global_variables">global_variables</a></li>
+<li><a href="#previous_non_revertible_accumulated_data">previous_non_revertible_accumulated_data</a></li>
+<li><a href="#previous_non_revertible_accumulated_data_array_lengths">previous_non_revertible_accumulated_data_array_lengths</a></li>
+<li><a href="#previous_revertible_accumulated_data">previous_revertible_accumulated_data</a></li>
+<li><a href="#previous_revertible_accumulated_data_array_lengths">previous_revertible_accumulated_data_array_lengths</a></li>
+<li><a href="#protocol_contracts">protocol_contracts</a></li>
+<li><a href="#prover_id">prover_id</a></li>
+<li><a href="#public_app_logic_call_requests">public_app_logic_call_requests</a></li>
+<li><a href="#public_call_request_array_lengths">public_call_request_array_lengths</a></li>
+<li><a href="#public_setup_call_requests">public_setup_call_requests</a></li>
+<li><a href="#public_teardown_call_request">public_teardown_call_request</a></li>
+<li><a href="#reverted">reverted</a></li>
+<li><a href="#start_gas_used">start_gas_used</a></li>
+<li><a href="#start_tree_snapshots">start_tree_snapshots</a></li>
+<li><a href="#transaction_fee">transaction_fee</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#to_columns">to_columns</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-AvmCircuitPublicInputs">Deserialize</a></li>
+<li><a href="#impl-Empty-for-AvmCircuitPublicInputs">Empty</a></li>
+<li><a href="#impl-Eq-for-AvmCircuitPublicInputs">Eq</a></li>
+<li><a href="#impl-Serialize-for-AvmCircuitPublicInputs">Serialize</a></li>
+<li><a href="#impl-SerializeToColumns&lt;18740&gt;-for-AvmCircuitPublicInputs">SerializeToColumns&lt;18740&gt;</a></li>
+</ul>
+<h2>In module avm_circuit_public_inputs</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.AvmCircuitPublicInputs.html">AvmCircuitPublicInputs</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">noir-protocol-circuits</a> - <a href="../../index.html">types</a>::<a href="../index.html">abis</a>::<a href="index.html">avm_circuit_public_inputs</a></div>
+<h1>Struct <span id="struct" class="struct">AvmCircuitPublicInputs</span></h1>
+<pre><code>pub struct AvmCircuitPublicInputs {
+    pub global_variables: <a href="../../../types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a>,
+    pub protocol_contracts: <a href="../../../types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a>,
+    pub start_tree_snapshots: <a href="../../../types/abis/tree_snapshots/struct.TreeSnapshots.html" class="struct">TreeSnapshots</a>,
+    pub start_gas_used: <a href="../../../types/abis/gas/struct.Gas.html" class="struct">Gas</a>,
+    pub gas_settings: <a href="../../../types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a>,
+    pub effective_gas_fees: <a href="../../../types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>,
+    pub fee_payer: <a href="../../../types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub prover_id: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub public_call_request_array_lengths: <a href="../../../types/abis/public_call_request/struct.PublicCallRequestArrayLengths.html" class="struct">PublicCallRequestArrayLengths</a>,
+    pub public_setup_call_requests: [<a href="../../../types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>; 32],
+    pub public_app_logic_call_requests: [<a href="../../../types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>; 32],
+    pub public_teardown_call_request: <a href="../../../types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>,
+    pub previous_non_revertible_accumulated_data_array_lengths: <a href="../../../types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedDataArrayLengths.html" class="struct">PrivateToAvmAccumulatedDataArrayLengths</a>,
+    pub previous_revertible_accumulated_data_array_lengths: <a href="../../../types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedDataArrayLengths.html" class="struct">PrivateToAvmAccumulatedDataArrayLengths</a>,
+    pub previous_non_revertible_accumulated_data: <a href="../../../types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedData.html" class="struct">PrivateToAvmAccumulatedData</a>,
+    pub previous_revertible_accumulated_data: <a href="../../../types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedData.html" class="struct">PrivateToAvmAccumulatedData</a>,
+    pub end_tree_snapshots: <a href="../../../types/abis/tree_snapshots/struct.TreeSnapshots.html" class="struct">TreeSnapshots</a>,
+    pub end_gas_used: <a href="../../../types/abis/gas/struct.Gas.html" class="struct">Gas</a>,
+    pub accumulated_data_array_lengths: <a href="../../../types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedDataArrayLengths.html" class="struct">AvmAccumulatedDataArrayLengths</a>,
+    pub accumulated_data: <a href="../../../types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedData.html" class="struct">AvmAccumulatedData</a>,
+    pub transaction_fee: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub reverted: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="global_variables" class="struct-field"><code class="code-header">global_variables: <a href="../../../types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a></code></div>
+<div class="padded-description"></div><div id="protocol_contracts" class="struct-field"><code class="code-header">protocol_contracts: <a href="../../../types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a></code></div>
+<div class="padded-description"></div><div id="start_tree_snapshots" class="struct-field"><code class="code-header">start_tree_snapshots: <a href="../../../types/abis/tree_snapshots/struct.TreeSnapshots.html" class="struct">TreeSnapshots</a></code></div>
+<div class="padded-description"></div><div id="start_gas_used" class="struct-field"><code class="code-header">start_gas_used: <a href="../../../types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></div>
+<div class="padded-description"></div><div id="gas_settings" class="struct-field"><code class="code-header">gas_settings: <a href="../../../types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a></code></div>
+<div class="padded-description"></div><div id="effective_gas_fees" class="struct-field"><code class="code-header">effective_gas_fees: <a href="../../../types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a></code></div>
+<div class="padded-description"></div><div id="fee_payer" class="struct-field"><code class="code-header">fee_payer: <a href="../../../types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="prover_id" class="struct-field"><code class="code-header">prover_id: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="public_call_request_array_lengths" class="struct-field"><code class="code-header">public_call_request_array_lengths: <a href="../../../types/abis/public_call_request/struct.PublicCallRequestArrayLengths.html" class="struct">PublicCallRequestArrayLengths</a></code></div>
+<div class="padded-description"></div><div id="public_setup_call_requests" class="struct-field"><code class="code-header">public_setup_call_requests: [<a href="../../../types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>; 32]</code></div>
+<div class="padded-description"></div><div id="public_app_logic_call_requests" class="struct-field"><code class="code-header">public_app_logic_call_requests: [<a href="../../../types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a>; 32]</code></div>
+<div class="padded-description"></div><div id="public_teardown_call_request" class="struct-field"><code class="code-header">public_teardown_call_request: <a href="../../../types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a></code></div>
+<div class="padded-description"></div><div id="previous_non_revertible_accumulated_data_array_lengths" class="struct-field"><code class="code-header">previous_non_revertible_accumulated_data_array_lengths: <a href="../../../types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedDataArrayLengths.html" class="struct">PrivateToAvmAccumulatedDataArrayLengths</a></code></div>
+<div class="padded-description"></div><div id="previous_revertible_accumulated_data_array_lengths" class="struct-field"><code class="code-header">previous_revertible_accumulated_data_array_lengths: <a href="../../../types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedDataArrayLengths.html" class="struct">PrivateToAvmAccumulatedDataArrayLengths</a></code></div>
+<div class="padded-description"></div><div id="previous_non_revertible_accumulated_data" class="struct-field"><code class="code-header">previous_non_revertible_accumulated_data: <a href="../../../types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedData.html" class="struct">PrivateToAvmAccumulatedData</a></code></div>
+<div class="padded-description"></div><div id="previous_revertible_accumulated_data" class="struct-field"><code class="code-header">previous_revertible_accumulated_data: <a href="../../../types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedData.html" class="struct">PrivateToAvmAccumulatedData</a></code></div>
+<div class="padded-description"></div><div id="end_tree_snapshots" class="struct-field"><code class="code-header">end_tree_snapshots: <a href="../../../types/abis/tree_snapshots/struct.TreeSnapshots.html" class="struct">TreeSnapshots</a></code></div>
+<div class="padded-description"></div><div id="end_gas_used" class="struct-field"><code class="code-header">end_gas_used: <a href="../../../types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></div>
+<div class="padded-description"></div><div id="accumulated_data_array_lengths" class="struct-field"><code class="code-header">accumulated_data_array_lengths: <a href="../../../types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedDataArrayLengths.html" class="struct">AvmAccumulatedDataArrayLengths</a></code></div>
+<div class="padded-description"></div><div id="accumulated_data" class="struct-field"><code class="code-header">accumulated_data: <a href="../../../types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedData.html" class="struct">AvmAccumulatedData</a></code></div>
+<div class="padded-description"></div><div id="transaction_fee" class="struct-field"><code class="code-header">transaction_fee: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="reverted" class="struct-field"><code class="code-header">reverted: <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../types/abis/avm_circuit_public_inputs/struct.AvmCircuitPublicInputs.html" class="struct">AvmCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code id="to_columns" class="code-header">pub fn <span class="fn">to_columns</span>(self) -> [[<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 4685]; 4]</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-AvmCircuitPublicInputs"><code class="code-header">impl <a href="../../../types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../types/abis/avm_circuit_public_inputs/struct.AvmCircuitPublicInputs.html" class="struct">AvmCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 5008]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-AvmCircuitPublicInputs"><code class="code-header">impl <a href="../../../types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../types/abis/avm_circuit_public_inputs/struct.AvmCircuitPublicInputs.html" class="struct">AvmCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-AvmCircuitPublicInputs"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../types/abis/avm_circuit_public_inputs/struct.AvmCircuitPublicInputs.html" class="struct">AvmCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-AvmCircuitPublicInputs"><code class="code-header">impl <a href="../../../types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../types/abis/avm_circuit_public_inputs/struct.AvmCircuitPublicInputs.html" class="struct">AvmCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 5008]</code>
+
+</div><h3 id="impl-SerializeToColumns&lt;18740&gt;-for-AvmCircuitPublicInputs"><code class="code-header">impl <a href="../../../types/proof/traits/trait.SerializeToColumns.html" class="trait">SerializeToColumns</a>&lt;18740&gt; for <a href="../../../types/abis/avm_circuit_public_inputs/struct.AvmCircuitPublicInputs.html" class="struct">AvmCircuitPublicInputs</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize_to_columns</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 18740]</code>
+
+</div></main>
+</body>
+</html>

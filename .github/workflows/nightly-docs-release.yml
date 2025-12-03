@@ -126,6 +126,13 @@ jobs:
           ./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh ${{ env.NIGHTLY_TAG }}
           echo "Generated Aztec.nr API docs for: ${{ env.NIGHTLY_TAG }}"
 
+      - name: Generate Protocol Circuits API documentation
+        working-directory: ./docs
+        run: |
+          # Generate protocol-circuits API docs for this version
+          ./scripts/protocol_circuits_docs_generation/generate_protocol_circuits_docs.sh ${{ env.NIGHTLY_TAG }}
+          echo "Generated Protocol Circuits API docs for: ${{ env.NIGHTLY_TAG }}"
+
       - name: Create Aztec nightly docs version
         working-directory: ./docs
         run: |

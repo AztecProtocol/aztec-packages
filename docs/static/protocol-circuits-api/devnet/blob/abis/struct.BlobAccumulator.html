@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Struct BlobAccumulator documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">blob</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct BlobAccumulator</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#blob_commitments_hash_acc">blob_commitments_hash_acc</a></li>
+<li><a href="#c_acc">c_acc</a></li>
+<li><a href="#gamma_acc">gamma_acc</a></li>
+<li><a href="#gamma_pow_acc">gamma_pow_acc</a></li>
+<li><a href="#y_acc">y_acc</a></li>
+<li><a href="#z_acc">z_acc</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#accumulate">accumulate</a></li>
+<li><a href="#finalize">finalize</a></li>
+<li><a href="#init">init</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-BlobAccumulator">Deserialize</a></li>
+<li><a href="#impl-Empty-for-BlobAccumulator">Empty</a></li>
+<li><a href="#impl-Eq-for-BlobAccumulator">Eq</a></li>
+<li><a href="#impl-Serialize-for-BlobAccumulator">Serialize</a></li>
+</ul>
+<h2>In module abis</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.BatchingBlobCommitment.html">BatchingBlobCommitment</a></div></li>
+<li><a href="struct.BlobAccumulator.html">BlobAccumulator</a></div></li>
+<li><a href="struct.FinalBlobAccumulator.html">FinalBlobAccumulator</a></div></li>
+<li><a href="struct.FinalBlobBatchingChallenges.html">FinalBlobBatchingChallenges</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.BLSPoint.html">BLSPoint</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">blob</a>::<a href="index.html">abis</a></div>
+<h1>Struct <span id="struct" class="struct">BlobAccumulator</span></h1>
+<pre><code>pub struct BlobAccumulator {
+    pub blob_commitments_hash_acc: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub z_acc: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub y_acc: <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a>,
+    pub c_acc: <a href="../../blob/abis/type.BLSPoint.html" class="type">BLSPoint</a>,
+    pub gamma_acc: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub gamma_pow_acc: <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a>,
+}
+</code></pre>
+<div class="comments">
+<p>Contains all fields required to construct a batched KZG proof of ALL blobs in the epoch.
+Instead of calling the point evaluation precompile on L1 for each blob, we create a multi-opening proof
+with the scheme below, and call it just once:
+point_evaluation_precompile(b, z, y, C, BLS12_381_Fq)
+Where b (= kzg_to_versioned_hash(C)) and BLS12_381_Fq (= KZG proof) are computed outside the circuit. The other params are
+calculated here across the rollup circuits (until root, when .finalize() is called).
+Other notes:</p>
+<ul>
+<li>We use blob_commitments_hash to validate the commitments injected here correspond to blobs published on L1.</li>
+<li>We use gamma as the challenge for multi opening, so it can be discarded once the rollup is complete.</li>
+<li>We already know that the elements in each blob correspond to validated data from the kernels from the use of
+the blob_sponge and validating blob_sponge.squeeze() vs H(input_elements).</li>
+<li>We encompass all the blob elements in challenges (z_i) unique to each blob by using the above H(input_elements)
+and the blob's commitment (c_i).</li>
+</ul>
+<p>TODO(#14646): Compress BLS12_381_Fr and BLS12_381_Fq values to reduce number of public inputs (BLOB_ACCUMULATOR_LENGTH)
+TODO: Derive Eq, Serialize, Deserialize for BlobAccumulator instead of having manual implementations.
+Not done here as BLS12_381_Fr doesn't implement serde and orphan rule prevents me from implementing it here.</p>
+</div>
+<h2>Fields</h2>
+<div id="blob_commitments_hash_acc" class="struct-field"><code class="code-header">blob_commitments_hash_acc: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="z_acc" class="struct-field"><code class="code-header">z_acc: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="y_acc" class="struct-field"><code class="code-header">y_acc: <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a></code></div>
+<div class="padded-description"></div><div id="c_acc" class="struct-field"><code class="code-header">c_acc: <a href="../../blob/abis/type.BLSPoint.html" class="type">BLSPoint</a></code></div>
+<div class="padded-description"></div><div id="gamma_acc" class="struct-field"><code class="code-header">gamma_acc: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="gamma_pow_acc" class="struct-field"><code class="code-header">gamma_pow_acc: <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../blob/abis/struct.BlobAccumulator.html" class="struct">BlobAccumulator</a></code></h3>
+
+<div class="padded-methods"><code id="init" class="code-header">pub fn <span class="fn">init</span>(first_output: BlobAccumulationInputs, final_gamma: <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Init the first accumulation state of the epoch.</p>
+<p>First state of the accumulator:</p>
+<ul>
+<li>v_acc := sha256(C_0)</li>
+<li>z_acc := z_0</li>
+<li>y_acc := gamma^0 * y_0 = y_0</li>
+<li>c_acc := gamma^0 * c_0 = c_0</li>
+<li>gamma_acc := poseidon2(y_0.limbs)</li>
+<li>gamma^(i + 1) = gamma^1 = gamma // denoted gamma_pow_acc</li>
+</ul>
+<p>For all blobs i &gt; 0 accumulated, see the below documentation for accumulate().</p>
+</div>
+</div><code id="accumulate" class="code-header">pub fn <span class="fn">accumulate</span>(self, other: BlobAccumulationInputs, final_gamma: <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>LHS Accumulator: Current state of param accumulation from blob 0 to i-1
+RHS Accumulator: Outputs from evaluation of blob i</p>
+<p>NB: blob_commitments_hash is written as v below</p>
+<p>Each accumulation:</p>
+<ul>
+<li>v_acc := sha256(v_acc, C_i)</li>
+<li>z_acc := poseidon2(z_acc, z_i)</li>
+<li>y_acc := y_acc + (gamma^i * y_i)</li>
+<li>c_acc := c_acc + (gamma^i * c_i)</li>
+<li>gamma_acc := poseidon2(gamma_acc, poseidon2(y_i.limbs))</li>
+<li>gamma^(i + 1) = gamma^i * gamma // denoted gamma_pow_acc</li>
+</ul>
+<p>Final accumulated values (from last blob of last checkpoint of epoch):</p>
+<ul>
+<li>v := v_acc (hash of all commitments (C_i s) to be checked on L1)</li>
+<li>z := z_acc (final challenge, at which all blobs are evaluated)</li>
+<li>y := y_acc (final opening to be checked on L1)</li>
+<li>c := c_acc (final commitment to be checked on L1)</li>
+<li>gamma := poseidon2(gamma_acc, z) (challenge for linear combination of y and C, above)</li>
+</ul>
+<p>Final values z and gamma are injected into each checkpoint root circuit. We ensure they are correct by:</p>
+<ul>
+<li>Checking equality in each checkpoint merge circuit and propagating up</li>
+<li>Checking final z_acc == z in root circuit</li>
+<li>Checking final gamma_acc == gamma in root circuit</li>
+</ul>
+</div>
+</div><code id="finalize" class="code-header">pub fn <span class="fn">finalize</span>(self) -> <a href="../../blob/abis/struct.FinalBlobAccumulator.html" class="struct">FinalBlobAccumulator</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Completes the final accumulator state.</p>
+</div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-BlobAccumulator"><code class="code-header">impl <a href="../../types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../blob/abis/struct.BlobAccumulator.html" class="struct">BlobAccumulator</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 18]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-BlobAccumulator"><code class="code-header">impl <a href="../../types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../blob/abis/struct.BlobAccumulator.html" class="struct">BlobAccumulator</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-BlobAccumulator"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../blob/abis/struct.BlobAccumulator.html" class="struct">BlobAccumulator</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(self, other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-BlobAccumulator"><code class="code-header">impl <a href="../../types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../blob/abis/struct.BlobAccumulator.html" class="struct">BlobAccumulator</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 18]</code>
+
+</div></main>
+</body>
+</html>

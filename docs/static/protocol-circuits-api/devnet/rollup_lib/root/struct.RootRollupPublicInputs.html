@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Struct RootRollupPublicInputs documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">rollup_lib</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct RootRollupPublicInputs</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#blob_public_inputs">blob_public_inputs</a></li>
+<li><a href="#checkpoint_header_hashes">checkpoint_header_hashes</a></li>
+<li><a href="#constants">constants</a></li>
+<li><a href="#fees">fees</a></li>
+<li><a href="#new_archive_root">new_archive_root</a></li>
+<li><a href="#previous_archive_root">previous_archive_root</a></li>
+</ul>
+<h2>In module root</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.RootRollupPrivateInputs.html">RootRollupPrivateInputs</a></div></li>
+<li><a href="struct.RootRollupPublicInputs.html">RootRollupPublicInputs</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">rollup_lib</a>::<a href="index.html">root</a></div>
+<h1>Struct <span id="struct" class="struct">RootRollupPublicInputs</span></h1>
+<pre><code>pub struct RootRollupPublicInputs {
+    pub previous_archive_root: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub new_archive_root: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub checkpoint_header_hashes: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 48],
+    pub fees: [<a href="../../types/abis/fee_recipient/struct.FeeRecipient.html" class="struct">FeeRecipient</a>; 48],
+    pub constants: <a href="../../types/abis/epoch_constant_data/struct.EpochConstantData.html" class="struct">EpochConstantData</a>,
+    pub blob_public_inputs: <a href="../../blob/abis/struct.FinalBlobAccumulator.html" class="struct">FinalBlobAccumulator</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="previous_archive_root" class="struct-field"><code class="code-header">previous_archive_root: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="new_archive_root" class="struct-field"><code class="code-header">new_archive_root: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="checkpoint_header_hashes" class="struct-field"><code class="code-header">checkpoint_header_hashes: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 48]</code></div>
+<div class="padded-description"></div><div id="fees" class="struct-field"><code class="code-header">fees: [<a href="../../types/abis/fee_recipient/struct.FeeRecipient.html" class="struct">FeeRecipient</a>; 48]</code></div>
+<div class="padded-description"></div><div id="constants" class="struct-field"><code class="code-header">constants: <a href="../../types/abis/epoch_constant_data/struct.EpochConstantData.html" class="struct">EpochConstantData</a></code></div>
+<div class="padded-description"></div><div id="blob_public_inputs" class="struct-field"><code class="code-header">blob_public_inputs: <a href="../../blob/abis/struct.FinalBlobAccumulator.html" class="struct">FinalBlobAccumulator</a></code></div>
+<div class="padded-description"></div></main>
+</body>
+</html>

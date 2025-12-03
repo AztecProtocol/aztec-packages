@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Trait Neg documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">std</a></h2>
+<div id="crate-version">1.0.0-beta.14</div>
+<h2><a href="#trait">Trait Neg</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#neg">neg</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Neg-for-BLS12_377">BLS12_377</a></li>
+<li><a href="#impl-Neg-for-BLS12_377_Fq">BLS12_377_Fq</a></li>
+<li><a href="#impl-Neg-for-BLS12_377_Fr">BLS12_377_Fr</a></li>
+<li><a href="#impl-Neg-for-BLS12_381">BLS12_381</a></li>
+<li><a href="#impl-Neg-for-BLS12_381_Fq">BLS12_381_Fq</a></li>
+<li><a href="#impl-Neg-for-BLS12_381_Fr">BLS12_381_Fr</a></li>
+<li><a href="#impl-Neg-for-BN254">BN254</a></li>
+<li><a href="#impl-Neg-for-BN254_Fq">BN254_Fq</a></li>
+<li><a href="#impl-Neg-for-ED25519_Fq">ED25519_Fq</a></li>
+<li><a href="#impl-Neg-for-ED25519_Fr">ED25519_Fr</a></li>
+<li><a href="#impl-Neg-for-EmbeddedCurvePoint">EmbeddedCurvePoint</a></li>
+<li><a href="#impl-Neg-for-Field">Field</a></li>
+<li><a href="#impl-Neg-for-MNT4_753">MNT4_753</a></li>
+<li><a href="#impl-Neg-for-MNT4_753_Fq">MNT4_753_Fq</a></li>
+<li><a href="#impl-Neg-for-MNT4_753_Fr">MNT4_753_Fr</a></li>
+<li><a href="#impl-Neg-for-MNT6_753">MNT6_753</a></li>
+<li><a href="#impl-Neg-for-MNT6_753_Fq">MNT6_753_Fq</a></li>
+<li><a href="#impl-Neg-for-MNT6_753_Fr">MNT6_753_Fr</a></li>
+<li><a href="#impl-Neg-for-Pallas">Pallas</a></li>
+<li><a href="#impl-Neg-for-Pallas_Fq">Pallas_Fq</a></li>
+<li><a href="#impl-Neg-for-Pallas_Fr">Pallas_Fr</a></li>
+<li><a href="#impl-Neg-for-RuntimeBigNum<N, MOD_BITS>">RuntimeBigNum<N, MOD_BITS></a></li>
+<li><a href="#impl-Neg-for-Secp256k1">Secp256k1</a></li>
+<li><a href="#impl-Neg-for-Secp256k1_Fq">Secp256k1_Fq</a></li>
+<li><a href="#impl-Neg-for-Secp256k1_Fr">Secp256k1_Fr</a></li>
+<li><a href="#impl-Neg-for-Secp256r1">Secp256r1</a></li>
+<li><a href="#impl-Neg-for-Secp256r1_Fq">Secp256r1_Fq</a></li>
+<li><a href="#impl-Neg-for-Secp256r1_Fr">Secp256r1_Fr</a></li>
+<li><a href="#impl-Neg-for-Secp384r1">Secp384r1</a></li>
+<li><a href="#impl-Neg-for-Secp384r1_Fq">Secp384r1_Fq</a></li>
+<li><a href="#impl-Neg-for-Secp384r1_Fr">Secp384r1_Fr</a></li>
+<li><a href="#impl-Neg-for-U1024">U1024</a></li>
+<li><a href="#impl-Neg-for-U2048">U2048</a></li>
+<li><a href="#impl-Neg-for-U256">U256</a></li>
+<li><a href="#impl-Neg-for-U384">U384</a></li>
+<li><a href="#impl-Neg-for-U4096">U4096</a></li>
+<li><a href="#impl-Neg-for-U512">U512</a></li>
+<li><a href="#impl-Neg-for-U768">U768</a></li>
+<li><a href="#impl-Neg-for-U8192">U8192</a></li>
+<li><a href="#impl-Neg-for-Vesta">Vesta</a></li>
+<li><a href="#impl-Neg-for-Vesta_Fq">Vesta_Fq</a></li>
+<li><a href="#impl-Neg-for-Vesta_Fr">Vesta_Fr</a></li>
+<li><a href="#impl-Neg-for-i16">i16</a></li>
+<li><a href="#impl-Neg-for-i32">i32</a></li>
+<li><a href="#impl-Neg-for-i64">i64</a></li>
+<li><a href="#impl-Neg-for-i8">i8</a></li>
+</ul>
+<h2>In module ops</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.Add.html">Add</a></div></li>
+<li><a href="trait.BitAnd.html">BitAnd</a></div></li>
+<li><a href="trait.BitOr.html">BitOr</a></div></li>
+<li><a href="trait.BitXor.html">BitXor</a></div></li>
+<li><a href="trait.Div.html">Div</a></div></li>
+<li><a href="trait.Mul.html">Mul</a></div></li>
+<li><a href="trait.Neg.html">Neg</a></div></li>
+<li><a href="trait.Not.html">Not</a></div></li>
+<li><a href="trait.Rem.html">Rem</a></div></li>
+<li><a href="trait.Shl.html">Shl</a></div></li>
+<li><a href="trait.Shr.html">Shr</a></div></li>
+<li><a href="trait.Sub.html">Sub</a></div></li>
+<li><a href="trait.WrappingAdd.html">WrappingAdd</a></div></li>
+<li><a href="trait.WrappingMul.html">WrappingMul</a></div></li>
+<li><a href="trait.WrappingSub.html">WrappingSub</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">std</a>::<a href="index.html">ops</a></div>
+<h1>Trait <span id="trait" class="trait">Neg</span></h1>
+<pre><code>pub trait Neg {
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#neg"><span class="fn">neg</span></a>(self) -> Self;
+}</code></pre>
+
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="neg" class="code-header">pub fn <span class="fn">neg</span>(self) -> Self</code>
+
+</div><h2>Implementors</h2>
+<h3 id="impl-Neg-for-BLS12_377"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bigcurve/curves/bls12_377/struct.BLS12_377.html" class="struct">BLS12_377</a></code></h3>
+
+<h3 id="impl-Neg-for-BLS12_377_Fq"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/bls12_377Fq/struct.BLS12_377_Fq.html" class="struct">BLS12_377_Fq</a></code></h3>
+
+<h3 id="impl-Neg-for-BLS12_377_Fr"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/bls12_377Fr/struct.BLS12_377_Fr.html" class="struct">BLS12_377_Fr</a></code></h3>
+
+<h3 id="impl-Neg-for-BLS12_381"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bigcurve/curves/bls12_381/struct.BLS12_381.html" class="struct">BLS12_381</a></code></h3>
+
+<h3 id="impl-Neg-for-BLS12_381_Fq"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/bls12_381Fq/struct.BLS12_381_Fq.html" class="struct">BLS12_381_Fq</a></code></h3>
+
+<h3 id="impl-Neg-for-BLS12_381_Fr"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a></code></h3>
+
+<h3 id="impl-Neg-for-BN254"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bigcurve/curves/bn254/struct.BN254.html" class="struct">BN254</a></code></h3>
+
+<h3 id="impl-Neg-for-BN254_Fq"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/bn254Fq/struct.BN254_Fq.html" class="struct">BN254_Fq</a></code></h3>
+
+<h3 id="impl-Neg-for-ED25519_Fq"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/ed25519Fq/struct.ED25519_Fq.html" class="struct">ED25519_Fq</a></code></h3>
+
+<h3 id="impl-Neg-for-ED25519_Fr"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/ed25519Fr/struct.ED25519_Fr.html" class="struct">ED25519_Fr</a></code></h3>
+
+<h3 id="impl-Neg-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+
+<h3 id="impl-Neg-for-Field"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
+
+<h3 id="impl-Neg-for-MNT4_753"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bigcurve/curves/mnt4_753/struct.MNT4_753.html" class="struct">MNT4_753</a></code></h3>
+
+<h3 id="impl-Neg-for-MNT4_753_Fq"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a></code></h3>
+
+<h3 id="impl-Neg-for-MNT4_753_Fr"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/mnt4_753Fr/struct.MNT4_753_Fr.html" class="struct">MNT4_753_Fr</a></code></h3>
+
+<h3 id="impl-Neg-for-MNT6_753"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bigcurve/curves/mnt6_753/struct.MNT6_753.html" class="struct">MNT6_753</a></code></h3>
+
+<h3 id="impl-Neg-for-MNT6_753_Fq"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/mnt6_753Fq/struct.MNT6_753_Fq.html" class="struct">MNT6_753_Fq</a></code></h3>
+
+<h3 id="impl-Neg-for-MNT6_753_Fr"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/mnt6_753Fr/struct.MNT6_753_Fr.html" class="struct">MNT6_753_Fr</a></code></h3>
+
+<h3 id="impl-Neg-for-Pallas"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bigcurve/curves/pallas/struct.Pallas.html" class="struct">Pallas</a></code></h3>
+
+<h3 id="impl-Neg-for-Pallas_Fq"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/pallasFq/struct.Pallas_Fq.html" class="struct">Pallas_Fq</a></code></h3>
+
+<h3 id="impl-Neg-for-Pallas_Fr"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/pallasFr/struct.Pallas_Fr.html" class="struct">Pallas_Fr</a></code></h3>
+
+<h3 id="impl-Neg-for-RuntimeBigNum<N, MOD_BITS>"><code class="code-header">impl&lt;let MOD_BITS: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/struct.RuntimeBigNum.html" class="struct">RuntimeBigNum</a>&lt;N, MOD_BITS&gt;</code></h3>
+
+<h3 id="impl-Neg-for-Secp256k1"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bigcurve/curves/secp256k1/struct.Secp256k1.html" class="struct">Secp256k1</a></code></h3>
+
+<h3 id="impl-Neg-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<h3 id="impl-Neg-for-Secp256k1_Fr"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/secp256k1Fr/struct.Secp256k1_Fr.html" class="struct">Secp256k1_Fr</a></code></h3>
+
+<h3 id="impl-Neg-for-Secp256r1"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bigcurve/curves/secp256r1/struct.Secp256r1.html" class="struct">Secp256r1</a></code></h3>
+
+<h3 id="impl-Neg-for-Secp256r1_Fq"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/secp256r1Fq/struct.Secp256r1_Fq.html" class="struct">Secp256r1_Fq</a></code></h3>
+
+<h3 id="impl-Neg-for-Secp256r1_Fr"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/secp256r1Fr/struct.Secp256r1_Fr.html" class="struct">Secp256r1_Fr</a></code></h3>
+
+<h3 id="impl-Neg-for-Secp384r1"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bigcurve/curves/secp384r1/struct.Secp384r1.html" class="struct">Secp384r1</a></code></h3>
+
+<h3 id="impl-Neg-for-Secp384r1_Fq"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/secp384r1Fq/struct.Secp384r1_Fq.html" class="struct">Secp384r1_Fq</a></code></h3>
+
+<h3 id="impl-Neg-for-Secp384r1_Fr"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/secp384r1Fr/struct.Secp384r1_Fr.html" class="struct">Secp384r1_Fr</a></code></h3>
+
+<h3 id="impl-Neg-for-U1024"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/U1024/struct.U1024.html" class="struct">U1024</a></code></h3>
+
+<h3 id="impl-Neg-for-U2048"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/U2048/struct.U2048.html" class="struct">U2048</a></code></h3>
+
+<h3 id="impl-Neg-for-U256"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/U256/struct.U256.html" class="struct">U256</a></code></h3>
+
+<h3 id="impl-Neg-for-U384"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/U384/struct.U384.html" class="struct">U384</a></code></h3>
+
+<h3 id="impl-Neg-for-U4096"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/U4096/struct.U4096.html" class="struct">U4096</a></code></h3>
+
+<h3 id="impl-Neg-for-U512"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/U512/struct.U512.html" class="struct">U512</a></code></h3>
+
+<h3 id="impl-Neg-for-U768"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/U768/struct.U768.html" class="struct">U768</a></code></h3>
+
+<h3 id="impl-Neg-for-U8192"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/U8192/struct.U8192.html" class="struct">U8192</a></code></h3>
+
+<h3 id="impl-Neg-for-Vesta"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bigcurve/curves/vesta/struct.Vesta.html" class="struct">Vesta</a></code></h3>
+
+<h3 id="impl-Neg-for-Vesta_Fq"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/vestaFq/struct.Vesta_Fq.html" class="struct">Vesta_Fq</a></code></h3>
+
+<h3 id="impl-Neg-for-Vesta_Fr"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../bignum/fields/vestaFr/struct.Vesta_Fr.html" class="struct">Vesta_Fr</a></code></h3>
+
+<h3 id="impl-Neg-for-i16"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../std/primitive.i16.html" class="primitive">i16</a></code></h3>
+
+<h3 id="impl-Neg-for-i32"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../std/primitive.i32.html" class="primitive">i32</a></code></h3>
+
+<h3 id="impl-Neg-for-i64"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../std/primitive.i64.html" class="primitive">i64</a></code></h3>
+
+<h3 id="impl-Neg-for-i8"><code class="code-header">impl <a href="../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../std/primitive.i8.html" class="primitive">i8</a></code></h3>
+
+</main>
+</body>
+</html>

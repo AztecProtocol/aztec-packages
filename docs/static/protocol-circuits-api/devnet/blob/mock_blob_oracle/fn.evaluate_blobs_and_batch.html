@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Function evaluate_blobs_and_batch documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">blob</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module mock_blob_oracle</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.evaluate_blobs_and_batch.html">evaluate_blobs_and_batch</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">blob</a>::<a href="index.html">mock_blob_oracle</a></div>
+<h1>Function <span class="fn">evaluate_blobs_and_batch</span></h1>
+<pre><code>pub unconstrained fn evaluate_blobs_and_batch&lt;let NumBlobs: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    blobs_as_fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; NumBlobs * 4096],
+    num_blob_fields: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
+    expected_blob_fields_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    kzg_commitments: [<a href="../../blob/abis/type.BLSPoint.html" class="type">BLSPoint</a>; NumBlobs],
+    final_blob_challenges: <a href="../../blob/abis/struct.FinalBlobBatchingChallenges.html" class="struct">FinalBlobBatchingChallenges</a>,
+    start_accumulator: <a href="../../blob/abis/struct.BlobAccumulator.html" class="struct">BlobAccumulator</a>,
+) -> <a href="../../blob/abis/struct.BlobAccumulator.html" class="struct">BlobAccumulator</a></code></pre>
+
+</main>
+</body>
+</html>

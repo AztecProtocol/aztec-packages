@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Struct BigNumParams documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">bignum</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct BigNumParams</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#double_modulus">double_modulus</a></li>
+<li><a href="#has_multiplicative_inverse">has_multiplicative_inverse</a></li>
+<li><a href="#modulus">modulus</a></li>
+<li><a href="#redc_param">redc_param</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#new">new</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Eq-for-BigNumParams<N, MOD_BITS>">Eq</a></li>
+</ul>
+<h2>In module params</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.BigNumParams.html">BigNumParams</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">bignum</a>::<a href="index.html">params</a></div>
+<h1>Struct <span id="struct" class="struct">BigNumParams</span></h1>
+<pre><code>pub struct BigNumParams&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let MOD_BITS: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; {
+    pub has_multiplicative_inverse: <a href="../../std/primitive.bool.html" class="primitive">bool</a>,
+    pub modulus: [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; N],
+    pub double_modulus: [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; N],
+    pub redc_param: [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; N],
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="has_multiplicative_inverse" class="struct-field"><code class="code-header">has_multiplicative_inverse: <a href="../../std/primitive.bool.html" class="primitive">bool</a></code></div>
+<div class="padded-description"></div><div id="modulus" class="struct-field"><code class="code-header">modulus: [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; N]</code></div>
+<div class="padded-description"></div><div id="double_modulus" class="struct-field"><code class="code-header">double_modulus: [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; N]</code></div>
+<div class="padded-description"></div><div id="redc_param" class="struct-field"><code class="code-header">redc_param: [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; N]</code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;let MOD_BITS: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../bignum/params/struct.BigNumParams.html" class="struct">BigNumParams</a>&lt;N, MOD_BITS&gt;</code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(
+    has_multiplicative_inverse: <a href="../../std/primitive.bool.html" class="primitive">bool</a>,
+    modulus: [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; N],
+    redc_param: [<a href="../../std/primitive.u128.html" class="primitive">u128</a>; N],
+) -> Self</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Eq-for-BigNumParams<N, MOD_BITS>"><code class="code-header">impl&lt;let MOD_BITS: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../bignum/params/struct.BigNumParams.html" class="struct">BigNumParams</a>&lt;N, MOD_BITS&gt;</code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(self, other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div></main>
+</body>
+</html>

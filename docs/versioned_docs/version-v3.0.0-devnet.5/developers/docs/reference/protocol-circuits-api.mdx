@@ -1,0 +1,129 @@
+---
+title: Protocol Circuits API Reference
+sidebar_position: 101
+description: Auto-generated API reference documentation for the Aztec protocol circuits (kernel and rollup circuits).
+---
+
+import Link from "@docusaurus/Link";
+import { useActiveVersion } from "@docusaurus/plugin-content-docs/client";
+
+export const useApiVersion = () => {
+  const version = useActiveVersion();
+  const versionName = version?.name || "current";
+  // Map Docusaurus version to API docs folder
+  // Use stable paths for nightly/devnet, version-specific for others
+  if (versionName === "current") return "next";
+  if (versionName.includes("nightly")) return "nightly";
+  if (versionName.includes("devnet")) return "devnet";
+  return versionName;
+};
+
+export const ApiLink = () => {
+  const apiVersion = useApiVersion();
+  const href = `/protocol-circuits-api/${apiVersion}/all.html`;
+  return (
+    <p>
+      <strong>
+        <a href={href} target="_blank" rel="noopener noreferrer">
+          Open Protocol Circuits API Reference →
+        </a>
+      </strong>
+    </p>
+  );
+};
+
+export const ModuleLink = ({ path, children }) => {
+  const apiVersion = useApiVersion();
+  const href = `/protocol-circuits-api/${apiVersion}/${path}/index.html`;
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  );
+};
+
+# Protocol Circuits API Reference
+
+The Protocol Circuits API reference documentation is auto-generated from the source code using `nargo doc`. This documentation covers the internal protocol circuits that power Aztec's privacy-preserving rollup.
+
+## View the API Documentation
+
+<ApiLink />
+
+The API reference includes documentation for all public modules, functions, structs, and types in the noir-protocol-circuits workspace.
+
+## Core Library Crates
+
+### Types
+
+<ModuleLink path="types">**types**</ModuleLink> - Foundation types and ABIs for the protocol:
+
+- <ModuleLink path="types/abis">`abis`</ModuleLink> - Protocol ABIs (kernel inputs/outputs, transaction types, accumulated data)
+- <ModuleLink path="types/address">`address`</ModuleLink> - Address types (AztecAddress, EthAddress, etc.)
+- <ModuleLink path="types/merkle_tree">`merkle_tree`</ModuleLink> - Merkle tree utilities and membership proofs
+- <ModuleLink path="types/hash">`hash`</ModuleLink> - Hash functions (poseidon2, etc.)
+- <ModuleLink path="types/constants">`constants`</ModuleLink> - Protocol constants
+- <ModuleLink path="types/proof">`proof`</ModuleLink> - Proof structures and verification
+
+### Private Kernel
+
+<ModuleLink path="private_kernel_lib">**private-kernel-lib**</ModuleLink> - Private kernel circuit logic:
+
+- Circuit inputs for init, inner, reset, and tail stages
+- Validators for private call data and kernel outputs
+- Composers for building kernel public inputs
+- Reset logic for read requests, key validation, and transient data
+
+### Rollup
+
+<ModuleLink path="rollup_lib">**rollup-lib**</ModuleLink> - Rollup circuit logic:
+
+- <ModuleLink path="rollup_lib/abis">`abis`</ModuleLink> - Rollup public inputs (tx, block, checkpoint, root)
+- <ModuleLink path="rollup_lib/tx_base">`tx_base`</ModuleLink> - Transaction base rollup
+- <ModuleLink path="rollup_lib/tx_merge">`tx_merge`</ModuleLink> - Transaction merge rollup
+- <ModuleLink path="rollup_lib/block_root">`block_root`</ModuleLink> - Block root rollup
+- <ModuleLink path="rollup_lib/block_merge">`block_merge`</ModuleLink> - Block merge rollup
+- <ModuleLink path="rollup_lib/checkpoint_root">`checkpoint_root`</ModuleLink> - Checkpoint root rollup
+- <ModuleLink path="rollup_lib/root">`root`</ModuleLink> - Final root rollup
+
+### Parity
+
+<ModuleLink path="parity_lib">**parity-lib**</ModuleLink> - Parity circuit logic:
+
+- `ParityPublicInputs` - Parity circuit outputs
+- `ParityBasePrivateInputs` - Base parity inputs
+- `ParityRootPrivateInputs` - Root parity inputs
+
+### Blob
+
+<ModuleLink path="blob">**blob**</ModuleLink> - Blob data handling for Data Availability:
+
+- Blob construction and verification
+- KZG commitment utilities
+
+## Binary Circuit Crates
+
+These crates provide entry points for the protocol circuits:
+
+### Private Kernel Circuits
+
+- <ModuleLink path="private_kernel_init">**private-kernel-init**</ModuleLink> - Initialize private kernel execution
+- <ModuleLink path="private_kernel_inner">**private-kernel-inner**</ModuleLink> - Process intermediate private calls
+- <ModuleLink path="private_kernel_reset">**private-kernel-reset**</ModuleLink> - Reset accumulated data between stages
+- <ModuleLink path="private_kernel_tail">**private-kernel-tail**</ModuleLink> - Finalize private execution
+- <ModuleLink path="private_kernel_tail_to_public">**private-kernel-tail-to-public**</ModuleLink> - Transition to public execution
+
+### Rollup Circuits
+
+- <ModuleLink path="rollup_tx_base_private">**rollup-tx-base-private**</ModuleLink> - Base rollup for private transactions
+- <ModuleLink path="rollup_tx_base_public">**rollup-tx-base-public**</ModuleLink> - Base rollup for public transactions
+- <ModuleLink path="rollup_tx_merge">**rollup-tx-merge**</ModuleLink> - Merge transaction rollups
+- <ModuleLink path="rollup_block_root">**rollup-block-root**</ModuleLink> - Create block root
+- <ModuleLink path="rollup_block_merge">**rollup-block-merge**</ModuleLink> - Merge block rollups
+- <ModuleLink path="rollup_checkpoint_root">**rollup-checkpoint-root**</ModuleLink> - Create checkpoint root
+- <ModuleLink path="rollup_root">**rollup-root**</ModuleLink> - Final rollup root
+
+### Parity Circuits
+
+- <ModuleLink path="parity_base">**parity-base**</ModuleLink> - Base parity circuit
+- <ModuleLink path="parity_root">**parity-root**</ModuleLink> - Root parity circuit

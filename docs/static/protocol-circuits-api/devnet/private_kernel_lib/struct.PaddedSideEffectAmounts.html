@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<title>Struct PaddedSideEffectAmounts documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../all.html">All items</a></div>
+<h2 id="crate-name"><a href="index.html">private_kernel_lib</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PaddedSideEffectAmounts</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#non_revertible_note_hashes">non_revertible_note_hashes</a></li>
+<li><a href="#non_revertible_nullifiers">non_revertible_nullifiers</a></li>
+<li><a href="#non_revertible_private_logs">non_revertible_private_logs</a></li>
+<li><a href="#revertible_note_hashes">revertible_note_hashes</a></li>
+<li><a href="#revertible_nullifiers">revertible_nullifiers</a></li>
+<li><a href="#revertible_private_logs">revertible_private_logs</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Empty-for-PaddedSideEffectAmounts">Empty</a></li>
+<li><a href="#impl-Eq-for-PaddedSideEffectAmounts">Eq</a></li>
+</ul>
+<h2>In crate private_kernel_lib</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PaddedSideEffectAmounts.html">PaddedSideEffectAmounts</a></div></li>
+<li><a href="struct.PaddedSideEffects.html">PaddedSideEffects</a></div></li>
+<li><a href="struct.PrivateKernelInitCircuitPrivateInputs.html">PrivateKernelInitCircuitPrivateInputs</a></div></li>
+<li><a href="struct.PrivateKernelInnerCircuitPrivateInputs.html">PrivateKernelInnerCircuitPrivateInputs</a></div></li>
+<li><a href="struct.PrivateKernelResetCircuitPrivateInputs.html">PrivateKernelResetCircuitPrivateInputs</a></div></li>
+<li><a href="struct.PrivateKernelResetHints.html">PrivateKernelResetHints</a></div></li>
+<li><a href="struct.PrivateKernelTailCircuitPrivateInputs.html">PrivateKernelTailCircuitPrivateInputs</a></div></li>
+<li><a href="struct.PrivateKernelTailToPublicCircuitPrivateInputs.html">PrivateKernelTailToPublicCircuitPrivateInputs</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../index.html">noir-protocol-circuits</a> - <a href="index.html">private_kernel_lib</a></div>
+<h1>Struct <span id="struct" class="struct">PaddedSideEffectAmounts</span></h1>
+<pre><code>pub struct PaddedSideEffectAmounts {
+    pub non_revertible_note_hashes: <a href="../std/primitive.u32.html" class="primitive">u32</a>,
+    pub revertible_note_hashes: <a href="../std/primitive.u32.html" class="primitive">u32</a>,
+    pub non_revertible_nullifiers: <a href="../std/primitive.u32.html" class="primitive">u32</a>,
+    pub revertible_nullifiers: <a href="../std/primitive.u32.html" class="primitive">u32</a>,
+    pub non_revertible_private_logs: <a href="../std/primitive.u32.html" class="primitive">u32</a>,
+    pub revertible_private_logs: <a href="../std/primitive.u32.html" class="primitive">u32</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="non_revertible_note_hashes" class="struct-field"><code class="code-header">non_revertible_note_hashes: <a href="../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="revertible_note_hashes" class="struct-field"><code class="code-header">revertible_note_hashes: <a href="../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="non_revertible_nullifiers" class="struct-field"><code class="code-header">non_revertible_nullifiers: <a href="../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="revertible_nullifiers" class="struct-field"><code class="code-header">revertible_nullifiers: <a href="../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="non_revertible_private_logs" class="struct-field"><code class="code-header">non_revertible_private_logs: <a href="../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="revertible_private_logs" class="struct-field"><code class="code-header">revertible_private_logs: <a href="../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Empty-for-PaddedSideEffectAmounts"><code class="code-header">impl <a href="../types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../private_kernel_lib/struct.PaddedSideEffectAmounts.html" class="struct">PaddedSideEffectAmounts</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-PaddedSideEffectAmounts"><code class="code-header">impl <a href="../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../private_kernel_lib/struct.PaddedSideEffectAmounts.html" class="struct">PaddedSideEffectAmounts</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div></main>
+</body>
+</html>

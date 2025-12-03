@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Struct MNT4_753 documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">bigcurve</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct MNT4_753</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#is_infinity">is_infinity</a></li>
+<li><a href="#x">x</a></li>
+<li><a href="#y">y</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Add-for-MNT4_753">Add</a></li>
+<li><a href="#impl-BigCurve&lt;MNT4_753_Fq&gt;-for-MNT4_753">BigCurve&lt;MNT4_753_Fq&gt;</a></li>
+<li><a href="#impl-Eq-for-MNT4_753">Eq</a></li>
+<li><a href="#impl-Neg-for-MNT4_753">Neg</a></li>
+<li><a href="#impl-Sub-for-MNT4_753">Sub</a></li>
+</ul>
+<h2>In module mnt4_753</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.MNT4_753.html">MNT4_753</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.MNT4_753Scalar.html">MNT4_753Scalar</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.MNT4_753_PARAMS.html">MNT4_753_PARAMS</a></div></li>
+<li><a href="global.MNT4_753_SCALAR_SLICES.html">MNT4_753_SCALAR_SLICES</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">noir-protocol-circuits</a> - <a href="../../index.html">bigcurve</a>::<a href="../index.html">curves</a>::<a href="index.html">mnt4_753</a></div>
+<h1>Struct <span id="struct" class="struct">MNT4_753</span></h1>
+<pre><code>pub struct MNT4_753 {
+    pub x: <a href="../../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a>,
+    pub y: <a href="../../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a>,
+    pub is_infinity: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="x" class="struct-field"><code class="code-header">x: <a href="../../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a></code></div>
+<div class="padded-description"></div><div id="y" class="struct-field"><code class="code-header">y: <a href="../../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a></code></div>
+<div class="padded-description"></div><div id="is_infinity" class="struct-field"><code class="code-header">is_infinity: <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Add-for-MNT4_753"><code class="code-header">impl <a href="../../../std/ops/trait.Add.html" class="trait">Add</a> for <a href="../../../bigcurve/curves/mnt4_753/struct.MNT4_753.html" class="struct">MNT4_753</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">add</span>(self, other: Self) -> Self</code>
+
+</div><h3 id="impl-BigCurve&lt;MNT4_753_Fq&gt;-for-MNT4_753"><code class="code-header">impl <a href="../../../bigcurve/trait.BigCurve.html" class="trait">BigCurve</a>&lt;<a href="../../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a>&gt; for <a href="../../../bigcurve/curves/mnt4_753/struct.MNT4_753.html" class="struct">MNT4_753</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">x</span>(self) -> <a href="../../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a></code>
+
+<code class="code-header">pub fn <span class="fn">y</span>(self) -> <a href="../../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a></code>
+
+<code class="code-header">pub fn <span class="fn">a</span>() -> <a href="../../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a></code>
+
+<code class="code-header">pub fn <span class="fn">b</span>() -> <a href="../../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a></code>
+
+<code class="code-header">pub fn <span class="fn">from_coordinates</span>(x: <a href="../../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a>, y: <a href="../../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a>, is_infinity: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">point_at_infinity</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_infinity</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">one</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">offset_generator</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">offset_generator_final</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">validate_on_curve</span>(self)</code>
+
+<code class="code-header">pub fn <span class="fn">mul</span>&lt;let NScalarSlices: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, scalar: <a href="../../../bigcurve/scalar_field/struct.ScalarField.html" class="struct">ScalarField</a>&lt;NScalarSlices&gt;) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">hash_to_curve</span>&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(seed: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; N]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">evaluate_linear_expression</span>&lt;let NScalarSlices: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let NMuls: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let NAdds: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    mul_points: [Self; NMuls],
+    mul_scalars: [<a href="../../../bigcurve/scalar_field/struct.ScalarField.html" class="struct">ScalarField</a>&lt;NScalarSlices&gt;; NMuls],
+    add_points: [Self; NAdds],
+) -> Self</code>
+
+</div><h3 id="impl-Eq-for-MNT4_753"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../bigcurve/curves/mnt4_753/struct.MNT4_753.html" class="struct">MNT4_753</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(self, other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Neg-for-MNT4_753"><code class="code-header">impl <a href="../../../std/ops/trait.Neg.html" class="trait">Neg</a> for <a href="../../../bigcurve/curves/mnt4_753/struct.MNT4_753.html" class="struct">MNT4_753</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">neg</span>(self) -> Self</code>
+
+</div><h3 id="impl-Sub-for-MNT4_753"><code class="code-header">impl <a href="../../../std/ops/trait.Sub.html" class="trait">Sub</a> for <a href="../../../bigcurve/curves/mnt4_753/struct.MNT4_753.html" class="struct">MNT4_753</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">sub</span>(self, other: Self) -> Self</code>
+
+</div></main>
+</body>
+</html>

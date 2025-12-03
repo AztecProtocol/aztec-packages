@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Struct SpongeBlob documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct SpongeBlob</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#num_absorbed_fields">num_absorbed_fields</a></li>
+<li><a href="#num_expected_fields">num_expected_fields</a></li>
+<li><a href="#sponge">sponge</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#absorb">absorb</a></li>
+<li><a href="#init_for_checkpoint">init_for_checkpoint</a></li>
+<li><a href="#new">new</a></li>
+<li><a href="#squeeze">squeeze</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-SpongeBlob">Deserialize</a></li>
+<li><a href="#impl-Empty-for-SpongeBlob">Empty</a></li>
+<li><a href="#impl-Eq-for-SpongeBlob">Eq</a></li>
+<li><a href="#impl-Serialize-for-SpongeBlob">Serialize</a></li>
+</ul>
+<h2>In module sponge_blob</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.SpongeBlob.html">SpongeBlob</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">noir-protocol-circuits</a> - <a href="../../index.html">types</a>::<a href="../index.html">abis</a>::<a href="index.html">sponge_blob</a></div>
+<h1>Struct <span id="struct" class="struct">SpongeBlob</span></h1>
+<pre><code>pub struct SpongeBlob {
+    pub sponge: <a href="../../../types/poseidon2/struct.Poseidon2Sponge.html" class="struct">Poseidon2Sponge</a>,
+    pub num_absorbed_fields: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    pub num_expected_fields: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+}
+</code></pre>
+<div class="comments">
+<p>A Poseidon2 sponge used to accumulate data that will be added to blob(s).
+(More accurately called BlobSponge, but that's not as fun).</p>
+<p>The journey of a SpongeBlob:</p>
+<p>Tx base: each tx absorbs its effects into the given &quot;start&quot; SpongeBlob and outputs it as the &quot;end&quot; SpongeBlob.
+Tx merge or block root checks that the start SpongeBlob of a tx matches the end SpongeBlob of the previous tx.</p>
+<p>Block root: the end SpongeBlob of the last tx absorbs a special block end marker indicating the number of txs in
+the block. The block header commits to the value squeezed from this SpongeBlob. This updated SpongeBlob is then
+output as the end SpongeBlob of the block root. In block merge or checkpoint root, the start SpongeBlob is checked
+against the end SpongeBlob of the previous block.</p>
+<p>Checkpoint root: receives all fields as private inputs and checks that hashing them matches the final hash squeezed
+from the end SpongeBlob of the last block, after confirming that and the number of fields absorbed matches the value
+the SpongeBlob was initialized with. It also checks that the start SpongeBlob of the first tx in the block does not
+have any fields absorbed.</p>
+<p>The final hash is used as part of the blob challenge, proving that all fields of the blob(s) are included.</p>
+</div>
+<h2>Fields</h2>
+<div id="sponge" class="struct-field"><code class="code-header">sponge: <a href="../../../types/poseidon2/struct.Poseidon2Sponge.html" class="struct">Poseidon2Sponge</a></code></div>
+<div class="padded-description"></div><div id="num_absorbed_fields" class="struct-field"><code class="code-header">num_absorbed_fields: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><div id="num_expected_fields" class="struct-field"><code class="code-header">num_expected_fields: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(num_expected_fields: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
+
+<code id="init_for_checkpoint" class="code-header">pub fn <span class="fn">init_for_checkpoint</span>(num_expected_fields: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Initialize the sponge with the number of expected fields in the checkpoint and absorb it as the first field.
+With the number of fields as the prefix, it allows the components outside the circuits to gather the right
+amount of blobs and restore the correct amount of fields to reconstruct the protocol data.</p>
+</div>
+</div><code id="absorb" class="code-header">pub fn <span class="fn">absorb</span>&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, input: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N], in_len: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Absorb the first <code>in_len</code> fields of the <code>input</code> to the sponge. Fields beyond <code>in_len</code> are ignored.</p>
+</div>
+</div><code id="squeeze" class="code-header">pub fn <span class="fn">squeeze</span>(&mut self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Finalize the sponge and output poseidon2 hash of all fields absorbed.</p>
+</div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-SpongeBlob"><code class="code-header">impl <a href="../../../types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 11]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-SpongeBlob"><code class="code-header">impl <a href="../../../types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-SpongeBlob"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-SpongeBlob"><code class="code-header">impl <a href="../../../types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../types/abis/sponge_blob/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 11]</code>
+
+</div></main>
+</body>
+</html>

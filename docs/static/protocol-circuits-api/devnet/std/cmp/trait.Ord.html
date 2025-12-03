@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Trait Ord documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">noir-protocol-circuits</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">std</a></h2>
+<div id="crate-version">1.0.0-beta.14</div>
+<h2><a href="#trait">Trait Ord</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#cmp">cmp</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Ord-for-()">()</a></li>
+<li><a href="#impl-Ord-for-(A, B)">(A, B)</a></li>
+<li><a href="#impl-Ord-for-(A, B, C)">(A, B, C)</a></li>
+<li><a href="#impl-Ord-for-(A, B, C, D)">(A, B, C, D)</a></li>
+<li><a href="#impl-Ord-for-(A, B, C, D, E)">(A, B, C, D, E)</a></li>
+<li><a href="#impl-Ord-for-BLS12_377_Fq">BLS12_377_Fq</a></li>
+<li><a href="#impl-Ord-for-BLS12_377_Fr">BLS12_377_Fr</a></li>
+<li><a href="#impl-Ord-for-BLS12_381_Fq">BLS12_381_Fq</a></li>
+<li><a href="#impl-Ord-for-BLS12_381_Fr">BLS12_381_Fr</a></li>
+<li><a href="#impl-Ord-for-BN254_Fq">BN254_Fq</a></li>
+<li><a href="#impl-Ord-for-ED25519_Fq">ED25519_Fq</a></li>
+<li><a href="#impl-Ord-for-ED25519_Fr">ED25519_Fr</a></li>
+<li><a href="#impl-Ord-for-MNT4_753_Fq">MNT4_753_Fq</a></li>
+<li><a href="#impl-Ord-for-MNT4_753_Fr">MNT4_753_Fr</a></li>
+<li><a href="#impl-Ord-for-MNT6_753_Fq">MNT6_753_Fq</a></li>
+<li><a href="#impl-Ord-for-MNT6_753_Fr">MNT6_753_Fr</a></li>
+<li><a href="#impl-Ord-for-Option<T>">Option<T></a></li>
+<li><a href="#impl-Ord-for-Pallas_Fq">Pallas_Fq</a></li>
+<li><a href="#impl-Ord-for-Pallas_Fr">Pallas_Fr</a></li>
+<li><a href="#impl-Ord-for-RuntimeBigNum<N, MOD_BITS>">RuntimeBigNum<N, MOD_BITS></a></li>
+<li><a href="#impl-Ord-for-Secp256k1_Fq">Secp256k1_Fq</a></li>
+<li><a href="#impl-Ord-for-Secp256k1_Fr">Secp256k1_Fr</a></li>
+<li><a href="#impl-Ord-for-Secp256r1_Fq">Secp256r1_Fq</a></li>
+<li><a href="#impl-Ord-for-Secp256r1_Fr">Secp256r1_Fr</a></li>
+<li><a href="#impl-Ord-for-Secp384r1_Fq">Secp384r1_Fq</a></li>
+<li><a href="#impl-Ord-for-Secp384r1_Fr">Secp384r1_Fr</a></li>
+<li><a href="#impl-Ord-for-U1024">U1024</a></li>
+<li><a href="#impl-Ord-for-U2048">U2048</a></li>
+<li><a href="#impl-Ord-for-U256">U256</a></li>
+<li><a href="#impl-Ord-for-U384">U384</a></li>
+<li><a href="#impl-Ord-for-U4096">U4096</a></li>
+<li><a href="#impl-Ord-for-U512">U512</a></li>
+<li><a href="#impl-Ord-for-U768">U768</a></li>
+<li><a href="#impl-Ord-for-U8192">U8192</a></li>
+<li><a href="#impl-Ord-for-Vesta_Fq">Vesta_Fq</a></li>
+<li><a href="#impl-Ord-for-Vesta_Fr">Vesta_Fr</a></li>
+<li><a href="#impl-Ord-for-[T; N]">[T; N]</a></li>
+<li><a href="#impl-Ord-for-[T]">[T]</a></li>
+<li><a href="#impl-Ord-for-bool">bool</a></li>
+<li><a href="#impl-Ord-for-i16">i16</a></li>
+<li><a href="#impl-Ord-for-i32">i32</a></li>
+<li><a href="#impl-Ord-for-i64">i64</a></li>
+<li><a href="#impl-Ord-for-i8">i8</a></li>
+<li><a href="#impl-Ord-for-u128">u128</a></li>
+<li><a href="#impl-Ord-for-u16">u16</a></li>
+<li><a href="#impl-Ord-for-u32">u32</a></li>
+<li><a href="#impl-Ord-for-u64">u64</a></li>
+<li><a href="#impl-Ord-for-u8">u8</a></li>
+</ul>
+<h2>In module cmp</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.Ordering.html">Ordering</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.Eq.html">Eq</a></div></li>
+<li><a href="trait.Ord.html">Ord</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.max.html">max</a></div></li>
+<li><a href="fn.min.html">min</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">noir-protocol-circuits</a> - <a href="../index.html">std</a>::<a href="index.html">cmp</a></div>
+<h1>Trait <span id="trait" class="trait">Ord</span></h1>
+<pre><code>pub trait Ord {
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#cmp"><span class="fn">cmp</span></a>(self, other: Self) -> <a href="../../std/cmp/struct.Ordering.html" class="struct">Ordering</a>;
+}</code></pre>
+
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="cmp" class="code-header">pub fn <span class="fn">cmp</span>(self, other: Self) -> <a href="../../std/cmp/struct.Ordering.html" class="struct">Ordering</a></code>
+
+</div><h2>Implementors</h2>
+<h3 id="impl-Ord-for-()"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for ()</code></h3>
+
+<h3 id="impl-Ord-for-(A, B)"><code class="code-header">impl&lt;A, B&gt; <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for (A, B)
+<div class="where-clause">where
+    A: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a>,
+    B: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a></div></code></h3>
+
+<h3 id="impl-Ord-for-(A, B, C)"><code class="code-header">impl&lt;A, B, C&gt; <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for (A, B, C)
+<div class="where-clause">where
+    A: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a>,
+    B: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a>,
+    C: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a></div></code></h3>
+
+<h3 id="impl-Ord-for-(A, B, C, D)"><code class="code-header">impl&lt;A, B, C, D&gt; <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for (A, B, C, D)
+<div class="where-clause">where
+    A: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a>,
+    B: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a>,
+    C: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a>,
+    D: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a></div></code></h3>
+
+<h3 id="impl-Ord-for-(A, B, C, D, E)"><code class="code-header">impl&lt;A, B, C, D, E&gt; <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for (A, B, C, D, E)
+<div class="where-clause">where
+    A: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a>,
+    B: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a>,
+    C: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a>,
+    D: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a>,
+    E: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a></div></code></h3>
+
+<h3 id="impl-Ord-for-BLS12_377_Fq"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/bls12_377Fq/struct.BLS12_377_Fq.html" class="struct">BLS12_377_Fq</a></code></h3>
+
+<h3 id="impl-Ord-for-BLS12_377_Fr"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/bls12_377Fr/struct.BLS12_377_Fr.html" class="struct">BLS12_377_Fr</a></code></h3>
+
+<h3 id="impl-Ord-for-BLS12_381_Fq"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/bls12_381Fq/struct.BLS12_381_Fq.html" class="struct">BLS12_381_Fq</a></code></h3>
+
+<h3 id="impl-Ord-for-BLS12_381_Fr"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/bls12_381Fr/struct.BLS12_381_Fr.html" class="struct">BLS12_381_Fr</a></code></h3>
+
+<h3 id="impl-Ord-for-BN254_Fq"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/bn254Fq/struct.BN254_Fq.html" class="struct">BN254_Fq</a></code></h3>
+
+<h3 id="impl-Ord-for-ED25519_Fq"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/ed25519Fq/struct.ED25519_Fq.html" class="struct">ED25519_Fq</a></code></h3>
+
+<h3 id="impl-Ord-for-ED25519_Fr"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/ed25519Fr/struct.ED25519_Fr.html" class="struct">ED25519_Fr</a></code></h3>
+
+<h3 id="impl-Ord-for-MNT4_753_Fq"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/mnt4_753Fq/struct.MNT4_753_Fq.html" class="struct">MNT4_753_Fq</a></code></h3>
+
+<h3 id="impl-Ord-for-MNT4_753_Fr"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/mnt4_753Fr/struct.MNT4_753_Fr.html" class="struct">MNT4_753_Fr</a></code></h3>
+
+<h3 id="impl-Ord-for-MNT6_753_Fq"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/mnt6_753Fq/struct.MNT6_753_Fq.html" class="struct">MNT6_753_Fq</a></code></h3>
+
+<h3 id="impl-Ord-for-MNT6_753_Fr"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/mnt6_753Fr/struct.MNT6_753_Fr.html" class="struct">MNT6_753_Fr</a></code></h3>
+
+<h3 id="impl-Ord-for-Option<T>"><code class="code-header">impl&lt;T&gt; <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a></div></code></h3>
+
+<h3 id="impl-Ord-for-Pallas_Fq"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/pallasFq/struct.Pallas_Fq.html" class="struct">Pallas_Fq</a></code></h3>
+
+<h3 id="impl-Ord-for-Pallas_Fr"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/pallasFr/struct.Pallas_Fr.html" class="struct">Pallas_Fr</a></code></h3>
+
+<h3 id="impl-Ord-for-RuntimeBigNum<N, MOD_BITS>"><code class="code-header">impl&lt;let MOD_BITS: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/struct.RuntimeBigNum.html" class="struct">RuntimeBigNum</a>&lt;N, MOD_BITS&gt;</code></h3>
+
+<h3 id="impl-Ord-for-Secp256k1_Fq"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/secp256k1Fq/struct.Secp256k1_Fq.html" class="struct">Secp256k1_Fq</a></code></h3>
+
+<h3 id="impl-Ord-for-Secp256k1_Fr"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/secp256k1Fr/struct.Secp256k1_Fr.html" class="struct">Secp256k1_Fr</a></code></h3>
+
+<h3 id="impl-Ord-for-Secp256r1_Fq"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/secp256r1Fq/struct.Secp256r1_Fq.html" class="struct">Secp256r1_Fq</a></code></h3>
+
+<h3 id="impl-Ord-for-Secp256r1_Fr"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/secp256r1Fr/struct.Secp256r1_Fr.html" class="struct">Secp256r1_Fr</a></code></h3>
+
+<h3 id="impl-Ord-for-Secp384r1_Fq"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/secp384r1Fq/struct.Secp384r1_Fq.html" class="struct">Secp384r1_Fq</a></code></h3>
+
+<h3 id="impl-Ord-for-Secp384r1_Fr"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/secp384r1Fr/struct.Secp384r1_Fr.html" class="struct">Secp384r1_Fr</a></code></h3>
+
+<h3 id="impl-Ord-for-U1024"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/U1024/struct.U1024.html" class="struct">U1024</a></code></h3>
+
+<h3 id="impl-Ord-for-U2048"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/U2048/struct.U2048.html" class="struct">U2048</a></code></h3>
+
+<h3 id="impl-Ord-for-U256"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/U256/struct.U256.html" class="struct">U256</a></code></h3>
+
+<h3 id="impl-Ord-for-U384"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/U384/struct.U384.html" class="struct">U384</a></code></h3>
+
+<h3 id="impl-Ord-for-U4096"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/U4096/struct.U4096.html" class="struct">U4096</a></code></h3>
+
+<h3 id="impl-Ord-for-U512"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/U512/struct.U512.html" class="struct">U512</a></code></h3>
+
+<h3 id="impl-Ord-for-U768"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/U768/struct.U768.html" class="struct">U768</a></code></h3>
+
+<h3 id="impl-Ord-for-U8192"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/U8192/struct.U8192.html" class="struct">U8192</a></code></h3>
+
+<h3 id="impl-Ord-for-Vesta_Fq"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/vestaFq/struct.Vesta_Fq.html" class="struct">Vesta_Fq</a></code></h3>
+
+<h3 id="impl-Ord-for-Vesta_Fr"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../bignum/fields/vestaFr/struct.Vesta_Fr.html" class="struct">Vesta_Fr</a></code></h3>
+
+<h3 id="impl-Ord-for-[T; N]"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for [T; N]
+<div class="where-clause">where
+    T: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a></div></code></h3>
+
+<h3 id="impl-Ord-for-[T]"><code class="code-header">impl&lt;T&gt; <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for [T]
+<div class="where-clause">where
+    T: <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a></div></code></h3>
+
+<h3 id="impl-Ord-for-bool"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../std/primitive.bool.html" class="primitive">bool</a></code></h3>
+
+<h3 id="impl-Ord-for-i16"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../std/primitive.i16.html" class="primitive">i16</a></code></h3>
+
+<h3 id="impl-Ord-for-i32"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../std/primitive.i32.html" class="primitive">i32</a></code></h3>
+
+<h3 id="impl-Ord-for-i64"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../std/primitive.i64.html" class="primitive">i64</a></code></h3>
+
+<h3 id="impl-Ord-for-i8"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../std/primitive.i8.html" class="primitive">i8</a></code></h3>
+
+<h3 id="impl-Ord-for-u128"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../std/primitive.u128.html" class="primitive">u128</a></code></h3>
+
+<h3 id="impl-Ord-for-u16"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../std/primitive.u16.html" class="primitive">u16</a></code></h3>
+
+<h3 id="impl-Ord-for-u32"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></h3>
+
+<h3 id="impl-Ord-for-u64"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></h3>
+
+<h3 id="impl-Ord-for-u8"><code class="code-header">impl <a href="../../std/cmp/trait.Ord.html" class="trait">Ord</a> for <a href="../../std/primitive.u8.html" class="primitive">u8</a></code></h3>
+
+</main>
+</body>
+</html>
