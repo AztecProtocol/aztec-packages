@@ -684,6 +684,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return verified ? 0 : 1;
         }
         if (write_solidity_verifier->parsed()) {
+            // Validate that verifier_target is compatible with Solidity verifier
+            if (!flags.verifier_target.empty() && flags.verifier_target != "evm" &&
+                flags.verifier_target != "evm-no-zk") {
+                throw_or_abort("write_solidity_verifier requires --verifier_target to be 'evm' or 'evm-no-zk', got '" +
+                               flags.verifier_target + "'");
+            }
             api.write_solidity_verifier(flags, output_path, vk_path);
             return 0;
         }
