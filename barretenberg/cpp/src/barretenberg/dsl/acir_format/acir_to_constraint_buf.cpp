@@ -340,11 +340,11 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
             [&](auto&& arg) {
                 using T = std::decay_t<decltype(arg)>;
                 if constexpr (std::is_same_v<T, Acir::Opcode::AssertZero>) {
-                    handle_arithmetic(arg, af, i);
+                    assert_zero_to_quad_constraints(arg, af, i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BlackBoxFuncCall>) {
-                    handle_blackbox_func_call(arg, af, i);
+                    add_blackbox_func_call_to_acir_format(arg, af, i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryInit>) {
-                    auto block = handle_memory_init(arg);
+                    auto block = memory_init_to_block_constraint(arg);
                     uint32_t block_id = arg.block_id.value;
                     block_id_to_block_constraint[block_id] = { block, /*opcode_indices=*/{ i } };
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryOp>) {
@@ -352,7 +352,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
                     if (block == block_id_to_block_constraint.end()) {
                         bb::assert_failure("acir_format::circuit_serder_to_acir_format: unitialized MemoryOp.");
                     }
-                    handle_memory_op(arg, block->second.first);
+                    add_memory_op_to_block_constraint(arg, block->second.first);
                     block->second.second.push_back(i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BrilligCall>) {
                     // This is a no-op in barretenberg
@@ -550,7 +550,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
     return result;
 }
 
-void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
+void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
 {
     // Lambda to detect zero gates
     auto is_zero_gate = [](const mul_quad_<fr>& gate) {
@@ -579,7 +579,9 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
     }
 }
 
-void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index)
+void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const& arg,
+                                           AcirFormat& af,
+                                           size_t opcode_index)
 {
     auto to_witness_or_constant = [&](auto& e) { return parse_input(e); };
     auto to_witness = [&](auto& e) { return e.value; };
@@ -756,7 +758,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
         arg.value.value);
 }
 
-BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
+BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& mem_init)
 {
     // Noir doesn't distinguish between ROM and RAM table. Therefore, we initialize every table as a ROM table, and
     // then we make it a RAM table if there is at least one write operation
@@ -786,7 +788,7 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
     return block;
 }
 
-void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
+void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
 {
     // Lambda to convert an Acir::Expression to a witness index
     auto acir_expression_to_witness_or_constant = [&](const Acir::Expression& expr) {

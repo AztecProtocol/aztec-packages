@@ -179,7 +179,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
                                                      std::map<uint32_t, bb::fr>& linear_terms);
 
 /**
- * @brief Single entrypoint for handling arithmetic (AssertZero) opcodes.
+ * @brief Single entrypoint for processing arithmetic (AssertZero) opcodes.
  *
  * @details This function processes an Acir::Opcode::AssertZero by converting it into one more more mul_quad_ gates. The
  * function asserts that all the gates produced are non-zero and that the number of gates produced is consistent with
@@ -187,29 +187,44 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
  * in one gate).
  *
  */
-void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index);
+void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index);
 
 /// ========= MEMORY OPERATIONS ========== ///
 
 /**
- * @brief Handle memory initialization: create a BlockConstraint storing the entries with which the memory table must be
- * initialized.
+ * @brief Process memory initialization: create a BlockConstraint storing the entries with which the memory table must
+ * be initialized.
  *
  */
-BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init);
+BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& mem_init);
 
 /**
- * @brief Handle memory operation, either read or write, and update the BlockConstraint type accordingly.
+ * @brief Process memory operation, either read or write, and update the BlockConstraint type accordingly.
  *
  */
-void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block);
+void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block);
 
 /// ========= BLACKBOX FUNCTIONS ========= ///
 
 /**
- * @brief Single entrypoint for handling blackbox function opcodes.
+ * @brief Single entrypoint for processing blackbox function opcodes.
+ *
+ * @details This function takes an Acir::Opcode::BlackBoxFuncCall and processes the data contained in it by converting
+ * it into barretenberg's internal representation. The function handles each variant of Acir::Opcode::BlackBoxFunCall
+ * and throws an error if it encounters an unknown type.
+ *
+ * @example BlackBoxFuncCall::AND is the opcode that barretenberg converts to a logic AND constraint.
+ * BlackBoxFuncCall::AND has two inputs lhs, rhs, one output result, a parameter num_bits, and a flag is_xor_gate. The
+ * inputs lhs, rhs are Acir::FunctionInput, which means they can be either witnesses or constants. The result is
+ * Acir::Witness, which means it's a witness. Barretenberg internally represents a LogicConstraint as a struct with two
+ * WitnessOrConstant inputs (lhs, rhs), one witness (result), the parameter num_bits, and the flag is_xor_flag. This
+ * function takes BlackBoxFuncCall::AND, converts lhs and rhs into WitnessOrConstant objects, result into a uint32_t
+ * (witness), and passes along num_bits and the flag. This representation of the logic constraint is then added to the
+ * AcirFormat struct.
  *
  */
-void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index);
+void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const& arg,
+                                           AcirFormat& af,
+                                           size_t opcode_index);
 
 } // namespace acir_format
