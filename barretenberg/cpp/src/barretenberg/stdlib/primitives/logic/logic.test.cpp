@@ -111,7 +111,7 @@ TYPED_TEST(LogicTest, LargeOperands)
     EXPECT_EQ(uint256_t(xor_result.get_value()), xor_expected);
 
     bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    EXPECT_EQ(result, false);
 }
 
 // Ensures that malicious witnesses which produce the same result are detected. This potential security issue cannot

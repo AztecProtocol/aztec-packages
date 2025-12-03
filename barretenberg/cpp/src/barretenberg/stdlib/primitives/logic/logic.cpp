@@ -40,6 +40,20 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
     BB_ASSERT_LTE(num_bits, grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);
     BB_ASSERT_GT(num_bits, 0U);
 
+    if (a.is_constant() && b.is_constant()) {
+        uint256_t a_native = static_cast<uint256_t>(a.get_value());
+        uint256_t b_native = static_cast<uint256_t>(b.get_value());
+        BB_ASSERT_LTE(
+            a_native.get_msb(), num_bits - 1, "field_t: Left operand in logic gate exceeds specified bit length");
+        BB_ASSERT_LTE(
+            b_native.get_msb(), num_bits - 1, "field_t: Right operand in logic gate exceeds specified bit length");
+
+        uint256_t result_native = is_xor_gate ? (a_native ^ b_native) : (a_native & b_native);
+        field_pt result(result_native);
+        result.set_origin_tag(OriginTag(a.get_origin_tag(), b.get_origin_tag()));
+        return result;
+    }
+
     if (a.is_constant() && !b.is_constant()) {
         Builder* ctx = b.get_context();
         uint256_t a_native(a.get_value());
@@ -94,10 +108,8 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
         right = right >> 32;
     }
 
-    field_pt a_slice_other = a.no_wrap_split_at(num_bits).first;
-    field_pt b_slice_other = b.no_wrap_split_at(num_bits).first;
-    a_slice_other.assert_equal(a_accumulator, "stdlib logic: failed to reconstruct left operand");
-    b_slice_other.assert_equal(b_accumulator, "stdlib logic: failed to reconstruct right operand");
+    a.assert_equal(a_accumulator, "stdlib logic: failed to reconstruct left operand");
+    b.assert_equal(b_accumulator, "stdlib logic: failed to reconstruct right operand");
 
     return res;
 }
