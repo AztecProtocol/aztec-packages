@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Struct PrivateMutable documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PrivateMutable</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#at">at</a></li>
+<li><a href="#new">new</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-HasStorageSlot&lt;1&gt;-for-PrivateMutable<T, Context>">HasStorageSlot&lt;1&gt;</a></li>
+</ul>
+<h2>In module private_mutable</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.OwnedPrivateMutable.html">OwnedPrivateMutable</a></div></li>
+<li><a href="struct.PrivateMutable.html">PrivateMutable</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">state_vars</a>::<a href="index.html">private_mutable</a></div>
+<h1>Struct <span id="struct" class="struct">PrivateMutable</span></h1>
+<pre><code>pub struct PrivateMutable&lt;Note, Context&gt;
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<h2>PrivateMutable</h2>
+<p>PrivateMutable is a private state variable type, which enables you to read, mutate,
+and write private state within the #[external(&quot;private&quot;)] functions of your smart contract.</p>
+<p>You can declare a state variable of type PrivateMutable within your contract's
+#[storage] struct:</p>
+<p>E.g.:
+<code>your_variable: PrivateMutable&lt;YourNote, Context&gt;</code></p>
+<p>This is conceptually similar to how a regular variable works in Ethereum:
+the state variable has exactly one value at any point in time. However, the
+underlying implementation differs significantly because of Aztec's private
+state model.</p>
+<p>Private state is represented as notes, with each note having a distinct &quot;owner.&quot;
+While any number of notes can be created within a PrivateMutable, at any moment,
+only one note exists per &quot;owner.&quot;
+To interact with a specific owner's note, call <code>PrivateMutable::at(owner)</code>, which
+returns an OwnedPrivateMutable handle for that owner.</p>
+<p>An OwnedPrivateMutable state variable is initialized by inserting a very first note.
+Subsequently, the OwnedPrivateMutable can make changes to the state variable's value by
+nullifying the current note and inserting a replacement note.</p>
+<p>The methods of OwnedPrivateMutable are:</p>
+<ul>
+<li><code>initialize</code></li>
+<li><code>replace</code></li>
+<li><code>initialize_or_replace</code></li>
+<li><code>get_note</code>
+(see the methods' own doc comments for more info).</li>
+</ul>
+<h2>Example</h2>
+<p>A users' account nonce can be represented as a PrivateMutable&lt;NonceNote&gt;.
+The &quot;current value&quot; of the user's nonce is the value contained within the
+single not-yet-nullified note in the user's view of the PrivateMutable.</p>
+<p>When the nonce needs to be incremented, the current note gets nullified
+and a new note with the incremented nonce gets inserted. The new note then
+becomes the &quot;current value&quot; of the OwnedPrivateMutable state variable.</p>
+<p>This is similar to how <code>uint256 nonce</code> would work in Solidity: there's always
+exactly one current value, and updating it overwrites the previous value.</p>
+<h2>When to choose PrivateMutable vs PrivateSet:</h2>
+<ul>
+<li>Use PrivateMutable when you want exactly one note to represent the state
+variable's current value, similar to regular variables in Ethereum.</li>
+<li>Use PrivateMutable when you want only the 'owner' of the private state to
+be able to make changes to it.</li>
+<li>Use PrivateSet when you want multiple notes to collectively represent the
+state variable's current value (like a collection of token balance notes).</li>
+<li>Use PrivateSet when you want to allow &quot;other people&quot; (beyond the owner) to
+insert notes into the state variable.</li>
+</ul>
+<p>Only the 'owner' of the given OwnedPrivateMutable state variable can mutate it,
+because every mutation requires nullifying the current note, and only the owner
+knows the note's content and the secret necessary to compute its nullifier.</p>
+<h2>Privacy</h2>
+<p>The methods of a PrivateMutable are only executable in a PrivateContext, and are
+designed to not leak anything about <em>which</em> state variable was read/modified/
+initialized, to the outside world.</p>
+<h2>Generic Parameters:</h2>
+<ul>
+<li><code>Note</code> - A single note of this type will represent the PrivateMutable's
+current value at the given storage_slot.</li>
+<li><code>Context</code> - The execution context (PrivateContext or UtilityContext).</li>
+</ul>
+</div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, Context&gt;</code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Initializes a new PrivateMutable state variable.</p>
+<p>This function is usually automatically called within the #[storage] macro.
+You typically don't need to call this directly when writing smart contracts.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>context</code> - One of <code>PrivateContext</code>/<code>PublicContext</code>/<code>UtilityContext</code>. The
+Context determines which methods of this struct will be made
+available to the calling smart contract function.</li>
+<li><code>storage_slot</code> - A unique identifier for this state variable within the
+contract. Every replacement note for this PrivateMutable
+state variable will have the same <code>storage_slot</code>.
+Usually, the #[storage] macro will determine an
+appropriate storage_slot automatically. A smart contract
+dev shouldn't have to worry about this, as it's managed
+behind the scenes.</li>
+</ul>
+<p>docs:start:new</p>
+</div>
+</div><code id="at" class="code-header">pub fn <span class="fn">at</span>(self, owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../noir_aztec/state_vars/private_mutable/struct.OwnedPrivateMutable.html" class="struct">OwnedPrivateMutable</a>&lt;Note, Context&gt;</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns an OwnedPrivateMutable scoped to the given <code>owner</code>'s note.</p>
+</div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-HasStorageSlot&lt;1&gt;-for-PrivateMutable<T, Context>"><code class="code-header">impl&lt;Context, T&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;1&gt; for <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;T, Context&gt;</code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div></main>
+</body>
+</html>

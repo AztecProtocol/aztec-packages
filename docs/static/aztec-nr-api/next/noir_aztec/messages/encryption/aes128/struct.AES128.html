@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<title>Struct AES128 documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct AES128</a></h2>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-MessageEncryption-for-AES128">MessageEncryption</a></li>
+</ul>
+<h2>In module aes128</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.AES128.html">AES128</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe.html">derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">encryption</a>::<a href="index.html">aes128</a></div>
+<h1>Struct <span id="struct" class="struct">AES128</span></h1>
+<pre><code>pub struct AES128 {}
+</code></pre>
+<h2>Trait implementations</h2>
+<h3 id="impl-MessageEncryption-for-AES128"><code class="code-header">impl <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html" class="trait">MessageEncryption</a> for <a href="../../../../noir_aztec/messages/encryption/aes128/struct.AES128.html" class="struct">AES128</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">encrypt</span>&lt;let PlaintextLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    plaintext: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; PlaintextLen],
+    recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 17]</code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">decrypt</span>(
+    ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 17&gt;,
+    recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 14&gt;&gt;</code>
+
+</div></main>
+</body>
+</html>

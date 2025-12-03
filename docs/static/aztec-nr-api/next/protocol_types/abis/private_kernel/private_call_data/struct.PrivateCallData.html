@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<title>Struct PrivateCallData documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PrivateCallData</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#public_inputs">public_inputs</a></li>
+<li><a href="#verification_key_hints">verification_key_hints</a></li>
+<li><a href="#vk">vk</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#verify">verify</a></li>
+</ul>
+<h2>In module private_call_data</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PrivateCallData.html">PrivateCallData</a></div></li>
+<li><a href="struct.PrivateCallDataWithoutPublicInputs.html">PrivateCallDataWithoutPublicInputs</a></div></li>
+<li><a href="struct.PrivateVerificationKeyHints.html">PrivateVerificationKeyHints</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">protocol_types</a>::<a href="../../index.html">abis</a>::<a href="../index.html">private_kernel</a>::<a href="index.html">private_call_data</a></div>
+<h1>Struct <span id="struct" class="struct">PrivateCallData</span></h1>
+<pre><code>pub struct PrivateCallData {
+    pub public_inputs: <a href="../../../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a>,
+    pub vk: <a href="../../../../protocol_types/proof/verification_key/type.ChonkVerificationKey.html" class="type">ChonkVerificationKey</a>,
+    pub verification_key_hints: <a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateVerificationKeyHints.html" class="struct">PrivateVerificationKeyHints</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="public_inputs" class="struct-field"><code class="code-header">public_inputs: <a href="../../../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a></code></div>
+<div class="padded-description"></div><div id="vk" class="struct-field"><code class="code-header">vk: <a href="../../../../protocol_types/proof/verification_key/type.ChonkVerificationKey.html" class="type">ChonkVerificationKey</a></code></div>
+<div class="padded-description"></div><div id="verification_key_hints" class="struct-field"><code class="code-header">verification_key_hints: <a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateVerificationKeyHints.html" class="struct">PrivateVerificationKeyHints</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateCallData.html" class="struct">PrivateCallData</a></code></h3>
+
+<div class="padded-methods"><code id="verify" class="code-header">pub fn <span class="fn">verify</span>(self, is_first_app: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Verifies the proof against the verification key and public inputs.
+The vk hash is also checked in the backend to match the key.</p>
+</div>
+</div></div></main>
+</body>
+</html>
