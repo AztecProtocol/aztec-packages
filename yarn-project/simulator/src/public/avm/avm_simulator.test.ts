@@ -1,4 +1,5 @@
 import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import {
   Grumpkin,
   keccak256,
@@ -487,7 +488,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const transactionFee = Fr.random();
     const chainId = Fr.random();
     const version = Fr.random();
-    const blockNumber = randomInt(20000);
+    const blockNumber = BlockNumber(randomInt(20000));
     const timestamp = BigInt(randomInt(100000)); // timestamp as UInt64
     const gasFees = GasFees.random();
 

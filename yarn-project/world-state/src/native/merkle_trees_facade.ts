@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
@@ -191,14 +192,14 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
   async getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
     treeId: ID,
     leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]> {
+  ): Promise<(BlockNumber | undefined)[]> {
     const response = await this.instance.call(WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES, {
       treeId,
       revision: this.revision,
       leafIndices,
     });
 
-    return response.blockNumbers.map(x => (x === undefined || x === null ? undefined : BigInt(x)));
+    return response.blockNumbers.map(x => (x === undefined || x === null ? undefined : BlockNumber(Number(x))));
   }
 }
 

@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Bufferable } from '@aztec/foundation/serialize';
 import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 
@@ -9,13 +10,13 @@ export interface TreeSnapshotBuilder<S extends TreeSnapshot<Bufferable>> {
    * Creates a snapshot of the tree at the given version.
    * @param block - The version to snapshot the tree at.
    */
-  snapshot(block: number): Promise<S>;
+  snapshot(block: BlockNumber): Promise<S>;
 
   /**
    * Returns a snapshot of the tree at the given version.
    * @param block - The version of the snapshot to return.
    */
-  getSnapshot(block: number): Promise<S>;
+  getSnapshot(block: BlockNumber): Promise<S>;
 }
 
 /**

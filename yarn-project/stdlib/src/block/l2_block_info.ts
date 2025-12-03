@@ -1,3 +1,4 @@
+import { BlockNumber, BlockNumberSchema, SlotNumber, SlotNumberSchema } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -8,19 +9,19 @@ export type L2BlockInfo = {
   blockHash?: Fr;
   archive: Fr;
   lastArchive: Fr;
-  blockNumber: number;
-  slotNumber: number;
+  blockNumber: BlockNumber;
+  slotNumber: SlotNumber;
   txCount: number;
   timestamp: bigint;
 };
 
-export function randomBlockInfo(blockNumber?: number): L2BlockInfo {
+export function randomBlockInfo(blockNumber?: BlockNumber | number): L2BlockInfo {
   return {
     blockHash: Fr.random(),
     archive: Fr.random(),
     lastArchive: Fr.random(),
-    blockNumber: blockNumber ?? Math.floor(Math.random() * 100000) + 1,
-    slotNumber: Math.floor(Math.random() * 100000) + 1,
+    blockNumber: BlockNumber(blockNumber ?? Math.floor(Math.random() * 100000) + 1),
+    slotNumber: SlotNumber(Math.floor(Math.random() * 100000) + 1),
     txCount: Math.floor(Math.random() * 100),
     timestamp: BigInt(Math.floor(Date.now() / 1000)),
   };
@@ -30,8 +31,8 @@ export const BlockInfoSchema = z.object({
   blockHash: schemas.Fr.optional(),
   archive: schemas.Fr,
   lastArchive: schemas.Fr,
-  blockNumber: z.number(),
-  slotNumber: z.number(),
+  blockNumber: BlockNumberSchema,
+  slotNumber: SlotNumberSchema,
   txCount: z.number(),
   timestamp: schemas.BigInt,
 });
@@ -55,8 +56,8 @@ export function deserializeBlockInfo(buffer: Buffer | BufferReader): L2BlockInfo
     blockHash: blockHash.equals(Fr.ZERO) ? undefined : blockHash,
     archive: reader.readObject(Fr),
     lastArchive: reader.readObject(Fr),
-    blockNumber: reader.readNumber(),
-    slotNumber: reader.readNumber(),
+    blockNumber: BlockNumber(reader.readNumber()),
+    slotNumber: SlotNumber(reader.readNumber()),
     txCount: reader.readNumber(),
     timestamp: reader.readBigInt(),
   };

@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
@@ -55,14 +56,14 @@ describe('Synchronizer', () => {
       .spyOn(taggingDataProvider, 'resetNoteSyncData')
       .mockImplementation(() => Promise.resolve());
     aztecNode.getBlockHeader.mockImplementation(async blockNumber =>
-      (await L2Block.random(blockNumber as number)).getBlockHeader(),
+      (await L2Block.random(BlockNumber(blockNumber as number))).getBlockHeader(),
     );
 
     await synchronizer.handleBlockStreamEvent({
       type: 'blocks-added',
       blocks: await timesParallel(5, randomPublishedL2Block),
     });
-    await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: 3, hash: '0x3' } });
+    await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: BlockNumber(3), hash: '0x3' } });
 
     expect(rollbackNotesAndNullifiers).toHaveBeenCalledWith(3, 4);
     expect(resetNoteSyncData).toHaveBeenCalled();

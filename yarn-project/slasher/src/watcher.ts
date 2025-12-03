@@ -10,7 +10,7 @@ export interface WantToSlashArgs {
   validator: EthAddress;
   amount: bigint;
   offenseType: OffenseType;
-  epochOrSlot: bigint; // Epoch number for epoch-based offenses, block number for block-based
+  epochOrSlot: bigint; // Epoch number for epoch-based offenses, slot number for slot-based
 }
 
 // Event map for specific, known events of a watcher

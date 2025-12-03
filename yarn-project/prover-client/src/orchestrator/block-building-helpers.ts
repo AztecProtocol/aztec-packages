@@ -20,6 +20,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Bufferable, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
@@ -280,7 +281,7 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
     const globalVariables = GlobalVariables.from({
       chainId: constants.chainId,
       version: constants.version,
-      blockNumber: blockRootRollupOutput.previousArchive.nextAvailableLeafIndex,
+      blockNumber: BlockNumber(blockRootRollupOutput.previousArchive.nextAvailableLeafIndex),
       timestamp: blockRootRollupOutput.endTimestamp,
       slotNumber: constants.slotNumber,
       coinbase: constants.coinbase,

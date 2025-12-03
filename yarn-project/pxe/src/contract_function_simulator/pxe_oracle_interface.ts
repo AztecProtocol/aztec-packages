@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { EventSelector, type FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { DataInBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
+import type { BlockParameter, DataInBlock, L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
@@ -163,12 +163,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return await this.#findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
   }
 
-  async #findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
+  async #findLeafIndex(blockNumber: BlockParameter, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
     const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
     return leafIndex?.data;
   }
 
-  public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+  public async getMembershipWitness(blockNumber: BlockParameter, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
     const witness = await this.#tryGetMembershipWitness(blockNumber, treeId, leafValue);
     if (!witness) {
       throw new Error(`Leaf value ${leafValue} not found in tree ${MerkleTreeId[treeId]} at block ${blockNumber}`);
@@ -176,7 +176,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return witness;
   }
 
-  async #tryGetMembershipWitness(blockNumber: number, treeId: MerkleTreeId, value: Fr): Promise<Fr[] | undefined> {
+  async #tryGetMembershipWitness(
+    blockNumber: BlockParameter,
+    treeId: MerkleTreeId,
+    value: Fr,
+  ): Promise<Fr[] | undefined> {
     switch (treeId) {
       case MerkleTreeId.NULLIFIER_TREE:
         return (await this.aztecNode.getNullifierMembershipWitness(blockNumber, value))?.withoutPreimage().toFields();
@@ -197,42 +201,42 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   public getNullifierMembershipWitness(
-    blockNumber: number,
+    blockNumber: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return this.aztecNode.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   public async getLowNullifierMembershipWitness(
-    blockNumber: number,
+    blockNumber: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     const header = await this.getAnchorBlockHeader();
-    if (blockNumber > header.globalVariables.blockNumber) {
+    if (blockNumber !== 'latest' && blockNumber > header.globalVariables.blockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
     }
     return this.aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
+  public async getBlock(blockNumber: BlockParameter): Promise<L2Block | undefined> {
     const header = await this.getAnchorBlockHeader();
-    if (blockNumber > header.globalVariables.blockNumber) {
+    if (blockNumber !== 'latest' && blockNumber > header.globalVariables.blockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
     }
     return await this.aztecNode.getBlock(blockNumber);
   }
 
-  public async getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  public async getPublicDataWitness(blockNumber: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     const header = await this.getAnchorBlockHeader();
-    if (blockNumber > header.globalVariables.blockNumber) {
+    if (blockNumber !== 'latest' && blockNumber > header.globalVariables.blockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
     }
     return await this.aztecNode.getPublicDataWitness(blockNumber, leafSlot);
   }
 
-  public async getPublicStorageAt(blockNumber: number, contract: AztecAddress, slot: Fr): Promise<Fr> {
+  public async getPublicStorageAt(blockNumber: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
     const header = await this.getAnchorBlockHeader();
-    if (blockNumber > header.globalVariables.blockNumber) {
+    if (blockNumber !== 'latest' && blockNumber > header.globalVariables.blockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
     }
     return await this.aztecNode.getPublicStorageAt(blockNumber, contract, slot);
@@ -699,9 +703,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       noteHash,
       siloedNullifier,
       txHash,
-      uniqueNoteHashTreeIndexInBlock?.l2BlockNumber,
-      uniqueNoteHashTreeIndexInBlock?.l2BlockHash.toString(),
-      uniqueNoteHashTreeIndexInBlock?.data,
+      uniqueNoteHashTreeIndexInBlock.l2BlockNumber,
+      uniqueNoteHashTreeIndexInBlock.l2BlockHash.toString(),
+      uniqueNoteHashTreeIndexInBlock.data,
     );
 
     // The note was found by `recipient`, so we use that as the scope when storing the note.
