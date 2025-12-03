@@ -37,7 +37,7 @@ jobs:
           # This avoids us having to update our commit metadata file,
           # but is slower.
           # Clone the barretenberg repository
-          gh repo clone AztecProtocol/barretenberg /tmp/barretenberg-repo
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/AztecProtocol/barretenberg.git /tmp/barretenberg-repo
           cd /tmp/barretenberg-repo
           git checkout master
           git reset --hard $SUBREPO_COMMIT
