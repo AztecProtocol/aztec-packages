@@ -433,13 +433,20 @@ sel_gas_sstore {
     written_public_data_slots_tree_check.root
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// EMITUNENCRYPTEDLOG, CALLDATACOPY, RETURNDATACOPY, Dynamic L2 Gas Calculation
+///////////////////////////////////////////////////////////////////////////////
+
 // todo(ilyas): we are going to need these kinds of checks in general as well
 // i.e. opcodes without dynamic components need to assert dyn_l2 & dyn_da are zero
 // i.e. opcodes with only a single dynamic components need to assert the others are zero.
 #[SSTORE_DYN_L2_GAS_IS_ZERO]
 sel_execute_sstore * dynamic_l2_gas_factor = 0;
 
-sel_gas_emit_unencrypted_log * (/*log_size=*/ register[0] - dynamic_l2_gas_factor) = 0;
+// #[DYN_GAS_ID_DECOMPOSITION] ensures that the gas selectors are mutually exclusive.
+// register[0] is the log size for emit_unencrypted_log, the calldata/returndata size for call_data_copy/returndata_copy.
+(sel_gas_emit_unencrypted_log + sel_gas_calldata_copy + sel_gas_returndata_copy) * (register[0] - dynamic_l2_gas_factor) = 0;
+
 sel_gas_emit_unencrypted_log * (/*log_size=*/ register[0] - dynamic_da_gas_factor) = 0;
 
 /**************************************************************************************************
@@ -608,7 +615,7 @@ sel_gas_emit_unencrypted_log * constants.AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG +
 sel_gas_sstore * constants.AVM_DYN_GAS_ID_SSTORE
 // We force the selectors to be 0 if we failed before gas checks
 // or when we are not in the execution subtrace.
-= sel_should_check_gas * sel * dyn_gas_id;
+= sel_should_check_gas * dyn_gas_id;
 
 // Whether the opcode logic failed.
 pol commit sel_opcode_failure;
