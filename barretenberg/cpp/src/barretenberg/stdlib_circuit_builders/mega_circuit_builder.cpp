@@ -222,6 +222,26 @@ template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
     (void)populate_ecc_op_wires(ultra_op);
 }
 
+/**
+ * @brief Add a hiding op with random (possibly non-curve) Px, Py values to the op queue and circuit.
+ *
+ * @details This op provides statistical hiding (~508 bits) for the accumulated_result in Translator/ECCVM.
+ * The Px, Py values are random field elements that may not be on the curve. The op uses opcode 3 (eq+reset)
+ * for Translator compatibility. In ECCVM, this op is prepended to land at row 1 (lagrange_second).
+ *
+ * @param Px Random field element for x-coordinate
+ * @param Py Random field element for y-coordinate
+ */
+template <typename FF>
+void MegaCircuitBuilder_<FF>::queue_ecc_hiding_op(const curve::BN254::BaseField& Px, const curve::BN254::BaseField& Py)
+{
+    // Add the operation to the op queue (returns the UltraOp for gate creation)
+    auto ultra_op = op_queue->append_hiding_op(Px, Py);
+
+    // Add corresponding gates for the operation
+    (void)populate_ecc_op_wires(ultra_op);
+}
+
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
 {
     null_op_idx = this->zero_idx(); // constant 0 is is associated with the zero index

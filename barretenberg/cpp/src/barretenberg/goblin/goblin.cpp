@@ -117,11 +117,11 @@ bool Goblin::verify(const GoblinProof& proof,
     bool op_queue_consistency_verified =
         translator_verifier.verify_consistency_with_final_merge(merged_table_commitments);
 
-    vinfo("merge verified?: ", merge_verified);
-    vinfo("eccvm verified?: ", eccvm_verified);
-    vinfo("accumulator construction_verified?: ", accumulator_construction_verified);
-    vinfo("translation verified?: ", translation_verified);
-    vinfo("consistency verified?: ", op_queue_consistency_verified);
+    info("merge verified?: ", merge_verified);
+    info("eccvm verified?: ", eccvm_verified);
+    info("accumulator construction_verified?: ", accumulator_construction_verified);
+    info("translation verified?: ", translation_verified);
+    info("consistency verified?: ", op_queue_consistency_verified);
 
     return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
            op_queue_consistency_verified;
@@ -130,14 +130,15 @@ bool Goblin::verify(const GoblinProof& proof,
 void Goblin::ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const
 {
     BB_ASSERT_EQ(avm_mode, true, "ensure_well_formed_op_queue should only be called for avm");
-    // Add a hiding op for the ECCVM (required for the q_eq = 1 constraint at row 1)
-    using Fq = curve::Grumpkin::ScalarField;
-    op_queue->prepend_hiding_op(Fq::random_element(), Fq::random_element());
-    // Add Ultra ops for the Translator
+    // Add Ultra ops for the Translator (no-op + 3 random ops as prefix for translator accumulation)
     builder.queue_ecc_no_op();
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();
+    // Add a hiding op for the ECCVM (required for the q_eq = 1 constraint at row 1)
+    // This is appended to ultra ops normally, but prepended in ECCVM reconstruction
+    using Fq = curve::Grumpkin::ScalarField;
+    builder.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
 }
 
 } // namespace bb

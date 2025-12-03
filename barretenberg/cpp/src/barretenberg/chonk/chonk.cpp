@@ -461,13 +461,13 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
  */
 void Chonk::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 {
-    // Use random Fq field elements - necessarily on the curve
+    // Use random Fq field elements - not necessarily on the curve
     using Fq = curve::Grumpkin::ScalarField; // Same as BN254::BaseField
-    Fq random_Px = Fq::random_element();
-    Fq random_Py = Fq::random_element();
+    Fq random_Px = 13;                       // TODO: restore to Fq::random_element()
+    Fq random_Py = 77;                       // TODO: restore to Fq::random_element()
 
-    // Prepend the hiding op to the op queue (it will be at index 0, becoming row 1 in ECCVM)
-    circuit.op_queue->prepend_hiding_op(random_Px, random_Py);
+    // Add the hiding op to both the op queue and circuit gates
+    circuit.queue_ecc_hiding_op(random_Px, random_Py);
 }
 
 /**
@@ -540,17 +540,17 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, chonk_verifier_transcript };
     auto [mega_verified, kernel_return_data, T_prev_commitments] =
         verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
-    vinfo("Mega verified: ", mega_verified);
+    info("Mega verified: ", mega_verified);
     // Perform databus consistency checks
     bool databus_consistency_verified = kernel_return_data == verifier.verifier_instance->witness_commitments.calldata;
-    vinfo("Databus consistency verified: ", databus_consistency_verified);
+    info("Databus consistency verified: ", databus_consistency_verified);
     // Extract the commitments to the subtable corresponding to the incoming circuit
     TableCommitments t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Goblin verification (final merge, eccvm, translator)
     bool goblin_verified = Goblin::verify(
         proof.goblin_proof, { t_commitments, T_prev_commitments }, chonk_verifier_transcript, MergeSettings::APPEND);
-    vinfo("Goblin verified: ", goblin_verified);
+    info("Goblin verified: ", goblin_verified);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in Chonk verifiers.
     return goblin_verified && mega_verified && databus_consistency_verified;

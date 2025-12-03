@@ -37,7 +37,7 @@ void add_hiding_op_for_test(const std::shared_ptr<ECCOpQueue>& op_queue)
 {
     using Fq = curve::BN254::BaseField;
     // Prepend a hiding op with random coordinates - provides statistical hiding
-    op_queue->prepend_hiding_op(Fq::random_element(), Fq::random_element());
+    op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
 }
 } // namespace
 

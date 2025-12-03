@@ -272,37 +272,59 @@ class ECCOpQueue {
     }
 
     /**
-     * @brief Add a hiding op to the beginning of the ECCVM ops table with random (possibly non-curve) Px, Py values.
+     * @brief Add a hiding op with random (possibly non-curve) Px, Py values to both ECCVM and Ultra ops tables.
      *
-     * @details This operation is ECCVM-only and does NOT affect the accumulator or the ultra ops table.
-     * The hiding op contributes random Px, Py field elements to the ECCVM transcript univariate evaluations,
-     * providing statistical hiding (~508 bits) for the accumulated_result in the Translator/ECCVM.
+     * @details The hiding op contributes random Px, Py field elements to both ECCVM transcript polynomials
+     * and Translator's accumulated_result, providing statistical hiding (~508 bits).
      *
-     * The hiding op uses opcode q_eq = 1 (value = 2) to preserve the Px, Py values in the transcript
-     * (other opcodes may zero out the coordinates). The eq constraint is gated by (1 - lagrange_second)
-     * so it doesn't actually check equality. The on-curve check is similarly gated.
+     * In ECCVM: prepended at index 0, landing at row 1 (lagrange_second = 1).
+     * In Ultra/Translator: appended to current subtable through normal flow, landing in the accumulation range.
      *
-     * This method should be called ONCE per IVC, right before constructing the ECCVM, to ensure the
-     * hiding op is at index 0 in the reconstructed eccvm ops vector.
+     * The hiding op uses opcode q_eq = 1, q_reset = 1 (value = 3) to preserve the Px, Py values in the
+     * transcript (other opcodes may zero out the coordinates). The eq constraint is gated by
+     * (1 - lagrange_second) so it doesn't actually check equality. The on-curve check is similarly gated.
+     * q_reset = 1 is required for Translator compatibility (only opcodes {0,3,4,8} are allowed).
+     *
+     * This method should be called ONCE per IVC in the tail kernel, after the random non-ops.
      *
      * @param Px Random field element (not necessarily a valid x-coordinate on BN254)
      * @param Py Random field element (not necessarily a valid y-coordinate on BN254)
+     * @return The UltraOp that was pushed to the table (for use by circuit builder to add gates)
      */
-    void prepend_hiding_op(const Fq& Px, const Fq& Py)
+    UltraOp append_hiding_op(const Fq& Px, const Fq& Py)
     {
-        // Create an ECCVM operation with q_eq = 1 (opcode = 2) and the random Px, Py values.
+        // Create an ECCVM operation with q_eq = 1, q_reset = 1 (opcode = 3) and the random Px, Py values.
         // We construct the base_point directly with the raw coordinates - it may not be on the curve.
-        EccOpCode op_code{ .eq = true }; // q_eq = 1, no reset
+        // Note: reset = true is required for Translator compatibility (only opcodes {0,3,4,8} are allowed)
+        EccOpCode op_code{ .eq = true, .reset = true }; // q_eq = 1, q_reset = 1
         Point base_point;
         base_point.x = Px;
         base_point.y = Py;
         // Note: We don't call is_point_at_infinity() or any curve operations on this point
 
-        // Store the hiding op - it will be at the front of the reconstructed eccvm ops
+        // Store the hiding op for ECCVM - it will be prepended to the front during reconstruction (index 0 -> row 1)
         hiding_op_for_eccvm = ECCVMOperation{ .op_code = op_code, .base_point = base_point };
         has_hiding_op = true;
 
+        // Push to Ultra ops through normal flow (appends to current subtable)
+        // Decompose Px, Py (Fq) into hi-lo chunks (Fr)
+        const size_t CHUNK_SIZE = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+        uint256_t x_256(Px);
+        uint256_t y_256(Py);
+        UltraOp ultra_op{
+            .op_code = op_code,
+            .x_lo = Fr(x_256.slice(0, CHUNK_SIZE)),
+            .x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
+            .y_lo = Fr(y_256.slice(0, CHUNK_SIZE)),
+            .y_hi = Fr(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
+            .z_1 = Fr(0),
+            .z_2 = Fr(0),
+            .return_is_infinity = false,
+        };
+        ultra_ops_table.push(ultra_op);
+
         // Do NOT update the accumulator - the hiding op doesn't perform any actual EC computation
+        return ultra_op;
     }
 
     /**
@@ -311,7 +333,7 @@ class ECCOpQueue {
     bool has_eccvm_hiding_op() const { return has_hiding_op; }
 
   private:
-    // Storage for the hiding op (added at the front of eccvm ops when reconstructed)
+    // Storage for the hiding op (prepended to eccvm ops during reconstruction)
     ECCVMOperation hiding_op_for_eccvm;
     bool has_hiding_op = false;
 
