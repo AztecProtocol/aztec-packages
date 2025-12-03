@@ -1,7 +1,6 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
-#include "failure_test_utils.hpp"
 #include "ultra_honk.test.hpp"
 
 using namespace bb;
@@ -341,6 +340,7 @@ TYPED_TEST(PermutationNonZKTests, ZPermShiftNotZeroAtLagrangeLastFailure)
  *
  * @details The sigma polynomials encode copy cycles. In this test, we tamper with sigma in a place implicated by the
  * copy-constriant and ensure that the relevant subrelation fails, both when we don't update `z_perm` and when we do.
+ * Moreover, we make sure the failure occurs "at the right row".
  *
  *
  * @note There are no tags/multiset-equality checks in this test.
@@ -385,8 +385,9 @@ TYPED_TEST(PermutationNonZKTests, SigmaCorruptionFailure)
         prover_instance->polynomials, prover_instance->relation_parameters, "Permutation Relation - Before Tampering");
     ASSERT_TRUE(permutation_relation_failures.empty());
 
-    // TAMPER: Corrupt sigma_1 at a row that's part of the copy cycle.
+    // TAMPER
 
+    // Corrupt sigma_1 at a row that's part of the copy cycle.
     auto& sigma_1 = prover_instance->polynomials.sigma_1;
     auto& id_1 = prover_instance->polynomials.id_1;
 
@@ -445,15 +446,10 @@ TYPED_TEST(PermutationNonZKTests, SigmaCorruptionFailure)
 /**
  * @brief Test that tampering with public_input_delta causes the permutation relation to fail.
  *
- * @details The permutation argument intentionally "breaks" cycles for public inputs by setting
- * σ⁰(i) = -(i+1) instead of the normal cycle mapping, where i is the index of a public input. The public_input_delta
- * compensates for this:
- *
- *        δ_pub = ∏ (γ + xᵢ + β(n+i)) / ∏ (γ + xᵢ - β(1+i))
- *
- * The prover's z_perm grand product is computed using the actual wire values at public input positions.
- * If public_input_delta is recomputed with different public input values, it won't match what z_perm
- * expects, causing the permutation relation to fail.
+ * @details The permutation argument intentionally "breaks" cycles for public inputs. The prover's z_perm grand product
+ * is computed using the actual wire values at public input positions. At this point, we tamper with the
+ * public_input_delta; we compute a new one based on a tampered public_input. This causes the permutation relation to
+ * fail. The test further checks that the position where this fails is correct.
  *
  * @note We exclude ZK flavors because we manually tamper with relation parameters.
  */
@@ -493,7 +489,9 @@ TYPED_TEST(PermutationNonZKTests, PublicInputDeltaMismatch)
     // Store the original public_input_delta
     fr original_delta = prover_instance->relation_parameters.public_input_delta;
 
-    // TAMPER: Recompute public_input_delta with a different public input value
+    // TAMPER
+
+    // Recompute public_input_delta with a different public input value
     // The wire polynomials still contain the original value (314159), but we compute delta as if it were 99999
     fr tampered_public_val = fr(99999);
     std::vector<fr> tampered_public_inputs = { tampered_public_val };
