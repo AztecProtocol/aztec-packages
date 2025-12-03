@@ -74,7 +74,7 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
     };
     if constexpr (UseMultithreading) {
         parallel_for([&](const ThreadChunk& chunk) {
-            auto range = chunk.range(inverse_polynomial.size());
+            auto range = chunk.range(circuit_size);
             if (!range.empty()) {
                 size_t start = *range.begin();
                 size_t end = start + range.size();
@@ -82,7 +82,7 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
             }
         });
     } else {
-        compute_inverses(0, inverse_polynomial.size());
+        compute_inverses(0, circuit_size);
     }
 }
 
