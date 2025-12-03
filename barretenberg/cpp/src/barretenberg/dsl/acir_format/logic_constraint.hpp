@@ -15,7 +15,13 @@ namespace acir_format {
 using Builder = bb::UltraCircuitBuilder;
 
 /**
- * @brief Logic constraint representation in ACIR format. NOTE: num_bits must be <= MAX_NO_WRAP_INTEGER_BIT_LENGTH (252)
+ * @brief Logic constraint representation in ACIR format.
+ *
+ * @details The logic constraint enforces that:
+ *  1. The inputs a and b fit into num_bits bits.
+ *  2. That the result is the bitwise AND or XOR of a and b, depending on the is_xor_gate flag.
+ *
+ * NOTE: num_bits must be <= MAX_NO_WRAP_INTEGER_BIT_LENGTH (252)
  *
  */
 struct LogicConstraint {

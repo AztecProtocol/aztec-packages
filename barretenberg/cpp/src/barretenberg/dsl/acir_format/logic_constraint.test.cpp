@@ -61,14 +61,8 @@ class LogicConstraintTestingFunctions {
             return WitnessOrConstant<FF>::from_index(input_index);
         };
 
-        bb::fr lhs = FF(
-            "0x0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"); // Max value for masking (252 bits)
-        lhs = FF(static_cast<uint256_t>(lhs) >>
-                 (bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH - num_bits)); // Mask to num_bits
-        bb::fr rhs = FF(
-            "0x0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"); // Max value for masking (252 bits)
-        rhs = FF(static_cast<uint256_t>(rhs) >>
-                 (bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH - num_bits)); // Mask to num_bits
+        bb::fr lhs = FF(static_cast<uint256_t>(1) << num_bits - 1); // All bits from 0 to num_bits-1 are set
+        bb::fr rhs = FF(static_cast<uint256_t>(1) << num_bits - 1); // All bits from 0 to num_bits-1 are set
         bb::fr result = is_xor_gate ? (static_cast<uint256_t>(lhs) ^ static_cast<uint256_t>(rhs))
                                     : (static_cast<uint256_t>(lhs) & static_cast<uint256_t>(rhs));
 
