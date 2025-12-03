@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Trait Serialize documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait Serialize</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#serialize">serialize</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Serialize-for-(T0, T1)">(T0, T1)</a></li>
+<li><a href="#impl-Serialize-for-(T0, T1, T2)">(T0, T1, T2)</a></li>
+<li><a href="#impl-Serialize-for-(T0, T1, T2, T3)">(T0, T1, T2, T3)</a></li>
+<li><a href="#impl-Serialize-for-(T0, T1, T2, T3, T4)">(T0, T1, T2, T3, T4)</a></li>
+<li><a href="#impl-Serialize-for-(T0, T1, T2, T3, T4, T5)">(T0, T1, T2, T3, T4, T5)</a></li>
+<li><a href="#impl-Serialize-for-(T1,)">(T1,)</a></li>
+<li><a href="#impl-Serialize-for-AddressNote">AddressNote</a></li>
+<li><a href="#impl-Serialize-for-AppPayload">AppPayload</a></li>
+<li><a href="#impl-Serialize-for-AppendOnlyTreeSnapshot">AppendOnlyTreeSnapshot</a></li>
+<li><a href="#impl-Serialize-for-AuthorizationSelector">AuthorizationSelector</a></li>
+<li><a href="#impl-Serialize-for-AvmAccumulatedData">AvmAccumulatedData</a></li>
+<li><a href="#impl-Serialize-for-AvmAccumulatedDataArrayLengths">AvmAccumulatedDataArrayLengths</a></li>
+<li><a href="#impl-Serialize-for-AvmCircuitPublicInputs">AvmCircuitPublicInputs</a></li>
+<li><a href="#impl-Serialize-for-AztecAddress">AztecAddress</a></li>
+<li><a href="#impl-Serialize-for-BlockConstantData">BlockConstantData</a></li>
+<li><a href="#impl-Serialize-for-BlockHeader">BlockHeader</a></li>
+<li><a href="#impl-Serialize-for-BoundedVec<T, M>">BoundedVec<T, M></a></li>
+<li><a href="#impl-Serialize-for-CallContext">CallContext</a></li>
+<li><a href="#impl-Serialize-for-CheckpointConstantData">CheckpointConstantData</a></li>
+<li><a href="#impl-Serialize-for-CheckpointHeader">CheckpointHeader</a></li>
+<li><a href="#impl-Serialize-for-ClaimedLengthArray<T, N>">ClaimedLengthArray<T, N></a></li>
+<li><a href="#impl-Serialize-for-CompressedString<N, M>">CompressedString<N, M></a></li>
+<li><a href="#impl-Serialize-for-ContentCommitment">ContentCommitment</a></li>
+<li><a href="#impl-Serialize-for-ContractClassId">ContractClassId</a></li>
+<li><a href="#impl-Serialize-for-ContractInstance">ContractInstance</a></li>
+<li><a href="#impl-Serialize-for-Counted<T>">Counted<T></a></li>
+<li><a href="#impl-Serialize-for-EmbeddedCurvePoint">EmbeddedCurvePoint</a></li>
+<li><a href="#impl-Serialize-for-EmbeddedCurveScalar">EmbeddedCurveScalar</a></li>
+<li><a href="#impl-Serialize-for-Empty">Empty</a></li>
+<li><a href="#impl-Serialize-for-EpochConstantData">EpochConstantData</a></li>
+<li><a href="#impl-Serialize-for-EthAddress">EthAddress</a></li>
+<li><a href="#impl-Serialize-for-EventSelector">EventSelector</a></li>
+<li><a href="#impl-Serialize-for-Fancier">Fancier</a></li>
+<li><a href="#impl-Serialize-for-FeeRecipient">FeeRecipient</a></li>
+<li><a href="#impl-Serialize-for-Field">Field</a></li>
+<li><a href="#impl-Serialize-for-FieldCompressedString">FieldCompressedString</a></li>
+<li><a href="#impl-Serialize-for-FunctionCall">FunctionCall</a></li>
+<li><a href="#impl-Serialize-for-FunctionData">FunctionData</a></li>
+<li><a href="#impl-Serialize-for-FunctionSelector">FunctionSelector</a></li>
+<li><a href="#impl-Serialize-for-Gas">Gas</a></li>
+<li><a href="#impl-Serialize-for-GasFees">GasFees</a></li>
+<li><a href="#impl-Serialize-for-GasSettings">GasSettings</a></li>
+<li><a href="#impl-Serialize-for-GlobalVariables">GlobalVariables</a></li>
+<li><a href="#impl-Serialize-for-HasArray">HasArray</a></li>
+<li><a href="#impl-Serialize-for-HasArrayWithGenerics<T, N>">HasArrayWithGenerics<T, N></a></li>
+<li><a href="#impl-Serialize-for-IvpkM">IvpkM</a></li>
+<li><a href="#impl-Serialize-for-KeyValidationRequest">KeyValidationRequest</a></li>
+<li><a href="#impl-Serialize-for-KeyValidationRequestAndGenerator">KeyValidationRequestAndGenerator</a></li>
+<li><a href="#impl-Serialize-for-L2ToL1Message">L2ToL1Message</a></li>
+<li><a href="#impl-Serialize-for-Log<N>">Log<N></a></li>
+<li><a href="#impl-Serialize-for-LogHash">LogHash</a></li>
+<li><a href="#impl-Serialize-for-MembershipWitness<N, M>">MembershipWitness<N, M></a></li>
+<li><a href="#impl-Serialize-for-MockStruct">MockStruct</a></li>
+<li><a href="#impl-Serialize-for-NoteMetadata">NoteMetadata</a></li>
+<li><a href="#impl-Serialize-for-NpkM">NpkM</a></li>
+<li><a href="#impl-Serialize-for-Nullifier">Nullifier</a></li>
+<li><a href="#impl-Serialize-for-NullifierLeafPreimage">NullifierLeafPreimage</a></li>
+<li><a href="#impl-Serialize-for-NullifierMembershipWitness">NullifierMembershipWitness</a></li>
+<li><a href="#impl-Serialize-for-Option<T>">Option<T></a></li>
+<li><a href="#impl-Serialize-for-OvpkM">OvpkM</a></li>
+<li><a href="#impl-Serialize-for-PartialAddress">PartialAddress</a></li>
+<li><a href="#impl-Serialize-for-PartialStateReference">PartialStateReference</a></li>
+<li><a href="#impl-Serialize-for-PartialUintNote">PartialUintNote</a></li>
+<li><a href="#impl-Serialize-for-Poseidon2Sponge">Poseidon2Sponge</a></li>
+<li><a href="#impl-Serialize-for-PrivateCallRequest">PrivateCallRequest</a></li>
+<li><a href="#impl-Serialize-for-PrivateCircuitPublicInputs">PrivateCircuitPublicInputs</a></li>
+<li><a href="#impl-Serialize-for-PrivateLogData">PrivateLogData</a></li>
+<li><a href="#impl-Serialize-for-PrivateToAvmAccumulatedData">PrivateToAvmAccumulatedData</a></li>
+<li><a href="#impl-Serialize-for-PrivateToAvmAccumulatedDataArrayLengths">PrivateToAvmAccumulatedDataArrayLengths</a></li>
+<li><a href="#impl-Serialize-for-PrivateToPublicAccumulatedData">PrivateToPublicAccumulatedData</a></li>
+<li><a href="#impl-Serialize-for-PrivateToPublicKernelCircuitPublicInputs">PrivateToPublicKernelCircuitPublicInputs</a></li>
+<li><a href="#impl-Serialize-for-PrivateToRollupAccumulatedData">PrivateToRollupAccumulatedData</a></li>
+<li><a href="#impl-Serialize-for-PrivateToRollupKernelCircuitPublicInputs">PrivateToRollupKernelCircuitPublicInputs</a></li>
+<li><a href="#impl-Serialize-for-ProtocolContracts">ProtocolContracts</a></li>
+<li><a href="#impl-Serialize-for-PublicCallRequest">PublicCallRequest</a></li>
+<li><a href="#impl-Serialize-for-PublicCallRequestArrayLengths">PublicCallRequestArrayLengths</a></li>
+<li><a href="#impl-Serialize-for-PublicDataTreeLeafPreimage">PublicDataTreeLeafPreimage</a></li>
+<li><a href="#impl-Serialize-for-PublicDataWitness">PublicDataWitness</a></li>
+<li><a href="#impl-Serialize-for-PublicDataWrite">PublicDataWrite</a></li>
+<li><a href="#impl-Serialize-for-PublicKeys">PublicKeys</a></li>
+<li><a href="#impl-Serialize-for-PublicKeysHash">PublicKeysHash</a></li>
+<li><a href="#impl-Serialize-for-PublicLogs">PublicLogs</a></li>
+<li><a href="#impl-Serialize-for-RetrievedNote<Note>">RetrievedNote<Note></a></li>
+<li><a href="#impl-Serialize-for-Scoped<T>">Scoped<T></a></li>
+<li><a href="#impl-Serialize-for-Smol">Smol</a></li>
+<li><a href="#impl-Serialize-for-SpongeBlob">SpongeBlob</a></li>
+<li><a href="#impl-Serialize-for-StateReference">StateReference</a></li>
+<li><a href="#impl-Serialize-for-TestAccount">TestAccount</a></li>
+<li><a href="#impl-Serialize-for-TestValue">TestValue</a></li>
+<li><a href="#impl-Serialize-for-TpkM">TpkM</a></li>
+<li><a href="#impl-Serialize-for-TreeSnapshots">TreeSnapshots</a></li>
+<li><a href="#impl-Serialize-for-TxConstantData">TxConstantData</a></li>
+<li><a href="#impl-Serialize-for-TxContext">TxContext</a></li>
+<li><a href="#impl-Serialize-for-TxRequest">TxRequest</a></li>
+<li><a href="#impl-Serialize-for-UintNote">UintNote</a></li>
+<li><a href="#impl-Serialize-for-ValueNote">ValueNote</a></li>
+<li><a href="#impl-Serialize-for-[T; M]">[T; M]</a></li>
+<li><a href="#impl-Serialize-for-bool">bool</a></li>
+<li><a href="#impl-Serialize-for-i16">i16</a></li>
+<li><a href="#impl-Serialize-for-i32">i32</a></li>
+<li><a href="#impl-Serialize-for-i64">i64</a></li>
+<li><a href="#impl-Serialize-for-i8">i8</a></li>
+<li><a href="#impl-Serialize-for-str&lt;M&gt;">str&lt;M&gt;</a></li>
+<li><a href="#impl-Serialize-for-u1">u1</a></li>
+<li><a href="#impl-Serialize-for-u128">u128</a></li>
+<li><a href="#impl-Serialize-for-u16">u16</a></li>
+<li><a href="#impl-Serialize-for-u32">u32</a></li>
+<li><a href="#impl-Serialize-for-u64">u64</a></li>
+<li><a href="#impl-Serialize-for-u8">u8</a></li>
+</ul>
+<h2>In module traits</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.Deserialize.html">Deserialize</a></div></li>
+<li><a href="trait.Empty.html">Empty</a></div></li>
+<li><a href="trait.FromField.html">FromField</a></div></li>
+<li><a href="trait.Hash.html">Hash</a></div></li>
+<li><a href="trait.Packable.html">Packable</a></div></li>
+<li><a href="trait.Serialize.html">Serialize</a></div></li>
+<li><a href="trait.ToField.html">ToField</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::<a href="index.html">traits</a></div>
+<h1>Trait <span id="trait" class="trait">Serialize</span></h1>
+<pre><code>pub trait Serialize {
+    let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>;
+
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#serialize"><span class="fn">serialize</span></a>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N];
+}</code></pre>
+
+<div class="comments">
+<p>Trait for serializing Noir types into arrays of Fields.</p>
+<p>An implementation of the Serialize trait has to follow Noir's intrinsic serialization (each member of a struct
+converted directly into one or more Fields without any packing or compression). This trait (and Deserialize) are
+typically used to communicate between Noir and TypeScript (via oracles and function arguments).</p>
+<h2>On Following Noir's Intrinsic Serialization</h2>
+<p>When calling a Noir function from TypeScript (TS), first the function arguments are serialized into an array
+of fields. This array is then included in the initial witness. Noir's intrinsic serialization is then used
+to deserialize the arguments from the witness. When the same Noir function is called from Noir this Serialize trait
+is used instead of the serialization in TS. For this reason we need to have a match between TS serialization,
+Noir's intrinsic serialization and the implementation of this trait. If there is a mismatch, the function calls
+fail with an arguments hash mismatch error message.</p>
+<h2>Associated Constants</h2>
+<ul>
+<li><code>N</code> - The length of the output Field array, known at compile time</li>
+</ul>
+<h2>Example</h2>
+<pre><code>impl&lt;let N: u32&gt; Serialize for str&lt;N&gt; {
+    let N: u32 = N;
+
+    fn serialize(self) -&gt; [Field; Self::N] {
+        let bytes = self.as_bytes();
+        let mut fields = [0; Self::N];
+        for i in 0..bytes.len() {
+            fields[i] = bytes[i] as Field;  // Each byte gets its own Field
+        }
+        fields
+    }
+}
+</code></pre>
+</div>
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="serialize" class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]</code>
+
+</div><h2>Implementors</h2>
+<h3 id="impl-Serialize-for-(T0, T1)"><code class="code-header">impl&lt;T0, T1&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for (T0, T1)
+<div class="where-clause">where
+    T0: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T1: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-(T0, T1, T2)"><code class="code-header">impl&lt;T0, T1, T2&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for (T0, T1, T2)
+<div class="where-clause">where
+    T0: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T1: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T2: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-(T0, T1, T2, T3)"><code class="code-header">impl&lt;T0, T1, T2, T3&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for (T0, T1, T2, T3)
+<div class="where-clause">where
+    T0: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T1: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T2: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T3: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-(T0, T1, T2, T3, T4)"><code class="code-header">impl&lt;T0, T1, T2, T3, T4&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for (T0, T1, T2, T3, T4)
+<div class="where-clause">where
+    T0: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T1: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T2: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T3: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T4: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-(T0, T1, T2, T3, T4, T5)"><code class="code-header">impl&lt;T0, T1, T2, T3, T4, T5&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for (T0, T1, T2, T3, T4, T5)
+<div class="where-clause">where
+    T0: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T1: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T2: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T3: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T4: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a>,
+    T5: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-(T1,)"><code class="code-header">impl&lt;T1&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for (T1,)
+<div class="where-clause">where
+    T1: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-AddressNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../address_note/address_note/struct.AddressNote.html" class="struct">AddressNote</a></code></h3>
+
+<h3 id="impl-Serialize-for-AppPayload"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/authwit/entrypoint/app/struct.AppPayload.html" class="struct">AppPayload</a></code></h3>
+
+<h3 id="impl-Serialize-for-AppendOnlyTreeSnapshot"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></h3>
+
+<h3 id="impl-Serialize-for-AuthorizationSelector"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/authwit/authorization_selector/struct.AuthorizationSelector.html" class="struct">AuthorizationSelector</a></code></h3>
+
+<h3 id="impl-Serialize-for-AvmAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedData.html" class="struct">AvmAccumulatedData</a></code></h3>
+
+<h3 id="impl-Serialize-for-AvmAccumulatedDataArrayLengths"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedDataArrayLengths.html" class="struct">AvmAccumulatedDataArrayLengths</a></code></h3>
+
+<h3 id="impl-Serialize-for-AvmCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/avm_circuit_public_inputs/struct.AvmCircuitPublicInputs.html" class="struct">AvmCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Serialize-for-AztecAddress"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></h3>
+
+<h3 id="impl-Serialize-for-BlockConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/block_constant_data/struct.BlockConstantData.html" class="struct">BlockConstantData</a></code></h3>
+
+<h3 id="impl-Serialize-for-BlockHeader"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></h3>
+
+<h3 id="impl-Serialize-for-BoundedVec<T, M>"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, M&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-CallContext"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/call_context/struct.CallContext.html" class="struct">CallContext</a></code></h3>
+
+<h3 id="impl-Serialize-for-CheckpointConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/checkpoint_constant_data/struct.CheckpointConstantData.html" class="struct">CheckpointConstantData</a></code></h3>
+
+<h3 id="impl-Serialize-for-CheckpointHeader"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/checkpoint_header/struct.CheckpointHeader.html" class="struct">CheckpointHeader</a></code></h3>
+
+<h3 id="impl-Serialize-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-CompressedString<N, M>"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../compressed_string/struct.CompressedString.html" class="struct">CompressedString</a>&lt;N, M&gt;</code></h3>
+
+<h3 id="impl-Serialize-for-ContentCommitment"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/content_commitment/struct.ContentCommitment.html" class="struct">ContentCommitment</a></code></h3>
+
+<h3 id="impl-Serialize-for-ContractClassId"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
+
+<h3 id="impl-Serialize-for-ContractInstance"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/contract_instance/struct.ContractInstance.html" class="struct">ContractInstance</a></code></h3>
+
+<h3 id="impl-Serialize-for-Counted<T>"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+
+<h3 id="impl-Serialize-for-EmbeddedCurveScalar"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurveScalar.html" class="struct">EmbeddedCurveScalar</a></code></h3>
+
+<h3 id="impl-Serialize-for-Empty"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for Empty</code></h3>
+
+<h3 id="impl-Serialize-for-EpochConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/epoch_constant_data/struct.EpochConstantData.html" class="struct">EpochConstantData</a></code></h3>
+
+<h3 id="impl-Serialize-for-EthAddress"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a></code></h3>
+
+<h3 id="impl-Serialize-for-EventSelector"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/event/event_selector/struct.EventSelector.html" class="struct">EventSelector</a></code></h3>
+
+<h3 id="impl-Serialize-for-Fancier"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for Fancier</code></h3>
+
+<h3 id="impl-Serialize-for-FeeRecipient"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/fee_recipient/struct.FeeRecipient.html" class="struct">FeeRecipient</a></code></h3>
+
+<h3 id="impl-Serialize-for-Field"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
+
+<h3 id="impl-Serialize-for-FieldCompressedString"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
+
+<h3 id="impl-Serialize-for-FunctionCall"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/authwit/entrypoint/function_call/struct.FunctionCall.html" class="struct">FunctionCall</a></code></h3>
+
+<h3 id="impl-Serialize-for-FunctionData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/function_data/struct.FunctionData.html" class="struct">FunctionData</a></code></h3>
+
+<h3 id="impl-Serialize-for-FunctionSelector"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a></code></h3>
+
+<h3 id="impl-Serialize-for-Gas"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></h3>
+
+<h3 id="impl-Serialize-for-GasFees"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a></code></h3>
+
+<h3 id="impl-Serialize-for-GasSettings"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a></code></h3>
+
+<h3 id="impl-Serialize-for-GlobalVariables"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a></code></h3>
+
+<h3 id="impl-Serialize-for-HasArray"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for HasArray</code></h3>
+
+<h3 id="impl-Serialize-for-HasArrayWithGenerics<T, N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for HasArrayWithGenerics&lt;T, N&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-IvpkM"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/public_keys/struct.IvpkM.html" class="struct">IvpkM</a></code></h3>
+
+<h3 id="impl-Serialize-for-KeyValidationRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/validation_requests/key_validation_request/struct.KeyValidationRequest.html" class="struct">KeyValidationRequest</a></code></h3>
+
+<h3 id="impl-Serialize-for-KeyValidationRequestAndGenerator"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/validation_requests/key_validation_request_and_generator/struct.KeyValidationRequestAndGenerator.html" class="struct">KeyValidationRequestAndGenerator</a></code></h3>
+
+<h3 id="impl-Serialize-for-L2ToL1Message"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/messaging/l2_to_l1_message/struct.L2ToL1Message.html" class="struct">L2ToL1Message</a></code></h3>
+
+<h3 id="impl-Serialize-for-Log<N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/log/struct.Log.html" class="struct">Log</a>&lt;N&gt;</code></h3>
+
+<h3 id="impl-Serialize-for-LogHash"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/log_hash/struct.LogHash.html" class="struct">LogHash</a></code></h3>
+
+<h3 id="impl-Serialize-for-MembershipWitness<N, M>"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/oracle/get_membership_witness/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;N, M&gt;</code></h3>
+
+<h3 id="impl-Serialize-for-MockStruct"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/test/mocks/mock_struct/struct.MockStruct.html" class="struct">MockStruct</a></code></h3>
+
+<h3 id="impl-Serialize-for-NoteMetadata"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
+
+<h3 id="impl-Serialize-for-NpkM"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/public_keys/struct.NpkM.html" class="struct">NpkM</a></code></h3>
+
+<h3 id="impl-Serialize-for-Nullifier"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a></code></h3>
+
+<h3 id="impl-Serialize-for-NullifierLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/nullifier_leaf_preimage/struct.NullifierLeafPreimage.html" class="struct">NullifierLeafPreimage</a></code></h3>
+
+<h3 id="impl-Serialize-for-NullifierMembershipWitness"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/oracle/get_nullifier_membership_witness/struct.NullifierMembershipWitness.html" class="struct">NullifierMembershipWitness</a></code></h3>
+
+<h3 id="impl-Serialize-for-Option<T>"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-OvpkM"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/public_keys/struct.OvpkM.html" class="struct">OvpkM</a></code></h3>
+
+<h3 id="impl-Serialize-for-PartialAddress"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/address/partial_address/struct.PartialAddress.html" class="struct">PartialAddress</a></code></h3>
+
+<h3 id="impl-Serialize-for-PartialStateReference"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></h3>
+
+<h3 id="impl-Serialize-for-PartialUintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../uint_note/uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
+
+<h3 id="impl-Serialize-for-Poseidon2Sponge"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/poseidon2/struct.Poseidon2Sponge.html" class="struct">Poseidon2Sponge</a></code></h3>
+
+<h3 id="impl-Serialize-for-PrivateCallRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a></code></h3>
+
+<h3 id="impl-Serialize-for-PrivateCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Serialize-for-PrivateLogData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a></code></h3>
+
+<h3 id="impl-Serialize-for-PrivateToAvmAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedData.html" class="struct">PrivateToAvmAccumulatedData</a></code></h3>
+
+<h3 id="impl-Serialize-for-PrivateToAvmAccumulatedDataArrayLengths"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/accumulated_data/private_to_avm_accumulated_data/struct.PrivateToAvmAccumulatedDataArrayLengths.html" class="struct">PrivateToAvmAccumulatedDataArrayLengths</a></code></h3>
+
+<h3 id="impl-Serialize-for-PrivateToPublicAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/accumulated_data/private_to_public_accumulated_data/struct.PrivateToPublicAccumulatedData.html" class="struct">PrivateToPublicAccumulatedData</a></code></h3>
+
+<h3 id="impl-Serialize-for-PrivateToPublicKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/kernel_circuit_public_inputs/private_to_public_kernel_circuit_public_inputs/struct.PrivateToPublicKernelCircuitPublicInputs.html" class="struct">PrivateToPublicKernelCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Serialize-for-PrivateToRollupAccumulatedData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/accumulated_data/private_to_rollup_accumulated_data/struct.PrivateToRollupAccumulatedData.html" class="struct">PrivateToRollupAccumulatedData</a></code></h3>
+
+<h3 id="impl-Serialize-for-PrivateToRollupKernelCircuitPublicInputs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/kernel_circuit_public_inputs/private_to_rollup_kernel_circuit_public_inputs/struct.PrivateToRollupKernelCircuitPublicInputs.html" class="struct">PrivateToRollupKernelCircuitPublicInputs</a></code></h3>
+
+<h3 id="impl-Serialize-for-ProtocolContracts"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/protocol_contracts/struct.ProtocolContracts.html" class="struct">ProtocolContracts</a></code></h3>
+
+<h3 id="impl-Serialize-for-PublicCallRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/public_call_request/struct.PublicCallRequest.html" class="struct">PublicCallRequest</a></code></h3>
+
+<h3 id="impl-Serialize-for-PublicCallRequestArrayLengths"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/public_call_request/struct.PublicCallRequestArrayLengths.html" class="struct">PublicCallRequestArrayLengths</a></code></h3>
+
+<h3 id="impl-Serialize-for-PublicDataTreeLeafPreimage"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></h3>
+
+<h3 id="impl-Serialize-for-PublicDataWitness"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/oracle/get_public_data_witness/struct.PublicDataWitness.html" class="struct">PublicDataWitness</a></code></h3>
+
+<h3 id="impl-Serialize-for-PublicDataWrite"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/public_data_write/struct.PublicDataWrite.html" class="struct">PublicDataWrite</a></code></h3>
+
+<h3 id="impl-Serialize-for-PublicKeys"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a></code></h3>
+
+<h3 id="impl-Serialize-for-PublicKeysHash"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/address/public_keys_hash/struct.PublicKeysHash.html" class="struct">PublicKeysHash</a></code></h3>
+
+<h3 id="impl-Serialize-for-PublicLogs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/public_logs/struct.PublicLogs.html" class="struct">PublicLogs</a></code></h3>
+
+<h3 id="impl-Serialize-for-RetrievedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-Scoped<T>"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-Smol"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for Smol</code></h3>
+
+<h3 id="impl-Serialize-for-SpongeBlob"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
+
+<h3 id="impl-Serialize-for-StateReference"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/state_reference/struct.StateReference.html" class="struct">StateReference</a></code></h3>
+
+<h3 id="impl-Serialize-for-TestAccount"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/test/helpers/utils/struct.TestAccount.html" class="struct">TestAccount</a></code></h3>
+
+<h3 id="impl-Serialize-for-TestValue"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/tests/types/struct.TestValue.html" class="struct">TestValue</a></code></h3>
+
+<h3 id="impl-Serialize-for-TpkM"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/public_keys/struct.TpkM.html" class="struct">TpkM</a></code></h3>
+
+<h3 id="impl-Serialize-for-TreeSnapshots"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/tree_snapshots/struct.TreeSnapshots.html" class="struct">TreeSnapshots</a></code></h3>
+
+<h3 id="impl-Serialize-for-TxConstantData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/tx_constant_data/struct.TxConstantData.html" class="struct">TxConstantData</a></code></h3>
+
+<h3 id="impl-Serialize-for-TxContext"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/transaction/tx_context/struct.TxContext.html" class="struct">TxContext</a></code></h3>
+
+<h3 id="impl-Serialize-for-TxRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
+
+<h3 id="impl-Serialize-for-UintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../uint_note/uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
+
+<h3 id="impl-Serialize-for-ValueNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
+
+<h3 id="impl-Serialize-for-[T; M]"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for [T; M]
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<h3 id="impl-Serialize-for-bool"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.bool.html" class="primitive">bool</a></code></h3>
+
+<h3 id="impl-Serialize-for-i16"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.i16.html" class="primitive">i16</a></code></h3>
+
+<h3 id="impl-Serialize-for-i32"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.i32.html" class="primitive">i32</a></code></h3>
+
+<h3 id="impl-Serialize-for-i64"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.i64.html" class="primitive">i64</a></code></h3>
+
+<h3 id="impl-Serialize-for-i8"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.i8.html" class="primitive">i8</a></code></h3>
+
+<h3 id="impl-Serialize-for-str&lt;M&gt;"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.str.html" class="primitive">str</a>&lt;M&gt;</code></h3>
+
+<h3 id="impl-Serialize-for-u1"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.u1.html" class="primitive">u1</a></code></h3>
+
+<h3 id="impl-Serialize-for-u128"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.u128.html" class="primitive">u128</a></code></h3>
+
+<h3 id="impl-Serialize-for-u16"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.u16.html" class="primitive">u16</a></code></h3>
+
+<h3 id="impl-Serialize-for-u32"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></h3>
+
+<h3 id="impl-Serialize-for-u64"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></h3>
+
+<h3 id="impl-Serialize-for-u8"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.u8.html" class="primitive">u8</a></code></h3>
+
+</main>
+</body>
+</html>
