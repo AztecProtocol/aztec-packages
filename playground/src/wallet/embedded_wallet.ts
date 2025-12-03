@@ -2,9 +2,8 @@ import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ec
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr/lazy';
 import { getStubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub/lazy';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
-import type { Aliased } from '@aztec/aztec.js/wallet';
+import type { Aliased, SimulateOptions } from '@aztec/aztec.js/wallet';
 import { type Account, type AccountContract, type ChainInfo, SignerlessAccount } from '@aztec/aztec.js/account';
-import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import { BaseWallet } from '@aztec/wallet-sdk/base-wallet';
@@ -235,7 +234,7 @@ export class EmbeddedWallet extends BaseWallet {
 
   override async simulateTx(
     executionPayload: ExecutionPayload,
-    opts: SimulateInteractionOptions,
+    opts: SimulateOptions,
   ): Promise<TxSimulationResult> {
     const feeOptions = opts.fee?.estimateGas
       ? await this.completeFeeOptionsForEstimation(opts.from, executionPayload.feePayer, opts.fee?.gasSettings)
