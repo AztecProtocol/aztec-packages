@@ -200,6 +200,22 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->check(CLI::IsMember({ "poseidon2", "keccak", "starknet" }).name("is_member"));
     };
 
+    const auto add_verifier_target_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--verifier_target, -t",
+                         flags.verifier_target,
+                         "Target verification environment. Determines hash function and ZK settings.\n"
+                         "  evm:                    Ethereum/Solidity verification (keccak, ZK)\n"
+                         "  evm-no-zk:              Ethereum/Solidity without zero-knowledge\n"
+                         "  noir-recursive:         Recursive verification in Noir circuits (poseidon2, ZK)\n"
+                         "  noir-recursive-no-zk:   Recursive verification without ZK\n"
+                         "  starknet:               Starknet verification via Garaga (ZK)\n"
+                         "  starknet-no-zk:         Starknet without zero-knowledge")
+            ->envname("BB_VERIFIER_TARGET")
+            ->check(CLI::IsMember(
+                { "evm", "evm-no-zk", "noir-recursive", "noir-recursive-no-zk", "starknet", "starknet-no-zk" }));
+    };
+
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag("--write_vk", flags.write_vk, "Write the provided circuit's verification key");
     };
@@ -354,6 +370,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(gates);
     add_bytecode_path_option(gates);
     add_include_gates_per_opcode_flag(gates);
+    add_verifier_target_option(gates);
     add_oracle_hash_option(gates);
     add_ipa_accumulation_flag(gates);
 
@@ -372,6 +389,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(prove);
     add_debug_flag(prove);
     add_crs_path_option(prove);
+    add_verifier_target_option(prove);
     add_oracle_hash_option(prove);
     add_write_vk_flag(prove);
     add_ipa_accumulation_flag(prove);
@@ -401,6 +419,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
     add_crs_path_option(write_vk);
+    add_verifier_target_option(write_vk);
     add_oracle_hash_option(write_vk);
     add_ipa_accumulation_flag(write_vk);
     add_verifier_type_option(write_vk)->default_val("standalone");
@@ -419,6 +438,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(verify);
     add_scheme_option(verify);
     add_crs_path_option(verify);
+    add_verifier_target_option(verify);
     add_oracle_hash_option(verify);
     remove_zk_option(verify);
     add_ipa_accumulation_flag(verify);
@@ -437,6 +457,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_path_option(write_solidity_verifier, output_path);
 
     add_verbose_flag(write_solidity_verifier);
+    add_verifier_target_option(write_solidity_verifier);
     remove_zk_option(write_solidity_verifier);
     add_crs_path_option(write_solidity_verifier);
     add_optimized_solidity_verifier_flag(write_solidity_verifier);
@@ -588,6 +609,34 @@ int parse_and_run_cli_command(int argc, char* argv[])
      ***************************************************************************************************************/
 
     CLI11_PARSE(app, argc, argv);
+
+    // Apply verifier_target to derive oracle_hash_type and disable_zk
+    // This only applies when verifier_target is explicitly set
+    if (!flags.verifier_target.empty()) {
+        if (flags.verifier_target == "evm") {
+            flags.oracle_hash_type = "keccak";
+        } else if (flags.verifier_target == "evm-no-zk") {
+            flags.oracle_hash_type = "keccak";
+            flags.disable_zk = true;
+        } else if (flags.verifier_target == "noir-recursive") {
+            flags.oracle_hash_type = "poseidon2";
+        } else if (flags.verifier_target == "noir-recursive-no-zk") {
+            flags.oracle_hash_type = "poseidon2";
+            flags.disable_zk = true;
+        } else if (flags.verifier_target == "starknet") {
+            flags.oracle_hash_type = "starknet";
+        } else if (flags.verifier_target == "starknet-no-zk") {
+            flags.oracle_hash_type = "starknet";
+            flags.disable_zk = true;
+        }
+        vinfo("verifier_target '",
+              flags.verifier_target,
+              "' -> oracle_hash_type='",
+              flags.oracle_hash_type,
+              "', disable_zk=",
+              flags.disable_zk);
+    }
+
     // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any
     // points; that is done on-demand.
     srs::init_net_crs_factory(flags.crs_path);
