@@ -131,3 +131,29 @@ TEST(stdlib_blake2s, test_multiple_sized_blocks)
         EXPECT_EQ(proof_result, true);
     }
 }
+
+// Edge case that caused addition overflow issues in Blake
+TEST(stdlib_blake2s, test_edge_case_addition_overflow)
+{
+    std::array<uint8_t, 62> v = { 0x0E, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6,
+                                  0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6,
+                                  0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xFF,
+                                  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6,
+                                  0xF6, 0xF6, 0xF6, 0xF6, 0xED, 0xC3, 0x00, 0x00, 0x00, 0xED };
+
+    Builder builder;
+
+    std::vector<uint8_t> input_v(v.begin(), v.end());
+
+    byte_array_ct input_arr(&builder, input_v);
+    byte_array_ct output = stdlib::Blake2s<Builder>::hash(input_arr);
+
+    auto expected = crypto::blake2s(input_v);
+
+    EXPECT_EQ(output.get_value(), std::vector<uint8_t>(expected.begin(), expected.end()));
+
+    info(".: builder gates = ", builder.get_num_finalized_gates_inefficient());
+
+    bool proof_result = CircuitChecker::check(builder);
+    EXPECT_EQ(proof_result, true);
+}

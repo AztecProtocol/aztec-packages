@@ -135,3 +135,27 @@ TEST(stdlib_blake3s, test_multiple_sized_blocks)
         EXPECT_EQ(proof_result, true);
     }
 }
+
+// Edge case that caused addition overflow issues in Blake
+TEST(stdlib_blake3s, test_edge_case_addition_overflow)
+{
+    std::array<uint8_t, 34> v = { 0xC3, 0x2B, 0xC3, 0x91, 0x23, 0xFF, 0xFF, 0xFF, 0xFF, 0xC3, 0xFF, 0xFF,
+                                  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                  0xFF, 0xFF, 0xFF, 0xFF, 0xC3, 0x03, 0x83, 0x83, 0x83, 0x40 };
+
+    UltraBuilder builder;
+
+    std::vector<uint8_t> input_v(v.begin(), v.end());
+
+    byte_array_ct input_arr(&builder, input_v);
+    byte_array_ct output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
+
+    auto expected = blake3::blake3s(input_v);
+
+    EXPECT_EQ(output.get_value(), std::vector<uint8_t>(expected.begin(), expected.end()));
+
+    info(".: builder gates = ", builder.get_num_finalized_gates_inefficient());
+
+    bool proof_result = CircuitChecker::check(builder);
+    EXPECT_EQ(proof_result, true);
+}
