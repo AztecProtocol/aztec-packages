@@ -45,19 +45,18 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
     auto [opening_claim, ipa_proof] = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
     // Run the Translator recursive verifier
+    // Get translation data from ECCVM verifier
     TranslatorVerifier translator_verifier{ builder, verification_keys.translator_verification_key, transcript };
-    PairingPoints<bn254<Builder>> translator_pairing_points = translator_verifier.verify_proof(
-        proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
-
-    // Verify the consistency between the ECCVM and Translator transcript polynomial evaluations
-    translator_verifier.verify_translation(eccvm_verifier.translation_evaluations,
-                                           eccvm_verifier.translation_masking_term_eval);
+    auto translator_input = eccvm_verifier.get_translator_input_data();
+    // Pass merge commitments as op queue wire commitments (they represent the same data)
+    PairingPoints<bn254<Builder>> translator_pairing_points =
+        translator_verifier.verify_proof(proof.translator_proof,
+                                         translator_input.evaluation_challenge_x,
+                                         translator_input.batching_challenge_v,
+                                         translator_input.accumulated_result,
+                                         merged_table_commitments);
 
     translator_pairing_points.aggregate(merge_pairing_points);
-
-    // Verify the consistency between the commitments to polynomials representing the op queue received by translator
-    // and final merge verifier
-    translator_verifier.verify_consistency_with_final_merge(merged_table_commitments);
 
     return { translator_pairing_points, opening_claim, ipa_proof };
 }

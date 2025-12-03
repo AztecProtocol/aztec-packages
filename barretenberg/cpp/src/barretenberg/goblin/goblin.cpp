@@ -105,25 +105,20 @@ bool Goblin::verify(const GoblinProof& proof,
 
     TranslatorVerifier translator_verifier(transcript);
 
-    bool accumulator_construction_verified = translator_verifier.verify_proof(
-        proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
-
-    bool translation_verified = translator_verifier.verify_translation(eccvm_verifier.translation_evaluations,
-                                                                       eccvm_verifier.translation_masking_term_eval);
-
-    // Verify the consistency between the commitments to polynomials representing the op queue received by translator
-    // and final merge verifier
-    bool op_queue_consistency_verified =
-        translator_verifier.verify_consistency_with_final_merge(merged_table_commitments);
+    // Get translation data from ECCVM verifier to pass to Translator verifier
+    TranslatorInputData translator_input = eccvm_verifier.get_translator_input_data();
+    // Pass merge commitments as op queue wire commitments (they represent the same data)
+    bool translator_verified = translator_verifier.verify_proof(proof.translator_proof,
+                                                                translator_input.evaluation_challenge_x,
+                                                                translator_input.batching_challenge_v,
+                                                                translator_input.accumulated_result,
+                                                                merged_table_commitments);
 
     vinfo("merge verified?: ", merge_verified);
     vinfo("eccvm verified?: ", eccvm_verified);
-    vinfo("accumulator construction_verified?: ", accumulator_construction_verified);
-    vinfo("translation verified?: ", translation_verified);
-    vinfo("consistency verified?: ", op_queue_consistency_verified);
+    vinfo("translator verified?: ", translator_verified);
 
-    return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
-           op_queue_consistency_verified;
+    return merge_verified && eccvm_verified && translator_verified;
 }
 
 void Goblin::ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const
