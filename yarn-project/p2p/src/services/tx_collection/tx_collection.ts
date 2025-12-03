@@ -2,7 +2,7 @@ import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockInfo, L2BlockNew } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -24,7 +24,7 @@ export type CollectionMethod = 'fast-req-resp' | 'fast-node-rpc' | 'slow-req-res
 export type MissingTxInfo = { blockNumber: number; deadline: Date; readyForReqResp: boolean };
 
 export type FastCollectionRequestInput =
-  | { type: 'block'; block: L2Block }
+  | { type: 'block'; block: L2BlockNew }
   | { type: 'proposal'; blockProposal: BlockProposal; blockNumber: number };
 
 export type FastCollectionRequest = FastCollectionRequestInput & {
@@ -165,7 +165,7 @@ export class TxCollection {
     txHashes: TxHash[] | string[],
     opts: { deadline: Date; pinnedPeer?: PeerId },
   ) {
-    return this.collectFastFor({ type: 'block', block }, txHashes, opts);
+    return this.collectFastFor({ type: 'block', block: block.toL2Block() }, txHashes, opts);
   }
 
   /** Collects the set of txs for the given proposal or block as fast as possible */

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Trait PublicStorageHistoricalRead documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait PublicStorageHistoricalRead</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#public_storage_historical_read">public_storage_historical_read</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-PublicStorageHistoricalRead-for-BlockHeader">BlockHeader</a></li>
+</ul>
+<h2>In module public_storage</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.PublicStorageHistoricalRead.html">PublicStorageHistoricalRead</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">history</a>::<a href="index.html">public_storage</a></div>
+<h1>Trait <span id="trait" class="trait">PublicStorageHistoricalRead</span></h1>
+<pre><code>pub trait PublicStorageHistoricalRead {
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#public_storage_historical_read"><span class="fn">public_storage_historical_read</span></a>(
+        header: <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
+        storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+        contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    ) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a>;
+}</code></pre>
+
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="public_storage_historical_read" class="code-header">pub fn <span class="fn">public_storage_historical_read</span>(
+    header: <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
+    storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h2>Implementors</h2>
+<h3 id="impl-PublicStorageHistoricalRead-for-BlockHeader"><code class="code-header">impl <a href="../../../noir_aztec/history/public_storage/trait.PublicStorageHistoricalRead.html" class="trait">PublicStorageHistoricalRead</a> for <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></h3>
+
+</main>
+</body>
+</html>

@@ -80,6 +80,28 @@ cleanup_nightly_versions() {
         fi
     fi
 
+    # Clean up nightly aztec-nr-api directories
+    AZTEC_NR_API_DIR="$docs_dir/static/aztec-nr-api"
+    if [ -d "$AZTEC_NR_API_DIR" ]; then
+        echo -e "${BLUE}🔍 Checking for nightly aztec-nr-api directories in $docs_name...${NC}"
+
+        # Find directories containing "nightly"
+        NIGHTLY_API_DIRS=$(find "$AZTEC_NR_API_DIR" -maxdepth 1 -type d -name "*nightly*" 2>/dev/null || true)
+
+        if [ -n "$NIGHTLY_API_DIRS" ]; then
+            echo -e "${YELLOW}🗑️  Removing nightly aztec-nr-api directories:${NC}"
+            echo "$NIGHTLY_API_DIRS" | while read -r dir; do
+                if [ -d "$dir" ]; then
+                    echo "  - $(basename "$dir")"
+                    rm -rf "$dir"
+                fi
+            done
+            echo -e "${GREEN}✅ Removed nightly aztec-nr-api directories${NC}"
+        else
+            echo -e "${GREEN}✅ No nightly aztec-nr-api directories found${NC}"
+        fi
+    fi
+
     echo -e "${GREEN}✅ $docs_name cleanup complete${NC}"
 }
 

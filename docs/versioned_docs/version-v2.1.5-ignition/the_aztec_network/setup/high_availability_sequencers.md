@@ -32,7 +32,7 @@ Before setting up HA sequencers, ensure you have:
 
 **1. Redundancy and Fault Tolerance**
 
-If one node crashes, experiences network issues, or needs maintenance, the other nodes continue operating. You won't miss attestations or proposals during:
+If one node crashes, experiences network issues, or needs maintenance, the other node continues operating. You won't miss attestations or proposals during:
 - Hardware failures
 - Network outages
 - Planned maintenance
@@ -46,38 +46,33 @@ With properly configured HA, your sequencer can achieve near-perfect uptime. You
 ### The Core Concept
 
 In an HA setup:
-- **Attester identity is shared** across all nodes (same private key)
+- **Attester identity is shared** across both nodes (same private key)
 - **Publisher identity is unique** per node (different private keys)
-- All nodes run simultaneously and can attest independently
+- Both nodes run simultaneously and can attest independently
 - Only one proposal is accepted per slot (enforced by L1)
 
 ## Setting Up High Availability Sequencers
 
 ### Infrastructure Requirements
 
-**Minimum HA Setup (2 nodes):**
+**HA Setup (2 nodes):**
 - 2 separate servers/VMs
-- Each meeting the [minimum sequencer requirements](../operation/sequencer_management/useful_commands.md#minimum-hardware-requirements)
+- Each meeting the [minimum sequencer requirements](./sequencer_management.md#minimum-hardware-requirements)
 - Different physical locations or availability zones (recommended)
 - Reliable network connectivity for both nodes
 - Access to the same L1 infrastructure (or separate L1 endpoints)
-
-**Recommended HA Setup (3+ nodes):**
-- 3 or more servers/VMs for better fault tolerance
-- Distributed across multiple data centers or cloud regions
-- Redundant L1 infrastructure per node
-- Monitoring and alerting for all nodes
+- Monitoring and alerting for both nodes
 
 ### Key Management
 
 You'll need to generate:
 
-1. **One shared attester key** - Your sequencer's identity (used by all nodes)
+1. **One shared attester key** - Your sequencer's identity (used by both nodes)
 2. **One unique publisher key per node** - For submitting proposals
 3. **Secure distribution method** - For safely deploying the shared attester key
 
 :::warning Secure Key Distribution
-The shared attester key must be distributed securely to all nodes. Consider using remote signers with:
+The shared attester key must be distributed securely to both nodes. Consider using remote signers with:
 - Encrypted secrets management (HashiCorp Vault, AWS Secrets Manager, etc.)
 - Hardware security modules (HSMs) for production deployments
 
@@ -89,18 +84,21 @@ Never transmit private keys over unencrypted channels or store them in version c
 Generate a base keystore with multiple publishers using the Aztec CLI. This will create one attester identity with multiple publisher keys that can be distributed across your nodes.
 
 ```bash
-# Generate base keystore with one attester and 3 publishers
+# Generate base keystore with one attester and 2 publishers
 aztec validator-keys new \
-  --fee-recipient [YOUR_AZTEC_FEE_RECIPIENT_ADDRESS] \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --staker-output \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+  --l1-rpc-urls $ETH_RPC \
   --mnemonic "your shared mnemonic phrase for key derivation" \
   --address-index 0 \
-  --publisher-count 3 \
+  --publisher-count 2 \
   --data-dir ~/ha-keys-temp
 ```
 
 This command generates:
 - **One attester** with both ETH and BLS keys (at derivation index 0)
-- **Three publisher keys** (at derivation indices 1, 2, and 3)
+- **Two publisher keys** (at derivation indices 1 and 2)
 - All keys saved to `~/ha-keys-temp/key1.json`
 
 The output will show the complete keystore JSON with all generated keys. **Save this output securely** as you'll need to extract keys from it for each node.
@@ -116,28 +114,21 @@ Never commit mnemonics to version control or share them over insecure channels.
 
 ### Step 2: Fund Publisher Accounts
 
-Each publisher account needs ETH to pay for L1 gas when submitting proposals. You must maintain at least **0.1 ETH** in each publisher account to avoid slashing.
-
-**Funding publisher accounts:**
-
-Since Aztec mainnet runs on Ethereum mainnet, you'll need real ETH to fund your publisher accounts. You can obtain ETH through:
-- Cryptocurrency exchanges (Coinbase, Binance, Kraken, etc.)
-- Peer-to-peer platforms
-- Bridging from other networks
+Each publisher account needs ETH to pay for L1 gas when submitting proposals. You must maintain at least **0.1 ETH** in each publisher account.
 
 **Check publisher balances:**
 
 ```bash
 # Check balance for Publisher 1
-cast balance [PUBLISHER_1_ADDRESS] --rpc-url [YOUR_RPC_URL]
+cast balance [PUBLISHER_1_ADDRESS] --rpc-url $ETH_RPC
 
 # Check balance for Publisher 2
-cast balance [PUBLISHER_2_ADDRESS] --rpc-url [YOUR_RPC_URL]
+cast balance [PUBLISHER_2_ADDRESS] --rpc-url $ETH_RPC
 ```
 
 **Example:**
 ```bash
-cast balance 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb --rpc-url https://mainnet.infura.io/v3/YOUR_API_KEY
+cast balance 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb --rpc-url $ETH_RPC
 # Output: 100000000000000000 (0.1 ETH in wei)
 ```
 
@@ -160,17 +151,16 @@ Open the generated keystore file (`~/ha-keys-temp/key1.json`) and extract the ke
       },
       "publisher": [
         "0x111...AAA",  // Publisher 1 (for Node 1)
-        "0x222...BBB",  // Publisher 2 (for Node 2)
-        "0x333...CCC"   // Publisher 3 (for Node 3)
+        "0x222...BBB"   // Publisher 2 (for Node 2)
       ],
-      "feeRecipient": "0xYOUR_FEE_RECIPIENT"
+      "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000"
     }
   ]
 }
 ```
 
 You'll use:
-- The **same attester keys** (both ETH and BLS) on all nodes
+- The **same attester keys** (both ETH and BLS) on both nodes
 - A **different publisher key** for each node
 
 ### Step 4: Create Node-Specific Keystores
@@ -179,17 +169,19 @@ Create a separate keystore file for each node, using the same attester but diffe
 
 **Node 1 Keystore** (`~/node1/keys/keystore.json`):
 
+Use the same attester ETH and BLS keys, but only Publisher 1:
+
 ```json
 {
   "schemaVersion": 1,
   "validators": [
     {
       "attester": {
-        "eth": "0xABC...123",  // Same attester ETH key
-        "bls": "0xDEF...456"   // Same attester BLS key
+        "eth": "0xABC...123",
+        "bls": "0xDEF...456"
       },
-      "publisher": "0x111...AAA",  // Publisher 1 only
-      "feeRecipient": "0xYOUR_FEE_RECIPIENT"
+      "publisher": ["0x111...AAA"],
+      "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000"
     }
   ]
 }
@@ -197,23 +189,7 @@ Create a separate keystore file for each node, using the same attester but diffe
 
 **Node 2 Keystore** (`~/node2/keys/keystore.json`):
 
-```json
-{
-  "schemaVersion": 1,
-  "validators": [
-    {
-      "attester": {
-        "eth": "0xABC...123",  // Same attester ETH key
-        "bls": "0xDEF...456"   // Same attester BLS key
-      },
-      "publisher": "0x222...BBB",  // Publisher 2 only
-      "feeRecipient": "0xYOUR_FEE_RECIPIENT"
-    }
-  ]
-}
-```
-
-**Node 3 Keystore** (`~/node3/keys/keystore.json`):
+Use the same attester ETH and BLS keys, but only Publisher 2:
 
 ```json
 {
@@ -221,11 +197,11 @@ Create a separate keystore file for each node, using the same attester but diffe
   "validators": [
     {
       "attester": {
-        "eth": "0xABC...123",  // Same attester ETH key
-        "bls": "0xDEF...456"   // Same attester BLS key
+        "eth": "0xABC...123",
+        "bls": "0xDEF...456"
       },
-      "publisher": "0x333...CCC",  // Publisher 3 only
-      "feeRecipient": "0xYOUR_FEE_RECIPIENT"
+      "publisher": ["0x222...BBB"],
+      "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000"
     }
   ]
 }
@@ -243,7 +219,6 @@ Securely transfer each keystore to its respective node:
 # Example: Copy keystores to remote nodes via SCP
 scp ~/node1/keys/keystore.json user@node1-server:~/aztec/keys/
 scp ~/node2/keys/keystore.json user@node2-server:~/aztec/keys/
-scp ~/node3/keys/keystore.json user@node3-server:~/aztec/keys/
 ```
 
 Ensure proper file permissions on each node:
@@ -261,7 +236,7 @@ Start each node (assuming you are using Docker Compose):
 docker compose up -d
 ```
 
-Ensure all nodes are configured with:
+Ensure both nodes are configured with:
 - The same network (`--network mainnet`)
 - Proper L1 endpoints
 - Correct P2P configuration
@@ -271,7 +246,7 @@ Ensure all nodes are configured with:
 
 ### Verify Your HA Setup
 
-**1. Check that all nodes are running:**
+**1. Check that both nodes are running:**
 
 ```bash
 # On each server
@@ -283,7 +258,7 @@ docker compose logs -f aztec-sequencer
 
 **2. Confirm nodes recognize the shared attester:**
 
-Check logs for messages indicating the attester address is loaded correctly. All nodes should show the same attester address.
+Check logs for messages indicating the attester address is loaded correctly. Both nodes should show the same attester address.
 
 **3. Verify different publishers:**
 
@@ -291,16 +266,16 @@ Each node's logs should show a different publisher address being used for submit
 
 **4. Monitor attestations:**
 
-Watch L1 for attestations from your sequencer's attester address. You should see attestations being submitted even if individual nodes go offline.
+Watch L1 for attestations from your sequencer's attester address. You should see attestations being submitted even if one node goes offline.
 
 ### Testing Failover
 
 To verify HA is working correctly:
 
-1. **Monitor baseline**: Note the attestation rate with all nodes running
+1. **Monitor baseline**: Note the attestation rate with both nodes running
 2. **Stop one node**: `docker compose down` on one server
-3. **Verify continuity**: Check that attestations continue from the remaining nodes
-4. **Check logs**: Remaining nodes should show normal operation
+3. **Verify continuity**: Check that attestations continue from the remaining node
+4. **Check logs**: The remaining node should show normal operation
 5. **Restart the stopped node**: Verify it rejoins seamlessly
 
 If attestations stop when you stop one node, your HA configuration is not working correctly.
@@ -313,9 +288,8 @@ If possible, configure each node with its own L1 infrastructure:
 
 - **Node 1**: L1 endpoints in Region A
 - **Node 2**: L1 endpoints in Region B
-- **Node 3**: L1 endpoints in Region C
 
-This protects against L1 provider outages affecting all your nodes simultaneously.
+This protects against L1 provider outages affecting both nodes simultaneously.
 
 ### Geographic Distribution
 
@@ -339,16 +313,16 @@ Periodically test your HA setup:
 
 ## Troubleshooting
 
-### All Nodes Stopped Attesting
+### Both Nodes Stopped Attesting
 
-**Issue**: No attestations from any node.
+**Issue**: No attestations from either node.
 
 **Solutions**:
-- Verify all nodes aren't simultaneously offline
+- Verify both nodes aren't simultaneously offline
 - Check L1 connectivity from each node
-- Verify the shared attester key is correct in all keystores
+- Verify the shared attester key is correct in both keystores
 - Check that the sequencer is still registered and active on L1
-- Review logs for errors on all nodes
+- Review logs for errors on both nodes
 
 ### Duplicate Proposals Appearing
 

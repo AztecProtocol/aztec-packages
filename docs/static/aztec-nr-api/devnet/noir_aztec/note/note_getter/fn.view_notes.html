@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Function view_notes documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module note_getter</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.get_note.html">get_note</a></div></li>
+<li><a href="fn.get_notes.html">get_notes</a></div></li>
+<li><a href="fn.view_note.html">view_note</a></div></li>
+<li><a href="fn.view_notes.html">view_notes</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::<a href="index.html">note_getter</a></div>
+<h1>Function <span class="fn">view_notes</span></h1>
+<pre><code>pub unconstrained fn view_notes&lt;Note, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    options: <a href="../../../noir_aztec/note/note_viewer_options/struct.NoteViewerOptions.html" class="struct">NoteViewerOptions</a>&lt;Note, M&gt;,
+) -> <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;Note, 10&gt;
+<div class="where-clause">where
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;,
+    Note: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></pre>
+
+<div class="comments">
+<p>Unconstrained variant of <code>get_notes</code>, meant to be used in unconstrained execution contexts. Notably only the note
+content is returned, and not any of the information used when proving its existence (e.g. note nonce, note hash,
+etc.).</p>
+</div>
+</main>
+</body>
+</html>

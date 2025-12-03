@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Function notify_created_contract_class_log documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module logs</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.notify_created_contract_class_log.html">notify_created_contract_class_log</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">logs</a></div>
+<h1>Function <span class="fn">notify_created_contract_class_log</span></h1>
+<pre><code>pub unconstrained fn notify_created_contract_class_log&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    message: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N],
+    length: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+)</code></pre>
+
+<div class="comments">
+<p>The below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.</p>
+</div>
+</main>
+</body>
+</html>

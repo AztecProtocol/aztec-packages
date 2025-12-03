@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<title>Struct FieldCompressedString documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../index.html">aztec-nr</a></h1>
+<div><a href="../all.html">All items</a></div>
+<h2 id="crate-name"><a href="index.html">compressed_string</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct FieldCompressedString</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#from_field">from_field</a></li>
+<li><a href="#from_string">from_string</a></li>
+<li><a href="#is_eq">is_eq</a></li>
+<li><a href="#to_bytes">to_bytes</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-FieldCompressedString">Deserialize</a></li>
+<li><a href="#impl-Eq-for-FieldCompressedString">Eq</a></li>
+<li><a href="#impl-Packable-for-FieldCompressedString">Packable</a></li>
+<li><a href="#impl-Serialize-for-FieldCompressedString">Serialize</a></li>
+</ul>
+<h2>In crate compressed_string</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.CompressedString.html">CompressedString</a></div></li>
+<li><a href="struct.FieldCompressedString.html">FieldCompressedString</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../index.html">aztec-nr</a> - <a href="index.html">compressed_string</a></div>
+<h1>Struct <span id="struct" class="struct">FieldCompressedString</span></h1>
+<pre><code>pub struct FieldCompressedString
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
+
+<div class="padded-methods"><code id="is_eq" class="code-header">pub fn <span class="fn">is_eq</span>(self, other: Self) -> <a href="../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code id="from_field" class="code-header">pub fn <span class="fn">from_field</span>(input_field: <a href="../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<code id="from_string" class="code-header">pub fn <span class="fn">from_string</span>(input_string: <a href="../std/primitive.str.html" class="primitive">str</a>&lt;31&gt;) -> Self</code>
+
+<code id="to_bytes" class="code-header">pub fn <span class="fn">to_bytes</span>(self) -> [<a href="../std/primitive.u8.html" class="primitive">u8</a>; 31]</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-FieldCompressedString"><code class="code-header">impl <a href="../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../std/primitive.Field.html" class="primitive">Field</a>; 1]) -> Self</code>
+
+</div><h3 id="impl-Eq-for-FieldCompressedString"><code class="code-header">impl <a href="../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Packable-for-FieldCompressedString"><code class="code-header">impl <a href="../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../std/primitive.Field.html" class="primitive">Field</a>; 1]</code>
+
+<code class="code-header">pub fn <span class="fn">unpack</span>(packed: [<a href="../std/primitive.Field.html" class="primitive">Field</a>; 1]) -> Self</code>
+
+</div><h3 id="impl-Serialize-for-FieldCompressedString"><code class="code-header">impl <a href="../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../std/primitive.Field.html" class="primitive">Field</a>; 1]</code>
+
+</div></main>
+</body>
+</html>

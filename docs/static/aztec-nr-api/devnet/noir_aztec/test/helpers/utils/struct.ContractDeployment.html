@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<title>Struct ContractDeployment documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ContractDeployment</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#env">env</a></li>
+<li><a href="#path">path</a></li>
+<li><a href="#secret">secret</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#with_private_initializer">with_private_initializer</a></li>
+<li><a href="#with_public_initializer">with_public_initializer</a></li>
+<li><a href="#without_initializer">without_initializer</a></li>
+</ul>
+<h2>In module utils</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ContractDeployment.html">ContractDeployment</a></div></li>
+<li><a href="struct.TestAccount.html">TestAccount</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">test</a>::<a href="../index.html">helpers</a>::<a href="index.html">utils</a></div>
+<h1>Struct <span id="struct" class="struct">ContractDeployment</span></h1>
+<pre><code>pub struct ContractDeployment&lt;let O: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; {
+    pub env: <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html" class="struct">TestEnvironment</a>,
+    pub path: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;O&gt;,
+    pub secret: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="env" class="struct-field"><code class="code-header">env: <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html" class="struct">TestEnvironment</a></code></div>
+<div class="padded-description"></div><div id="path" class="struct-field"><code class="code-header">path: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;O&gt;</code></div>
+<div class="padded-description"></div><div id="secret" class="struct-field"><code class="code-header">secret: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;let O: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../../noir_aztec/test/helpers/utils/struct.ContractDeployment.html" class="struct">ContractDeployment</a>&lt;O&gt;</code></h3>
+
+<div class="padded-methods"><code id="with_private_initializer" class="code-header">pub unconstrained fn <span class="fn">with_private_initializer</span>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    self,
+    from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    initializer_call: <a href="../../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;,
+) -> <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Finalizes a contract deployment prepared via <code>TestEnvironment::deploy</code> by calling a private initializer function
+from the <code>from</code> account.</p>
+<p>The <code>initializer_call</code> is created by calling the intended private initializer function inside the contract's
+<code>interface()</code> with its arguments:</p>
+<pre><code class="language-noir">contract MyContract {
+  #[external(&quot;private&quot;)]
+  #[initializer]
+  fn init_fn(owner: AztecAddress) { ... }
+}
+
+#[test]
+unconstrained fn test_deployment() {
+  let contract_address = TestEnvironment::new().deploy(&quot;MyContract&quot;).with_private_initializer(
+    MyContract::interface().init_fn(owner)
+  );
+}
+</code></pre>
+</div>
+</div><code id="with_public_initializer" class="code-header">pub unconstrained fn <span class="fn">with_public_initializer</span>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    self,
+    from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    initializer_call: <a href="../../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
+) -> <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>
+<div class="where-clause">where
+    T: <a href="../../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Finalizes a contract deployment prepared via <code>TestEnvironment::deploy</code> by calling a public initializer function
+from the <code>from</code> account.</p>
+<p>The <code>initializer_call</code> is created by calling the intended public initializer function inside the contract's
+<code>interface()</code> with its arguments:</p>
+<pre><code class="language-noir">contract MyContract {
+  #[external(&quot;public&quot;)]
+  #[initializer]
+  fn init_fn(owner: AztecAddress) { ... }
+}
+
+#[test]
+unconstrained fn test_deployment() {
+  let contract_address = TestEnvironment::new().deploy(&quot;MyContract&quot;).with_public_initializer(
+    MyContract::interface().init_fn(owner)
+  );
+}
+</code></pre>
+</div>
+</div><code id="without_initializer" class="code-header">pub unconstrained fn <span class="fn">without_initializer</span>(self) -> <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Finalizes a contract deployment prepared via <code>TestEnvironment::deploy</code> without calling any initializer function.</p>
+<p>Note that initializers cannot be manually called once this function returns, since the contract address itself
+contains a commitment to the lack of initialization arguments as per the protocol rules. Initializers can only
+be invoked by using the <code>with_private_initializer</code> or <code>with_public_initializer</code> functions.</p>
+</div>
+</div></div></main>
+</body>
+</html>

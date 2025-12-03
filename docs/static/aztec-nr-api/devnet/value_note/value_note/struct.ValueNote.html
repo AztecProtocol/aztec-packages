@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<title>Struct ValueNote documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">value_note</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ValueNote</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#new">new</a></li>
+<li><a href="#value">value</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-ValueNote">Deserialize</a></li>
+<li><a href="#impl-Eq-for-ValueNote">Eq</a></li>
+<li><a href="#impl-NoteHash-for-ValueNote">NoteHash</a></li>
+<li><a href="#impl-NoteProperties&lt;ValueNoteProperties&gt;-for-ValueNote">NoteProperties&lt;ValueNoteProperties&gt;</a></li>
+<li><a href="#impl-NoteType-for-ValueNote">NoteType</a></li>
+<li><a href="#impl-Packable-for-ValueNote">Packable</a></li>
+<li><a href="#impl-Serialize-for-ValueNote">Serialize</a></li>
+</ul>
+<h2>In module value_note</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ValueNote.html">ValueNote</a></div></li>
+<li><a href="struct.ValueNoteProperties.html">ValueNoteProperties</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">value_note</a>::<a href="index.html">value_note</a></div>
+<h1>Struct <span id="struct" class="struct">ValueNote</span></h1>
+<pre><code>pub struct ValueNote
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(value: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+
+<code id="value" class="code-header">pub fn <span class="fn">value</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-ValueNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 2]) -> Self</code>
+
+</div><h3 id="impl-Eq-for-ValueNote"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-NoteHash-for-ValueNote"><code class="code-header">impl <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a> for <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">compute_note_hash</span>(self, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, randomness: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<code class="code-header">pub fn <span class="fn">compute_nullifier</span>(
+    self,
+    context: &mut <a href="../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
+    note_hash_for_nullification: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<code class="code-header">pub unconstrained fn <span class="fn">compute_nullifier_unconstrained</span>(
+    self,
+    note_hash_for_nullification: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h3 id="impl-NoteProperties&lt;ValueNoteProperties&gt;-for-ValueNote"><code class="code-header">impl <a href="../../noir_aztec/note/note_interface/trait.NoteProperties.html" class="trait">NoteProperties</a>&lt;<a href="../../value_note/value_note/struct.ValueNoteProperties.html" class="struct">ValueNoteProperties</a>&gt; for <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">properties</span>() -> <a href="../../value_note/value_note/struct.ValueNoteProperties.html" class="struct">ValueNoteProperties</a></code>
+
+</div><h3 id="impl-NoteType-for-ValueNote"><code class="code-header">impl <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a> for <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">get_id</span>() -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h3 id="impl-Packable-for-ValueNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 2]</code>
+
+<code class="code-header">pub fn <span class="fn">unpack</span>(packed: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 2]) -> Self</code>
+
+</div><h3 id="impl-Serialize-for-ValueNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 2]</code>
+
+</div></main>
+</body>
+</html>

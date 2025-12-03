@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<title>Function subarray documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module subarray</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.subarray.html">subarray</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">utils</a>::<a href="../index.html">array</a>::<a href="index.html">subarray</a></div>
+<h1>Function <span class="fn">subarray</span></h1>
+<pre><code>pub fn subarray&lt;T, let SrcLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let DstLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    src: [T; SrcLen],
+    offset: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
+) -> [T; DstLen]</code></pre>
+
+<div class="comments">
+<p>Returns <code>DstLen</code> elements from a source array, starting at <code>offset</code>. <code>DstLen</code> must not be larger than the number
+of elements past <code>offset</code>.</p>
+<p>Examples:</p>
+<pre><code>let foo: [Field; 2] = subarray([1, 2, 3, 4, 5], 2);
+assert_eq(foo, [3, 4]);
+
+let bar: [Field; 5] = subarray([1, 2, 3, 4, 5], 2); // fails - we can't return 5 elements since only 3 remain
+</code></pre>
+</div>
+</main>
+</body>
+</html>
