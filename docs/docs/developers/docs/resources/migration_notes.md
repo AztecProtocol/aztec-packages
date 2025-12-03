@@ -9,6 +9,15 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] `derive_ecdh_shared_secret_using_aztec_address` removed
+
+This function made it annoying to deal with invalid addresses in circuits. If you were using it, replace it with `derive_ecdh_shared_secret` instead:
+
+```diff
+-let shared_secret = derive_ecdh_shared_secret_using_aztec_address(secret, address).unwrap();
++let shared_secret = derive_ecdh_shared_secret(secret, address.to_address_point().unwrap().inner);
+```
+
 ### [Aztec.nr] Note owner is now enshrined
 
 It turns out that in all the cases a note always have a logical owner.
