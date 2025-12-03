@@ -20,8 +20,8 @@ describe('Utility Execution test suite', () => {
   let owner: AztecAddress;
   const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
 
-  const buildNote = (amount: bigint, owner: AztecAddress) => {
-    return new Note([new Fr(amount), owner.toField()]);
+  const buildNote = (amount: bigint) => {
+    return new Note([new Fr(amount)]);
   };
 
   beforeEach(async () => {
@@ -46,7 +46,7 @@ describe('Utility Execution test suite', () => {
       contractName: StatefulTestContractArtifact.name,
     };
 
-    const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
+    const notes: Note[] = [...Array(5).fill(buildNote(1n)), ...Array(2).fill(buildNote(2n))];
 
     executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     executionDataProvider.getFunctionArtifact.mockResolvedValue(artifact);
@@ -57,6 +57,7 @@ describe('Utility Execution test suite', () => {
     executionDataProvider.getNotes.mockResolvedValue(
       notes.map((note, index) => ({
         contractAddress,
+        owner,
         storageSlot: Fr.random(),
         randomness: Fr.random(),
         noteNonce: Fr.random(),

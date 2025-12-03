@@ -9,7 +9,7 @@ import {
   createEthereumChain,
 } from '@aztec/ethereum';
 import { maxBigint } from '@aztec/foundation/bigint';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { merge, pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -114,9 +114,9 @@ function mapArchiverConfig(config: Partial<ArchiverConfig>) {
 }
 
 type RollupStatus = {
-  provenCheckpointNumber: number;
+  provenCheckpointNumber: CheckpointNumber;
   provenArchive: Hex;
-  pendingCheckpointNumber: number;
+  pendingCheckpointNumber: CheckpointNumber;
   pendingArchive: Hex;
   validationResult: ValidateBlockResult | undefined;
   lastRetrievedCheckpoint?: PublishedCheckpoint;
@@ -455,7 +455,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   /** Checks if there'd be a reorg for the next checkpoint submission and start pruning now. */
   private async handleEpochPrune(
-    provenCheckpointNumber: number,
+    provenCheckpointNumber: CheckpointNumber,
     currentL1BlockNumber: bigint,
     currentL1Timestamp: bigint,
   ) {
@@ -465,9 +465,9 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     if (canPrune) {
       const timer = new Timer();
-      const pruneFrom = provenCheckpointNumber + 1;
+      const pruneFrom = CheckpointNumber(provenCheckpointNumber + 1);
 
-      const header = await this.getCheckpointHeader(Number(pruneFrom));
+      const header = await this.getCheckpointHeader(pruneFrom);
       if (header === undefined) {
         throw new Error(`Missing checkpoint header ${pruneFrom}`);
       }
@@ -477,7 +477,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
       const checkpointsToUnwind = localPendingCheckpointNumber - provenCheckpointNumber;
 
-      const checkpoints = await this.getCheckpoints(Number(provenCheckpointNumber) + 1, Number(checkpointsToUnwind));
+      const checkpoints = await this.getCheckpoints(pruneFrom, checkpointsToUnwind);
 
       // Emit an event for listening services to react to the chain prune
       this.emit(L2BlockSourceEvents.L2PruneDetected, {
@@ -681,9 +681,9 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       rollupPendingCheckpointNumber,
       pendingArchive,
       archiveForLocalPendingCheckpointNumber,
-    ] = await this.rollup.status(BigInt(localPendingCheckpointNumber), { blockNumber: currentL1BlockNumber });
-    const provenCheckpointNumber = Number(rollupProvenCheckpointNumber);
-    const pendingCheckpointNumber = Number(rollupPendingCheckpointNumber);
+    ] = await this.rollup.status(localPendingCheckpointNumber, { blockNumber: currentL1BlockNumber });
+    const provenCheckpointNumber = CheckpointNumber.fromBigInt(rollupProvenCheckpointNumber);
+    const pendingCheckpointNumber = CheckpointNumber.fromBigInt(rollupPendingCheckpointNumber);
     const rollupStatus = {
       provenCheckpointNumber,
       provenArchive,
@@ -812,7 +812,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
             break;
           }
 
-          const archiveAtContract = await this.rollup.archiveAt(BigInt(candidateCheckpoint.number));
+          const archiveAtContract = await this.rollup.archiveAt(candidateCheckpoint.number);
           this.log.trace(
             `Checking local checkpoint ${candidateCheckpoint.number} with archive ${candidateCheckpoint.archive.root}`,
             {
@@ -1151,17 +1151,22 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return this.initialSyncComplete;
   }
 
-  public async getPublishedCheckpoints(from: number, limit: number, proven?: boolean): Promise<PublishedCheckpoint[]> {
+  public async getPublishedCheckpoints(
+    from: CheckpointNumber,
+    limit: number,
+    proven?: boolean,
+  ): Promise<PublishedCheckpoint[]> {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
     const blocks = await this.getPublishedBlocks(from, limit, proven);
     return blocks.map(b => b.toPublishedCheckpoint());
   }
 
-  public async getCheckpoints(from: number, limit: number, proven?: boolean): Promise<Checkpoint[]> {
+  public async getCheckpoints(from: CheckpointNumber, limit: number, proven?: boolean): Promise<Checkpoint[]> {
     const published = await this.getPublishedCheckpoints(from, limit, proven);
     return published.map(p => p.checkpoint);
   }
 
-  public async getCheckpoint(number: number): Promise<Checkpoint | undefined> {
+  public async getCheckpoint(number: CheckpointNumber): Promise<Checkpoint | undefined> {
     if (number < 0) {
       number = await this.getSynchedCheckpointNumber();
     }
@@ -1172,7 +1177,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return published[0]?.checkpoint;
   }
 
-  public async getCheckpointHeader(number: number | 'latest'): Promise<CheckpointHeader | undefined> {
+  public async getCheckpointHeader(number: CheckpointNumber | 'latest'): Promise<CheckpointHeader | undefined> {
     if (number === 'latest') {
       number = await this.getSynchedCheckpointNumber();
     }
@@ -1183,32 +1188,37 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return checkpoint?.header;
   }
 
-  public getCheckpointNumber(): Promise<number> {
+  public getCheckpointNumber(): Promise<CheckpointNumber> {
     return this.getSynchedCheckpointNumber();
   }
 
-  public getSynchedCheckpointNumber(): Promise<number> {
-    // TODO: Checkpoint number will no longer be the same as the block number once we support multiple blocks per checkpoint.
-    return this.store.getSynchedL2BlockNumber();
+  public async getSynchedCheckpointNumber(): Promise<CheckpointNumber> {
+    // TODO: Create store and apis for checkpoints.
+    // Checkpoint number will no longer be the same as the block number once we support multiple blocks per checkpoint.
+    return CheckpointNumber(await this.store.getSynchedL2BlockNumber());
   }
 
-  public getProvenCheckpointNumber(): Promise<number> {
-    // TODO: Proven checkpoint number will no longer be the same as the proven block number once we support multiple blocks per checkpoint.
-    return this.store.getProvenL2BlockNumber();
+  public async getProvenCheckpointNumber(): Promise<CheckpointNumber> {
+    // TODO: Create store and apis for checkpoints.
+    // Proven checkpoint number will no longer be the same as the proven block number once we support multiple blocks per checkpoint.
+    return CheckpointNumber(await this.store.getProvenL2BlockNumber());
   }
 
-  public setProvenCheckpointNumber(checkpointNumber: number): Promise<void> {
-    // TODO: Proven checkpoint number will no longer be the same as the proven block number once we support multiple blocks per checkpoint.
+  public setProvenCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
+    // TODO: Create store and apis for checkpoints.
+    // Proven checkpoint number will no longer be the same as the proven block number once we support multiple blocks per checkpoint.
     return this.store.setProvenL2BlockNumber(checkpointNumber);
   }
 
-  public unwindCheckpoints(from: number, checkpointsToUnwind: number): Promise<boolean> {
-    // TODO: This only works if we have one block per checkpoint.
+  public unwindCheckpoints(from: CheckpointNumber, checkpointsToUnwind: number): Promise<boolean> {
+    // TODO: Create store and apis for checkpoints.
+    // This only works when we have one block per checkpoint.
     return this.store.unwindBlocks(from, checkpointsToUnwind);
   }
 
-  public getLastBlockNumberInCheckpoint(checkpointNumber: number): Promise<number> {
-    // TODO: Checkpoint number will no longer be the same as the block number once we support multiple blocks per checkpoint.
+  public getLastBlockNumberInCheckpoint(checkpointNumber: CheckpointNumber): Promise<number> {
+    // TODO: Create store and apis for checkpoints.
+    // Checkpoint number will no longer be the same as the block number once we support multiple blocks per checkpoint.
     return Promise.resolve(checkpointNumber);
   }
 
@@ -1216,10 +1226,25 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     checkpoints: PublishedCheckpoint[],
     pendingChainValidationStatus?: ValidateBlockResult,
   ): Promise<boolean> {
+    // TODO: Create store and apis for checkpoints.
+    // This only works when we have one block per checkpoint.
     return this.store.addBlocks(
       checkpoints.map(p => PublishedL2Block.fromPublishedCheckpoint(p)),
       pendingChainValidationStatus,
     );
+  }
+
+  public async getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
+    // TODO: Create store and apis for checkpoints.
+    // This only works when we have one block per checkpoint.
+    const blocks = await this.getBlocksForEpoch(epochNumber);
+    return blocks.map(b => b.toCheckpoint());
+  }
+
+  public getL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    // TODO: Create dedicated api for checkpoints.
+    // This only works when we have one block per checkpoint.
+    return this.getL1ToL2Messages(checkpointNumber);
   }
 
   /**

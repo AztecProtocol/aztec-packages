@@ -27,7 +27,7 @@ import {
 import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
@@ -460,13 +460,14 @@ describe('L1Publisher integration', () => {
         });
         expect(logs).toHaveLength(i + 1);
         expect(logs[i].args.checkpointNumber).toEqual(BigInt(i + 1));
-        const thisBlockNumber = BigInt(block.header.globalVariables.blockNumber);
-        const isFirstBlockOfEpoch =
-          thisBlockNumber == 1n ||
-          BigInt(await rollup.getEpochNumberForCheckpoint(thisBlockNumber)) >
-            BigInt(await rollup.getEpochNumberForCheckpoint(thisBlockNumber - 1n));
+        const thisCheckpointNumber = CheckpointNumber(block.header.globalVariables.blockNumber);
+        const prevCheckpointNumber = CheckpointNumber(thisCheckpointNumber - 1);
+        const isFirstCheckpointOfEpoch =
+          thisCheckpointNumber == CheckpointNumber(1) ||
+          (await rollup.getEpochNumberForCheckpoint(thisCheckpointNumber)) >
+            (await rollup.getEpochNumberForCheckpoint(prevCheckpointNumber));
         // If we are at the first blob of the epoch, we must initialize the hash:
-        prevBlobAccumulatorHash = isFirstBlockOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
+        prevBlobAccumulatorHash = isFirstCheckpointOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
         const currentBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
         let expectedBlobAccumulatorHash = prevBlobAccumulatorHash;
         blockBlobs
@@ -886,7 +887,7 @@ describe('L1Publisher integration', () => {
       expect(minedTx).toBeDefined();
       const minedTxReceipt = await l1Client.getTransactionReceipt({ hash: minedTx!.hash });
       expect(minedTxReceipt.status).toEqual('success');
-      expect(await rollup.getCheckpointNumber()).toEqual(BigInt(block.number));
+      expect(await rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(block.number));
     });
 
     it(`can send two consecutive proposals if the first one times out`, async () => {
@@ -938,8 +939,8 @@ describe('L1Publisher integration', () => {
       expect(sendRequestsResult).not.toBeNull();
       expect(sendRequestsResult!.successfulActions).toEqual(['propose']);
       expect(sendRequestsResult!.failedActions).toEqual([]);
-      expect(await rollup.getCheckpointNumber()).toEqual(BigInt(block2.number));
-      const rollupBlock = await rollup.getCheckpoint(block2.number);
+      expect(await rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(block2.number));
+      const rollupBlock = await rollup.getCheckpoint(CheckpointNumber.fromBlockNumber(block2.number));
       expect(SlotNumber.fromBigInt(rollupBlock.slotNumber)).toEqual(block2.slot);
     });
   });

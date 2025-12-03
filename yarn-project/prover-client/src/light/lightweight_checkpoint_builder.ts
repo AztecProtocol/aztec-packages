@@ -1,5 +1,6 @@
 import { SpongeBlob, computeBlobsHashFromBlobs, encodeCheckpointEndMarker, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -31,7 +32,7 @@ export class LightweightCheckpointBuilder {
   private blobFields: Fr[] = [];
 
   constructor(
-    private checkpointNumber: number,
+    private checkpointNumber: CheckpointNumber,
     private constants: CheckpointConstantData,
     private l1ToL2Messages: Fr[],
     private db: MerkleTreeWriteOperations,
@@ -41,7 +42,7 @@ export class LightweightCheckpointBuilder {
   }
 
   static async startNewCheckpoint(
-    checkpointNumber: number,
+    checkpointNumber: CheckpointNumber,
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     db: MerkleTreeWriteOperations,

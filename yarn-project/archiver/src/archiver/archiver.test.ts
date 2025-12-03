@@ -5,7 +5,7 @@ import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig, InboxContract, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
@@ -120,14 +120,14 @@ describe('Archiver', () => {
     {
       numBlocksPerCheckpoint = 1,
       txsPerBlock = 4,
-      checkpointStartNumber = 1,
+      checkpointStartNumber = CheckpointNumber(1),
       blockStartNumber = 1,
       maxEffects = 0,
     } = {},
   ) => {
     return await Promise.all(
       Array.from({ length: numCheckpoints }, async (_, i) => {
-        const checkpointNumber = i + checkpointStartNumber;
+        const checkpointNumber = CheckpointNumber(i + checkpointStartNumber);
         const startBlockNumber = i * numBlocksPerCheckpoint + blockStartNumber;
         const checkpoint = await Checkpoint.random(checkpointNumber, { numBlocks: 0 });
         checkpoint.blocks = await Promise.all(
@@ -304,8 +304,7 @@ describe('Archiver', () => {
   });
 
   it('syncs l1 to l2 messages and checkpoints', async () => {
-    let latestCheckpointNum = await archiver.getSynchedCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(0);
+    expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(0));
 
     const rollupTxs = checkpoints.map(c => makeRollupTx(c));
     const blobHashes = checkpoints.map(makeVersionedBlobHashes);
@@ -325,14 +324,14 @@ describe('Archiver', () => {
     const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
     blobsFromCheckpoints.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
-    makeMessageSentEvent(98n, 1, 0n);
-    makeMessageSentEvent(99n, 1, 1n);
+    makeMessageSentEvent(98n, 1n, 0n);
+    makeMessageSentEvent(99n, 1n, 1n);
     makeCheckpointProposedEvent(101n, 1n, checkpoints[0].archive.root.toString(), blobHashes[0]);
 
-    makeMessageSentEvent(2504n, 2, 0n);
-    makeMessageSentEvent(2505n, 2, 1n);
-    makeMessageSentEvent(2505n, 2, 2n);
-    makeMessageSentEvent(2506n, 3, 0n);
+    makeMessageSentEvent(2504n, 2n, 0n);
+    makeMessageSentEvent(2505n, 2n, 1n);
+    makeMessageSentEvent(2505n, 2n, 2n);
+    makeMessageSentEvent(2506n, 3n, 0n);
     makeCheckpointProposedEvent(2507n, 2n, checkpoints[1].archive.root.toString(), blobHashes[1]);
     makeCheckpointProposedEvent(2508n, 3n, checkpoints[2].archive.root.toString(), blobHashes[2]);
 
@@ -345,10 +344,9 @@ describe('Archiver', () => {
     await archiver.start(false);
 
     // Wait until checkpoint 3 is processed. If this won't happen the test will fail with timeout.
-    await waitUntilArchiverCheckpoint(3);
+    await waitUntilArchiverCheckpoint(CheckpointNumber(3));
 
-    latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(3);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
 
     expect(await archiver.getL1ToL2Messages(1)).toHaveLength(2);
     expect(await archiver.getL1ToL2Messages(2)).toHaveLength(3);
@@ -386,20 +384,18 @@ describe('Archiver', () => {
     }
 
     // Check last proven checkpoint number
-    const provenCheckpointNumber = await archiver.getProvenCheckpointNumber();
-    expect(provenCheckpointNumber).toBe(1);
+    expect(await archiver.getProvenCheckpointNumber()).toBe(CheckpointNumber(1));
 
     // Get checkpoints
-    expect((await archiver.getCheckpoints(1, 100)).map(b => b.number)).toEqual([1, 2, 3]);
+    expect((await archiver.getCheckpoints(CheckpointNumber(1), 100)).map(b => b.number)).toEqual([1, 2, 3]);
     // Get only proven checkpoints
-    expect((await archiver.getCheckpoints(1, 100, true)).map(b => b.number)).toEqual([1]);
+    expect((await archiver.getCheckpoints(CheckpointNumber(1), 100, true)).map(b => b.number)).toEqual([1]);
   }, 10_000);
 
   it('ignores checkpoint 3 because it has been pruned', async () => {
     const loggerSpy = jest.spyOn((archiver as any).log, 'warn');
 
-    let latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(0);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
 
     const numCheckpointsInTest = 2;
 
@@ -412,8 +408,8 @@ describe('Archiver', () => {
     const badArchive = Fr.random().toString();
     const badBlobHash = Fr.random().toString();
 
-    makeMessageSentEvent(66n, 1, 0n);
-    makeMessageSentEvent(68n, 1, 1n);
+    makeMessageSentEvent(66n, 1n, 0n);
+    makeMessageSentEvent(68n, 1n, 1n);
     mockInbox.read.getState.mockResolvedValue(makeInboxStateFromMsgCount(2));
 
     makeCheckpointProposedEvent(70n, 1n, checkpoints[0].archive.root.toString(), blobHashes[0]);
@@ -433,10 +429,10 @@ describe('Archiver', () => {
 
     await archiver.start(false);
 
-    await waitUntilArchiverCheckpoint(numCheckpointsInTest);
+    const expectedCheckpointNumber = CheckpointNumber(numCheckpointsInTest);
+    await waitUntilArchiverCheckpoint(expectedCheckpointNumber);
 
-    latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(numCheckpointsInTest);
+    expect(await archiver.getCheckpointNumber()).toEqual(expectedCheckpointNumber);
     expect(loggerSpy).toHaveBeenCalledWith(expect.stringMatching(/archive root mismatch/i), {
       actual: badArchive,
       expected: checkpoints[2].archive.root.toString(),
@@ -444,8 +440,7 @@ describe('Archiver', () => {
   }, 10_000);
 
   it('ignores checkpoints because of invalid attestations', async () => {
-    let latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(0);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
 
     // Setup a committee of 3 signers
     mockRollupRead.getTargetCommitteeSize.mockResolvedValue(3n);
@@ -464,9 +459,10 @@ describe('Archiver', () => {
     const goodCheckpoints = [...checkpoints];
 
     // We create two bad checkpoints with checkpointNumber 2, and one bad checkpoint with checkpointNumber 3
+    const checkpointStartNumber = CheckpointNumber(2);
     const badCheckpoints = [
-      ...(await makeCheckpoints(1, { checkpointStartNumber: 2, blockStartNumber: 2 })), // Bad checkpoint 2
-      ...(await makeCheckpoints(2, { checkpointStartNumber: 2, blockStartNumber: 2 })), // Bad checkpoint 2b and 3
+      ...(await makeCheckpoints(1, { checkpointStartNumber, blockStartNumber: 2 })), // Bad checkpoint 2
+      ...(await makeCheckpoints(2, { checkpointStartNumber, blockStartNumber: 2 })), // Bad checkpoint 2b and 3
     ];
     // And define bad checkpoints with attestations from random signers
     badCheckpoints.map(c => makeRollupTx(c, times(3, Secp256k1Signer.random)));
@@ -496,8 +492,7 @@ describe('Archiver', () => {
     ]);
 
     await archiver.syncImmediate();
-    latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(1);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
     expect(await archiver.getPendingChainValidationStatus()).toEqual(
       expect.objectContaining({
         valid: false,
@@ -535,8 +530,7 @@ describe('Archiver', () => {
 
     // Our chain validation status should be updated to point to the new bad checkpoint 2b
     await archiver.syncImmediate();
-    latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(1);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
     let validationStatus = await archiver.getPendingChainValidationStatus();
     assert(!validationStatus.valid);
     expect(validationStatus.block.blockNumber).toEqual(2);
@@ -558,8 +552,7 @@ describe('Archiver', () => {
     // We should still be at checkpoint 1, and the pending chain validation status should still be invalid and point to checkpoint 2b
     // since we want the archiver to always return the earliest checkpoint with invalid attestations
     await archiver.syncImmediate();
-    latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(1);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
     validationStatus = await archiver.getPendingChainValidationStatus();
     assert(!validationStatus.valid);
     expect(validationStatus.block.blockNumber).toEqual(2);
@@ -598,12 +591,11 @@ describe('Archiver', () => {
 
     // Now we should move to checkpoint 3
     await archiver.syncImmediate();
-    await waitUntilArchiverCheckpoint(3);
-    latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(3);
+    await waitUntilArchiverCheckpoint(CheckpointNumber(3));
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
 
     // And checkpoint 2 should return the proper one
-    const [checkpoint2] = await archiver.getPublishedCheckpoints(2, 1);
+    const [checkpoint2] = await archiver.getPublishedCheckpoints(CheckpointNumber(2), 1);
     expect(checkpoint2.checkpoint.number).toEqual(2);
     expect(checkpoint2.checkpoint.archive.root.toString()).toEqual(checkpoints[1].archive.root.toString());
     expect(checkpoint2.attestations.length).toEqual(3);
@@ -615,8 +607,7 @@ describe('Archiver', () => {
   it('skip event search if no changes found', async () => {
     const loggerSpy = jest.spyOn((archiver as any).log, 'debug');
 
-    let latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(0);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
 
     const numCheckpointsInTest = 2;
 
@@ -631,8 +622,8 @@ describe('Archiver', () => {
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT])
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 2n, checkpoints[1].archive.root.toString(), GENESIS_ROOT]);
 
-    makeMessageSentEvent(66n, 1, 0n);
-    makeMessageSentEvent(68n, 1, 1n);
+    makeMessageSentEvent(66n, 1n, 0n);
+    makeMessageSentEvent(68n, 1n, 1n);
     mockInbox.read.getState
       .mockResolvedValueOnce(makeInboxStateFromMsgCount(0))
       .mockResolvedValue(makeInboxStateFromMsgCount(2));
@@ -643,10 +634,10 @@ describe('Archiver', () => {
 
     await archiver.start(false);
 
-    await waitUntilArchiverCheckpoint(numCheckpointsInTest);
+    const expectedCheckpointNumber = CheckpointNumber(numCheckpointsInTest);
+    await waitUntilArchiverCheckpoint(expectedCheckpointNumber);
 
-    latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(numCheckpointsInTest);
+    expect(await archiver.getCheckpointNumber()).toEqual(expectedCheckpointNumber);
     expect(loggerSpy).toHaveBeenCalledWith(`No checkpoints to retrieve from 1 to 50, no checkpoints on chain`);
   }, 10_000);
 
@@ -668,8 +659,8 @@ describe('Archiver', () => {
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 2n, checkpoints[1].archive.root.toString(), GENESIS_ROOT])
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, checkpoints[0].archive.root.toString(), Fr.ZERO.toString()]);
 
-    makeMessageSentEvent(66n, 1, 0n);
-    makeMessageSentEvent(68n, 1, 1n);
+    makeMessageSentEvent(66n, 1n, 0n);
+    makeMessageSentEvent(68n, 1n, 1n);
     mockInbox.read.getState
       .mockResolvedValueOnce(makeInboxStateFromMsgCount(0))
       .mockResolvedValue(makeInboxStateFromMsgCount(2));
@@ -681,23 +672,23 @@ describe('Archiver', () => {
     logger.warn(`Initial sync with no checkpoints to retrieve`);
     await archiver.syncImmediate();
     expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(`No checkpoints to retrieve from 1 to 50`));
-    expect(await archiver.getCheckpointNumber()).toEqual(0);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
 
     logger.warn(`Expecting sync to checkpoint 2`);
     publicClient.getBlockNumber.mockResolvedValue(90n);
     await archiver.syncImmediate();
-    expect(await archiver.getCheckpointNumber()).toEqual(2);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
 
     logger.warn(`Expecting prune back to checkpoint 1`);
     publicClient.getBlockNumber.mockResolvedValue(95n);
     checkpoints = checkpoints.slice(0, 1); // Keep only checkpoint 1 as the valid checkpoint
     await archiver.syncImmediate();
     expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(`L2 prune has been detected`), expect.anything());
-    expect(await archiver.getCheckpointNumber()).toEqual(1);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
     const txHash = allCheckpoints[1].blocks[0].body.txEffects[0].txHash;
     expect(await archiver.getTxEffect(txHash)).resolves.toBeUndefined;
-    expect(await archiver.getCheckpoint(2)).resolves.toBeUndefined;
+    expect(await archiver.getCheckpoint(CheckpointNumber(2))).resolves.toBeUndefined;
 
     expect(await archiver.getPrivateLogs(2, 1)).toEqual([]);
     expect((await archiver.getPublicLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
@@ -711,12 +702,12 @@ describe('Archiver', () => {
     mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT]);
 
     // Creates messages for checkpoints 1 and 3, across L1 blocks 100 and 101
-    makeMessageSentEvent(100n, 1, 0n);
-    makeMessageSentEvent(100n, 1, 1n);
-    makeMessageSentEvent(101n, 3, 0n);
-    makeMessageSentEvent(101n, 3, 1n);
-    makeMessageSentEvent(101n, 3, 2n);
-    makeMessageSentEvent(101n, 3, 3n);
+    makeMessageSentEvent(100n, 1n, 0n);
+    makeMessageSentEvent(100n, 1n, 1n);
+    makeMessageSentEvent(101n, 3n, 0n);
+    makeMessageSentEvent(101n, 3n, 1n);
+    makeMessageSentEvent(101n, 3n, 2n);
+    makeMessageSentEvent(101n, 3n, 3n);
     mockInbox.read.getState.mockResolvedValue(makeInboxStateFromMsgCount(5));
 
     await archiver.start(false);
@@ -733,9 +724,9 @@ describe('Archiver', () => {
     logger.warn(`Reorging L1 to L2 messages`);
     l2MessageSentLogs.splice(4);
     messagesRollingHash = Buffer16.fromString(l2MessageSentLogs.at(-1)!.args.rollingHash);
-    const { leaf: msg40 } = makeMessageSentEvent(101n, 4, 0n);
-    const { leaf: msg50 } = makeMessageSentEvent(101n, 5, 0n);
-    const { leaf: msg51 } = makeMessageSentEvent(102n, 5, 1n);
+    const { leaf: msg40 } = makeMessageSentEvent(101n, 4n, 0n);
+    const { leaf: msg50 } = makeMessageSentEvent(101n, 5n, 0n);
+    const { leaf: msg51 } = makeMessageSentEvent(102n, 5n, 1n);
     expect(l2MessageSentLogs).toHaveLength(7);
     mockInbox.read.getState.mockResolvedValue(makeInboxStateFromMsgCount(7));
 
@@ -787,7 +778,7 @@ describe('Archiver', () => {
     expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(false);
 
     // Wait until checkpoint 1 is processed
-    await waitUntilArchiverCheckpoint(1);
+    await waitUntilArchiverCheckpoint(CheckpointNumber(1));
 
     // Epoch should not be complete
     expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(false);
@@ -826,7 +817,7 @@ describe('Archiver', () => {
     expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(false);
 
     // Wait until checkpoint 1 is processed
-    await waitUntilArchiverCheckpoint(1);
+    await waitUntilArchiverCheckpoint(CheckpointNumber(1));
 
     // Epoch should be complete once checkpoint 1 was synced
     expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(true);
@@ -894,7 +885,7 @@ describe('Archiver', () => {
     }
 
     // Once epoch is flagged as complete, checkpoint number must be 1
-    expect(await archiver.getCheckpointNumber()).toEqual(1);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
     expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(true);
   });
 
@@ -990,7 +981,7 @@ describe('Archiver', () => {
     // Wait until the archiver gets to the target checkpoint
     logger.warn(`Expecting sync to checkpoint 2`);
     await archiver.syncImmediate();
-    expect(await archiver.getCheckpointNumber()).toEqual(2);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
 
     // And now the rollup contract suddenly forgets about the last checkpoint, so the archiver rolls back
     // This is the spurious prune that the archiver needs to recover from on the next iteration
@@ -1001,7 +992,7 @@ describe('Archiver', () => {
     checkpoints = allCheckpoints.slice(0, 1);
     logger.warn(`Expecting sync to checkpoint 1`);
     await archiver.syncImmediate();
-    expect(await archiver.getCheckpointNumber()).toEqual(1);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
     // But it was just a fluke, and the rollup keeps advancing. We even get checkpoint 3, which triggers
     // the archiver's "Rolling back L1 sync point..." handler when trying to insert it with checkpoint 2 missing.
@@ -1022,12 +1013,11 @@ describe('Archiver', () => {
     logger.warn(`Expecting sync to checkpoint 3`);
     await expect(() => archiver.syncImmediate()).rejects.toThrow(InitialBlockNumberNotSequentialError);
     await archiver.syncImmediate();
-    expect(await archiver.getCheckpointNumber()).toEqual(3);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
   });
 
   it('ignore checkpoint if blob fields are not encoded correctly', async () => {
-    let latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(0);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
 
     const checkpoint = checkpoints[0];
     const rollupTx = makeRollupTx(checkpoint);
@@ -1052,13 +1042,11 @@ describe('Archiver', () => {
     await sleep(1000);
 
     // Should still be at checkpoint 0 since the blob processing failed
-    latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(0);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
   }, 10_000);
 
   it('can process checkpoint containing multiple blobs', async () => {
-    let latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(0);
+    expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
 
     // Create a checkpoint with large blob data that requires multiple blobs
     const [checkpoint] = await makeCheckpoints(1, { numBlocksPerCheckpoint: 1, txsPerBlock: 5, maxEffects: 100 });
@@ -1083,13 +1071,13 @@ describe('Archiver', () => {
     await archiver.start(false);
 
     // Wait until checkpoint 1 is processed. If this won't happen the test will fail with timeout.
-    await waitUntilArchiverCheckpoint(1);
+    const expectedCheckpointNumber = CheckpointNumber(1);
+    await waitUntilArchiverCheckpoint(expectedCheckpointNumber);
 
-    latestCheckpointNum = await archiver.getCheckpointNumber();
-    expect(latestCheckpointNum).toEqual(1);
+    expect(await archiver.getCheckpointNumber()).toEqual(expectedCheckpointNumber);
 
     // Verify the checkpoint was synced successfully
-    const syncedCheckpoint = await archiver.getCheckpoint(1);
+    const syncedCheckpoint = await archiver.getCheckpoint(expectedCheckpointNumber);
     expect(syncedCheckpoint).toBeDefined();
     // The tx effects should be the decoded correctly from the blobs
     expect(syncedCheckpoint!.blocks.map(b => b.body.txEffects)).toEqual(checkpoint.blocks.map(b => b.body.txEffects));
@@ -1098,7 +1086,7 @@ describe('Archiver', () => {
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune
   xit('handles an upcoming L2 prune', () => {});
 
-  const waitUntilArchiverCheckpoint = async (checkpointNumber: number) => {
+  const waitUntilArchiverCheckpoint = async (checkpointNumber: CheckpointNumber) => {
     logger.info(`Waiting for archiver to sync to checkpoint ${checkpointNumber}`);
     await retryUntil(() => archiver.getSynchedCheckpointNumber().then(n => n === checkpointNumber), 'sync', 10, 0.1);
   };
@@ -1137,8 +1125,8 @@ describe('Archiver', () => {
    * @param checkpointNumber - The checkpoint number for which the message was included.
    * @param indexInSubtree - the index in the l2Block's subtree in the L1 to L2 Messages Tree.
    */
-  const makeMessageSentEvent = (l1BlockNum: bigint, checkpointNumber: number, indexInSubtree: bigint) => {
-    const index = indexInSubtree + InboxLeaf.smallestIndexFromL2Block(checkpointNumber);
+  const makeMessageSentEvent = (l1BlockNum: bigint, checkpointNumber: bigint, indexInSubtree: bigint) => {
+    const index = indexInSubtree + InboxLeaf.smallestIndexFromL2Block(Number(checkpointNumber));
     const leaf = Fr.random();
     messagesRollingHash = updateRollingHash(messagesRollingHash, leaf);
     totalMessagesInserted++;
@@ -1147,7 +1135,7 @@ describe('Archiver', () => {
       blockNumber: l1BlockNum,
       blockHash: Buffer32.fromBigInt(l1BlockNum).toString(),
       args: {
-        checkpointNumber: BigInt(checkpointNumber),
+        checkpointNumber,
         index,
         hash: leaf.toString(),
         rollingHash: messagesRollingHash.toString(),

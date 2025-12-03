@@ -49,7 +49,7 @@ bash -i <(curl -s https://install.aztec.network)
 3. The testnet version installed:
 
 ```bash
-aztec-up -v latest
+aztec-up -v 2.1.4
 ```
 
 :::warning

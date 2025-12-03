@@ -15,6 +15,7 @@ import {
   PublishedL2Block,
   type ValidateBlockResult,
 } from '@aztec/stdlib/block';
+import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants, type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
@@ -113,6 +114,11 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
+  public async getPublishedCheckpoints(from: number, limit: number) {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
+    return (await this.getPublishedBlocks(from, limit)).map(block => block.toPublishedCheckpoint());
+  }
+
   public async getPublishedBlocks(from: number, limit: number, proven?: boolean) {
     const blocks = await this.getBlocks(from, limit, proven);
     return blocks.map(block =>
@@ -181,6 +187,11 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
     return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number - 1 : -1)?.getBlockHeader());
+  }
+
+  getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
+    return this.getBlocksForEpoch(epochNumber).then(blocks => blocks.map(b => b.toCheckpoint()));
   }
 
   getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]> {

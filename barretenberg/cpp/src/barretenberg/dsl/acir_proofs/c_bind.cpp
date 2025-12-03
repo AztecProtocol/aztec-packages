@@ -29,7 +29,7 @@ WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* acir_vec,
     const acir_format::ProgramMetadata metadata{ .has_ipa_claim = *has_ipa_claim, .size_hint = 1 << 19 };
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
         from_buffer<std::vector<uint8_t>>(acir_vec)) };
-    auto builder = acir_format::create_circuit(program, metadata);
+    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
     *total = htonl((uint32_t)builder.get_finalized_total_circuit_size());
     *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_finalized_total_circuit_size()));

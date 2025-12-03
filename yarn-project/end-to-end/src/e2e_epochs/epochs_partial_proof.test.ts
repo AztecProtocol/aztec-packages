@@ -1,6 +1,6 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import type { ChainMonitor } from '@aztec/ethereum/test';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
@@ -26,11 +26,11 @@ describe('e2e_epochs/epochs_partial_proof', () => {
   });
 
   it('submits partial proofs when instructed manually', async () => {
-    await test.waitUntilL2BlockNumber(4, test.L2_SLOT_DURATION_IN_S * 6);
+    await test.waitUntilCheckpointNumber(CheckpointNumber(4), test.L2_SLOT_DURATION_IN_S * 6);
     logger.info(`Kicking off partial proof`);
 
     await test.context.proverNode!.startProof(EpochNumber(0));
-    await retryUntil(() => monitor.provenCheckpointNumber > 0, 'proof', 120, 1);
+    await retryUntil(() => monitor.provenCheckpointNumber > CheckpointNumber(0), 'proof', 120, 1);
 
     logger.info(`Test succeeded with proven checkpoint number ${monitor.provenCheckpointNumber}`);
   });

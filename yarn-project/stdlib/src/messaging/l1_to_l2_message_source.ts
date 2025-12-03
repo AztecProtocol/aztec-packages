@@ -1,3 +1,4 @@
+import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields';
 
 import type { L2Tips } from '../block/l2_block_source.js';
@@ -6,6 +7,13 @@ import type { L2Tips } from '../block/l2_block_source.js';
  * Interface of classes allowing for the retrieval of L1 to L2 messages.
  */
 export interface L1ToL2MessageSource {
+  /**
+   * Gets new L1 to L2 message (to be) included in a given checkpoint.
+   * @param checkpointNumber - Checkpoint number to get messages for.
+   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
+   */
+  getL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber): Promise<Fr[]>;
+
   /**
    * Gets new L1 to L2 message (to be) included in a given block.
    * @param blockNumber - L2 block number to get messages for.

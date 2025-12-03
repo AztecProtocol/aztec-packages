@@ -2,15 +2,94 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
-#include "barretenberg/flavor/mega_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/flavor/ultra_zk_flavor.hpp"
+#include "barretenberg/flavor/sumcheck_test_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
 
 namespace {
+
+/**
+ * @brief Helper function to create a satisfiable trace for any SumcheckTestFlavor variant
+ * @details Creates a trace that satisfies the arithmetic relation: q_arith * (q_m * w_l * w_r + q_l * w_l + q_r *
+ * w_r + q_o * w_o + q_c) = 0
+ *
+ * For non-ZK flavors, creates a simple circuit with arithmetic gates.
+ * For ZK flavors, adds random values to the last rows that are masked by the row-disabling polynomial.
+ *
+ * Examples of gates added:
+ * - Row 1: w_l + w_r = w_o  (1 + 1 = 2)
+ * - Row 2: w_l * w_r = w_o  (2 * 2 = 4)
+ * - Row 0, 3+ : inactive (all zeros)
+ */
+template <typename Flavor> typename Flavor::ProverPolynomials create_satisfiable_trace(size_t circuit_size)
+{
+    using FF = typename Flavor::FF;
+    using Polynomial = bb::Polynomial<FF>;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+
+    ProverPolynomials full_polynomials;
+
+    // Initialize precomputed polynomials (selectors)
+    for (auto& poly : full_polynomials.get_precomputed()) {
+        poly = Polynomial(circuit_size);
+    }
+
+    // Initialize witness polynomials as shiftable (start_index = 1) to allow shifting
+    for (auto& poly : full_polynomials.get_witness()) {
+        poly = Polynomial::shiftable(circuit_size);
+    }
+
+    // Initialize shifted polynomials (will be populated by set_shifted())
+    for (auto& poly : full_polynomials.get_shifted()) {
+        poly = Polynomial(circuit_size);
+    }
+
+    // Create a simple arithmetic circuit with a few gates
+    // Row 1: Addition gate: w_l + w_r = w_o (1 + 1 = 2)
+    if (circuit_size > 1) {
+        full_polynomials.w_l.at(1) = FF(1);
+        full_polynomials.w_r.at(1) = FF(1);
+        full_polynomials.w_o.at(1) = FF(2);
+        full_polynomials.q_l.at(1) = FF(1);
+        full_polynomials.q_r.at(1) = FF(1);
+        full_polynomials.q_o.at(1) = FF(-1);
+        full_polynomials.q_arith.at(1) = FF(1);
+    }
+
+    // Row 2: Multiplication gate: w_l * w_r = w_o (2 * 2 = 4)
+    if (circuit_size > 2) {
+        full_polynomials.w_l.at(2) = FF(2);
+        full_polynomials.w_r.at(2) = FF(2);
+        full_polynomials.w_o.at(2) = FF(4);
+        full_polynomials.q_m.at(2) = FF(1);
+        full_polynomials.q_o.at(2) = FF(-1);
+        full_polynomials.q_arith.at(2) = FF(1);
+    }
+
+    // For ZK flavors: add randomness to the last rows (which will be masked by row-disabling polynomial)
+    // These rows don't need to satisfy the relation because they're disabled
+    if constexpr (Flavor::HasZK) {
+        constexpr size_t NUM_DISABLED_ROWS = 3; // Matches the number of disabled rows in ZK sumcheck
+        if (circuit_size > NUM_DISABLED_ROWS) {
+            for (size_t i = circuit_size - NUM_DISABLED_ROWS; i < circuit_size; ++i) {
+                full_polynomials.w_l.at(i) = FF::random_element();
+                full_polynomials.w_r.at(i) = FF::random_element();
+                full_polynomials.w_o.at(i) = FF::random_element();
+                full_polynomials.w_4.at(i) = FF::random_element();
+                full_polynomials.w_test_1.at(i) = FF::random_element();
+                full_polynomials.w_test_2.at(i) = FF::random_element();
+            }
+        }
+    }
+
+    // Compute shifted polynomials using the set_shifted() method
+    full_polynomials.set_shifted();
+
+    return full_polynomials;
+}
+
 template <typename Flavor> class SumcheckTests : public ::testing::Test {
   public:
     using FF = typename Flavor::FF;
@@ -171,82 +250,17 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         const size_t multivariate_n(1 << multivariate_d);
 
         const size_t virtual_log_n = 6;
-        // Construct prover polynomials where each is the zero polynomial.
-        // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
-        std::vector<Polynomial<FF>> zero_polynomials(NUM_POLYNOMIALS);
-        for (auto& poly : zero_polynomials) {
-            poly = bb::Polynomial<FF>(multivariate_n);
-        }
-        auto full_polynomials = construct_ultra_full_polynomials(zero_polynomials);
 
-        // Add some non-trivial values to certain polynomials so that the arithmetic relation will have non-trivial
-        // contribution. Note: since all other polynomials are set to 0, all other relations are trivially
-        // satisfied.
-        std::array<FF, multivariate_n> w_l = { 0, 1, 2, 0 };
-        std::array<FF, multivariate_n> w_r = { 0, 1, 2, 0 };
-        std::array<FF, multivariate_n> w_o = { 0, 2, 4, 0 };
-        std::array<FF, multivariate_n> w_4 = { 0, 0, 0, 0 };
-        std::array<FF, multivariate_n> q_m = { 0, 0, 1, 0 };
-        std::array<FF, multivariate_n> q_l = { 0, 1, 0, 0 };
-        std::array<FF, multivariate_n> q_r = { 0, 1, 0, 0 };
-        std::array<FF, multivariate_n> q_o = { 0, -1, -1, 0 };
-        std::array<FF, multivariate_n> q_c = { 0, 0, 0, 0 };
-        std::array<FF, multivariate_n> q_arith = { 0, 1, 1, 0 };
-        // Setting all of these to 0 ensures the GrandProductRelation is satisfied
+        auto full_polynomials = create_satisfiable_trace<Flavor>(multivariate_n);
 
-        // For ZK Flavors: add some randomness to ProverPolynomials
-        if constexpr (Flavor::HasZK) {
-            w_l[7] = FF::random_element();
-            w_r[6] = FF::random_element();
-            w_4[6] = FF::random_element();
-            auto z_1 = FF::random_element();
-            auto z_2 = FF::random_element();
-            auto r = FF::random_element();
-
-            std::array<FF, multivariate_n> z_perm = { 0, 0, 0, 0, 0, 0, z_1, z_2 };
-            std::array<FF, multivariate_n> lookup_inverses = { 0, 0, 0, 0, 0, r, r * r, r * r * r };
-            // To avoid triggering the skipping mechanism in LogDerivativeRelation, we have to ensure
-            // that the condition (in.q_lookup.is_zero() && in.lookup_read_counts.is_zero()) is not satisfied in the
-            // blinded rows
-            std::array<FF, multivariate_n> skipping_disabler = { 0, 0, 0, 0, 0, 1, 1, 1 };
-            full_polynomials.z_perm = bb::Polynomial<FF>(z_perm);
-            full_polynomials.lookup_inverses = bb::Polynomial<FF>(lookup_inverses);
-            full_polynomials.lookup_read_counts = bb::Polynomial<FF>(skipping_disabler);
-            if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
-                std::array<FF, multivariate_n> return_data_inverses = { 0, 0, 0, 0, 0, 0, r * r, -r };
-                full_polynomials.return_data_inverses = bb::Polynomial<FF>(return_data_inverses);
-
-                // To avoid triggering the skipping mechanism in DatabusLookupRelation, we have to ensure that the
-                // condition (in.calldata_read_counts.is_zero() && in.secondary_calldata_read_counts.is_zero() &&
-                //  in.return_data_read_counts.is_zero()) is not satisfied in the blinded rows
-                full_polynomials.calldata_read_counts = bb::Polynomial<FF>(skipping_disabler);
-            }
-        }
-        full_polynomials.w_l = bb::Polynomial<FF>(w_l);
-        full_polynomials.w_r = bb::Polynomial<FF>(w_r);
-        full_polynomials.w_o = bb::Polynomial<FF>(w_o);
-        full_polynomials.w_4 = bb::Polynomial<FF>(w_4);
-        full_polynomials.q_m = bb::Polynomial<FF>(q_m);
-        full_polynomials.q_l = bb::Polynomial<FF>(q_l);
-        full_polynomials.q_r = bb::Polynomial<FF>(q_r);
-        full_polynomials.q_o = bb::Polynomial<FF>(q_o);
-        full_polynomials.q_c = bb::Polynomial<FF>(q_c);
-        full_polynomials.q_arith = bb::Polynomial<FF>(q_arith);
-
-        // Set aribitrary random relation parameters
-        RelationParameters<FF> relation_parameters{
-            .beta = FF::random_element(),
-            .gamma = FF::random_element(),
-            .public_input_delta = FF::one(),
-        };
+        // SumcheckTestFlavor doesn't need complex relation parameters (no permutation, lookup, etc.)
+        RelationParameters<FF> relation_parameters{};
         auto prover_transcript = Flavor::Transcript::prover_init_empty();
         FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
         std::vector<FF> prover_gate_challenges(virtual_log_n);
-        for (size_t idx = 0; idx < virtual_log_n; idx++) {
-            prover_gate_challenges[idx] =
-                prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        prover_gate_challenges =
+            prover_transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
         SumcheckProver<Flavor> sumcheck_prover(multivariate_n,
                                                full_polynomials,
@@ -271,10 +285,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         auto sumcheck_verifier = SumcheckVerifier<Flavor>(verifier_transcript, verifier_alpha, virtual_log_n);
 
         std::vector<FF> verifier_gate_challenges(virtual_log_n);
-        for (size_t idx = 0; idx < virtual_log_n; idx++) {
-            verifier_gate_challenges[idx] =
-                verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        verifier_gate_challenges =
+            verifier_transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
         std::vector<FF> padding_indicator_array(virtual_log_n, 1);
         if constexpr (Flavor::HasZK) {
@@ -298,55 +310,22 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         const size_t multivariate_d(3);
         const size_t multivariate_n(1 << multivariate_d);
 
-        // Construct prover polynomials where each is the zero polynomial.
-        // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
-        std::vector<Polynomial<FF>> zero_polynomials(NUM_POLYNOMIALS);
-        for (auto& poly : zero_polynomials) {
-            poly = bb::Polynomial<FF>(multivariate_n);
-        }
-        auto full_polynomials = construct_ultra_full_polynomials(zero_polynomials);
+        // Start with a satisfiable trace, then break it
+        auto full_polynomials = create_satisfiable_trace<Flavor>(multivariate_n);
 
-        // Add some non-trivial values to certain polynomials so that the arithmetic relation will have non-trivial
-        // contribution. Note: since all other polynomials are set to 0, all other relations are trivially
-        // satisfied.
-        std::array<FF, multivariate_n> w_l;
-        w_l = { 0, 0, 2, 0 }; // this witness value makes the circuit from previous test invalid
-        std::array<FF, multivariate_n> w_r = { 0, 1, 2, 0 };
-        std::array<FF, multivariate_n> w_o = { 0, 2, 4, 0 };
-        std::array<FF, multivariate_n> w_4 = { 0, 0, 0, 0 };
-        std::array<FF, multivariate_n> q_m = { 0, 0, 1, 0 };
-        std::array<FF, multivariate_n> q_l = { 0, 1, 0, 0 };
-        std::array<FF, multivariate_n> q_r = { 0, 1, 0, 0 };
-        std::array<FF, multivariate_n> q_o = { 0, -1, -1, 0 };
-        std::array<FF, multivariate_n> q_c = { 0, 0, 0, 0 };
-        std::array<FF, multivariate_n> q_arith = { 0, 1, 1, 0 };
-        // Setting all of these to 0 ensures the GrandProductRelation is satisfied
+        // Break the circuit by changing w_l[1] from 1 to 0
+        // This makes the arithmetic relation unsatisfied:
+        // q_arith[1] * (q_l[1] * w_l[1] + q_r[1] * w_r[1] + q_o[1] * w_o[1]) = 1 * (1 * 0 + 1 * 1 + (-1) * 2) = -1 ≠
+        // 0
+        full_polynomials.w_l.at(1) = FF(0);
 
-        full_polynomials.w_l = bb::Polynomial<FF>(w_l);
-        full_polynomials.w_r = bb::Polynomial<FF>(w_r);
-        full_polynomials.w_o = bb::Polynomial<FF>(w_o);
-        full_polynomials.w_4 = bb::Polynomial<FF>(w_4);
-        full_polynomials.q_m = bb::Polynomial<FF>(q_m);
-        full_polynomials.q_l = bb::Polynomial<FF>(q_l);
-        full_polynomials.q_r = bb::Polynomial<FF>(q_r);
-        full_polynomials.q_o = bb::Polynomial<FF>(q_o);
-        full_polynomials.q_c = bb::Polynomial<FF>(q_c);
-        full_polynomials.q_arith = bb::Polynomial<FF>(q_arith);
-
-        // Set aribitrary random relation parameters
-        RelationParameters<FF> relation_parameters{
-            .beta = FF::random_element(),
-            .gamma = FF::random_element(),
-            .public_input_delta = FF::one(),
-        };
+        // SumcheckTestFlavor doesn't need complex relation parameters
+        RelationParameters<FF> relation_parameters{};
         auto prover_transcript = Flavor::Transcript::prover_init_empty();
         FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-        std::vector<FF> prover_gate_challenges(multivariate_d);
-        for (size_t idx = 0; idx < multivariate_d; idx++) {
-            prover_gate_challenges[idx] =
-                prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        auto prover_gate_challenges =
+            prover_transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", multivariate_d);
 
         SumcheckProver<Flavor> sumcheck_prover(multivariate_n,
                                                full_polynomials,
@@ -388,23 +367,18 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     };
 };
 
-// Define the FlavorTypes
-using FlavorTypes = testing::Types<UltraFlavor,
-                                   UltraZKFlavor,
-                                   UltraKeccakFlavor,
-                                   UltraKeccakZKFlavor,
-#ifdef STARKNET_GARAGA_FLAVORS
-                                   UltraStarknetFlavor,
-                                   UltraStarknetZKFlavor,
-#endif
-                                   MegaFlavor,
-                                   MegaZKFlavor>;
+// Define the FlavorTypes using SumcheckTestFlavor variants
+// Note: Only testing short monomials since full barycentric adds complexity without testing sumcheck-specific logic
+// Note: Grumpkin sumcheck requires ZK mode for commitment-based protocol (used in ECCVM/IVC)
+using FlavorTypes = testing::Types<SumcheckTestFlavor,            // BN254, non-ZK, short monomials
+                                   SumcheckTestFlavorZK,          // BN254, ZK, short monomials
+                                   SumcheckTestFlavorGrumpkinZK>; // Grumpkin, ZK, short monomials
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
 
 TYPED_TEST(SumcheckTests, PolynomialNormalization)
 {
-    if constexpr (std::is_same_v<TypeParam, UltraFlavor>) {
+    if constexpr (!TypeParam::HasZK) {
         this->test_polynomial_normalization();
     } else {
         GTEST_SKIP() << "Skipping test for ZK-enabled flavors";
@@ -425,4 +399,5 @@ TYPED_TEST(SumcheckTests, ProverAndVerifierSimpleFailure)
 {
     this->test_failure_prover_verifier_flow();
 }
+
 } // namespace

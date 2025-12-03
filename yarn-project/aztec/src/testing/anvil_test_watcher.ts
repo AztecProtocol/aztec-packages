@@ -125,7 +125,7 @@ export class AnvilTestWatcher {
   async warpTimeIfNeeded() {
     try {
       const currentSlot = SlotNumber.fromBigInt(await this.rollup.read.getCurrentSlot());
-      const pendingCheckpointNumber = BigInt(await this.rollup.read.getPendingCheckpointNumber());
+      const pendingCheckpointNumber = await this.rollup.read.getPendingCheckpointNumber();
       const checkpointLog = await this.rollup.read.getCheckpoint([pendingCheckpointNumber]);
       const nextSlot = SlotNumber(currentSlot + 1);
       const nextSlotTimestamp = Number(await this.rollup.read.getTimestampForSlot([BigInt(nextSlot)]));

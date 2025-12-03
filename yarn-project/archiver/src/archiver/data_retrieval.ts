@@ -14,6 +14,7 @@ import type {
   ViemPublicClient,
 } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
@@ -43,7 +44,7 @@ import type { InboxMessage } from './structs/inbox_message.js';
 import type { L1PublishedData } from './structs/published.js';
 
 export type RetrievedCheckpoint = {
-  checkpointNumber: number;
+  checkpointNumber: CheckpointNumber;
   archiveRoot: Fr;
   header: CheckpointHeader;
   checkpointBlobData: CheckpointBlobData;
@@ -230,7 +231,7 @@ async function processCheckpointProposedLogs(
 ): Promise<RetrievedCheckpoint[]> {
   const retrievedCheckpoints: RetrievedCheckpoint[] = [];
   await asyncPool(10, logs, async log => {
-    const checkpointNumber = Number(log.args.checkpointNumber!);
+    const checkpointNumber = CheckpointNumber.fromBigInt(log.args.checkpointNumber!);
     const archive = log.args.archive!;
     const archiveFromChain = await rollup.read.archiveAt([BigInt(checkpointNumber)]);
     const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash.slice(2), 'hex'));
@@ -341,7 +342,7 @@ async function getCheckpointFromRollupTx(
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
   blobHashes: Buffer[], // TODO(md): buffer32?
-  checkpointNumber: number,
+  checkpointNumber: CheckpointNumber,
   rollupAddress: Hex,
   targetCommitteeSize: number,
   logger: Logger,
@@ -481,7 +482,7 @@ export async function retrieveL2ProofVerifiedEvents(
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
-): Promise<{ l1BlockNumber: bigint; checkpointNumber: number; proverId: Fr; txHash: Hex }[]> {
+): Promise<{ l1BlockNumber: bigint; checkpointNumber: CheckpointNumber; proverId: Fr; txHash: Hex }[]> {
   const logs = await publicClient.getLogs({
     address: rollupAddress.toString(),
     fromBlock: searchStartBlock,
@@ -492,7 +493,7 @@ export async function retrieveL2ProofVerifiedEvents(
 
   return logs.map(log => ({
     l1BlockNumber: log.blockNumber,
-    checkpointNumber: Number(log.args.checkpointNumber),
+    checkpointNumber: CheckpointNumber.fromBigInt(log.args.checkpointNumber),
     proverId: Fr.fromHexString(log.args.proverId),
     txHash: log.transactionHash,
   }));

@@ -117,7 +117,7 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         CommitmentKey commitment_key(16384);
         std::vector<NativeFr> u_challenge = random_challenge_vector(log_circuit_size);
 
-        MockClaimGen mock_claims(N, num_polys, num_shifted, 0, u_challenge, commitment_key);
+        MockClaimGen mock_claims(N, num_polys, num_shifted, u_challenge, commitment_key);
         auto prover_transcript = NativeTranscript::prover_init_empty();
         // Initialize polys outside of `if` as they are used inside RefVector ClaimBatcher members.
         Polynomial<NativeFr> squashed_unshifted(N);

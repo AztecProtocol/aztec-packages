@@ -164,6 +164,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Real notes coming from DB will have a leafIndex which
    * represents their index in the note hash tree.
    *
+   * @param owner - The owner of the notes.
    * @param storageSlot - The storage slot.
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
@@ -177,6 +178,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns Array of note data.
    */
   public async utilityGetNotes(
+    owner: AztecAddress,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -192,7 +194,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     offset: number,
     status: NoteStatus,
   ): Promise<NoteData[]> {
-    const dbNotes = await this.executionDataProvider.getNotes(this.contractAddress, storageSlot, status, this.scopes);
+    const dbNotes = await this.executionDataProvider.getNotes(
+      this.contractAddress,
+      owner,
+      storageSlot,
+      status,
+      this.scopes,
+    );
     return pickNotes<NoteData>(dbNotes, {
       selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
         selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },

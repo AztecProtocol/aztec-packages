@@ -3,19 +3,22 @@ use crate::{
     note::{note_interface::NoteHash, retrieved_note::RetrievedNote},
 };
 
-use dep::protocol_types::hash::{
-    compute_siloed_note_hash, compute_siloed_nullifier, compute_unique_note_hash,
+use protocol_types::{
+    address::AztecAddress,
+    hash::{compute_siloed_note_hash, compute_siloed_nullifier, compute_unique_note_hash},
 };
 
 /// Returns the note hash that must be used to issue a private kernel read request for a note.
 pub fn compute_note_hash_read<Note>(
     retrieved_note: RetrievedNote<Note>,
+    owner: AztecAddress,
     storage_slot: Field,
 ) -> NoteHashRead
 where
     Note: NoteHash,
 {
-    let note_hash = retrieved_note.note.compute_note_hash(storage_slot, retrieved_note.randomness);
+    let note_hash =
+        retrieved_note.note.compute_note_hash(owner, storage_slot, retrieved_note.randomness);
 
     if retrieved_note.metadata.is_settled() {
         // Settled notes are read by siloing with contract address and nonce (resulting in the final unique note hash,
@@ -37,6 +40,7 @@ where
 /// `NoteHash::compute_nullifier_unconstrained`.
 pub fn compute_note_hash_for_nullification<Note>(
     retrieved_note: RetrievedNote<Note>,
+    owner: AztecAddress,
     storage_slot: Field,
 ) -> Field
 where
@@ -44,7 +48,7 @@ where
 {
     compute_note_hash_for_nullification_from_note_hash_read(
         retrieved_note,
-        compute_note_hash_read(retrieved_note, storage_slot),
+        compute_note_hash_read(retrieved_note, owner, storage_slot),
     )
 }
 
@@ -79,6 +83,7 @@ pub fn compute_note_hash_for_nullification_from_note_hash_read<Note>(
 /// Computes a note's siloed nullifier, i.e. the one that will be inserted into the nullifier tree.
 pub fn compute_siloed_note_nullifier<Note>(
     retrieved_note: RetrievedNote<Note>,
+    owner: AztecAddress,
     storage_slot: Field,
     context: &mut PrivateContext,
 ) -> Field
@@ -86,9 +91,9 @@ where
     Note: NoteHash,
 {
     let note_hash_for_nullification =
-        compute_note_hash_for_nullification(retrieved_note, storage_slot);
+        compute_note_hash_for_nullification(retrieved_note, owner, storage_slot);
     let inner_nullifier =
-        retrieved_note.note.compute_nullifier(context, note_hash_for_nullification);
+        retrieved_note.note.compute_nullifier(context, owner, note_hash_for_nullification);
 
     compute_siloed_nullifier(retrieved_note.contract_address, inner_nullifier)
 }
