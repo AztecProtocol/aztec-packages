@@ -177,8 +177,18 @@ sel_instruction_fetching_success = sel_bytecode_retrieval_success * (1 - sel_ins
 
 #[INSTRUCTION_FETCHING_BODY]
 sel_instruction_fetching_success {
-    pc, bytecode_id, ex_opcode, instr_length,
-    indirect, op[0], op[1], op[2], op[3], op[4], op[5], op[6]
+    pc,
+    bytecode_id,
+    ex_opcode,
+    instr_length,
+    indirect,
+    op[0],
+    op[1],
+    op[2],
+    op[3],
+    op[4],
+    op[5],
+    op[6]
 } in instr_fetching.sel {
     instr_fetching.pc,
     instr_fetching.bytecode_id,
@@ -209,15 +219,45 @@ sel_instruction_fetching_success {
     dynamic_l2_gas,
     dynamic_da_gas,
     // addressing
-    sel_op_is_address[0], sel_op_is_address[1], sel_op_is_address[2],  sel_op_is_address[3],
-    sel_op_is_address[4], sel_op_is_address[5], sel_op_is_address[6],
-    // subtraces, mem ops, etc (defined later in this file)
-    subtrace_id, subtrace_operation_id, dyn_gas_id,
-    // register information
-    sel_mem_op_reg[0], sel_mem_op_reg[1], sel_mem_op_reg[2], sel_mem_op_reg[3], sel_mem_op_reg[4], sel_mem_op_reg[5],
-    rw_reg[0], rw_reg[1], rw_reg[2], rw_reg[3], rw_reg[4], rw_reg[5],
-    sel_tag_check_reg[0], sel_tag_check_reg[1], sel_tag_check_reg[2], sel_tag_check_reg[3], sel_tag_check_reg[4], sel_tag_check_reg[5],
-    expected_tag_reg[0], expected_tag_reg[1], expected_tag_reg[2], expected_tag_reg[3], expected_tag_reg[4], expected_tag_reg[5]
+    sel_op_is_address[0],
+    sel_op_is_address[1],
+    sel_op_is_address[2],
+    sel_op_is_address[3],
+    sel_op_is_address[4],
+    sel_op_is_address[5],
+    sel_op_is_address[6],
+    // decomposed selectors
+    subtrace_id,
+    subtrace_operation_id,
+    dyn_gas_id,
+    // whether we should perform a memory operation on the register information
+    sel_mem_op_reg[0],
+    sel_mem_op_reg[1],
+    sel_mem_op_reg[2],
+    sel_mem_op_reg[3],
+    sel_mem_op_reg[4],
+    sel_mem_op_reg[5],
+    // read / write per register
+    rw_reg[0],
+    rw_reg[1],
+    rw_reg[2],
+    rw_reg[3],
+    rw_reg[4],
+    rw_reg[5],
+    // whether we should perform a tag check on the register
+    sel_tag_check_reg[0],
+    sel_tag_check_reg[1],
+    sel_tag_check_reg[2],
+    sel_tag_check_reg[3],
+    sel_tag_check_reg[4],
+    sel_tag_check_reg[5],
+    // expected register tag to perform the check against
+    expected_tag_reg[0],
+    expected_tag_reg[1],
+    expected_tag_reg[2],
+    expected_tag_reg[3],
+    expected_tag_reg[4],
+    expected_tag_reg[5]
 } in
 precomputed.sel_exec_spec {
     // execution opcode
