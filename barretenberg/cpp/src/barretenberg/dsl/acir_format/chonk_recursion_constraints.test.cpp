@@ -75,7 +75,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
                                                .proof_type = PROOF_TYPE::CHONK };
 
         // Construct a constraint system
-        program.constraints.varnum = static_cast<uint32_t>(program.witness.size());
+        program.constraints.max_witness_index = static_cast<uint32_t>(program.witness.size() - 1);
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(1);
         program.constraints.chonk_recursion_constraints = { constraint };
         program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
@@ -87,7 +87,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
     static std::shared_ptr<ProverInstance> get_chonk_recursive_verifier_pk(AcirProgram& program)
     {
         // Build constraints
-        Builder builder = create_circuit(program, { .has_ipa_claim = true });
+        auto builder = create_circuit<Builder>(program, { .has_ipa_claim = true });
 
         // Construct vk
         auto prover_instance = std::make_shared<ProverInstance>(builder);
@@ -148,7 +148,7 @@ TEST_F(ChonkRecursionConstraintTest, GateCountChonkRecursion)
     AcirProgram program = create_acir_program(chonk_data);
 
     ProgramMetadata metadata{ .has_ipa_claim = true, .collect_gates_per_opcode = true };
-    Builder builder = create_circuit(program, metadata);
+    auto builder = create_circuit<Builder>(program, metadata);
 
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);

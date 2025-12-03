@@ -152,7 +152,7 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
         auto [constraint, witness_values] = generate_constraints(predicate);
 
         AcirFormat constraint_system = {
-            .varnum = static_cast<uint32_t>(witness_values.size()),
+            .max_witness_index = static_cast<uint32_t>(witness_values.size() - 1),
             .num_acir_opcodes = 1,
             .public_inputs = {},
             .original_opcode_indices = create_empty_original_opcode_indices(),
@@ -190,7 +190,7 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
             auto [constraint, witness_values] = generate_constraints(predicate);
 
             AcirFormat constraint_system = {
-                .varnum = static_cast<uint32_t>(witness_values.size()),
+                .max_witness_index = static_cast<uint32_t>(witness_values.size() - 1),
                 .num_acir_opcodes = 1,
                 .public_inputs = {},
                 .original_opcode_indices = create_empty_original_opcode_indices(),

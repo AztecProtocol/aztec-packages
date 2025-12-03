@@ -15,7 +15,8 @@ namespace acir_format {
 
 using namespace bb;
 
-template <typename Builder> void create_poseidon2_permutations(Builder& builder, const Poseidon2Constraint& constraint)
+template <typename Builder>
+void create_poseidon2_permutations_constraints(Builder& builder, const Poseidon2Constraint& constraint)
 {
     using field_ct = stdlib::field_t<Builder>;
     using State = stdlib::Poseidon2Permutation<Builder>::State;
@@ -41,9 +42,9 @@ template <typename Builder> void create_poseidon2_permutations(Builder& builder,
     }
 }
 
-template void create_poseidon2_permutations<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                                 const Poseidon2Constraint& constraint);
+template void create_poseidon2_permutations_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
+                                                                             const Poseidon2Constraint& constraint);
 
-template void create_poseidon2_permutations<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                                const Poseidon2Constraint& constraint);
+template void create_poseidon2_permutations_constraints<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
+                                                                            const Poseidon2Constraint& constraint);
 } // namespace acir_format
