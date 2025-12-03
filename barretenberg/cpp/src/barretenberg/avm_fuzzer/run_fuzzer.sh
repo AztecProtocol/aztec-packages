@@ -27,6 +27,7 @@ if [ "$COMMAND" = "list-targets" ]; then
     echo "Available fuzzing options (<target_name>):"
     echo "  avm - AVM fuzzer (avm_fuzzer_avm_fuzzer)"
     echo "  alu - ALU fuzzer (harness_alu_fuzzer)"
+    echo "  bitwise - Bitwise fuzzer (harness_bitwise_fuzzer)"
     exit 0
 fi
 
@@ -56,9 +57,10 @@ fi
 case "$FUZZER_ALIAS" in
     avm) FUZZER_TYPE="avm_fuzzer_avm_fuzzer" ;;
     alu) FUZZER_TYPE="harness_alu_fuzzer" ;;
+    bitwise) FUZZER_TYPE="harness_bitwise_fuzzer" ;;
     *)
         echo "Error: Invalid fuzzer type '$FUZZER_ALIAS'"
-        echo "Valid options: 'avm' or 'alu'"
+        echo "Valid options: 'avm', 'alu', or 'bitwise'"
         exit 1
         ;;
 esac
@@ -118,19 +120,22 @@ fi
 
 # Set corpus directory based on fuzzer type
 CORPUS_DIR="$SCRIPT_DIR/corpus/$FUZZER_ALIAS"
+# Sync corpus is used for parallel fuzzing - allows multiple workers to share discovered inputs
+SYNC_CORPUS_DIR="$SCRIPT_DIR/sync_corpus/$FUZZER_ALIAS"
 CRASHES_DIR="$CORPUS_DIR/crashes"
 
-# Create corpus and crashes directories
+# Create corpus, sync_corpus, and crashes directories
 mkdir -p "$CRASHES_DIR"
+mkdir -p "$SYNC_CORPUS_DIR"
 
 # Change to build directory
 cd "$BUILD_DIR"
 
 # Default fuzzer parameters
-TIMEOUT=1
+TIMEOUT=5
 LEN_CONTROL=500
-WORKERS=8
-JOBS=8
+WORKERS=4
+JOBS=4
 ENTROPIC=1
 SHRINK=1
 ARTIFACT_PREFIX="$CRASHES_DIR/"
@@ -140,6 +145,7 @@ echo "Running $FUZZER_TYPE"
 echo "=========================================="
 echo "Build directory: $BUILD_DIR"
 echo "Corpus directory: $CORPUS_DIR"
+echo "Sync corpus directory: $SYNC_CORPUS_DIR"
 echo "Crashes directory: $CRASHES_DIR"
 if [ "$COMMAND" = "fuzz" ]; then
     echo "Parameters:"
@@ -166,7 +172,7 @@ FUZZER_CMD=(./bin/$FUZZER_TYPE)
 
 if [ "$COMMAND" = "coverage" ]; then
     # When running with coverage, use simplified command
-    FUZZER_CMD+=("$CORPUS_DIR" -runs=1)
+    FUZZER_CMD+=("$CORPUS_DIR" "$SYNC_CORPUS_DIR" -runs=1)
 else
     # Normal fuzzing with full parameters
     FUZZER_CMD+=(
@@ -178,6 +184,7 @@ else
         -shrink=$SHRINK
         -artifact_prefix=$ARTIFACT_PREFIX
         "$CORPUS_DIR"
+        "$SYNC_CORPUS_DIR"
     )
 fi
 
