@@ -1,3 +1,4 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -12,7 +13,7 @@ import {
 } from '@aztec/telemetry-client';
 
 export interface EpochMonitorHandler {
-  handleEpochReadyToProve(epochNumber: bigint): Promise<boolean>;
+  handleEpochReadyToProve(epochNumber: EpochNumber): Promise<boolean>;
 }
 
 /**
@@ -32,7 +33,7 @@ export class EpochMonitor implements Traceable {
   public readonly tracer: Tracer;
 
   private handler: EpochMonitorHandler | undefined;
-  private latestEpochNumber: bigint | undefined;
+  private latestEpochNumber: EpochNumber | undefined;
 
   constructor(
     private readonly l2BlockSource: L2BlockSource,

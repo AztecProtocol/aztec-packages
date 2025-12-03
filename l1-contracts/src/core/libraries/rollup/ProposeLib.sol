@@ -14,21 +14,17 @@ import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelec
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
-import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeaderLib.sol";
+import {ProposedHeader, ProposedHeaderLib} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
 
 struct ProposeArgs {
   bytes32 archive;
-  // TODO: Remove the `stateReference` as it's not part of the checkpoint header. And we don't need to get it from the
-  // calldata to validate the world state (only the new archive root is needed).
-  StateReference stateReference;
   OracleInput oracleInput;
   ProposedHeader header;
 }
 
 struct ProposePayload {
   bytes32 archive;
-  StateReference stateReference;
   OracleInput oracleInput;
   bytes32 headerHash;
 }
@@ -212,14 +208,8 @@ library ProposeLib {
     }
 
     // Create payload digest signed by the committee members
-    v.payloadDigest = digest(
-      ProposePayload({
-        archive: _args.archive,
-        stateReference: _args.stateReference,
-        oracleInput: _args.oracleInput,
-        headerHash: v.headerHash
-      })
-    );
+    v.payloadDigest =
+      digest(ProposePayload({archive: _args.archive, oracleInput: _args.oracleInput, headerHash: v.headerHash}));
 
     // Validate checkpoint header
     validateHeader(

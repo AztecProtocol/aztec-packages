@@ -282,6 +282,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Real notes coming from DB will have a leafIndex which
    * represents their index in the note hash tree.
    *
+   * @param owner - The owner of the notes.
    * @param storageSlot - The storage slot.
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
@@ -295,6 +296,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns Array of note data.
    */
   public override async utilityGetNotes(
+    owner: AztecAddress,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -311,11 +313,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     status: NoteStatus,
   ): Promise<NoteData[]> {
     // Nullified pending notes are already removed from the list.
-    const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, storageSlot);
+    const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, owner, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
     const dbNotes = await this.executionDataProvider.getNotes(
       this.callContext.contractAddress,
+      owner,
       storageSlot,
       status,
       this.scopes,
@@ -365,7 +368,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   /**
    * Keep track of the new note created during execution.
    * It can be used in subsequent calls (or transactions when chaining txs is possible).
-   * @param contractAddress - The contract address.
+   * @param owner - The owner of the note.
    * @param storageSlot - The storage slot.
    * @param randomness - The randomness injected into the note.
    * @param noteTypeId - The type ID of the note.
@@ -374,6 +377,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns
    */
   public privateNotifyCreatedNote(
+    owner: AztecAddress,
     storageSlot: Fr,
     randomness: Fr,
     noteTypeId: NoteSelector,
@@ -393,6 +397,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.noteCache.addNewNote(
       {
         contractAddress: this.callContext.contractAddress,
+        owner,
         storageSlot,
         randomness,
         noteNonce: Fr.ZERO, // Nonce cannot be known during private execution.

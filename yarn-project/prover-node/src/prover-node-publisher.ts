@@ -1,7 +1,8 @@
-import type { BatchedBlob } from '@aztec/blob-lib';
+import { BatchedBlob, getEthBlobEvaluationInputs } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import type { L1TxUtils, RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { areArraysEqual } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -85,16 +86,16 @@ export class ProverNodePublisher {
   }
 
   public async submitEpochProof(args: {
-    epochNumber: number;
-    fromBlock: number;
-    toBlock: number;
+    epochNumber: EpochNumber;
+    fromCheckpoint: CheckpointNumber;
+    toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
   }): Promise<boolean> {
-    const { epochNumber, fromBlock, toBlock } = args;
-    const ctx = { epochNumber, fromBlock, toBlock };
+    const { epochNumber, fromCheckpoint, toCheckpoint } = args;
+    const ctx = { epochNumber, fromCheckpoint, toCheckpoint };
 
     if (!this.interrupted) {
       const timer = new Timer();
@@ -138,44 +139,48 @@ export class ProverNodePublisher {
       this.log.error(`Rollup.submitEpochProof tx status failed ${txReceipt.transactionHash}`, undefined, ctx);
     }
 
-    this.log.verbose('L2 block data syncing interrupted', ctx);
+    this.log.verbose('Checkpoint data syncing interrupted', ctx);
     return false;
   }
 
   private async validateEpochProofSubmission(args: {
-    fromBlock: number;
-    toBlock: number;
+    fromCheckpoint: CheckpointNumber;
+    toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
   }) {
-    const { fromBlock, toBlock, publicInputs, batchedBlobInputs } = args;
+    const { fromCheckpoint, toCheckpoint, publicInputs, batchedBlobInputs } = args;
 
-    // Check that the block numbers match the expected epoch to be proven
+    // Check that the checkpoint numbers match the expected epoch to be proven
     const { pending, proven } = await this.rollupContract.getTips();
-    // Don't publish if proven is beyond our toBlock, pointless to do so
-    if (proven > BigInt(toBlock)) {
-      throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as proven block is ${proven}`);
-    }
-    // toBlock can't be greater than pending
-    if (toBlock > pending) {
-      throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as pending block is ${pending}`);
-    }
-
-    // Check the archive for the immediate block before the epoch
-    const blockLog = await this.rollupContract.getCheckpoint(BigInt(fromBlock - 1));
-    if (publicInputs.previousArchiveRoot.toString() !== blockLog.archive) {
+    // Don't publish if proven is beyond our toCheckpoint, pointless to do so
+    if (proven > BigInt(toCheckpoint)) {
       throw new Error(
-        `Previous archive root mismatch: ${publicInputs.previousArchiveRoot.toString()} !== ${blockLog.archive}`,
+        `Cannot submit epoch proof for ${fromCheckpoint}-${toCheckpoint} as proven checkpoint is ${proven}`,
+      );
+    }
+    // toCheckpoint can't be greater than pending
+    if (toCheckpoint > pending) {
+      throw new Error(
+        `Cannot submit epoch proof for ${fromCheckpoint}-${toCheckpoint} as pending checkpoint is ${pending}`,
       );
     }
 
-    // Check the archive for the last block in the epoch
-    const endBlockLog = await this.rollupContract.getCheckpoint(BigInt(toBlock));
-    if (publicInputs.endArchiveRoot.toString() !== endBlockLog.archive) {
+    // Check the archive for the immediate checkpoint before the epoch
+    const checkpointLog = await this.rollupContract.getCheckpoint(CheckpointNumber(fromCheckpoint - 1));
+    if (publicInputs.previousArchiveRoot.toString() !== checkpointLog.archive) {
       throw new Error(
-        `End archive root mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endBlockLog.archive}`,
+        `Previous archive root mismatch: ${publicInputs.previousArchiveRoot.toString()} !== ${checkpointLog.archive}`,
+      );
+    }
+
+    // Check the archive for the last checkpoint in the epoch
+    const endCheckpointLog = await this.rollupContract.getCheckpoint(toCheckpoint);
+    if (publicInputs.endArchiveRoot.toString() !== endCheckpointLog.archive) {
+      throw new Error(
+        `End archive root mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endCheckpointLog.archive}`,
       );
     }
 
@@ -202,8 +207,8 @@ export class ProverNodePublisher {
   }
 
   private async sendSubmitEpochProofTx(args: {
-    fromBlock: number;
-    toBlock: number;
+    fromCheckpoint: CheckpointNumber;
+    toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
@@ -213,8 +218,8 @@ export class ProverNodePublisher {
 
     this.log.info(`Submitting epoch proof to L1 rollup contract`, {
       proofSize: args.proof.withoutPublicInputs().length,
-      fromBlock: args.fromBlock,
-      toBlock: args.toBlock,
+      fromCheckpoint: args.fromCheckpoint,
+      toCheckpoint: args.toCheckpoint,
     });
     const data = encodeFunctionData({
       abi: RollupAbi,
@@ -243,16 +248,16 @@ export class ProverNodePublisher {
   }
 
   private getEpochProofPublicInputsArgs(args: {
-    fromBlock: number;
-    toBlock: number;
+    fromCheckpoint: CheckpointNumber;
+    toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
   }) {
     // Returns arguments for EpochProofLib.sol -> getEpochProofPublicInputs()
     return [
-      BigInt(args.fromBlock) /*_start*/,
-      BigInt(args.toBlock) /*_end*/,
+      BigInt(args.fromCheckpoint) /*_start*/,
+      BigInt(args.toCheckpoint) /*_end*/,
       {
         previousArchive: args.publicInputs.previousArchiveRoot.toString(),
         endArchive: args.publicInputs.endArchiveRoot.toString(),
@@ -263,13 +268,13 @@ export class ProverNodePublisher {
           ? args.publicInputs.fees[i / 2].recipient.toField().toString()
           : args.publicInputs.fees[(i - 1) / 2].value.toString(),
       ) /*_fees*/,
-      args.batchedBlobInputs.getEthBlobEvaluationInputs() /*_blobPublicInputs*/,
+      getEthBlobEvaluationInputs(args.batchedBlobInputs) /*_blobPublicInputs*/,
     ] as const;
   }
 
   private getSubmitEpochProofArgs(args: {
-    fromBlock: number;
-    toBlock: number;
+    fromCheckpoint: CheckpointNumber;
+    toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
     batchedBlobInputs: BatchedBlob;

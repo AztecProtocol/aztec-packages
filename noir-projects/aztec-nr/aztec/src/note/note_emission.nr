@@ -14,6 +14,7 @@ use protocol_types::{address::AztecAddress, traits::Packable};
 pub struct NoteEmissionContent<Note> {
     // The struct fields are exposed only because of tests.
     pub note: Note,
+    pub owner: AztecAddress,
     pub storage_slot: Field,
     pub randomness: Field,
     pub note_hash_counter: u32, // a note_hash_counter of 0 means settled
@@ -38,13 +39,20 @@ where
 {
     pub fn new(
         note: Note,
+        owner: AztecAddress,
         storage_slot: Field,
         randomness: Field,
         note_hash_counter: u32,
         context: &mut PrivateContext,
     ) -> Self {
         Self {
-            content: NoteEmissionContent { note, storage_slot, randomness, note_hash_counter },
+            content: NoteEmissionContent {
+                note,
+                owner,
+                storage_slot,
+                randomness,
+                note_hash_counter,
+            },
             context,
         }
     }
@@ -76,6 +84,7 @@ where
             || AES128::encrypt(
                 private_note_to_message_plaintext(
                     content.note,
+                    content.owner,
                     content.storage_slot,
                     content.randomness,
                 ),

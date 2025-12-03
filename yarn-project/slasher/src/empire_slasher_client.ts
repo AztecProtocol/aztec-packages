@@ -1,5 +1,6 @@
 import { EmpireSlashingProposerContract, RollupContract, SlasherContract } from '@aztec/ethereum';
 import { sumBigint } from '@aztec/foundation/bigint';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, filterAsync, maxBy, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -369,7 +370,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
    * @param slotNumber - The current slot number
    * @returns The actions to take
    */
-  public async getProposerActions(slotNumber: bigint): Promise<ProposerSlashAction[]> {
+  public async getProposerActions(slotNumber: SlotNumber): Promise<ProposerSlashAction[]> {
     const [executeAction, proposePayloadActions] = await Promise.all([
       this.getExecutePayloadAction(slotNumber),
       this.getProposePayloadActions(slotNumber),
@@ -379,7 +380,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
   }
 
   /** Returns an execute payload action if there are any payloads ready to be executed */
-  protected async getExecutePayloadAction(slotNumber: bigint): Promise<ProposerSlashAction | undefined> {
+  protected async getExecutePayloadAction(slotNumber: SlotNumber): Promise<ProposerSlashAction | undefined> {
     const { round } = this.roundMonitor.getRoundForSlot(slotNumber);
     const toRemove: PayloadWithRound[] = [];
 
@@ -430,7 +431,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
   }
 
   /** Returns a vote or create payload action based on payload scoring */
-  protected async getProposePayloadActions(slotNumber: bigint): Promise<ProposerSlashAction[]> {
+  protected async getProposePayloadActions(slotNumber: SlotNumber): Promise<ProposerSlashAction[]> {
     // Compute what round we are in based on the slot number
     const { round, votingSlot } = this.roundMonitor.getRoundForSlot(slotNumber);
     const { slashingRoundSize: roundSize, slashingQuorumSize: quorumSize } = this.settings;
@@ -473,7 +474,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     // Find the best existing payload. We filter out those that have no chance of winning given how many voting
     // slots are left in the round, and then filter by those we agree with.
     const feasiblePayloads = existingPayloads.filter(
-      p => BigInt(quorumSize) - p.votes <= BigInt(roundSize) - votingSlot,
+      p => BigInt(quorumSize) - p.votes <= BigInt(roundSize) - BigInt(votingSlot),
     );
     const requiredOffenses = await this.getPendingUncontroversialOffensesForRound(round);
     const agreedPayloads = await filterAsync(feasiblePayloads, p => this.agreeWithPayload(p, round, requiredOffenses));

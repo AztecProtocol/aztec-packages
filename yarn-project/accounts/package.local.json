@@ -1,10 +1,10 @@
 {
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
+    "build": "yarn clean && yarn generate && tsgo -b",
     "generate": "yarn generate:noir-contracts",
     "generate:noir-contracts": "./scripts/copy-contracts.sh",
-    "build:dev": "tsc -b --watch",
-    "build:ts": "tsc -b",
+    "build:dev": "tsgo -b --watch",
+    "build:ts": "tsgo -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts"
   },
   "files": ["dest", "src", "artifacts", "!*.test.*"]

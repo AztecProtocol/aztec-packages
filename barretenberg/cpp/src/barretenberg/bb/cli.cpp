@@ -326,7 +326,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Builtin flag: --version
      ***************************************************************************************************************/
-    app.set_version_flag("--version", BB_VERSION_PLACEHOLDER, "Print the version string.");
+    app.set_version_flag("--version", BB_VERSION, "Print the version string.");
 
     /***************************************************************************************************************
      * Subcommand: check

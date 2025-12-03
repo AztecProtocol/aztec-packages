@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Extract contract bytecode",
+      "type": "shell",
+      "command": "${workspaceFolder}/barretenberg/cpp/scripts/extract_bytecode.sh",
+      "args": [
+        "./target/schnorr_hardcoded_account_contract-SchnorrHardcodedAccount.json",
+        "entrypoint",
+        "./target/bytecode.bin"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/noir-projects/noir-contracts"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Cleanup contract bytecode",
+      "type": "shell",
+      "command": "rm",
+      "args": ["-f", "./target/bytecode.bin"],
+      "options": {
+        "cwd": "${workspaceFolder}/noir-projects/noir-contracts"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

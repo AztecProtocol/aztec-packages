@@ -14,6 +14,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
+import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -191,36 +192,39 @@ export class TxEffect {
     return computeTxOutHash(this.l2ToL1Msgs);
   }
 
-  static async random(
+  static async random({
+    numNoteHashes,
+    numNullifiers,
+    numL2ToL1Msgs,
+    numPublicDataWrites,
+    numPrivateLogs,
     numPublicCallsPerTx = 3,
     numPublicLogsPerCall = 1,
-    maxEffects: number | undefined = undefined,
-  ): Promise<TxEffect> {
+    numContractClassLogs,
+    maxEffects,
+  }: {
+    numNoteHashes?: number;
+    numNullifiers?: number;
+    numL2ToL1Msgs?: number;
+    numPublicDataWrites?: number;
+    numPrivateLogs?: number;
+    numPublicCallsPerTx?: number;
+    numPublicLogsPerCall?: number;
+    numContractClassLogs?: number;
+    maxEffects?: number;
+  } = {}): Promise<TxEffect> {
+    const count = (max: number, num?: number) => num ?? Math.min(maxEffects ?? randomInt(max), max);
     return new TxEffect(
       RevertCode.random(),
       TxHash.random(),
       new Fr(Math.floor(Math.random() * 100_000)),
-      makeTuple(
-        maxEffects === undefined ? MAX_NOTE_HASHES_PER_TX : Math.min(maxEffects, MAX_NOTE_HASHES_PER_TX),
-        Fr.random,
-      ),
-      makeTuple(
-        maxEffects === undefined ? MAX_NULLIFIERS_PER_TX : Math.min(maxEffects, MAX_NULLIFIERS_PER_TX),
-        Fr.random,
-      ),
-      makeTuple(
-        maxEffects === undefined ? MAX_L2_TO_L1_MSGS_PER_TX : Math.min(maxEffects, MAX_L2_TO_L1_MSGS_PER_TX),
-        Fr.random,
-      ),
-      makeTuple(
-        maxEffects === undefined
-          ? MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-          : Math.min(maxEffects, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
-        PublicDataWrite.random,
-      ),
-      makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => PrivateLog.random()),
+      makeTuple(count(MAX_NOTE_HASHES_PER_TX, numNoteHashes), Fr.random),
+      makeTuple(count(MAX_NULLIFIERS_PER_TX, numNullifiers), Fr.random),
+      makeTuple(count(MAX_L2_TO_L1_MSGS_PER_TX, numL2ToL1Msgs), Fr.random),
+      makeTuple(count(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, numPublicDataWrites), PublicDataWrite.random),
+      makeTuple(count(MAX_PRIVATE_LOGS_PER_TX, numPrivateLogs), () => PrivateLog.random()),
       await Promise.all(new Array(numPublicCallsPerTx * numPublicLogsPerCall).fill(null).map(() => PublicLog.random())),
-      await makeTupleAsync(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog.random),
+      await makeTupleAsync(count(MAX_CONTRACT_CLASS_LOGS_PER_TX, numContractClassLogs), ContractClassLog.random),
     );
   }
 

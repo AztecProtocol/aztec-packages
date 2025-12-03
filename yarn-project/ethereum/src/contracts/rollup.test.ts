@@ -1,4 +1,5 @@
 import { getPublicClient } from '@aztec/ethereum';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -62,14 +63,14 @@ describe('Rollup', () => {
 
   describe('makePendingCheckpointNumberOverride', () => {
     it('creates state override that correctly overrides pending checkpoint number', async () => {
-      const testProvenCheckpointNumber = 42n;
-      const testPendingCheckpointNumber = 100n;
-      const newPendingCheckpointNumber = 150;
+      const testProvenCheckpointNumber = CheckpointNumber(42);
+      const testPendingCheckpointNumber = CheckpointNumber(100);
+      const newPendingCheckpointNumber = CheckpointNumber(150);
 
       // Set storage directly using cheat codes
       // The storage slot stores both values: pending (high 128 bits) | proven (low 128 bits)
       const storageSlot = RollupContract.stfStorageSlot;
-      const packedValue = (testPendingCheckpointNumber << 128n) | testProvenCheckpointNumber;
+      const packedValue = (BigInt(testPendingCheckpointNumber) << 128n) | BigInt(testProvenCheckpointNumber);
       await cheatCodes.store(EthAddress.fromString(rollupAddress), BigInt(storageSlot), packedValue);
 
       // Verify the values were set correctly by calling the getters directly
@@ -101,7 +102,7 @@ describe('Rollup', () => {
         stateOverride,
       });
 
-      expect(overriddenProvenCheckpointNumber).toBe(testProvenCheckpointNumber);
+      expect(CheckpointNumber.fromBigInt(overriddenProvenCheckpointNumber)).toBe(testProvenCheckpointNumber);
 
       // Verify the actual storage hasn't changed
       const actualPendingCheckpointNumber = await rollup.getCheckpointNumber();

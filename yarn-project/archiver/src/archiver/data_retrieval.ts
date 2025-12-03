@@ -12,16 +12,17 @@ import type {
   ViemCommitteeAttestations,
   ViemHeader,
   ViemPublicClient,
-  ViemStateReference,
 } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { Body, CommitteeAttestation, L2Block, L2BlockHeader, PublishedL2Block } from '@aztec/stdlib/block';
+import { Body, CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
+import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -42,9 +43,9 @@ import type { DataRetrieval } from './structs/data_retrieval.js';
 import type { InboxMessage } from './structs/inbox_message.js';
 import type { L1PublishedData } from './structs/published.js';
 
-export type RetrievedL2Block = {
+export type RetrievedCheckpoint = {
+  checkpointNumber: CheckpointNumber;
   archiveRoot: Fr;
-  stateReference: StateReference;
   header: CheckpointHeader;
   checkpointBlobData: CheckpointBlobData;
   l1: L1PublishedData;
@@ -53,16 +54,16 @@ export type RetrievedL2Block = {
   attestations: CommitteeAttestation[];
 };
 
-export async function retrievedBlockToPublishedL2Block({
+export async function retrievedToPublishedCheckpoint({
+  checkpointNumber,
   archiveRoot,
-  stateReference,
   header: checkpointHeader,
   checkpointBlobData,
   l1,
   chainId,
   version,
   attestations,
-}: RetrievedL2Block): Promise<PublishedL2Block> {
+}: RetrievedCheckpoint): Promise<PublishedCheckpoint> {
   const { blocks: blocksBlobData } = checkpointBlobData;
 
   // The lastArchiveRoot of a block is the new archive for the previous block.
@@ -76,7 +77,7 @@ export async function retrievedBlockToPublishedL2Block({
   const l1toL2MessageTreeRoot = blocksBlobData[0].l1ToL2MessageRoot!;
 
   const spongeBlob = SpongeBlob.init();
-  const l2Blocks: L2Block[] = [];
+  const l2Blocks: L2BlockNew[] = [];
   for (let i = 0; i < blocksBlobData.length; i++) {
     const blockBlobData = blocksBlobData[i];
     const { blockEndMarker, blockEndStateField, lastArchiveRoot, noteHashRoot, nullifierRoot, publicDataRoot } =
@@ -115,7 +116,7 @@ export async function retrievedBlockToPublishedL2Block({
     const clonedSpongeBlob = spongeBlob.clone();
     const spongeBlobHash = await clonedSpongeBlob.squeeze();
 
-    const blockHeader = BlockHeader.from({
+    const header = BlockHeader.from({
       lastArchive: new AppendOnlyTreeSnapshot(lastArchiveRoot, l2BlockNumber),
       state,
       spongeBlobHash,
@@ -124,31 +125,24 @@ export async function retrievedBlockToPublishedL2Block({
       totalManaUsed: new Fr(blockEndStateField.totalManaUsed),
     });
 
-    const header = L2BlockHeader.from({
-      ...blockHeader,
-      blockHeadersHash: checkpointHeader.blockHeadersHash,
-      contentCommitment: checkpointHeader.contentCommitment,
-    });
-
     const newArchive = new AppendOnlyTreeSnapshot(newArchiveRoots[i], l2BlockNumber + 1);
 
-    l2Blocks.push(new L2Block(newArchive, header, body));
+    l2Blocks.push(new L2BlockNew(newArchive, header, body));
   }
 
-  const lastBlock = l2Blocks[l2Blocks.length - 1];
-  if (!lastBlock.header.state.equals(stateReference)) {
-    throw new Error(
-      'The claimed state reference submitted to L1 does not match the state reference of the last block.',
-    );
-  }
+  const lastBlock = l2Blocks.at(-1)!;
+  const checkpoint = Checkpoint.from({
+    archive: new AppendOnlyTreeSnapshot(archiveRoot, lastBlock.number + 1),
+    header: checkpointHeader,
+    blocks: l2Blocks,
+    number: checkpointNumber,
+  });
 
-  // TODO(#17027)
-  // There's only one block per checkpoint at the moment.
-  return PublishedL2Block.fromFields({ block: l2Blocks[0], l1, attestations });
+  return PublishedCheckpoint.from({ checkpoint, l1, attestations });
 }
 
 /**
- * Fetches new L2 blocks.
+ * Fetches new checkpoints.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param rollupAddress - The address of the rollup contract.
  * @param searchStartBlock - The block number to use for starting the search.
@@ -156,15 +150,15 @@ export async function retrievedBlockToPublishedL2Block({
  * @param expectedNextL2BlockNum - The next L2 block number that we expect to find.
  * @returns An array of block; as well as the next eth block to search from.
  */
-export async function retrieveBlocksFromRollup(
+export async function retrieveCheckpointsFromRollup(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
   logger: Logger = createLogger('archiver'),
-): Promise<RetrievedL2Block[]> {
-  const retrievedBlocks: RetrievedL2Block[] = [];
+): Promise<RetrievedCheckpoint[]> {
+  const retrievedCheckpoints: RetrievedCheckpoint[] = [];
 
   let rollupConstants: { chainId: Fr; version: Fr; targetCommitteeSize: number } | undefined;
 
@@ -172,7 +166,7 @@ export async function retrieveBlocksFromRollup(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const l2BlockProposedLogs = (
+    const checkpointProposedLogs = (
       await rollup.getEvents.CheckpointProposed(
         {},
         {
@@ -182,13 +176,13 @@ export async function retrieveBlocksFromRollup(
       )
     ).filter(log => log.blockNumber! >= searchStartBlock && log.blockNumber! <= searchEndBlock);
 
-    if (l2BlockProposedLogs.length === 0) {
+    if (checkpointProposedLogs.length === 0) {
       break;
     }
 
-    const lastLog = l2BlockProposedLogs[l2BlockProposedLogs.length - 1];
+    const lastLog = checkpointProposedLogs.at(-1)!;
     logger.debug(
-      `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.checkpointNumber}-${lastLog.args.checkpointNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
+      `Got ${checkpointProposedLogs.length} processed logs for checkpoints  ${checkpointProposedLogs[0].args.checkpointNumber}-${lastLog.args.checkpointNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
     );
 
     if (rollupConstants === undefined) {
@@ -204,52 +198,52 @@ export async function retrieveBlocksFromRollup(
       };
     }
 
-    const newBlocks = await processL2BlockProposedLogs(
+    const newCheckpoints = await processCheckpointProposedLogs(
       rollup,
       publicClient,
       blobSinkClient,
-      l2BlockProposedLogs,
+      checkpointProposedLogs,
       rollupConstants,
       logger,
     );
-    retrievedBlocks.push(...newBlocks);
+    retrievedCheckpoints.push(...newCheckpoints);
     searchStartBlock = lastLog.blockNumber! + 1n;
   } while (searchStartBlock <= searchEndBlock);
 
-  // The asyncpool from processL2BlockProposedLogs will not necessarily return the blocks in order, so we sort them before returning.
-  return retrievedBlocks.sort((a, b) => Number(a.l1.blockNumber - b.l1.blockNumber));
+  // The asyncPool from processCheckpointProposedLogs will not necessarily return the checkpoints in order, so we sort them before returning.
+  return retrievedCheckpoints.sort((a, b) => Number(a.l1.blockNumber - b.l1.blockNumber));
 }
 
 /**
- * Processes newly received L2BlockProposed logs.
+ * Processes newly received CheckpointProposed logs.
  * @param rollup - The rollup contract
  * @param publicClient - The viem public client to use for transaction retrieval.
- * @param logs - L2BlockProposed logs.
- * @returns - An array blocks.
+ * @param logs - CheckpointProposed logs.
+ * @returns - An array of checkpoints.
  */
-async function processL2BlockProposedLogs(
+async function processCheckpointProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'CheckpointProposed'>,
   { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
   logger: Logger,
-): Promise<RetrievedL2Block[]> {
-  const retrievedBlocks: RetrievedL2Block[] = [];
+): Promise<RetrievedCheckpoint[]> {
+  const retrievedCheckpoints: RetrievedCheckpoint[] = [];
   await asyncPool(10, logs, async log => {
-    const l2BlockNumber = Number(log.args.checkpointNumber!);
+    const checkpointNumber = CheckpointNumber.fromBigInt(log.args.checkpointNumber!);
     const archive = log.args.archive!;
-    const archiveFromChain = await rollup.read.archiveAt([BigInt(l2BlockNumber)]);
+    const archiveFromChain = await rollup.read.archiveAt([BigInt(checkpointNumber)]);
     const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash.slice(2), 'hex'));
 
-    // The value from the event and contract will match only if the block is in the chain.
+    // The value from the event and contract will match only if the checkpoint is in the chain.
     if (archive === archiveFromChain) {
-      const block = await getBlockFromRollupTx(
+      const checkpoint = await getCheckpointFromRollupTx(
         publicClient,
         blobSinkClient,
         log.transactionHash!,
         blobHashes,
-        l2BlockNumber,
+        checkpointNumber,
         rollup.address,
         targetCommitteeSize,
         logger,
@@ -261,22 +255,22 @@ async function processL2BlockProposedLogs(
         timestamp: await getL1BlockTime(publicClient, log.blockNumber),
       };
 
-      retrievedBlocks.push({ ...block, l1, chainId, version });
-      logger.trace(`Retrieved L2 block ${l2BlockNumber} from L1 tx ${log.transactionHash}`, {
+      retrievedCheckpoints.push({ ...checkpoint, l1, chainId, version });
+      logger.trace(`Retrieved checkpoint ${checkpointNumber} from L1 tx ${log.transactionHash}`, {
         l1BlockNumber: log.blockNumber,
-        l2BlockNumber,
+        checkpointNumber,
         archive: archive.toString(),
-        attestations: block.attestations,
+        attestations: checkpoint.attestations,
       });
     } else {
-      logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
+      logger.warn(`Ignoring checkpoint ${checkpointNumber} due to archive root mismatch`, {
         actual: archive,
         expected: archiveFromChain,
       });
     }
   });
 
-  return retrievedBlocks;
+  return retrievedCheckpoints;
 }
 
 export async function getL1BlockTime(publicClient: ViemPublicClient, blockNumber: bigint): Promise<bigint> {
@@ -335,25 +329,25 @@ function extractRollupProposeCalldata(multicall3Data: Hex, rollupAddress: Hex): 
 }
 
 /**
- * Gets block from the calldata of an L1 transaction.
- * Assumes that the block was published from an EOA.
+ * Gets checkpoint from the calldata of an L1 transaction.
+ * Assumes that the checkpoint was published from an EOA.
  * TODO: Add retries and error management.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param txHash - Hash of the tx that published it.
- * @param l2BlockNumber - L2 block number.
- * @returns L2 block from the calldata, deserialized
+ * @param checkpointNumber - Checkpoint number.
+ * @returns Checkpoint from the calldata, deserialized
  */
-async function getBlockFromRollupTx(
+async function getCheckpointFromRollupTx(
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
   blobHashes: Buffer[], // TODO(md): buffer32?
-  l2BlockNumber: number,
+  checkpointNumber: CheckpointNumber,
   rollupAddress: Hex,
   targetCommitteeSize: number,
   logger: Logger,
-): Promise<Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version'>> {
-  logger.trace(`Fetching L2 block ${l2BlockNumber} from rollup tx ${txHash}`);
+): Promise<Omit<RetrievedCheckpoint, 'l1' | 'chainId' | 'version'>> {
+  logger.trace(`Fetching checkpoint ${checkpointNumber} from rollup tx ${txHash}`);
   const { input: forwarderData, blockHash } = await publicClient.getTransaction({ hash: txHash });
 
   const rollupData = extractRollupProposeCalldata(forwarderData, rollupAddress);
@@ -369,7 +363,6 @@ async function getBlockFromRollupTx(
   const [decodedArgs, packedAttestations, _signers, _blobInput] = rollupArgs! as readonly [
     {
       archive: Hex;
-      stateReference: ViemStateReference;
       oracleInput: {
         feeAssetPriceModifier: bigint;
       };
@@ -385,9 +378,8 @@ async function getBlockFromRollupTx(
   const attestations = CommitteeAttestation.fromPacked(packedAttestations, targetCommitteeSize);
 
   logger.trace(`Recovered propose calldata from tx ${txHash}`, {
-    l2BlockNumber,
+    checkpointNumber,
     archive: decodedArgs.archive,
-    stateReference: decodedArgs.stateReference,
     header: decodedArgs.header,
     l1BlockHash: blockHash,
     blobHashes,
@@ -399,7 +391,7 @@ async function getBlockFromRollupTx(
   const header = CheckpointHeader.fromViem(decodedArgs.header);
   const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   if (blobBodies.length === 0) {
-    throw new NoBlobBodiesFoundError(l2BlockNumber);
+    throw new NoBlobBodiesFoundError(checkpointNumber);
   }
 
   let checkpointBlobData: CheckpointBlobData;
@@ -417,11 +409,9 @@ async function getBlockFromRollupTx(
 
   const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
 
-  const stateReference = StateReference.fromViem(decodedArgs.stateReference);
-
   return {
+    checkpointNumber,
     archiveRoot,
-    stateReference,
     header,
     checkpointBlobData,
     attestations,
@@ -492,7 +482,7 @@ export async function retrieveL2ProofVerifiedEvents(
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
-): Promise<{ l1BlockNumber: bigint; l2BlockNumber: number; proverId: Fr; txHash: Hex }[]> {
+): Promise<{ l1BlockNumber: bigint; checkpointNumber: CheckpointNumber; proverId: Fr; txHash: Hex }[]> {
   const logs = await publicClient.getLogs({
     address: rollupAddress.toString(),
     fromBlock: searchStartBlock,
@@ -503,7 +493,7 @@ export async function retrieveL2ProofVerifiedEvents(
 
   return logs.map(log => ({
     l1BlockNumber: log.blockNumber,
-    l2BlockNumber: Number(log.args.checkpointNumber),
+    checkpointNumber: CheckpointNumber.fromBigInt(log.args.checkpointNumber),
     proverId: Fr.fromHexString(log.args.proverId),
     txHash: log.transactionHash,
   }));
@@ -515,14 +505,14 @@ export async function retrieveL2ProofsFromRollup(
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
-): Promise<DataRetrieval<{ proof: Proof; proverId: Fr; l2BlockNumber: number; txHash: `0x${string}` }>> {
+): Promise<DataRetrieval<{ proof: Proof; proverId: Fr; checkpointNumber: number; txHash: `0x${string}` }>> {
   const logs = await retrieveL2ProofVerifiedEvents(publicClient, rollupAddress, searchStartBlock, searchEndBlock);
-  const retrievedData: { proof: Proof; proverId: Fr; l2BlockNumber: number; txHash: `0x${string}` }[] = [];
+  const retrievedData: { proof: Proof; proverId: Fr; checkpointNumber: number; txHash: `0x${string}` }[] = [];
   const lastProcessedL1BlockNumber = logs.length > 0 ? logs.at(-1)!.l1BlockNumber : searchStartBlock - 1n;
 
-  for (const { txHash, proverId, l2BlockNumber } of logs) {
+  for (const { txHash, proverId, checkpointNumber } of logs) {
     const proofData = await getProofFromSubmitProofTx(publicClient, txHash, proverId);
-    retrievedData.push({ proof: proofData.proof, proverId: proofData.proverId, l2BlockNumber, txHash });
+    retrievedData.push({ proof: proofData.proof, proverId: proofData.proverId, checkpointNumber, txHash });
   }
   return {
     retrievedData,
@@ -530,26 +520,26 @@ export async function retrieveL2ProofsFromRollup(
   };
 }
 
-export type SubmitBlockProof = {
+export type SubmitEpochProof = {
   archiveRoot: Fr;
   proverId: Fr;
   proof: Proof;
 };
 
 /**
- * Gets block metadata (header and archive snapshot) from the calldata of an L1 transaction.
+ * Gets epoch proof metadata (archive root and proof) from the calldata of an L1 transaction.
  * Assumes that the block was published from an EOA.
  * TODO: Add retries and error management.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param txHash - Hash of the tx that published it.
- * @param l2BlockNum - L2 block number.
- * @returns L2 block metadata (header and archive) from the calldata, deserialized
+ * @param expectedProverId - Expected prover ID.
+ * @returns Epoch proof metadata from the calldata, deserialized.
  */
 export async function getProofFromSubmitProofTx(
   publicClient: ViemPublicClient,
   txHash: `0x${string}`,
   expectedProverId: Fr,
-): Promise<SubmitBlockProof> {
+): Promise<SubmitEpochProof> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
   const { functionName, args } = decodeFunctionData({ abi: RollupAbi, data });
 

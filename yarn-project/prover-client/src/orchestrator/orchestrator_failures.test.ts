@@ -1,3 +1,4 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
@@ -53,7 +54,7 @@ describe('prover/orchestrator/failures', () => {
       );
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
 
       for (let checkpointIndex = 0; checkpointIndex < checkpoints.length; checkpointIndex++) {
         const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];

@@ -34,7 +34,7 @@ bash -i <(curl -s https://install.aztec.network)
 Then install the correct version for the current network:
 
 ```bash
-aztec-up 2.1.6
+aztec-up 2.1.7
 ```
 
 Verify your CLI installation:
@@ -47,84 +47,17 @@ aztec --version
 
 This approach creates multiple sequencer identities (validators) that share a single publisher address for submitting transactions to L1. This is the recommended configuration for production deployments.
 
-### Step 1: Generate Your Keystores
+### Step 1: Create Publisher Address and Set RPC Endpoint
 
-Set your L1 RPC endpoint:
+First, set your Ethereum L1 RPC endpoint:
 
 ```bash
 export ETH_RPC=https://ethereum-rpc.publicnode.com
 ```
 
-Generate 5 validators with staker output:
+Or use your preferred Ethereum RPC provider (Infura, Alchemy, etc.).
 
-```bash
-aztec validator-keys new \
-  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
-  --staker-output \
-  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
-  --l1-rpc-urls $ETH_RPC \
-  --count 5
-```
-
-**What this command does:**
-- Generates a mnemonic for key derivation (save this securely!)
-- Creates 5 sequencer identities (validators) with Ethereum and BLS keys
-- Generates public keystore data for the staking dashboard
-- Saves files to `~/.aztec/keystore/`
-
-**Example output:**
-
-```
-No mnemonic provided, generating new one...
-Using new mnemonic:
-
-absent city nephew garment million badge front text memory grape two lizard
-
-Wrote validator keystore to /Users/your-name/.aztec/keystore/key1.json
-Wrote staker output for 5 validator(s) to /Users/your-name/.aztec/keystore/key1_staker_output.json
-
-acc1:
-  attester:
-    eth: 0x8E76a8B8D66E0A56E241F2768fD2ad4eba07E565
-    bls: 0x29eaf46e4699e33a1abe7300258567c624a7304a2134e31aa2609437f281d81d
-acc2:
-  attester:
-    eth: 0x2037b472537a4246B1A7325f327028EF450ba0Ef
-    bls: 0x8d7eb7d9436ac6cb9b8f1c211673ea228c7f438882e6438b2caefca753df28e8
-acc3:
-  attester:
-    eth: 0x0c14593f7465DeDbb86d68982374BB05F4C60386
-    bls: 0xad1cccf512d2f180238af795831344445f7ac47e2d623f3dac854e93e5b1e76d
-acc4:
-  attester:
-    eth: 0x4D213928988f0123f6b3B4A377F856812F08E831
-    bls: 0xa90f5889dddd4cd6bc5a28db5e0db60d3cbf5147eb6e82b313024b2d0634110e
-acc5:
-  attester:
-    eth: 0x29f147Da38d5F66bB84e791969b365c796829c92
-    bls: 0x0d683001c2ce866e322f0c7509f087a909508787d125336931aa9168d2a1f95b
-
-Staker outputs:
-[... JSON array with public keys for all 5 validators ...]
-```
-
-:::warning Save Your Mnemonic
-The mnemonic is the **only thing you must save** to regenerate your keys. Store it securely offline.
-:::
-
-**Files created:**
-- `~/.aztec/keystore/key1.json` - Private keystore with all 5 validators
-- `~/.aztec/keystore/key1_staker_output.json` - Public keystore for staking dashboard
-
-### Step 2: Create a Dedicated Publisher Address
-
-:::tip Important
-The publisher mnemonic is **separate** from your validator mnemonic. You'll manage two different mnemonics:
-1. **Validator mnemonic** - Generated in Step 1 for attester keys
-2. **Publisher mnemonic** - Generated in this step for L1 transaction signing
-:::
-
-Generate a separate address for publishing transactions to L1 using Foundry:
+Then generate a separate address for publishing transactions to L1 using the Foundry toolkit:
 
 ```bash
 cast wallet new-mnemonic --words 24
@@ -143,84 +76,180 @@ Address:     0xE434A95e816991E66bF7052955FD699aEf8a286b
 Private key: 0x7988a4a7...79f058a0
 ```
 
-**Save:**
-- The 24-word mnemonic (for recovery)
-- The private key (you'll add this to your keystore)
-
-### Step 3: Add Publisher to Keystore
-
-:::note Manual Step Required
-Currently, you need to manually edit the keystore to add the publisher private key to each validator.
+:::warning Critical: Save Your Publisher Mnemonic
+The 24-word mnemonic is the **only way** to recover your publisher private key. Store it securely offline (not on the server running the node).
 :::
 
-Open `~/.aztec/keystore/key1.json` and add the `publisher` field to each validator object:
+**Save from the output:**
+- ✅ The 24-word mnemonic (for recovery)
+- ✅ The private key (you'll use this in the next step)
+- ✅ The address (you'll fund this with ETH)
 
-**Before:**
-```json
-{
-  "schemaVersion": 1,
-  "validators": [
-    {
-      "attester": {
-        "eth": "0x5340b7e44a3a9202ee1a66dfb3db9dd548a1df6ae394dec7d5d44081d5bc0e91",
-        "bls": "0x08eb53286cdbf219b113c1a34fa0ec894427cc073b06aaa3f904b0c2371b95b5"
-      },
-      "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000"
-    }
-  ]
-}
+### Step 2: Generate Your Keystores with Publisher
+
+Generate 5 validators with the publisher private key from Step 1:
+
+```bash
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --staker-output \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+  --l1-rpc-urls $ETH_RPC \
+  --count 5 \
+  --publishers 0x7988a4a779f058a0
 ```
 
-**After adding publisher:**
-```json
-{
-  "schemaVersion": 1,
-  "validators": [
-    {
-      "attester": {
-        "eth": "0x5340b7e44a3a9202ee1a66dfb3db9dd548a1df6ae394dec7d5d44081d5bc0e91",
-        "bls": "0x08eb53286cdbf219b113c1a34fa0ec894427cc073b06aaa3f904b0c2371b95b5"
-      },
-      "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "publisher": ["0xa9fef27bdc5835a92796247db6d0341481b4c4783ebdf77fdff32ae7cfe63352"]
-    },
-    {
-      "attester": {
-        "eth": "0x3d0c51086b79f69d8543daba593e2b836ce35b8b7ecc6f4d2f4e1fa929a64d7d",
-        "bls": "0x11cde56615f6663e9b23b0f2e3bda995158edebe64d82a5106d39a9540c21fe8"
-      },
-      "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "publisher": ["0xa9fef27bdc5835a92796247db6d0341481b4c4783ebdf77fdff32ae7cfe63352"]
-    }
-    // ... repeat for all 5 validators
-  ]
-}
+Replace `0x7988a4a779f058a0` with your actual publisher private key from Step 1.
+
+**What this command does:**
+- Generates a new mnemonic for your validator keys (save this securely!)
+- Creates 5 sequencer identities (validators) with Ethereum and BLS keys
+- Configures all validators to use the same publisher address for L1 submissions
+- Generates public keystore data for the staking dashboard
+- Saves files to `~/.aztec/keystore/`
+
+**Example output:**
+
+```
+No mnemonic provided, generating new one...
+Using new mnemonic:
+
+absent city nephew garment million badge front text memory grape two lizard
+
+Wrote validator keystore to /Users/your-name/.aztec/keystore/key1.json
+Wrote staker output for 5 validator(s) to /Users/your-name/.aztec/keystore/key1_staker_output.json
+
+acc1:
+  attester:
+    eth: 0x8E76a8B8D66E0A56E241F2768fD2ad4eba07E565
+    bls: 0x29eaf46e4699e33a1abe7300258567c624a7304a2134e31aa2609437f281d81d
+  publisher:
+    - 0x7988a4a779f058a0
+acc2:
+  attester:
+    eth: 0x2037b472537a4246B1A7325f327028EF450ba0Ef
+    bls: 0x8d7eb7d9436ac6cb9b8f1c211673ea228c7f438882e6438b2caefca753df28e8
+  publisher:
+    - 0x7988a4a779f058a0
+acc3:
+  attester:
+    eth: 0x0c14593f7465DeDbb86d68982374BB05F4C60386
+    bls: 0xad1cccf512d2f180238af795831344445f7ac47e2d623f3dac854e93e5b1e76d
+  publisher:
+    - 0x7988a4a779f058a0
+acc4:
+  attester:
+    eth: 0x4D213928988f0123f6b3B4A377F856812F08E831
+    bls: 0xa90f5889dddd4cd6bc5a28db5e0db60d3cbf5147eb6e82b313024b2d0634110e
+  publisher:
+    - 0x7988a4a779f058a0
+acc5:
+  attester:
+    eth: 0x29f147Da38d5F66bB84e791969b365c796829c92
+    bls: 0x0d683001c2ce866e322f0c7509f087a909508787d125336931aa9168d2a1f95b
+  publisher:
+    - 0x7988a4a779f058a0
+
+Note: The publisher value shown is the private key (truncated in this example). All validators share the same publisher private key.
+
+Staker outputs:
+[
+  {
+    "attester": "0x8E76a8B8D66E0A56E241F2768fD2ad4eba07E565",
+    "publicKeyG1": { "x": "0x...", "y": "0x..." },
+    "publicKeyG2": { "x0": "0x...", "x1": "0x...", "y0": "0x...", "y1": "0x..." },
+    "proofOfPossession": { "x": "0x...", "y": "0x..." }
+  },
+  ... (4 more validators)
+]
 ```
 
-**Important:**
-- Use the **same publisher private key** for all validators
-- The publisher must be an array: `["0x..."]`
-- Add the publisher field to **every validator** in the array
+:::warning Critical: Save Both Mnemonics
+You now have **two separate mnemonics** to secure:
 
-### Step 4: Fund the Publisher Address
+1. **Validator mnemonic** (shown above, 12 words) - Regenerates your attester keys
+2. **Publisher mnemonic** (from Step 1, 24 words) - Regenerates your publisher key
+
+Both must be stored securely offline. Losing either mnemonic means losing access to those keys.
+:::
+
+**Files created:**
+- `~/.aztec/keystore/key1.json` - Private keystore with all 5 validators and publisher configured
+- `~/.aztec/keystore/key1_staker_output.json` - Public keystore for staking dashboard
+
+### Step 3: Fund the Publisher Address
 
 Your publisher address needs ETH to pay for L1 gas when submitting proposals.
 
-**Funding requirement:** At least **0.3 ETH** for 5 validators (0.1 ETH per validator recommended)
+**Funding requirement:** At least **0.3 ETH** for 5 validators (rule of thumb: 0.1 ETH per validator)
 
-Check the publisher balance:
+Transfer ETH to the publisher address from Step 1. You can check the balance with:
 
 ```bash
-cast balance 0xE434A95e816991E66bF7052955FD699aEf8a286b --rpc-url https://ethereum-rpc.publicnode.com
+cast balance 0xE434A95e816991E66bF7052955FD699aEf8a286b --rpc-url $ETH_RPC
 ```
+
+Replace the address with your actual publisher address.
 
 :::warning Monitor Publisher Balance
 Set up monitoring to alert when the publisher balance falls below 0.5 ETH to prevent failed block publications.
 :::
 
-### Step 5: Register Your Validators
+### Step 4: Upload Keystore to Your Node
+
+Now you're ready to spin up your sequencer node!
+
+**Upload the private keystore to your server:**
+
+The `key1.json` file contains your private keys and must be uploaded to your sequencer node.
+
+**For standard server deployments:**
+```bash
+# Upload to your server's keystore directory
+scp ~/.aztec/keystore/key1.json user@your-server:/path/to/aztec-sequencer/keys/keystore.json
+```
+
+**For dAppNode deployments:**
+- Upload `key1.json` to the dAppNode keystore folder
+- Rename it to `keystore.json`
+
+:::tip Keep the Public Keystore Local
+Keep `key1_staker_output.json` on your local machine - you'll need it for registration on the staking dashboard. **Do not upload this to your server.**
+:::
+
+### Step 5: Start Your Node
+
+Start your sequencer node following the [Sequencer Management guide](../../setup/sequencer_management.md).
+
+When your node starts successfully, you'll see output similar to:
+
+```
+Started validator with addresses: 0x8E76a8B8D66E0A56E241F2768fD2ad4eba07E565, 0x2037b472537a4246B1A7325f327028EF450ba0Ef, 0x0c14593f7465DeDbb86d68982374BB05F4C60386, 0x4D213928988f0123f6b3B4A377F856812F08E831, 0x29f147Da38d5F66bB84e791969b365c796829c92
+```
+
+These are your validator attester addresses - they match the addresses shown when you generated your keys.
+
+### Step 6: Register Your Validators
 
 Use the public keystore (`key1_staker_output.json`) to register your validators on the staking dashboard. See [Registering a Sequencer](../../setup/sequencer_management.md#next-steps-registering-your-sequencer) for details.
+
+---
+
+### Quick Setup Summary
+
+By following the recommended setup, you've accomplished:
+
+✅ **Generated a dedicated publisher address** with its own 24-word mnemonic
+✅ **Created 5 validator identities** with a separate 12-word mnemonic
+✅ **Configured all validators** to use the shared publisher for L1 transactions
+✅ **Funded the publisher** with at least 0.3 ETH for gas costs
+✅ **Uploaded the private keystore** (`key1.json`) to your sequencer node
+✅ **Started your node** and verified validator addresses in the output
+✅ **Ready to register** using the public keystore (`key1_staker_output.json`)
+
+**Two mnemonics to keep secure:**
+1. **Publisher mnemonic** (24 words) - Recovers publisher private key
+2. **Validator mnemonic** (12 words) - Recovers all 5 validator attester keys
 
 ## Alternative: Single Validator Setup
 
@@ -308,34 +337,11 @@ The public keystore (`key1_staker_output.json`) contains only public information
 
 This file is used for registration on the staking dashboard and contains no private keys.
 
-## Specifying Output Location
+## Advanced Options
 
-### Custom Directory and Filename
+### Providing Your Own Mnemonic
 
-```bash
-aztec validator-keys new \
-  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
-  --staker-output \
-  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
-  --l1-rpc-urls $ETH_RPC \
-  --mnemonic "your twelve word mnemonic phrase here for key derivation" \
-  --data-dir ~/my-sequencer/keys \
-  --file sequencer1.json
-```
-
-This creates keystores at:
-- `~/my-sequencer/keys/sequencer1.json` (private keystore)
-- `~/my-sequencer/keys/sequencer1_staker_output.json` (public keystore)
-
-### Default Behavior
-
-If you don't specify `--data-dir` or `--file`:
-- **Default directory**: `~/.aztec/keystore/`
-- **Default filename**: `key1.json`, `key2.json`, etc. (auto-increments)
-
-## Providing Your Own Mnemonic
-
-For deterministic key generation or to add validators to an existing mnemonic:
+For deterministic key generation or to recreate keys from an existing mnemonic:
 
 ```bash
 aztec validator-keys new \
@@ -344,10 +350,35 @@ aztec validator-keys new \
   --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
   --l1-rpc-urls $ETH_RPC \
   --mnemonic "your existing twelve word mnemonic phrase here" \
-  --count 5
+  --count 5 \
+  --publishers 0x7988a4a779f058a0
 ```
 
 This regenerates the same validators if you've used this mnemonic before, or creates new ones at the next derivation indices.
+
+### Custom Output Location
+
+Specify custom directory and filename:
+
+```bash
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --staker-output \
+  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+  --l1-rpc-urls $ETH_RPC \
+  --count 5 \
+  --publishers 0x7988a4a779f058a0 \
+  --data-dir ~/my-sequencer/keys \
+  --file sequencer1.json
+```
+
+This creates keystores at:
+- `~/my-sequencer/keys/sequencer1.json` (private keystore)
+- `~/my-sequencer/keys/sequencer1_staker_output.json` (public keystore)
+
+**Default behavior** (if you don't specify `--data-dir` or `--file`):
+- **Directory**: `~/.aztec/keystore/`
+- **Filename**: `key1.json`, `key2.json`, etc. (auto-increments)
 
 ## Verifying Your Keystore
 

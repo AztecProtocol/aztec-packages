@@ -4,7 +4,9 @@ use crate::{
     state_vars::private_set::PrivateSet,
 };
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
+use protocol_types::{address::AztecAddress, traits::FromField};
 
+global OWNER: AztecAddress = AztecAddress::from_field(50);
 global STORAGE_SLOT: Field = 17;
 global VALUE: Field = 23;
 
@@ -23,7 +25,7 @@ unconstrained fn get_empty() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
         let notes = state_var.get_notes(NoteGetterOptions::new());
 
         assert_eq(notes.len(), 0);
@@ -37,7 +39,7 @@ unconstrained fn view_empty() {
     let env = TestEnvironment::new();
 
     env.utility_context(|context| {
-        let state_var = in_utility(context);
+        let state_var = in_utility(context).at(OWNER);
 
         let notes = state_var.view_notes(NoteViewerOptions::new());
         assert_eq(notes.len(), 0);
@@ -48,7 +50,7 @@ unconstrained fn view_empty() {
 unconstrained fn insert() {
     let env = TestEnvironment::new();
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         let value = 42;
         let new_note = MockNote::new(value).build_note();
@@ -68,7 +70,7 @@ unconstrained fn insert_and_get_pending() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         let note = MockNote::new(VALUE).build_note();
         let _ = state_var.insert(note);
@@ -95,7 +97,7 @@ unconstrained fn insert_and_get_settled() {
     let note = MockNote::new(VALUE).build_note();
 
     let emission = env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         state_var.insert(note)
     });
@@ -103,7 +105,7 @@ unconstrained fn insert_and_get_settled() {
     env.discover_note(emission);
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         let notes = state_var.get_notes(NoteGetterOptions::new());
 
@@ -127,7 +129,7 @@ unconstrained fn insert_and_view_settled() {
     let note = MockNote::new(VALUE).build_note();
 
     let emission = env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         state_var.insert(note)
     });
@@ -135,7 +137,7 @@ unconstrained fn insert_and_view_settled() {
     env.discover_note(emission);
 
     env.utility_context(|context| {
-        let state_var = in_utility(context);
+        let state_var = in_utility(context).at(OWNER);
 
         let notes = state_var.view_notes(NoteViewerOptions::new());
 
@@ -149,7 +151,7 @@ unconstrained fn insert_and_pop_pending() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         let note = MockNote::new(VALUE).build_note();
         let _ = state_var.insert(note);
@@ -172,7 +174,7 @@ unconstrained fn insert_and_pop_settled() {
     let note = MockNote::new(VALUE).build_note();
 
     let emission = env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         state_var.insert(note)
     });
@@ -180,7 +182,7 @@ unconstrained fn insert_and_pop_settled() {
     env.discover_note(emission);
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         let notes = state_var.pop_notes(NoteGetterOptions::new());
 
@@ -198,7 +200,7 @@ unconstrained fn insert_and_remove_pending() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         let note = MockNote::new(VALUE).build_note();
         let _ = state_var.insert(note);
@@ -219,14 +221,14 @@ unconstrained fn insert_and_remove_settled() {
     let note = MockNote::new(VALUE).build_note();
 
     let emission = env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
         state_var.insert(note)
     });
 
     env.discover_note(emission);
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         let retrieved = state_var.get_notes(NoteGetterOptions::new());
 
@@ -242,7 +244,7 @@ unconstrained fn insert_pop_and_read_again_pending() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         let note = MockNote::new(VALUE).build_note();
         let _ = state_var.insert(note);
@@ -262,7 +264,7 @@ unconstrained fn insert_pop_and_read_again_settled() {
     let note = MockNote::new(VALUE).build_note();
 
     let emission = env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         state_var.insert(note)
     });
@@ -270,7 +272,7 @@ unconstrained fn insert_pop_and_read_again_settled() {
     env.discover_note(emission);
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         let _ = state_var.pop_notes(NoteGetterOptions::new());
 
@@ -285,7 +287,7 @@ unconstrained fn insert_remove_and_read_again_pending() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         let note = MockNote::new(VALUE).build_note();
         let _ = state_var.insert(note);
@@ -306,7 +308,7 @@ unconstrained fn insert_remove_and_read_again_settled() {
     let note = MockNote::new(VALUE).build_note();
 
     let emission = env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         state_var.insert(note)
     });
@@ -314,7 +316,7 @@ unconstrained fn insert_remove_and_read_again_settled() {
     env.discover_note(emission);
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context).at(OWNER);
 
         let retrieved = state_var.get_notes(NoteGetterOptions::new());
         state_var.remove(retrieved.get(0));

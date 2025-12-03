@@ -159,12 +159,8 @@ contract Tmnt223Test is RollupBase {
       header.totalManaUsed = 0;
     }
 
-    ProposeArgs memory proposeArgs = ProposeArgs({
-      header: header,
-      archive: archiveRoot,
-      stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput({feeAssetPriceModifier: 0})
-    });
+    ProposeArgs memory proposeArgs =
+      ProposeArgs({header: header, archive: archiveRoot, oracleInput: OracleInput({feeAssetPriceModifier: 0})});
 
     CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
     address[] memory signers = new address[](0);

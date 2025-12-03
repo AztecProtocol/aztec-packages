@@ -1,3 +1,4 @@
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
@@ -80,22 +81,6 @@ export type ViemContentCommitment = {
 export type ViemGasFees = {
   feePerDaGas: bigint;
   feePerL2Gas: bigint;
-};
-
-export type ViemStateReference = {
-  l1ToL2MessageTree: ViemAppendOnlyTreeSnapshot;
-  partialStateReference: ViemPartialStateReference;
-};
-
-export type ViemPartialStateReference = {
-  noteHashTree: ViemAppendOnlyTreeSnapshot;
-  nullifierTree: ViemAppendOnlyTreeSnapshot;
-  publicDataTree: ViemAppendOnlyTreeSnapshot;
-};
-
-export type ViemAppendOnlyTreeSnapshot = {
-  root: `0x${string}`;
-  nextAvailableLeafIndex: number;
 };
 
 export enum SlashingProposerType {
@@ -208,8 +193,8 @@ export class RollupContract {
   }
 
   @memoize
-  getSlotDuration() {
-    return this.rollup.read.getSlotDuration();
+  async getSlotDuration(): Promise<number> {
+    return Number(await this.rollup.read.getSlotDuration());
   }
 
   @memoize
@@ -300,7 +285,7 @@ export class RollupContract {
     return {
       l1StartBlock,
       l1GenesisTime,
-      slotDuration: Number(slotDuration),
+      slotDuration,
       epochDuration: Number(epochDuration),
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
     };
@@ -341,16 +326,16 @@ export class RollupContract {
     return this.rollup.read.getCheckpointReward();
   }
 
-  getCheckpointNumber() {
-    return this.rollup.read.getPendingCheckpointNumber();
+  async getCheckpointNumber(): Promise<CheckpointNumber> {
+    return CheckpointNumber.fromBigInt(await this.rollup.read.getPendingCheckpointNumber());
   }
 
-  getProvenCheckpointNumber() {
-    return this.rollup.read.getProvenCheckpointNumber();
+  async getProvenCheckpointNumber(): Promise<CheckpointNumber> {
+    return CheckpointNumber.fromBigInt(await this.rollup.read.getProvenCheckpointNumber());
   }
 
-  getSlotNumber() {
-    return this.rollup.read.getCurrentSlot();
+  async getSlotNumber(): Promise<SlotNumber> {
+    return SlotNumber.fromBigInt(await this.rollup.read.getCurrentSlot());
   }
 
   getL1FeesAt(timestamp: bigint) {
@@ -387,8 +372,8 @@ export class RollupContract {
     return this.rollup.read.getCurrentSampleSeed();
   }
 
-  getCurrentEpoch() {
-    return this.rollup.read.getCurrentEpoch();
+  async getCurrentEpoch(): Promise<EpochNumber> {
+    return EpochNumber.fromBigInt(await this.rollup.read.getCurrentEpoch());
   }
 
   async getCurrentEpochCommittee(): Promise<readonly `0x${string}`[] | undefined> {
@@ -431,7 +416,7 @@ export class RollupContract {
     return result;
   }
 
-  getCheckpoint(checkpointNumber: bigint | number) {
+  getCheckpoint(checkpointNumber: CheckpointNumber) {
     return this.rollup.read.getCheckpoint([BigInt(checkpointNumber)]);
   }
 
@@ -439,8 +424,8 @@ export class RollupContract {
     return this.rollup.read.getTips();
   }
 
-  getTimestampForSlot(slot: bigint) {
-    return this.rollup.read.getTimestampForSlot([slot]);
+  getTimestampForSlot(slot: SlotNumber) {
+    return this.rollup.read.getTimestampForSlot([BigInt(slot)]);
   }
 
   getEntryQueueLength() {
@@ -451,16 +436,16 @@ export class RollupContract {
     return this.rollup.read.getAvailableValidatorFlushes();
   }
 
-  getNextFlushableEpoch() {
-    return this.rollup.read.getNextFlushableEpoch();
+  async getNextFlushableEpoch(): Promise<EpochNumber> {
+    return EpochNumber.fromBigInt(await this.rollup.read.getNextFlushableEpoch());
   }
 
-  getCurrentEpochNumber(): Promise<bigint> {
-    return this.rollup.read.getCurrentEpoch();
+  async getCurrentEpochNumber(): Promise<EpochNumber> {
+    return EpochNumber.fromBigInt(await this.rollup.read.getCurrentEpoch());
   }
 
-  getEpochNumberForCheckpoint(checkpointNumber: bigint) {
-    return this.rollup.read.getEpochForCheckpoint([BigInt(checkpointNumber)]);
+  async getEpochNumberForCheckpoint(checkpointNumber: CheckpointNumber): Promise<EpochNumber> {
+    return EpochNumber.fromBigInt(await this.rollup.read.getEpochForCheckpoint([BigInt(checkpointNumber)]));
   }
 
   async getRollupAddresses(): Promise<L1RollupContractAddresses> {
@@ -500,8 +485,8 @@ export class RollupContract {
     return EthAddress.fromString(await this.rollup.read.getFeeAssetPortal());
   }
 
-  public async getEpochNumberForSlotNumber(slotNumber: bigint): Promise<bigint> {
-    return await this.rollup.read.getEpochAtSlot([slotNumber]);
+  public async getEpochNumberForSlotNumber(slotNumber: SlotNumber): Promise<EpochNumber> {
+    return EpochNumber.fromBigInt(await this.rollup.read.getEpochAtSlot([BigInt(slotNumber)]));
   }
 
   getEpochProofPublicInputs(
@@ -551,14 +536,11 @@ export class RollupContract {
   public async canProposeAtNextEthBlock(
     archive: Buffer,
     account: `0x${string}` | Account,
-    slotDuration: bigint | number,
-    opts: { forcePendingCheckpointNumber?: number } = {},
-  ): Promise<{ slot: bigint; checkpointNumber: bigint; timeOfNextL1Slot: bigint }> {
-    if (typeof slotDuration === 'number') {
-      slotDuration = BigInt(slotDuration);
-    }
+    slotDuration: number,
+    opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
+  ): Promise<{ slot: SlotNumber; checkpointNumber: CheckpointNumber; timeOfNextL1Slot: bigint }> {
     const latestBlock = await this.client.getBlock();
-    const timeOfNextL1Slot = latestBlock.timestamp + slotDuration;
+    const timeOfNextL1Slot = latestBlock.timestamp + BigInt(slotDuration);
     const who = typeof account === 'string' ? account : account.address;
 
     try {
@@ -573,7 +555,11 @@ export class RollupContract {
         stateOverride: await this.makePendingCheckpointNumberOverride(opts.forcePendingCheckpointNumber),
       });
 
-      return { slot, checkpointNumber, timeOfNextL1Slot };
+      return {
+        slot: SlotNumber.fromBigInt(slot),
+        checkpointNumber: CheckpointNumber.fromBigInt(checkpointNumber),
+        timeOfNextL1Slot,
+      };
     } catch (err: unknown) {
       throw formatViemError(err);
     }
@@ -585,7 +571,7 @@ export class RollupContract {
    * stored in the same slot. If the argument is undefined, it returns an empty override.
    */
   public async makePendingCheckpointNumberOverride(
-    forcePendingCheckpointNumber: number | undefined,
+    forcePendingCheckpointNumber: CheckpointNumber | undefined,
   ): Promise<StateOverride> {
     if (forcePendingCheckpointNumber === undefined) {
       return [];
@@ -604,7 +590,7 @@ export class RollupContract {
 
   /** Creates a request to Rollup#invalidateBadAttestation to be simulated or sent */
   public buildInvalidateBadAttestationRequest(
-    checkpointNumber: number,
+    checkpointNumber: CheckpointNumber,
     attestationsAndSigners: ViemCommitteeAttestations,
     committee: EthAddress[],
     invalidIndex: number,
@@ -626,7 +612,7 @@ export class RollupContract {
 
   /** Creates a request to Rollup#invalidateInsufficientAttestations to be simulated or sent */
   public buildInvalidateInsufficientAttestationsRequest(
-    checkpointNumber: number,
+    checkpointNumber: CheckpointNumber,
     attestationsAndSigners: ViemCommitteeAttestations,
     committee: EthAddress[],
   ): L1TxRequest {
@@ -641,7 +627,7 @@ export class RollupContract {
   }
 
   /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
-  public getHasSubmittedProof(epochNumber: number, numberOfCheckpointsInEpoch: number, prover: Hex | EthAddress) {
+  public getHasSubmittedProof(epochNumber: EpochNumber, numberOfCheckpointsInEpoch: number, prover: Hex | EthAddress) {
     if (prover instanceof EthAddress) {
       prover = prover.toString();
     }
@@ -652,13 +638,13 @@ export class RollupContract {
     return this.rollup.read.getManaBaseFeeAt([timestamp, inFeeAsset]);
   }
 
-  getSlotAt(timestamp: bigint) {
-    return this.rollup.read.getSlotAt([timestamp]);
+  async getSlotAt(timestamp: bigint): Promise<SlotNumber> {
+    return SlotNumber.fromBigInt(await this.rollup.read.getSlotAt([timestamp]));
   }
 
-  async status(checkpointNumber: bigint, options?: { blockNumber?: bigint }) {
+  async status(checkpointNumber: CheckpointNumber, options?: { blockNumber?: bigint }) {
     await checkBlockTag(options?.blockNumber, this.client);
-    return this.rollup.read.status([checkpointNumber], options);
+    return this.rollup.read.status([BigInt(checkpointNumber)], options);
   }
 
   async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
@@ -670,8 +656,8 @@ export class RollupContract {
     return this.rollup.read.archive();
   }
 
-  archiveAt(checkpointNumber: bigint) {
-    return this.rollup.read.archiveAt([checkpointNumber]);
+  archiveAt(checkpointNumber: CheckpointNumber) {
+    return this.rollup.read.archiveAt([BigInt(checkpointNumber)]);
   }
 
   getSequencerRewards(address: Hex | EthAddress) {
@@ -713,8 +699,8 @@ export class RollupContract {
     return this.rollup.read.getStatus([address]);
   }
 
-  getBlobCommitmentsHash(checkpointNumber: bigint) {
-    return this.rollup.read.getBlobCommitmentsHash([checkpointNumber]);
+  getBlobCommitmentsHash(checkpointNumber: CheckpointNumber) {
+    return this.rollup.read.getBlobCommitmentsHash([BigInt(checkpointNumber)]);
   }
 
   getCurrentBlobCommitmentsHash() {
@@ -770,7 +756,7 @@ export class RollupContract {
   }
 
   public listenToCheckpointInvalidated(
-    callback: (args: { checkpointNumber: bigint }) => unknown,
+    callback: (args: { checkpointNumber: CheckpointNumber }) => unknown,
   ): WatchContractEventReturnType {
     return this.rollup.watchEvent.CheckpointInvalidated(
       {},
@@ -779,7 +765,7 @@ export class RollupContract {
           for (const log of logs) {
             const args = log.args;
             if (args.checkpointNumber !== undefined) {
-              callback({ checkpointNumber: args.checkpointNumber });
+              callback({ checkpointNumber: CheckpointNumber.fromBigInt(args.checkpointNumber) });
             }
           }
         },

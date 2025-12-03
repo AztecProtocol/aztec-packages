@@ -5,7 +5,7 @@ description: Configure Grafana to visualize Aztec node metrics and set up alerts
 
 ## Overview
 
-Grafana provides rich visualization and alerting capabilities for your metrics, allowing you to create custom dashboards and receive notifications when issues arise.
+Grafana provides visualization and alerting for your metrics, allowing you to create custom dashboards and receive notifications when issues arise.
 
 ## Prerequisites
 
@@ -100,7 +100,7 @@ If the Aztec community has created shared dashboards:
 Example panels you can create (adjust metric names based on what's actually available):
 
 1. **Block Height Over Time**: Line graph tracking block sync progress
-2. **Sync Rate**: Line graph showing blocks per second (use `rate()` function)
+2. **Sync Rate**: Line graph showing blocks synced over time window (use `increase()` function)
 3. **Peer Count**: Gauge showing P2P connections
 4. **Memory Usage**: Line graph of `process_resident_memory_bytes`
 5. **CPU Usage**: Line graph of `rate(process_cpu_seconds_total[5m])`
@@ -114,8 +114,8 @@ Configure alerts to notify you of issues:
 1. In the left sidebar, click **Alerting** (bell icon)
 2. Click **Alert rules** → **New alert rule**
 3. Configure your alert:
-   - **Query**: Select your Prometheus data source and metric (e.g., `aztec_node_block_height`)
-   - **Condition**: Define the threshold (e.g., `rate(aztec_node_block_height[5m]) < 0.001` to alert if no blocks in 5 minutes)
+   - **Query**: Select your Prometheus data source and metric (e.g., `aztec_archiver_block_height`)
+   - **Condition**: Define the threshold (e.g., `increase(aztec_archiver_block_height[15m]) == 0` to alert if no blocks in 15 minutes)
    - **Evaluation interval**: How often to check (e.g., 1m)
 4. Click **Save**
 
@@ -143,15 +143,15 @@ Configure alerts to notify you of issues:
 
 Alert if the node stops syncing blocks:
 
-- **Query**: `rate(aztec_archiver_block_height[5m])`
-- **Condition**: `< 0.001`
-- **Description**: Node has not synced any blocks in the last 5 minutes
+- **Query**: `increase(aztec_archiver_block_height[15m])`
+- **Condition**: `== 0`
+- **Description**: Node has not synced any blocks in the last 15 minutes
 
 ### High Memory Usage Alert
 
 Alert if memory usage exceeds threshold:
 
-- **Query**: `process_memory_usage`
+- **Query**: `process_resident_memory_bytes`
 - **Condition**: `> 8000000000` (8GB)
 - **Description**: Node memory usage exceeds 8GB
 
@@ -159,9 +159,9 @@ Alert if memory usage exceeds threshold:
 
 Alert if peer count drops too low:
 
-- **Query**: `discv5_connected_peer_count`
-- **Condition**: `< 3`
-- **Description**: Node has fewer than 3 peer connections
+- **Query**: `aztec_peer_manager_peer_count_peers`
+- **Condition**: `< 5`
+- **Description**: Node has fewer than 5 peer connections
 
 ## Next Steps
 

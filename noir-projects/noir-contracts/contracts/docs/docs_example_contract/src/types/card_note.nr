@@ -1,7 +1,4 @@
-use aztec::{
-    macros::notes::note,
-    protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
-};
+use aztec::{macros::notes::note, protocol_types::traits::{Deserialize, Packable, Serialize}};
 
 // We derive the Serialize trait because this struct is returned from a contract function. When returned,
 // the struct is serialized using the Serialize trait and added to a hasher via the `add_to_hasher` utility.
@@ -10,12 +7,11 @@ use aztec::{
 #[note]
 pub struct CardNote {
     points: u8,
-    owner: AztecAddress,
 }
 
 impl CardNote {
-    pub fn new(points: u8, owner: AztecAddress) -> Self {
-        CardNote { points, owner }
+    pub fn new(points: u8) -> Self {
+        CardNote { points }
     }
 
     pub fn get_points(self) -> u8 {

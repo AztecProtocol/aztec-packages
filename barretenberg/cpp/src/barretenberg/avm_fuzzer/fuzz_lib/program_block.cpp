@@ -1,8 +1,9 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/program_block.hpp"
-
+#include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 
@@ -744,9 +745,15 @@ void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction
     if (!leaf_index.has_value()) {
         return;
     }
+    auto contract_address = CONTRACT_ADDRESS;
+    auto note_hash_counter = static_cast<uint64_t>(*leaf_index);
+    auto siloed_note_computed_hash = bb::avm2::simulation::unconstrained_silo_note_hash(contract_address, *note_hash);
+    auto unique_note_computed_hash = bb::avm2::simulation::unconstrained_make_unique_note_hash(
+        siloed_note_computed_hash, FIRST_NULLIFIER, note_hash_counter);
+
     auto set_note_hash_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
                                                          .offset = instruction.notehash_offset,
-                                                         .value = *note_hash };
+                                                         .value = unique_note_computed_hash };
     this->process_set_ff_instruction(set_note_hash_instruction);
     auto set_leaf_index_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
                                                           .offset = instruction.leaf_index_offset,
@@ -762,10 +769,44 @@ void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction
     memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, instruction.result_offset);
 }
 
+void ProgramBlock::process_calldatacopy_instruction(CALLDATACOPY_Instruction instruction)
+{
+    auto copy_size_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                                         .offset = instruction.copy_size_offset,
+                                                         .value = instruction.copy_size };
+    this->process_set_32_instruction(copy_size_set_instruction);
+    auto cd_start_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                                        .offset = instruction.cd_start_offset,
+                                                        .value = instruction.cd_start };
+    this->process_set_32_instruction(cd_start_set_instruction);
+    auto calldatacopy_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALLDATACOPY)
+                                        .operand(instruction.copy_size_offset)
+                                        .operand(instruction.cd_start_offset)
+                                        .operand(instruction.dst_offset)
+                                        .build();
+    instructions.push_back(calldatacopy_instruction);
+
+    // setting calldata_addr to u32 to avoid overflows
+    auto loop_upper_bound =
+        static_cast<uint16_t>(std::min(static_cast<uint32_t>(instruction.dst_offset) + instruction.copy_size, 65535U));
+    for (uint16_t calldata_addr = instruction.dst_offset; calldata_addr < loop_upper_bound; calldata_addr++) {
+        memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, calldata_addr);
+    }
+}
+
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
 {
+    this->terminator_type = TerminatorType::RETURN;
+    // if the block is called by INTERNALCALL, just insert INTERNALRETURN
+    if (caller != nullptr) {
+        auto internalreturn_instruction =
+            bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALRETURN).build();
+        instructions.push_back(internalreturn_instruction);
+        return;
+    }
+
     auto return_addr = memory_manager.get_memory_offset_16_bit(return_value_tag.value, return_value_offset_index);
     if (!return_addr.has_value()) {
         return_addr = std::optional<uint16_t>(0);
@@ -786,14 +827,20 @@ void ProgramBlock::finalize_with_return(uint8_t return_size,
                                   .build();
     instructions.push_back(return_instruction);
 
-    terminated = true;
+    // set INTERNALRETURN after RETURN if this block was called by INTERNALCALL
+    if (caller != nullptr) {
+        auto internalreturn_instruction =
+            bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALRETURN).build();
+        instructions.push_back(internalreturn_instruction);
+    }
 }
 
 void ProgramBlock::finalize_with_jump(ProgramBlock* target_block, bool copy_memory_manager)
 {
-    terminated = true;
+    this->terminator_type = TerminatorType::JUMP;
     successors.push_back(target_block);
     target_block->predecessors.push_back(this);
+    target_block->caller = this->caller;
     if (copy_memory_manager) {
         target_block->memory_manager = memory_manager;
     }
@@ -804,16 +851,44 @@ void ProgramBlock::finalize_with_jump_if(ProgramBlock* target_then_block,
                                          uint16_t condition_offset,
                                          bool copy_memory_manager)
 {
-    terminated = true;
+    this->terminator_type = TerminatorType::JUMP_IF;
     successors.push_back(target_then_block);
     successors.push_back(target_else_block);
     this->condition_offset_index = condition_offset;
     target_then_block->predecessors.push_back(this);
     target_else_block->predecessors.push_back(this);
+    target_then_block->caller = this->caller;
+    target_else_block->caller = this->caller;
     if (copy_memory_manager) {
         target_then_block->memory_manager = memory_manager;
         target_else_block->memory_manager = memory_manager;
     }
+}
+
+void ProgramBlock::insert_internal_call(ProgramBlock* target_block)
+{
+    auto internalcall_instruction =
+        bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALCALL).operand(0U).build();
+    instructions.push_back(internalcall_instruction);
+    internal_call_instruction_indicies_to_patch[instructions.size() - 1] = target_block;
+    this->successors.push_back(target_block);
+    target_block->predecessors.push_back(this);
+    target_block->caller = this->caller;
+}
+
+void ProgramBlock::patch_internal_calls()
+{
+    for (auto [instruction_index, target_block] : internal_call_instruction_indicies_to_patch) {
+        auto internalcall_instruction = instructions.at(instruction_index);
+        if (target_block->offset == -1) {
+            throw std::runtime_error("Target block offset is not set, should not happen");
+        }
+        auto internalcall_instruction_builder =
+            bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALCALL)
+                .operand(static_cast<uint32_t>(target_block->offset));
+        instructions.at(instruction_index) = internalcall_instruction_builder.build();
+    }
+    internal_call_instruction_indicies_to_patch.clear();
 }
 
 std::optional<uint16_t> ProgramBlock::get_terminating_condition_value()
@@ -886,6 +961,9 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             },
             [this](NOTEHASHEXISTS_Instruction instruction) {
                 return this->process_notehashexists_instruction(instruction);
+            },
+            [this](CALLDATACOPY_Instruction instruction) {
+                return this->process_calldatacopy_instruction(instruction);
             },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
