@@ -118,7 +118,7 @@ struct Storage<Context> {
 
 #### `read`
 
-On the `PublicMutable` structs we have a `read` method to read the value at the location in storage:
+`PublicMutable` variables have a `read` method to read the value at the location in storage:
 
 ```rust
 #[external("public")]
@@ -130,7 +130,7 @@ fn check_admin() {
 
 #### `write`
 
-We have a `write` method on the `PublicMutable` struct that takes the value to write as an input and saves this in storage:
+The `write` method on `PublicMutable` variables takes the value to write as an input and saves this in storage:
 
 ```rust
 #[external("public")]
@@ -321,7 +321,7 @@ struct Storage<Context> {
 
 #### `is_initialized`
 
-An unconstrained method to check whether the PrivateMutable has been initialized or not:
+An unconstrained method to check whether the `PrivateMutable` has been initialized or not:
 
 ```rust
 let is_initialized = self.storage.user_settings.at(owner).is_initialized();
@@ -329,7 +329,7 @@ let is_initialized = self.storage.user_settings.at(owner).is_initialized();
 
 #### `initialize`
 
-The PrivateMutable should be initialized to create the first note and value:
+The `PrivateMutable` should be initialized to create the first note and value:
 
 ```rust
 use aztec::messages::message_delivery::MessageDelivery;
@@ -344,7 +344,7 @@ fn initialize_settings(value: u8) {
 
 #### `get_note`
 
-This function allows us to get the note of a PrivateMutable, essentially reading the value:
+This function allows us to get the note of a `PrivateMutable`, essentially reading the value:
 
 ```rust
 #[external("private")]
@@ -355,7 +355,7 @@ fn read_settings() -> SettingsNote {
 ```
 
 :::info
-To ensure that a user's private execution always uses the latest value of a PrivateMutable, the `get_note` function will nullify the note that it is reading. This means that if two people are trying to use this function with the same note, only one will succeed.
+To ensure that a user's private execution always uses the latest value of a `PrivateMutable`, the `get_note` function will nullify the note that it is reading. This means that if two people are trying to use this function with the same note, only one will succeed.
 :::
 
 #### `replace`
@@ -385,7 +385,7 @@ struct Storage<Context> {
 
 #### `initialize`
 
-When this function is invoked, it creates a nullifier for the storage slot, ensuring that the PrivateImmutable cannot be initialized again:
+When this function is invoked, it creates a nullifier for the storage slot, ensuring that the `PrivateImmutable` cannot be initialized again:
 
 ```rust
 #[external("private")]
@@ -408,7 +408,7 @@ fn get_key() -> KeyNote {
 }
 ```
 
-Unlike a `PrivateMutable`, the `get_note` function for a PrivateImmutable doesn't nullify the current note. This means that multiple accounts can concurrently call this function to read the value.
+Unlike a `PrivateMutable`, the `get_note` function for a `PrivateImmutable` doesn't nullify the current note. This means that multiple accounts can concurrently call this function to read the value.
 
 ### PrivateSet
 
@@ -426,7 +426,7 @@ For example, to add a mapping of private token balances to storage:
 ```rust
 #[storage]
 struct Storage<Context> {
-    balances: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
+    balances: Map<AztecAddress, PrivateSet<UintNote, Context>, Context>,
 }
 ```
 
@@ -437,19 +437,22 @@ Allows us to modify the storage by inserting a note into the `PrivateSet`:
 ```rust
 #[external("private")]
 fn mint_tokens(to: AztecAddress, amount: u128) {
-    let note = ValueNote::new(amount, to);
+    let note = UintNote::new(amount, to);
     self.storage.balances.at(to).insert(note).emit(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
 }
 ```
 
 #### `get_notes`
 
-Retrieves notes the account has access to based on the provided filter:
+Retrieves notes the account has access to. You can optionally provide filtering options:
 
 ```rust
-use dep::uint_note::filter::filter_notes_min_sum;
+// Get all notes (with default options)
+let options = NoteGetterOptions::new();
+let notes = self.storage.balances.at(owner).get_notes(options);
 
-let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount as Field);
+// Or with custom options (e.g., limit the number of notes)
+let options = NoteGetterOptions::new().set_limit(5);
 let notes = self.storage.balances.at(owner).get_notes(options);
 ```
 
@@ -458,7 +461,8 @@ let notes = self.storage.balances.at(owner).get_notes(options);
 This function pops (gets, removes and returns) the notes the account has access to:
 
 ```rust
-let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount as Field);
+// Pop notes with a limit
+let options = NoteGetterOptions::new().set_limit(10);
 let notes = self.storage.balances.at(owner).pop_notes(options);
 ```
 
