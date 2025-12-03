@@ -24,6 +24,8 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
       - name: Push to barretenberg repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           SUBREPO_PATH=barretenberg
           git config --global user.name AztecBot
