@@ -27,6 +27,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
+          set -x # print commands
           SUBREPO_PATH=barretenberg
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
