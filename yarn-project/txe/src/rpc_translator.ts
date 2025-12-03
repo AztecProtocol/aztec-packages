@@ -1,6 +1,7 @@
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { Fr, Point } from '@aztec/aztec.js/fields';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import {
   type IMiscOracle,
   type IPrivateExecutionOracle,
@@ -117,7 +118,7 @@ export class RPCTranslator {
       : undefined;
 
     const anchorBlockNumber = fromSingle(foreignAnchorBlockNumberIsSome).toBool()
-      ? fromSingle(foreignAnchorBlockNumberValue).toNumber()
+      ? BlockNumber(fromSingle(foreignAnchorBlockNumberValue).toNumber())
       : undefined;
 
     const privateContextInputs = await this.stateHandler.enterPrivateState(contractAddress, anchorBlockNumber);
@@ -310,7 +311,7 @@ export class RPCTranslator {
   ) {
     const contractAddress = addressFromSingle(foreignContractAddress);
     const startStorageSlot = fromSingle(foreignStartStorageSlot);
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
     const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
 
     const values = await this.handlerAsUtility().utilityStorageRead(
@@ -324,7 +325,7 @@ export class RPCTranslator {
   }
 
   async utilityGetPublicDataWitness(foreignBlockNumber: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
     const leafSlot = fromSingle(foreignLeafSlot);
 
     const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(blockNumber, leafSlot);
@@ -515,7 +516,7 @@ export class RPCTranslator {
     foreignBlockNumber: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(blockNumber, nullifier);
@@ -572,7 +573,7 @@ export class RPCTranslator {
   }
 
   async utilityGetBlockHeader(foreignBlockNumber: ForeignCallSingle) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
 
     const header = await this.handlerAsUtility().utilityGetBlockHeader(blockNumber);
 
@@ -587,7 +588,7 @@ export class RPCTranslator {
     foreignTreeId: ForeignCallSingle,
     foreignLeafValue: ForeignCallSingle,
   ) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
     const treeId = fromSingle(foreignTreeId).toNumber();
     const leafValue = fromSingle(foreignLeafValue);
 
@@ -605,7 +606,7 @@ export class RPCTranslator {
     foreignBlockNumber: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(blockNumber, nullifier);

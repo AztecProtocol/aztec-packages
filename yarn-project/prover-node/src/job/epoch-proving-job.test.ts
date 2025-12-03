@@ -1,5 +1,5 @@
 import { BatchedBlob } from '@aztec/blob-lib/types';
-import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
@@ -216,7 +216,7 @@ describe('epoch-proving-job', () => {
   });
 
   it('halts if a new block for the epoch is found', async () => {
-    const newHeaders = times(NUM_BLOCKS + 1, i => BlockHeader.random({ blockNumber: i + 1 }));
+    const newHeaders = times(NUM_BLOCKS + 1, i => BlockHeader.random({ blockNumber: BlockNumber(i + 1) }));
     l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(newHeaders);
 
     const job = createJob();

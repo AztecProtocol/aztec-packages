@@ -1,5 +1,5 @@
 import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
-import type { EpochNumber } from '@aztec/foundation/branded-types';
+import type { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 
@@ -47,7 +47,7 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
    * @param timestamp - The timestamp of the block.
    * @param totalNumTxs - The total number of txs in the block.
    */
-  startNewBlock(blockNumber: number, timestamp: UInt64, totalNumTxs: number): Promise<void>;
+  startNewBlock(blockNumber: BlockNumber, timestamp: UInt64, totalNumTxs: number): Promise<void>;
 
   /**
    * Kickstarts chonk verifier circuits for the specified txs. These will be used during epoch proving.
@@ -56,7 +56,7 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
   startChonkVerifierCircuits(txs: Tx[]): Promise<void>;
 
   /** Returns the block. */
-  setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<BlockHeader>;
+  setBlockCompleted(blockNumber: BlockNumber, expectedBlockHeader?: BlockHeader): Promise<BlockHeader>;
 
   /** Pads the epoch with empty block roots if needed and blocks until proven. Throws if proving has failed. */
   finalizeEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }>;
