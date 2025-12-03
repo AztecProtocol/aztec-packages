@@ -27,6 +27,33 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input);
  */
 uint32_t get_witness_from_function_input(Acir::FunctionInput input);
 
+/**
+ * @brief Update the max_witness_index.
+ *
+ * @details In write_vk scenarios, we use the max witness index to populate the builder with enough dummy variables.
+ * When a witness vector is provided, we check that the max witness index is equal to the length of the witness vector
+ * minus one to avoid buffer overrides.
+ *
+ */
+void update_max_witness_index(uint32_t witness_idx, AcirFormat& af);
+
+/**
+ * @brief Update max_witness_index by processing all witnesses in an Acir::Expression.
+ *
+ * @details This function extracts witness indices from both multiplication terms and linear combinations
+ * in an expression and updates the max witness index
+ *
+ */
+void update_max_witness_index_from_expression(Acir::Expression const& expr, AcirFormat& af);
+
+/**
+ * @brief Update the max witness index by processing all the witness indices contained in the Acir::Opcode
+ *
+ * @param opcode
+ * @param af
+ */
+void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat& af);
+
 /// ========= BYTES TO BARRETENBERG'S REPRESENTATION  ========= ///
 
 /// The functions below handle the transition from serialized ACIR formats (msgpack and bincode), which is the output of
@@ -85,9 +112,23 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf);
 WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf);
 
 /// ========= ACIR OPCODE HANDLERS ========= ///
-/// AUDITTODO(federico): Restructure the functions below so that it is clear how they are used
 
 /// ========= ARITHMETIC =================== ///
+
+/**
+ * @brief Process the linear terms of an Acir::Expression into a map of witness indices to selector values.
+ *
+ * @details Iterating over the linear terms of the expression, we accumulate selector values for each witness index
+ */
+std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr);
+
+/**
+ * @brief Given an Acir::Expression and its processed linear terms, determine whether it can be represented by a single
+ * width-4 arithmetic gate.
+ *
+ * @details By processed linear terms, we mean selector values accumulated per witness index. See process_linear_terms.
+ */
+bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint32_t, bb::fr>& linear_terms);
 
 // clang-format off
 /**
@@ -138,46 +179,52 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
                                                      std::map<uint32_t, bb::fr>& linear_terms);
 
 /**
- * @brief Given an Acir::Expression and its processed linear terms, determine whether it can be represented by a single
- * width-4 arithmetic gate.
+ * @brief Single entrypoint for processing arithmetic (AssertZero) opcodes.
  *
- * @details By processed linear terms, we mean selector values accumulated per witness index. See process_linear_terms.
- */
-bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint32_t, bb::fr>& linear_terms);
-
-/**
- * @brief Process the linear terms of an Acir::Expression into a map of witness indices to selector values.
+ * @details This function processes an Acir::Opcode::AssertZero by converting it into one more more mul_quad_ gates. The
+ * function asserts that all the gates produced are non-zero and that the number of gates produced is consistent with
+ * expectation (one gate if the opcode is meant to fit in one gate, more than one gate if the opcode is not meant to fit
+ * in one gate).
  *
- * @details Iterating over the linear terms of the expression, we accumulate selector values for each witness index
  */
-std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr);
-
-/**
- * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation.
- */
-arithmetic_triple serialize_arithmetic_gate(Acir::Expression const& arg);
-
-/**
- * @brief Assigns a linear term to a specific index in a mul_quad_<bb::fr> gate.
- */
-void assign_linear_term(mul_quad_<bb::fr>& gate, int index, uint32_t witness_index, bb::fr const& scaling);
-
-bool is_assert_equal(mul_quad_<fr> const& mul_quad);
-
-void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index);
+void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index);
 
 /// ========= MEMORY OPERATIONS ========== ///
 
-BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init);
+/**
+ * @brief Process memory initialization: create a BlockConstraint storing the entries with which the memory table must
+ * be initialized.
+ *
+ */
+BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& mem_init);
 
-bool is_rom(Acir::MemOp const& mem_op);
-
-uint32_t poly_to_witness(const arithmetic_triple poly);
-
-void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block);
+/**
+ * @brief Process memory operation, either read or write, and update the BlockConstraint type accordingly.
+ *
+ */
+void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block);
 
 /// ========= BLACKBOX FUNCTIONS ========= ///
 
-void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index);
+/**
+ * @brief Single entrypoint for processing blackbox function opcodes.
+ *
+ * @details This function takes an Acir::Opcode::BlackBoxFuncCall and processes the data contained in it by converting
+ * it into barretenberg's internal representation. The function handles each variant of Acir::Opcode::BlackBoxFunCall
+ * and throws an error if it encounters an unknown type.
+ *
+ * @example BlackBoxFuncCall::AND is the opcode that barretenberg converts to a logic AND constraint.
+ * BlackBoxFuncCall::AND has two inputs lhs, rhs, one output result, a parameter num_bits, and a flag is_xor_gate. The
+ * inputs lhs, rhs are Acir::FunctionInput, which means they can be either witnesses or constants. The result is
+ * Acir::Witness, which means it's a witness. Barretenberg internally represents a LogicConstraint as a struct with two
+ * WitnessOrConstant inputs (lhs, rhs), one witness (result), the parameter num_bits, and the flag is_xor_flag. This
+ * function takes BlackBoxFuncCall::AND, converts lhs and rhs into WitnessOrConstant objects, result into a uint32_t
+ * (witness), and passes along num_bits and the flag. This representation of the logic constraint is then added to the
+ * AcirFormat struct.
+ *
+ */
+void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const& arg,
+                                           AcirFormat& af,
+                                           size_t opcode_index);
 
 } // namespace acir_format

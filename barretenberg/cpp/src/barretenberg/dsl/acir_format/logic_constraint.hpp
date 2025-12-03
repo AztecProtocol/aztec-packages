@@ -12,7 +12,7 @@
 
 namespace acir_format {
 
-using Builder = bb::UltraCircuitBuilder;
+using namespace bb;
 
 /**
  * @brief Logic constraint representation in ACIR format.
@@ -25,8 +25,8 @@ using Builder = bb::UltraCircuitBuilder;
  *
  */
 struct LogicConstraint {
-    WitnessOrConstant<bb::fr> a;
-    WitnessOrConstant<bb::fr> b;
+    WitnessOrConstant<fr> a;
+    WitnessOrConstant<fr> b;
     uint32_t result;
     uint32_t num_bits;
     bool is_xor_gate;
@@ -39,13 +39,13 @@ struct LogicConstraint {
 
 template <typename Builder>
 void create_logic_gate(Builder& builder,
-                       WitnessOrConstant<bb::fr> a,
-                       WitnessOrConstant<bb::fr> b,
+                       WitnessOrConstant<fr> a,
+                       WitnessOrConstant<fr> b,
                        uint32_t result,
                        std::size_t num_bits,
                        bool is_xor_gate);
 
-void xor_gate(Builder& builder, WitnessOrConstant<bb::fr> a, WitnessOrConstant<bb::fr> b, uint32_t result);
+void xor_gate(UltraCircuitBuilder& builder, WitnessOrConstant<fr> a, WitnessOrConstant<fr> b, uint32_t result);
 
-void and_gate(Builder& builder, WitnessOrConstant<bb::fr> a, WitnessOrConstant<bb::fr> b, uint32_t result);
+void and_gate(UltraCircuitBuilder& builder, WitnessOrConstant<fr> a, WitnessOrConstant<fr> b, uint32_t result);
 } // namespace acir_format
