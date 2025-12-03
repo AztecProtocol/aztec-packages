@@ -260,6 +260,35 @@ A nullifier is a value which indicates a resource has been spent. Nullifiers are
 
 Most often, nullifiers are used to mark a note as being spent, which prevents note double spends. The nullifier is typically computed as a **hash of the note contents concatenated with a private key of the note's owner**. These values are **immutable**, and only the owner knows their private keys, ensuring both determinism and secrecy.
 
+### Note Emissions
+
+When working with private state variables, many operations return a `NoteEmission<Note>` type rather than the note directly. This is a type-safe wrapper that ensures you explicitly decide whether to emit the note for the recipient to discover, or to discard it.
+
+#### Why NoteEmission?
+
+Private notes need to be communicated to their recipients so they know the note exists and can use it. The `NoteEmission` wrapper forces you to make an explicit choice about how this happens:
+
+- **`.emit(recipient, MessageDelivery)`**: Emits the note so the recipient can discover it. You must specify:
+  - `recipient`: The `AztecAddress` who should receive the note
+  - `MessageDelivery`: Either `CONSTRAINED_ONCHAIN` (verified in the circuit) or `UNCONSTRAINED_ONCHAIN` (cheaper but less secure)
+
+- **`.discard()`**: Explicitly discards the note without emitting it (useful when you're reading but not sending)
+
+#### Accessing the Note
+
+After calling `.emit()` or `.discard()`, you can access the underlying note using the `.note` property:
+
+```rust
+// Get the note and emit it
+let emission = self.storage.user_settings.at(owner).get_note();
+let note = emission.emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN).note;
+
+// Or discard it if you don't need to emit
+let note = self.storage.user_settings.at(owner).get_note().discard().note;
+```
+
+Methods that return `NoteEmission` include `initialize()`, `get_note()`, and `replace()` on `PrivateMutable` and `PrivateImmutable`, as well as `insert()` on `PrivateSet`.
+
 ### Choosing a Private State Variable
 
 Due to the complexities of Aztec's private state model, private state variables do not map 1:1 with public state variables. Understanding these differences between the different private state variables is important when it comes to designing private smart contracts.
