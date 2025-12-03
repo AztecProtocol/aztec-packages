@@ -63,7 +63,8 @@ enum PROOF_TYPE : uint8_t {
  * @param key the indices of the verification key of the circuit whose proof is recursively verified
  * @param proof the indices of the proof being recursively verified
  * @param public_inputs the indices of the public inputs of the proof being recursively verified
- * @param key_hash the index of the hash of the verification key of the circuit whose proof is recursively verified
+ * @param key_hash the index of the hash of the verification key of the circuit whose proof is being recursively
+ * verified
  * @param proof_type the type of the proof being recursively verified
  * @param predicate witness or constant determining whether the recursive verification constraint is active
  *
@@ -88,7 +89,7 @@ struct RecursionConstraint {
  *     and a WARNING is output in case they are encountered. We fail if both Honk and HyperNova recursion constraints
  *     are present.
  *   - UltraCircuitBuilder: Honk, AVM and Chonk recursion constraints are processed. HyperNova recursion constraints are
- *     not handled and we fail if we encounter them. We handle // We only handle:
+ *     not handled and we fail if we encounter them. We handle:
  *       - Chonk recursion constraints (Private Base Rollup)
  *       - Honk + AVM recursion constraints (Public Base Rollup)
  *       - Honk recursion constraints

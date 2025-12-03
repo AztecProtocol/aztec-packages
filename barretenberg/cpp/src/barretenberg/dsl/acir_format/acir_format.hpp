@@ -177,7 +177,6 @@ struct AcirProgramStack {
 };
 
 struct ProgramMetadata {
-
     // An IVC instance; needed to construct a circuit from IVC recursion constraints
     std::shared_ptr<bb::IVCBase> ivc = nullptr;
 

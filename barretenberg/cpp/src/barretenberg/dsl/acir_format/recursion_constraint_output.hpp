@@ -34,12 +34,12 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
     bool is_root_rollup = false;
 
     /**
-     * @brief Update the output with another recursion constraint output
+     * @brief Update the current output with another recursion constraint output
      */
     void update(const HonkRecursionConstraintOutput<Builder>& other, bool update_ipa_data);
 
     /**
-     * @brief Update the current output with the result of another series of recursive verifications
+     * @brief Update the current output with the results of a series of recursive verifications
      */
     void update(const HonkRecursionConstraintsOutput<Builder>& other, bool update_ipa_data);
 
@@ -51,7 +51,7 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
         perform_IPA_accumulation(Builder& builder) const;
 
     /**
-     * @brief Perfom full IPA recursive verification of the IPA claims and proofs contained in this output
+     * @brief Perform full IPA recursive verification of the IPA claims and proofs contained in this output
      */
     void perform_full_IPA_verification(Builder& builder) const;
 
