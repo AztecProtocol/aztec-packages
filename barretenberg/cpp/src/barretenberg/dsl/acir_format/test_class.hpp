@@ -580,14 +580,18 @@ template <TestBase Base> class TestClass {
     }
 
     /**
-     * @brief General purpose testing function. It generates the test based on the invalidation target.
+     * @brief General purpose testing function. It generates the test based on the predicate and invalidation target.
      *
-     * @details This function tests the full ACIR flow by:
-     * 1. Generating a constraint and witness values
-     * 2. Converting the constraint to an Acir::Opcode
-     * 3. Building an Acir::Circuit with that opcode
-     * 4. Passing the circuit through circuit_serde_to_acir_format to get an AcirFormat
-     * 5. Building the circuit from the AcirFormat and checking it
+     * @details In a real flow, we have:
+     *          Noir --> ACIR --> Bytes --> AcirFormat (via circuit_buf_to_acir_format) --> Builder
+     * We simulate the above flow by generating an AcirConstraint (one of the constraints stored in an AcirFormat
+     * struct), rewinding it into its Acir::Opcode form (which is the output of the byte deserialization step in the
+     * diagram above), and then feeding it into circuit_serde_to_acir_format as an Acir::Circuit with a single opcode.
+     * The function circuit_buf_to_acir_format internally calls circuit_serde_to_acir_format after having deserialized
+     * the byte buffer to an Acir::Circuit, so the flow in this test is the same as the real flow, minus the byte
+     * serialization/deserialization. The rationale for doing the rewinding is ensuring that barretenberg internally
+     * tests circuit_serde_to_acir_format, which would otherwise only be tested via the tests in acir_tests.
+     *
      */
     static std::tuple<bool, bool, std::string> test_constraints(const InvalidWitnessTarget& invalid_witness_target)
     {

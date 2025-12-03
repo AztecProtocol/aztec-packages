@@ -37,7 +37,7 @@ where $w_i, w_j$ are witnesses and $c_{i,j}, c_j, c$ are constants.
 
 ### `MemoryInit`
 
-`MemoryInit` opcodes represent the initialization of a memory table. This can be either a `ROM` talbe, a `RAM` table, a `Calldata` databus column, or a `Returndata` databus column.
+`MemoryInit` opcodes represent the initialization of a memory table. This can be either a `ROM` table, a `RAM` table, a `Calldata` databus column, or a `Returndata` databus column.
 
 A `MemoryInit` opcode contains a list of witness indices representing the indices of the data with which to initialize the table.
 
@@ -55,7 +55,7 @@ A `MemoryOp` opcode contains the type of the operation, the index of the element
 
 ### `BlackBoxFunctionCall`
 
-`BlackBoxFunctionCall` opcodes represent calls from Noir to functions that are implemented in barretenberg. An example is recursive verification: to perform recursive verification from Noir, we call `std::verify_with_type`, which adds a `BlackBoxFunctionCall` opcode for recursive verification. Then, when barretenberg parses this opcode, it adds the constraints for recursive verificatio using the witness indices passed by Noir.
+`BlackBoxFunctionCall` opcodes represent calls from Noir to functions that are implemented in barretenberg. An example is recursive verification: to perform recursive verification from Noir, we call `std::verify_with_type`, which adds a `BlackBoxFunctionCall` opcode for recursive verification. Then, when barretenberg parses this opcode, it adds the constraints for recursive verification using the witness indices passed by Noir.
 
 ## Bytes to `Builder`
 
