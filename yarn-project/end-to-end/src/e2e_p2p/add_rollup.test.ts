@@ -16,7 +16,7 @@ import {
   deployL1Contract,
   deployRollupForUpgrade,
 } from '@aztec/ethereum';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import {
@@ -536,8 +536,8 @@ describe('e2e_p2p_add_rollup', () => {
     // wait a bit for peers to discover each other
     await sleep(4000);
 
-    // The new rollup should have no blocks
-    expect(await newRollup.getCheckpointNumber()).toBe(0n);
+    // The new rollup should have no checkpoints
+    expect(await newRollup.getCheckpointNumber()).toBe(CheckpointNumber(0));
 
     // Bridge into and out of the new rollup to ensure that it works.
     await bridging(
@@ -549,9 +549,9 @@ describe('e2e_p2p_add_rollup', () => {
       newConfig.l1RpcUrls,
     );
 
-    // Both rollups should have a block number greater than 0
-    expect(await rollup.getCheckpointNumber()).toBeGreaterThan(0n);
-    expect(await newRollup.getCheckpointNumber()).toBeGreaterThan(0n);
+    // Both rollups should have a checkpoint number greater than 0
+    expect(await rollup.getCheckpointNumber()).toBeGreaterThan(CheckpointNumber(0));
+    expect(await newRollup.getCheckpointNumber()).toBeGreaterThan(CheckpointNumber(0));
 
     await blobSink.stop();
   }, 10_000_000);

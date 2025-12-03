@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { EventSelector, type FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
+import type { DataInBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
@@ -90,16 +90,24 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return instance;
   }
 
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
+  async getNotes(
+    contractAddress: AztecAddress,
+    owner: AztecAddress,
+    storageSlot: Fr,
+    status: NoteStatus,
+    scopes?: AztecAddress[],
+  ) {
     const noteDaos = await this.noteDataProvider.getNotes({
       contractAddress,
+      owner,
       storageSlot,
       status,
       scopes,
     });
     return noteDaos.map(
-      ({ contractAddress, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
+      ({ contractAddress, owner, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
         contractAddress,
+        owner,
         storageSlot,
         randomness,
         noteNonce,
@@ -599,6 +607,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const noteDeliveries = noteValidationRequests.map(request =>
       this.deliverNote(
         request.contractAddress,
+        request.owner,
         request.storageSlot,
         request.randomness,
         request.noteNonce,
@@ -630,6 +639,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async deliverNote(
     contractAddress: AztecAddress,
+    owner: AztecAddress,
     storageSlot: Fr,
     randomness: Fr,
     noteNonce: Fr,
@@ -682,6 +692,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const noteDao = new NoteDao(
       new Note(content),
       contractAddress,
+      owner,
       storageSlot,
       randomness,
       noteNonce,
@@ -941,10 +952,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const foundNullifiers = nullifiersToCheck
       .map((nullifier, i) => {
         if (nullifierIndexes[i] !== undefined) {
-          return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
+          return { ...nullifierIndexes[i], ...{ data: nullifier } } as DataInBlock<Fr>;
         }
       })
-      .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
+      .filter(nullifier => nullifier !== undefined) as DataInBlock<Fr>[];
 
     const nullifiedNotes = await this.noteDataProvider.applyNullifiers(foundNullifiers);
     nullifiedNotes.forEach(noteDao => {

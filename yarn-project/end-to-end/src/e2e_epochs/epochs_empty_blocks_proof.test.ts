@@ -34,13 +34,13 @@ describe('e2e_epochs/epochs_empty_blocks_proof', () => {
     context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
     await test.waitUntilEpochStarts(1);
 
-    // Sleep to make sure any pending blocks are published
+    // Sleep to make sure any pending checkpoints are published
     await sleep(L1_BLOCK_TIME_IN_S * 1000);
-    const blockNumberAtEndOfEpoch0 = Number(await rollup.getCheckpointNumber());
-    logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
+    const checkpointNumberAtEndOfEpoch0 = await rollup.getCheckpointNumber();
+    logger.info(`Starting epoch 1 after checkpoint ${checkpointNumberAtEndOfEpoch0}`);
 
-    await test.waitUntilProvenL2BlockNumber(blockNumberAtEndOfEpoch0, 240);
-    expect(monitor.checkpointNumber).toEqual(blockNumberAtEndOfEpoch0);
+    await test.waitUntilProvenCheckpointNumber(checkpointNumberAtEndOfEpoch0, 240);
+    expect(monitor.checkpointNumber).toEqual(checkpointNumberAtEndOfEpoch0);
     logger.info(`Test succeeded`);
   });
 });

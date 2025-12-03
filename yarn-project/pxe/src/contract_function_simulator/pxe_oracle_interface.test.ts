@@ -618,15 +618,20 @@ describe('PXEOracleInterface', () => {
     let noteHash: Fr;
     let nullifier: Fr;
     let txHash: TxHash;
+    // Recipient is different from the owner because recipient refers to the
+    // recipient of the message containing the note, while owner refers to the
+    // owner of the note.
+    let owner: AztecAddress;
     let storageSlot: Fr;
     let randomness: Fr;
     let noteNonce: Fr;
     let content: Fr[];
 
-    beforeEach(() => {
+    beforeEach(async () => {
       noteHash = Fr.random();
       nullifier = Fr.random();
       txHash = TxHash.random();
+      owner = await AztecAddress.random();
       storageSlot = Fr.random();
       randomness = Fr.random();
       noteNonce = Fr.random();
@@ -645,6 +650,7 @@ describe('PXEOracleInterface', () => {
 
       await pxeOracleInterface.deliverNote(
         contractAddress,
+        owner,
         storageSlot,
         randomness,
         noteNonce,
@@ -669,6 +675,7 @@ describe('PXEOracleInterface', () => {
       await expect(
         pxeOracleInterface.deliverNote(
           contractAddress,
+          owner,
           storageSlot,
           randomness,
           noteNonce,
@@ -698,6 +705,7 @@ describe('PXEOracleInterface', () => {
 
       await pxeOracleInterface.deliverNote(
         contractAddress,
+        owner,
         storageSlot,
         randomness,
         noteNonce,
@@ -734,8 +742,9 @@ describe('PXEOracleInterface', () => {
       await expect(
         pxeOracleInterface.deliverNote(
           contractAddress,
-          randomness,
+          owner,
           storageSlot,
+          randomness,
           noteNonce,
           content,
           noteHash,
@@ -770,8 +779,9 @@ describe('PXEOracleInterface', () => {
 
       await pxeOracleInterface.deliverNote(
         contractAddress,
-        randomness,
+        owner,
         storageSlot,
+        randomness,
         noteNonce,
         content,
         noteHash,

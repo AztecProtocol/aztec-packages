@@ -3,7 +3,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { type ExtendedViemWalletClient, type Operator, RollupContract } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -192,15 +192,15 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     await Promise.all(sequencers.map(s => s.start()));
     logger.warn(`Started all sequencers with skipCollectingAttestations=true`);
 
-    // Wait until we see two invalidations, both should be for the same block
-    let lastInvalidatedBlockNumber: bigint | undefined;
+    // Wait until we see two invalidations, both should be for the same checkpoint
+    let lastInvalidatedCheckpointNumber: CheckpointNumber | undefined;
     const invalidatePromise = promiseWithResolvers<void>();
     const unsubscribe = rollupContract.listenToCheckpointInvalidated(data => {
-      logger.warn(`Block ${data.checkpointNumber} has been invalidated`, data);
-      if (lastInvalidatedBlockNumber === undefined) {
-        lastInvalidatedBlockNumber = data.checkpointNumber;
+      logger.warn(`Checkpoint ${data.checkpointNumber} has been invalidated`, data);
+      if (lastInvalidatedCheckpointNumber === undefined) {
+        lastInvalidatedCheckpointNumber = data.checkpointNumber;
       } else {
-        expect(data.checkpointNumber).toEqual(lastInvalidatedBlockNumber);
+        expect(data.checkpointNumber).toEqual(lastInvalidatedCheckpointNumber);
         invalidatePromise.resolve();
         unsubscribe();
       }
@@ -213,11 +213,12 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     });
 
     // Ensure chain progresses
-    const targetBlock = lastInvalidatedBlockNumber! + 2n;
-    logger.warn(`Waiting until block ${targetBlock} has been mined`);
-    await test.monitor.waitUntilCheckpoint(targetBlock);
+    const targetCheckpointNumber = CheckpointNumber(lastInvalidatedCheckpointNumber! + 2);
+    logger.warn(`Waiting until checkpoint ${targetCheckpointNumber} has been mined`);
+    await test.monitor.waitUntilCheckpoint(targetCheckpointNumber);
 
     // Wait for all nodes to sync the new block
+    const targetBlock = targetCheckpointNumber;
     logger.warn(`Waiting for all nodes to sync to block ${targetBlock}`);
     await retryUntil(
       async () => {
@@ -246,21 +247,21 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     await Promise.all(sequencers.map(s => s.start()));
     logger.warn(`Started all sequencers with injectFakeAttestation=true`);
 
-    // Wait until we see two invalidations, both should be for the same block
-    let lastInvalidatedBlockNumber: bigint | undefined;
+    // Wait until we see two invalidations, both should be for the same checkpoint
+    let lastInvalidatedCheckpointNumber: CheckpointNumber | undefined;
     const invalidatePromise = promiseWithResolvers<void>();
     const unsubscribe = rollupContract.listenToCheckpointInvalidated(data => {
-      logger.warn(`Block ${data.checkpointNumber} has been invalidated`, data);
-      if (lastInvalidatedBlockNumber === undefined) {
-        lastInvalidatedBlockNumber = data.checkpointNumber;
+      logger.warn(`Checkpoint ${data.checkpointNumber} has been invalidated`, data);
+      if (lastInvalidatedCheckpointNumber === undefined) {
+        lastInvalidatedCheckpointNumber = data.checkpointNumber;
       } else {
-        expect(data.checkpointNumber).toEqual(lastInvalidatedBlockNumber);
+        expect(data.checkpointNumber).toEqual(lastInvalidatedCheckpointNumber);
         invalidatePromise.resolve();
         unsubscribe();
       }
     });
     await Promise.race([
-      timeoutPromise(1000 * test.L2_SLOT_DURATION_IN_S * 8, 'Invalidating blocks'),
+      timeoutPromise(1000 * test.L2_SLOT_DURATION_IN_S * 8, 'Invalidating checkpoints'),
       invalidatePromise.promise,
     ]);
 
@@ -270,11 +271,12 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     });
 
     // Ensure chain progresses
-    const targetBlock = lastInvalidatedBlockNumber! + 2n;
-    logger.warn(`Waiting until block ${targetBlock} has been mined`);
-    await test.monitor.waitUntilCheckpoint(targetBlock);
+    const targetCheckpointNumber = CheckpointNumber(lastInvalidatedCheckpointNumber! + 2);
+    logger.warn(`Waiting until checkpoint ${targetCheckpointNumber} has been mined`);
+    await test.monitor.waitUntilCheckpoint(targetCheckpointNumber);
 
     // Wait for all nodes to sync the new block
+    const targetBlock = targetCheckpointNumber;
     logger.warn(`Waiting for all nodes to sync to block ${targetBlock}`);
     await retryUntil(
       async () => {
@@ -326,37 +328,39 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn(`Started all sequencers`);
 
     // We should see two invalid blocks being proposed by the bad proposers in those two slots
-    const firstBlockPromise = promiseWithResolvers<number>();
-    const secondBlockPromise = promiseWithResolvers<number>();
+    const firstCheckpointPromise = promiseWithResolvers<CheckpointNumber>();
+    const secondCheckpointPromise = promiseWithResolvers<CheckpointNumber>();
     const expectedFirstSlot = Number(BigInt(initialSlot) + 2n);
     const expectedSecondSlot = Number(BigInt(initialSlot) + 3n);
     test.monitor.on('checkpoint', ({ checkpointNumber, l2SlotNumber }) => {
-      logger.warn(`L2 block ${checkpointNumber} at slot ${l2SlotNumber} has been mined`);
+      logger.warn(`Checkpoint ${checkpointNumber} at slot ${l2SlotNumber} has been mined`);
       if (l2SlotNumber === expectedFirstSlot) {
-        firstBlockPromise.resolve(checkpointNumber);
+        firstCheckpointPromise.resolve(checkpointNumber);
       }
       if (l2SlotNumber === expectedSecondSlot) {
-        secondBlockPromise.resolve(checkpointNumber);
+        secondCheckpointPromise.resolve(checkpointNumber);
       }
     });
 
-    // Wait for both blocks to be mined
-    logger.warn(`Waiting for two blocks to be mined on slots ${expectedFirstSlot} and ${expectedSecondSlot}`);
-    const [firstBlock, secondBlock] = await Promise.race([
-      await Promise.all([firstBlockPromise.promise, secondBlockPromise.promise]),
-      timeoutPromise(test.L2_SLOT_DURATION_IN_S * 8 * 1000).then(() => [0, 0]),
+    // Wait for both checkpoints to be mined
+    logger.warn(`Waiting for two checkpoints to be mined on slots ${expectedFirstSlot} and ${expectedSecondSlot}`);
+    const [firstCheckpoint, secondCheckpoint] = await Promise.race([
+      await Promise.all([firstCheckpointPromise.promise, secondCheckpointPromise.promise]),
+      timeoutPromise(test.L2_SLOT_DURATION_IN_S * 8 * 1000).then(() => [CheckpointNumber(0), CheckpointNumber(0)]),
     ]);
 
-    // Subscribe to block invalidation events
-    const invalidatePromise = promiseWithResolvers<bigint>();
+    // Subscribe to checkpoint invalidation events
+    const invalidatePromise = promiseWithResolvers<CheckpointNumber>();
     const unsubscribe = rollupContract.listenToCheckpointInvalidated(event => {
-      logger.warn(`Block ${event.checkpointNumber} has been invalidated`, event);
+      logger.warn(`Checkpoint ${event.checkpointNumber} has been invalidated`, event);
       invalidatePromise.resolve(event.checkpointNumber);
       unsubscribe();
     });
 
     // Wait for a slot with a good proposer
-    logger.warn(`Blocks ${firstBlock} and ${secondBlock} have been mined. Waiting for slot with good proposer.`);
+    logger.warn(
+      `Checkpoints ${firstCheckpoint} and ${secondCheckpoint} have been mined. Waiting for slot with good proposer.`,
+    );
     const goodProposer = await retryUntil(async () => {
       const { currentProposer } = await test.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
       if (badProposers.every(p => !p!.equals(currentProposer!))) {
@@ -364,17 +368,17 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       }
     });
 
-    // As soon as it's the turn of a good proposer, we should see the first block being invalidated
+    // As soon as it's the turn of a good proposer, we should see the first checkpoint being invalidated
     logger.warn(`Turn for ${goodProposer}. Waiting for invalidation.`);
-    const invalidatedBlock = await Promise.race([
+    const invalidatedCheckpoint = await Promise.race([
       invalidatePromise.promise,
-      timeoutPromise(test.L2_SLOT_DURATION_IN_S * 4 * 1000).then(() => 0n),
+      timeoutPromise(test.L2_SLOT_DURATION_IN_S * 4 * 1000).then(() => CheckpointNumber(0)),
     ]);
 
-    // The invalidated block should be the first one
-    // Note that it may also be a block *before* the first one that gets mined in `initialSlot + 1n`
-    expect(invalidatedBlock).toBeLessThanOrEqual(BigInt(firstBlock));
-    expect(invalidatedBlock).toBeGreaterThanOrEqual(BigInt(firstBlock - 1));
+    // The invalidated checkpoint should be the first one
+    // Note that it may also be a checkpoint *before* the first one that gets mined in `initialSlot + 1n`
+    expect(invalidatedCheckpoint).toBeLessThanOrEqual(firstCheckpoint);
+    expect(invalidatedCheckpoint).toBeGreaterThanOrEqual(CheckpointNumber(firstCheckpoint - 1));
 
     // Restore bad nodes back to normal. They should eventually detect that their archive root does not
     // match the value on chain and roll back their invalid nodes.
@@ -388,10 +392,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       }),
     );
 
-    // And wait for more blocks to be mined
-    logger.warn(`Waiting until more blocks have been mined to ensure the chain can progress`);
+    // And wait for more checkpoints to be mined
+    const nextCheckpointNumber = CheckpointNumber(firstCheckpoint + 3);
+    logger.warn(`Waiting until more checkpoints have been mined to ensure the chain can progress`);
     await Promise.all(nodes.map(node => node.setConfig({ minTxsPerBlock: 0 })));
-    await test.waitUntilL2BlockNumber(firstBlock + 3, test.L2_SLOT_DURATION_IN_S * 16);
+    await test.waitUntilCheckpointNumber(nextCheckpointNumber, test.L2_SLOT_DURATION_IN_S * 16);
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
@@ -445,7 +450,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const [event] = checkpointInvalidatedEvents;
     logger.warn(`CheckpointInvalidated event emitted`, { event });
     expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
-    expect(await test.rollup.getCheckpointNumber()).toEqual(BigInt(initialBlockNumber));
+    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber(initialBlockNumber));
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
@@ -501,7 +506,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const [event] = checkpointInvalidatedEvents;
     logger.warn(`CheckpointInvalidated event emitted`, { event });
     expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
-    expect(await test.rollup.getCheckpointNumber()).toEqual(BigInt(initialBlockNumber));
+    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber(initialBlockNumber));
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });

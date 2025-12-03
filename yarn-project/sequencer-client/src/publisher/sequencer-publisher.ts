@@ -25,7 +25,7 @@ import {
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import type { Fr } from '@aztec/foundation/fields';
@@ -342,7 +342,10 @@ export class SequencerPublisher {
 
     return this.rollupContract
       .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), Number(this.ethereumSlotDuration), {
-        forcePendingCheckpointNumber: opts.forcePendingBlockNumber,
+        forcePendingCheckpointNumber:
+          opts.forcePendingBlockNumber !== undefined
+            ? CheckpointNumber.fromBlockNumber(opts.forcePendingBlockNumber)
+            : undefined,
       })
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
@@ -375,7 +378,13 @@ export class SequencerPublisher {
     ] as const;
 
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
-    const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(opts?.forcePendingBlockNumber);
+    const optsForcePendingCheckpointNumber =
+      opts?.forcePendingBlockNumber !== undefined
+        ? CheckpointNumber.fromBlockNumber(opts.forcePendingBlockNumber)
+        : undefined;
+    const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
+      optsForcePendingCheckpointNumber,
+    );
     let balance = 0n;
     if (this.config.fishermanMode) {
       // In fisherman mode, we can't know where the proposer is publishing from
@@ -480,14 +489,14 @@ export class SequencerPublisher {
 
     if (reason === 'invalid-attestation') {
       return this.rollupContract.buildInvalidateBadAttestationRequest(
-        block.blockNumber,
+        CheckpointNumber.fromBlockNumber(block.blockNumber),
         attestationsAndSigners,
         committee,
         validationResult.invalidIndex,
       );
     } else if (reason === 'insufficient-attestations') {
       return this.rollupContract.buildInvalidateInsufficientAttestationsRequest(
-        block.blockNumber,
+        CheckpointNumber.fromBlockNumber(block.blockNumber),
         attestationsAndSigners,
         committee,
       );
@@ -1025,10 +1034,14 @@ export class SequencerPublisher {
       args,
     });
 
-    // override the pending block number if requested
-    const forcePendingBlockNumberStateDiff = (
+    // override the pending checkpoint number if requested
+    const optsForcePendingCheckpointNumber =
       options.forcePendingBlockNumber !== undefined
-        ? await this.rollupContract.makePendingCheckpointNumberOverride(options.forcePendingBlockNumber)
+        ? CheckpointNumber.fromBlockNumber(options.forcePendingBlockNumber)
+        : undefined;
+    const forcePendingCheckpointNumberStateDiff = (
+      optsForcePendingCheckpointNumber !== undefined
+        ? await this.rollupContract.makePendingCheckpointNumberOverride(optsForcePendingCheckpointNumber)
         : []
     ).flatMap(override => override.stateDiff ?? []);
 
@@ -1038,7 +1051,7 @@ export class SequencerPublisher {
         // @note we override checkBlob to false since blobs are not part simulate()
         stateDiff: [
           { slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true), value: toPaddedHex(0n, true) },
-          ...forcePendingBlockNumberStateDiff,
+          ...forcePendingCheckpointNumberStateDiff,
         ],
       },
     ];

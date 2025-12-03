@@ -106,13 +106,9 @@ function compile_all {
   cd pxe && yarn check_oracle_version
   cd ..
 
-  cmds=('format --check')
-  if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
-    # Fully type check and lint.
-    cmds+=('yarn tsgo -b --emitDeclarationOnly && lint --check')
-  else
-    # We just need the type declarations required for downstream consumers.
-    cmds+=('cd aztec.js && yarn tsgo -b --emitDeclarationOnly')
+  cmds=('format --check' 'yarn tsgo -b --emitDeclarationOnly')
+  if [ "${CI:-0}" -eq 1 ]; then
+    cmds+=('lint --check')
   fi
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt

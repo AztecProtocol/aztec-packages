@@ -17,13 +17,15 @@ export class NoteDao {
     public note: Note,
     /** The address of the contract that created the note (i.e. the address used by the kernel during siloing). */
     public contractAddress: AztecAddress,
+    /** The owner of the note - generally the account that can spend the note. */
+    public owner: AztecAddress,
     /**
      * The storage location of the note. This value is not used for anything in PXE, but we do index by storage slot
      * since contracts typically make queries based on it.
      */
     public storageSlot: Fr,
     /**
-     * The randomness injected to the note.
+     * The randomness injected to the note hash preimage.
      */
     public randomness: Fr,
     /** The nonce that was injected into the note hash preimage in order to guarantee uniqueness. */
@@ -60,6 +62,7 @@ export class NoteDao {
     return serializeToBuffer([
       this.note,
       this.contractAddress,
+      this.owner,
       this.storageSlot,
       this.randomness,
       this.noteNonce,
@@ -77,6 +80,7 @@ export class NoteDao {
 
     const note = Note.fromBuffer(reader);
     const contractAddress = AztecAddress.fromBuffer(reader);
+    const owner = AztecAddress.fromBuffer(reader);
     const storageSlot = Fr.fromBuffer(reader);
     const randomness = Fr.fromBuffer(reader);
     const noteNonce = Fr.fromBuffer(reader);
@@ -90,6 +94,7 @@ export class NoteDao {
     return new NoteDao(
       note,
       contractAddress,
+      owner,
       storageSlot,
       randomness,
       noteNonce,
@@ -118,12 +123,15 @@ export class NoteDao {
   public getSize() {
     const indexSize = Math.ceil(Math.log2(Number(this.index)));
     const noteSize = 4 + this.note.items.length * Fr.SIZE_IN_BYTES;
-    return noteSize + AztecAddress.SIZE_IN_BYTES + Fr.SIZE_IN_BYTES * 4 + TxHash.SIZE + Point.SIZE_IN_BYTES + indexSize;
+    return (
+      noteSize + AztecAddress.SIZE_IN_BYTES * 2 + Fr.SIZE_IN_BYTES * 4 + TxHash.SIZE + Point.SIZE_IN_BYTES + indexSize
+    );
   }
 
   static async random({
     note = Note.random(),
     contractAddress = undefined,
+    owner = undefined,
     storageSlot = Fr.random(),
     randomness = Fr.random(),
     noteNonce = Fr.random(),
@@ -137,6 +145,7 @@ export class NoteDao {
     return new NoteDao(
       note,
       contractAddress ?? (await AztecAddress.random()),
+      owner ?? (await AztecAddress.random()),
       storageSlot,
       randomness,
       noteNonce,

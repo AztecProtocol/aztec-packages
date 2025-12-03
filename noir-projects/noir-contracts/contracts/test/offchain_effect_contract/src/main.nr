@@ -9,7 +9,7 @@ contract OffchainEffect {
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,
         protocol_types::{address::AztecAddress, traits::Serialize},
-        state_vars::{Map, PrivateSet},
+        state_vars::PrivateSet,
     };
     use uint_note::uint_note::UintNote;
 
@@ -28,7 +28,7 @@ contract OffchainEffect {
 
     #[storage]
     struct Storage<Context> {
-        balances: Map<AztecAddress, PrivateSet<UintNote, Context>, Context>,
+        balances: PrivateSet<UintNote, Context>,
     }
 
     #[external("private")]
@@ -59,7 +59,7 @@ contract OffchainEffect {
 
     #[external("private")]
     fn emit_note_as_offchain_message(value: u128, owner: AztecAddress) {
-        let note = UintNote::new(value, owner);
+        let note = UintNote::new(value);
 
         self.storage.balances.at(owner).insert(note).emit(
             self.msg_sender().unwrap(),

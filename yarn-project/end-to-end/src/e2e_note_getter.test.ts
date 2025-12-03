@@ -48,12 +48,12 @@ describe('e2e_note_getter', () => {
       await contract.methods.insert_note(5).send({ from: defaultAddress }).wait();
 
       const [returnEq, returnNeq, returnLt, returnGt, returnLte, returnGte] = await Promise.all([
-        contract.methods.read_note_values(Comparator.EQ, 5).simulate({ from: defaultAddress }),
-        contract.methods.read_note_values(Comparator.NEQ, 5).simulate({ from: defaultAddress }),
-        contract.methods.read_note_values(Comparator.LT, 5).simulate({ from: defaultAddress }),
-        contract.methods.read_note_values(Comparator.GT, 5).simulate({ from: defaultAddress }),
-        contract.methods.read_note_values(Comparator.LTE, 5).simulate({ from: defaultAddress }),
-        contract.methods.read_note_values(Comparator.GTE, 5).simulate({ from: defaultAddress }),
+        contract.methods.read_note_values(defaultAddress, Comparator.EQ, 5).simulate({ from: defaultAddress }),
+        contract.methods.read_note_values(defaultAddress, Comparator.NEQ, 5).simulate({ from: defaultAddress }),
+        contract.methods.read_note_values(defaultAddress, Comparator.LT, 5).simulate({ from: defaultAddress }),
+        contract.methods.read_note_values(defaultAddress, Comparator.GT, 5).simulate({ from: defaultAddress }),
+        contract.methods.read_note_values(defaultAddress, Comparator.LTE, 5).simulate({ from: defaultAddress }),
+        contract.methods.read_note_values(defaultAddress, Comparator.GTE, 5).simulate({ from: defaultAddress }),
       ]);
 
       expect(boundedVecToArray(returnEq).sort()).toStrictEqual([5n, 5n].sort());
@@ -94,10 +94,10 @@ describe('e2e_note_getter', () => {
 
     async function assertNoteIsReturned(storageSlot: number, expectedValue: number, activeOrNullified: boolean) {
       const viewNotesResult = await contract.methods
-        .call_view_notes(storageSlot, activeOrNullified)
+        .call_view_notes(owner, storageSlot, activeOrNullified)
         .simulate({ from: defaultAddress });
       const getNotesResult = await contract.methods
-        .call_get_notes(storageSlot, activeOrNullified)
+        .call_get_notes(owner, storageSlot, activeOrNullified)
         .simulate({ from: defaultAddress });
 
       expect(viewNotesResult).toEqual(getNotesResult);
@@ -107,10 +107,10 @@ describe('e2e_note_getter', () => {
     async function assertNoReturnValue(storageSlot: number, activeOrNullified: boolean) {
       const expectedError = 'Assertion failed: Attempted to read past end of BoundedVec';
       await expect(
-        contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate({ from: defaultAddress }),
+        contract.methods.call_view_notes(owner, storageSlot, activeOrNullified).simulate({ from: defaultAddress }),
       ).rejects.toThrow(expectedError);
       await expect(
-        contract.methods.call_get_notes(storageSlot, activeOrNullified).simulate({ from: defaultAddress }),
+        contract.methods.call_get_notes(owner, storageSlot, activeOrNullified).simulate({ from: defaultAddress }),
       ).rejects.toThrow(expectedError);
     }
 
@@ -130,7 +130,7 @@ describe('e2e_note_getter', () => {
           .call_create_note(VALUE, owner, storageSlot, makeTxHybrid)
           .send({ from: defaultAddress })
           .wait();
-        await contract.methods.call_destroy_note(storageSlot).send({ from: defaultAddress }).wait();
+        await contract.methods.call_destroy_note(owner, storageSlot).send({ from: defaultAddress }).wait();
 
         await assertNoReturnValue(storageSlot, activeOrNullified);
       });
@@ -152,7 +152,7 @@ describe('e2e_note_getter', () => {
           .call_create_note(VALUE, owner, storageSlot, makeTxHybrid)
           .send({ from: defaultAddress })
           .wait();
-        await contract.methods.call_destroy_note(storageSlot).send({ from: defaultAddress }).wait();
+        await contract.methods.call_destroy_note(owner, storageSlot).send({ from: defaultAddress }).wait();
 
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
@@ -168,14 +168,14 @@ describe('e2e_note_getter', () => {
           .call_create_note(VALUE + 1, owner, storageSlot, makeTxHybrid)
           .send({ from: defaultAddress })
           .wait();
-        await contract.methods.call_destroy_note(storageSlot).send({ from: defaultAddress }).wait();
+        await contract.methods.call_destroy_note(owner, storageSlot).send({ from: defaultAddress }).wait();
 
         // We now fetch multiple notes, and get both the active and the nullified one.
         const viewNotesManyResult = await contract.methods
-          .call_view_notes_many(storageSlot, activeOrNullified)
+          .call_view_notes_many(owner, storageSlot, activeOrNullified)
           .simulate({ from: defaultAddress });
         const getNotesManyResult = await contract.methods
-          .call_get_notes_many(storageSlot, activeOrNullified)
+          .call_get_notes_many(owner, storageSlot, activeOrNullified)
           .simulate({ from: defaultAddress });
 
         // We can't be sure in which order the notes will be returned, so we simply sort them to test equality. Note

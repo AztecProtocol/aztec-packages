@@ -622,3 +622,10 @@ variable "P2P_DROP_TX_CHANCE" {
   type        = string
   default     = "0"
 }
+
+variable "WS_NUM_HISTORIC_BLOCKS" {
+  description = "Number of historic blocks for world state"
+  type        = string
+  nullable    = true
+  default     = null
+}

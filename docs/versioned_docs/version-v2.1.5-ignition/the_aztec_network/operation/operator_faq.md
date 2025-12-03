@@ -32,8 +32,9 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
 
 1. Stop your node:
 
-   - Docker Compose: `docker compose down`
-   - CLI: Press `Ctrl+C` to stop the process
+   ```bash
+   docker compose down
+   ```
 
 2. Remove the archiver data directory:
 
@@ -41,16 +42,10 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
    rm -rf ~/.aztec/v2.1.5/data/archiver
    ```
 
-3. Update to the latest version:
-
-   ```bash
-   aztec-up -v latest
-   ```
-
-4. Restart your node with your normal startup command
+3. Restart your node with your normal startup command
 
 :::warning Data Loss and Resync
-This process removes local state and requires full resynchronization. Consider using snapshot sync mode (`--sync-mode snapshot`) to speed up recovery. See the [syncing best practices guide](../setup/syncing_best_practices.md) for more information.
+This process removes local state and requires full resynchronization. Consider using snapshot sync mode (`SYNC_MODE=snapshot`) to speed up recovery. See the [syncing best practices guide](../setup/syncing_best_practices.md) for more information.
 :::
 
 ### Error Getting Slot Number
@@ -182,17 +177,15 @@ Error: Insufficient L1 funds
 Error: insufficient funds for gas * price + value
 ```
 
-**Cause**: Your publisher address doesn't have enough ETH to pay for L1 gas fees. (Aztec mainnet runs on Ethereum mainnet, so you need real ETH for L1 transactions.)
+**Cause**: Your publisher address doesn't have enough Sepolia ETH to pay for L1 gas fees.
 
 **Solutions**:
 
-1. **Obtain ETH for your publisher account**:
+1. **Get Sepolia ETH from a faucet**:
 
-   Since this is Ethereum mainnet, you'll need to purchase or transfer real ETH to your publisher address through:
-
-   - Cryptocurrency exchanges (Coinbase, Binance, Kraken, etc.)
-   - Peer-to-peer platforms
-   - Bridging from other networks
+   - [Sepolia Faucet](https://sepoliafaucet.com/)
+   - [Alchemy Sepolia Faucet](https://www.alchemy.com/faucets/ethereum-sepolia)
+   - [Infura Sepolia Faucet](https://www.infura.io/faucet/sepolia)
 
 2. **Maintain sufficient balance**:
 
@@ -217,53 +210,27 @@ Sequencers with insufficient funds in their publisher account risk being slashed
 
 ## Updates and Maintenance
 
-### Updating to Latest Version
-
-**Issue**: You need to update your node to the latest Aztec version.
-
-**Solution**:
-
-#### For CLI Method:
-
-```bash
-# Update the Aztec binary
-aztec-up -v latest
-
-# Verify the new version
-aztec --version
-
-# Restart your node with your normal startup command
-```
-
-#### For Docker Compose Method:
-
-```bash
-# Pull the latest image
-docker compose pull
-
-# Stop the current container
-docker compose down
-
-# Start with the new image
-docker compose up -d
-
-# Verify it's running
-docker compose logs -f aztec-sequencer
-```
-
 #### Version-Specific Updates:
 
-To update to a specific version instead of latest:
+To update to a specific version:
 
 ```bash
 # CLI method
 aztec-up -v 2.1.5
 
-# Docker Compose: Update your docker-compose.yml
+```yaml
 # Change the image tag from:
 image: "aztecprotocol/aztec:latest"
 # To:
 image: "aztecprotocol/aztec:2.1.5"
+```
+
+Then run:
+
+```bash
+docker compose pull
+docker compose down
+docker compose up -d
 ```
 
 :::tip Stay Informed About Updates
@@ -312,7 +279,7 @@ Join the [Aztec Discord](https://discord.gg/aztec) and follow the announcements 
    sudo ufw status
    ```
 
-5. **Verify Docker network settings** (Docker Compose method):
+5. **Verify Docker network settings**:
    - Ensure ports are properly mapped in docker-compose.yml
    - Check that `P2P_PORT` environment variable matches the exposed ports
 
@@ -377,8 +344,8 @@ CodeError: stream reset
    ```
 
 4. **Verify keystore directory path**:
-   - Docker Compose: Ensure `KEY_STORE_DIRECTORY` environment variable is set
-   - CLI: Check that `--key-store` flag points to the correct directory
+   - Ensure `KEY_STORE_DIRECTORY` environment variable is set in your `.env` file
+   - Verify the volume mount in `docker-compose.yml` points to the correct directory
 
 For more information on keystore configuration and creation, see the [Creating Validator Keystores guide](./keystore/creating_keystores.md) and the [Advanced Keystore Usage guide](./keystore/index.md).
 

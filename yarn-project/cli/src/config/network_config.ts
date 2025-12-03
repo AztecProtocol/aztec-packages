@@ -17,7 +17,8 @@ const NETWORK_CONFIG_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
  *
  * @param networkName - The network name to fetch config for
  * @param cacheDir - Optional cache directory for storing fetched config
- * @returns Remote configuration for the specified network, or undefined if not found/error
+ * @returns Remote configuration for the specified network, or undefined if network not found in config
+ * @throws Error if both primary and fallback URLs fail to fetch
  */
 export async function getNetworkConfig(
   networkName: NetworkNames,
@@ -26,12 +27,29 @@ export async function getNetworkConfig(
   // Try with the primary URL (env var or default)
   const configLocation = process.env.NETWORK_CONFIG_LOCATION || DEFAULT_CONFIG_URL;
 
+  let primaryError: Error | undefined;
+  let config: NetworkConfig | undefined;
+
   // First try the primary config location
-  let config = await fetchNetworkConfigFromUrl(configLocation, networkName, cacheDir);
+  try {
+    config = await fetchNetworkConfigFromUrl(configLocation, networkName, cacheDir);
+  } catch (error) {
+    primaryError = error as Error;
+  }
 
   // If primary fails and we were using the default URL, try the fallback
   if (!config && configLocation === DEFAULT_CONFIG_URL) {
-    config = await fetchNetworkConfigFromUrl(FALLBACK_CONFIG_URL, networkName, cacheDir);
+    try {
+      config = await fetchNetworkConfigFromUrl(FALLBACK_CONFIG_URL, networkName, cacheDir);
+    } catch {
+      // Both failed - throw the primary error
+      if (primaryError) {
+        throw primaryError;
+      }
+    }
+  } else if (primaryError) {
+    // Primary failed and no fallback to try
+    throw primaryError;
   }
 
   return config;
@@ -42,7 +60,8 @@ export async function getNetworkConfig(
  * @param configLocation - The URL or file path to fetch from
  * @param networkName - The network name to fetch config for
  * @param cacheDir - Optional cache directory for storing fetched config
- * @returns Remote configuration for the specified network, or undefined if not found/error
+ * @returns Remote configuration for the specified network, or undefined if network not found in config, or undefined if URL invalid
+ * @throws Error if fetch/parse fails
  */
 async function fetchNetworkConfigFromUrl(
   configLocation: string,
@@ -64,31 +83,27 @@ async function fetchNetworkConfigFromUrl(
     return undefined;
   }
 
-  try {
-    let rawConfig: any;
+  let rawConfig: any;
 
-    if (url.protocol === 'http:' || url.protocol === 'https:') {
-      rawConfig = await cachedFetch(url.href, {
-        cacheDurationMs: NETWORK_CONFIG_CACHE_DURATION_MS,
-        cacheFile: cacheDir ? join(cacheDir, networkName, 'network_config.json') : undefined,
-      });
-    } else if (url.protocol === 'file:') {
-      rawConfig = JSON.parse(await readFile(url.pathname, 'utf-8'));
-    } else {
-      throw new Error('Unsupported Aztec network config protocol: ' + url.href);
-    }
+  if (url.protocol === 'http:' || url.protocol === 'https:') {
+    rawConfig = await cachedFetch(url.href, {
+      cacheDurationMs: NETWORK_CONFIG_CACHE_DURATION_MS,
+      cacheFile: cacheDir ? join(cacheDir, networkName, 'network_config.json') : undefined,
+    });
+  } else if (url.protocol === 'file:') {
+    rawConfig = JSON.parse(await readFile(url.pathname, 'utf-8'));
+  } else {
+    throw new Error('Unsupported Aztec network config protocol: ' + url.href);
+  }
 
-    if (!rawConfig) {
-      return undefined;
-    }
+  if (!rawConfig) {
+    return undefined;
+  }
 
-    const networkConfigMap = NetworkConfigMapSchema.parse(rawConfig);
-    if (networkName in networkConfigMap) {
-      return networkConfigMap[networkName];
-    } else {
-      return undefined;
-    }
-  } catch {
+  const networkConfigMap = NetworkConfigMapSchema.parse(rawConfig);
+  if (networkName in networkConfigMap) {
+    return networkConfigMap[networkName];
+  } else {
     return undefined;
   }
 }
@@ -99,6 +114,8 @@ async function fetchNetworkConfigFromUrl(
  * from the remote config, following the same pattern as enrichEnvironmentWithChainConfig().
  *
  * @param networkName - The network name to fetch remote config for
+ * @throws Error if network config fetch fails (network errors, parse errors, etc.)
+ * Does not throw if the network simply doesn't exist in the config - just returns without enriching
  */
 export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNames) {
   if (networkName === 'local') {
@@ -109,7 +126,7 @@ export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNam
   const networkConfig = await getNetworkConfig(networkName, cacheDir);
 
   if (!networkConfig) {
-    throw new Error(`Failed to fetch network config for network: ${networkName}`);
+    return; // Network not found in config, continue without enriching
   }
 
   enrichVar('BOOTSTRAP_NODES', networkConfig.bootnodes.join(','));

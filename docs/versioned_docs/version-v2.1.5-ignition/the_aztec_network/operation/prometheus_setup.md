@@ -31,7 +31,7 @@ scrape_configs:
           instance: 'aztec-node-1'
 ```
 
-Adjust the `instance` label to identify your node uniquely if you're running multiple nodes.
+If you're running multiple nodes, adjust the `instance` label to uniquely identify each node.
 
 ### Step 2: Add Prometheus to Docker Compose
 
@@ -70,7 +70,7 @@ docker compose up -d
 ### Step 4: Verify Prometheus
 
 Access Prometheus UI at `http://localhost:9090` and verify:
-1. Go to **Status → Target Health** to check that `aztec-node` target is up
+1. Go to **Status → Targets** to check that the `aztec-node` target is up
 2. Go to **Graph** and query a metric (e.g., `aztec_archiver_block_height`)
 
 ## Using Prometheus
@@ -90,8 +90,8 @@ Use the Prometheus UI to explore and query metrics:
 # Current block height
 aztec_archiver_block_height
 
-# Block sync rate (blocks per second)
-rate(aztec_archiver_block_height[5m])
+# Blocks synced over time window
+increase(aztec_archiver_block_height[5m])
 
 # Memory usage
 process_resident_memory_bytes

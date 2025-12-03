@@ -26,7 +26,6 @@ function print_usage {
   echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
   echo_cmd "network-deploy" "Spin up an EC2 instance to deploy a network."
   echo_cmd "network-tests"  "Spin up an EC2 instance to run tests on a network."
-  echo_cmd "nightly"        "Spin up an EC2 instance and run bootstrap nightly."
   echo_cmd "release"        "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"      "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"          "Drop into a shell in the current running build instance container."

@@ -95,63 +95,67 @@ pub contract StateVars {
 
     #[external("private")]
     fn initialize_private_immutable(randomness: Field, value: Field) {
-        let new_note = ValueNote::new(value, self.msg_sender().unwrap());
+        let owner = self.msg_sender().unwrap();
+        let new_note = ValueNote::new(value);
 
-        self.storage.private_immutable.initialize(new_note).emit(
-            self.msg_sender().unwrap(),
+        self.storage.private_immutable.at(owner).initialize(new_note).emit(
+            owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
 
     #[external("private")]
     fn initialize_private(randomness: Field, value: Field) {
-        let private_mutable = ValueNote::new(value, self.msg_sender().unwrap());
+        let owner = self.msg_sender().unwrap();
+        let private_mutable = ValueNote::new(value);
 
-        self.storage.private_mutable.initialize(private_mutable).emit(
-            self.msg_sender().unwrap(),
+        self.storage.private_mutable.at(owner).initialize(private_mutable).emit(
+            owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
 
     #[external("private")]
     fn update_private_mutable(randomness: Field, value: Field) {
-        self
-            .storage
-            .private_mutable
-            .replace(|_old_note| ValueNote::new(value, self.msg_sender().unwrap()))
-            .emit(self.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+        let owner = self.msg_sender().unwrap();
+        self.storage.private_mutable.at(owner).replace(|_old_note| ValueNote::new(value)).emit(
+            owner,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
 
     #[external("private")]
     fn increase_private_value() {
+        let owner = self.msg_sender().unwrap();
         // Replace existing note with new note containing incremented value
         self
             .storage
             .private_mutable
+            .at(owner)
             .replace(|old_note| {
                 let new_value = old_note.value() + 1;
-                ValueNote::new(new_value, self.msg_sender().unwrap())
+                ValueNote::new(new_value)
             })
-            .emit(self.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+            .emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("utility")]
-    unconstrained fn get_private_mutable() -> ValueNote {
-        self.storage.private_mutable.view_note()
+    unconstrained fn get_private_mutable(owner: AztecAddress) -> ValueNote {
+        self.storage.private_mutable.at(owner).view_note()
     }
 
     #[external("utility")]
-    unconstrained fn is_private_mutable_initialized() -> bool {
-        self.storage.private_mutable.is_initialized()
+    unconstrained fn is_private_mutable_initialized(owner: AztecAddress) -> bool {
+        self.storage.private_mutable.at(owner).is_initialized()
     }
 
     #[external("utility")]
-    unconstrained fn view_private_immutable() -> ValueNote {
-        self.storage.private_immutable.view_note()
+    unconstrained fn view_private_immutable(owner: AztecAddress) -> ValueNote {
+        self.storage.private_immutable.at(owner).view_note()
     }
 
     #[external("utility")]
-    unconstrained fn is_priv_imm_initialized() -> bool {
-        self.storage.private_immutable.is_initialized()
+    unconstrained fn is_priv_imm_initialized(owner: AztecAddress) -> bool {
+        self.storage.private_immutable.at(owner).is_initialized()
     }
 }
