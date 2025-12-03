@@ -105,8 +105,7 @@ class ECCOpQueue {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops
     // getters more memory efficient
 
-    // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already.
-    // If a hiding op has been set, it will be prepended at index 0.
+    // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already
     std::vector<ECCVMOperation>& get_eccvm_ops()
     {
         if (eccvm_ops_reconstructed.empty()) {
@@ -272,18 +271,18 @@ class ECCOpQueue {
     }
 
     /**
-     * @brief Add a hiding op with random (possibly non-curve) Px, Py values to both ECCVM and Ultra ops tables.
+     * @brief Add a hiding op with random Px, Py values to both ECCVM and Ultra ops tables.
      *
      * @details The hiding op contributes random Px, Py field elements to both ECCVM transcript polynomials
-     * and Translator's accumulated_result, providing statistical hiding (~508 bits).
+     * and Translator's accumulated_result, providing statistical hiding.
      *
      * In ECCVM: prepended at index 0, landing at row 1 (lagrange_second = 1).
      * In Ultra/Translator: appended to current subtable through normal flow, landing in the accumulation range.
      *
      * The hiding op uses opcode q_eq = 1, q_reset = 1 (value = 3) to preserve the Px, Py values in the
-     * transcript (other opcodes may zero out the coordinates). The eq constraint is gated by
-     * (1 - lagrange_second) so it doesn't actually check equality. The on-curve check is similarly gated.
-     * q_reset = 1 is required for Translator compatibility (only opcodes {0,3,4,8} are allowed).
+     * transcript. The eq constraint is gated by (1 - lagrange_second) so it doesn't actually check equality. The
+     * on-curve check is similarly gated. q_reset = 1 is required for Translator compatibility (only opcodes {0,3,4,8}
+     * are allowed).
      *
      * This method should be called ONCE per IVC in the tail kernel, after the random non-ops.
      *
