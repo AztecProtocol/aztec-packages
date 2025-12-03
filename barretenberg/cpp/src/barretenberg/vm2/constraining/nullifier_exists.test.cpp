@@ -42,6 +42,7 @@ using testing::NiceMock;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using nullifier_exists = bb::avm2::nullifier_exists<FF>;
+using execution = bb::avm2::execution<FF>;
 
 TEST(NullifierExistsConstrainingTest, PositiveTest)
 {
@@ -100,8 +101,8 @@ TEST(NullifierExistsConstrainingTest, NegativeNullifierExistsSuccess)
         { C::execution_sel_opcode_error, 1 },
     } });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<nullifier_exists>(trace, nullifier_exists::SR_NULLIFIER_EXISTS_SUCCESS),
-                              "NULLIFIER_EXISTS_SUCCESS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_INFALLIBLE_OPCODES_SUCCESS),
+                              "INFALLIBLE_OPCODES_SUCCESS");
 }
 
 TEST(NullifierExistsConstrainingTest, Interactions)

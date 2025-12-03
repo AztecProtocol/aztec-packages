@@ -52,7 +52,5 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     #[NULLIFIER_EXISTS_U1_OUTPUT_TAG]
     sel_execute_nullifier_exists * (constants.MEM_TAG_U1 - mem_tag_reg[2]) = 0;
 
-    // NullifierExists opcode has no errors!
-    // (other than of those handled by standard execution logic)
-    #[NULLIFIER_EXISTS_SUCCESS]
-    sel_opcode_error * sel_execute_nullifier_exists = 0;
+    // This opcode is infallible and sel_opcode_error is constrained to be zero
+    // in execution.pil (see #[INFALLIBLE_OPCODES_SUCCESS]).
