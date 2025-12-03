@@ -2,7 +2,7 @@
 This module holds the implementation of the sumcheck protocol.
 
 The implementation varies depending on the `Flavor` provided as a template parameter. The two main conditions that change the `prove`/`verify` functionality are
-1. `IsGrumpkinFlavor` concept, which distinguishes between the `ECCVMFlavor`, `ECCVMRecursiveFlavor` and the rest
+1. `IsGrumpkinFlavor` concept, which distinguishes whether coefficients are `Grumpkin` (`ECCVMFlavor`, `ECCVMRecursiveFlavor`) or `BN254` scalars.
 2. `hasZK` which determines whether the flavor is a `ZK` Flavor.
 
 # `SumcheckProver`
@@ -26,9 +26,9 @@ At each round the prover computes a round univariate $$S^i(X_i) = \sum_{\ell\in 
 The important observation is that since $P_i$'s are multilinear polynomials, we have the following equality for $\ell \in \{0,1\}^{d-k-1}$:
 \begin{align}P_i(u_0,\dots, u_{k-1}, u_k, \ell)=&\\  &u_k\cdot P_i(u_0,\dots,u_{k-1},1,\ell) \\+ &(1-u_k)\cdot P_i(u_0,\dots,u_{k-1},0,\ell)\end{align}
 
-Hence, at round $i$ the prover will keep a __book-keeping table__ of evaluations $P_j(u_0,\dots,u_{i-1},\ell)$ for $\ell$ on the hypercube. In the code these are refered to as `partially_evaluated_polynomials`. The next book-keeping table (for round $i+1$) which has half the size of the one from round $i$, is computed using the equation above.
+Hence, at round $i$ the prover will keep a __book-keeping table__ of evaluations $P_j(u_0,\dots,u_{i-1},\ell)$ for $\ell$ on the hypercube. In the code these are referred to as `partially_evaluated_polynomials`. The next book-keeping table (for round $i+1$) which has half the size of the one from round $i$, is computed using the equation above.
 
-At the round the `partially_evaluated_polynomials` only holds the evaulation of the multilinear polynomials at challenge point $u_0,\dots,u_{d-1}$.
+At the last round the `partially_evaluated_polynomials` only holds the evaluation of the multilinear polynomials at challenge point $u_0,\dots,u_{d-1}$.
 
 Hence, here is how the proving flow goes:
 1. The prover initializes the `partially_evaluated_polynomials` with the evaluation of the prover multilinear polynomials ($P_i$) over the hypercube. Note that, since `GateSeperatorPolynomial` ($\textsf{pow}_\beta$) is also a multilinear polynomial, we follow the same logic as other multivariates for it.
@@ -37,28 +37,28 @@ Hence, here is how the proving flow goes:
     2. The prover computes the round univariate $S^i$ by calling `compute_univariate`.
     3. Prover sends the round univariate to the verifier via the `transcript` object.
     3. The prover updates its book-keeping table using `partially_evaluate`.
-4. After all the rounds, the prover compute the final evaluation `multivariate_evaluations` by calling the `extract_claimed_evaluations`. This method simply returns the last element left in the book-keeping table after all the rounds which corresponds to $P_i(u_0,\dots,u_{d-1})$.
+4. After all the rounds, the prover computes the final evaluation `multivariate_evaluations` by calling the `extract_claimed_evaluations`. This method simply returns the last element left in the book-keeping table after all the rounds which corresponds to $P_i(u_0,\dots,u_{d-1})$.
 5. The prover sends these evaluations to the verifier via the `transcript` object
 
 ## ZK sumcheck
-There are two new subtelties that are introduced when making the proving system zero-knowledge.
+There are two new subtleties that are introduced when making the proving system zero-knowledge.
 
 1. The sumcheck protocol should be modified so that the round univariates and evaluations don't leak information about the witness
-2. The sumcheck protocol should accomodate for randomness added to the end of the witness polynomials.
+2. The sumcheck protocol should accommodate for randomness added to the end of the witness polynomials.
 
-Let us focus on bullet point 2 first. In order to hide the contribution of witness values in commitments/opennings every witness column is appended with 4 random values.
+Let us focus on bullet point 2 first. In order to hide the contribution of witness values in commitments/openings every witness column is appended with 4 random values.
 > technically we only need to add 3 random values to each column, but since we require shift of some polynomials we append columns with 4 random values so there are 3 random values at the end of the shifted polynomial
 
-As these values are random, for the sumcheck relation to hold, these values should be be canceled. This is where we introduce the concept of `RowDisablingPolynomials`.
+As these values are random, for the sumcheck relation to hold, these values should be canceled. This is where we introduce the concept of `RowDisablingPolynomials`.
 ### `RowDisablingPolynomials`
 Assuming a reverse lexicographic order on the points on the hypercube, we want a polynomial that is $0$ at the following 4 points and $1$ everywhere else.
-- $2^{d}-1 = (1,1,1,\dots,1)$, with the lagrange polynomial $L_1 = X_0X_1X_2\dots X_{d-1}$
-- $2^{d}-2 = (0,1,1,\dots,1)$, with the lagrange polynomial $L_2 = (1-X_0)X_1X_2\dots X_{d-1}$
-- $2^{d}-3 = (1,0,1,\dots,1)$, with the lagrange polynomial $L_3 = X_0(1-X_1)X_2\dots X_{d-1}$
-- $2^{d}-4 = (0,0,1,\dots,1)$, with the lagrange polynomial $L_4 = (1-X_0)(1-X_1)X_2\dots X_{d-1}$
+- $2^{d}-1 = (1,1,1,\dots,1)$, with the lagrange polynomial $L_{2^d-1} = X_0X_1X_2\dots X_{d-1}$
+- $2^{d}-2 = (0,1,1,\dots,1)$, with the lagrange polynomial $L_{2^d-2} = (1-X_0)X_1X_2\dots X_{d-1}$
+- $2^{d}-3 = (1,0,1,\dots,1)$, with the lagrange polynomial $L_{2^d-3} = X_0(1-X_1)X_2\dots X_{d-1}$
+- $2^{d}-4 = (0,0,1,\dots,1)$, with the lagrange polynomial $L_{2^d-4} = (1-X_0)(1-X_1)X_2\dots X_{d-1}$
 
 Hence, the polynomial which is zero on these $4$ points and $1$ everywhere else on the hypercube is
-\begin{align}\textsf{RowDisablingPoly} =&1 - L_1 + L_2+ L_3 +L_4\\
+\begin{align}\textsf{RowDisablingPoly} =&1 - (L_{2^d-1} + L_{2^d-2}+ L_{2^d-3} +L_{2^d-4})\\
 =& 1- X_2X_3\dots X_{d-1}
 \end{align}
 
@@ -106,13 +106,13 @@ One important detail is how the round univariates (and the row disabling polynom
 
 To compute the round univariate first we would need to compute the corresponding univariates $P_j\left(u_0,\ldots, u_{i-1}, X_{i} , \vec \ell \right)$, for all prover multilinear polynomials $P_j$, over all $\vec \ell$ on the boolean hypercube.
 
-Note that, $P_j\left(u_0,\ldots, u_{i-1}, X_{i} , \vec \ell \right)$ is already computed for $X_i \in \{0,1\}$ in `PartiallyEvalutedPolynomials` book keeping table. To be able to compute evaluations of this univariate on an arbitrary point $X_i$ we should extend the evaluation table to the max individual degree of the relations in each variable. This is refered to as `MAX_PARTIAL_RELATION_LENGTH` and is specified by the `Flavor`.
+Note that, $P_j\left(u_0,\ldots, u_{i-1}, X_{i} , \vec \ell \right)$ is already computed for $X_i \in \{0,1\}$ in `PartiallyEvalutedPolynomials` book keeping table. To be able to compute evaluations of this univariate on an arbitrary point $X_i$ we should extend the evaluation table to the max individual degree of the relations in each variable. This is referred to as `MAX_PARTIAL_RELATION_LENGTH` and is specified by the `Flavor`.
 
 This extension is done via the `extend_edges` method. This method uses a barycentric evaluation type algorithm (with specific optimizations for univariates of low degrees).
 
-Computing the final round univariate, from the the evaluations of the individual multilinear polynomials is done via the `batch_over_relations` method, which as the name suggests batches the univariate contributions of each multilinear to obtain the final univariate.
+Computing the final round univariate, from the evaluations of the individual multilinear polynomials is done via the `batch_over_relations` method, which as the name suggests batches the univariate contributions of each multilinear to obtain the final univariate.
 
-The contribution of the `RowDisablingPoly` to the round univariate is done quite similarly using the equalities given in the previous section and can found in `compute_disabled_contribution` method of the `SumcheckProverRound` method.
+The contribution of the `RowDisablingPoly` to the round univariate is done quite similarly using the equalities given in the previous section and can be found in `compute_disabled_contribution` method of the `SumcheckProverRound` method.
 
 
 
@@ -133,7 +133,7 @@ So to summarize the extra steps of the protocol,
 - Prover generates $g_i$\'s and commits to $G$.
 - Verifier sends the `libra_challenge` $\rho$ (done via Fiat-Shamir)
 - Prover and verifier engage in the sumcheck protocol for $F+ \rho G$
-- in the last round, the verifier asks for opennings of both $F$ and $G$ to perform the final evaluation check
+- in the last round, the verifier asks for openings of both $F$ and $G$ to perform the final evaluation check
 
 Now let us discuss the details of the prover algorithm to include the contributions from the Libra polynomial.
 Looking at the definition of the round univariate again, we have that the corrected round univariate (of polynomial $F + \rho G$), is:
@@ -160,22 +160,22 @@ Now let us see, how these values should be updated when a new challenge $u_{i+1}
 & \textsf{suffix_sum}_{i+1} = \textsf{suffix_sum}_i/2 - (g_{i+1}(0) + g_{i+1}(1))/2
 \end{align}
 
-In the code, the sum of `prefix_sum` and `suffix_sum` are labled as `libra_running_sum`. The method `update_zk_sumcheck_data` does the updating described above for each round.
+In the code, the sum of `prefix_sum` and `suffix_sum` are labeled as `libra_running_sum`. The method `update_zk_sumcheck_data` does the updating described above for each round.
 
 Now to wrap up how the contribution of the libra polynomial to the round univariate:
 at round $i$:
 - the prover takes the $i^{th}$ libra univariate $g_i$ (called `current_column` in the code)
 - computes `libra_round_univariate` to be `current_column + libra_running_sum`
 - The prover updates the `zk_sumcheck_data`, i.e. computes the new running sum.
-- As `libra_round_univariates` is computed as it's evaluation over the domain of size `LIBRA_UNIVARIATES_LENGTH`, we run `extend_edges` to extend the evaluation domain.
+- As `libra_round_univariates` is computed as its evaluation over the domain of size `LIBRA_UNIVARIATES_LENGTH`, we run `extend_edges` to extend the evaluation domain.
 - After the rounds, the verifier additionally receives `libra_total_sum` and `libra_challege` and adds the correction term $\rho G(u_0,\dots ,u_{d-1})$ to the final evaluation check.
 
-The entirity of this logic can be found in `compute_libra_univariate` method of the `SumcheckProverRound` class.
+The entirety of this logic can be found in `compute_libra_univariate` method of the `SumcheckProverRound` class.
 
-## ECCVM and commited sumcheck
-For the `(ECCVM/ECCVMRecursive)Flavor`, our sumcheck implementation differs from the description given above. The main reason for this is that the individual degrees in ECCVM are way higher than other flavors (22 as opposed to 7 in `UltraFlavor`). This would mean the libra univariates would need to be 3x larger which would make the usual approach very costly. Also, this would mean that the round univariates would be of a way higher degree, which would cause issues on
+## ECCVM and committed sumcheck
+For the `(ECCVM/ECCVMRecursive)Flavor`, our sumcheck implementation differs from the description given above. The main reason for this is that the individual degrees in ECCVM are way higher than other flavors (22 as opposed to 7 in `UltraFlavor`). Moreover, each coefficient in grumpkin case is represented by 2 field limbs. Hence, this would mean the size of round univariates are $46$ field elements, i.e. $46 \times 16$ field elements. This is a significant increase to the proof size. Moreover, polynomials over grumpkin scalar field, `batch_mul` is significantly cheaper than Barycentric evaluation.
 
-To accomodate for this, we use a version of the Sumcheck Protocol that commits to the round univariates instead of sending them in clear. The prover algorithm is as follows:
+To accommodate for this, we use a version of the Sumcheck Protocol that commits to the round univariates instead of sending them in clear. The prover algorithm is as follows:
 - In round $i$:
     - The prover computes the round univariate $S_i$
     - The prover commits to $[S_i]$ and sends the commitment $S_i$, and the evaluations of $S_i(0)$ and $S_i(1)$.
@@ -192,10 +192,10 @@ We covered:
 - ZK Sumcheck
     - `RowDisablingPoly` for removing the contribution of the last 4 rows of witness columns
     - Libra hiding and handling of contribution of `libra_univariates`
-- ECCVM specific, commited sumcheck
+- ECCVM specific, committed sumcheck
 
 # Sumcheck Verifier
-Now we describe the sumcheck verifier algorithm. In our codebase, we differenciate between the ECCVM case and other cases by abstracting away the verifier round operations in a `SumcheckVerifierRound` class, which is templated based `Flavor` and a `IsGrumpkingFlavor` template parameters.
+Now we describe the sumcheck verifier algorithm. In our codebase, we differentiate between the ECCVM case and other cases by abstracting away the verifier round operations in a `SumcheckVerifierRound` class, which is templated based `Flavor` and a `IsGrumpkingFlavor` template parameters.
 
 Here's how the verification algorithm goes for all flavors other than `ECCVMFlavor`
 1. The verifier instantiates a `VerifierZKCorrectionHandler`. This struct is in charge of applying the correction required in the zero-knowledge case.
@@ -206,14 +206,101 @@ Here's how the verification algorithm goes for all flavors other than `ECCVMFlav
     - updates the target sum to be `round_univariate.eval(u_i)`, where `u_i` is the round challenge.
     - partially evaluates the $\textsf{pow}_\beta$ polynomial in accordance to the new challenge, i.e. multiplies the current evaluation by $\left( (1-u_i) + u_i\cdot \beta_i\right)$
 4. After the rounds are done, the verifier performs the final verification `round.perform_final_verification`
-    - The verifier computes the `full_honk_purported_value` (i.e. the evalution of the relation polynomial) from the evaluations of the multilinear polynomials (subrelations) and the evaluation of the `pow` polynomial.
+    - The verifier computes the `full_honk_purported_value` (i.e. the evaluation of the relation polynomial) from the evaluations of the multilinear polynomials (subrelations) and the evaluation of the `pow` polynomial.
     - The verifier adds the ZK correction by removing the evaluation of the `RowDisablingPoly` at challenges and the libra `libra_evaluation * libra_challenge` from `full_honk_purported_value`.
     - Finally the verifier asserts that `full_honk_porported_value` is equal to `target_sum` after all rounds are done.
 
 
-Now let us discribe the `ECCVMFlavor` version of the verifier. The only difference in this case is the `process_round` method of the `SumcheckVerifierRound`.
-The verifier keeps a list of commitments and expected opennings. At round `i+1` they:
+Now let us describe the `ECCVMFlavor` version of the verifier. The only difference in this case is the `process_round` method of the `SumcheckVerifierRound`.
+The verifier keeps a list of commitments and expected openings. At round `i+1` they:
 - get the evaluation of `round_univariate.eval(0)` and `round_univariate.eval(1)` from the transcript.
 - Adds the sum `round_univariate.eval(0) + round_univariate.eval(1)` as the expected evaluation for round `i`
 
 The list of `[(round_uni_commitment, round_uni_expected_eval)]` gets batched and proved in the polynomial commitment scheme.
+
+
+# Virtual Rounds and Padding in Sumcheck
+
+Finally we describe the virtual rounds mechanism and padding indicator array used to support circuits of varying sizes while maintaining constant proof size and constant recursive verifier circuits.
+
+This is specifically important for recursive proving, since the inner verifier circuit must have a fixed size. However, circuits being verified may have different sizes (different values of `log_n`). To handle this:
+
+1. **Fixed proof size**: All proofs are padded to a maximum size `virtual_log_n` (defined by `CONST_PROOF_SIZE_LOG_N`).
+2. **Constant verifier circuit**: The recursive verifier always processes `virtual_log_n` rounds, using padding indicators to conditionally skip verification logic for padded rounds.
+
+## Virtual Rounds
+
+### Definition
+
+Given a circuit with `multivariate_d = log₂(n)` variables, the sumcheck protocol naturally runs for `multivariate_d` rounds. To standardize proof size, we extend this to `virtual_log_n` rounds where `virtual_log_n >= multivariate_d`.
+
+The rounds are categorized as:
+- **Real rounds** (indices `0` to `multivariate_d - 1`): Standard sumcheck rounds over the actual polynomials.
+- **Virtual/Padding rounds** (indices `multivariate_d` to `virtual_log_n - 1`): Rounds where polynomials are conceptually extended by zero.
+
+### Prover Behavior
+
+#### Non-ZK Flavors
+For virtual rounds, the prover computes the round univariate by treating all polynomials as extended by zero:
+
+$$P_i(X_0, \ldots, X_{d-1}) \mapsto P_i(X_0, \ldots, X_{d-1}) \cdot \tau(X_d, \ldots, X_{\text{virtual_log_n} - 1})$$
+
+where $\tau(X_d, \ldots, X_k) = \prod_{j=d}^{k} (1 - X_j)$ is the indicator polynomial that is 1 only on the real rounds range.
+
+given the definition of $\tau$, if any of $l_i$ values are $1$, $\tau$ would evaluate to zero. So the contribution would only be from the
+
+This is implemented in `compute_virtual_contribution`.
+
+#### ZK Flavors
+For ZK flavors, the addition of randomness at the end of trace causes issues with the padding. Hence, we take a simpler approach of skipping over the virtual rounds on the verifier side.
+In This case the prover sends **zero univariates** to the verifier:
+```cpp
+auto zero_univariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>::zero();
+transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(k), zero_univariate);
+```
+
+The prover still generates challenges for these rounds to maintain transcript consistency.
+
+### Verifier Behavior
+
+The verifier processes all `virtual_log_n` rounds uniformly but uses the **padding indicator array** to conditionally apply verification logic.
+
+## Padding Indicator Array
+The padding indicator array is computed on the verifier side, to disable the contributions of the `virtual_rounds`.
+
+### Definition
+
+The padding indicator array is a vector of size `virtual_log_n` where:
+
+$$\text{padding_indicator_array}[i] = \begin{cases} 1 & \text{if } i < \text{multivariate_d} \text{ (real round)} \\ 0 & \text{if } i \geq \text{multivariate_d} \text{ (padding round)} \end{cases}$$
+
+### Native vs Recursive Computation
+
+**Native verification**: The array is computed trivially:
+```cpp
+std::vector<FF> padding_indicator_array(virtual_log_n, 1);
+for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
+    padding_indicator_array[idx] = FF{ 0 };
+}
+```
+
+**Recursive verification**: The array is computed in-circuit using Lagrange interpolation to ensure constant gate count regardless of the actual `log_n` value. This is implemented in `compute_padding_indicator_array`.
+
+The in-circuit computation:
+1. Constrains `log_n` to be in range $[1, \text{virtual_log_n}]$
+2. Evaluates Lagrange polynomials $L_i(\text{log_n} - 1)$
+3. Computes step functions: $b_i = \sum_{j=i}^{N-1} L_j(\text{log_n} - 1)$
+
+### Usage in Verification
+
+The padding indicator is used to conditionally apply sumcheck verification logic. The following checks are only applied if `padding_indicator_array[i] = 1`
+
+1. **`check_sum`**: Verifying $S^{i-1}(u_{i-1}) = S^i(0) + S^i(1)$ .
+2. **`compute_next_target_sum`**: Updating target sum
+3. **`gate_separators.partially_evaluate`**: updating gate separator polynomial.
+4. **`RowDisablingPolynomial::evaluate_at_challenge`**: applying ZK correction.
+
+
+## ECCVM/Grumpkin Note
+
+For Grumpkin-based flavors (ECCVM), the padding indicator is **not used** in round processing. Instead, all consistency checks are deferred to the polynomial commitment scheme (Shplemini), which batches and verifies all round univariate commitments together.
