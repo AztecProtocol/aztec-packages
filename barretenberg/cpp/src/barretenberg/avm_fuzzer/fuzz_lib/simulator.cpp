@@ -193,16 +193,12 @@ SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateM
                                       const std::vector<uint8_t>& bytecode,
                                       const std::vector<FF>& calldata)
 {
-    bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
-
     // Create tx and globals to match C++ simulator
     auto globals = create_default_globals();
     Tx tx = create_default_tx(CONTRACT_ADDRESS, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
 
     std::string serialized = serialize_simulation_request(bytecode, calldata, tx, globals);
-    if (logging_enabled) {
-        info("Sending request to simulator: ", serialized);
-    }
+    fuzz_info("Sending request to simulator: ", serialized);
 
     // Send the request
     process.write_line(serialized);
@@ -215,48 +211,11 @@ SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateM
     // Remove the newline character
     response.erase(response.find_last_not_of('\n') + 1);
 
-    // Response is plain JSON (no longer gzipped/base64 encoded)
-    if (logging_enabled) {
-        info("Received response from simulator: ", response);
-    }
-    json response_json = json::parse(response);
-    bool reverted = response_json["reverted"];
-    std::vector<std::string> output = response_json["output"];
-    std::string revert_reason = response_json.value("revertReason", "");
-    std::vector<FF> output_fields;
-    output_fields.reserve(output.size());
-    for (const auto& field : output) {
-        output_fields.push_back(FF(field));
-    }
-
-    // Parse endTreeSnapshots from JSON response
-    TreeSnapshots end_tree_snapshots;
-    if (response_json.contains("endTreeSnapshots")) {
-        const auto& ets = response_json["endTreeSnapshots"];
-        end_tree_snapshots.l1_to_l2_message_tree = AppendOnlyTreeSnapshot{
-            .root = FF(ets["l1ToL2MessageTree"]["root"].get<std::string>()),
-            .next_available_leaf_index = ets["l1ToL2MessageTree"]["nextAvailableLeafIndex"].get<uint64_t>(),
-        };
-        end_tree_snapshots.note_hash_tree = AppendOnlyTreeSnapshot{
-            .root = FF(ets["noteHashTree"]["root"].get<std::string>()),
-            .next_available_leaf_index = ets["noteHashTree"]["nextAvailableLeafIndex"].get<uint64_t>(),
-        };
-        end_tree_snapshots.nullifier_tree = AppendOnlyTreeSnapshot{
-            .root = FF(ets["nullifierTree"]["root"].get<std::string>()),
-            .next_available_leaf_index = ets["nullifierTree"]["nextAvailableLeafIndex"].get<uint64_t>(),
-        };
-        end_tree_snapshots.public_data_tree = AppendOnlyTreeSnapshot{
-            .root = FF(ets["publicDataTree"]["root"].get<std::string>()),
-            .next_available_leaf_index = ets["publicDataTree"]["nextAvailableLeafIndex"].get<uint64_t>(),
-        };
-    }
-
-    SimulatorResult result = {
-        .reverted = reverted,
-        .output = output_fields,
-        .end_tree_snapshots = end_tree_snapshots,
-        .revert_reason = revert_reason,
-    };
+    fuzz_info("Received response from simulator: ", response);
+    // Parse with msg_pack
+    auto res_buffer = base64_decode(response);
+    SimulatorResult result;
+    result = msgpack::unpack(res_buffer.data(), res_buffer.size()).get().convert(result);
     return result;
 }
 
