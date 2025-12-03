@@ -6,6 +6,7 @@ import {
   DEFAULT_TEARDOWN_L2_GAS_LIMIT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Schnorr } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
@@ -132,8 +133,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.logger[levelName](`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
-  async txeGetNextBlockNumber(): Promise<number> {
-    return (await this.getLastBlockNumber()) + 1;
+  async txeGetNextBlockNumber(): Promise<BlockNumber> {
+    return BlockNumber((await this.getLastBlockNumber()) + 1);
   }
 
   txeGetNextBlockTimestamp(): Promise<bigint> {
@@ -661,7 +662,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return [this.nextBlockTimestamp, this.authwits];
   }
 
-  private async getLastBlockNumber(): Promise<number> {
-    return (await this.stateMachine.node.getBlockHeader('latest'))?.globalVariables.blockNumber ?? 0;
+  private async getLastBlockNumber(): Promise<BlockNumber> {
+    const header = await this.stateMachine.node.getBlockHeader('latest');
+    return header ? header.globalVariables.blockNumber : BlockNumber.ZERO;
   }
 }

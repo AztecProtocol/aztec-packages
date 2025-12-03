@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
@@ -37,7 +38,7 @@ describe('utility_function_membership_proof', () => {
     // Remove all utility functions from the contract but one
     const utilityFns = artifact.functions.filter(isUtility);
     artifact.functions = artifact.functions.filter(fn => !isUtility(fn) || fn === utilityFns[0]);
-    expect(artifact.functions.filter(isUtility).length).toBe(1);
+    expect(artifact.functions.filter(isUtility).length).toBe(BlockNumber(1));
 
     const utilityFunction = utilityFns[0];
     const selector = await FunctionSelector.fromNameAndParameters(utilityFunction);

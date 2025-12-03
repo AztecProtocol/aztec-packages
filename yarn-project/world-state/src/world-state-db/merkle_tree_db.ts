@@ -1,4 +1,5 @@
 import { MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields';
 import type { IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
 import type { L2Block, L2BlockNew } from '@aztec/stdlib/block';
@@ -58,21 +59,21 @@ export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations {
    * @param toBlockNumber The block number of the new oldest historical block
    * @returns The new WorldStateStatus
    */
-  removeHistoricalBlocks(toBlockNumber: bigint): Promise<WorldStateStatusFull>;
+  removeHistoricalBlocks(toBlockNumber: BlockNumber): Promise<WorldStateStatusFull>;
 
   /**
    * Removes all pending blocks down to but not including the given block number
    * @param toBlockNumber The block number of the new tip of the pending chain,
    * @returns The new WorldStateStatus
    */
-  unwindBlocks(toBlockNumber: bigint): Promise<WorldStateStatusFull>;
+  unwindBlocks(toBlockNumber: BlockNumber): Promise<WorldStateStatusFull>;
 
   /**
    * Advances the finalized block number to be the number provided
    * @param toBlockNumber The block number that is now the tip of the finalized chain
    * @returns The new WorldStateStatus
    */
-  setFinalized(toBlockNumber: bigint): Promise<WorldStateStatusSummary>;
+  setFinalized(toBlockNumber: BlockNumber): Promise<WorldStateStatusSummary>;
 
   /**
    * Gets the current status summary of the database.

@@ -1,6 +1,6 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
@@ -72,7 +72,7 @@ describe('e2e_epochs/epochs_multi_proof', () => {
     await sleep(L1_BLOCK_TIME_IN_S * 1000);
     const [_firstEpochStartSlot, firstEpochEndSlot] = getSlotRangeForEpoch(EpochNumber(0), constants);
     const firstEpochBlocks = await context.aztecNode
-      .getBlocks(1, test.epochDuration)
+      .getBlocks(BlockNumber(1), test.epochDuration)
       .then(blocks => blocks.filter(block => block.header.getSlot() <= firstEpochEndSlot));
     const firstEpochLength = firstEpochBlocks.length;
     const firstEpochLastBlockNum = firstEpochBlocks.at(-1)!.number;

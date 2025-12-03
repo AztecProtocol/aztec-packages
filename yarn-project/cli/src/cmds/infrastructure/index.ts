@@ -44,7 +44,6 @@ export function injectCommands(program: Command, log: LogFn) {
         nodeUrl: options.nodeUrl,
         l1RpcUrls: options.l1RpcUrls,
         chainId: options.l1ChainId,
-        blockNumber: options.blockNumber,
         log,
       });
     });

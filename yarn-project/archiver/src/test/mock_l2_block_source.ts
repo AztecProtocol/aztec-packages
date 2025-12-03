@@ -1,6 +1,6 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -35,7 +35,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   public async createBlocks(numBlocks: number) {
     for (let i = 0; i < numBlocks; i++) {
       const blockNum = this.l2Blocks.length + 1;
-      const block = await L2Block.random(blockNum);
+      const block = await L2Block.random(BlockNumber(blockNum));
       this.l2Blocks.push(block);
     }
 
@@ -84,11 +84,11 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
    * @returns In this mock instance, returns the number of L2 blocks that we've mocked.
    */
   public getBlockNumber() {
-    return Promise.resolve(this.l2Blocks.length);
+    return Promise.resolve(BlockNumber(this.l2Blocks.length));
   }
 
-  public getProvenBlockNumber(): Promise<number> {
-    return Promise.resolve(this.provenBlockNumber);
+  public getProvenBlockNumber() {
+    return Promise.resolve(BlockNumber(this.provenBlockNumber));
   }
 
   /**
@@ -266,15 +266,15 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
     return {
       latest: {
-        number: latest,
+        number: BlockNumber(latest),
         hash: (await latestBlock?.hash())?.toString(),
       },
       proven: {
-        number: proven,
+        number: BlockNumber(proven),
         hash: (await provenBlock?.hash())?.toString(),
       },
       finalized: {
-        number: finalized,
+        number: BlockNumber(finalized),
         hash: (await finalizedBlock?.hash())?.toString(),
       },
     };

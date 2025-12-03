@@ -1,4 +1,5 @@
 import { MockPrefilledArchiver } from '@aztec/archiver/test';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -35,7 +36,7 @@ describe('world-state integration', () => {
     rollupAddress = EthAddress.random();
     const db = await NativeWorldStateService.tmp(rollupAddress);
     log.info(`Generating ${MAX_BLOCK_COUNT} mock blocks`);
-    ({ blocks, messages } = await mockBlocks(1, MAX_BLOCK_COUNT, 1, db));
+    ({ blocks, messages } = await mockBlocks(BlockNumber(1), MAX_BLOCK_COUNT, 1, db));
     log.info(`Generated ${blocks.length} mock blocks`);
   });
 
@@ -184,7 +185,7 @@ describe('world-state integration', () => {
       await expectSynchedToBlock(5);
 
       // Create blocks for an alternate chain forking off block 2
-      const { blocks, messages } = await mockBlocks(3, 5, 1, db);
+      const { blocks, messages } = await mockBlocks(BlockNumber(3), 5, 1, db);
       archiver.setPrefilledBlocks(blocks, messages);
 
       archiver.removeBlocks(3);
@@ -219,7 +220,7 @@ describe('world-state integration', () => {
 
       await archiver.createBlocks(2);
       await expectSynchedToBlock(5);
-      await synchronizer.syncImmediate(6);
+      await synchronizer.syncImmediate(BlockNumber(6));
       await expectSynchedToBlock(7);
     });
 
@@ -230,7 +231,7 @@ describe('world-state integration', () => {
 
       await archiver.createBlocks(2);
       await expectSynchedToBlock(5);
-      await synchronizer.syncImmediate(4);
+      await synchronizer.syncImmediate(BlockNumber(4));
       await expectSynchedToBlock(5);
     });
 
@@ -241,7 +242,7 @@ describe('world-state integration', () => {
 
       await archiver.createBlocks(2);
       await expectSynchedToBlock(5);
-      await expect(() => synchronizer.syncImmediate(9)).rejects.toThrow(/unable to sync/i);
+      await expect(() => synchronizer.syncImmediate(BlockNumber(9))).rejects.toThrow(/unable to sync/i);
     });
   });
 

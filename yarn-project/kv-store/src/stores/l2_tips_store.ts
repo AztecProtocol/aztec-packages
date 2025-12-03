@@ -1,3 +1,5 @@
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import type {
   L2BlockId,
   L2BlockStreamEvent,
@@ -12,15 +14,15 @@ import type { AztecAsyncKVStore } from '../interfaces/store.js';
 
 /** Stores currently synced L2 tips and unfinalized block hashes. */
 export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
-  private readonly l2TipsStore: AztecAsyncMap<L2BlockTag, number>;
-  private readonly l2BlockHashesStore: AztecAsyncMap<number, string>;
+  private readonly l2TipsStore: AztecAsyncMap<L2BlockTag, BlockNumber>;
+  private readonly l2BlockHashesStore: AztecAsyncMap<BlockNumber, string>;
 
   constructor(store: AztecAsyncKVStore, namespace: string) {
     this.l2TipsStore = store.openMap([namespace, 'l2_tips'].join('_'));
     this.l2BlockHashesStore = store.openMap([namespace, 'l2_block_hashes'].join('_'));
   }
 
-  public getL2BlockHash(number: number): Promise<string | undefined> {
+  public getL2BlockHash(number: BlockNumber): Promise<string | undefined> {
     return this.l2BlockHashesStore.getAsync(number);
   }
 
@@ -35,7 +37,7 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
   private async getL2Tip(tag: L2BlockTag): Promise<L2BlockId> {
     const blockNumber = await this.l2TipsStore.getAsync(tag);
     if (blockNumber === undefined || blockNumber === 0) {
-      return { number: 0, hash: undefined };
+      return { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
     }
     const blockHash = await this.l2BlockHashesStore.getAsync(blockNumber);
     if (!blockHash) {

@@ -1,5 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
@@ -16,7 +17,7 @@ export class LogId {
    */
   constructor(
     /** The block number the log was emitted in. */
-    public readonly blockNumber: number,
+    public readonly blockNumber: BlockNumber,
     /** The index of a tx in a block the log was emitted in. */
     public readonly txIndex: number,
     /** The index of a log the tx was emitted in. */
@@ -35,7 +36,7 @@ export class LogId {
 
   static random() {
     return new LogId(
-      Math.floor(Math.random() * 1000) + 1,
+      BlockNumber(Math.floor(Math.random() * 1000) + 1),
       Math.floor(Math.random() * 1000),
       Math.floor(Math.random() * 100),
     );
@@ -44,7 +45,7 @@ export class LogId {
   static get schema() {
     return z
       .object({
-        blockNumber: schemas.Integer,
+        blockNumber: BlockNumberSchema,
         txIndex: schemas.Integer,
         logIndex: schemas.Integer,
       })
@@ -71,7 +72,7 @@ export class LogId {
   static fromBuffer(buffer: Buffer | BufferReader): LogId {
     const reader = BufferReader.asReader(buffer);
 
-    const blockNumber = reader.readNumber();
+    const blockNumber = BlockNumber(reader.readNumber());
     const txIndex = reader.readNumber();
     const logIndex = reader.readNumber();
 
@@ -93,7 +94,7 @@ export class LogId {
    */
   static fromString(data: string): LogId {
     const [rawBlockNumber, rawTxIndex, rawLogIndex] = data.split('-');
-    const blockNumber = Number(rawBlockNumber);
+    const blockNumber = BlockNumber(Number(rawBlockNumber));
     const txIndex = Number(rawTxIndex);
     const logIndex = Number(rawLogIndex);
 

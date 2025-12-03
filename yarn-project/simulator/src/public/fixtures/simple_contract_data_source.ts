@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
@@ -59,7 +60,7 @@ export class SimpleContractDataSource implements ContractDataSource {
 
   /////////////////////////////////////////////////////////////
   // ContractDataSource function implementations
-  getBlockNumber(): Promise<number> {
+  getBlockNumber(): Promise<BlockNumber> {
     throw new Error('Method not implemented.');
   }
 

@@ -1,4 +1,4 @@
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { BlockHeader } from '@aztec/stdlib/tx';
@@ -34,7 +34,10 @@ describe('EpochMonitor', () => {
       isEpochComplete(epochNumber) {
         return Promise.resolve(epochNumber <= lastEpochComplete);
       },
-      getBlockHeader(blockNumber: number) {
+      getBlockHeader(blockNumber: BlockNumber | 'latest') {
+        if (blockNumber === 'latest') {
+          return Promise.resolve(undefined);
+        }
         const slot = blockToSlot[blockNumber];
         return Promise.resolve(
           slot === undefined
@@ -46,7 +49,7 @@ describe('EpochMonitor', () => {
         );
       },
       getProvenBlockNumber() {
-        return Promise.resolve(provenBlockNumber);
+        return Promise.resolve(BlockNumber(provenBlockNumber));
       },
     });
 
