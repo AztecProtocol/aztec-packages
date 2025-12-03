@@ -33,18 +33,18 @@ template <class BuilderType> class Poseidon2TestingFunctions {
         static std::vector<std::string> get_labels() { return { "None", "Input", "Output" }; }
     };
 
-    void invalidate_witness(Poseidon2Constraint& /*constraint*/,
+    void invalidate_witness(Poseidon2Constraint& constraint,
                             WitnessVector& witness_values,
                             const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::Input:
             // Tamper with the first input element
-            witness_values[1] += bb::fr(1);
+            witness_values[constraint.state[0].index] += bb::fr(1);
             break;
         case InvalidWitness::Target::Output:
             // Tamper with the first output element
-            witness_values[5] += bb::fr(1);
+            witness_values[constraint.result[0]] += bb::fr(1);
             break;
         case InvalidWitness::Target::None:
             break;
@@ -65,17 +65,9 @@ template <class BuilderType> class Poseidon2TestingFunctions {
         // Compute expected output using native Poseidon2 permutation
         State output_state = Poseidon2::permutation(input_state);
 
-        // Add input state to witness
-        std::array<uint32_t, 4> input_indices;
-        for (size_t i = 0; i < 4; ++i) {
-            input_indices[i] = add_to_witness_and_track_indices(witness_values, input_state[i]);
-        }
-
-        // Add output state to witness
-        std::array<uint32_t, 4> output_indices;
-        for (size_t i = 0; i < 4; ++i) {
-            output_indices[i] = add_to_witness_and_track_indices(witness_values, output_state[i]);
-        }
+        // Add input and output state to witness
+        auto input_indices = add_to_witness_and_track_indices<State, 4>(witness_values, input_state);
+        auto output_indices = add_to_witness_and_track_indices<State, 4>(witness_values, output_state);
 
         // Create the constraint
         poseidon2_constraint = Poseidon2Constraint{
