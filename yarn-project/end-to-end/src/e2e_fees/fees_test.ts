@@ -86,6 +86,7 @@ export class FeesTest extends BaseEndToEndTest {
     setupOptions.coinbase ??= EthAddress.random();
     this.coinbase = setupOptions.coinbase!;
     setupOptions.startProverNode = true;
+    setupOptions.fundRewardDistributor = true;
     this.setupOptions = setupOptions;
   }
 
