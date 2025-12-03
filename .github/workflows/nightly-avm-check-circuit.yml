@@ -1,0 +1,46 @@
+name: Nightly AVM Check-Circuit
+
+on:
+  # Run after the collection workflow completes
+  workflow_run:
+    workflows: ["Nightly AVM Circuit Inputs Collection"]
+    types:
+      - completed
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  avm-check-circuit:
+    # Only run if the collection workflow succeeded (or if manually triggered)
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          # TODO: Change back to 'ref: next' after testing from PR
+          #ref: next
+          persist-credentials: false
+
+      - name: Run AVM Check-Circuit
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: |
+          set -eu
+          # Setup SSH key for EC2 access
+          mkdir -p ~/.ssh
+          echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+
+          # Run via ci.sh which spins up an EC2 instance and runs ./bootstrap.sh ci-avm-check-circuit
+          exec ./ci.sh avm-check-circuit
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Nightly AVM check-circuit failed. Check the logs for details."

@@ -582,6 +582,18 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
+  "ci-avm-inputs-collection")
+    # Nightly job: Run e2e tests with AVM circuit inputs dumping, upload to cache
+    export CI=1
+    export CI_FULL=1
+    build
+    yarn-project/end-to-end/bootstrap.sh test_and_dump_avm_inputs
+    ;;
+  "ci-avm-check-circuit")
+    # Nightly job: Download cached AVM inputs and run check-circuit on each
+    build
+    yarn-project/end-to-end/bootstrap.sh avm_check_circuit
+    ;;
   *)
     default_cmd_handler "$@"
     ;;

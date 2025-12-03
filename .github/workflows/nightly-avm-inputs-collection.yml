@@ -1,0 +1,44 @@
+name: Nightly AVM Circuit Inputs Collection
+
+on:
+  # TODO: Remove pull_request trigger after testing
+  pull_request:
+  schedule:
+    # Run nightly at 3:00 AM UTC
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  collect-avm-circuit-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          # TODO: Change back to 'ref: next' after testing from PR
+          #ref: next
+          persist-credentials: false
+
+      - name: Collect AVM Circuit Inputs
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: |
+          set -eu
+          # Setup SSH key for EC2 access
+          mkdir -p ~/.ssh
+          echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+
+          # Run via ci.sh which spins up an EC2 instance and runs ./bootstrap.sh ci-avm-inputs-collection
+          exec ./ci.sh avm-inputs-collection
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Nightly AVM circuit inputs collection failed. Check the logs for details."

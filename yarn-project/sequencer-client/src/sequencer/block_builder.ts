@@ -12,9 +12,8 @@ import {
   GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
-  TelemetryCppPublicTxSimulator,
+  createPublicTxSimulatorForBlockBuilding,
 } from '@aztec/simulator/server';
-import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
@@ -122,18 +121,11 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
     const guardedFork = new GuardedMerkleTreeOperations(fork);
 
-    const publicTxSimulator = new TelemetryCppPublicTxSimulator(
+    const publicTxSimulator = createPublicTxSimulatorForBlockBuilding(
       guardedFork,
       contractsDB,
       globalVariables,
       this.telemetryClient,
-      PublicSimulatorConfig.from({
-        skipFeeEnforcement: false,
-        collectDebugLogs: false,
-        collectHints: false,
-        collectStatistics: false,
-        collectCallMetadata: false,
-      }),
     );
 
     const processor = new PublicProcessor(

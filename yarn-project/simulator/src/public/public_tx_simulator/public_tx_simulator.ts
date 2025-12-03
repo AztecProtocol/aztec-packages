@@ -78,7 +78,7 @@ type ProcessedPhase = {
 
 export class PublicTxSimulator implements PublicTxSimulatorInterface {
   protected log: Logger;
-  protected readonly config: PublicSimulatorConfig;
+  protected config: PublicSimulatorConfig;
 
   constructor(
     protected merkleTree: MerkleTreeWriteOperations,
