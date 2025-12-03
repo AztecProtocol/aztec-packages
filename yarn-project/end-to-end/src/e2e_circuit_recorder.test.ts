@@ -14,7 +14,9 @@ describe('Circuit Recorder', () => {
     process.env.CIRCUIT_RECORD_DIR = RECORD_DIR;
 
     // Run setup which deploys an account contract and runs kernels
-    const { teardown } = await setup(1);
+    // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
+    // Forge deployment advances L1 time significantly, breaking tests that depend on slot timing.
+    const { teardown } = await setup(1, { useForgeDeployment: false });
 
     // Check recording directory exists
     const dirExists = await fs.stat(RECORD_DIR).then(
