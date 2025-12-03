@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeL2BlockHeader } from '@aztec/stdlib/testing';
@@ -33,8 +34,8 @@ describe('AttestationValidator', () => {
     (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentProposer: proposer.address,
       nextProposer: proposer.address,
-      currentSlot: 98n,
-      nextSlot: 99n,
+      currentSlot: SlotNumber(98),
+      nextSlot: SlotNumber(99),
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
 
@@ -54,8 +55,8 @@ describe('AttestationValidator', () => {
     (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentProposer: proposer.address,
       nextProposer: proposer.address,
-      currentSlot: 100n,
-      nextSlot: 101n,
+      currentSlot: SlotNumber(100),
+      nextSlot: SlotNumber(101),
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(false);
 
@@ -75,8 +76,8 @@ describe('AttestationValidator', () => {
     (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentProposer: proposer.address,
       nextProposer: proposer.address,
-      currentSlot: 100n,
-      nextSlot: 101n,
+      currentSlot: SlotNumber(100),
+      nextSlot: SlotNumber(101),
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
 
@@ -96,8 +97,8 @@ describe('AttestationValidator', () => {
     (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentProposer: proposer.address,
       nextProposer: proposer.address,
-      currentSlot: 100n,
-      nextSlot: 101n,
+      currentSlot: SlotNumber(100),
+      nextSlot: SlotNumber(101),
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
 
@@ -117,8 +118,8 @@ describe('AttestationValidator', () => {
     (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentProposer: proposer.address,
       nextProposer: proposer.address,
-      currentSlot: 100n,
-      nextSlot: 101n,
+      currentSlot: SlotNumber(100),
+      nextSlot: SlotNumber(101),
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
 

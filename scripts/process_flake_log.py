@@ -9,6 +9,24 @@ import json
 
 FLAKE_MARKER = "<!-- CI3_FLAKE_DETECTION_COMMENT -->"
 TEST_PATTERNS_FILE = ".test_patterns.yml"
+# Match ANSI escape sequences:
+# - Standard: ESC followed by various control sequences
+# - Orphan CSI: [ followed by parameters and command (when ESC is stripped/lost)
+# - OSC hyperlink sequences (preserving URL via capture group)
+ANSI_ESCAPE_RE = re.compile(
+    r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\x07\x1B]*(?:\x07|\x1B\\)?)'  # Standard ANSI/OSC
+    r'|\[[0-9;]*m'  # Orphan CSI color codes
+)
+# OSC 8 hyperlink pattern: 8;;URL followed by text and closing 8;;
+# Captures the URL to preserve it, removes the control sequences
+OSC_HYPERLINK_RE = re.compile(r'8;;(https?://[^\s\uFFFD]*)\uFFFD([^\uFFFD]*)\uFFFD?8;;\uFFFD?')
+
+def strip_ansi_colors(text):
+    """Strip ANSI color codes and OSC sequences from text, preserving hyperlink URLs"""
+    text = ANSI_ESCAPE_RE.sub('', text)
+    # Convert OSC 8 hyperlinks to just the URL
+    text = OSC_HYPERLINK_RE.sub(r'\1', text)
+    return text
 
 def run(cmd, input_data=None):
     """Execute command and return (success, stdout, stderr)"""
@@ -32,10 +50,10 @@ def get_pr_number():
     return None
 
 def read_flakes(file_path):
-    """Read flake data from file"""
+    """Read flake data from file, stripping ANSI color codes"""
     try:
         with open(file_path, 'r') as f:
-            lines = [line.strip() for line in f if line.strip()]
+            lines = [strip_ansi_colors(line.strip()) for line in f if line.strip()]
             return lines
     except FileNotFoundError:
         return []
@@ -47,6 +65,16 @@ def get_comment_id(pr_number):
         "--jq", f'.[] | select(.body | contains("{FLAKE_MARKER}")) | .id'
     ])
     return out.split("\n")[0] if ok and out else None
+
+def delete_comment(pr_number):
+    """Delete existing flake comment on PR if it exists"""
+    if comment_id := get_comment_id(pr_number):
+        print(f"Deleting comment {comment_id} on PR #{pr_number}")
+        ok, _, err = run(["gh", "api", f"repos/{{owner}}/{{repo}}/issues/comments/{comment_id}", "-X", "DELETE"])
+        if not ok:
+            print(f"Delete failed: {err}")
+        return ok
+    return True  # No comment to delete is success
 
 def post_comment(pr_number, body):
     """Create or update flake comment on PR"""
@@ -122,16 +150,10 @@ def check_flake_thresholds(flake_groups_config, flakes_by_group):
 
     return exceeded
 
-def strip_ansi_colors(text):
-    """Strip ANSI color codes from text"""
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    return ansi_escape.sub('', text)
-
 def build_comment(flakes, threshold_exceeded=None):
     """Build markdown comment body from flake list"""
     count = len(flakes)
-    # Strip color codes from flakes for clean markdown display
-    tests = "\n".join(strip_ansi_colors(flake) for flake in flakes)
+    tests = "\n".join(flakes)
 
     threshold_warning = ""
     if threshold_exceeded:
@@ -156,6 +178,11 @@ def main():
     flakes = read_flakes(args.flakes_file)
     if not flakes:
         print(f"No flaked tests found in {args.flakes_file}")
+        # Delete existing comment if no flakes found
+        if args.post_comment:
+            if pr_number := get_pr_number():
+                if delete_comment(pr_number):
+                    print(f"Deleted existing flake comment on PR #{pr_number} (no flakes found)")
         return 0
     print(f"Found {len(flakes)} flaked test(s)")
 

@@ -11,7 +11,7 @@
 
 namespace acir_format {
 
-template <typename Builder> void create_keccak_permutations(Builder& builder, const Keccakf1600& constraint)
+template <typename Builder> void create_keccak_permutations_constraints(Builder& builder, const Keccakf1600& constraint)
 {
     using field_ct = bb::stdlib::field_t<Builder>;
 
@@ -30,10 +30,11 @@ template <typename Builder> void create_keccak_permutations(Builder& builder, co
         output_state[i].assert_equal(field_ct::from_witness_index(&builder, constraint.result[i]));
     }
 }
-template void create_keccak_permutations<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
-                                                                  const Keccakf1600& constraint);
 
-template void create_keccak_permutations<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
-                                                                 const Keccakf1600& constraint);
+template void create_keccak_permutations_constraints<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
+                                                                              const Keccakf1600& constraint);
+
+template void create_keccak_permutations_constraints<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
+                                                                             const Keccakf1600& constraint);
 
 } // namespace acir_format

@@ -54,7 +54,7 @@ fn set_flags(flags: [bool; 3], byte: u8) -> u8 {
 
 mod tests {
     use crate::abis::BLSPoint;
-    use super::{compress_to_blob_commitment, get_flags, set_flags};
+    use super::{compress_to_blob_commitment, get_flags};
     use bigcurve::{BigCurve, curves::bls12_381::BLS12_381_PARAMS};
     use bignum::{BigNum, BLS12_381_Fq};
     use std::ops::{Add, Mul};

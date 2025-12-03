@@ -22,7 +22,7 @@ struct perm_keccak_memory_slice_to_mem_settings_ {
     static constexpr Column INVERSES = Column::perm_keccak_memory_slice_to_mem_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
         ColumnAndShifts::keccak_memory_clk,  ColumnAndShifts::keccak_memory_space_id,
-        ColumnAndShifts::keccak_memory_addr, ColumnAndShifts::keccak_memory_val00,
+        ColumnAndShifts::keccak_memory_addr, ColumnAndShifts::keccak_memory_val_0_,
         ColumnAndShifts::keccak_memory_tag,  ColumnAndShifts::keccak_memory_rw
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {

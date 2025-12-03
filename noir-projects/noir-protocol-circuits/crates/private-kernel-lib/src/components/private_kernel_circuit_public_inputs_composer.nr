@@ -161,8 +161,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         private_call: PrivateCallData,
     ) {
         self.propagate_include_by_timestamp(private_call);
-        self.scope_and_propagate_note_hash_read_requests(private_call.public_inputs);
-        self.scope_and_propagate_nullifier_read_requests(private_call.public_inputs);
+        self.propagate_note_hash_read_requests(private_call.public_inputs);
+        self.propagate_nullifier_read_requests(private_call.public_inputs);
         self.scope_and_propagate_key_validation_requests(private_call.public_inputs);
         self.scope_and_propagate_note_hashes(private_call.public_inputs);
         self.scope_and_propagate_nullifiers(private_call.public_inputs);
@@ -206,7 +206,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         );
     }
 
-    unconstrained fn scope_and_propagate_note_hash_read_requests(
+    unconstrained fn propagate_note_hash_read_requests(
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
@@ -214,14 +214,12 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..read_requests.array.len() {
             let request = read_requests.array[i];
             if !request.is_empty() {
-                self.public_inputs.validation_requests.note_hash_read_requests.push(request.scope(
-                    private_call_public_inputs.call_context.contract_address,
-                ));
+                self.public_inputs.validation_requests.note_hash_read_requests.push(request);
             }
         }
     }
 
-    unconstrained fn scope_and_propagate_nullifier_read_requests(
+    unconstrained fn propagate_nullifier_read_requests(
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
@@ -229,9 +227,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifier_read_requests.array.len() {
             let request = nullifier_read_requests.array[i];
             if !request.is_empty() {
-                self.public_inputs.validation_requests.nullifier_read_requests.push(request.scope(
-                    private_call_public_inputs.call_context.contract_address,
-                ));
+                self.public_inputs.validation_requests.nullifier_read_requests.push(request);
             }
         }
     }

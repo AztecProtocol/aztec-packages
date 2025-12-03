@@ -308,63 +308,35 @@ mod tests {
     use crate::{blob::barycentric_evaluate_blob_at_z, config::{D, D_INV}};
     use super::{__compute_partial_sums, __compute_sum};
     use bignum::{BigNum, BLS12_381_Fr};
-    use types::{
-        abis::sponge_blob::SpongeBlob,
-        constants::FIELDS_PER_BLOB,
-        hash::poseidon2_hash,
-        tests::fixture_builder::FixtureBuilder,
-        traits::{Empty, Serialize},
-    };
+    use types::{constants::FIELDS_PER_BLOB, hash::poseidon2_hash};
 
     // Note: the kzg_commitment is technically a BLS12-381 point in (Fq, Fq), but
     // we don't actually need to operate on it so we've simply encoded it as fitting inside a
     // [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
     // See yarn-project/blob-lib/src/blob.ts -> commitmentToFields() for encoding
-    #[derive(Eq)]
-    pub struct TestBlobEvaluationOutputs {
-        pub z: Field,
-        pub y: BLS12_381_Fr,
-        pub c: [Field; 2],
-    }
-
-    impl Empty for TestBlobEvaluationOutputs {
-        fn empty() -> Self {
-            Self { z: 0, y: BLS12_381_Fr::zero(), c: [0, 0] }
-        }
-    }
-
     fn evaluate_blob(
         blob_as_fields: [Field; FIELDS_PER_BLOB],
         kzg_commitment: [Field; 2],
-        hashed_blobs_fields: Field,
-    ) -> TestBlobEvaluationOutputs {
-        let challenge_z =
-            poseidon2_hash([hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1]]);
+        blob_fields_hash: Field,
+    ) -> (Field, BLS12_381_Fr) {
+        let challenge_z = poseidon2_hash([blob_fields_hash, kzg_commitment[0], kzg_commitment[1]]);
         let challenge_z_as_bignum = BLS12_381_Fr::from(challenge_z);
         let blob = blob_as_fields.map(|b| BLS12_381_Fr::from(b));
 
         let y = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
 
-        TestBlobEvaluationOutputs { z: challenge_z, y, c: kzg_commitment }
+        (challenge_z, y)
     }
 
     #[test]
     unconstrained fn test_one_note() {
-        let mut tx_data = FixtureBuilder::new();
-        tx_data.add_new_note_hash(1);
-        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-        let blob_fields = tx_data.to_private_to_rollup_accumulated_data().serialize();
-        for i in 0..blob_fields.len() {
-            blob[i] = blob_fields[i];
-        }
-        let mut sponge_blob = SpongeBlob::new(blob_fields.len());
-        sponge_blob.absorb(blob_fields, blob_fields.len());
+        let mut blob_fields: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        blob_fields[0] = 1;
 
         let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
-        let hashed_blob = sponge_blob.squeeze();
-        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
-        let challenge_z = BLS12_381_Fr::from(output.z);
-        let y = output.y;
+        let blob_fields_hash = 0x123; // This is not relevant for this test.
+        let (z, y) = evaluate_blob(blob_fields, kzg_commitment_in, blob_fields_hash);
+        let challenge_z = BLS12_381_Fr::from(z);
         // Our blob is all 0s, apart from one commitment of value 1 at position 0
         // It's in eval form => our barycentric formula to find p(z) becomes:
         //
@@ -386,14 +358,8 @@ mod tests {
 
     #[test]
     unconstrained fn test_400() {
-        let mut blob_fields = [0; FIELDS_PER_BLOB];
-        for i in 0..400 {
-            blob_fields[i] = 3;
-        }
-        let mut sponge_blob = SpongeBlob::new(400);
-        sponge_blob.absorb(blob_fields, 400);
-
-        let hashed_blob = sponge_blob.squeeze();
+        let blob_fields = [3; 400];
+        let blob_fields_hash = poseidon2_hash(blob_fields);
 
         // The following hardcoded values are generated from yarn-project/blob-lib/src/blob.test.ts
         let kzg_commitment_blob_400_from_ts = [
@@ -403,9 +369,14 @@ mod tests {
         let y_limbs_blob_400_from_ts =
             [0xdde7b57ab99b51e4b06e7d827b6c4c, 0x4f0c0ee5e7dd037110686a4639d191, 0x212c];
 
-        let output = evaluate_blob(blob_fields, kzg_commitment_blob_400_from_ts, hashed_blob);
+        let padded_blob_fields = blob_fields.concat([0; FIELDS_PER_BLOB - 400]);
+        let (_, y) = evaluate_blob(
+            padded_blob_fields,
+            kzg_commitment_blob_400_from_ts,
+            blob_fields_hash,
+        );
 
-        assert_eq(output.y, BLS12_381_Fr::from_limbs(y_limbs_blob_400_from_ts));
+        assert_eq(y, BLS12_381_Fr::from_limbs(y_limbs_blob_400_from_ts));
     }
 
     #[test]
@@ -414,10 +385,8 @@ mod tests {
         for i in 0..FIELDS_PER_BLOB {
             blob_fields[i] = i as Field + 2;
         }
-        let mut sponge_blob = SpongeBlob::new(FIELDS_PER_BLOB);
-        sponge_blob.absorb(blob_fields, FIELDS_PER_BLOB);
 
-        let hashed_blob = sponge_blob.squeeze();
+        let blob_fields_hash = poseidon2_hash(blob_fields);
 
         // The following hardcoded values are generated from yarn-project/blob-lib/src/blob.test.ts
         let kzg_commitment_blob_full_from_ts = [
@@ -427,9 +396,13 @@ mod tests {
         let y_limbs_blob_full_from_ts =
             [0xecc38f478ced014b6ae860502a1b1c, 0x494e66a289c4509ecf97af4ff92aa7, 0x0365];
 
-        let output = evaluate_blob(blob_fields, kzg_commitment_blob_full_from_ts, hashed_blob);
+        let (_, y) = evaluate_blob(
+            blob_fields,
+            kzg_commitment_blob_full_from_ts,
+            blob_fields_hash,
+        );
 
-        assert_eq(output.y, BLS12_381_Fr::from_limbs(y_limbs_blob_full_from_ts));
+        assert_eq(y, BLS12_381_Fr::from_limbs(y_limbs_blob_full_from_ts));
     }
 
     #[test]

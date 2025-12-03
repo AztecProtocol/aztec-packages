@@ -104,7 +104,7 @@ As a sequencer, you initiate proposals through signaling. When you propose a blo
 
 Use the `setConfig` method on your node's admin interface to specify which payload address you want to signal support for.
 
-Call the JSON-RPC interface:
+**CLI Method**:
 
 ```bash
 curl -X POST http://localhost:8880 \
@@ -117,7 +117,20 @@ curl -X POST http://localhost:8880 \
   }'
 ```
 
-Replace `0x1234567890abcdef1234567890abcdef12345678` with your actual payload contract address.
+**Docker Method**:
+
+```bash
+docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc":"2.0",
+    "method":"nodeAdmin_setConfig",
+    "params":[{"governanceProposerPayload":"0x1234567890abcdef1234567890abcdef12345678"}],
+    "id":1
+  }'
+```
+
+Replace `0x1234567890abcdef1234567890abcdef12345678` with your actual payload contract address and `aztec-sequencer` with your container name.
 
 Expected response:
 ```json
@@ -128,8 +141,22 @@ Expected response:
 
 Use the `getConfig` method to verify the payload address:
 
+**CLI Method**:
+
 ```bash
 curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc":"2.0",
+    "method":"nodeAdmin_getConfig",
+    "id":1
+  }'
+```
+
+**Docker Method**:
+
+```bash
+docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "jsonrpc":"2.0",

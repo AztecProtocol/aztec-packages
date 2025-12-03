@@ -40,7 +40,7 @@ export const INFO_TEXT = {
     'Aztec has native Account Abstraction, you can choose the type of signature you want for your account contract. We recommend the ecdsa_r1 signature that you can store on passkeys or do web authentication.',
   ALIASES: "Give friendly names to objects you interact with, so they're easier to find later",
   FEE_ABSTRACTION:
-    'Aztec has native Fee Abstraction, so you can choose to pay gas fees in multiple ways. For testnet, we’ve got you covered! Use our Sponsored Fee Payment Contract and your transactions are on us.',
+    'Aztec has native Fee Abstraction, so you can choose to pay gas fees in multiple ways. For test networks, we’ve got you covered! Use our Sponsored Fee Payment Contract and your transactions are on us.',
   AUTHWITS:
     'Authorization witnesses (AuthWits) work similarly to permit/approval on Ethereum. They allow execution of functions on behalf of other contracts or addresses.',
   CREATE_CONTRACT:
@@ -60,6 +60,6 @@ export const FUN_FACTS = [
   'Aztec supports private, public, and hybrid smart contract execution.',
   'Aztec enables privacy and full composability across private and public calls.',
   'All Aztec transactions start off private (since account and transaction entrypoints are private).',
-  'Aztec is the first L2 to launch a decentralized testnet on day 1.',
+  'Aztec is the first L2 to launch a decentralized network on day 1.',
   'While you wait for this proof, check out somethinghappened.wtf.',
 ];

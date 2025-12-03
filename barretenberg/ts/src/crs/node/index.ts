@@ -4,7 +4,6 @@ import { stat } from 'fs/promises';
 import { Readable } from 'stream';
 import { homedir } from 'os';
 import { finished } from 'stream/promises';
-import { createDebugLogger } from '../../log/index.js';
 import { join } from 'path';
 
 /**
@@ -14,13 +13,13 @@ export class Crs {
   constructor(
     public readonly numPoints: number,
     public readonly path: string,
-    private readonly logger: (msg: string) => void = createDebugLogger('crs'),
+    private readonly logger: (msg: string) => void = () => {},
   ) {}
 
   static async new(
     numPoints: number,
     crsPath = process.env.CRS_PATH ?? join(homedir(), '.bb-crs'),
-    logger: (msg: string) => void = createDebugLogger('crs'),
+    logger: (msg: string) => void = () => {},
   ) {
     const crs = new Crs(numPoints, crsPath, logger);
     await crs.init();
@@ -83,13 +82,13 @@ export class GrumpkinCrs {
   constructor(
     public readonly numPoints: number,
     public readonly path: string,
-    private readonly logger: (msg: string) => void = createDebugLogger('crs'),
+    private readonly logger: (msg: string) => void = () => {},
   ) {}
 
   static async new(
     numPoints: number,
     crsPath = process.env.CRS_PATH ?? join(homedir(), '.bb-crs'),
-    logger: (msg: string) => void = createDebugLogger('crs'),
+    logger: (msg: string) => void = () => {},
   ) {
     const crs = new GrumpkinCrs(numPoints, crsPath, logger);
     await crs.init();

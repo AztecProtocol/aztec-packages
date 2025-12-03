@@ -10,6 +10,7 @@ export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
+# Uses a sentinel prefix to reliably find the version location, enabling re-injection on cached binaries.
 function inject_version {
   local binary=$1
   if semver check "$REF_NAME"; then
@@ -18,17 +19,21 @@ function inject_version {
     # Otherwise, use the commit hash as the version.
     local version=$(git rev-parse --short HEAD)
   fi
-  local placeholder='00000000.00000000.00000000'
-  if [ ${#version} -gt ${#placeholder} ]; then
-    echo_stderr "Error: version ($version) is longer than placeholder. Cannot update bb binaries."
+  local sentinel='BARRETENBERG_VERSION_SENTINEL'
+  local version_space='00000000.00000000.00000000'
+  if [ ${#version} -gt ${#version_space} ]; then
+    echo "Error: version ($version) is longer than available space. Cannot update bb binaries." >&2
     exit 1
   fi
-  local offset=$(grep -aobF "$placeholder" $binary | head -n 1 | cut -d: -f1)
-  if [ -z "$offset" ]; then
-    echo "Placeholder not found in $binary, can't inject version."
-    exit 1
+  # Find the sentinel and write version at the offset after it
+  local sentinel_offset=$(grep -aobF "$sentinel" "$binary" 2>/dev/null | head -n 1 | cut -d: -f1)
+  if [ -z "$sentinel_offset" ]; then
+    echo "Warning: sentinel not found in $binary - skipping version injection (binary may be from old build)" >&2
+    return 0
   fi
-  printf "$version\0" | dd of=$binary bs=1 seek=$offset conv=notrunc 2>/dev/null
+  # Version starts immediately after the sentinel
+  local version_offset=$((sentinel_offset + ${#sentinel}))
+  printf "$version\0" | dd of="$binary" bs=1 seek=$version_offset conv=notrunc 2>/dev/null
 }
 
 # Define build commands for each preset
@@ -63,6 +68,11 @@ function build_native {
     build_preset $native_preset
     cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
   fi
+  # Always inject version (even for cached binaries) to ensure correct version on release
+  inject_version build/bin/bb
+  if [ -f build/bin/bb-avm ]; then
+    inject_version build/bin/bb-avm
+  fi
 }
 
 # Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
@@ -82,9 +92,16 @@ function build_cross_objects {
 function build_cross {
   set -eu
   target=$1
+  is_macos=${2:-false}
   if ! cache_download barretenberg-$target-$hash.zst; then
     build_preset zig-$target --target bb --target nodejs_module
     cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
+  fi
+  # Always inject version (even for cached binaries) to ensure correct version on release
+  inject_version build-zig-$target/bin/bb
+  # Code sign for macOS after version injection (must be last modification to binary)
+  if [ "$is_macos" == "true" ]; then
+    ldid -S build-zig-$target/bin/bb
   fi
 }
 
@@ -184,13 +201,9 @@ function build_release_dir {
   rm -rf build-release
   mkdir build-release
 
-  cp build/bin/bb build-release/bb
-  inject_version build-release/bb
-  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
-
-  cp build/bin/bb-avm build-release/bb-avm
-  inject_version build-release/bb-avm
-  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build-release --remove-files bb-avm
+  # Version is injected in build_native/build_cross (always, even for cached binaries)
+  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build/bin bb
+  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build/bin bb-avm
 
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
   tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
@@ -198,24 +211,16 @@ function build_release_dir {
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
   # Package arm64-linux
-  cp build-zig-arm64-linux/bin/bb build-release/bb
-  inject_version build-release/bb
-  tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-release --remove-files bb
+  tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-zig-arm64-linux/bin bb
 
   # Package arm64-macos
-  cp build-zig-arm64-macos/bin/bb build-release/bb
-  inject_version build-release/bb
-  ldid -S build-release/bb
-  tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
+  tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-zig-arm64-macos/bin bb
 
   # Package amd64-macos
-  cp build-zig-amd64-macos/bin/bb build-release/bb
-  inject_version build-release/bb
-  ldid -S build-release/bb
-  tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
+  tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
 }
 
-export -f build_preset build_native_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f build_preset build_native_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
 
 function build {
   echo_header "bb cpp build"
@@ -234,8 +239,8 @@ function build {
       "build_wasm" \
       "build_wasm_threads" \
       "build_cross arm64-linux" \
-      "build_cross amd64-macos" \
-      "build_cross arm64-macos"
+      "build_cross amd64-macos true" \
+      "build_cross arm64-macos true"
     build_release_dir
   else
     builds=(
@@ -247,7 +252,7 @@ function build {
       builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
     fi
     if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-      builds+=("build_cross arm64-macos" build_smt_verification)
+      builds+=("build_cross arm64-macos true" build_smt_verification)
     fi
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
   fi
@@ -262,10 +267,7 @@ function build_with_makefile {
   (cd $root && make bb-cpp)
 }
 
-# Print every individual test command. Can be fed into gnu parallel.
-# Paths are relative to repo root.
-# We prefix the hash. This ensures the test harness and cache and skip future runs.
-function test_cmds {
+function test_cmds_native {
   # E.g. build, build-debug or build-coverage
   cd $(scripts/native-preset-build-dir)
 
@@ -286,28 +288,49 @@ function test_cmds {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  if [ "$CI_FULL" -eq 1 ]; then
-    # We only want to sanity check that we haven't broken wasm ecc in merge queue.
-    echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
-
-    local prefix="$hash:CPUS=4:MEM=8g"
-
-    # Mostly arbitrary set that touches lots of the code.
-    declare -A asan_tests=(
-      ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
-      ["chonk_tests"]="ChonkTests.Basic"
-      ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
-      ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
-    )
-    for bin_name in "${!asan_tests[@]}"; do
-      local filter=${asan_tests[$bin_name]}
-      echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
-    done
-
-    echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
-  fi
-
   echo "$hash barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
+}
+
+function test_cmds_wasm_threads {
+  # We only want to sanity check that we haven't broken wasm ecc in merge queue.
+  echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
+}
+
+function test_cmds_asan {
+  local prefix="$hash:CPUS=4:MEM=8g"
+
+  # Mostly arbitrary set that touches lots of the code.
+  declare -A asan_tests=(
+    ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
+    ["chonk_tests"]="ChonkTests.Basic"
+    ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
+    ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+  )
+  for bin_name in "${!asan_tests[@]}"; do
+    local filter=${asan_tests[$bin_name]}
+    echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
+  done
+}
+
+function test_cmds_smt {
+  local prefix="$hash:CPUS=4:MEM=8g"
+  echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
+}
+
+# Print every individual test command. Can be fed into gnu parallel.
+# Paths are relative to repo root.
+# We prefix the hash. This ensures the test harness and cache and skip future runs.
+function test_cmds {
+  if [ -z "${1:-}" ]; then
+    test_cmds_native
+    if [ "$CI_FULL" -eq 1 ]; then
+      test_cmds_wasm_threads
+      test_cmds_asan
+      test_cmds_smt
+    fi
+  else
+    test_cmds_$1
+  fi
 }
 
 # This is not called in ci. It is just for a developer to run the tests.

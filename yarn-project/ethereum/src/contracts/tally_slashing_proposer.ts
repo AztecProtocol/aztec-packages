@@ -1,4 +1,5 @@
 import { type L1TxRequest, type ViemClient, tryExtractEvent } from '@aztec/ethereum';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -97,8 +98,8 @@ export class TallySlashingProposerContract {
    * @param slot - The slot number to check at
    * @returns Whether the round is ready to execute
    */
-  public async isRoundReadyToExecute(round: bigint, slot: bigint): Promise<boolean> {
-    return await this.contract.read.isRoundReadyToExecute([round, slot]);
+  public async isRoundReadyToExecute(round: bigint, slot: SlotNumber): Promise<boolean> {
+    return await this.contract.read.isRoundReadyToExecute([round, BigInt(slot)]);
   }
 
   /** Returns the slash actions and payload address for a given round (zero if no slash actions) */
@@ -149,7 +150,7 @@ export class TallySlashingProposerContract {
    */
   public async buildVoteRequestFromSigner(
     votes: Hex,
-    slot: bigint,
+    slot: SlotNumber,
     signer: (msg: TypedDataDefinition) => Promise<Hex>,
   ): Promise<L1TxRequest> {
     const typedData = this.buildVoteTypedData(votes, slot);
@@ -166,7 +167,7 @@ export class TallySlashingProposerContract {
   }
 
   /** Returns the typed data definition to EIP712-sign for voting */
-  public buildVoteTypedData(votes: Hex, slot: bigint): TypedDataDefinition {
+  public buildVoteTypedData(votes: Hex, slot: SlotNumber): TypedDataDefinition {
     const domain = {
       name: 'TallySlashingProposer',
       version: '1',
@@ -187,12 +188,12 @@ export class TallySlashingProposerContract {
       ],
     };
 
-    return { domain, types, primaryType: 'Vote', message: { votes, slot } };
+    return { domain, types, primaryType: 'Vote', message: { votes, slot: BigInt(slot) } };
   }
 
   /** Gets the digest to sign for voting directly from the contract */
-  public async getVoteDataDigest(votes: Hex, slot: bigint): Promise<Buffer32> {
-    return Buffer32.fromString(await this.contract.read.getVoteSignatureDigest([votes, slot]));
+  public async getVoteDataDigest(votes: Hex, slot: SlotNumber): Promise<Buffer32> {
+    return Buffer32.fromString(await this.contract.read.getVoteSignatureDigest([votes, BigInt(slot)]));
   }
 
   /**

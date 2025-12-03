@@ -33,7 +33,7 @@ export const mockAttestation = (
 ): BlockAttestation => {
   // Use arbitrary numbers for all other than slot
   const header = makeL2BlockHeader(1, 2, slot);
-  const payload = new ConsensusPayload(header.toCheckpointHeader(), archive, header.state);
+  const payload = new ConsensusPayload(header.toCheckpointHeader(), archive);
 
   const attestationHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
   const attestationSignature = signer.sign(attestationHash);

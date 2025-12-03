@@ -75,8 +75,8 @@ contract GovScript is Test {
     uint256 baseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
     emit log_named_uint("\tBase fee", baseFee);
     emit log_named_address("\tOwner", Ownable(address(rollup)).owner());
-    emit log_named_uint("\tPending block number", rollup.getPendingBlockNumber());
-    emit log_named_uint("\tProven block number ", rollup.getProvenBlockNumber());
+    emit log_named_uint("\tPending checkpoint number", rollup.getPendingCheckpointNumber());
+    emit log_named_uint("\tProven checkpoint number ", rollup.getProvenCheckpointNumber());
     emit log_named_uint("\tNumber of attestors ", IStaking(address(rollup)).getActiveAttesterCount());
     emit log_named_decimal_uint("\tMinimum stake", IStaking(address(rollup)).getActivationThreshold(), 18);
 
@@ -175,12 +175,12 @@ contract GovScript is Test {
 
     TestERC20 asset = TestERC20(address(rewardDistributor.ASSET()));
     IRollup canonicalRollup = IRollup(address(registry.getCanonicalRollup()));
-    uint256 blockReward = canonicalRollup.getBlockReward();
+    uint256 checkpointReward = canonicalRollup.getCheckpointReward();
 
     emit log_named_decimal_uint("Reward distributor balance", asset.balanceOf(address(rewardDistributor)), 18);
 
     vm.startBroadcast(ME);
-    asset.mint(address(rewardDistributor), 200_000 * blockReward);
+    asset.mint(address(rewardDistributor), 200_000 * checkpointReward);
     vm.stopBroadcast();
 
     emit log_named_decimal_uint("Reward distributor balance", asset.balanceOf(address(rewardDistributor)), 18);

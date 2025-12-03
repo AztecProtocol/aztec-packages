@@ -50,11 +50,12 @@ library PriceLib {
 library FeeConfigLib {
   using SafeCast for uint256;
 
+  uint256 private constant MASK_32_BITS = 0xFFFFFFFF;
   uint256 private constant MASK_64_BITS = 0xFFFFFFFFFFFFFFFF;
   uint256 private constant MASK_128_BITS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
   function getManaTarget(CompressedFeeConfig _compressedFeeConfig) internal pure returns (uint256) {
-    return (CompressedFeeConfig.unwrap(_compressedFeeConfig) >> 192) & MASK_64_BITS;
+    return (CompressedFeeConfig.unwrap(_compressedFeeConfig) >> 192) & MASK_32_BITS;
   }
 
   function getCongestionUpdateFraction(CompressedFeeConfig _compressedFeeConfig) internal pure returns (uint256) {
@@ -69,7 +70,7 @@ library FeeConfigLib {
     uint256 value = 0;
     value |= uint256(EthValue.unwrap(_config.provingCostPerMana).toUint64());
     value |= uint256(_config.congestionUpdateFraction.toUint128()) << 64;
-    value |= uint256(_config.manaTarget.toUint64()) << 192;
+    value |= uint256(_config.manaTarget.toUint32()) << 192;
 
     return CompressedFeeConfig.wrap(value);
   }

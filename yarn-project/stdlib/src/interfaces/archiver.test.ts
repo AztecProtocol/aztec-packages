@@ -1,3 +1,4 @@
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -13,6 +14,8 @@ import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import { PublishedL2Block } from '../block/published_l2_block.js';
 import type { ValidateBlockResult } from '../block/validate_block_result.js';
+import { Checkpoint } from '../checkpoint/checkpoint.js';
+import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
   type ContractClassPublic,
@@ -106,6 +109,14 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([expect.any(L2Block)]);
   });
 
+  it('getPublishedCheckpoints', async () => {
+    const response = await context.client.getPublishedCheckpoints(1, 1);
+    expect(response).toHaveLength(1);
+    expect(response[0].checkpoint.constructor.name).toEqual('Checkpoint');
+    expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
+    expect(response[0].l1).toBeDefined();
+  });
+
   it('getPublishedBlocks', async () => {
     const response = await context.client.getPublishedBlocks(1, 1);
     expect(response).toHaveLength(1);
@@ -142,26 +153,31 @@ describe('ArchiverApiSchema', () => {
 
   it('getL2SlotNumber', async () => {
     const result = await context.client.getL2SlotNumber();
-    expect(result).toBe(1n);
+    expect(result).toBe(SlotNumber(1));
   });
 
   it('getL2EpochNumber', async () => {
     const result = await context.client.getL2EpochNumber();
-    expect(result).toBe(1n);
+    expect(result).toBe(EpochNumber(1));
+  });
+
+  it('getCheckpointsForEpoch', async () => {
+    const result = await context.client.getCheckpointsForEpoch(EpochNumber(1));
+    expect(result).toEqual([expect.any(Checkpoint)]);
   });
 
   it('getBlocksForEpoch', async () => {
-    const result = await context.client.getBlocksForEpoch(1n);
+    const result = await context.client.getBlocksForEpoch(EpochNumber(1));
     expect(result).toEqual([expect.any(L2Block)]);
   });
 
   it('getBlockHeadersForEpoch', async () => {
-    const result = await context.client.getBlockHeadersForEpoch(1n);
+    const result = await context.client.getBlockHeadersForEpoch(EpochNumber(1));
     expect(result).toEqual([expect.any(BlockHeader)]);
   });
 
   it('isEpochComplete', async () => {
-    const result = await context.client.isEpochComplete(1n);
+    const result = await context.client.isEpochComplete(EpochNumber(1));
     expect(result).toBe(true);
   });
 
@@ -227,6 +243,11 @@ describe('ArchiverApiSchema', () => {
 
   it('getContractClassIds', async () => {
     const result = await context.client.getContractClassIds();
+    expect(result).toEqual([expect.any(Fr)]);
+  });
+
+  it('getL1ToL2MessagesForCheckpoint', async () => {
+    const result = await context.client.getL1ToL2MessagesForCheckpoint(CheckpointNumber(1));
     expect(result).toEqual([expect.any(Fr)]);
   });
 
@@ -325,6 +346,15 @@ class MockArchiver implements ArchiverApi {
   async getBlocks(from: number, _limit: number, _proven?: boolean): Promise<L2Block[]> {
     return [await L2Block.random(from)];
   }
+  async getPublishedCheckpoints(from: number, _limit: number): Promise<PublishedCheckpoint[]> {
+    return [
+      PublishedCheckpoint.from({
+        checkpoint: await Checkpoint.random(CheckpointNumber(from)),
+        attestations: [CommitteeAttestation.random()],
+        l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
+      }),
+    ];
+  }
   async getPublishedBlocks(from: number, _limit: number, _proven?: boolean): Promise<PublishedL2Block[]> {
     return [
       PublishedL2Block.fromFields({
@@ -367,23 +397,27 @@ class MockArchiver implements ArchiverApi {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  getL2SlotNumber(): Promise<bigint> {
-    return Promise.resolve(1n);
+  getL2SlotNumber(): Promise<SlotNumber> {
+    return Promise.resolve(SlotNumber(1));
   }
-  getL2EpochNumber(): Promise<bigint> {
-    return Promise.resolve(1n);
+  getL2EpochNumber(): Promise<EpochNumber | undefined> {
+    return Promise.resolve(EpochNumber(1));
   }
-  async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
-    expect(epochNumber).toEqual(1n);
+  async getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
+    expect(epochNumber).toEqual(EpochNumber(1));
+    return [await Checkpoint.random(CheckpointNumber(1))];
+  }
+  async getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]> {
+    expect(epochNumber).toEqual(EpochNumber(1));
     return [await L2Block.random(Number(epochNumber))];
   }
-  async getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
-    expect(epochNumber).toEqual(1n);
+  async getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
+    expect(epochNumber).toEqual(EpochNumber(1));
     const block = await L2Block.random(Number(epochNumber));
     return [block.getBlockHeader()];
   }
-  isEpochComplete(epochNumber: bigint): Promise<boolean> {
-    expect(epochNumber).toEqual(1n);
+  isEpochComplete(epochNumber: EpochNumber): Promise<boolean> {
+    expect(epochNumber).toEqual(EpochNumber(1));
     return Promise.resolve(true);
   }
   getL2Tips(): Promise<L2Tips> {
@@ -458,6 +492,10 @@ class MockArchiver implements ArchiverApi {
   registerContractFunctionSignatures(signatures: string[]): Promise<void> {
     expect(Array.isArray(signatures)).toBe(true);
     return Promise.resolve();
+  }
+  getL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    expect(checkpointNumber).toEqual(CheckpointNumber(1));
+    return Promise.resolve([Fr.random()]);
   }
   getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
     expect(blockNumber).toEqual(1);

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Struct PrivateCall documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PrivateCall</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.args">args</a></li>
+<li><a href="#structfield.name">name</a></li>
+<li><a href="#structfield.selector">selector</a></li>
+<li><a href="#structfield.target_contract">target_contract</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#call">call</a></li>
+<li><a href="#new">new</a></li>
+</ul>
+<h2>In module calls</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PrivateCall.html">PrivateCall</a></div></li>
+<li><a href="struct.PrivateStaticCall.html">PrivateStaticCall</a></div></li>
+<li><a href="struct.PublicCall.html">PublicCall</a></div></li>
+<li><a href="struct.PublicStaticCall.html">PublicStaticCall</a></div></li>
+<li><a href="struct.UtilityCall.html">UtilityCall</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">context</a>::<a href="index.html">calls</a></div>
+<h1>Struct <span id="struct" class="struct">PrivateCall</span></h1>
+<pre><code>pub struct PrivateCall&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; {
+    pub target_contract: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub selector: <a href="../../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a>,
+    pub name: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;M&gt;,
+    pub args: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N],
+    <span class="comment">/* private fields */</span>
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.target_contract" class="struct-field"><code class="code-header">target_contract: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="structfield.selector" class="struct-field"><code class="code-header">selector: <a href="../../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a></code></div>
+<div class="padded-description"></div><div id="structfield.name" class="struct-field"><code class="code-header">name: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;M&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.args" class="struct-field"><code class="code-header">args: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N]</code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;</code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(
+    target_contract: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    selector: <a href="../../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a>,
+    name: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;M&gt;,
+    args: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N],
+) -> Self</code>
+
+</div><h3><code class="code-header">impl&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;</code></h3>
+
+<div class="padded-methods"><code id="call" class="code-header">pub fn <span class="fn">call</span>(self, context: &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> T
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p><strong>[DEPRECATED]</strong>
+This function is deprecated. Please use the new contract API:
+<code>self.call(MyContract::at(address).my_private_function(...args))</code>
+instead of manually constructing and calling <code>PrivateCall</code>.</p>
+</div>
+</div></div></main>
+</body>
+</html>

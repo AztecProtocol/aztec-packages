@@ -59,8 +59,6 @@ void add_constraint_to_acir_format(AcirFormat& acir_format, const ConstraintType
         throw_or_abort("Recursion constraints are not currently supported.");
     } else if constexpr (std::is_same_v<ConstraintType, BlockConstraint>) {
         acir_format.block_constraints.push_back(constraint);
-    } else if constexpr (std::is_same_v<ConstraintType, AcirFormat::ArithTripleConstraint>) {
-        acir_format.arithmetic_triple_constraints.push_back(constraint);
     } else if constexpr (std::is_same_v<ConstraintType, bb::mul_quad_<bb::curve::BN254::ScalarField>>) {
         acir_format.quad_constraints.push_back(constraint);
     } else if constexpr (std::is_same_v<ConstraintType, std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>>) {
@@ -150,7 +148,7 @@ template <TestBase Base> class TestClass {
         auto [constraint, witness_values] = generate_constraints(invalid_witness_target);
 
         AcirFormat constraint_system = {
-            .varnum = static_cast<uint32_t>(witness_values.size()),
+            .max_witness_index = static_cast<uint32_t>(witness_values.size() - 1),
             .num_acir_opcodes = 1,
             .public_inputs = {},
             .original_opcode_indices = create_empty_original_opcode_indices(),
@@ -182,7 +180,7 @@ template <TestBase Base> class TestClass {
         auto [constraint, witness_values] = generate_constraints();
 
         AcirFormat constraint_system = {
-            .varnum = static_cast<uint32_t>(witness_values.size()),
+            .max_witness_index = static_cast<uint32_t>(witness_values.size() - 1),
             .num_acir_opcodes = 1,
             .public_inputs = {},
             .original_opcode_indices = create_empty_original_opcode_indices(),
@@ -232,10 +230,12 @@ template <TestBase Base> class TestClass {
             error_msgs.emplace_back(builder_err);
 
             if (target != InvalidWitness::Target::None) {
-                EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                bool circuit_check_failed = !circuit_checker_result;
+                bool assert_eq_error_present = (builder_err.find("assert_eq") != std::string::npos);
+                EXPECT_TRUE(circuit_check_failed || assert_eq_error_present)
                     << "Circuit checker succeeded unexpectedly and no assert_eq failure for invalid witness target " +
                            label;
-                EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly for invalid witness target " + label;
+                EXPECT_TRUE(builder_failed) << "Builder succeeded for invalid witness target " + label;
             } else {
                 EXPECT_TRUE(circuit_checker_result)
                     << "Circuit checker failed unexpectedly for invalid witness target " + label;

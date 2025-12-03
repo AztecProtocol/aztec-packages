@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { OffenseType } from '@aztec/slasher';
 
@@ -89,7 +90,7 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
     const { rollup } = await t.getContracts();
 
     // Jump forward to an epoch in the future such that the validator set is not empty
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(4n);
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
     await debugRollup();
 
     const [activationThreshold, ejectionThreshold, localEjectionThreshold] = await Promise.all([

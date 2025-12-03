@@ -4,6 +4,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import { RollupContract } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { logger, withLogNameSuffix } from '@aztec/foundation/log';
@@ -19,6 +20,7 @@ import { type EndToEndContext, createAndSyncProverNode, getPrivateKeyFromIndex, 
 
 const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
 const L2_TARGET_BLOCK_NUM = 3;
+const TARGET_CHECKPOINT_NUMBER = CheckpointNumber(3);
 
 describe('e2e_snapshot_sync', () => {
   let context: EndToEndContext;
@@ -85,10 +87,12 @@ describe('e2e_snapshot_sync', () => {
     expect(worldState.latestBlockNumber).toBeGreaterThanOrEqual(blockNumber);
   };
 
-  it('waits until a few L2 blocks have been mined and purges blobs', async () => {
-    log.warn(`Waiting for L2 blocks to be mined`);
-    await retryUntil(() => monitor.l2BlockNumber > L2_TARGET_BLOCK_NUM, 'l2-blocks-mined', 90, 1);
-    log.warn(`L2 block height is now ${monitor.l2BlockNumber}. Purging all blobs from sink so snapshot is required.`);
+  it('waits until a few checkpoints have been mined and purges blobs', async () => {
+    log.warn(`Waiting for checkpoints to be mined`);
+    await retryUntil(() => monitor.checkpointNumber > TARGET_CHECKPOINT_NUMBER, 'checkpoints-mined', 90, 1);
+    log.warn(
+      `Checkpoint height is now ${monitor.checkpointNumber}. Purging all blobs from sink so snapshot is required.`,
+    );
     await context.blobSink!.clear();
   });
 

@@ -80,6 +80,12 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
   }
 
   modifier whenTheRollupHasTheTargetCommitteeSize() {
+    Timestamp epochTimestamp = Timestamp.wrap(
+      block.timestamp + TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET * TestConstants.AZTEC_EPOCH_DURATION
+        * TestConstants.AZTEC_SLOT_DURATION
+    );
+
+    vm.warp(Timestamp.unwrap(epochTimestamp));
     _;
   }
 
@@ -89,16 +95,11 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     // it should not change the committee even when validators are added or removed
     // it should not change the next randao, but sample-seed should be updated
 
-    Timestamp epoch2Timestamp =
-      Timestamp.wrap(block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION);
-
-    vm.warp(Timestamp.unwrap(epoch2Timestamp));
-
     rollup.setupEpoch();
 
     // Check that the initial epoch seed is set
     uint256 initialEpochSeed = IValidatorSelection(address(rollup)).getSampleSeedAt(Timestamp.wrap(block.timestamp));
-    assertEq(initialEpochSeed, computeSampleSeed(2, block.prevrandao), "Sample seed for initial epoch should be max");
+    assertEq(initialEpochSeed, computeSampleSeed(3, block.prevrandao), "Sample seed for initial epoch should be max");
 
     // Get the initial committee
     address[] memory initialCommittee = IValidatorSelection(address(rollup)).getCurrentEpochCommittee();
@@ -146,12 +147,6 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     setup(50, 48)
     whenTheRollupHasTheTargetCommitteeSize
   {
-    Timestamp epoch2Timestamp = Timestamp.wrap(
-      block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION
-    );
-
-    vm.warp(Timestamp.unwrap(epoch2Timestamp));
-
     uint256 randaoFrom2 = uint224(uint256(keccak256("make da fake randao")));
     vm.prevrandao(randaoFrom2);
     assertEq(block.prevrandao, randaoFrom2, "prevrandao should be the same as the randao from 2");
@@ -161,13 +156,23 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
 
     // Check that the sample seed has been set for two epochs next
     uint256 nextEpochTimestamp =
-      block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
+      block.timestamp + TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO * TestConstants.AZTEC_EPOCH_DURATION
+      * TestConstants.AZTEC_SLOT_DURATION;
     uint256 nextEpochSeed = IValidatorSelection(address(rollup)).getSampleSeedAt(Timestamp.wrap(nextEpochTimestamp));
-    assertEq(nextEpochSeed, computeSampleSeed(4, randaoFrom2), "1 invalid sample seed for next epoch");
+    assertEq(
+      nextEpochSeed,
+      computeSampleSeed(
+        TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET + TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO, randaoFrom2
+      ),
+      "1 invalid sample seed for next epoch"
+    );
 
     // Jump into the future, looking back, the returned sample seed should be the same for the next range of epochs
     uint256 savedTimestamp = block.timestamp;
-    vm.warp(savedTimestamp + 2 * (TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION));
+    vm.warp(
+      savedTimestamp + TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO
+        * (TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION)
+    );
 
     uint256 sampleSeedAfterJump = IValidatorSelection(address(rollup)).getCurrentSampleSeed();
     assertEq(sampleSeedAfterJump, nextEpochSeed, "2 Sample seed should be the same");
@@ -181,7 +186,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     // Check that the sample seed has changed
     assertEq(
       IValidatorSelection(address(rollup)).getCurrentSampleSeed(),
-      computeSampleSeed(6, randaoFrom2),
+      computeSampleSeed(7, randaoFrom2),
       "3 sample seed haven't changed"
     );
 
@@ -191,7 +196,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     rollup.setupEpoch();
     assertEq(
       IValidatorSelection(address(rollup)).getCurrentSampleSeed(),
-      computeSampleSeed(6, randaoFrom2),
+      computeSampleSeed(7, randaoFrom2),
       "4 Sample seed should not change"
     );
 
@@ -199,7 +204,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     uint256 nextEpochTimestamp2 =
       block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
     uint256 nextEpochSeed2 = IValidatorSelection(address(rollup)).getSampleSeedAt(Timestamp.wrap(nextEpochTimestamp2));
-    assertEq(nextEpochSeed2, computeSampleSeed(8, randaoFrom8), "5 invalid sample seed for next epoch");
+    assertEq(nextEpochSeed2, computeSampleSeed(9, randaoFrom8), "5 invalid sample seed for next epoch");
     assertNotEq(nextEpochSeed2, nextEpochSeed, "5 Sample seed for the next epoch should have changed");
   }
 
@@ -252,11 +257,16 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     // Move to the start of epoch 1
     vm.warp(block.timestamp + epochDuration);
 
-    // Try to query epoch 4 - its sample time is in the future
-    Timestamp epoch4Timestamp = Timestamp.wrap(block.timestamp + 3 * epochDuration);
+    // Try to query epoch for timestamp with sample validator set in future.
+    Timestamp epoch4Timestamp =
+      Timestamp.wrap(block.timestamp + (TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET + 1) * epochDuration);
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.ValidatorSelection__EpochNotStable.selector, 4, uint32(block.timestamp))
+      abi.encodeWithSelector(
+        Errors.ValidatorSelection__EpochNotStable.selector,
+        (TestConstants.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET + 2),
+        uint32(block.timestamp)
+      )
     );
     rollup.getSamplingSizeAt(epoch4Timestamp);
   }

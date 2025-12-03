@@ -78,7 +78,6 @@ describe('Deployment benchmark', () => {
                 1 + // Kernel init
                 paymentMethod.circuits + // Payment method circuits
                 (isClassRegistered ? 0 : 2) + // ContractClassRegistry register_contract_class + kernel inner
-                2 + // ContractClassRegistry assert_class_id_is_published + kernel inner
                 2 + // ContractInstanceRegistry publish + kernel inner
                 1 + // Kernel reset
                 1 + // Kernel tail

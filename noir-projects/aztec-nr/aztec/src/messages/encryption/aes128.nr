@@ -324,7 +324,7 @@ impl MessageEncryption for AES128 {
     unconstrained fn decrypt(
         ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
         recipient: AztecAddress,
-    ) -> BoundedVec<Field, MESSAGE_PLAINTEXT_LEN> {
+    ) -> Option<BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>> {
         let eph_pk_x = ciphertext.get(0);
 
         let ciphertext_without_eph_pk_x_fields = array::subbvec::<Field, MESSAGE_CIPHERTEXT_LEN, MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS>(
@@ -337,50 +337,51 @@ impl MessageEncryption for AES128 {
 
         // First byte of the ciphertext represents the ephemeral public key sign
         let eph_pk_sign_bool = ciphertext_without_eph_pk_x.get(0) != 0;
-        // With the sign and the x-coordinate of the ephemeral public key, we can reconstruct the point
-        let eph_pk = point_from_x_coord_and_sign(eph_pk_x, eph_pk_sign_bool);
 
-        // Derive shared secret
-        // TODO(#17158): handle invalid ephemeral keys when decrypting to prevent DoS vectors
-        let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk.unwrap());
+        // With the sign and the x-coordinate of the ephemeral public key, we can reconstruct the point. This may fail
+        // however, as not all x-coordinates are on the curve. In that case, we simply return `Option::none`.
+        point_from_x_coord_and_sign(eph_pk_x, eph_pk_sign_bool).map(|eph_pk| {
+            // Derive shared secret
+            let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
 
-        // Derive symmetric keys:
-        let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
-            ciphertext_shared_secret,
-        );
-        let (body_sym_key, body_iv) = pairs[0];
-        let (header_sym_key, header_iv) = pairs[1];
+            // Derive symmetric keys:
+            let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
+                ciphertext_shared_secret,
+            );
+            let (body_sym_key, body_iv) = pairs[0];
+            let (header_sym_key, header_iv) = pairs[1];
 
-        // Extract the header ciphertext
-        let header_start = EPH_PK_SIGN_BYTE_SIZE_IN_BYTES; // Skip eph_pk_sign byte
-        let header_ciphertext: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
-            array::subarray(ciphertext_without_eph_pk_x.storage(), header_start);
-        // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to work
-        // with messages with unknown length at compile time. This would not be necessary here as the header ciphertext length
-        // is fixed. But we do it anyway to not have to have duplicate oracles.
-        let header_ciphertext_bvec =
-            BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
+            // Extract the header ciphertext
+            let header_start = EPH_PK_SIGN_BYTE_SIZE_IN_BYTES; // Skip eph_pk_sign byte
+            let header_ciphertext: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
+                array::subarray(ciphertext_without_eph_pk_x.storage(), header_start);
+            // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to work
+            // with messages with unknown length at compile time. This would not be necessary here as the header ciphertext length
+            // is fixed. But we do it anyway to not have to have duplicate oracles.
+            let header_ciphertext_bvec =
+                BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
 
-        // Decrypt header
-        let header_plaintext =
-            aes128_decrypt_oracle(header_ciphertext_bvec, header_iv, header_sym_key);
+            // Decrypt header
+            let header_plaintext =
+                aes128_decrypt_oracle(header_ciphertext_bvec, header_iv, header_sym_key);
 
-        // Extract ciphertext length from header (2 bytes, big-endian)
-        let ciphertext_length =
-            ((header_plaintext.get(0) as u32) << 8) | (header_plaintext.get(1) as u32);
+            // Extract ciphertext length from header (2 bytes, big-endian)
+            let ciphertext_length =
+                ((header_plaintext.get(0) as u32) << 8) | (header_plaintext.get(1) as u32);
 
-        // Extract and decrypt main ciphertext
-        let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
-        let ciphertext_with_padding: [u8; (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES] =
-            array::subarray(ciphertext_without_eph_pk_x.storage(), ciphertext_start);
-        let ciphertext: BoundedVec<u8, (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES> =
-            BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
+            // Extract and decrypt main ciphertext
+            let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
+            let ciphertext_with_padding: [u8; (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES] =
+                array::subarray(ciphertext_without_eph_pk_x.storage(), ciphertext_start);
+            let ciphertext: BoundedVec<u8, (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES> =
+                BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
 
-        // Decrypt main ciphertext and return it
-        let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
+            // Decrypt main ciphertext and return it
+            let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
 
-        // Each field of the original note message was serialized to 32 bytes so we convert the bytes back to fields.
-        fields_from_bytes(plaintext_bytes)
+            // Each field of the original note message was serialized to 32 bytes so we convert the bytes back to fields.
+            fields_from_bytes(plaintext_bytes)
+        })
     }
 }
 
@@ -397,7 +398,7 @@ mod test {
     use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
 
     #[test]
-    unconstrained fn encrypt_decrypt() {
+    unconstrained fn encrypt_decrypt_deterministic() {
         let env = TestEnvironment::new();
 
         // Message decryption requires oracles that are only available during private execution
@@ -429,7 +430,7 @@ mod test {
             let _ = OracleMock::mock("utilityGetSharedSecret").returns(shared_secret.unwrap());
 
             // Decrypt the message
-            let decrypted = AES128::decrypt(encrypted_message, recipient);
+            let decrypted = AES128::decrypt(encrypted_message, recipient).unwrap();
 
             // The decryption function spits out a BoundedVec because it's designed to work with messages with unknown length
             // at compile time. For this reason we need to convert the original input to a BoundedVec.
@@ -445,6 +446,44 @@ mod test {
             // The following is a workaround of "struct is never constructed" Noir compilation error (we only ever use
             // static methods of the struct).
             let _ = AES128 {};
+        });
+    }
+
+    #[test]
+    unconstrained fn encrypt_decrypt_random() {
+        // Same as `encrypt_decrypt_deterministic`, except we don't mock any of the oracles and rely on
+        // `TestEnvironment` instead.
+        let mut env = TestEnvironment::new();
+
+        let recipient = env.create_light_account();
+
+        env.private_context(|_| {
+            let plaintext = [1, 2, 3];
+            let ciphertext = AES128::encrypt(plaintext, recipient);
+
+            assert_eq(
+                AES128::decrypt(BoundedVec::from_array(ciphertext), recipient).unwrap(),
+                BoundedVec::from_array(plaintext),
+            );
+        });
+    }
+
+    #[test]
+    unconstrained fn decrypt_invalid_ephemeral_public_key() {
+        let mut env = TestEnvironment::new();
+
+        let recipient = env.create_light_account();
+
+        env.private_context(|_| {
+            let plaintext = [1, 2, 3, 4];
+            let ciphertext = AES128::encrypt(plaintext, recipient);
+
+            // The first field of the ciphertext is the x-coordinate of the ephemeral public key. We set it to a known
+            // non-residue (3), causing `decrypt` to fail to produce a decryption shared secret.
+            let mut bad_ciphertext = BoundedVec::from_array(ciphertext);
+            bad_ciphertext.set(0, 3);
+
+            assert(AES128::decrypt(bad_ciphertext, recipient).is_none());
         });
     }
 }

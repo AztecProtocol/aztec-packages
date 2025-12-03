@@ -100,7 +100,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
 
   it('collects attestations for all validators on a node', async () => {
     await t.monitor.run();
-    const { l2BlockNumber: initialBlock, l2SlotNumber: initialSlot } = t.monitor;
+    const { checkpointNumber: initialBlock, l2SlotNumber: initialSlot } = t.monitor;
 
     const timeout = AZTEC_SLOT_DURATION * SLOT_COUNT * 4;
     const targetSlot = Number(initialSlot) + SLOT_COUNT;
@@ -120,7 +120,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
 
     for (const node of [...nodes, sentinel]) {
       const stats = await node.getValidatorsStats();
-      t.logger.info(`Collected validator stats at block ${t.monitor.l2BlockNumber}`, { stats });
+      t.logger.info(`Collected validator stats at block ${t.monitor.checkpointNumber}`, { stats });
 
       // Check that all validators have attestations recorded
       for (let i = 0; i < VALIDATORS_PER_NODE * NUM_NODES; i++) {
@@ -138,7 +138,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     await tryStop(nodes[1]);
 
     await t.monitor.run();
-    const { l2BlockNumber: initialBlock, l2SlotNumber: initialSlot } = t.monitor;
+    const { checkpointNumber: initialBlock, l2SlotNumber: initialSlot } = t.monitor;
 
     const timeout = AZTEC_SLOT_DURATION * SLOT_COUNT * 4;
     const targetSlot = Number(initialSlot) + SLOT_COUNT;

@@ -46,14 +46,12 @@ template <typename Builder> struct MsmInputs {
  * @param has_valid_witness_assignments Whether valid witnesses are provided (false during VK generation)
  */
 template <typename Builder>
-void create_multi_scalar_mul_constraint(Builder& builder,
-                                        const MultiScalarMul& constraint_input,
-                                        bool has_valid_witness_assignments)
+void create_multi_scalar_mul_constraint(Builder& builder, const MultiScalarMul& constraint_input)
 {
     using cycle_group_ct = stdlib::cycle_group<Builder>;
 
     // Step 1: Reconstruct inputs (points, scalars, expected result)
-    MsmInputs input = reconstruct_msm_inputs(builder, constraint_input, has_valid_witness_assignments);
+    MsmInputs input = reconstruct_msm_inputs(builder, constraint_input);
 
     // Step 2: Compute result and connect it to the expected result reconstructed from inputs
     auto result = cycle_group_ct::batch_mul(input.points, input.scalars);
@@ -73,9 +71,7 @@ void create_multi_scalar_mul_constraint(Builder& builder,
  * @return MsmInputs containing predicate, expected result, points, and scalars
  */
 template <typename Builder>
-static MsmInputs<Builder> reconstruct_msm_inputs(Builder& builder,
-                                                 const MultiScalarMul& input,
-                                                 bool has_valid_witness_assignments)
+static MsmInputs<Builder> reconstruct_msm_inputs(Builder& builder, const MultiScalarMul& input)
 {
     using cycle_group_ct = stdlib::cycle_group<Builder>;
     using cycle_scalar_ct = typename cycle_group_ct::cycle_scalar;
@@ -90,7 +86,7 @@ static MsmInputs<Builder> reconstruct_msm_inputs(Builder& builder,
     bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.out_point_is_infinite));
 
     // If no valid witness assignments, set result to generator point to avoid errors during circuit construction
-    if (!has_valid_witness_assignments) {
+    if (builder.is_write_vk_mode()) {
         builder.set_variable(input_result_x.get_witness_index(), bb::grumpkin::g1::affine_one.x);
         builder.set_variable(input_result_y.get_witness_index(), bb::grumpkin::g1::affine_one.y);
         builder.set_variable(input_result_infinite.get_witness_index(), bb::fr(0));
@@ -108,18 +104,11 @@ static MsmInputs<Builder> reconstruct_msm_inputs(Builder& builder,
     BB_ASSERT(input.points.size() * 2 == input.scalars.size() * 3, "MultiScalarMul input size mismatch");
 
     for (size_t i = 0; i < input.points.size(); i += 3) {
-        cycle_group_ct input_point = to_grumpkin_point(input.points[i],
-                                                       input.points[i + 1],
-                                                       input.points[i + 2],
-                                                       has_valid_witness_assignments,
-                                                       predicate,
-                                                       builder);
+        cycle_group_ct input_point =
+            to_grumpkin_point(input.points[i], input.points[i + 1], input.points[i + 2], predicate, builder);
 
-        cycle_scalar_ct scalar = to_grumpkin_scalar(input.scalars[2 * (i / 3)],
-                                                    input.scalars[2 * (i / 3) + 1],
-                                                    has_valid_witness_assignments,
-                                                    predicate,
-                                                    builder);
+        cycle_scalar_ct scalar =
+            to_grumpkin_scalar(input.scalars[2 * (i / 3)], input.scalars[2 * (i / 3) + 1], predicate, builder);
 
         points.push_back(input_point);
         scalars.push_back(scalar);
@@ -129,10 +118,8 @@ static MsmInputs<Builder> reconstruct_msm_inputs(Builder& builder,
 }
 
 template void create_multi_scalar_mul_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                                      const MultiScalarMul& input,
-                                                                      bool has_valid_witness_assignments);
+                                                                      const MultiScalarMul& input);
 template void create_multi_scalar_mul_constraint<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                                     const MultiScalarMul& input,
-                                                                     bool has_valid_witness_assignments);
+                                                                     const MultiScalarMul& input);
 
 } // namespace acir_format

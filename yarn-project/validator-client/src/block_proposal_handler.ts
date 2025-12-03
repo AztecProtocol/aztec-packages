@@ -1,4 +1,5 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { TimeoutError } from '@aztec/foundation/error';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -83,14 +84,14 @@ export class BlockProposalHandler {
       try {
         const result = await this.handleBlockProposal(proposal, proposalSender, true);
         if (result.isValid) {
-          this.log.info(`Non-validator reexecution completed for slot ${proposal.slotNumber.toBigInt()}`, {
+          this.log.info(`Non-validator reexecution completed for slot ${proposal.slotNumber}`, {
             blockNumber: result.blockNumber,
             reexecutionTimeMs: result.reexecutionResult?.reexecutionTimeMs,
             totalManaUsed: result.reexecutionResult?.totalManaUsed,
             numTxs: result.reexecutionResult?.block?.body?.txEffects?.length ?? 0,
           });
         } else {
-          this.log.warn(`Non-validator reexecution failed for slot ${proposal.slotNumber.toBigInt()}`, {
+          this.log.warn(`Non-validator reexecution failed for slot ${proposal.slotNumber}`, {
             blockNumber: result.blockNumber,
             reason: result.reason,
           });
@@ -110,7 +111,7 @@ export class BlockProposalHandler {
     proposalSender: PeerId,
     shouldReexecute: boolean,
   ): Promise<BlockProposalValidationResult> {
-    const slotNumber = proposal.slotNumber.toBigInt();
+    const slotNumber = proposal.slotNumber;
     const proposer = proposal.getSender();
     const config = this.blockBuilder.getConfig();
 
@@ -170,7 +171,7 @@ export class BlockProposalHandler {
 
     // Check that I have the same set of l1ToL2Messages as the proposal
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
-    const computedInHash = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
+    const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
     const proposalInHash = proposal.payload.header.contentCommitment.inHash;
     if (!computedInHash.equals(proposalInHash)) {
       this.log.warn(`L1 to L2 messages in hash mismatch, skipping processing`, {
@@ -206,7 +207,7 @@ export class BlockProposalHandler {
 
   private async getParentBlock(proposal: BlockProposal): Promise<'genesis' | BlockHeader | undefined> {
     const parentArchive = proposal.payload.header.lastArchiveRoot;
-    const slot = proposal.slotNumber.toBigInt();
+    const slot = proposal.slotNumber;
     const config = this.blockBuilder.getConfig();
     const { genesisArchiveRoot } = await this.blockSource.getGenesisValues();
 
@@ -241,8 +242,8 @@ export class BlockProposalHandler {
     }
   }
 
-  private getReexecutionDeadline(slot: bigint, config: { l1GenesisTime: bigint; slotDuration: number }): Date {
-    const nextSlotTimestampSeconds = Number(getTimestampForSlot(slot + 1n, config));
+  private getReexecutionDeadline(slot: SlotNumber, config: { l1GenesisTime: bigint; slotDuration: number }): Date {
+    const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(slot + 1), config));
     const msNeededForPropagationAndPublishing = this.config.validatorReexecuteDeadlineMs;
     return new Date(nextSlotTimestampSeconds * 1000 - msNeededForPropagationAndPublishing);
   }
@@ -292,11 +293,11 @@ export class BlockProposalHandler {
     });
 
     const { block, failedTxs } = await this.blockBuilder.buildBlock(txs, l1ToL2Messages, globalVariables, {
-      deadline: this.getReexecutionDeadline(proposal.payload.header.slotNumber.toBigInt(), config),
+      deadline: this.getReexecutionDeadline(proposal.payload.header.slotNumber, config),
     });
 
     const numFailedTxs = failedTxs.length;
-    const slot = proposal.slotNumber.toBigInt();
+    const slot = proposal.slotNumber;
     this.log.verbose(`Transaction re-execution complete for slot ${slot}`, {
       numFailedTxs,
       numProposalTxs: txHashes.length,
@@ -322,12 +323,7 @@ export class BlockProposalHandler {
         actual: proposal.payload.toInspect(),
       });
       this.metrics?.recordFailedReexecution(proposal);
-      throw new ReExStateMismatchError(
-        proposal.archive,
-        block.archive.root,
-        proposal.payload.stateReference,
-        block.header.state,
-      );
+      throw new ReExStateMismatchError(proposal.archive, block.archive.root);
     }
 
     const reexecutionTimeMs = timer.ms();

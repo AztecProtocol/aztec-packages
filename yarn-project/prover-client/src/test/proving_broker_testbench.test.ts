@@ -4,6 +4,7 @@
  * These benchmarks test the KV database (production configuration) for realistic performance metrics.
  */
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 // import { createLogger } from '@aztec/foundation/log';
@@ -448,7 +449,7 @@ describe('Proving Broker: Benchmarks', () => {
     const jobs = buildJobList(proofCounts, epochGenerator);
     const preparedJobs = await Promise.all(
       jobs.map(async job => {
-        const jobId = makeRandomProvingJobId(job.epochNumber);
+        const jobId = makeRandomProvingJobId(EpochNumber(job.epochNumber));
         const inputsUri = (await proofStore.saveProofInput(jobId, job.type)) as any;
         return { ...job, jobId, inputsUri } as const;
       }),
@@ -468,7 +469,7 @@ describe('Proving Broker: Benchmarks', () => {
           id: jobId,
           type,
           inputsUri,
-          epochNumber,
+          epochNumber: EpochNumber(epochNumber),
         })
         .then(() => {
           const enqueueLatency = timer.ms() - enqueueStart;
@@ -508,9 +509,9 @@ describe('Proving Broker: Benchmarks', () => {
     const jobs = buildJobList(proofCounts, epochGenerator);
     await Promise.all(
       jobs.map(async ({ type, epochNumber }) => {
-        const jobId = makeRandomProvingJobId(epochNumber);
+        const jobId = makeRandomProvingJobId(EpochNumber(epochNumber));
         const inputsUri = (await proofStore.saveProofInput(jobId, type)) as any;
-        await broker.enqueueProvingJob({ id: jobId, type, inputsUri, epochNumber });
+        await broker.enqueueProvingJob({ id: jobId, type, inputsUri, epochNumber: EpochNumber(epochNumber) });
       }),
     );
 
@@ -571,7 +572,7 @@ describe('Proving Broker: Benchmarks', () => {
     const jobs = buildJobList(proofCounts, () => 1);
     const preparedJobs = await Promise.all(
       jobs.map(async job => {
-        const jobId = makeRandomProvingJobId(job.epochNumber);
+        const jobId = makeRandomProvingJobId(EpochNumber(job.epochNumber));
         const inputsUri = (await proofStore.saveProofInput(jobId, job.type)) as any;
         return { ...job, jobId, inputsUri } as const;
       }),
@@ -583,7 +584,7 @@ describe('Proving Broker: Benchmarks', () => {
         id: jobId,
         type,
         inputsUri,
-        epochNumber,
+        epochNumber: EpochNumber(epochNumber),
       });
       enqueuePromises.push(p);
     }
@@ -620,7 +621,7 @@ describe('Proving Broker: Benchmarks', () => {
     const emptyCleanupTime = timer.ms() - cleanupStart;
 
     // Force full cleanup by enqueuing a job with epoch 3
-    const fullCleanupJobId = makeRandomProvingJobId(3);
+    const fullCleanupJobId = makeRandomProvingJobId(EpochNumber(3));
     const fullCleanupInputsUri = (await proofStore.saveProofInput(
       fullCleanupJobId,
       ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
@@ -629,7 +630,7 @@ describe('Proving Broker: Benchmarks', () => {
       id: fullCleanupJobId,
       type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
       inputsUri: fullCleanupInputsUri,
-      epochNumber: 3,
+      epochNumber: EpochNumber(3),
     });
 
     // Cleanup runtime with full epoch deletion

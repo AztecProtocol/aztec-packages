@@ -6,6 +6,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/aztec.js/protocol';
 import type { Operator } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -26,7 +27,7 @@ jest.setTimeout(1000 * 60 * 10);
 const NODE_COUNT = 8;
 const COMMITTEE_SIZE = 3;
 const TX_COUNT = 2;
-const EPOCH = 4n;
+const EPOCH = EpochNumber(4);
 
 // Spawns NODE_COUNT validator nodes, connected via a mocked gossip sub network, but sets
 // committee size to 3. Warps to immediately before the beginning of an epoch, and checks
@@ -120,13 +121,14 @@ describe('e2e_epochs/epochs_first_slot', () => {
 
     // Check that the first two slots of the epoch have a block
     const [firstSlot] = getSlotRangeForEpoch(EPOCH, test.constants);
-    logger.warn(`Waiting until blocks are synced for slots ${firstSlot} and ${firstSlot + 1n}`);
+    const secondSlot = SlotNumber(firstSlot + 1);
+    logger.warn(`Waiting until blocks are synced for slots ${firstSlot} and ${secondSlot}`);
     await retryUntil(
       async () => {
         const blocks = await nodes[0].getBlocks(INITIAL_L2_BLOCK_NUM, 10);
         const slots = blocks.map(block => block.header.getSlot());
         logger.info(`Fetched blocks ${blocks.map(b => b.number).join(', ')} with slots ${slots.join(', ')}`);
-        return slots.includes(firstSlot) && slots.includes(firstSlot + 1n);
+        return slots.includes(firstSlot) && slots.includes(secondSlot);
       },
       'waiting for blocks',
       20,
