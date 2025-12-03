@@ -414,7 +414,7 @@ gt.sel_others { gt.input_a, gt.input_b, gt.res };
 sel_gas_to_radix * ((/*num_limbs=*/register[2] - num_p_limbs) * sel_use_num_limbs + num_p_limbs - dynamic_l2_gas_factor) = 0;
 
 //////////////////////////////////////////
-// SSTORE, Dynamic L2 Gas Calculation
+// SSTORE, Dynamic DA Gas Calculation
 //////////////////////////////////////////
 // We can probably unconditionally write to the written_public_data_slots_tree here
 // to avoid writing later in opcode execution, since the root would be reverted if it errors before
@@ -434,20 +434,26 @@ sel_gas_sstore {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-// EMITUNENCRYPTEDLOG, CALLDATACOPY, RETURNDATACOPY, Dynamic L2 Gas Calculation
+// EMITUNENCRYPTEDLOG, CALLDATACOPY, RETURNDATACOPY, Dynamic Gas Calculation
 ///////////////////////////////////////////////////////////////////////////////
-
-// todo(ilyas): we are going to need these kinds of checks in general as well
-// i.e. opcodes without dynamic components need to assert dyn_l2 & dyn_da are zero
-// i.e. opcodes with only a single dynamic components need to assert the others are zero.
-#[SSTORE_DYN_L2_GAS_IS_ZERO]
-sel_execute_sstore * dynamic_l2_gas_factor = 0;
 
 // #[DYN_GAS_ID_DECOMPOSITION] ensures that the gas selectors are mutually exclusive.
 // register[0] is the log size for emit_unencrypted_log, the calldata/returndata size for call_data_copy/returndata_copy.
 (sel_gas_emit_unencrypted_log + sel_gas_calldata_copy + sel_gas_returndata_copy) * (register[0] - dynamic_l2_gas_factor) = 0;
 
 sel_gas_emit_unencrypted_log * (/*log_size=*/ register[0] - dynamic_da_gas_factor) = 0;
+
+///////////////////////////////////////////////////////////////////////////////
+// Dynamic L2/DA Gas Calculation is ZERO for all other cases
+///////////////////////////////////////////////////////////////////////////////
+
+// Except SSTORE, EMITUNENCRYPTEDLOG, all opcodes have a zero dynamic da gas.
+#[DYN_DA_GAS_IS_ZERO]
+(1 - sel_gas_sstore - sel_gas_emit_unencrypted_log) * dynamic_da_gas_factor = 0;
+
+// Except BITWISE, TORADIX, EMITUNENCRYPTEDLOG, CALLDATACOPY, RETURNDATACOPY, all opcodes have a zero dynamic l2 gas.
+#[DYN_L2_GAS_IS_ZERO]
+(1 - sel_gas_bitwise - sel_gas_to_radix - sel_gas_emit_unencrypted_log - sel_gas_calldata_copy - sel_gas_returndata_copy) * dynamic_l2_gas_factor = 0;
 
 /**************************************************************************************************
  *  Temporality group 5: Opcode execution
