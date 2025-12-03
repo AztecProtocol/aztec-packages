@@ -280,7 +280,6 @@ TEST_F(IPATest, GeminiShplonkIPAWithoutShift)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 2,
                                    /*num_to_be_shifted*/ 0,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck);
 
@@ -316,7 +315,6 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 1,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck);
     auto prover_transcript = NativeTranscript::prover_init_empty();
@@ -356,7 +354,6 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 2,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck);
 

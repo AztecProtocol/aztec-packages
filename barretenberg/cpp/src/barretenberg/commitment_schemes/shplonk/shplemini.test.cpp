@@ -26,8 +26,6 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     static constexpr size_t num_polynomials = 7;
     // Number of shiftable polynomials
     static constexpr size_t num_shiftable = 2;
-    // Number of polynomials to be right shifted by k
-    static constexpr size_t num_right_shiftable_by_k = 2;
 
     // The length of the mock sumcheck univariates.
     static constexpr size_t sumcheck_univariate_length = 24;
@@ -66,7 +64,6 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     MockClaimGenerator<Curve> mock_claims(this->n,
                                           /*num_polynomials*/ this->num_polynomials,
                                           /*num_to_be_shifted*/ this->num_shiftable,
-                                          /*num_to_be_right_shifted_by_k*/ this->num_right_shiftable_by_k,
                                           mle_opening_point,
                                           ck);
 
@@ -85,7 +82,6 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     Fr batched_evaluation(0);
     update_batched_eval(batched_evaluation, mock_claims.unshifted.evals, rho_power);
     update_batched_eval(batched_evaluation, mock_claims.to_be_shifted.evals, rho_power);
-    update_batched_eval(batched_evaluation, mock_claims.to_be_right_shifted_by_k.evals, rho_power);
 
     // Lambda to compute batched commitment
     auto compute_batched_commitment = [&](const std::vector<Commitment>& commitments, Fr& rho_power) {
@@ -103,20 +99,13 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
         compute_batched_commitment(mock_claims.unshifted.commitments, rho_power);
     GroupElement batched_commitment_to_be_shifted =
         compute_batched_commitment(mock_claims.to_be_shifted.commitments, rho_power);
-    GroupElement batched_commitment_to_be_right_shifted_by_k =
-        compute_batched_commitment(mock_claims.to_be_right_shifted_by_k.commitments, rho_power);
 
     // Compute expected result manually
-    GroupElement to_be_right_shifted_by_k_contribution =
-        batched_commitment_to_be_right_shifted_by_k *
-        gemini_eval_challenge.pow(mock_claims.claim_batcher.k_shift_magnitude);
     GroupElement to_be_shifted_contribution = batched_commitment_to_be_shifted * gemini_eval_challenge.invert();
 
-    GroupElement commitment_to_univariate_pos =
-        batched_commitment_unshifted + to_be_right_shifted_by_k_contribution + to_be_shifted_contribution;
+    GroupElement commitment_to_univariate_pos = batched_commitment_unshifted + to_be_shifted_contribution;
 
-    GroupElement commitment_to_univariate_neg =
-        batched_commitment_unshifted + to_be_right_shifted_by_k_contribution - to_be_shifted_contribution;
+    GroupElement commitment_to_univariate_neg = batched_commitment_unshifted - to_be_shifted_contribution;
 
     GroupElement expected_result =
         commitment_to_univariate_pos * (shplonk_eval_challenge - gemini_eval_challenge).invert() +
@@ -136,16 +125,14 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     mock_claims.claim_batcher.compute_scalars_for_each_batch(
         inverted_vanishing_evals, shplonk_batching_challenge, gemini_eval_challenge);
 
-    rho_power = Fr{ 1 };
     mock_claims.claim_batcher.update_batch_mul_inputs_and_batched_evaluation(
-        commitments, scalars, verifier_batched_evaluation, rho, rho_power);
+        commitments, scalars, verifier_batched_evaluation, rho);
 
     // Final pairing check
     GroupElement shplemini_result = batch_mul_native(commitments, scalars);
 
     EXPECT_EQ(commitments.size(),
-              mock_claims.unshifted.commitments.size() + mock_claims.to_be_shifted.commitments.size() +
-                  mock_claims.to_be_right_shifted_by_k.commitments.size());
+              mock_claims.unshifted.commitments.size() + mock_claims.to_be_shifted.commitments.size());
     EXPECT_EQ(batched_evaluation, verifier_batched_evaluation);
     EXPECT_EQ(-expected_result, shplemini_result);
 }
@@ -178,7 +165,6 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     MockClaimGenerator<Curve> mock_claims(this->n,
                                           /*num_polynomials*/ this->num_polynomials,
                                           /*num_to_be_shifted*/ this->num_shiftable,
-                                          /*num_to_be_right_shifted_by_k*/ this->num_right_shiftable_by_k,
                                           mle_opening_point,
                                           ck);
 
@@ -294,7 +280,6 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     MockClaimGenerator<Curve> mock_claims(this->n,
                                           /*num_polynomials*/ this->num_polynomials,
                                           /*num_to_be_shifted*/ this->num_shiftable,
-                                          /*num_to_be_right_shifted_by_k*/ this->num_right_shiftable_by_k,
                                           mle_opening_point,
                                           ck);
 

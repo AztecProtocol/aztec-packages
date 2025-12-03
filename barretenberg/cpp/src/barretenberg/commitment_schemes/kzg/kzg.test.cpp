@@ -160,7 +160,6 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 2,
                                    /*num_to_be_shifted*/ 1,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck);
 
@@ -214,7 +213,6 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 2,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck);
 
@@ -266,11 +264,10 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 2,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck,
-                                   3,
-                                   2);
+                                   /*num_interleaved*/ 3,
+                                   /*num_to_be_interleaved*/ 2);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -325,7 +322,6 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 2,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck);
 
