@@ -2,7 +2,7 @@ import { GeneratorIndex, MAX_PROTOCOL_CONTRACTS } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import {
   BufferReader,
   FieldReader,

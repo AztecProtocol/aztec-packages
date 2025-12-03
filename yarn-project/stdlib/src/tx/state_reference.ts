@@ -4,7 +4,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   STATE_REFERENCE_LENGTH,
 } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 

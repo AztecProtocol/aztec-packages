@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';

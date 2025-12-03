@@ -6,7 +6,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   AvmAccumulatedData,

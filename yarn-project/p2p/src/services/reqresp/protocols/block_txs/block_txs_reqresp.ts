@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { TxArray } from '@aztec/stdlib/tx';
 

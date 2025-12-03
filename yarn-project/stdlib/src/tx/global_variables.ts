@@ -2,7 +2,7 @@ import { GLOBAL_VARIABLES_LENGTH } from '@aztec/constants';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import {
   BufferReader,

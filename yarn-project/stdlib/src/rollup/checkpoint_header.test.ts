@@ -1,7 +1,7 @@
 import { CHECKPOINT_HEADER_SIZE_IN_BYTES } from '@aztec/constants';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { AztecAddress } from '../aztec-address/index.js';

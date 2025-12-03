@@ -47,7 +47,8 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
 import { Grumpkin, SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields/fields';
+import { Point } from '@aztec/foundation/fields/point';
 import type { Bufferable, Serializable, Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 

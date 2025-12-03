@@ -1,5 +1,5 @@
 import { times } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { type L2Block, type L2BlockId, PublishedL2Block } from '@aztec/stdlib/block';
 
 import { jestExpect as expect } from '@jest/expect';

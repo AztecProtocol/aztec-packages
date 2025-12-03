@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
 

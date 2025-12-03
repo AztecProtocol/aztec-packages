@@ -1,6 +1,6 @@
 import { MAX_FIELD_VALUE } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 
 import { countAccumulatedItems, sortByCounter } from './order_and_comparison.js';
 

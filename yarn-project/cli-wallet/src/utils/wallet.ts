@@ -11,7 +11,7 @@ import {
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import type { PXEConfig } from '@aztec/pxe/config';
 import type { PXE } from '@aztec/pxe/server';

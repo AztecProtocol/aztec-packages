@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type {

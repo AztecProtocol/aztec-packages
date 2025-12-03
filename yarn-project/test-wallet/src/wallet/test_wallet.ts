@@ -11,7 +11,7 @@ import {
 } from '@aztec/aztec.js/authorization';
 import { AccountManager, type SendOptions, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
-import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';

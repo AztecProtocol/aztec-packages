@@ -2,7 +2,7 @@ import { ArchiverStoreHelper, KVArchiverDataStore, type PublishedL2Block } from 
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, L2BlockSource, L2Tips, ValidateBlockResult } from '@aztec/stdlib/block';

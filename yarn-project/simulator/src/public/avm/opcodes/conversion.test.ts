@@ -1,5 +1,5 @@
 import { AVM_TORADIXBE_BASE_L2_GAS, AVM_TORADIXBE_DYN_L2_GAS } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint1, type Uint8, Uint32 } from '../avm_memory_types.js';

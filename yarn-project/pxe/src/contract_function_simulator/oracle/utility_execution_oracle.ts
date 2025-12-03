@@ -1,5 +1,6 @@
 import { Aes128 } from '@aztec/foundation/crypto';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
+import { Point } from '@aztec/foundation/fields/point';
 import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';

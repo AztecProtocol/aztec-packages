@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields/fields';
 
 import type { AvmContext } from './avm_context.js';
 import { type AvmExecutionError, AvmRevertReason } from './errors.js';

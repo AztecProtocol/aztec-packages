@@ -1,5 +1,5 @@
 import { CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { bufferFromFields } from '@aztec/stdlib/abi';
 import {

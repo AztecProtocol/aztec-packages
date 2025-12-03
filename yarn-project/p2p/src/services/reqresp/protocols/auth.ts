@@ -1,7 +1,7 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { StatusMessage } from './status.js';

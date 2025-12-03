@@ -1,6 +1,6 @@
 import type { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields/fields';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';

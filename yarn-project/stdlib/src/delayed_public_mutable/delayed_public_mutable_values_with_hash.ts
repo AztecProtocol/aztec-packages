@@ -1,5 +1,5 @@
 import { UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import { deriveStorageSlotInMap } from '../hash/map_slot.js';

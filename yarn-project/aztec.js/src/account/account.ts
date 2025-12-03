@@ -1,5 +1,5 @@
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import type { ExecutionPayload, TxExecutionRequest } from '@aztec/stdlib/tx';

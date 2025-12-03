@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { RevertCode } from './revert_code.js';

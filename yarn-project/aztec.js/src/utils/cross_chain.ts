@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 

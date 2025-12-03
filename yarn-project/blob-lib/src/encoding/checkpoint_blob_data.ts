@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import { BlobDeserializationError } from '../errors.js';

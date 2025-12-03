@@ -1,7 +1,7 @@
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { SHA256Trunc, randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 import { L2Block, type L2BlockSource, type L2BlockStream, type PublishedL2Block } from '@aztec/stdlib/block';

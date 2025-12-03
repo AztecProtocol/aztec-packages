@@ -1,5 +1,5 @@
 import { pedersenHash } from '@aztec/foundation/crypto/sync';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import type { Hasher } from '@aztec/foundation/trees';
 
 /**

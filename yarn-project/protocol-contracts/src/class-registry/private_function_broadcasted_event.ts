@@ -4,7 +4,7 @@ import {
   FUNCTION_TREE_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';

@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 
 import type { AvmProvingRequest } from '../avm/avm_proving_request.js';
 import type { PublicDataWrite } from '../avm/public_data_write.js';

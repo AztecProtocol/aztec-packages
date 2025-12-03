@@ -1,4 +1,5 @@
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
+import { Point } from '@aztec/foundation/fields/point';
 import {
   type ACIRCallback,
   type ACVMField,

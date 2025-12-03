@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import type { SiblingPath } from '@aztec/foundation/trees';
 
 export class MessageLoadOracleInputs<N extends number> {

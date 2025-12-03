@@ -5,7 +5,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { areArraysEqual } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';

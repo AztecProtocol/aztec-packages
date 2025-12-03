@@ -1,5 +1,5 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
 import type { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';

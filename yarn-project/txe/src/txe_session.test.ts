@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 
 import type { TXEOracleFunctionName } from './txe_session.js';
 import { TXESession } from './txe_session.js';

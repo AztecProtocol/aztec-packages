@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 
 import { FunctionSelector, FunctionType } from '../abi/index.js';
 import { getBenchmarkContractArtifact } from '../tests/fixtures.js';

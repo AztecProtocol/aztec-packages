@@ -1,5 +1,5 @@
 import { compactArray } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';

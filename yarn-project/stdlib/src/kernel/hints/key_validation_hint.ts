@@ -1,4 +1,4 @@
-import { GrumpkinScalar } from '@aztec/foundation/fields';
+import { GrumpkinScalar } from '@aztec/foundation/fields/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 export class KeyValidationHint {

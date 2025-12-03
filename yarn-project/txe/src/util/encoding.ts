@@ -1,5 +1,5 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { type ContractArtifact, ContractArtifactSchema } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';

@@ -6,7 +6,7 @@ import {
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';

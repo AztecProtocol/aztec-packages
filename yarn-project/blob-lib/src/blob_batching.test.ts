@@ -1,7 +1,9 @@
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
 import { fromHex } from '@aztec/foundation/bigint-buffer';
 import { poseidon2Hash, randomInt, sha256ToField } from '@aztec/foundation/crypto';
-import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
+import { BLS12Fr } from '@aztec/foundation/fields/bls12_fields';
+import { BLS12Point } from '@aztec/foundation/fields/bls12_point';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { toInlineStrArray } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 import { fileURLToPath } from '@aztec/foundation/url';

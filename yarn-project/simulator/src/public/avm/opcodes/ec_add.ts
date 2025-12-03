@@ -1,5 +1,5 @@
 import { Grumpkin } from '@aztec/foundation/crypto';
-import { Point } from '@aztec/foundation/fields';
+import { Point } from '@aztec/foundation/fields/point';
 
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';

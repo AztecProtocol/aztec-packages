@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields/fields';
 
 import type { Gas } from './avm_gas.js';
 import { TaggedMemory } from './avm_memory_types.js';

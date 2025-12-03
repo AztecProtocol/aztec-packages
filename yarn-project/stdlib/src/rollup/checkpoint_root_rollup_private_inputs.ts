@@ -1,6 +1,7 @@
 import { BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import { ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
-import { BLS12Point, Fr } from '@aztec/foundation/fields';
+import { BLS12Point } from '@aztec/foundation/fields/bls12_point';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';

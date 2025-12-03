@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields/fields';
 
 import type { FunctionSelector } from '../../abi/index.js';
 import type { AztecAddress } from '../../aztec-address/index.js';

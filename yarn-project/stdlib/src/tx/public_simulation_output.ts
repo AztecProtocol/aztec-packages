@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import times from 'lodash.times';

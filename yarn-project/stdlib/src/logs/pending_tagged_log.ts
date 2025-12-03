@@ -1,5 +1,5 @@
 import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import type { TxHash } from '../tx/tx_hash.js';

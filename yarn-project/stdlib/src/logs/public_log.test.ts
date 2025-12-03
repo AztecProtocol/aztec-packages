@@ -1,5 +1,5 @@
 import { FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, PUBLIC_LOG_HEADER_LENGTH } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { AztecAddress } from '../aztec-address/index.js';

@@ -13,7 +13,9 @@ import {
   FIELDS_PER_BLOB,
 } from '@aztec/constants';
 import { chunk } from '@aztec/foundation/collection';
-import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
+import { BLS12Fq, BLS12Fr } from '@aztec/foundation/fields/bls12_fields';
+import { BLS12Point } from '@aztec/foundation/fields/bls12_point';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';
 

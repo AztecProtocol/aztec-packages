@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { LogRetrievalRequest } from './log_retrieval_request.js';

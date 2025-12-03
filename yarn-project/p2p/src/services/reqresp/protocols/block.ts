@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 
 import type { PeerId } from '@libp2p/interface';

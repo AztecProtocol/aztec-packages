@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { L2Block } from '@aztec/stdlib/block';
 import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
 

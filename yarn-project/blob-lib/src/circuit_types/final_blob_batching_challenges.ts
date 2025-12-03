@@ -1,4 +1,5 @@
-import { BLS12Fr, Fr } from '@aztec/foundation/fields';
+import { BLS12Fr } from '@aztec/foundation/fields/bls12_fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**

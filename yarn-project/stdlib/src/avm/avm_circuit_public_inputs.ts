@@ -1,6 +1,6 @@
 import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, type Tuple, assertLength, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';

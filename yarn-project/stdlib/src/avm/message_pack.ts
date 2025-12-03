@@ -1,5 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fq, Fr, Point } from '@aztec/foundation/fields';
+import { Fq, Fr } from '@aztec/foundation/fields/fields';
+import { Point } from '@aztec/foundation/fields/point';
 
 import { strict as assert } from 'assert';
 import { Decoder, Encoder, addExtension } from 'msgpackr';

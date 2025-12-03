@@ -1,5 +1,5 @@
 import type { AuthWitnessProvider, ChainInfo } from '@aztec/entrypoints/interfaces';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';

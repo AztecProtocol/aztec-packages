@@ -1,5 +1,5 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import type Koa from 'koa';

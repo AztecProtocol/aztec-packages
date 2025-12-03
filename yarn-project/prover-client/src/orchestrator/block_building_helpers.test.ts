@@ -1,6 +1,6 @@
 import { commitmentToFields, computeBlobFieldsHash, encodeCheckpointEndMarker } from '@aztec/blob-lib';
 import { MAX_U32_VALUE } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { toInlineStrArray } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 

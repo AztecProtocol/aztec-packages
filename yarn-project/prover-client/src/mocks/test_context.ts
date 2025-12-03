@@ -3,7 +3,7 @@ import { TestCircuitProver } from '@aztec/bb-prover';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd, times, timesAsync } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import type { Logger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';

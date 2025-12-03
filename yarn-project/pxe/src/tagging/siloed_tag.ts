@@ -1,5 +1,5 @@
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { Tag } from './tag.js';

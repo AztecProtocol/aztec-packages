@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 
 import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
 

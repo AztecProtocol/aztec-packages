@@ -1,6 +1,6 @@
 import { PUBLIC_DATA_TREE_HEIGHT } from '@aztec/constants';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';

@@ -1,5 +1,5 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { bufferToHex } from '@aztec/foundation/string';
 
 import { inspect } from 'util';

@@ -1,5 +1,6 @@
 import {
   BatchedBlobAccumulator,
+  type Blob,
   SpongeBlob,
   computeBlobsHashFromBlobs,
   encodeBlockBlobData,
@@ -21,7 +22,8 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { BLS12Point } from '@aztec/foundation/fields/bls12_point';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { type Bufferable, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
@@ -252,7 +254,7 @@ export function getPublicChonkVerifierPrivateInputsFromTx(tx: Tx | ProcessedTx, 
 // Build "hints" as the private inputs for the checkpoint root rollup circuit.
 // The `blobCommitments` will be accumulated and checked in the root rollup against the `finalBlobChallenges`.
 // The `blobsHash` will be validated on L1 against the submitted blob data.
-export const buildBlobHints = (blobFields: Fr[]) => {
+export const buildBlobHints = (blobFields: Fr[]): { blobCommitments: BLS12Point[]; blobs: Blob[]; blobsHash: Fr } => {
   const blobs = getBlobsPerL1Block(blobFields);
   const blobCommitments = getBlobCommitmentsFromBlobs(blobs);
   const blobsHash = computeBlobsHashFromBlobs(blobs);

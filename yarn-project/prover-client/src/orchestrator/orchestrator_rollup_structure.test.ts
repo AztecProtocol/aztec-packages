@@ -4,7 +4,7 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { FeeRecipient } from '@aztec/stdlib/rollup';

@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields/fields';
 import { hexToBuffer } from '@aztec/foundation/string';
 
 import type { ACVMField, ACVMWitness } from './acvm_types.js';

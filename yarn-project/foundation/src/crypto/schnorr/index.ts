@@ -1,5 +1,6 @@
 import { BarretenbergSync } from '@aztec/bb.js';
-import { type GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import type { GrumpkinScalar } from '@aztec/foundation/fields/fields';
+import { Point } from '@aztec/foundation/fields/point';
 
 import { SchnorrSignature } from './signature.js';
 
