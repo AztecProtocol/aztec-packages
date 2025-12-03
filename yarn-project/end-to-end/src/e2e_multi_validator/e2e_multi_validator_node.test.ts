@@ -78,7 +78,10 @@ describe('e2e_multi_validator_node', () => {
       config,
       deployL1ContractsValues,
       cheatCodes,
+      // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
+      // Forge deployment advances L1 time significantly, breaking tests that use validators and epochs.
     } = await setup(1, {
+      useForgeDeployment: false,
       initialValidators,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       publisherPrivateKeys: publisherPrivateKeys.map(k => new SecretValue(k)),

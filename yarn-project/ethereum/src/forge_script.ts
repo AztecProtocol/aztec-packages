@@ -9,18 +9,34 @@ import { type Chain, createPublicClient, getContract, http } from 'viem';
 import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from './client.js';
-import { type ForgeDeploymentConfig, buildForgeJsonConfig } from './forge_deploy_config.js';
+import { type L1ContractsDeployConfig, stringifyConfig } from './forge_deploy_config.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
 // Re-export config types for convenience
-export type { ForgeDeploymentConfig, ForgeDeploymentJsonConfig } from './forge_deploy_config.js';
-export {
-  DEFAULT_FORGE_DEPLOYMENT_CONFIG,
-  buildForgeEnvVars,
-  buildForgeJsonConfig,
-  parseForgeDeploymentConfig,
+export type {
+  // New nested types
+  ForgeRuntimeOptions,
+  L1ContractsJsonConfig,
+  L1ContractsDeployConfig,
+  StakingAssetHandlerJsonConfig,
+  StakingAssetHandlerDeployConfig,
+  // Section types
+  DeploymentSection,
+  GenesisSection,
+  TimingSection,
+  ValidatorSetSection,
+  GseSection,
+  SlashingSection,
+  FeeSection,
+  GovernanceSection,
+  RewardSection,
+  StakingQueueSection,
+  // Legacy types (deprecated)
+  ForgeDeploymentConfig,
+  ForgeDeploymentJsonConfig,
 } from './forge_deploy_config.js';
+export { stringifyConfig } from './forge_deploy_config.js';
 
 // Minimal ABI for Rollup contract to get addresses
 const RollupAddressesAbi = [
@@ -251,8 +267,8 @@ export interface ForgeDeployL1ContractsReturnType {
   rollupVersion: number;
 }
 
-// ForgeDeploymentOptions is now an alias for ForgeDeploymentConfig for backwards compatibility
-export type ForgeDeploymentOptions = ForgeDeploymentConfig;
+// ForgeDeploymentOptions is now an alias for the new L1ContractsDeployConfig
+export type ForgeDeploymentOptions = L1ContractsDeployConfig;
 
 /**
  * Deploys L1 contracts using forge and returns a result compatible with the TypeScript deployL1Contracts function.
@@ -276,12 +292,11 @@ export async function setupL1ContractsViaForge(
 
   // Build JSON config string to pass as script parameter
   // DeploymentConfig.sol parses the JSON and applies defaults for missing values
-  const jsonConfig = buildForgeJsonConfig(options);
-  const jsonConfigStr = JSON.stringify(jsonConfig);
+  const jsonConfigStr = stringifyConfig(options.config ?? {});
 
-  const useMockVerifier = options.realVerifier !== true;
+  const useMockVerifier = options.config?.deployment?.useMockVerifier !== false;
   logger.info(`Using ${useMockVerifier ? 'MockVerifier' : 'HonkVerifier'}`);
-  logger.verbose('Forge deployment config', jsonConfig);
+  logger.verbose('Forge deployment config', jsonConfigStr);
 
   const result = await runForgeScript(
     [
@@ -346,12 +361,22 @@ export async function setupL1ContractsViaForge(
   let zkPassportVerifierAddress: string | undefined = addresses.zkPassportVerifierAddress;
   if (!stakingAssetHandlerAddress && addresses.stakingAssetAddress && addresses.registryAddress) {
     logger.info('Deploying StakingAssetHandler...');
+
+    // Build minimal JSON config with only what StakingAssetHandler needs
+    const stakingHandlerConfigStr = stringifyConfig({
+      stakingAsset: addresses.stakingAssetAddress,
+      registry: addresses.registryAddress,
+      zkPassportDomain: options.stakingAssetHandler?.zkPassportDomain,
+      zkPassportScope: options.stakingAssetHandler?.zkPassportScope,
+    });
+
     const stakingHandlerResult = await runForgeScript(
       [
         'script',
         'script/deploy/rollup/DeployStakingAssetHandler.s.sol:DeployStakingAssetHandler',
         '--sig',
-        'run()',
+        'run(string)',
+        stakingHandlerConfigStr,
         '--rpc-url',
         rpcUrl,
         '--private-key',
@@ -360,10 +385,6 @@ export async function setupL1ContractsViaForge(
         '-vvv',
       ],
       {
-        env: {
-          STAKING_ASSET: addresses.stakingAssetAddress,
-          REGISTRY: addresses.registryAddress,
-        },
         logger,
       },
     );

@@ -84,7 +84,7 @@ export async function deployL1Contracts(
     rpcUrls: { default: { http: [rpcUrls[0]] } },
   });
 
-  // Deploy using Forge - buildForgeEnvVars handles all dependent value calculations
+  // Deploy using Forge - DeploymentConfig.sol calculates dependent values
   // (e.g., slashingRoundSize from slashingRoundSizeInEpochs, slashingQuorum from slashingRoundSize)
   const { l1ContractAddresses, l1Client, rollupVersion } = await setupL1ContractsViaForge(
     rpcUrls[0],
@@ -93,50 +93,53 @@ export async function deployL1Contracts(
       // Runtime options
       chain: targetChain,
       logger: debugLogger,
-
-      // Genesis state
-      vkTreeRoot: vkTreeRoot.toString(),
-      protocolContractsHash: protocolContractsHash.toString(),
-      genesisArchiveRoot: genesisArchiveRoot.toString(),
-
-      // Deployment options
-      realVerifier,
-
-      // Core timing
-      aztecSlotDuration: config.aztecSlotDuration,
-      aztecEpochDuration: config.aztecEpochDuration,
-      targetCommitteeSize: config.aztecTargetCommitteeSize,
-
-      // Validator set
-      lagInEpochsForValidatorSet: config.lagInEpochsForValidatorSet,
-      lagInEpochsForRandao: config.lagInEpochsForRandao,
-      aztecProofSubmissionEpochs: config.aztecProofSubmissionEpochs,
-
-      // GSE
-      activationThreshold: config.activationThreshold,
-      ejectionThreshold: config.ejectionThreshold,
-
-      // Slashing - slashingRoundSize and slashingQuorum are calculated by buildForgeEnvVars
-      slasherFlavor: config.slasherFlavor as 'none' | 'tally' | 'empire',
-      slashingRoundSizeInEpochs: config.slashingRoundSizeInEpochs,
-      slashingOffsetInRounds: config.slashingOffsetInRounds,
-      slashingLifetimeInRounds: config.slashingLifetimeInRounds,
-      slashingExecutionDelayInRounds: config.slashingExecutionDelayInRounds,
-      slashingDisableDuration: config.slashingDisableDuration,
-      slashingVetoer: config.slashingVetoer.toString(),
-      slashAmountSmall: config.slashAmountSmall,
-      slashAmountMedium: config.slashAmountMedium,
-      slashAmountLarge: config.slashAmountLarge,
-
-      // Fee
-      manaTarget: config.manaTarget,
-      provingCostPerMana: config.provingCostPerMana,
-      exitDelaySeconds: config.exitDelaySeconds,
-      localEjectionThreshold: config.localEjectionThreshold,
-
-      // Governance
-      governanceProposerQuorum: config.governanceProposerQuorum,
-      governanceProposerRoundSize: config.governanceProposerRoundSize,
+      // JSON config passed to Solidity
+      config: {
+        genesis: {
+          vkTreeRoot: BigInt(vkTreeRoot.toString()).toString(),
+          protocolContractsHash: BigInt(protocolContractsHash.toString()).toString(),
+          genesisArchiveRoot: BigInt(genesisArchiveRoot.toString()).toString(),
+        },
+        deployment: {
+          useMockVerifier: !realVerifier,
+        },
+        timing: {
+          aztecSlotDuration: config.aztecSlotDuration,
+          aztecEpochDuration: config.aztecEpochDuration,
+          targetCommitteeSize: config.aztecTargetCommitteeSize,
+        },
+        validatorSet: {
+          lagInEpochsForValidatorSet: config.lagInEpochsForValidatorSet,
+          lagInEpochsForRandao: config.lagInEpochsForRandao,
+          aztecProofSubmissionEpochs: config.aztecProofSubmissionEpochs,
+        },
+        gse: {
+          activationThreshold: config.activationThreshold?.toString(),
+          ejectionThreshold: config.ejectionThreshold?.toString(),
+        },
+        slashing: {
+          flavor: config.slasherFlavor as 'none' | 'tally' | 'empire',
+          roundSizeInEpochs: config.slashingRoundSizeInEpochs,
+          offsetInRounds: config.slashingOffsetInRounds,
+          lifetimeInRounds: config.slashingLifetimeInRounds,
+          executionDelayInRounds: config.slashingExecutionDelayInRounds,
+          disableDuration: config.slashingDisableDuration,
+          vetoer: config.slashingVetoer.toString(),
+          amountSmall: config.slashAmountSmall?.toString(),
+          amountMedium: config.slashAmountMedium?.toString(),
+          amountLarge: config.slashAmountLarge?.toString(),
+        },
+        fee: {
+          manaTarget: config.manaTarget?.toString(),
+          provingCostPerMana: config.provingCostPerMana?.toString(),
+          exitDelaySeconds: config.exitDelaySeconds,
+          localEjectionThreshold: config.localEjectionThreshold?.toString(),
+        },
+        governance: {
+          proposerQuorum: config.governanceProposerQuorum,
+          proposerRoundSize: config.governanceProposerRoundSize,
+        },
+      },
     },
   );
 

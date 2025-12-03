@@ -27,8 +27,8 @@ function build_src {
     git submodule update --init --recursive ./lib
 
     # Compile contracts
-    # Build everything in src and test (except tests that need generated verifier).
-    forge build $(find src test -name '*.sol' ! -name 'shouting.t.sol')
+    # Build everything in src, test, and script (except tests that need generated verifier).
+    forge build $(find src test script -name '*.sol' ! -name 'shouting.t.sol')
 
     # Output storage information for the rollup contract.
     forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json

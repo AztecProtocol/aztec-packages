@@ -19,6 +19,7 @@ import {
   NULL_KEY,
   type Operator,
   RollupContract,
+  type ZKPassportArgs,
   createExtendedL1Client,
   deployL1Contracts,
   deployMulticall3,
@@ -315,6 +316,8 @@ export type SetupOptions = {
   l1PublisherKey?: SecretValue<`0x${string}`>;
   /** Whether to use forge scripts for L1 contract deployment (default: true) */
   useForgeDeployment?: boolean;
+  /** ZkPassport configuration (domain, scope, mock verifier) */
+  zkPassportArgs?: ZKPassportArgs;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -494,6 +497,8 @@ export async function setup(
         genesisArchiveRoot: genesisArchiveRoot.toString() as `0x${string}`,
         realVerifier: opts.realProofs,
         fundRewardDistributor: opts.fundRewardDistributor,
+        initialValidators: opts.initialValidators,
+        zkPassportArgs: opts.zkPassportArgs,
       });
 
       // Fund the fee juice portal after forge deployment

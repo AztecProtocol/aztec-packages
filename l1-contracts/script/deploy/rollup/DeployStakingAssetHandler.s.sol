@@ -10,32 +10,46 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {ZKPassportVerifier} from "@zkpassport/ZKPassportVerifier.sol";
 
+import {DeploymentConfig} from "./DeploymentConfig.sol";
+
 /**
  * @title DeployStakingAssetHandler
  * @notice Deploy StakingAssetHandler for e2e tests.
  * @dev This is a separate script from DeployL1Contracts because StakingAssetHandler
  *      is only needed for testing validator staking infrastructure.
  *
- *      Required environment variables:
- *        STAKING_ASSET    - Address of the staking asset (TestERC20)
- *        REGISTRY         - Address of the Registry contract
+ *      Configuration is passed as a JSON string parameter to run(), using the same
+ *      JSON structure as DeployL1Contracts (see DeploymentConfig.sol).
  *
- *      Optional environment variables:
- *        DEPLOYER_ADDRESS - Deployer address (default: msg.sender)
+ *      JSON Structure (relevant sections):
+ *      {
+ *        "stakingAssetHandler": {
+ *          "stakingAsset": "0x...",  // Required: Address of staking asset from DeployL1Contracts
+ *          "registry": "0x..."       // Required: Address of Registry from DeployL1Contracts
+ *        },
+ *        "zkPassport": {
+ *          "domain": "...",          // Optional: Domain for ZKPassport verification (default: "")
+ *          "scope": "..."            // Optional: Scope for ZKPassport verification (default: "")
+ *        }
+ *      }
  *
  * Usage:
  *   forge script script/deploy/rollup/DeployStakingAssetHandler.s.sol:DeployStakingAssetHandler \
+ *     --sig "run(string)" \
+ *     '{"stakingAssetHandler":{"stakingAsset":"0x...","registry":"0x..."},"zkPassport":{"domain":"test","scope":"test"}}' \
  *     --rpc-url $RPC_URL \
  *     --private-key $PRIVATE_KEY \
  *     --broadcast \
  *     -vvv
  */
-contract DeployStakingAssetHandler is Script {
+contract DeployStakingAssetHandler is Script, DeploymentConfig {
     address public deployer;
 
-    // Required addresses (must be set via env)
-    address public stakingAssetAddress;
-    address public registryAddress;
+    // Cached config values
+    address internal stakingAssetAddress;
+    address internal registryAddress;
+    string internal zkPassportDomain;
+    string internal zkPassportScope;
 
     // Deployed contracts
     MockZKPassportVerifier public MOCK_ZK_PASSPORT_VERIFIER_CONTRACT;
@@ -43,13 +57,27 @@ contract DeployStakingAssetHandler is Script {
 
     function setUp() public virtual {
         deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
-
-        // These are required - will revert if not set
-        stakingAssetAddress = vm.envAddress("STAKING_ASSET");
-        registryAddress = vm.envAddress("REGISTRY");
     }
 
-    function run() public {
+    /// @notice Cache configuration values from DeploymentConfig.
+    ///         Must be called after _loadConfig() and before any broadcasts.
+    function _cacheConfig() internal {
+        StakingAssetHandlerConfiguration memory config = getStakingAssetHandlerConfiguration();
+
+        stakingAssetAddress = config.stakingAsset;
+        registryAddress = config.registry;
+        zkPassportDomain = config.zkPassportDomain;
+        zkPassportScope = config.zkPassportScope;
+
+        require(stakingAssetAddress != address(0), "stakingAsset is required");
+        require(registryAddress != address(0), "registry is required");
+    }
+
+    /// @notice Entry point with JSON config.
+    /// @param configJson JSON configuration string (same format as DeployL1Contracts)
+    function run(string memory configJson) public {
+        _loadConfig(configJson);
+        _cacheConfig();
         deployStakingAssetHandler();
         logDeployedAddresses();
     }
@@ -60,7 +88,6 @@ contract DeployStakingAssetHandler is Script {
         MOCK_ZK_PASSPORT_VERIFIER_CONTRACT = new MockZKPassportVerifier();
 
         // Build StakingAssetHandler args
-        // Using same defaults as TypeScript deployment
         StakingAssetHandler.StakingAssetHandlerArgs memory args = StakingAssetHandler.StakingAssetHandlerArgs({
             owner: deployer,
             stakingAsset: stakingAssetAddress,
@@ -72,8 +99,8 @@ contract DeployStakingAssetHandler is Script {
             depositMerkleRoot: bytes32(0),
             zkPassportVerifier: ZKPassportVerifier(address(MOCK_ZK_PASSPORT_VERIFIER_CONTRACT)),
             unhinged: new address[](1),
-            domain: "",
-            scope: "",
+            domain: zkPassportDomain,
+            scope: zkPassportScope,
             skipBindCheck: true, // Skip for testing
             skipMerkleCheck: true // Skip for testing
         });

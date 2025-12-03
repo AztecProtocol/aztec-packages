@@ -114,6 +114,9 @@ export class P2PNetworkTest {
       process.env.E2E_DATA_PATH,
       {
         ...initialValidatorConfig,
+        // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
+        // Forge deployment advances L1 time significantly, breaking tests that warp to specific epochs.
+        useForgeDeployment: false,
         ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,

@@ -381,6 +381,7 @@ async function setupFromFresh(
       genesisArchiveRoot: genesisArchiveRoot.toString() as `0x${string}`,
       realVerifier: deployL1ContractsArgs.realVerifier,
       fundRewardDistributor: opts.fundRewardDistributor,
+      zkPassportArgs: deployL1ContractsArgs.zkPassportArgs,
     });
 
     // Fund the fee juice portal after forge deployment

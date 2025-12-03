@@ -33,7 +33,8 @@ import {Script} from "forge-std/Script.sol";
  *           "fee": { "manaTarget": string, "exitDelaySeconds": number, ... },
  *           "governance": { "proposerQuorum": number, "proposerRoundSize": number, ... },
  *           "reward": { "sequencerBps": number, "checkpointReward": string },
- *           "stakingQueue": { "bootstrapValidatorSetSize": number, ... }
+ *           "stakingQueue": { "bootstrapValidatorSetSize": number, ... },
+ *           "zkPassport": { "domain": string, "scope": string }
  *         }
  *
  *         Pass the config file path via: DEPLOY_CONFIG_PATH=/path/to/config.json
@@ -283,6 +284,25 @@ contract DeploymentConfig is Script {
             vkTreeRoot: bytes32(_readUint(".genesis.vkTreeRoot", 0)),
             protocolContractsHash: bytes32(_readUint(".genesis.protocolContractsHash", 0)),
             genesisArchiveRoot: bytes32(_readUint(".genesis.genesisArchiveRoot", 0))
+        });
+    }
+
+    // ============ StakingAssetHandler Configuration (flat structure) ============
+
+    struct StakingAssetHandlerConfiguration {
+        address stakingAsset;
+        address registry;
+        string zkPassportDomain;
+        string zkPassportScope;
+    }
+
+    function getStakingAssetHandlerConfiguration() public view returns (StakingAssetHandlerConfiguration memory) {
+        return StakingAssetHandlerConfiguration({
+            stakingAsset: _readAddress(".stakingAsset", address(0)),
+            registry: _readAddress(".registry", address(0)),
+            // Default domain/scope match ZkPassportProofParams.random() in yarn-project/stdlib/src/zkpassport/index.ts
+            zkPassportDomain: _readString(".zkPassportDomain", "sequencer.alpha-testnet.aztec.network"),
+            zkPassportScope: _readString(".zkPassportScope", "personhood")
         });
     }
 

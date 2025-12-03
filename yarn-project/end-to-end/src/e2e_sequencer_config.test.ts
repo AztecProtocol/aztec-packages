@@ -32,7 +32,10 @@ describe('e2e_sequencer_config', () => {
     const manaTarget = 200e6;
     beforeAll(async () => {
       const initialFundedAccounts = await getInitialTestAccountsData();
+      // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
+      // Forge deployment advances L1 time significantly, breaking tests that depend on slot timing.
       ({ teardown, sequencer, aztecNode, logger, wallet } = await setup(1, {
+        useForgeDeployment: false,
         maxL2BlockGas: manaTarget * 2,
         manaTarget: BigInt(manaTarget),
         initialFundedAccounts,
