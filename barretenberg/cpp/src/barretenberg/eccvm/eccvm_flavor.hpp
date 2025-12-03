@@ -69,11 +69,11 @@ class ECCVMFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 116 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_ALL_ENTITIES = 117;
+    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 117 + NUM_MASKING_POLYNOMIALS)
+    static constexpr size_t NUM_ALL_ENTITIES = 118;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 4;
     // The total number of witness entities not including shifts.
     // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 86 + NUM_MASKING_POLYNOMIALS)
     static constexpr size_t NUM_WITNESS_ENTITIES = 87;
@@ -170,8 +170,9 @@ class ECCVMFlavor {
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               lagrange_first,  // column 0
-                              lagrange_second, // column 1
-                              lagrange_last);  // column 2
+                              lagrange_second, // column 1 - hiding op row
+                              lagrange_third,  // column 2 - first real op row
+                              lagrange_last);  // column 3
 
         DataType get_selectors() { return get_all(); };
     };
@@ -493,8 +494,9 @@ class ECCVMFlavor {
          * @details RawPolynomial member polynomials that this fn must populate described below
          *          For full details see `eccvm/eccvm_flavor.hpp`
          *
-         *          lagrange_first: lagrange_first[0] = 1, 0 elsewhere
-         *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere
+         *          lagrange_first: lagrange_first[0] = 1, 0 elsewhere (zeros for shiftability)
+         *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere (hiding op row)
+         *          lagrange_third: lagrange_third[2] = 1, 0 elsewhere (first real op row)
          *          lagrange_last: lagrange_last[lagrange_last.size() - 1] = 1, 0 elsewhere
          *          transcript_add/mul/eq/reset_accumulator: boolean selectors that toggle add/mul/eq/reset opcodes
          trigger
@@ -586,8 +588,10 @@ class ECCVMFlavor {
 #endif
         {
             // compute rows for the three different sections of the ECCVM execution trace
-            const auto transcript_rows =
-                ECCVMTranscriptBuilder::compute_rows(builder.op_queue->get_eccvm_ops(), builder.get_number_of_muls());
+            // Pass has_eccvm_hiding_op() to indicate if the first operation is a hiding op with random Px, Py values
+            const auto transcript_rows = ECCVMTranscriptBuilder::compute_rows(builder.op_queue->get_eccvm_ops(),
+                                                                              builder.get_number_of_muls(),
+                                                                              builder.op_queue->has_eccvm_hiding_op());
             const std::vector<MSM> msms = builder.get_msms();
             const auto point_table_rows =
                 ECCVMPointTablePrecomputationBuilder::compute_rows(CircuitBuilder::get_flattened_scalar_muls(msms));
@@ -631,6 +635,7 @@ class ECCVMFlavor {
             }
             lagrange_first.at(0) = 1;
             lagrange_second.at(1) = 1;
+            lagrange_third.at(2) = 1;
             lagrange_last.at(unmasked_witness_size - 1) = 1;
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
                 // Explanation of off-by-one offset:
@@ -969,6 +974,7 @@ class ECCVMFlavor {
             // The ones beginning with "__" are only used for debugging
             Base::lagrange_first = "__LAGRANGE_FIRST";
             Base::lagrange_second = "__LAGRANGE_SECOND";
+            Base::lagrange_third = "__LAGRANGE_THIRD";
             Base::lagrange_last = "__LAGRANGE_LAST";
         };
     };
@@ -980,6 +986,7 @@ class ECCVMFlavor {
         {
             this->lagrange_first = verification_key->lagrange_first;
             this->lagrange_second = verification_key->lagrange_second;
+            this->lagrange_third = verification_key->lagrange_third;
             this->lagrange_last = verification_key->lagrange_last;
         }
     };

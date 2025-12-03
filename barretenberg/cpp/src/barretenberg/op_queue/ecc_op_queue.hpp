@@ -105,11 +105,16 @@ class ECCOpQueue {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops
     // getters more memory efficient
 
-    // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already
+    // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already.
+    // If a hiding op has been set, it will be prepended at index 0.
     std::vector<ECCVMOperation>& get_eccvm_ops()
     {
         if (eccvm_ops_reconstructed.empty()) {
             construct_full_eccvm_ops_table();
+            // If a hiding op is set, prepend it to the beginning (index 0)
+            if (has_hiding_op) {
+                eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), hiding_op_for_eccvm);
+            }
         }
         return eccvm_ops_reconstructed;
     }
@@ -266,7 +271,50 @@ class ECCOpQueue {
         return construct_and_populate_ultra_ops(op_code, expected);
     }
 
+    /**
+     * @brief Add a hiding op to the beginning of the ECCVM ops table with random (possibly non-curve) Px, Py values.
+     *
+     * @details This operation is ECCVM-only and does NOT affect the accumulator or the ultra ops table.
+     * The hiding op contributes random Px, Py field elements to the ECCVM transcript univariate evaluations,
+     * providing statistical hiding (~508 bits) for the accumulated_result in the Translator/ECCVM.
+     *
+     * The hiding op uses opcode q_eq = 1 (value = 2) to preserve the Px, Py values in the transcript
+     * (other opcodes may zero out the coordinates). The eq constraint is gated by (1 - lagrange_second)
+     * so it doesn't actually check equality. The on-curve check is similarly gated.
+     *
+     * This method should be called ONCE per IVC, right before constructing the ECCVM, to ensure the
+     * hiding op is at index 0 in the reconstructed eccvm ops vector.
+     *
+     * @param Px Random field element (not necessarily a valid x-coordinate on BN254)
+     * @param Py Random field element (not necessarily a valid y-coordinate on BN254)
+     */
+    void prepend_hiding_op(const Fq& Px, const Fq& Py)
+    {
+        // Create an ECCVM operation with q_eq = 1 (opcode = 2) and the random Px, Py values.
+        // We construct the base_point directly with the raw coordinates - it may not be on the curve.
+        EccOpCode op_code{ .eq = true }; // q_eq = 1, no reset
+        Point base_point;
+        base_point.x = Px;
+        base_point.y = Py;
+        // Note: We don't call is_point_at_infinity() or any curve operations on this point
+
+        // Store the hiding op - it will be at the front of the reconstructed eccvm ops
+        hiding_op_for_eccvm = ECCVMOperation{ .op_code = op_code, .base_point = base_point };
+        has_hiding_op = true;
+
+        // Do NOT update the accumulator - the hiding op doesn't perform any actual EC computation
+    }
+
+    /**
+     * @brief Check if a hiding op has been set for the ECCVM
+     */
+    bool has_eccvm_hiding_op() const { return has_hiding_op; }
+
   private:
+    // Storage for the hiding op (added at the front of eccvm ops when reconstructed)
+    ECCVMOperation hiding_op_for_eccvm;
+    bool has_hiding_op = false;
+
     /**
      * @brief Append an eccvm operation to the eccvm ops table; update the eccvm row tracker
      *

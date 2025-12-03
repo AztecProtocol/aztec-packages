@@ -131,11 +131,14 @@ class ECCVMTranscriptBuilder {
      *
      * @param vm_operations ECCOpQueue
      * @param total_number_of_muls The total number of multiplications in the series of operations.
+     * @param has_hiding_op If true, the first operation (index 0) is a hiding op with random (possibly non-curve)
+     *                      Px, Py values that should not undergo EC computation.
      *
      * @return A vector of TranscriptRows
      */
     static std::vector<TranscriptRow> compute_rows(const std::vector<ECCVMOperation>& vm_operations,
-                                                   const uint32_t total_number_of_muls)
+                                                   const uint32_t total_number_of_muls,
+                                                   bool has_hiding_op = false)
     {
         const size_t num_vm_entries = vm_operations.size();
         // The transcript contains an extra zero row at the beginning and the accumulated state at the end
@@ -178,6 +181,27 @@ class ECCVMTranscriptBuilder {
         for (size_t i = 0; i < num_vm_entries; i++) {
             TranscriptRow& row = transcript_state[i + 1];
             const ECCVMOperation& entry = vm_operations[i];
+
+            // Special handling for index 0 when has_hiding_op is true: this is the hiding op with random
+            // (non-curve) Px, Py values. We skip native EC computation and just record the raw field elements.
+            // The hiding op has q_eq = 1 (opcode = 2) to preserve Px, Py values in the transcript polynomials.
+            if (has_hiding_op && i == 0) {
+                row.base_x = entry.base_point.x;
+                row.base_y = entry.base_point.y;
+                row.q_eq = true;
+                row.opcode = 2; // q_eq = 1
+                row.pc = state.pc;
+
+                // Initialize trace arrays for the hiding op row to avoid uninitialized values in batch operations
+                accumulator_trace[i] = state.accumulator;
+                msm_accumulator_trace[i] = Element::infinity();
+                intermediate_accumulator_trace[i] = Element::infinity();
+                msm_count_at_transition_inverse_trace[i] = 0;
+
+                // Skip to next iteration - no EC computation for hiding op
+                continue;
+            }
+
             updated_state = state;
 
             const bool is_mul = entry.op_code.mul;

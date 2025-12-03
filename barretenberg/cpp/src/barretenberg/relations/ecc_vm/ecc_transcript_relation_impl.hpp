@@ -85,6 +85,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     const auto is_accumulator_empty_shift = -View(in.transcript_accumulator_not_empty_shift) + 1;
     const auto q_reset_accumulator = View(in.transcript_reset_accumulator);
     const auto lagrange_second = View(in.lagrange_second);
+    const auto lagrange_third = View(in.lagrange_third);
     const auto transcript_Pinfinity = View(in.transcript_base_infinity);
     const auto transcript_Px_inverse = View(in.transcript_base_x_inverse);
     const auto transcript_Py_inverse = View(in.transcript_base_y_inverse);
@@ -97,6 +98,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     const auto is_not_last_row = (-lagrange_last + 1);
     const auto is_not_first_or_last_row = (-lagrange_first + -lagrange_last + 1);
     const auto is_not_infinity = (-transcript_Pinfinity + 1);
+    // Row 1 (lagrange_second = 1) is the hiding op row - skip on-curve check and eq constraints there
+    const auto is_not_hiding_row = (-lagrange_second + 1);
     /**
      * @brief Validate correctness of z1_zero, z2_zero.
      * If z1_zero = 0 and operation is a MUL, we will write a scalar mul instruction into our multiplication table.
@@ -221,36 +224,43 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto both_infinity = transcript_Pinfinity * is_accumulator_empty;                   // degree 2
     auto both_not_infinity = (-transcript_Pinfinity + 1) * (-is_accumulator_empty + 1); // degree 2
     auto infinity_exclusion_check =
-        transcript_Pinfinity + is_accumulator_empty - both_infinity - both_infinity;             // degree 2
-    auto eq_x_diff = transcript_Px - transcript_accumulator_x;                                   // degree 1
-    auto eq_y_diff = transcript_Py - transcript_accumulator_y;                                   // degree 1
-    auto eq_x_diff_relation = q_eq * (eq_x_diff * both_not_infinity + infinity_exclusion_check); // degree 4
-    auto eq_y_diff_relation = q_eq * (eq_y_diff * both_not_infinity + infinity_exclusion_check); // degree 4
-    std::get<9>(accumulator) += eq_x_diff_relation * scaling_factor;                             // degree 4
-    std::get<10>(accumulator) += eq_y_diff_relation * scaling_factor;                            // degree 4
+        transcript_Pinfinity + is_accumulator_empty - both_infinity - both_infinity; // degree 2
+    auto eq_x_diff = transcript_Px - transcript_accumulator_x;                       // degree 1
+    auto eq_y_diff = transcript_Py - transcript_accumulator_y;                       // degree 1
+    // Gate eq constraints with is_not_hiding_row to skip at row 1 (hiding op row)
+    auto eq_x_diff_relation =
+        q_eq * (eq_x_diff * both_not_infinity + infinity_exclusion_check) * is_not_hiding_row; // degree 5
+    auto eq_y_diff_relation =
+        q_eq * (eq_y_diff * both_not_infinity + infinity_exclusion_check) * is_not_hiding_row; // degree 5
+    std::get<9>(accumulator) += eq_x_diff_relation * scaling_factor;                           // degree 5
+    std::get<10>(accumulator) += eq_y_diff_relation * scaling_factor;                          // degree 5
 
     /**
      * @brief Boundary conditions.
-     * The first "content" row is the _second_ row of the table.
+     * The first "real op" row is now the _third_ row of the table (row 2, lagrange_third = 1).
+     * Row 1 (lagrange_second = 1) is the hiding op row which has no real computation.
      *
-     * We demand that the following values are present in this first content row:
+     * We demand that the following values are present in this first real op row:
      * `is_accumulator_empty == 1`; and
      * `msm_count == 0`.
      * We also demand that `pc == 0` at the last row.
      */
-    std::get<11>(accumulator) += lagrange_second * (-is_accumulator_empty + 1) * scaling_factor;      // degree 2
-    std::get<12>(accumulator) += (lagrange_second * msm_count + lagrange_last * pc) * scaling_factor; // degree 2
+    std::get<11>(accumulator) += lagrange_third * (-is_accumulator_empty + 1) * scaling_factor;      // degree 2
+    std::get<12>(accumulator) += (lagrange_third * msm_count + lagrange_last * pc) * scaling_factor; // degree 2
 
     /**
      * @brief On-curve validation checks.
      * If q_mul = 1 OR q_add = 1 OR q_eq = 1, require (transcript_Px, transcript_Py) is valid ecc point as long as the
      * point-at-infinity flag is off. As q_mul, q_add, and q_eq are pairwise mutually exclusive, the value `q_add +
      * q_mul + q_eq` is boolean.
+     * Skip this check at the hiding op row (lagrange_second = 1) where Px, Py may be off-curve.
      */
     const auto validate_on_curve = q_add + q_mul + q_eq;
     const auto on_curve_check =
         transcript_Py * transcript_Py - transcript_Px * transcript_Px * transcript_Px - get_curve_b();
-    std::get<13>(accumulator) += validate_on_curve * on_curve_check * is_not_infinity * scaling_factor; // degree 5
+    // Gate on-curve check with is_not_hiding_row to skip at row 1 (hiding op row with potentially off-curve Px, Py)
+    std::get<13>(accumulator) +=
+        validate_on_curve * on_curve_check * is_not_infinity * is_not_hiding_row * scaling_factor; // degree 6
 
     /**
      * @brief Validate relations from ECC Group Operations are well formed
@@ -510,5 +520,11 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         auto transcript_add_y_equal_check_relation = (y_diff * y_product + y_constant) * any_add_is_active;
         std::get<24>(accumulator) += transcript_add_y_equal_check_relation * scaling_factor; // degree 5
     }
+
+    /**
+     * @brief Enforce q_eq = 1 at the hiding op row (row 1, lagrange_second = 1).
+     * This ensures the prover sets the correct opcode for the hiding op.
+     */
+    std::get<25>(accumulator) += lagrange_second * (-q_eq + 1) * scaling_factor; // degree 2
 }
 } // namespace bb

@@ -10,6 +10,18 @@ using Fr = typename G1::Fr;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
+
+/**
+ * @brief Add a hiding op with random Px, Py to the op_queue for testing.
+ * @details The ECCVM relation constraints expect q_eq = 1 at row 1 (lagrange_second).
+ * This mirrors production behavior where random field elements are used for statistical hiding.
+ */
+void add_hiding_op_for_test(const std::shared_ptr<ECCOpQueue>& op_queue)
+{
+    using Fq = curve::BN254::BaseField;
+    // Prepend an eq op with random coordinates - same as production
+    op_queue->prepend_hiding_op(Fq::random_element(), Fq::random_element());
+}
 } // namespace
 
 TEST(ECCVMCircuitBuilderTests, BaseCase)
@@ -63,6 +75,7 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
     op_queue->add_accumulate(a);
     op_queue->eq_and_reset();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
@@ -71,6 +84,7 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
 TEST(ECCVMCircuitBuilderTests, NoOp)
 {
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -86,6 +100,7 @@ TEST(ECCVMCircuitBuilderTests, Add)
 
     op_queue->add_accumulate(a);
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -102,6 +117,7 @@ TEST(ECCVMCircuitBuilderTests, Mul)
 
     op_queue->mul_accumulate(a, x);
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -121,6 +137,7 @@ TEST(ECCVMCircuitBuilderTests, MulInfinity)
     op_queue->mul_accumulate(a, x);
     op_queue->eq_and_reset();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -139,6 +156,7 @@ TEST(ECCVMCircuitBuilderTests, MulOverIdenticalInputs)
     op_queue->mul_accumulate(a, x);
     op_queue->eq_and_reset();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -157,6 +175,7 @@ TEST(ECCVMCircuitBuilderTests, MSMProducesInfinity)
     op_queue->mul_accumulate(a, -x);
     op_queue->eq_and_reset();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -179,6 +198,7 @@ TEST(ECCVMCircuitBuilderTests, MSMOverPointAtInfinity)
         op_queue->mul_accumulate(point_at_infinity, x);
         op_queue->eq_and_reset();
         op_queue->merge();
+        add_hiding_op_for_test(op_queue);
 
         ECCVMCircuitBuilder circuit{ op_queue };
         bool result = ECCVMTraceChecker::check(circuit);
@@ -243,6 +263,7 @@ TEST(ECCVMCircuitBuilderTests, ShortMul)
     op_queue->mul_accumulate(a, x);
     op_queue->eq_and_reset();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -261,6 +282,7 @@ TEST(ECCVMCircuitBuilderTests, EqFails)
     // Tamper with the eq op such that the expected value is incorect
     op_queue->add_erroneous_equality_op_for_testing();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -273,6 +295,7 @@ TEST(ECCVMCircuitBuilderTests, EmptyRow)
 
     op_queue->empty_row_for_testing();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -291,6 +314,7 @@ TEST(ECCVMCircuitBuilderTests, EmptyRowBetweenOps)
     op_queue->empty_row_for_testing();
     op_queue->eq_and_reset();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -308,6 +332,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithEq)
     op_queue->mul_accumulate(a, x);
     op_queue->eq_and_reset();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -326,6 +351,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithAdd)
     op_queue->eq_and_reset();
     op_queue->add_accumulate(a);
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -344,6 +370,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithMul)
     op_queue->eq_and_reset();
     op_queue->mul_accumulate(a, x);
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -364,6 +391,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithNoop)
 
     op_queue->empty_row_for_testing();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -394,6 +422,7 @@ TEST(ECCVMCircuitBuilderTests, MSM)
         std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
         compute_msms(j, op_queue);
+        add_hiding_op_for_test(op_queue);
         ECCVMCircuitBuilder circuit{ op_queue };
         bool result = ECCVMTraceChecker::check(circuit);
         EXPECT_EQ(result, true);
@@ -404,6 +433,7 @@ TEST(ECCVMCircuitBuilderTests, MSM)
     for (size_t j = 1; j < 9; ++j) {
         compute_msms(j, op_queue);
     }
+    add_hiding_op_for_test(op_queue);
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
@@ -420,6 +450,7 @@ TEST(ECCVMCircuitBuilderTests, EqAgainstPointAtInfinity)
     op_queue->add_accumulate(a);
     op_queue->eq_and_reset();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -439,6 +470,7 @@ TEST(ECCVMCircuitBuilderTests, AddPointAtInfinity)
     op_queue->add_accumulate(b);
     op_queue->eq_and_reset();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -456,6 +488,7 @@ TEST(ECCVMCircuitBuilderTests, AddProducesPointAtInfinity)
     op_queue->add_accumulate(-a);
     op_queue->eq_and_reset();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -473,6 +506,7 @@ TEST(ECCVMCircuitBuilderTests, AddProducesDouble)
     op_queue->add_accumulate(a);
     op_queue->eq_and_reset();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -510,15 +544,18 @@ TEST(ECCVMCircuitBuilderTests, InfinityFailure)
         op_queue->mul_accumulate(P1, Fr(0));
     }
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     auto eccvm_builder = ECCVMCircuitBuilder(op_queue);
 
-    auto transcript_rows = ECCVMTranscriptBuilder::compute_rows(op_queue->get_eccvm_ops(), 1);
+    // Note: With the zero eq op prepended, the mul op is now at index 1, so we check row 2
+    auto transcript_rows =
+        ECCVMTranscriptBuilder::compute_rows(op_queue->get_eccvm_ops(), 1, op_queue->has_eccvm_hiding_op());
 
-    // check that the corresponding op is mul
-    bool row_op_code_correct = transcript_rows[1].opcode == 4;
+    // check that the corresponding op is mul (now at row 2 due to hiding op at row 1)
+    bool row_op_code_correct = transcript_rows[2].opcode == 4;
     // row.base_x populate the transcript polynomial transcript_Px in ECCVM Flavor
-    bool failure = Fr(transcript_rows[1].base_x) == Fr(0);
+    bool failure = Fr(transcript_rows[2].base_x) == Fr(0);
 
     bool circuit_checked = ECCVMTraceChecker::check(eccvm_builder);
 
@@ -541,6 +578,7 @@ TEST(ECCVMCircuitBuilderTests, ScalarEdgeCase)
     op_queue->mul_accumulate(a, two_to_the_128);
 
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);

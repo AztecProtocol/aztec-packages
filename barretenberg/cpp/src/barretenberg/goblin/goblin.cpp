@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
@@ -129,6 +130,10 @@ bool Goblin::verify(const GoblinProof& proof,
 void Goblin::ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const
 {
     BB_ASSERT_EQ(avm_mode, true, "ensure_well_formed_op_queue should only be called for avm");
+    // Add a hiding op for the ECCVM (required for the q_eq = 1 constraint at row 1)
+    using Fq = curve::Grumpkin::ScalarField;
+    op_queue->prepend_hiding_op(Fq::random_element(), Fq::random_element());
+    // Add Ultra ops for the Translator
     builder.queue_ecc_no_op();
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();

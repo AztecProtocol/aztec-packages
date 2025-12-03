@@ -26,7 +26,20 @@ class ECCVMTests : public ::testing::Test {
 };
 namespace {
 auto& engine = numeric::get_debug_randomness();
+
+/**
+ * @brief Add a hiding op to the op_queue for testing.
+ * @details The ECCVM relation constraints expect q_eq = 1 at row 1 (lagrange_second).
+ * In production (Chonk flow), a hiding op with random Px, Py is prepended for statistical hiding.
+ * For tests, we also use random values to match production behavior.
+ */
+void add_hiding_op_for_test(const std::shared_ptr<ECCOpQueue>& op_queue)
+{
+    using Fq = curve::BN254::BaseField;
+    // Prepend a hiding op with random coordinates - provides statistical hiding
+    op_queue->prepend_hiding_op(Fq::random_element(), Fq::random_element());
 }
+} // namespace
 
 /**
  * @brief Adds operations in BN254 to the op_queue and then constructs and ECCVM circuit from the op_queue.
@@ -62,6 +75,7 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
     op_queue->mul_accumulate(b, x);
     op_queue->mul_accumulate(c, x);
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
     ECCVMCircuitBuilder builder{ op_queue };
     return builder;
 }
@@ -88,6 +102,7 @@ ECCVMCircuitBuilder generate_zero_circuit([[maybe_unused]] numeric::RNG* engine 
         }
     }
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
 
     ECCVMCircuitBuilder builder{ op_queue };
     return builder;
@@ -161,6 +176,7 @@ TEST_F(ECCVMTests, ScalarEdgeCase)
     op_queue->mul_accumulate(a, Fr(uint256_t(1) << 128));
     op_queue->eq_and_reset();
     op_queue->merge();
+    add_hiding_op_for_test(op_queue);
     ECCVMCircuitBuilder builder{ op_queue };
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
