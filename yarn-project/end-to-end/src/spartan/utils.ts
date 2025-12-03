@@ -531,6 +531,61 @@ export function applyNetworkShaping({
   });
 }
 
+export function applyNetworkPartition({
+  namespace,
+  spartanDir,
+  logger,
+  groupA,
+  groupB,
+  durationSeconds,
+}: {
+  namespace: string;
+  spartanDir: string;
+  logger: Logger;
+  groupA: string[];
+  groupB: string[];
+  durationSeconds: number;
+}) {
+  return installChaosMeshChart({
+    instanceName: 'network-partition',
+    targetNamespace: namespace,
+    valuesFile: 'network-partition.yaml',
+    helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    logger,
+    values: {
+      'networkPartition.groupA': groupA.join(','),
+      'networkPartition.groupB': groupB.join(','),
+      'networkPartition.duration': `${durationSeconds}s`,
+    },
+  });
+}
+
+export function applyValidatorFailureForPods({
+  namespace,
+  spartanDir,
+  logger,
+  podNames,
+  durationSeconds,
+}: {
+  namespace: string;
+  spartanDir: string;
+  logger: Logger;
+  podNames: string[];
+  durationSeconds: number;
+}) {
+  return installChaosMeshChart({
+    instanceName: 'validator-failure',
+    targetNamespace: namespace,
+    valuesFile: 'validator-failure.yaml',
+    helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    logger,
+    values: {
+      'validatorFailure.podsCsv': podNames.join(','),
+      'validatorFailure.duration': `${durationSeconds}s`,
+    },
+  });
+}
+
 export async function awaitL2BlockNumber(
   rollupCheatCodes: RollupCheatCodes,
   blockNumber: bigint,

@@ -1,0 +1,28 @@
+{{- if .Values.validatorFailure.enabled }}
+{{- $targetNamespace := .Values.global.targetNamespace | required ".Values.global.targetNamespace is required" }}
+{{- $podsStr := .Values.validatorFailure.podsCsv | default "" }}
+{{- $pods := splitList "," $podsStr | compact }}
+{{- if gt (len $pods) 0 }}
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: {{ include "aztec-chaos-scenarios.fullname" . }}-validator-failure
+  labels:
+    {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/resource-policy": keep
+spec:
+  action: pod-failure
+  mode: all
+  duration: {{ .Values.validatorFailure.duration }}
+  selector:
+    pods:
+      {{ $targetNamespace }}:
+{{- range $pods }}
+        - {{ . | trim }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+

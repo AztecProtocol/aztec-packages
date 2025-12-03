@@ -1,0 +1,10 @@
+global:
+  namespace: "scenario"
+
+networkPartition:
+  enabled: true
+  groupA: ""
+  groupB: ""
+  duration: "600s"
+
+
