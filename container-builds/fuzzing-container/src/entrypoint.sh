@@ -10,6 +10,16 @@ jobs_='4'
 workers='0'
 asm='on'
 
+main_fuzzer=''
+if [[ "$asm" == "on" ]]; then
+    main_fuzzer="./build-fuzzing/bin"
+elif [[ "$asm" == "off" ]]; then
+    main_fuzzer="./build-fuzzing-noasm/bin"
+else
+    echo "Unexpected asm flag value: $asm. Expecting on/off";
+    exit 1;
+fi
+
 show_fuzzers() {
     echo "The following fuzzers are available:"
     echo
@@ -86,7 +96,7 @@ while [[ $# -gt 0 ]]; do
             echo "Error: Unsupported flag $1" >&2
             exit 1
             ;;
-        *) 
+        *)
             break
             ;;
     esac
@@ -96,15 +106,6 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
 }
 
-main_fuzzer=''
-if [[ "$asm" == "on" ]]; then
-    main_fuzzer="./build-fuzzing/bin"
-elif [[ "$asm" == "off" ]]; then
-    main_fuzzer="./build-fuzzing-noasm/bin"
-else
-    echo "Unexpected asm flag value: $asm. Expecting on/off";
-    exit 1;
-fi
 post_fuzzer="./build-fuzzing-asan/bin"
 cov_fuzzer="./build-fuzzing-cov/bin"
 
@@ -208,7 +209,7 @@ fuzz() {
 
     files=("$TMPOUT"/crash-*)
     timeout_files=("$TMPOUT"/timeout-*)
-    
+
     exit_code=0
     if [ ${#files[@]} -eq 0 ] || [ ! -e "${files[0]}" ]; then
         if [[ "$status" -ne 0 ]] && [ ! ${#timeout_files[@]} -eq "$workers" ];  then
@@ -217,7 +218,7 @@ fuzz() {
         else
             log "No crashes occurred";
         fi
-    else 
+    else
         log "Start minimization"
         for crash in "${files[@]}"; do
             crash_name=$(basename "$crash")
@@ -243,7 +244,7 @@ fuzz() {
     MINCORP="$TMPOUT/corpus";
     [[ -d $MINCORP ]] || mkdir "$MINCORP";
 
-    "$main_fuzzer" -merge=1 -jobs="$jobs_" -workers="$workers" "$MINCORP" "$CORPUS" 
+    "$main_fuzzer" -merge=1 -jobs="$jobs_" -workers="$workers" "$MINCORP" "$CORPUS"
     rm -rf "$CORPUS"
     mv "$MINCORP" "$CORPUS"
     log "Minimized the corpus to size $(find "$CORPUS" -type f | wc -l)";
