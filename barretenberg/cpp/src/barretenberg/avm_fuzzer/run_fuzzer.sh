@@ -62,7 +62,7 @@ case "$FUZZER_ALIAS" in
     ecc) FUZZER_TYPE="harness_ecc_fuzzer" ;;
     *)
         echo "Error: Invalid fuzzer type '$FUZZER_ALIAS'"
-        echo "Valid options: 'avm', 'alu', or 'ecc'"
+        echo "Valid options: 'avm', 'alu', 'bitwise', or 'ecc'"
         exit 1
         ;;
 esac
