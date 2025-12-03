@@ -334,13 +334,16 @@ export class P2PNetworkTest extends BaseEndToEndTest {
   }
 
   override async setup(): Promise<this> {
-    await super.setup(0, this.initialValidatorConfig);
-
+    // IMPORTANT: P2P tests need to include the sponsored FPC address in genesis values
+    // so that all nodes (main node and additional validator nodes) have consistent genesis state.
+    // We calculate this before calling super.setup() and pass it as genesisPublicData option.
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const initialFundedAccounts = [...this.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];
-
     const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
     this.prefilledPublicData = prefilledPublicData;
+
+    // Pass the genesis data to super.setup() so the main node is created with it
+    await super.setup(0, { ...this.initialValidatorConfig, genesisPublicData: prefilledPublicData });
 
     const rollupContract = RollupContract.getFromL1ContractsValues(this.deployL1ContractsValues);
     this.monitor = new ChainMonitor(rollupContract, this.dateProvider!).start();
