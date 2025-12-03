@@ -55,10 +55,11 @@ template <typename Curve>
 void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
                                                                  std::vector<uint32_t>& consolidated_indices) noexcept
 {
-    const size_t num_cpus = get_num_cpus();
+    std::vector<std::vector<uint32_t>> thread_indices(get_num_cpus());
 
-    std::vector<std::vector<uint32_t>> thread_indices(num_cpus);
     parallel_for([&](const ThreadChunk& chunk) {
+        // parallel_for with ThreadChunk uses get_num_cpus() threads
+        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
         auto range = chunk.range(scalars.size());
         if (range.empty()) {
             return;
@@ -79,20 +80,19 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
     });
 
     size_t num_entries = 0;
-    for (size_t i = 0; i < num_cpus; ++i) {
-        BB_ASSERT_LT(i, thread_indices.size());
-        num_entries += thread_indices[i].size();
+    for (const auto& indices : thread_indices) {
+        num_entries += indices.size();
     }
     consolidated_indices.resize(num_entries);
 
     parallel_for([&](const ThreadChunk& chunk) {
+        // parallel_for with ThreadChunk uses get_num_cpus() threads
+        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
         size_t offset = 0;
         for (size_t i = 0; i < chunk.thread_index; ++i) {
-            BB_ASSERT_LT(i, thread_indices.size());
             offset += thread_indices[i].size();
         }
         for (size_t i = offset; i < offset + thread_indices[chunk.thread_index].size(); ++i) {
-            BB_ASSERT_LT(i, scalars.size());
             consolidated_indices[i] = thread_indices[chunk.thread_index][i - offset];
         }
     });

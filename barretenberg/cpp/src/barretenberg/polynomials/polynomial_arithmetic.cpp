@@ -501,17 +501,17 @@ void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
 
 template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n)
 {
-    size_t num_threads = get_num_cpus();
-    Fr* evaluations = new Fr[num_threads];
+    const size_t num_threads = get_num_cpus();
+    std::vector<Fr> evaluations(num_threads, Fr::zero());
     parallel_for([&](const ThreadChunk& chunk) {
+        // parallel_for with ThreadChunk uses get_num_cpus() threads
+        BB_ASSERT_EQ(chunk.total_threads, evaluations.size());
         auto range = chunk.range(n);
         if (range.empty()) {
-            evaluations[chunk.thread_index] = Fr::zero();
             return;
         }
         size_t start = *range.begin();
         Fr z_acc = z.pow(static_cast<uint64_t>(start));
-        evaluations[chunk.thread_index] = Fr::zero();
         for (size_t i : range) {
             Fr work_var = z_acc * coeffs[i];
             evaluations[chunk.thread_index] += work_var;
@@ -520,10 +520,9 @@ template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n
     });
 
     Fr r = Fr::zero();
-    for (size_t j = 0; j < num_threads; ++j) {
-        r += evaluations[j];
+    for (const auto& eval : evaluations) {
+        r += eval;
     }
-    delete[] evaluations;
     return r;
 }
 
@@ -533,17 +532,17 @@ template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, c
     const size_t poly_size = large_n / num_polys;
     BB_ASSERT(is_power_of_two(poly_size));
     const size_t log2_poly_size = (size_t)numeric::get_msb(poly_size);
-    size_t num_threads = get_num_cpus();
-    Fr* evaluations = new Fr[num_threads];
+    const size_t num_threads = get_num_cpus();
+    std::vector<Fr> evaluations(num_threads, Fr::zero());
     parallel_for([&](const ThreadChunk& chunk) {
+        // parallel_for with ThreadChunk uses get_num_cpus() threads
+        BB_ASSERT_EQ(chunk.total_threads, evaluations.size());
         auto range = chunk.range(large_n);
         if (range.empty()) {
-            evaluations[chunk.thread_index] = Fr::zero();
             return;
         }
         size_t start = *range.begin();
         Fr z_acc = z.pow(static_cast<uint64_t>(start));
-        evaluations[chunk.thread_index] = Fr::zero();
         for (size_t i : range) {
             Fr work_var = z_acc * coeffs[i >> log2_poly_size][i & (poly_size - 1)];
             evaluations[chunk.thread_index] += work_var;
@@ -552,10 +551,9 @@ template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, c
     });
 
     Fr r = Fr::zero();
-    for (size_t j = 0; j < num_threads; ++j) {
-        r += evaluations[j];
+    for (const auto& eval : evaluations) {
+        r += eval;
     }
-    delete[] evaluations;
     return r;
 }
 
