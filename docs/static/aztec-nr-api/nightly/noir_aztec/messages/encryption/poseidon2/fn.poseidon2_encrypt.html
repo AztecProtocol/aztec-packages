@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<title>Function poseidon2_encrypt documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module poseidon2</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.poseidon2_decrypt.html">poseidon2_decrypt</a></div></li>
+<li><a href="fn.poseidon2_encrypt.html">poseidon2_encrypt</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">encryption</a>::<a href="index.html">poseidon2</a></div>
+<h1>Function <span class="fn">poseidon2_encrypt</span></h1>
+<pre><code>pub fn poseidon2_encrypt&lt;let L: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    msg: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; L],
+    shared_secret: <a href="../../../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
+    encryption_nonce: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; L + 2 / 3 * 3 + 1]</code></pre>
+
+<div class="comments">
+<p>Poseidon2 Encryption.</p>
+<p>~160 constraints to encrypt 8 fields. Use this hash if you favour proving speed over long-term privacy for your users.</p>
+<p>WARNING: Poseidon2 as an <em>encryption scheme</em> isn't considered as secure as more battle-tested encryption schemes, e.g. AES128.
+This is because:</p>
+<ul>
+<li>it's relatively new;</li>
+<li>it isn't used much in the wild, so there's less incentive for hackers or bounty hunters to try to break it;</li>
+<li>it doesn't provide post-quantum privacy.</li>
+</ul>
+<p>If you want to protect your users' privacy decades into the future, it might be prudent to choose
+a more 'traditional' encryption scheme.
+If your app is &quot;lower stakes&quot;, and your users will only care about their privacy in the near future or immediate future, then
+this encryption scheme might be for you!</p>
+<p>See the paper: https://drive.google.com/file/d/1EVrP3DzoGbmzkRmYnyEDcIQcXVU7GlOd/view</p>
+<p>Note: The return length is: L padded to the next multiple of 3, plus 1 for a message auth code of s[1].</p>
+<p>@param encryption_nonce is only needed if your use case needs to protect against replay attacks.</p>
+</div>
+</main>
+</body>
+</html>
