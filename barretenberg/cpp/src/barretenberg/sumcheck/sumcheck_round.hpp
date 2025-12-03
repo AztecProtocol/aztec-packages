@@ -374,7 +374,6 @@ template <typename Flavor> class SumcheckProverRound {
 
         const size_t min_iterations_per_thread = 1 << 10; // min number of iterations for which we'll spin up a unique
         const size_t num_threads = bb::calculate_num_threads_pow2(effective_round_size, min_iterations_per_thread);
-        const size_t iterations_per_thread = effective_round_size / num_threads; // actual iterations per thread
 
         std::vector<BlockOfContiguousRows> result;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
