@@ -5,11 +5,12 @@ The implementation varies depending on the `Flavor` provided as a template param
 1. `IsGrumpkinFlavor` concept, which distinguishes between the `ECCVMFlavor`, `ECCVMRecursiveFlavor` and the rest
 2. `hasZK` which determines whether the flavor is a `ZK` Flavor.
 
+# `SumcheckProver`
 ## Non-ZK sumcheck
 This is a fairly standard implementation of the sumcheck protocol utilizing a __book-keeping table__.
 
 The protocol proves/verifies the correctness of a claim
-$\sum_{X\in\{0,1\}^d}F = 0$, where $F(X) = \textsf{pow}_{\beta}(X_0,\dots,X_{d-1}) F(P_1(X), \dots, P_N(X)) = 0 $
+$\sum_{X\in\{0,1\}^d}\tilde{F} = 0$, where $$\tilde{F}(X) = \textsf{pow}_{\beta}(X_0,\dots,X_{d-1}) F(P_1(X), \dots, P_N(X)) = 0$$
 
 to prove that $F(P_1(X),\dots,P_N(X)) = 0$ on points on the hypercube.
 Couple things to note:
@@ -49,7 +50,7 @@ Let us focus on bullet point 2 first. In order to hide the contribution of witne
 > technically we only need to add 3 random values to each column, but since we require shift of some polynomials we append columns with 4 random values so there are 3 random values at the end of the shifted polynomial
 
 As these values are random, for the sumcheck relation to hold, these values should be be canceled. This is where we introduce the concept of `RowDisablingPolynomials`.
-#### `RowDisablingPolynomials`
+### `RowDisablingPolynomials`
 Assuming a reverse lexicographic order on the points on the hypercube, we want a polynomial that is $0$ at the following 4 points and $1$ everywhere else.
 - $2^{d}-1 = (1,1,1,\dots,1)$, with the lagrange polynomial $L_1 = X_0X_1X_2\dots X_{d-1}$
 - $2^{d}-2 = (0,1,1,\dots,1)$, with the lagrange polynomial $L_2 = (1-X_0)X_1X_2\dots X_{d-1}$
@@ -115,7 +116,7 @@ The contribution of the `RowDisablingPoly` to the round univariate is done quite
 
 
 
-## Libra
+### Libra
 Now that we have covered removing the contribution of masking randomness in the witness polynomials we move to describing zero-knowledge variant of the sumcheck IOP itself. The approach we take is from [Libra](https://eprint.iacr.org/2019/317.pdf).
 
 The main idea is that for a sumcheck claim $\sum_{x\in\{0,1\}^d} F(x) = 0$ we pick a multivariate polynomial $G(x_0,\dots,x_{d-1})$ and a random challenge $\rho$ and perform a sumcheck protocol for the claim $$\sum_{x\in\{0,1\}^d} (F(x) + \rho G(x)) = \rho\cdot \sum_{x\in\{0,1\}^d} G(x)$$
@@ -137,19 +138,27 @@ So to summarize the extra steps of the protocol,
 Now let us discuss the details of the prover algorithm to include the contributions from the Libra polynomial.
 Looking at the definition of the round univariate again, we have that the corrected round univariate (of polynomial $F + \rho G$), is:
 \begin{align}
-S'_{F,i} &= \sum_{\gamma_i\in\{0,1\}} F(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1})  \\
-&+\rho\cdot \sum_{\gamma_i\in\{0,1\}} H(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1}) \\
-&= S_{F,i} + \rho \cdot (a_0 + g_0(u_0)+ \dots+ g_{{i-1}}(u_{i-1})\\&+ g_i(X) + 2^{d-i-1}\sum_{i+1}^{d-1}g_j(\gamma_i))
+S'_{F,i} &= \sum_{\gamma_j\in\{0,1\}} F(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1})  \\
+&+\rho\cdot \sum_{\gamma_j\in\{0,1\}} H(u_0,\dots,u_{i-1},X,\gamma_{i+1},\dots,\gamma_{d-1}) \\
+&= S_{F,i} + \rho \cdot\sum_{\gamma_j\in\{0,1\}} (a_0 + g_0(u_0)+ \dots+ g_{{i-1}}(u_{i-1})\\&+\rho\cdot\sum_{\gamma_i\in\{0,1\}} \left[g_i(X) + \sum_{i+1}^{d-1}g_j(\gamma_i))\right]
 \end{align}
+Note that $a(0),g_0(u_0),\dots,g_{i-1}(u_{i-1}),g_i(X_i)$ appear $2^{d-i-1}$ times in the sum.
+for $j>i$ for $g_j(0)$ and $g_j(1)$ each appear $2^{d-i-1}/2$ times in the sum. Hence, the equation can be rewritten as:
+\begin{align}
+S_{F,i}' &= S_{F,i} + \rho \times 2^{d-i-1}[a_0+g_0(u_0) + \dots + g_{i-1}(u_{i-1}) \\
+ &+ g_i(X_i) + (g_{i+1}(0) + g_{i+1}(1))/2 + \dots+(g_{d-1}(0) + g_{d-1}(1))/2]
+\end{align}
+
+
 Now let us separate this poly into different chunks.
-- let's refer to $2^{d-i-1}(a_0 + g_0(u_0)+ \dots+ g_{{i-1}}(u_{i-1}))$ as $2^{d-i-1} \textsf{prefix-sum}_i$
-- and $2^{d-i-1}\cdot\sum_{i+1}^{d-1}g_j(\gamma_i)$ as $\textsf{suffix_sum}_i$
+- let's call $2^{d-i-1}(a_0 + g_0(u_0)+ \dots+ g_{{i-1}}(u_{i-1}))$ as $2^{d-i-1} \textsf{prefix-sum}_i$
+- and $2^{d-i-1}\cdot\sum_{i+1}^{d-1}\left(g_j(0)+g_j(1)\right)/2$ as $\textsf{suffix_sum}_i$
 
 Now let us see, how these values should be updated when a new challenge $u_{i+1}$ is received. We have the following two equalities:
 \begin{align}
-&\textsf{prefix_sum}_{i+1} = \textsf{prefix_sum}_i + g_i(u_i)/2\\
-& \textsf{suffix_sum}_{i+1} = \textsf{suffix_sum}_i - (g_{i+1}(0) + g_{i+1}(1))/4
-\end{align} #todo this is wrong at the moment. need to add the correct powers of two.
+&\textsf{prefix_sum}_{i+1} = (\textsf{prefix_sum}_i)/2 + g_i(u_i)/2^{d-i-2}\\
+& \textsf{suffix_sum}_{i+1} = \textsf{suffix_sum}_i/2 - (g_{i+1}(0) + g_{i+1}(1))/2
+\end{align}
 
 In the code, the sum of `prefix_sum` and `suffix_sum` are labled as `libra_running_sum`. The method `update_zk_sumcheck_data` does the updating described above for each round.
 
@@ -170,3 +179,41 @@ To accomodate for this, we use a version of the Sumcheck Protocol that commits t
 - In round $i$:
     - The prover computes the round univariate $S_i$
     - The prover commits to $[S_i]$ and sends the commitment $S_i$, and the evaluations of $S_i(0)$ and $S_i(1)$.
+
+This difference is abstracted away in the `RoundUnivariateHandler<Flavor, IsGrumpkinFlavor>` struct.
+
+Notice that when the template parameter is `true`,  the process round univariate method, adds `Sumcheck:univariate_comm_i`, `Sumcheck:univariate_i_eval_0` and `Sumcheck:univariate_i_eval_1`  to the transcript.
+
+## Sumcheck Prover Summary:
+in this section we covered the outline of the sumcheck proving algorithm and some of the optimizations and implementation details.
+
+We covered:
+- Non-ZK sumcheck prover algorithm
+- ZK Sumcheck
+    - `RowDisablingPoly` for removing the contribution of the last 4 rows of witness columns
+    - Libra hiding and handling of contribution of `libra_univariates`
+- ECCVM specific, commited sumcheck
+
+# Sumcheck Verifier
+Now we describe the sumcheck verifier algorithm. In our codebase, we differenciate between the ECCVM case and other cases by abstracting away the verifier round operations in a `SumcheckVerifierRound` class, which is templated based `Flavor` and a `IsGrumpkingFlavor` template parameters.
+
+Here's how the verification algorithm goes for all flavors other than `ECCVMFlavor`
+1. The verifier instantiates a `VerifierZKCorrectionHandler`. This struct is in charge of applying the correction required in the zero-knowledge case.
+2. The verifier initializes the `target_sum` by adding $\rho\cdot \sum_{x_i\in\{0,1\}} H(x_0,\dots,x_{d-1})$ to the target sum of the round object.
+3. For $i \in [d]$, the verifier calls the `process_round` method of the `SumcheckVerifierRound` class which does:
+    - recovers the `round_univariate` from the transcript
+    - checks that `round_univariate.eval(0) + round_univariate.eval(1) = target_sum`
+    - updates the target sum to be `round_univariate.eval(u_i)`, where `u_i` is the round challenge.
+    - partially evaluates the $\textsf{pow}_\beta$ polynomial in accordance to the new challenge, i.e. multiplies the current evaluation by $\left( (1-u_i) + u_i\cdot \beta_i\right)$
+4. After the rounds are done, the verifier performs the final verification `round.perform_final_verification`
+    - The verifier computes the `full_honk_purported_value` (i.e. the evalution of the relation polynomial) from the evaluations of the multilinear polynomials (subrelations) and the evaluation of the `pow` polynomial.
+    - The verifier adds the ZK correction by removing the evaluation of the `RowDisablingPoly` at challenges and the libra `libra_evaluation * libra_challenge` from `full_honk_purported_value`.
+    - Finally the verifier asserts that `full_honk_porported_value` is equal to `target_sum` after all rounds are done.
+
+
+Now let us discribe the `ECCVMFlavor` version of the verifier. The only difference in this case is the `process_round` method of the `SumcheckVerifierRound`.
+The verifier keeps a list of commitments and expected opennings. At round `i+1` they:
+- get the evaluation of `round_univariate.eval(0)` and `round_univariate.eval(1)` from the transcript.
+- Adds the sum `round_univariate.eval(0) + round_univariate.eval(1)` as the expected evaluation for round `i`
+
+The list of `[(round_uni_commitment, round_uni_expected_eval)]` gets batched and proved in the polynomial commitment scheme.
