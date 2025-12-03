@@ -630,8 +630,23 @@ sel_opcode_failure * (1 - sel_opcode_failure) = 0;
 /**************************************************************************************************
  *  Opcode specific constraints
  **************************************************************************************************/
- // todo(ilyas): constraints for call/ret/revert are currently in context.pil. Consider moving some
- // of them here for greater clarity of execution trace opcodes.
+ // Opcodes handled here:
+ // - INTERNAL_CALL (partially for PC constraints), JUMP, JUMPI, MOV, SUCCESS_COPY, RETURNDATA_SIZE
+ // Opcodes handled in context.pil:
+ // - RETURN, REVERT
+ // Other opcodes are handled in a dedicated pil file in directory opcodes/ :
+ // - CALL, STATIC_CALL (external_call.pil)
+ // - EMITNOTEHASH (emit_notehash.pil)
+ // - EMITNULLIFIER (emit_nullifier.pil)
+ // - GETENVVAR (get_env_var.pil)
+ // - INTERNAL_CALL (other constraints), INTERNAL_RETURN (internal_call.pil)
+ // - L1TOL2MSGEXISTS (l1_to_l2_message_exists.pil)
+ // - NOTEHASHEXISTS (notehash_exists.pil)
+ // - NULLIFIEREXISTS (nullifier_exists.pil)
+ // - SENDL2TOL1MSG (send_l2_to_l1_msg.pil)
+ // - SLOAD (sload.pil)
+ // - SSTORE (sstore.pil)
+ // Note that DEBUGLOG is trivially handled as a "no op".
 
 #[PC_NEXT_ROW_INT_CALL_JUMP]
 NOT_LAST_EXEC * (sel_execute_internal_call + sel_execute_jump) * (pc' - rop[0]) = 0;
@@ -713,7 +728,6 @@ sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
 pol commit sel_error;
 // Observe that the errors are mutually exclusive.
 sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + sel_addressing_error + sel_register_read_error + sel_out_of_gas + sel_opcode_error;
-
 
 /**************************************************************************************************
  *  Dispatching to other subtraces
