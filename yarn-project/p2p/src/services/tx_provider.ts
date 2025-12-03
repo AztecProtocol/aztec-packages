@@ -1,7 +1,7 @@
 import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
-import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
+import type { L2BlockInfo, L2BlockNew } from '@aztec/stdlib/block';
 import type { ITxProvider } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -67,7 +67,7 @@ export class TxProvider implements ITxProvider {
   }
 
   /** Gathers txs from the tx pool, remote rpc nodes, and reqresp. */
-  public getTxsForBlock(block: L2Block, opts: { deadline: Date }): Promise<{ txs: Tx[]; missingTxs: TxHash[] }> {
+  public getTxsForBlock(block: L2BlockNew, opts: { deadline: Date }): Promise<{ txs: Tx[]; missingTxs: TxHash[] }> {
     return this.getOrderedTxsFromAllSources(
       { type: 'block', block },
       block.toBlockInfo(),

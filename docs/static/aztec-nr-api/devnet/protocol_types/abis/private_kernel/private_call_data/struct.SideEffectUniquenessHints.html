@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<title>Struct SideEffectUniquenessHints documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct SideEffectUniquenessHints</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#contract_class_logs_hashes_indices">contract_class_logs_hashes_indices</a></li>
+<li><a href="#l2_to_l1_msgs_indices">l2_to_l1_msgs_indices</a></li>
+<li><a href="#note_hash_read_request_indices">note_hash_read_request_indices</a></li>
+<li><a href="#note_hashes_indices">note_hashes_indices</a></li>
+<li><a href="#nullifier_read_request_indices">nullifier_read_request_indices</a></li>
+<li><a href="#nullifiers_indices">nullifiers_indices</a></li>
+<li><a href="#private_call_requests_indices">private_call_requests_indices</a></li>
+<li><a href="#private_logs_indices">private_logs_indices</a></li>
+<li><a href="#public_call_requests_indices">public_call_requests_indices</a></li>
+<li><a href="#side_effect_ranges">side_effect_ranges</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Empty-for-SideEffectUniquenessHints">Empty</a></li>
+<li><a href="#impl-Eq-for-SideEffectUniquenessHints">Eq</a></li>
+</ul>
+<h2>In module private_call_data</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PrivateCallData.html">PrivateCallData</a></div></li>
+<li><a href="struct.PrivateCallDataWithoutPublicInputs.html">PrivateCallDataWithoutPublicInputs</a></div></li>
+<li><a href="struct.PrivateVerificationKeyHints.html">PrivateVerificationKeyHints</a></div></li>
+<li><a href="struct.SideEffectCounterRange.html">SideEffectCounterRange</a></div></li>
+<li><a href="struct.SideEffectUniquenessHints.html">SideEffectUniquenessHints</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">protocol_types</a>::<a href="../../index.html">abis</a>::<a href="../index.html">private_kernel</a>::<a href="index.html">private_call_data</a></div>
+<h1>Struct <span id="struct" class="struct">SideEffectUniquenessHints</span></h1>
+<pre><code>pub struct SideEffectUniquenessHints {
+    pub side_effect_ranges: [<a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.SideEffectCounterRange.html" class="struct">SideEffectCounterRange</a>; 129],
+    pub note_hash_read_request_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 16],
+    pub nullifier_read_request_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 16],
+    pub note_hashes_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 16],
+    pub nullifiers_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 16],
+    pub private_call_requests_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 8],
+    pub public_call_requests_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 32],
+    pub l2_to_l1_msgs_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 8],
+    pub private_logs_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 16],
+    pub contract_class_logs_hashes_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 1],
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="side_effect_ranges" class="struct-field"><code class="code-header">side_effect_ranges: [<a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.SideEffectCounterRange.html" class="struct">SideEffectCounterRange</a>; 129]</code></div>
+<div class="padded-description"></div><div id="note_hash_read_request_indices" class="struct-field"><code class="code-header">note_hash_read_request_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 16]</code></div>
+<div class="padded-description"></div><div id="nullifier_read_request_indices" class="struct-field"><code class="code-header">nullifier_read_request_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 16]</code></div>
+<div class="padded-description"></div><div id="note_hashes_indices" class="struct-field"><code class="code-header">note_hashes_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 16]</code></div>
+<div class="padded-description"></div><div id="nullifiers_indices" class="struct-field"><code class="code-header">nullifiers_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 16]</code></div>
+<div class="padded-description"></div><div id="private_call_requests_indices" class="struct-field"><code class="code-header">private_call_requests_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 8]</code></div>
+<div class="padded-description"></div><div id="public_call_requests_indices" class="struct-field"><code class="code-header">public_call_requests_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 32]</code></div>
+<div class="padded-description"></div><div id="l2_to_l1_msgs_indices" class="struct-field"><code class="code-header">l2_to_l1_msgs_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 8]</code></div>
+<div class="padded-description"></div><div id="private_logs_indices" class="struct-field"><code class="code-header">private_logs_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 16]</code></div>
+<div class="padded-description"></div><div id="contract_class_logs_hashes_indices" class="struct-field"><code class="code-header">contract_class_logs_hashes_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; 1]</code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Empty-for-SideEffectUniquenessHints"><code class="code-header">impl <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.SideEffectUniquenessHints.html" class="struct">SideEffectUniquenessHints</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-SideEffectUniquenessHints"><code class="code-header">impl <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../protocol_types/abis/private_kernel/private_call_data/struct.SideEffectUniquenessHints.html" class="struct">SideEffectUniquenessHints</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div></main>
+</body>
+</html>

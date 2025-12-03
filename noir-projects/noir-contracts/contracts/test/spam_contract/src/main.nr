@@ -9,7 +9,6 @@ pub contract Spam {
         macros::{functions::{external, only_self}, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::{
-            address::AztecAddress,
             constants::{
                 GENERATOR_INDEX__NOTE_NULLIFIER, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL,
                 MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -19,21 +18,20 @@ pub contract Spam {
         state_vars::{Map, PublicMutable},
     };
 
-    use crate::types::{balance_set::BalanceSet, token_note::TokenNote};
+    use crate::types::balance_set::BalanceSet;
 
     #[storage]
     struct Storage<Context> {
-        balances: Map<AztecAddress, BalanceSet<TokenNote, Context>, Context>,
+        balances: BalanceSet<Context>,
         public_balances: Map<Field, PublicMutable<u128, Context>, Context>,
     }
 
     #[external("private")]
     fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
         let caller = self.msg_sender().unwrap();
-        let amount = 1 as u128;
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
-            self.storage.balances.at(caller).add(caller, amount).emit(
+            self.storage.balances.at(caller).add(1).emit(
                 caller,
                 MessageDelivery.UNCONSTRAINED_ONCHAIN,
             );

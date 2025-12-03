@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Trait HasStorageSlot documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait HasStorageSlot</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#get_storage_slot">get_storage_slot</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-HasStorageSlot&lt;M+1&gt;-for-DelayedPublicMutable<T, InitialDelay, Context>">DelayedPublicMutable<T, InitialDelay, Context></a></li>
+<li><a href="#impl-HasStorageSlot&lt;1&gt;-for-EasyPrivateUint<Context>">EasyPrivateUint<Context></a></li>
+<li><a href="#impl-HasStorageSlot&lt;1&gt;-for-Map<K, T, Context>">Map<K, T, Context></a></li>
+<li><a href="#impl-HasStorageSlot&lt;1&gt;-for-PrivateImmutable<T, Context>">PrivateImmutable<T, Context></a></li>
+<li><a href="#impl-HasStorageSlot&lt;1&gt;-for-PrivateMutable<T, Context>">PrivateMutable<T, Context></a></li>
+<li><a href="#impl-HasStorageSlot&lt;1&gt;-for-PrivateSet<T, Context>">PrivateSet<T, Context></a></li>
+<li><a href="#impl-HasStorageSlot&lt;M+1&gt;-for-PublicImmutable<T, Context>">PublicImmutable<T, Context></a></li>
+<li><a href="#impl-HasStorageSlot&lt;M&gt;-for-PublicMutable<T, Context>">PublicMutable<T, Context></a></li>
+</ul>
+<h2>In module storage</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.Storable.html">Storable</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.HasStorageSlot.html">HasStorageSlot</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">state_vars</a>::<a href="index.html">storage</a></div>
+<h1>Trait <span id="trait" class="trait">HasStorageSlot</span></h1>
+<pre><code>pub trait HasStorageSlot&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; {
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#get_storage_slot"><span class="fn">get_storage_slot</span></a>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a>;
+}</code></pre>
+
+<div class="comments">
+<p>State variables must implement this trait in order to placed in the storage struct (i.e. the one marked with the
+#[storage] attribute). The <code>N</code> value determines how many storage slots will be reserved for the state variable.</p>
+</div>
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="get_storage_slot" class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h2>Implementors</h2>
+<h3 id="impl-HasStorageSlot&lt;M+1&gt;-for-DelayedPublicMutable<T, InitialDelay, Context>"><code class="code-header">impl&lt;Context, let InitialDelay: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;M + 1&gt; for <a href="../../../noir_aztec/state_vars/delayed_public_mutable/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, Context&gt;
+<div class="where-clause">where
+    <a href="../../../protocol_types/delayed_public_mutable/delayed_public_mutable_values/struct.DelayedPublicMutableValues.html" class="struct">DelayedPublicMutableValues</a>&lt;T, InitialDelay&gt;: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>
+
+<h3 id="impl-HasStorageSlot&lt;1&gt;-for-EasyPrivateUint<Context>"><code class="code-header">impl&lt;Context&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;1&gt; for <a href="../../../easy_private_state/struct.EasyPrivateUint.html" class="struct">EasyPrivateUint</a>&lt;Context&gt;</code></h3>
+
+<h3 id="impl-HasStorageSlot&lt;1&gt;-for-Map<K, T, Context>"><code class="code-header">impl&lt;Context, K, T&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;1&gt; for <a href="../../../noir_aztec/state_vars/map/struct.Map.html" class="struct">Map</a>&lt;K, T, Context&gt;</code></h3>
+
+<h3 id="impl-HasStorageSlot&lt;1&gt;-for-PrivateImmutable<T, Context>"><code class="code-header">impl&lt;Context, T&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;1&gt; for <a href="../../../noir_aztec/state_vars/private_immutable/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;T, Context&gt;</code></h3>
+
+<h3 id="impl-HasStorageSlot&lt;1&gt;-for-PrivateMutable<T, Context>"><code class="code-header">impl&lt;Context, T&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;1&gt; for <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;T, Context&gt;</code></h3>
+
+<h3 id="impl-HasStorageSlot&lt;1&gt;-for-PrivateSet<T, Context>"><code class="code-header">impl&lt;Context, T&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;1&gt; for <a href="../../../noir_aztec/state_vars/private_set/struct.PrivateSet.html" class="struct">PrivateSet</a>&lt;T, Context&gt;</code></h3>
+
+<h3 id="impl-HasStorageSlot&lt;M+1&gt;-for-PublicImmutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;M + 1&gt; for <a href="../../../noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>
+
+<h3 id="impl-HasStorageSlot&lt;M&gt;-for-PublicMutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;M&gt; for <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, Context&gt;
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>
+
+</main>
+</body>
+</html>

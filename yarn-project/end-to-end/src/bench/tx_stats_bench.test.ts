@@ -120,7 +120,10 @@ describe('transaction benchmarks', () => {
         txType: string,
       ) => {
         logger.info(`Compressing ${txType} tx with ${name}`);
-        const proofSize = tx.chonkProof.toBuffer().length;
+        const chonkProofBuffer = tx.chonkProof.toBuffer();
+        const proofSize = chonkProofBuffer.length;
+        const compressedProof = compress(chonkProofBuffer);
+        const proofSizeCompressed = compressedProof.length;
         const txAsBuffer = tx.toBuffer();
         const numIterations = 50;
         const uncompressed: Buffer[] = Array.from({ length: numIterations }, () => Buffer.alloc(0));
@@ -170,6 +173,11 @@ describe('transaction benchmarks', () => {
         results.push({
           name: `Tx Compression/${txType}/${name}/Chonk Proof Size`,
           value: proofSize,
+          unit: 'bytes',
+        });
+        results.push({
+          name: `Tx Compression/${txType}/${name}/Chonk Proof Size Compressed`,
+          value: proofSizeCompressed,
           unit: 'bytes',
         });
       };

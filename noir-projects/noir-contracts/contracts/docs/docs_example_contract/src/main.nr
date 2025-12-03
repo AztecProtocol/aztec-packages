@@ -26,8 +26,6 @@ pub contract DocsExample {
         // Shows how to create a custom struct in PublicMutable
         leader: PublicMutable<Leader, Context>,
         legendary_card: PrivateMutable<CardNote, Context>,
-        // just used for docs example to show how to create a private mutable map.
-        profiles: Map<AztecAddress, PrivateMutable<CardNote, Context>, Context>,
         set: PrivateSet<CardNote, Context>,
         private_immutable: PrivateImmutable<CardNote, Context>,
         public_immutable: PublicImmutable<Leader, Context>,
@@ -41,12 +39,6 @@ pub contract DocsExample {
             Storage {
                 leader: PublicMutable::new(context, 1),
                 legendary_card: PrivateMutable::new(context, 3),
-                // just used for docs example (not for game play):
-                profiles: Map::new(
-                    context,
-                    4,
-                    |context, slot| PrivateMutable::new(context, slot),
-                ),
                 set: PrivateSet::new(context, 5),
                 private_immutable: PrivateImmutable::new(context, 6),
                 public_immutable: PublicImmutable::new(context, 7),
@@ -72,18 +64,23 @@ pub contract DocsExample {
 
     #[external("private")]
     fn initialize_private_immutable(points: u8) {
-        let new_card = CardNote::new(points, self.msg_sender().unwrap());
+        let owner = self.msg_sender().unwrap();
+        let new_card = CardNote::new(points);
 
-        self.storage.private_immutable.initialize(new_card).emit(
-            self.msg_sender().unwrap(),
+        self.storage.private_immutable.at(owner).initialize(new_card).emit(
+            owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
 
     #[external("utility")]
-    unconstrained fn read_note(comparator: u8, amount: Field) -> BoundedVec<CardNote, 10> {
+    unconstrained fn read_note(
+        owner: AztecAddress,
+        comparator: u8,
+        amount: Field,
+    ) -> BoundedVec<CardNote, 10> {
         let mut options = NoteViewerOptions::new();
-        self.storage.set.view_notes(options.select(
+        self.storage.set.at(owner).view_notes(options.select(
             CardNote::properties().points,
             comparator,
             amount,
@@ -92,29 +89,33 @@ pub contract DocsExample {
 
     #[external("private")]
     fn read_legendary_points() {
-        self.storage.legendary_card.get_note()
+        let owner = self.msg_sender().unwrap();
+        self.storage.legendary_card.at(owner).get_note()
     }
 
     #[external("private")]
     fn increase_legendary_points() {
+        let owner = self.msg_sender().unwrap();
         self
             .storage
             .legendary_card
+            .at(owner)
             .replace(|old_card| {
                 let points = old_card.get_points() + 1;
-                CardNote::new(points, self.msg_sender().unwrap())
+                CardNote::new(points)
             })
-            .emit(self.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+            .emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("utility")]
-    unconstrained fn is_legendary_initialized() -> bool {
-        self.storage.legendary_card.is_initialized()
+    unconstrained fn is_legendary_initialized(owner: AztecAddress) -> bool {
+        self.storage.legendary_card.at(owner).is_initialized()
     }
 
     #[external("private")]
     fn get_imm_card() -> CardNote {
-        self.storage.private_immutable.get_note()
+        let owner = self.msg_sender().unwrap();
+        self.storage.private_immutable.at(owner).get_note()
     }
 
     /// Macro equivalence section
