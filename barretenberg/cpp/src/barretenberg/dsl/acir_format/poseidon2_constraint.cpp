@@ -5,6 +5,7 @@
 // =====================
 
 #include "poseidon2_constraint.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
@@ -22,6 +23,12 @@ void create_poseidon2_permutations_constraints(Builder& builder, const Poseidon2
 
     BB_ASSERT_EQ(constraint.state.size(), 4U);
     BB_ASSERT_EQ(constraint.result.size(), 4U);
+
+    // stdlib poseidon2 does not support hashing constants
+    for (const auto& input : constraint.state) {
+        BB_ASSERT(!input.is_constant, "Poseidon2 constraint does not support constant inputs");
+    }
+
     // Get the witness assignment for each witness index
     // Write the witness assignment to the byte array state
     State state;
