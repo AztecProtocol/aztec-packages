@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/interfaces/index.js",
+    "./interfaces": "./dest/interfaces/index.js",
     "./lmdb": "./dest/lmdb/index.js",
     "./lmdb-v2": "./dest/lmdb-v2/index.js",
     "./indexeddb": "./dest/indexeddb/index.js",
