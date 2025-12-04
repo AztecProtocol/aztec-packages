@@ -485,6 +485,14 @@ Options:
 
 ## Development and Debugging Tools
 
+### flamegraph
+
+Generates a flamegraph of the gate counts of a private function call.
+
+```bash
+aztec flamegraph <artifact_path> <function_name>
+```
+
 ### codegen
 
 Validates and generates an Aztec Contract ABI from Noir ABI.
