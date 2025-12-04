@@ -70,8 +70,14 @@ A Chonk proof (`Chonk::Proof`) consists of:
 2. **Goblin proof**: Contains sub-proofs for efficient EC operations:
    - **Merge proof**: Proves correct merging of op queue tables
    - **ECCVM proof**: Proves correctness of EC operations (see [ECCVM README](../eccvm/README.md))
-   - **IPA proof**: Inner product argument for ECCVM
+   - **IPA proof**: Inner product argument for ECCVM (Grumpkin curve)
    - **Translator proof**: Converts between BN254 and Grumpkin curves
+
+**Note on deferred verification**: IPA claims and pairing points are propagated through the rollup:
+- **IPA claims** (Grumpkin): originate from ECCVM verification when Chonk or AVM proofs are recursively verified. Carried in `RollupIO` public inputs through tx_merge → block_merge → checkpoint_root → checkpoint_merge. At each level, claims from child proofs are accumulated via `IPA::accumulate`. Finally verified **in-circuit in the root rollup** via `IPA::full_verify_recursive`.
+- **Pairing points** (BN254): aggregated at each rollup level, verified **on L1** via the EVM's ecPairing precompile
+
+This amortizes the cost of IPA verification across many proofs.
 
 ---
 
