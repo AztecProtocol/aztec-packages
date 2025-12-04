@@ -11,9 +11,14 @@
 #include <memory.h>
 
 namespace {
+
+// Initial hash values H[0..7] (FIPS 180-4 Section 5.3.3)
+// First 32 bits of the fractional parts of the square roots of the first 8 primes (2..19)
 constexpr uint32_t init_constants[8]{ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                                       0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
 
+// Round constants K[0..63] (FIPS 180-4 Section 4.2.2)
+// First 32 bits of the fractional parts of the cube roots of the first 64 primes (2..311)
 constexpr uint32_t round_constants[64]{
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -25,6 +30,15 @@ constexpr uint32_t round_constants[64]{
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
 
+/**
+ * @brief ROTR^n(x) - circular right rotation (FIPS 180-4 Section 3.2)
+ *
+ * Bits that shift off the right end wrap around to the left.
+ *
+ * @param val The 32-bit word to rotate
+ * @param shift Number of positions to rotate right
+ * @return val rotated right by shift positions
+ */
 constexpr uint32_t ror(uint32_t val, uint32_t shift)
 {
     return (val >> (shift & 31U)) | (val << (32U - (shift & 31U)));
@@ -113,32 +127,8 @@ std::array<uint32_t, 8> sha256_block(const std::array<uint32_t, 8>& h_init, cons
     return output;
 }
 
-Sha256Hash sha256_block(const std::vector<uint8_t>& input)
-{
-    BB_ASSERT_EQ(input.size(), 64U);
-    std::array<uint32_t, 8> result;
-    prepare_constants(result);
-    std::array<uint32_t, 16> hash_input;
-    memcpy((void*)&hash_input[0], (void*)&input[0], 64);
-    if (is_little_endian()) {
-        for (size_t j = 0; j < hash_input.size(); ++j) {
-            hash_input[j] = __builtin_bswap32(hash_input[j]);
-        }
-    }
-    result = sha256_block(result, hash_input);
-
-    Sha256Hash output;
-    memcpy((void*)&output[0], (void*)&result[0], 32);
-    if (is_little_endian()) {
-        uint32_t* output_uint32 = (uint32_t*)&output[0];
-        for (size_t j = 0; j < 8; ++j) {
-            output_uint32[j] = __builtin_bswap32(output_uint32[j]);
-        }
-    }
-
-    return output;
-}
-
+// AUDITTODO: We do not expose a full sha stdlib equivalent to noir. This should likely be removed (along with the
+// stdlib analog) and we should update the fuzzer to compare sha256_block instead.
 template <typename ByteContainer> Sha256Hash sha256(const ByteContainer& input)
 {
     std::vector<uint8_t> message_schedule;
