@@ -36,8 +36,10 @@ jobs:
             TAG="${{ inputs.image_tag }}"
             echo "Using manually specified tag: $TAG"
 
-            # Extract semver (remove -amd64 suffix if present, remove -nightly.YYYYMMDD if present)
-            SEMVER=$(echo "$TAG" | sed 's/-amd64$//' | sed 's/-nightly\.[0-9]\{8\}//')
+            # Extract semver (remove -amd64 suffix if present, remove -nightly.YYYYMMDD(.N) if present)
+            SEMVER=$(echo "$TAG" \
+              | sed 's/-amd64$//' \
+              | sed -E 's/-nightly\.[0-9]{8}(\.[0-9]+)?$//')
           else
             # Scheduled nightly run - get latest nightly tag
             current_version=$(jq -r '."."' .release-please-manifest.json)
@@ -51,10 +53,18 @@ jobs:
             if [[ "$TAGS" != *"not found"* ]]; then
               TAG="$nightly_tag"
               SEMVER="$current_version"
-              echo "Using nightly tag: $TAG"
             else
-              echo "Error: Tag $nightly_tag not published to docker hub"
-              exit 1
+              prefix="${nightly_tag%-amd64}"
+              candidate=$(curl -s "https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags?page_size=10&name=${prefix}" \
+                | jq -r --arg p "$prefix" '.results[].name | select(test("^" + $p + "(\\.[0-9]+)?-amd64$"))' \
+                | head -n1)
+              if [[ -n "$candidate" ]]; then
+                TAG="$candidate"
+                SEMVER="$current_version"
+              else
+                echo "Error: Tag $nightly_tag not published to docker hub"
+                exit 1
+              fi
             fi
           fi
 
