@@ -553,10 +553,9 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         result.emplace_back(mul_quad);
     }
 
-    BB_ASSERT_EQ(!result.empty(),
-                 true,
-                 "split_into_mul_quad_gates: resulted in zero gates. This means that there is an expression with no  "
-                 "multiplication terms and no linear terms.");
+    BB_ASSERT(!result.empty(),
+              "split_into_mul_quad_gates: resulted in zero gates. This means that there is an expression with no  "
+              "multiplication terms and no linear terms.");
     result.shrink_to_fit();
 
     return result;
@@ -589,9 +588,8 @@ void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFo
     }
 
     for (auto const& mul_quad : mul_quads) {
-        BB_ASSERT_EQ(!is_zero_gate(mul_quad),
-                     true,
-                     "acir_format::assert_zero_to_quad_constraints: produced an arithmetic zero gate.");
+        BB_ASSERT(!is_zero_gate(mul_quad),
+                  "acir_format::assert_zero_to_quad_constraints: produced an arithmetic zero gate.");
     }
 }
 
