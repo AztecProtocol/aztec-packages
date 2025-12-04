@@ -587,7 +587,7 @@ case "$cmd" in
     export CI=1
     export CI_FULL=1
     build
-    yarn-project/end-to-end/bootstrap.sh test_and_dump_avm_inputs
+    yarn-project/end-to-end/bootstrap.sh test_and_collect_avm_inputs
     ;;
   "ci-avm-check-circuit")
     # Nightly job: Download cached AVM inputs and run check-circuit on each

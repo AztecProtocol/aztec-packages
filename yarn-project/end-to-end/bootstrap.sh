@@ -142,7 +142,7 @@ function bench {
 }
 
 # Runs e2e tests with AVM circuit inputs dumping enabled, then packages and uploads them
-function test_and_dump_avm_inputs {
+function test_and_collect_avm_inputs {
 	echo_header "e2e tests with AVM circuit inputs dumping"
 
 	# Fail if dump directory already exists to avoid mixing/overwriting results
@@ -158,12 +158,10 @@ function test_and_dump_avm_inputs {
 	# Run tests in parallel (like regular test command)
 	test_cmds | filter_test_cmds | parallelize
 
-	# Create tarball of all dumped avm circuit inputs
 	local tarball_name="e2e-avm-circuit-inputs-$hash.tar.gz"
 
 	if [ -d "$default_avm_inputs_dump_dir" ] && [ "$(ls -A $default_avm_inputs_dump_dir 2>/dev/null)" ]; then
-		echo_header "Packaging AVM circuit inputs"
-		# Upload the tarball of all dumped avm circuit inputs
+		echo_header "Packaging and uploading AVM circuit inputs"
 		cache_upload "$tarball_name" "$default_avm_inputs_dump_dir"
 	else
 		echo_stderr "Warning: No AVM circuit inputs were dumped. Skipping upload."
