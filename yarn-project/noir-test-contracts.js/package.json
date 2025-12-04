@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "yarn clean && yarn generate",
-    "build:dev": "tsgo -b --watch",
+    "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./src ./codegenCache.json",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
