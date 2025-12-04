@@ -47,6 +47,8 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecurs
     // The number of entities added for ZK (gemini_masking_poly)
     static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
 
+    static constexpr size_t VIRTUAL_LOG_N = MegaZKFlavor::VIRTUAL_LOG_N;
+
     // NUM_ALL_ENTITIES includes gemini_masking_poly
     static constexpr size_t NUM_ALL_ENTITIES =
         MegaRecursiveFlavor_<BuilderType>::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;

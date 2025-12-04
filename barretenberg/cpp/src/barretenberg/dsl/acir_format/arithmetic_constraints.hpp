@@ -4,11 +4,45 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "big_quad_constraints.hpp"
+#pragma once
+#include "acir_format.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/honk/execution_trace/gate_data.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include <vector>
 
 namespace acir_format {
 
-using namespace bb;
+/**
+ * @brief Replace indices which are set to IS_CONSTANT with the zero index of the builder
+ *
+ * @details When creating a mul_quad_ gate, unused witness indices are set to IS_CONSTANT. When adding the gate to
+ * the builder, we replace these indices with the zero index. Note that we don't do this replacement for a, so that
+ * we implicitly get a check that the gate is non-zero when adding it to the Builder.
+ */
+template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad);
+
+/**
+ * @brief Check if a mul add gate is valid.
+ *
+ */
+template <typename Builder>
+void check_mul_add_gate(Builder& builder,
+                        const mul_quad_<typename Builder::FF>& mul_quad,
+                        const typename Builder::FF next_wire_w4 = Builder::FF::zero());
+
+/**
+ * @brief Create a simple width-4 Ultra arithmetic gate constraint representing the equation
+ * \f[
+ *    mul_{scaling} * (a * b) +
+ *          a_{scaling} * a + b_{scaling} * b + c_{scaling} * c + d_{scaling} * d + const == 0
+ * \f]
+ *
+ */
+template <typename Builder>
+void create_quad_constraint(Builder& builder, bb::mul_quad_<typename Builder::FF>& mul_quad);
 
 // clang-format off
 /**
@@ -43,48 +77,6 @@ using namespace bb;
  */
 // clang-format on
 template <typename Builder>
-void create_big_quad_constraint(Builder& builder, std::vector<mul_quad_<typename Builder::FF>>& big_constraint)
-{
-    using FF = typename Builder::FF;
-
-    // The index/value of the 4-th witness in the next gate (not used in the first gate)
-    // It is result of the expression calculated on the current gate
-    uint32_t next_w4_wire_idx = 0;
-    FF next_w4_wire_value = FF::zero();
-
-    for (size_t j = 0; j < big_constraint.size() - 1; ++j) {
-        // Replace IS_CONSTANT indices with zero indices
-        set_zero_idx(builder, big_constraint[j]);
-        // Create the mul_add gate
-        builder.create_big_mul_add_gate(big_constraint[j], /*include_next_gate_w_4*/ true);
-        // Update the index/value of the 4-th wire
-        next_w4_wire_value = builder.get_variable(big_constraint[j].a) * builder.get_variable(big_constraint[j].b) *
-                                 big_constraint[j].mul_scaling +
-                             builder.get_variable(big_constraint[j].a) * big_constraint[j].a_scaling +
-                             builder.get_variable(big_constraint[j].b) * big_constraint[j].b_scaling +
-                             builder.get_variable(big_constraint[j].c) * big_constraint[j].c_scaling +
-                             builder.get_variable(big_constraint[j].d) * big_constraint[j].d_scaling +
-                             big_constraint[j].const_scaling;
-        next_w4_wire_value = -next_w4_wire_value;
-        next_w4_wire_idx = builder.add_variable(next_w4_wire_value);
-        // Check if the gate is valid
-        check_mul_add_gate(builder, big_constraint[j], next_w4_wire_value);
-        // Set the 4-th wire of the next gate
-        big_constraint[j + 1].d = next_w4_wire_idx;
-        big_constraint[j + 1].d_scaling = fr(-1);
-    }
-    // Replace IS_CONSTANT indices with zero indices
-    set_zero_idx(builder, big_constraint.back());
-    // Create final gate
-    builder.create_big_mul_add_gate(big_constraint.back(), /*include_next_gate_w_4*/ false);
-    // Check if the gate is valid
-    check_mul_add_gate(builder, big_constraint.back());
-}
-
-template void create_big_quad_constraint<UltraCircuitBuilder>(
-    UltraCircuitBuilder& builder, std::vector<mul_quad_<UltraCircuitBuilder::FF>>& big_constraint);
-
-template void create_big_quad_constraint<MegaCircuitBuilder>(
-    MegaCircuitBuilder& builder, std::vector<mul_quad_<MegaCircuitBuilder::FF>>& big_constraint);
+void create_big_quad_constraint(Builder& builder, std::vector<bb::mul_quad_<typename Builder::FF>>& big_constraint);
 
 } // namespace acir_format
