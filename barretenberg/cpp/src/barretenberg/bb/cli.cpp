@@ -209,11 +209,19 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "  evm-no-zk:              Ethereum/Solidity without zero-knowledge\n"
                          "  noir-recursive:         Recursive verification in Noir circuits (poseidon2, ZK)\n"
                          "  noir-recursive-no-zk:   Recursive verification without ZK\n"
+                         "  noir-rollup:            Rollup circuits with IPA accumulation (poseidon2, ZK)\n"
+                         "  noir-rollup-no-zk:      Rollup circuits without ZK\n"
                          "  starknet:               Starknet verification via Garaga (ZK)\n"
                          "  starknet-no-zk:         Starknet without zero-knowledge")
             ->envname("BB_VERIFIER_TARGET")
-            ->check(CLI::IsMember(
-                { "evm", "evm-no-zk", "noir-recursive", "noir-recursive-no-zk", "starknet", "starknet-no-zk" }));
+            ->check(CLI::IsMember({ "evm",
+                                    "evm-no-zk",
+                                    "noir-recursive",
+                                    "noir-recursive-no-zk",
+                                    "noir-rollup",
+                                    "noir-rollup-no-zk",
+                                    "starknet",
+                                    "starknet-no-zk" }));
     };
 
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {
@@ -610,9 +618,37 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     CLI11_PARSE(app, argc, argv);
 
-    // Apply verifier_target to derive oracle_hash_type and disable_zk
+    // Apply verifier_target to derive oracle_hash_type, disable_zk, and ipa_accumulation
     // This only applies when verifier_target is explicitly set
     if (!flags.verifier_target.empty()) {
+        // Check for conflicting flags - verifier_target should not be combined with low-level flags
+        // We need to check the active subcommand for these options
+        CLI::App* active_sub = find_deepest_subcommand(&app);
+        if (active_sub != nullptr) {
+            // Helper to safely get option count (returns 0 if option doesn't exist)
+            auto get_option_count = [](CLI::App* sub, const std::string& name) -> size_t {
+                try {
+                    return sub->get_option(name)->count();
+                } catch (const CLI::OptionNotFound&) {
+                    return 0;
+                }
+            };
+
+            if (get_option_count(active_sub, "--oracle_hash") > 0) {
+                throw_or_abort("Cannot use --verifier_target with --oracle_hash. "
+                               "The --verifier_target flag sets oracle_hash automatically.");
+            }
+            if (get_option_count(active_sub, "--disable_zk") > 0) {
+                throw_or_abort("Cannot use --verifier_target with --disable_zk. "
+                               "Use a '-no-zk' variant of --verifier_target instead (e.g., 'evm-no-zk').");
+            }
+            if (get_option_count(active_sub, "--ipa_accumulation") > 0) {
+                throw_or_abort("Cannot use --verifier_target with --ipa_accumulation. "
+                               "Use '--verifier_target noir-rollup' for IPA accumulation.");
+            }
+        }
+
+        // Map verifier_target to underlying flags
         if (flags.verifier_target == "evm") {
             flags.oracle_hash_type = "keccak";
         } else if (flags.verifier_target == "evm-no-zk") {
@@ -622,6 +658,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
             flags.oracle_hash_type = "poseidon2";
         } else if (flags.verifier_target == "noir-recursive-no-zk") {
             flags.oracle_hash_type = "poseidon2";
+            flags.disable_zk = true;
+        } else if (flags.verifier_target == "noir-rollup") {
+            flags.oracle_hash_type = "poseidon2";
+            flags.ipa_accumulation = true;
+        } else if (flags.verifier_target == "noir-rollup-no-zk") {
+            flags.oracle_hash_type = "poseidon2";
+            flags.ipa_accumulation = true;
             flags.disable_zk = true;
         } else if (flags.verifier_target == "starknet") {
             flags.oracle_hash_type = "starknet";
@@ -634,7 +677,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
               "' -> oracle_hash_type='",
               flags.oracle_hash_type,
               "', disable_zk=",
-              flags.disable_zk);
+              flags.disable_zk,
+              ", ipa_accumulation=",
+              flags.ipa_accumulation);
     }
 
     // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any
