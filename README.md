@@ -29,7 +29,17 @@ All issues being worked on are tracked on the [Aztec Github Project](https://git
 
 ## Debugging
 
-Logging goes through the [Logger](yarn-project/foundation/src/log/) module in Typescript. `LOG_LEVEL` controls the default log level, and one can set alternate levels for specific modules, such as `debug; warn: module1, module2; error: module3`.
+Logging goes through the `Logger` module in Typescript. The `LOG_LEVEL` environment variable controls the default log level, and you can override levels for specific modules.
+
+A few example configurations:
+
+# Enable debug logs for everything
+export LOG_LEVEL=debug
+
+# Default to info, but enable debug logs for aztec:node and aztec:rpc,
+# while keeping tests at error level only
+export LOG_LEVEL="info; debug: aztec:node, aztec:rpc; error: tests"
+
 
 ## Releases
 
