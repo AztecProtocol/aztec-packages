@@ -15,33 +15,24 @@ main_fuzzer=''
 set_main_fuzzer() {
     if [[ "$avm" == "on" ]]; then
         main_fuzzer="./build-fuzzing-avm/bin"
-    elif [[ "$asm" == "on" ]]; then
+        return;
+    fi
+    if [[ "$asm" == "on" ]]; then
         main_fuzzer="./build-fuzzing/bin"
     elif [[ "$asm" == "off" ]]; then
         main_fuzzer="./build-fuzzing-noasm/bin"
     else
-        echo "Unexpected asm flag value: $asm. Expecting on/off";
+        echo "Expected asm value to be on/off (got $asm) or avm=on (got $avm)";
         exit 1;
     fi
 }
 
 show_fuzzers() {
     echo "The following fuzzers are available:"
-    echo
-    if [[ "$avm" == "on" ]]; then
-        echo "=== AVM Fuzzers ==="
-        if compgen -G "./build-fuzzing-avm/bin/*"* &> /dev/null; then
-            for f in "./build-fuzzing-avm/bin/"*; do
-                basename "$f";
-            done;
-        fi
-    else
-        echo "=== Standard Fuzzers ==="
-        if compgen -G "$main_fuzzer/*"* &> /dev/null; then
-            for f in "$main_fuzzer/"*; do
-                basename "$f";
-            done;
-        fi
+    if compgen -G "$main_fuzzer/*"* &> /dev/null; then
+        for f in "$main_fuzzer/"*; do
+            basename "$f";
+        done;
     fi
 }
 
@@ -124,21 +115,13 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+set_main_fuzzer
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
 }
 
-# Set the main fuzzer path based on flags
-set_main_fuzzer
-
-# AVM mode uses the same build for post-crash analysis (no separate ASAN build)
-if [[ "$avm" == "on" ]]; then
-    post_fuzzer="./build-fuzzing-avm/bin"
-    cov_fuzzer="./build-fuzzing-avm/bin"
-else
-    post_fuzzer="./build-fuzzing-asan/bin"
-    cov_fuzzer="./build-fuzzing-cov/bin"
-fi
+post_fuzzer="./build-fuzzing-asan/bin"
+cov_fuzzer="./build-fuzzing-cov/bin"
 
 workdir="/home/fuzzer"
 
@@ -173,9 +156,7 @@ main_fuzzer="$main_fuzzer/$fuzzer"
 post_fuzzer="$post_fuzzer/$fuzzer"
 cov_fuzzer="$cov_fuzzer/$fuzzer"
 
-if [[ "$avm" == "on" ]]; then
-    fuzzer="$fuzzer"_avm
-elif [[ "$asm" == "off" ]]; then
+if [[ "$asm" == "off" ]]; then
     fuzzer="$fuzzer"_noasm
 fi
 

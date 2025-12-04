@@ -105,11 +105,12 @@ if [[ $? -ne 0 ]]; then
     exit 1;
 fi
 
+avm_flag=""
+if [[ "$avm" == "on" ]]; then
+    avm_flag="--avm"
+fi
+
 if [[ "$mode" == "show-fuzzers" ]]; then
-    avm_flag=""
-    if [[ "$avm" == "on" ]]; then
-        avm_flag="--avm"
-    fi
     docker run -it --rm                                      \
         --entrypoint "./entrypoint.sh"                       \
         "$image_name"                                        \
@@ -129,11 +130,6 @@ fi
 [[ -d output ]] || mkdir output;
 [[ -d corpus ]] || mkdir corpus;
 [[ -d coverage ]] || mkdir coverage;
-
-avm_flag=""
-if [[ "$avm" == "on" ]]; then
-    avm_flag="--avm"
-fi
 
 if [[ $verbosity == '1' ]]; then
     docker run -it --rm                                         \
