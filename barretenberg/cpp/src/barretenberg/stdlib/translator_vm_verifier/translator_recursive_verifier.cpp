@@ -73,31 +73,17 @@ void TranslatorRecursiveVerifier::put_translation_data_in_relation_parameters(co
  * @brief Creates a circuit that executes the Translator verifier algorithm up to the final pairing check.
  *
  * @tparam Flavor
- * @param proof Native proof
- * @param evaluation_input_x Translation polynomial evaluation challenge
- * @param batching_challenge_v Challenge for batching translation polynomial evaluations
- * @return TranslatorRecursiveVerifier_<Flavor>::PairingPoints
- */
-TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_proof(const HonkProof& proof,
-                                                                                     const BF& evaluation_input_x,
-                                                                                     const BF& batching_challenge_v)
-{
-    StdlibProof stdlib_proof(*builder, proof);
-    return verify_proof(stdlib_proof, evaluation_input_x, batching_challenge_v);
-}
-
-/**
- * @brief Creates a circuit that executes the Translator verifier algorithm up to the final pairing check.
- *
- * @tparam Flavor
  * @param proof Stdlib proof
  * @param evaluation_input_x Translation polynomial evaluation challenge
  * @param batching_challenge_v Challenge for batching translation polynomial evaluations
  * @return TranslatorRecursiveVerifier_<Flavor>::PairingPoints
  */
-TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_proof(const StdlibProof& proof,
-                                                                                     const BF& evaluation_input_x,
-                                                                                     const BF& batching_challenge_v)
+TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_proof(
+    const StdlibProof& proof,
+    const BF& evaluation_input_x,
+    const BF& batching_challenge_v,
+    const BF& accumulated_result,
+    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = Flavor::PCS;
@@ -119,7 +105,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
+    // Use accumulated_result from ECCVM verifier instead of receiving from transcript
     // The point is prime basis limb of accumulated result can be easily recovered from binary basis limbs, so
     // there's no meaning to use it at the circuit next and we can put it in used_witnesses
     mark_witness_as_used(accumulated_result.prime_basis_limb);
@@ -129,12 +115,17 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     // Receive Gemini masking polynomial commitment (for ZK-PCS)
     commitments.gemini_masking_poly = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
 
-    // Get commitments to wires and the ordered range constraints that do not require additional challenges
-    for (auto [comm, label] : zip_view(commitments.get_wires_and_ordered_range_constraints(),
-                                       commitment_labels.get_wires_and_ordered_range_constraints())) {
+    // Set op queue wire commitments (provided by merge protocol, not from translator proof)
+    commitments.op = op_queue_wire_commitments[0];
+    commitments.x_lo_y_hi = op_queue_wire_commitments[1];
+    commitments.x_hi_z_1 = op_queue_wire_commitments[2];
+    commitments.y_lo_z_2 = op_queue_wire_commitments[3];
+
+    // Receive commitments to non-op-queue wires and ordered range constraints
+    for (auto [comm, label] : zip_view(commitments.get_non_opqueue_wires_and_ordered_range_constraints(),
+                                       commitment_labels.get_non_opqueue_wires_and_ordered_range_constraints())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
-    op_queue_commitments = { commitments.op, commitments.x_lo_y_hi, commitments.x_hi_z_1, commitments.y_lo_z_2 };
 
     // Get permutation challenges
     FF beta = transcript->template get_challenge<FF>("beta");
@@ -195,41 +186,6 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript));
 
     return pairing_points;
-}
-
-void TranslatorRecursiveVerifier::verify_translation(const TranslationEvaluations_<BF>& translation_evaluations,
-                                                     const BF& translation_masking_term_eval)
-{
-    const auto reconstruct_from_array = [&](const auto& arr) {
-        return BF::construct_from_limbs(arr[0], arr[1], arr[2], arr[3]);
-    };
-
-    const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
-    const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
-    const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
-    const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
-    const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);
-    const BF v4 = reconstruct_from_array(relation_parameters.batching_challenge_v[3]);
-    const BF& op = translation_evaluations.op;
-    const BF& Px = translation_evaluations.Px;
-    const BF& Py = translation_evaluations.Py;
-    const BF& z1 = translation_evaluations.z1;
-    const BF& z2 = translation_evaluations.z2;
-
-    const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
-    // multiply by x here to deal with shift
-    eccvm_opening.assert_equal(x * accumulated_result);
-}
-
-void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
-    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& merge_commitments)
-{
-    // Check the consistency with final merge
-    for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {
-        // Use incomplete_assert_equal to verify x, y coordinates and infinity flag match
-        merge_commitment.incomplete_assert_equal(translator_commitment,
-                                                 "translator commitments inconsistent with final merge");
-    }
 }
 
 } // namespace bb

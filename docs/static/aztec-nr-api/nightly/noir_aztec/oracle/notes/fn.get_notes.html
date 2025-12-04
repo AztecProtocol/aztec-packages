@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Function get_notes documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module notes</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.check_nullifier_exists.html">check_nullifier_exists</a></div></li>
+<li><a href="fn.get_next_app_tag_as_sender.html">get_next_app_tag_as_sender</a></div></li>
+<li><a href="fn.get_notes.html">get_notes</a></div></li>
+<li><a href="fn.get_sender_for_tags.html">get_sender_for_tags</a></div></li>
+<li><a href="fn.notify_created_note.html">notify_created_note</a></div></li>
+<li><a href="fn.notify_created_nullifier.html">notify_created_nullifier</a></div></li>
+<li><a href="fn.notify_nullified_note.html">notify_nullified_note</a></div></li>
+<li><a href="fn.set_sender_for_tags.html">set_sender_for_tags</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">notes</a></div>
+<h1>Function <span class="fn">get_notes</span></h1>
+<pre><code>pub unconstrained fn get_notes&lt;Note, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let MaxNotes: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    num_selects: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>,
+    select_by_indexes: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; M],
+    select_by_offsets: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; M],
+    select_by_lengths: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; M],
+    select_values: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; M],
+    select_comparators: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; M],
+    sort_by_indexes: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; M],
+    sort_by_offsets: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; M],
+    sort_by_lengths: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; M],
+    sort_order: [<a href="../../../std/primitive.u8.html" class="primitive">u8</a>; M],
+    limit: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    offset: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
+    status: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>,
+) -> [<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;&gt;; MaxNotes]
+<div class="where-clause">where
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></pre>
+
+</main>
+</body>
+</html>

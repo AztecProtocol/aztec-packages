@@ -4,6 +4,7 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { L2Block } from '@aztec/stdlib/block';
@@ -17,12 +18,20 @@ import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { NativeWorldStateService } from '../native/native_world_state.js';
 
 export async function mockBlock(
-  blockNum: number,
+  blockNum: BlockNumber,
   size: number,
   fork: MerkleTreeWriteOperations,
   maxEffects: number | undefined = 1000, // Defaults to the maximum tx effects.
 ) {
-  const l2Block = await L2Block.random(blockNum, size, undefined, undefined, undefined, undefined, maxEffects);
+  const l2Block = await L2Block.random(
+    BlockNumber(Number(blockNum)),
+    size,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    maxEffects,
+  );
   const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.random);
 
   {
@@ -76,7 +85,7 @@ export async function mockBlock(
   };
 }
 
-export async function mockEmptyBlock(blockNum: number, fork: MerkleTreeWriteOperations) {
+export async function mockEmptyBlock(blockNum: BlockNumber, fork: MerkleTreeWriteOperations) {
   const l2Block = L2Block.empty();
   const l1ToL2Messages = Array(16).fill(0).map(Fr.zero);
 
@@ -127,13 +136,18 @@ export async function mockEmptyBlock(blockNum: number, fork: MerkleTreeWriteOper
   };
 }
 
-export async function mockBlocks(from: number, count: number, numTxs: number, worldState: NativeWorldStateService) {
-  const tempFork = await worldState.fork(from - 1);
+export async function mockBlocks(
+  from: BlockNumber,
+  count: number,
+  numTxs: number,
+  worldState: NativeWorldStateService,
+) {
+  const tempFork = await worldState.fork(BlockNumber(from - 1));
 
   const blocks = [];
   const messagesArray = [];
   for (let blockNumber = from; blockNumber < from + count; blockNumber++) {
-    const { block, messages } = await mockBlock(blockNumber, numTxs, tempFork);
+    const { block, messages } = await mockBlock(BlockNumber(blockNumber), numTxs, tempFork);
     blocks.push(block);
     messagesArray.push(messages);
   }

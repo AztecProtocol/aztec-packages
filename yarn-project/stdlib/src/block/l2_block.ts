@@ -1,5 +1,5 @@
 import { type BlockBlobData, encodeBlockBlobData, encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
-import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -89,7 +89,7 @@ export class L2Block {
    * @returns The L2 block.
    */
   static async random(
-    l2BlockNum: number,
+    l2BlockNum: BlockNumber,
     txsPerBlock = 4,
     numPublicCallsPerTx = 3,
     numPublicLogsPerCall = 1,
@@ -114,7 +114,7 @@ export class L2Block {
     return new L2Block(AppendOnlyTreeSnapshot.empty(), L2BlockHeader.empty(), Body.empty());
   }
 
-  get number(): number {
+  get number(): BlockNumber {
     return this.header.getBlockNumber();
   }
 
@@ -251,7 +251,7 @@ export class L2Block {
       archive: this.archive.root,
       lastArchive: this.header.lastArchive.root,
       blockNumber: this.number,
-      slotNumber: Number(this.header.getSlot()),
+      slotNumber: this.header.getSlot(),
       txCount: this.body.txEffects.length,
       timestamp: this.header.globalVariables.timestamp,
     };

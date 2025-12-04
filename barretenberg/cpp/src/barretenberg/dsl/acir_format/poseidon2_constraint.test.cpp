@@ -1,65 +1,103 @@
 #include "poseidon2_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
+#include "barretenberg/dsl/acir_format/test_class.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 
-#include <cstdint>
 #include <gtest/gtest.h>
-#include <strings.h>
 #include <vector>
 
-namespace acir_format::tests {
-
 using namespace bb;
+using namespace acir_format;
 
-class Poseidon2Tests : public ::testing::Test {
+template <class BuilderType> class Poseidon2TestingFunctions {
+  public:
+    using Builder = BuilderType;
+    using AcirConstraint = Poseidon2Constraint;
+    using Poseidon2 = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>;
+    using State = Poseidon2::State;
+
+    struct InvalidWitness {
+      public:
+        enum class Target : uint8_t {
+            None,
+            Input,  // Tamper with an input value
+            Output, // Tamper with an output value
+        };
+
+        static std::vector<Target> get_all() { return { Target::None, Target::Input, Target::Output }; }
+
+        static std::vector<std::string> get_labels() { return { "None", "Input", "Output" }; }
+    };
+
+    void invalidate_witness(Poseidon2Constraint& constraint,
+                            WitnessVector& witness_values,
+                            const InvalidWitness::Target& invalid_witness_target)
+    {
+        switch (invalid_witness_target) {
+        case InvalidWitness::Target::Input:
+            // Tamper with the first input element
+            witness_values[constraint.state[0].index] += bb::fr(1);
+            break;
+        case InvalidWitness::Target::Output:
+            // Tamper with the first output element
+            witness_values[constraint.result[0]] += bb::fr(1);
+            break;
+        case InvalidWitness::Target::None:
+            break;
+        }
+    }
+
+    /**
+     * @brief Generate valid Poseidon2 constraint with correct witness values
+     */
+    void generate_constraints(Poseidon2Constraint& poseidon2_constraint, WitnessVector& witness_values)
+    {
+        // Start with the zero variable at index 0
+        witness_values.emplace_back(bb::fr(0));
+
+        // Use a reproducible input state
+        State input_state = { bb::fr(0), bb::fr(1), bb::fr(2), bb::fr(3) };
+
+        // Compute expected output using native Poseidon2 permutation
+        State output_state = Poseidon2::permutation(input_state);
+
+        // Add input and output state to witness
+        auto input_indices = add_to_witness_and_track_indices<State, 4>(witness_values, input_state);
+        auto output_indices = add_to_witness_and_track_indices<State, 4>(witness_values, output_state);
+
+        // Create the constraint
+        poseidon2_constraint = Poseidon2Constraint{
+            .state = { WitnessOrConstant<bb::fr>::from_index(input_indices[0]),
+                       WitnessOrConstant<bb::fr>::from_index(input_indices[1]),
+                       WitnessOrConstant<bb::fr>::from_index(input_indices[2]),
+                       WitnessOrConstant<bb::fr>::from_index(input_indices[3]) },
+            .result = { output_indices[0], output_indices[1], output_indices[2], output_indices[3] },
+        };
+    }
+};
+
+template <class Builder>
+class Poseidon2ConstraintsTest : public ::testing::Test, public TestClass<Poseidon2TestingFunctions<Builder>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
-using fr = field<Bn254FrParams>;
 
-/**
- * @brief Create a circuit testing the Poseidon2 permutation function
- *
- */
-TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
+using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
+
+TYPED_TEST_SUITE(Poseidon2ConstraintsTest, BuilderTypes);
+
+TYPED_TEST(Poseidon2ConstraintsTest, GenerateVKFromConstraints)
 {
-    Poseidon2Constraint
-        poseidon2_constraint{
-            .state = {
-                WitnessOrConstant<bb::fr>::from_index(1),
-                WitnessOrConstant<bb::fr>::from_index(2),
-                WitnessOrConstant<bb::fr>::from_index(3),
-                WitnessOrConstant<bb::fr>::from_index(4),
- },
-            .result = { 5, 6, 7, 8, },
-        };
-
-    AcirFormat constraint_system{
-        .varnum = 9,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .poseidon2_constraints = { poseidon2_constraint },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
-    };
-    mock_opcode_indices(constraint_system);
-
-    WitnessVector witness{
-        1,
-        0,
-        1,
-        2,
-        3,
-        fr(std::string("0x01bd538c2ee014ed5141b29e9ae240bf8db3fe5b9a38629a9647cf8d76c01737")),
-        fr(std::string("0x239b62e7db98aa3a2a8f6a0d2fa1709e7a35959aa6c7034814d9daa90cbac662")),
-        fr(std::string("0x04cbb44c61d928ed06808456bf758cbf0c18d1e15a7b6dbc8245fa7515d5e3cb")),
-        fr(std::string("0x2e11c5cff2a22c64d01304b778d78f6998eff1ab73163a35603f54794c30847a")),
-    };
-
-    AcirProgram program{ constraint_system, witness };
-    auto builder = create_circuit(program);
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
+    TestFixture::template test_vk_independence<Flavor>();
 }
 
-} // namespace acir_format::tests
+TYPED_TEST(Poseidon2ConstraintsTest, Tampering)
+{
+    BB_DISABLE_ASSERTS();
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+}

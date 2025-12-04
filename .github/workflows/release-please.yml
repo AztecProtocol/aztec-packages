@@ -157,6 +157,11 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
+      - name: Install Noir toolchain
+        uses: noir-lang/noirup@v0.1.4
+        with:
+          toolchain: nightly
+
       - name: Query new version
         id: version
         run: |
@@ -167,6 +172,12 @@ jobs:
           AZTEC_VERSION="v$AZTEC_VERSION"
 
           echo "semver=$AZTEC_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate Aztec.nr API documentation
+        working-directory: ./docs
+        run: |
+          ./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh ${{ steps.version.outputs.semver }}
+          echo "Generated Aztec.nr API docs for: ${{ steps.version.outputs.semver }}"
 
       - name: Cut Aztec Docs version
         working-directory: ./docs

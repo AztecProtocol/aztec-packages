@@ -17,6 +17,9 @@ namespace bb {
 */
 class MegaZKFlavor : public bb::MegaFlavor {
   public:
+    // MegaZK is only used in production to prove the Hiding Kernel
+    static constexpr size_t VIRTUAL_LOG_N = HIDING_KERNEL_LOG_N;
+
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
 
@@ -58,7 +61,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     // Proof length formula
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = MegaFlavor::VIRTUAL_LOG_N)
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
     {
         return /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
                /* 2. Libra concatenation commitment*/ (num_frs_comm) +

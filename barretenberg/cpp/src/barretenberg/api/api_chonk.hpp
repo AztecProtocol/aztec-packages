@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/api/acir_format_getters.hpp"
 #include "barretenberg/api/api.hpp"
 #include <filesystem>
 #include <stdexcept>

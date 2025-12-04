@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import {
@@ -42,7 +42,7 @@ describe('AttestationsBlockWatcher', () => {
     await watcher.start();
 
     // Set up common test data
-    block = await L2Block.random(1, 4);
+    block = await L2Block.random(BlockNumber(1), 4);
     l2BlockInfo = block.toBlockInfo();
     proposer = EthAddress.fromString('0x0000000000000000000000000000000000000abc');
     committee = [proposer, EthAddress.fromString('0x0000000000000000000000000000000000000def')];
@@ -143,7 +143,7 @@ describe('AttestationsBlockWatcher', () => {
     await sleep(100);
 
     // Now emit a block that builds on the invalid block
-    const childBlock = await L2Block.random(2, 4);
+    const childBlock = await L2Block.random(BlockNumber(2), 4);
     childBlock.header.lastArchive.root = block.archive.root;
     const childBlockInfo = childBlock.toBlockInfo();
     const proposer2 = EthAddress.fromString('0x0000000000000000000000000000000000000def');

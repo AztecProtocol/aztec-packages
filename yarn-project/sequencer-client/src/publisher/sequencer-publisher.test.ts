@@ -15,7 +15,7 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -91,7 +91,7 @@ describe('SequencerPublisher', () => {
     mockBlobSinkServer = undefined;
     blobSinkClient = new HttpBlobSinkClient({ blobSinkUrl: BLOB_SINK_URL });
 
-    l2Block = await L2Block.random(42);
+    l2Block = await L2Block.random(BlockNumber(42));
 
     header = l2Block.getCheckpointHeader();
     archive = l2Block.archive.root.toBuffer();
@@ -173,7 +173,7 @@ describe('SequencerPublisher', () => {
 
     const currentL2Slot = publisher.getCurrentL2Slot();
 
-    l2Block = await L2Block.random(42, undefined, undefined, undefined, undefined, Number(currentL2Slot));
+    l2Block = await L2Block.random(BlockNumber(42), undefined, undefined, undefined, undefined, Number(currentL2Slot));
 
     header = l2Block.getCheckpointHeader();
     archive = l2Block.archive.root.toBuffer();

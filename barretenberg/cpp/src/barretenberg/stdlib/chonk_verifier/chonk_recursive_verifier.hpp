@@ -28,7 +28,6 @@ class ChonkRecursiveVerifier {
 
     struct StdlibProof {
         using StdlibHonkProof = bb::stdlib::Proof<Builder>;
-        using StdlibGoblinProof = GoblinRecursiveVerifier::StdlibProof;
 
         static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
         {
@@ -40,8 +39,8 @@ class ChonkRecursiveVerifier {
             return bb::Chonk::Proof::PROOF_LENGTH(virtual_log_n);
         }
 
-        StdlibHonkProof mega_proof; // proof of the Hiding kernel
-        StdlibGoblinProof goblin_proof;
+        StdlibHonkProof mega_proof; // proof of the hiding circuit
+        GoblinStdlibProof goblin_proof;
 
         StdlibProof(Builder& builder, const Chonk::Proof& proof)
             : mega_proof(builder, proof.mega_proof)
@@ -77,17 +76,15 @@ class ChonkRecursiveVerifier {
             end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
             goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), it + start_idx, it + end_idx);
 
-            // ECCVM pre-ipa proof
+            // ECCVM proof (IPA is separate)
             start_idx = end_idx;
-            end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
-            goblin_proof.eccvm_proof.pre_ipa_proof.insert(
-                goblin_proof.eccvm_proof.pre_ipa_proof.end(), it + start_idx, it + end_idx);
+            end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+            goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), it + start_idx, it + end_idx);
 
-            // ECCVM ipa proof
+            // IPA proof
             start_idx = end_idx;
             end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
-            goblin_proof.eccvm_proof.ipa_proof.insert(
-                goblin_proof.eccvm_proof.ipa_proof.end(), it + start_idx, it + end_idx);
+            goblin_proof.ipa_proof.insert(goblin_proof.ipa_proof.end(), it + start_idx, it + end_idx);
 
             // Translator proof
             start_idx = end_idx;

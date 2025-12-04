@@ -15,7 +15,6 @@ export async function sequencers(opts: {
   nodeUrl: string;
   l1RpcUrls: string[];
   chainId: number;
-  blockNumber?: number;
   log: LogFn;
 }) {
   const { command, who: maybeWho, mnemonic, bn254SecretKey, nodeUrl, l1RpcUrls, chainId, log } = opts;

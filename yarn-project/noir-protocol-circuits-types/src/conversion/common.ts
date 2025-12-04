@@ -8,7 +8,7 @@ import {
   MAX_PROTOCOL_CONTRACTS,
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { type Serializable, type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
@@ -565,7 +565,7 @@ export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir)
   return new GlobalVariables(
     mapFieldFromNoir(globalVariables.chain_id),
     mapFieldFromNoir(globalVariables.version),
-    mapNumberFromNoir(globalVariables.block_number),
+    BlockNumber(mapNumberFromNoir(globalVariables.block_number)),
     SlotNumber(mapFieldFromNoir(globalVariables.slot_number).toNumber()),
     mapBigIntFromNoir(globalVariables.timestamp),
     mapEthAddressFromNoir(globalVariables.coinbase),

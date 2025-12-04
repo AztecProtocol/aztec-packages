@@ -42,14 +42,13 @@ polynomials to \f$ T^i(X_i)\f$
  */
 
 template <typename Flavor> class SumcheckProverRound {
-
-    using FF = typename Flavor::FF;
     using Utils = bb::RelationUtils<Flavor>;
+
+  public:
+    using FF = typename Flavor::FF;
     using Relations = typename Flavor::Relations;
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
-
-  public:
     using ExtendedEdges = std::conditional_t<Flavor::USE_SHORT_MONOMIALS,
                                              typename Flavor::template ProverUnivariates<2>,
                                              typename Flavor::ExtendedEdges>;
@@ -375,7 +374,6 @@ template <typename Flavor> class SumcheckProverRound {
 
         const size_t min_iterations_per_thread = 1 << 10; // min number of iterations for which we'll spin up a unique
         const size_t num_threads = bb::calculate_num_threads_pow2(effective_round_size, min_iterations_per_thread);
-        const size_t iterations_per_thread = effective_round_size / num_threads; // actual iterations per thread
 
         std::vector<BlockOfContiguousRows> result;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
@@ -383,9 +381,14 @@ template <typename Flavor> class SumcheckProverRound {
         if constexpr (can_skip_rows) {
             std::vector<std::vector<BlockOfContiguousRows>> all_thread_blocks(num_threads);
             parallel_for(num_threads, [&](size_t thread_idx) {
+                ThreadChunk chunk{ .thread_index = thread_idx, .total_threads = num_threads };
+                auto range = chunk.range(effective_round_size);
+                if (range.empty()) {
+                    return;
+                }
                 size_t current_block_size = 0;
-                size_t start = thread_idx * iterations_per_thread;
-                size_t end = (thread_idx + 1) * iterations_per_thread;
+                size_t start = *range.begin();
+                size_t end = start + range.size();
                 std::vector<BlockOfContiguousRows> thread_blocks;
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
                     if (!Flavor::skip_entire_row(polynomials, edge_idx)) {
@@ -686,6 +689,15 @@ template <typename Flavor> class SumcheckProverRound {
         } else {
             return libra_round_univariate.template extend_to<SumcheckRoundUnivariate::LENGTH>();
         }
+    }
+
+    // Methods made accessible for testing
+    void accumulate_relation_univariates_public(SumcheckTupleOfTuplesOfUnivariates& univariate_accumulators,
+                                                const auto& extended_edges,
+                                                const bb::RelationParameters<FF>& relation_parameters,
+                                                const FF& scaling_factor)
+    {
+        accumulate_relation_univariates(univariate_accumulators, extended_edges, relation_parameters, scaling_factor);
     }
 
   private:

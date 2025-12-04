@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -514,7 +514,7 @@ describe('sentinel', () => {
 
   describe('handleChainProven', () => {
     it('calls inactivity watcher with performance data', async () => {
-      const blockNumber = 15;
+      const blockNumber = BlockNumber(15);
       const blockHash = '0xblockhash';
       const mockBlock = await randomPublishedL2Block(blockNumber);
       const slot = mockBlock.block.header.getSlot();

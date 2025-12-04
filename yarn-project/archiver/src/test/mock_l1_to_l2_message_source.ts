@@ -1,3 +1,4 @@
+import { BlockNumber, type CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import type { L2Tips } from '@aztec/stdlib/block';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -18,6 +19,11 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     this.blockNumber = blockNumber;
   }
 
+  getL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
+    return this.getL1ToL2Messages(checkpointNumber);
+  }
+
   getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
     return Promise.resolve(this.messagesPerBlock.get(blockNumber) ?? []);
   }
@@ -26,13 +32,13 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     throw new Error('Method not implemented.');
   }
 
-  getBlockNumber(): Promise<number> {
-    return Promise.resolve(this.blockNumber);
+  getBlockNumber() {
+    return Promise.resolve(BlockNumber(this.blockNumber));
   }
 
   getL2Tips(): Promise<L2Tips> {
     const number = this.blockNumber;
-    const tip = { number, hash: new Fr(number).toString() };
+    const tip = { number: BlockNumber(number), hash: new Fr(number).toString() };
     return Promise.resolve({
       latest: tip,
       proven: tip,

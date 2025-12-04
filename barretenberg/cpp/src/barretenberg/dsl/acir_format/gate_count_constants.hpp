@@ -23,7 +23,8 @@ inline constexpr size_t ZERO_GATE = 1;
 template <typename Builder> inline constexpr size_t ARITHMETIC_TRIPLE = 1 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t QUAD = 1 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BIG_QUAD = 2 + ZERO_GATE + MEGA_OFFSET<Builder>;
-template <typename Builder> inline constexpr size_t LOGIC_XOR_32 = 2950 + ZERO_GATE + MEGA_OFFSET<Builder>;
+template <typename Builder> inline constexpr size_t LOGIC_XOR_32 = 6 + ZERO_GATE + MEGA_OFFSET<Builder>;
+template <typename Builder> inline constexpr size_t LOGIC_AND_32 = 6 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t RANGE_32 = 2744 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t SHA256_COMPRESSION = 6679 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t AES128_ENCRYPTION = 1432 + ZERO_GATE + MEGA_OFFSET<Builder>;
@@ -36,8 +37,8 @@ template <typename Builder> inline constexpr size_t ECDSA_SECP256K1 = 41994 + ZE
 template <typename Builder>
 inline constexpr size_t ECDSA_SECP256R1 = 72209 + ZERO_GATE + (IsMegaBuilder<Builder> ? 2 : 0);
 
-template <typename Builder> inline constexpr size_t BLAKE2S = 2864 + ZERO_GATE + MEGA_OFFSET<Builder>;
-template <typename Builder> inline constexpr size_t BLAKE3 = 2100 + ZERO_GATE + MEGA_OFFSET<Builder>;
+template <typename Builder> inline constexpr size_t BLAKE2S = 2959 + ZERO_GATE + MEGA_OFFSET<Builder>;
+template <typename Builder> inline constexpr size_t BLAKE3 = 2165 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t KECCAK_PERMUTATION = 17387 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t POSEIDON2_PERMUTATION = 73 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t MULTI_SCALAR_MUL = 3550 + ZERO_GATE;
@@ -80,7 +81,7 @@ inline constexpr std::tuple<size_t, size_t, size_t> HONK_RECURSION_CONSTANTS = [
 // ========================================
 
 // Gate count for Chonk recursive verification (UltraRollup builder)
-inline constexpr size_t CHONK_RECURSION_GATES = 2541245;
+inline constexpr size_t CHONK_RECURSION_GATES = 2494057;
 
 // ========================================
 // Hypernova Recursion Constants
