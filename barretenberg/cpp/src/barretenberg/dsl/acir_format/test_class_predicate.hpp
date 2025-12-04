@@ -143,6 +143,17 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
 
     /**
      * @brief General purpose testing function. It generates the test based on the predicate and invalidation target.
+     *
+     * @details In a real flow, we have:
+     *          Noir --> ACIR --> Bytes --> AcirFormat (via circuit_buf_to_acir_format) --> Builder
+     * We simulate the above flow by generating an AcirConstraint (one of the constraints stored in an AcirFormat
+     * struct), rewinding it into its Acir::Opcode form (which is the output of the byte deserialization step in the
+     * diagram above), and then feeding it into circuit_serde_to_acir_format as an Acir::Circuit with a single opcode.
+     * The function circuit_buf_to_acir_format internally calls circuit_serde_to_acir_format after having deserialized
+     * the byte buffer to an Acir::Circuit, so the flow in this test is the same as the real flow, minus the byte
+     * serialization/deserialization. The rationale for doing the rewinding is ensuring that barretenberg internally
+     * tests circuit_serde_to_acir_format, which would otherwise only be tested via the tests in acir_tests.
+     *
      */
     static std::tuple<bool, bool, std::string> test_constraints(const PredicateTestCase& test_case,
                                                                 const InvalidWitnessTarget& invalid_witness_target)
@@ -151,16 +162,9 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
                                                       .invalid_witness = invalid_witness_target };
         auto [constraint, witness_values] = generate_constraints(predicate);
 
-        AcirFormat constraint_system = {
-            .max_witness_index = static_cast<uint32_t>(witness_values.size() - 1),
-            .num_acir_opcodes = 1,
-            .public_inputs = {},
-            .original_opcode_indices = create_empty_original_opcode_indices(),
-        };
-
-        add_constraint_to_acir_format(constraint_system, constraint);
-
-        mock_opcode_indices(constraint_system);
+        // Use the full ACIR flow: constraint -> Acir::Opcode -> Acir::Circuit -> circuit_serde_to_acir_format
+        AcirFormat constraint_system = constraint_to_acir_format(
+            constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
 
         AcirProgram program{ constraint_system, witness_values };
         auto builder = create_circuit<Builder>(program);
@@ -170,6 +174,9 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
 
     /**
      * @brief Test vk generation is independent of the witness values supplied.
+     *
+     * @details This function tests that the verification key is deterministic and independent
+     * of the witness values by going through the full ACIR flow.
      *
      * @tparam Flavor
      */
@@ -189,16 +196,9 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
                                                           .invalid_witness = InvalidWitnessTarget::None };
             auto [constraint, witness_values] = generate_constraints(predicate);
 
-            AcirFormat constraint_system = {
-                .max_witness_index = static_cast<uint32_t>(witness_values.size() - 1),
-                .num_acir_opcodes = 1,
-                .public_inputs = {},
-                .original_opcode_indices = create_empty_original_opcode_indices(),
-            };
-
-            add_constraint_to_acir_format(constraint_system, constraint);
-
-            mock_opcode_indices(constraint_system);
+            // Use the full ACIR flow
+            AcirFormat constraint_system = constraint_to_acir_format(
+                constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
 
             // Construct the vks
             std::shared_ptr<VerificationKey> vk_from_witness;

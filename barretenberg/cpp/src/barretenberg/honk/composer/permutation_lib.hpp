@@ -84,16 +84,11 @@ template <size_t NUM_WIRES> struct PermutationMapping {
             ids[wire_idx] = Mapping(circuit_size);
         }
 
-        const size_t num_threads = calculate_num_threads_pow2(circuit_size, /*min_iterations_per_thread=*/1 << 10);
-        size_t iterations_per_thread = circuit_size / num_threads; // actual iterations per thread
-
-        parallel_for(num_threads, [&](size_t thread_idx) {
-            uint32_t start = static_cast<uint32_t>(thread_idx * iterations_per_thread);
-            uint32_t end = static_cast<uint32_t>((thread_idx + 1) * iterations_per_thread);
-
+        parallel_for([&](const ThreadChunk& chunk) {
             // Initialize every element to point to itself
             for (uint8_t col_idx = 0; col_idx < NUM_WIRES; ++col_idx) {
-                for (uint32_t row_idx = start; row_idx < end; ++row_idx) {
+                for (size_t i : chunk.range(circuit_size)) {
+                    auto row_idx = static_cast<uint32_t>(i);
                     auto idx = static_cast<ptrdiff_t>(row_idx);
                     // sigma polynomials
                     sigmas[col_idx].row_idx[idx] = row_idx;

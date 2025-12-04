@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -70,11 +71,11 @@ describe('p2p client integration message propagation', () => {
     worldState.status.mockResolvedValue({
       state: mock(),
       syncSummary: {
-        latestBlockNumber: 0,
+        latestBlockNumber: BlockNumber.ZERO,
         latestBlockHash: '',
-        finalizedBlockNumber: 0,
+        finalizedBlockNumber: BlockNumber.ZERO,
         treesAreSynched: false,
-        oldestHistoricBlockNumber: 0,
+        oldestHistoricBlockNumber: BlockNumber.ZERO,
       },
     });
     logger.info(`Starting test ${expect.getState().currentTestName}`);

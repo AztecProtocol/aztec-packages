@@ -7,6 +7,7 @@ import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -84,7 +85,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   const waitForMessageReady = async (
     msgHash: Fr,
     scope: 'private' | 'public',
-    onNotReady?: (blockNumber: number) => Promise<void>,
+    onNotReady?: (blockNumber: BlockNumber) => Promise<void>,
   ) => {
     const msgBlock = await waitForMessageFetched(msgHash);
     log.warn(`Waiting until L2 reaches msg block ${msgBlock} (current is ${await aztecNode.getBlockNumber()})`);

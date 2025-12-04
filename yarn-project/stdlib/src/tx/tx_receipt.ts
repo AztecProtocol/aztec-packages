@@ -1,3 +1,4 @@
+import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -38,7 +39,7 @@ export class TxReceipt {
     /** The hash of the block containing the transaction. */
     public blockHash?: L2BlockHash,
     /** The block number in which the transaction was included. */
-    public blockNumber?: number,
+    public blockNumber?: BlockNumber,
   ) {}
 
   static empty() {
@@ -52,7 +53,7 @@ export class TxReceipt {
         status: z.nativeEnum(TxStatus),
         error: z.string(),
         blockHash: L2BlockHash.schema.optional(),
-        blockNumber: z.number().int().nonnegative().optional(),
+        blockNumber: BlockNumberSchema.optional(),
         transactionFee: schemas.BigInt.optional(),
       })
       .transform(TxReceipt.from);

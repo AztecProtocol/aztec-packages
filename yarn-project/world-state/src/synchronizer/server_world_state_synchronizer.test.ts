@@ -1,4 +1,5 @@
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { SHA256Trunc, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -49,7 +50,7 @@ describe('ServerWorldStateSynchronizer', () => {
 
   beforeEach(() => {
     blockAndMessagesSource = mock<L2BlockSource & L1ToL2MessageSource>();
-    blockAndMessagesSource.getBlockNumber.mockResolvedValue(LATEST_BLOCK_NUMBER);
+    blockAndMessagesSource.getBlockNumber.mockResolvedValue(BlockNumber(LATEST_BLOCK_NUMBER));
     blockAndMessagesSource.getL1ToL2Messages.mockResolvedValue(l1ToL2Messages);
 
     merkleTreeRead = mock<MerkleTreeReadOperations>();
@@ -67,9 +68,9 @@ describe('ServerWorldStateSynchronizer', () => {
     latestHandledBlockNumber = 0;
 
     merkleTreeDb.getStatusSummary.mockResolvedValue({
-      unfinalizedBlockNumber: BigInt(latestHandledBlockNumber),
-      finalizedBlockNumber: 0n,
-      oldestHistoricalBlock: 0n,
+      unfinalizedBlockNumber: BlockNumber(latestHandledBlockNumber),
+      finalizedBlockNumber: BlockNumber.ZERO,
+      oldestHistoricalBlock: BlockNumber.ZERO,
       treesAreSynched: true,
     } satisfies WorldStateStatusSummary);
 
@@ -96,10 +97,10 @@ describe('ServerWorldStateSynchronizer', () => {
       type: 'blocks-added',
       blocks: await timesParallel(
         to - from + 1,
-        async i => ({ block: await L2Block.random(i + from, 4, 3, 1, inHash) }) as PublishedL2Block,
+        async i => ({ block: await L2Block.random(BlockNumber(i + from), 4, 3, 1, inHash) }) as PublishedL2Block,
       ),
     });
-    server.latest.number = to;
+    server.latest.number = BlockNumber(to);
   };
 
   const expectServerStatus = async (state: WorldStateRunningState, blockNumber: number) => {
@@ -150,14 +151,14 @@ describe('ServerWorldStateSynchronizer', () => {
   });
 
   it('immediately syncs if no new blocks', async () => {
-    blockAndMessagesSource.getBlockNumber.mockResolvedValue(0);
+    blockAndMessagesSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
 
     await server.start();
     await expectServerStatus(WorldStateRunningState.RUNNING, 0);
   });
 
   it('cannot be started if already stopped', async () => {
-    blockAndMessagesSource.getBlockNumber.mockResolvedValue(0);
+    blockAndMessagesSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
 
     await server.start();
     await server.stop();
@@ -181,7 +182,7 @@ describe('ServerWorldStateSynchronizer', () => {
     await pushBlocks(1, 5);
 
     l2BlockStream.sync.mockImplementation(() => pushBlocks(6, 8));
-    await server.syncImmediate(7);
+    await server.syncImmediate(BlockNumber(7));
 
     await expectServerStatus(WorldStateRunningState.RUNNING, 8);
     expect(merkleTreeDb.handleL2BlockAndMessages).toHaveBeenCalledTimes(8);
@@ -191,7 +192,7 @@ describe('ServerWorldStateSynchronizer', () => {
     void server.start();
     await pushBlocks(1, 5);
 
-    await server.syncImmediate(4);
+    await server.syncImmediate(BlockNumber(4));
     expect(l2BlockStream.sync).not.toHaveBeenCalled();
 
     await expectServerStatus(WorldStateRunningState.RUNNING, 5);
@@ -202,11 +203,11 @@ describe('ServerWorldStateSynchronizer', () => {
     void server.start();
     await pushBlocks(1, 5);
 
-    await expect(server.syncImmediate(8)).rejects.toThrow(/unable to sync/i);
+    await expect(server.syncImmediate(BlockNumber(8))).rejects.toThrow(/unable to sync/i);
   });
 
   it('throws if you try to immediate sync when not running', async () => {
-    await expect(server.syncImmediate(3)).rejects.toThrow(/is not running/i);
+    await expect(server.syncImmediate(BlockNumber(3))).rejects.toThrow(/is not running/i);
   });
 
   it('throws if handling blocks fails', async () => {
@@ -217,9 +218,9 @@ describe('ServerWorldStateSynchronizer', () => {
 });
 
 class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
-  public latest = { number: 0, hash: '' };
-  public finalized = { number: 0, hash: '' };
-  public proven = { number: 0, hash: '' };
+  public latest = { number: BlockNumber.ZERO, hash: '' };
+  public finalized = { number: BlockNumber.ZERO, hash: '' };
+  public proven = { number: BlockNumber.ZERO, hash: '' };
 
   constructor(
     merkleTrees: MerkleTreeAdminDatabase,
