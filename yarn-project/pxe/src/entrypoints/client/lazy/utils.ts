@@ -43,7 +43,7 @@ export async function createPXE(
 
   const store = options.store ?? (await createStore('pxe_data', configWithContracts, storeLogger));
 
-  const simulator = new WASMSimulator();
+  const simulator = options.simulator ?? new WASMSimulator();
   const proverLogger = loggers.prover
     ? loggers.prover
     : createLogger('pxe:bb:wasm:bundle' + (logSuffix ? `:${logSuffix}` : ''));
