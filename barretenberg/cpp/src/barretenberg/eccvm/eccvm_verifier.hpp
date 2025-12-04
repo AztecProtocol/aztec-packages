@@ -31,7 +31,6 @@ template <typename Flavor> class ECCVMVerifier_ {
     using PCS = Flavor::PCS;
     using TranslatorInputData = TranslatorInputData_<FF>;
 
-<<<<<<< HEAD
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
 
@@ -59,18 +58,6 @@ template <typename Flavor> class ECCVMVerifier_ {
     [[nodiscard("IPA claim should be verified/accumulated")]] OpeningClaim<Curve> verify_proof();
 
     void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
-=======
-
-  public:
-    using TranslatorInputData = TranslatorInputData_<FF>;
-
-    explicit ECCVMVerifier(const std::shared_ptr<Transcript>& transcript)
-        : transcript(transcript) {};
-
-    bool verify_proof(const ECCVMProof& proof);
-    void compute_translation_opening_claims(
-        const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
->>>>>>> origin/merge-train/barretenberg
     void compute_accumulated_result();
 
     /**
@@ -81,7 +68,6 @@ template <typename Flavor> class ECCVMVerifier_ {
     {
         return { evaluation_challenge_x, batching_challenge_v, accumulated_result };
     }
-<<<<<<< HEAD
 
     std::shared_ptr<VerificationKey> key;
     Proof proof;
@@ -90,8 +76,6 @@ template <typename Flavor> class ECCVMVerifier_ {
 
     // Builder pointer (only used for recursive, nullptr for native)
     std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
-=======
->>>>>>> origin/merge-train/barretenberg
 
     // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
     // `multivariate_to_univariate_opening_claim`
