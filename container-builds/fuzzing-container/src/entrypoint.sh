@@ -159,7 +159,6 @@ OUTPUT="$OUTPUT/$fuzzer"
 CORPUS="$CORPUS/$fuzzer"
 COVERAGE="$COVERAGE/$fuzzer"
 RAWCOV="$RAWCOV/$fuzzer"
-mkdir -p "$CRASHES" "$CORPUS" "$OUTPUT" "$COVERAGE" "$RAWCOV"
 
 if compgen -G "$OUTPUT/*"* &>/dev/null; then
 	dirs_=("$OUTPUT/"*)
@@ -168,7 +167,9 @@ if compgen -G "$OUTPUT/*"* &>/dev/null; then
 else
 	OUTPUT="$OUTPUT/0"
 fi
-[[ -d "$OUTPUT" ]] || mkdir "$OUTPUT"
+
+mkdir -p "$CRASHES" "$CORPUS" "$OUTPUT" "$COVERAGE" "$RAWCOV"
+
 log "Output directory is: $OUTPUT"
 
 regress() {
@@ -198,7 +199,7 @@ log "End of regression"
 fuzz() {
 	TMPOUT="$(mktemp -d)"
 	MINDIR=""
-    trap 'rm -rf "$TMPOUT"' EXIT
+	trap 'rm -rf "$TMPOUT"' EXIT
 
 	log "Start $fuzzer with: max_total_time: $timeout, $jobs_ jobs and $workers workers"
 	"$main_fuzzer" -max_total_time="$timeout" -verbosity="$verbosity" -artifact_prefix="$TMPOUT/" -jobs="$jobs_" -workers="$workers" -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 "$CORPUS" &>"$TMPOUT/session.log"
@@ -241,7 +242,7 @@ fuzz() {
 
 	log "Minimizing the corpus of size $(find "$CORPUS" -type f | wc -l)..."
 	MINCORP="$TMPOUT/corpus"
-	[[ -d $MINCORP ]] || mkdir "$MINCORP"
+	mkdir -p "$MINCORP"
 
 	"$main_fuzzer" -merge=1 -jobs="$jobs_" -workers="$workers" "$MINCORP" "$CORPUS"
 	rm -rf "$CORPUS"
