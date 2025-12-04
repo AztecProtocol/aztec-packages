@@ -9,6 +9,7 @@
 #include "barretenberg/common/net.hpp"
 #include <array>
 #include <memory.h>
+#include <span>
 
 namespace {
 
