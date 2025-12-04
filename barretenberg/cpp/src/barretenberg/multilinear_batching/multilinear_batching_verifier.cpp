@@ -91,10 +91,10 @@ MultilinearBatchingVerifier<Flavor_>::VerifierClaim MultilinearBatchingVerifier<
                                                                     shifted_challenges,
                                                                     batching_challenge);
 
-    FF shifted_evaluation = sumcheck_result.claimed_evaluations.w_shifted_instance +
-                            sumcheck_result.claimed_evaluations.w_shifted_accumulator * batching_challenge;
-    FF non_shifted_evaluation = sumcheck_result.claimed_evaluations.w_non_shifted_instance +
-                                sumcheck_result.claimed_evaluations.w_non_shifted_accumulator * batching_challenge;
+    FF shifted_evaluation = sumcheck_result.claimed_evaluations.batched_shifted_instance +
+                            sumcheck_result.claimed_evaluations.batched_shifted_accumulator * batching_challenge;
+    FF non_shifted_evaluation = sumcheck_result.claimed_evaluations.batched_unshifted_instance +
+                                sumcheck_result.claimed_evaluations.batched_unshifted_accumulator * batching_challenge;
     std::vector<FF> challenge = sumcheck_result.challenge;
 
     return VerifierClaim{
@@ -167,9 +167,9 @@ bool MultilinearBatchingVerifier<Flavor_>::check_eq_consistency(const SumcheckOu
                                                                 const std::vector<FF>& accumulator_challenges,
                                                                 const std::vector<InstanceFF>& instance_challenges)
 {
-    auto accumulator_eq_check = sumcheck_result.claimed_evaluations.w_evaluations_accumulator ==
+    auto accumulator_eq_check = sumcheck_result.claimed_evaluations.eq_accumulator ==
                                 VerifierEqPolynomial<FF>::eval(accumulator_challenges, sumcheck_result.challenge);
-    auto instance_eq_check = sumcheck_result.claimed_evaluations.w_evaluations_instance ==
+    auto instance_eq_check = sumcheck_result.claimed_evaluations.eq_instance ==
                              VerifierEqPolynomial<FF>::eval(instance_challenges, sumcheck_result.challenge);
 
     if constexpr (IsRecursiveFlavor<Flavor>) {

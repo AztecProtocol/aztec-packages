@@ -41,8 +41,8 @@ bool MergeVerifier_<Curve>::check_degree_identity(std::vector<FF>& evals,
     }
     degree_check_diff -= evals.back() * pow_kappa_minus_one;
     if constexpr (IsRecursive) {
-        degree_check_diff.assert_equal(FF(0), "assert_equal: merge degree identity failed in Merge Verifier");
         degree_check_verified &= degree_check_diff.get_value() == 0;
+        degree_check_diff.assert_equal(FF(0), "assert_equal: merge degree identity failed in Merge Verifier");
     } else {
         degree_check_verified &= degree_check_diff == 0;
     }

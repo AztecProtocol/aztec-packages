@@ -69,6 +69,7 @@
 ### 2. Multilinear Batching (`multilinear_batching/`)
 
 - [ ] `compute_new_claim`: Challenge generation
+- [ ] `check_eq_consistency`: Verifier eq polynomial check
 - [ ] `MultilinearBatchingAccumulatorRelationImpl::accumulate`
 - [ ] `MultilinearBatchingInstanceRelationImpl::accumulate`
 
@@ -205,13 +206,15 @@ Issues identified during code review that need addressing:
 | Shifted vs unshifted polynomials | `hypernova_prover.hpp` | ✓ Done |
 | Accumulator structure concept | `hypernova_prover.hpp` | ✓ Done |
 | Tuple return `(bool, bool, Accumulator)` unclear | `hypernova_verifier.hpp:verify_folding_proof` | ✓ Done |
+| Multilinear batching relation purpose | `multilinear_batching_relation.hpp` | ✓ Done |
+| Databus lookup relation | `databus_lookup_relation.hpp` | ✓ Well documented |
 
 ### Medium Priority (Function Docs)
 
 | Issue | Location | Status |
 |-------|----------|--------|
 | PREPEND vs APPEND mode logic | `merge_verifier.cpp:133-141` | ✓ Done |
-| eq polynomial verification purpose | `multilinear_batching_verifier.cpp:159-162` | ✓ Done |
+| eq polynomial verification purpose | `multilinear_batching_verifier.cpp:check_eq_consistency` | ✓ Done |
 | FIFO queue rationale | `goblin.cpp:recursively_verify_merge` | ✓ Done |
 | `ensure_well_formed_op_queue_for_avm` purpose | `goblin.cpp:124` | TODO |
 
