@@ -6,48 +6,59 @@
 
 #pragma once
 #include "barretenberg/common/ref_span.hpp"
-#include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include <vector>
 
 namespace bb {
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1552): Optimize batch_mul_native
 /**
- * @brief Wrapper around Pippenger MSM for native batch multiplication
- * @note Uses MSM::msm with handle_edge_cases=true for safe evaluation
+ * @brief Utility for native batch multiplication of group elements
+ * @note This is used only for native verification and is not optimized for efficiency
  */
-template <typename Curve>
-static typename Curve::AffineElement batch_mul_native(std::span<const typename Curve::AffineElement> _points,
-                                                      std::span<const typename Curve::ScalarField> _scalars)
+template <typename Commitment, typename FF>
+static Commitment batch_mul_native(std::span<const Commitment> _points, std::span<const FF> _scalars)
 {
-    using FF = typename Curve::ScalarField;
-    // Copy scalars since MSM mutates them (converts from Montgomery form)
-    std::vector<FF> scalars(_scalars.begin(), _scalars.end());
-    PolynomialSpan<const FF> scalar_span(0, scalars);
-    return scalar_multiplication::MSM<Curve>::msm(_points, scalar_span, /*handle_edge_cases=*/true);
+    std::vector<Commitment> points;
+    std::vector<FF> scalars;
+    for (size_t i = 0; i < _points.size(); ++i) {
+        auto point = _points[i];
+        auto scalar = _scalars[i];
+
+        // TODO: Special handling of point at infinity here due to incorrect serialization.
+        if (!scalar.is_zero() && !point.is_point_at_infinity() && !point.y.is_zero()) {
+            points.emplace_back(point);
+            scalars.emplace_back(scalar);
+        }
+    }
+
+    if (points.empty()) {
+        return Commitment::infinity();
+    }
+
+    auto result = points[0] * scalars[0];
+    for (size_t idx = 1; idx < scalars.size(); ++idx) {
+        result = result + points[idx] * scalars[idx];
+    }
+    return result;
 }
 
 /**
- * @brief Wrapper that accepts vectors for backward compatibility
+ * @brief Wrapper for batch_mul_native that accepts vectors for backward compatibility
  */
-template <typename Curve>
-static typename Curve::AffineElement batch_mul_native(const std::vector<typename Curve::AffineElement>& _points,
-                                                      const std::vector<typename Curve::ScalarField>& _scalars)
+template <typename Commitment, typename FF>
+static Commitment batch_mul_native(const std::vector<Commitment>& _points, const std::vector<FF>& _scalars)
 {
-    return batch_mul_native<Curve>(std::span<const typename Curve::AffineElement>(_points),
-                                   std::span<const typename Curve::ScalarField>(_scalars));
+    return batch_mul_native<Commitment, FF>(std::span<const Commitment>(_points), std::span<const FF>(_scalars));
 }
 
 /**
- * @brief Wrapper that accepts span + vector (common pattern)
+ * @brief Wrapper for batch_mul_native that accepts span + vector (common pattern)
  */
-template <typename Curve>
-static typename Curve::AffineElement batch_mul_native(std::span<const typename Curve::AffineElement> _points,
-                                                      const std::vector<typename Curve::ScalarField>& _scalars)
+template <typename Commitment, typename FF>
+static Commitment batch_mul_native(std::span<const Commitment> _points, const std::vector<FF>& _scalars)
 {
-    return batch_mul_native<Curve>(_points, std::span<const typename Curve::ScalarField>(_scalars));
+    return batch_mul_native<Commitment, FF>(_points, std::span<const FF>(_scalars));
 }
 
 } // namespace bb
