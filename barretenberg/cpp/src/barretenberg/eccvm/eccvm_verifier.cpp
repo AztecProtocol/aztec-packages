@@ -221,7 +221,7 @@ void ECCVMVerifier_<Flavor>::compute_translation_opening_claims(const std::vecto
     std::vector<FF> batching_challenges = { FF::one() };
     for (size_t idx = 1; idx < NUM_TRANSLATION_EVALUATIONS; ++idx) {
         batched_translation_evaluation += batching_scalar * translation_evaluations.get_all()[idx];
-        batching_challenges.emplace_back(batching_scalar);
+        batching_challenges.push_back(batching_scalar);
         batching_scalar *= batching_challenge_v;
     }
     if constexpr (IsRecursive) {

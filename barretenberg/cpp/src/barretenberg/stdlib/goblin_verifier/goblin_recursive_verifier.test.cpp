@@ -65,15 +65,15 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     // ECCVM pre-IPA proof ends with evaluations including `op`. We tamper with the `op` evaluation.
     // The structure is: [..., op_eval, x_lo_y_hi_eval, x_hi_z_1_eval, y_lo_z_2_eval, IPA_proof...]
     // So op_eval is 3 fields before the IPA proof starts.
-    static void tamper_with_eccvm_op_eval(HonkProof& eccvm_pre_ipa_proof)
+    static void tamper_with_eccvm_op_eval(HonkProof& eccvm_proof)
     {
         // The `op` evaluation is located 3 evaluations before the end of pre-IPA proof
         // (followed by x_lo_y_hi, x_hi_z_1, y_lo_z_2 evaluations)
         static constexpr size_t evals_after_op = 3; // x_lo_y_hi, x_hi_z_1, y_lo_z_2
-        const size_t op_eval_idx = eccvm_pre_ipa_proof.size() - evals_after_op;
+        const size_t op_eval_idx = eccvm_proof.size() - evals_after_op;
 
         // Tamper with the op evaluation
-        eccvm_pre_ipa_proof[op_eval_idx] += FF(1);
+        eccvm_proof[op_eval_idx] += FF(1);
     };
 
     /**
