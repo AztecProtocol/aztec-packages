@@ -88,7 +88,9 @@ export class FieldDiv extends ThreeOperandArithmeticInstruction {
   static readonly opcode = Opcode.FDIV_8; // FIXME: needed for gas.
 
   protected compute(a: Field, b: Field): Field {
-    // return (a as Field).fdiv(b as Field);
+    if (b.toBigInt() === 0n) {
+      throw new ArithmeticError('Division by zero');
+    }
     return a.fdiv(b);
   }
 
