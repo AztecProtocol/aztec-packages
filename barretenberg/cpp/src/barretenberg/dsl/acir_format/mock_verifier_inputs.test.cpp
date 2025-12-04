@@ -50,12 +50,12 @@ TEST(MockVerifierInputsTest, MockMergeProofSize)
  */
 TEST(MockVerifierInputsTest, MockPreIpaProofSize)
 {
-    size_t CURRENT_PRE_IPA_PROOF_SIZE = 606;
-    EXPECT_EQ(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH, CURRENT_PRE_IPA_PROOF_SIZE)
+    size_t CURRENT_ECCVM_PROOF_SIZE = 606;
+    EXPECT_EQ(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS, CURRENT_ECCVM_PROOF_SIZE)
         << "The length of the Pre-IPA proof changed.";
 
-    HonkProof pre_ipa_proof = create_mock_pre_ipa_proof();
-    EXPECT_EQ(pre_ipa_proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
+    HonkProof eccvm_proof = create_mock_eccvm_proof();
+    EXPECT_EQ(eccvm_proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 }
 
 /**

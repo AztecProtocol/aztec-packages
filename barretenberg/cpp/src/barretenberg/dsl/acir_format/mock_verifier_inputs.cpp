@@ -358,10 +358,11 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t inner
     HonkProof mega_proof = create_mock_honk_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(
         inner_public_inputs_size);
     Goblin::MergeProof merge_proof = create_mock_merge_proof();
-    ECCVMProof eccvm_proof{ create_mock_pre_ipa_proof(), create_mock_ipa_proof() };
+    HonkProof eccvm_proof{ create_mock_eccvm_proof() };
+    HonkProof ipa_proof = create_mock_ipa_proof();
     HonkProof translator_proof = create_mock_translator_proof();
 
-    Chonk::Proof chonk_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
+    Chonk::Proof chonk_proof{ mega_proof, { merge_proof, eccvm_proof, ipa_proof, translator_proof } };
     proof = chonk_proof.to_field_elements();
 
     return proof;
@@ -374,7 +375,7 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t inner
  *
  * @return HonkProof
  */
-HonkProof create_mock_pre_ipa_proof()
+HonkProof create_mock_eccvm_proof()
 {
     using FF = ECCVMFlavor::FF;
     HonkProof proof;
@@ -461,7 +462,7 @@ HonkProof create_mock_pre_ipa_proof()
     // 27. Shplonk
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    BB_ASSERT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
+    BB_ASSERT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 
     return proof;
 }

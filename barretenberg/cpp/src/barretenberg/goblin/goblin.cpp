@@ -6,8 +6,10 @@
 
 #include "goblin.hpp"
 
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
@@ -34,7 +36,13 @@ void Goblin::prove_eccvm()
     BB_BENCH_NAME("Goblin::prove_eccvm");
     ECCVMBuilder eccvm_builder(op_queue);
     ECCVMProver eccvm_prover(eccvm_builder, transcript);
-    goblin_proof.eccvm_proof = eccvm_prover.construct_proof();
+    auto [eccvm_proof, opening_claim] = eccvm_prover.construct_proof();
+    goblin_proof.eccvm_proof = std::move(eccvm_proof);
+
+    // Compute IPA proof for the opening claim
+    auto ipa_transcript = std::make_shared<NativeTranscript>();
+    ECCVMFlavor::PCS::compute_opening_proof(eccvm_prover.key->commitment_key, opening_claim, ipa_transcript);
+    goblin_proof.ipa_proof = ipa_transcript->export_proof();
 
     translation_batching_challenge_v = eccvm_prover.batching_challenge_v;
     evaluation_challenge_x = eccvm_prover.evaluation_challenge_x;
@@ -106,8 +114,17 @@ bool Goblin::verify(const GoblinProof& proof,
         merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
     bool merge_verified = merge_pairing_points.check() && degree_check_passed && concatenation_check_passed;
 
-    ECCVMVerifier eccvm_verifier(transcript);
-    bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
+    ECCVMVerifier_<ECCVMFlavor> eccvm_verifier(transcript, proof.eccvm_proof);
+    auto opening_claim = eccvm_verifier.verify_proof();
+
+    // Verify IPA opening
+    auto ipa_transcript = std::make_shared<NativeTranscript>(proof.ipa_proof);
+    bool ipa_verified =
+        ECCVMFlavor::PCS::reduce_verify(eccvm_verifier.key->pcs_verification_key, opening_claim, ipa_transcript);
+
+    vinfo("eccvm ipa verified?: ", ipa_verified);
+    bool eccvm_verified = ipa_verified && eccvm_verifier.sumcheck_verified && eccvm_verifier.consistency_checked &&
+                          eccvm_verifier.translation_masking_consistency_checked;
 
     TranslatorVerifier translator_verifier(transcript);
 

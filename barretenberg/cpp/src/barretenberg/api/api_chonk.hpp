@@ -27,8 +27,8 @@ class ChonkAPI : public API {
 
     // Two modes:
     // - write a vk for a standalone circuit
-    // - write the vk of the hiding circuit which requires the last circuit input (e.g. a private-tail in Aztec) to be
-    // passed. This is used just to parameterize the hiding circuit with the last circuit public inputs amount.
+    // - write the vk of the Hiding kernel which requires the last circuit input (e.g. a private-tail in Aztec) to be
+    // passed. This is used just to parameterize the Hiding kernel with the last circuit public inputs amount.
     void write_vk(const Flags& flags,
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override;

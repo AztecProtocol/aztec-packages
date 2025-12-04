@@ -490,7 +490,7 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 }
 
 /**
- * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding,
+ * @brief Construct a zero-knowledge proof for the Hiding kernel, which recursively verifies the last folding,
  * merge and decider proof.
  */
 HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
@@ -498,7 +498,7 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
 
-    // Hiding circuit is proven by a MegaZKProver
+    // Hiding kernel is proven by a MegaZKProver
     MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
     HonkProof proof = prover.construct_proof();
 
@@ -516,11 +516,11 @@ Chonk::Proof Chonk::prove()
     prover_accumulator = ProverAccumulator();
     auto mega_proof = verification_queue.front().proof;
 
-    // A transcript is shared between the Hiding circuit prover and the Goblin prover
+    // A transcript is shared between the Hiding kernel prover and the Goblin prover
     goblin.transcript = transcript;
 
-    // Returns a proof for the hiding circuit and the Goblin proof. The latter consists of Translator and ECCVM proof
-    // for the whole ecc op table and the merge proof for appending the subtable coming from the hiding circuit. The
+    // Returns a proof for the Hiding kernel and the Goblin proof. The latter consists of Translator and ECCVM proof
+    // for the whole ecc op table and the merge proof for appending the subtable coming from the Hiding kernel. The
     // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
     // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
     // evaluations of both the previous table and the incoming subtable.
@@ -532,7 +532,7 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     using TableCommitments = Goblin::TableCommitments;
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
     std::shared_ptr<Goblin::Transcript> chonk_verifier_transcript = std::make_shared<Goblin::Transcript>();
-    // Verify the hiding circuit proof
+    // Verify the Hiding kernel proof
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, chonk_verifier_transcript };
     auto [mega_verified, kernel_return_data, T_prev_commitments] =
         verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
@@ -564,9 +564,8 @@ std::vector<Chonk::FF> Chonk::Proof::to_field_elements() const
 
     proof.insert(proof.end(), mega_proof.begin(), mega_proof.end());
     proof.insert(proof.end(), goblin_proof.merge_proof.begin(), goblin_proof.merge_proof.end());
-    proof.insert(
-        proof.end(), goblin_proof.eccvm_proof.pre_ipa_proof.begin(), goblin_proof.eccvm_proof.pre_ipa_proof.end());
-    proof.insert(proof.end(), goblin_proof.eccvm_proof.ipa_proof.begin(), goblin_proof.eccvm_proof.ipa_proof.end());
+    proof.insert(proof.end(), goblin_proof.eccvm_proof.begin(), goblin_proof.eccvm_proof.end());
+    proof.insert(proof.end(), goblin_proof.ipa_proof.begin(), goblin_proof.ipa_proof.end());
     proof.insert(proof.end(), goblin_proof.translator_proof.begin(), goblin_proof.translator_proof.end());
     return proof;
 };
@@ -590,15 +589,15 @@ Chonk::Proof Chonk::Proof::from_field_elements(const std::vector<Chonk::FF>& fie
     end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
     goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), start_idx, end_idx);
 
-    // ECCVM pre-ipa proof
+    // ECCVM proof
     start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
-    goblin_proof.eccvm_proof.pre_ipa_proof.insert(goblin_proof.eccvm_proof.pre_ipa_proof.end(), start_idx, end_idx);
+    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), start_idx, end_idx);
 
-    // ECCVM ipa proof
+    // IPA proof
     start_idx = end_idx;
     end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
-    goblin_proof.eccvm_proof.ipa_proof.insert(goblin_proof.eccvm_proof.ipa_proof.end(), start_idx, end_idx);
+    goblin_proof.ipa_proof.insert(goblin_proof.ipa_proof.end(), start_idx, end_idx);
 
     // Translator proof
     start_idx = end_idx;

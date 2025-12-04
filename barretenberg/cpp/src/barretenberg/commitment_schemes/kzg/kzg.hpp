@@ -121,13 +121,16 @@ template <typename Curve_> class KZG {
      *
      * @param batch_opening_claim \f$(\text{commitments}, \text{scalars}, \text{shplonk_evaluation_challenge})\f$
      *        A struct containing the commitments, scalars, and the Shplonk evaluation challenge.
+     * @param expected_final_msm_size Optional expected size of the final MSM (after adding quotient commitment).
+     *        If non-zero, asserts that the finalized claim has this exact size. Use Flavor::FINAL_PCS_MSM_SIZE.
      * @return PairingPoints \f$ \{P_0, P_1\}\f$ where:
      *         - \f$ P_0 = C + [W(x)]_1 \cdot z \f$
      *         - \f$ P_1 = - [W(x)]_1 \f$
      */
     template <typename Transcript>
-    static PairingPointsType reduce_verify_batch_opening_claim(BatchOpeningClaim<Curve> batch_opening_claim,
-                                                               const std::shared_ptr<Transcript>& transcript)
+    static PairingPointsType reduce_verify_batch_opening_claim(BatchOpeningClaim<Curve>&& batch_opening_claim,
+                                                               const std::shared_ptr<Transcript>& transcript,
+                                                               const size_t expected_final_msm_size = 0)
     {
         auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");
 
@@ -141,6 +144,12 @@ template <typename Curve_> class KZG {
         batch_opening_claim.commitments.emplace_back(quotient_commitment);
         // Update the scalars by adding the Shplonk evaluation challenge z
         batch_opening_claim.scalars.emplace_back(batch_opening_claim.evaluation_point);
+
+        // Validate the final MSM size if expected size is provided
+        if (expected_final_msm_size != 0) {
+            BB_ASSERT_EQ(batch_opening_claim.commitments.size(), expected_final_msm_size);
+        }
+
         // Compute C + [W]₁ ⋅ z
         if constexpr (Curve::is_stdlib_type) {
             P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
