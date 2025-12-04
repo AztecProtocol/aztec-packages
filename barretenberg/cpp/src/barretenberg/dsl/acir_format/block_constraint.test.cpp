@@ -475,7 +475,7 @@ class CallDataTestingFunctions {
         case InvalidWitness::Target::ReadValueIncremented:
             // Tamper with a random read value using the recorded witness index
             const size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % num_reads);
-            const uint32_t witness_idx = memory_constraint.trace[random_read_idx].index.index;
+            const uint32_t witness_idx = memory_constraint.trace[random_read_idx].value.index;
             witness_values[witness_idx] += bb::fr(1);
             break;
         }
