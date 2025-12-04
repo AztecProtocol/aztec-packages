@@ -1,4 +1,10 @@
-import { BlockNumber, BlockNumberSchema, type EpochNumber, type SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  BlockNumberSchema,
+  type CheckpointNumber,
+  type EpochNumber,
+  type SlotNumber,
+} from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
@@ -67,7 +73,15 @@ export interface L2BlockSource {
    */
   getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2Block[]>;
 
-  getPublishedCheckpoints(from: number, limit: number): Promise<PublishedCheckpoint[]>;
+  getPublishedCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]>;
+
+  /**
+   * Gets a checkpoint by the archive root, which should be the root of the archive tree after the requested checkpoint
+   * is applied.
+   * @param archive - The new archive root of the checkpoint.
+   * @returns The requested checkpoint (or undefined if not found).
+   */
+  getCheckpointByArchive(archive: Fr): Promise<Checkpoint | undefined>;
 
   /** Equivalent to getBlocks but includes publish data. */
   getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<PublishedL2Block[]>;

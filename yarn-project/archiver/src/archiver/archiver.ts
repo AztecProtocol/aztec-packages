@@ -1162,6 +1162,11 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return blocks.map(b => b.toPublishedCheckpoint());
   }
 
+  public async getCheckpointByArchive(archive: Fr): Promise<Checkpoint | undefined> {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
+    return (await this.getPublishedBlockByArchive(archive))?.block.toCheckpoint();
+  }
+
   public async getCheckpoints(from: CheckpointNumber, limit: number, proven?: boolean): Promise<Checkpoint[]> {
     const published = await this.getPublishedCheckpoints(from, limit, proven);
     return published.map(p => p.checkpoint);

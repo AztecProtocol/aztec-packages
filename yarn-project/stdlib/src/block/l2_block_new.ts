@@ -103,6 +103,10 @@ export class L2BlockNew {
     };
   }
 
+  static empty() {
+    return new L2BlockNew(AppendOnlyTreeSnapshot.empty(), BlockHeader.empty(), Body.empty());
+  }
+
   /**
    * Creates an L2 block containing random data.
    * @param l2BlockNum - The number of the L2 block.
