@@ -3,7 +3,10 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-
+//
+// HyperNova decider verifier (native + recursive). Verifies final opening proof.
+// See: chonk/README.md#final-decider
+//
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim_batcher.hpp"

@@ -3,8 +3,10 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-
-// goblin.hpp
+//
+// Goblin orchestration. Coordinates Merge + ECCVM + Translator proving/verification.
+// See: chonk/README.md#goblin-eccvm--translator
+//
 #pragma once
 
 #include "barretenberg/eccvm/eccvm_flavor.hpp"

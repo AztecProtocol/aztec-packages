@@ -3,7 +3,10 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-
+//
+// Merge protocol prover. Proves correct merging of ECC op queue tables.
+// See: goblin/MERGE_PROTOCOL.md
+//
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"

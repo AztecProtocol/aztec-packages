@@ -3,7 +3,10 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-
+//
+// HyperNova decider prover. Produces final opening proof for the accumulated claim.
+// See: chonk/README.md#final-decider
+//
 #pragma once
 
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"

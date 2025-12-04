@@ -3,7 +3,10 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-
+//
+// Multilinear batching verifier. Verifies claim reduction via sumcheck.
+// See: chonk/README.md#batching-claims-into-accumulator
+//
 #pragma once
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"

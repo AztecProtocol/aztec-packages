@@ -3,7 +3,10 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-
+//
+// Multilinear batching prover. Reduces evaluation claims at different points to a single claim via sumcheck.
+// See: chonk/README.md#batching-claims-into-accumulator
+//
 #pragma once
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
