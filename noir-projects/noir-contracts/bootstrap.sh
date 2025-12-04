@@ -112,6 +112,8 @@ function get_contract_hash {
       $NOIR_HASH \
       $(cache_content_hash \
         ../avm-transpiler/.rebuild_patterns \
+        ../barretenberg/cpp/.rebuild_patterns \
+        ../barretenberg/ts/.rebuild_patterns \
         "^docs/examples/$contract_path/" \
         "^noir-projects/aztec-nr/" \
         "^noir-projects/noir-protocol-circuits/crates/types/")
@@ -121,6 +123,8 @@ function get_contract_hash {
       $NOIR_HASH \
       $(cache_content_hash \
         ../../avm-transpiler/.rebuild_patterns \
+        ../../barretenberg/cpp/.rebuild_patterns \
+        ../../barretenberg/ts/.rebuild_patterns \
         "^noir-projects/noir-contracts/contracts/$contract_path/" \
         "^noir-projects/aztec-nr/" \
         "^noir-projects/noir-protocol-circuits/crates/types/")
