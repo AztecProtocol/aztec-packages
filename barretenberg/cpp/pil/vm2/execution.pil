@@ -136,7 +136,7 @@ sel_first_row_in_context {
 // Therefore, we do not need to propagate `sel_bytecode_retrieval_failure` but can enforce
 // it to be 0 for all subsequent rows in the context.
 #[BYTECODE_RETRIEVAL_NO_FAILURE]
-sel * (1 - sel_first_row_in_context) * sel_bytecode_retrieval_failure = 0;
+(1 - sel_first_row_in_context) * sel_bytecode_retrieval_failure = 0;
 
 pol commit sel_bytecode_retrieval_success;
 // If sel = 0, we want sel_bytecode_retrieval_success = 0. We shouldn't be using it.
@@ -174,6 +174,9 @@ sel_bytecode_retrieval_success {
 pol commit sel_instruction_fetching_success;
 // If sel = 0, we want sel_instruction_fetching_success = 0. We shouldn't be using it.
 sel_instruction_fetching_success = sel_bytecode_retrieval_success * (1 - sel_instruction_fetching_failure);
+
+#[NO_FETCHING_NO_INSTR_FETCH_ERROR]
+(1 - sel_bytecode_retrieval_success) * sel_instruction_fetching_failure = 0;
 
 #[INSTRUCTION_FETCHING_BODY]
 sel_instruction_fetching_success {
@@ -737,6 +740,9 @@ sel_execute_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // W
  // - ECC_ADD: #[DISPATCH_TO_ECC_ADD]
  // - TO_RADIX: #[DISPATCH_TO_TO_RADIX]
 
+ // Enforce sel_opcode_error = 0 if we are not executing an opcode.
+ (1 - sel_should_execute_opcode) * sel_opcode_error = 0;
+
 /**************************************************************************************************
  *  Temporality group 6: Register write.
  **************************************************************************************************/
@@ -753,7 +759,19 @@ sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
 
 // sel_error is 1 iff any kind of error happens at the execution level.
 pol commit sel_error;
-// Observe that the errors are mutually exclusive.
+// Observe that the errors are mutually exclusive over active rows (sel == 1):
+// Namely, we enforced a cascade of selectors to ensure that only one error can be set at a time.
+// If `sel_bytecode_retrieval_failure = 1`, we constrain `sel_bytecode_retrieval_success == 0`
+// and from #[NO_FETCHING_NO_INSTR_FETCH_ERROR] we have `sel_instruction_fetching_failure == 0`.
+// By definition, `sel_bytecode_retrieval_success == 0` implies `sel_instruction_fetching_success == 0`.
+// Similarly, `sel_instruction_fetching_success == 0` implies `sel_addressing_error == 0` according
+// to #[NO_ADDRESSING_ERROR_IF_NOT_RESOLVING] (see addressing.pil) and `sel_should_read_registers == 0`.
+// #[REGISTER_READ_TAG_CHECK] (registers.pil) constrains that `sel_register_read_error == 0` if
+// `sel_should_read_registers == 0`. We also have `sel_should_check_gas == 0` when `sel_should_read_registers == 0`.
+// In gas.pil, we have `sel_should_check_gas == 0` implies `sel_out_of_gas == 0`. By definition,
+// `sel_should_check_gas == 0` implies `sel_should_execute_opcode == 0`. Above, we enforce that
+// `sel_should_execute_opcode == 0` implies `sel_opcode_error == 0`.
+// sel_error is therefore a boolean on active rows.
 sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + sel_addressing_error
           + sel_register_read_error + sel_out_of_gas + sel_opcode_error;
 
