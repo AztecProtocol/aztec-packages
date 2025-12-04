@@ -9,24 +9,39 @@ mode='fuzzing'
 jobs_='4'
 workers='0'
 asm='on'
+avm='off'
 
 main_fuzzer=''
-if [[ "$asm" == "on" ]]; then
-    main_fuzzer="./build-fuzzing/bin"
-elif [[ "$asm" == "off" ]]; then
-    main_fuzzer="./build-fuzzing-noasm/bin"
-else
-    echo "Unexpected asm flag value: $asm. Expecting on/off";
-    exit 1;
-fi
+set_main_fuzzer() {
+    if [[ "$avm" == "on" ]]; then
+        main_fuzzer="./build-fuzzing-avm/bin"
+    elif [[ "$asm" == "on" ]]; then
+        main_fuzzer="./build-fuzzing/bin"
+    elif [[ "$asm" == "off" ]]; then
+        main_fuzzer="./build-fuzzing-noasm/bin"
+    else
+        echo "Unexpected asm flag value: $asm. Expecting on/off";
+        exit 1;
+    fi
+}
 
 show_fuzzers() {
     echo "The following fuzzers are available:"
     echo
-    if compgen -G "$main_fuzzer/*"* &> /dev/null; then
-        for f in "$main_fuzzer/"*; do
-            basename "$f";
-        done;
+    if [[ "$avm" == "on" ]]; then
+        echo "=== AVM Fuzzers ==="
+        if compgen -G "./build-fuzzing-avm/bin/*"* &> /dev/null; then
+            for f in "./build-fuzzing-avm/bin/"*; do
+                basename "$f";
+            done;
+        fi
+    else
+        echo "=== Standard Fuzzers ==="
+        if compgen -G "$main_fuzzer/*"* &> /dev/null; then
+            for f in "$main_fuzzer/"*; do
+                basename "$f";
+            done;
+        fi
     fi
 }
 
@@ -40,7 +55,8 @@ show_help() {
     echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs_)"
     echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
     echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage or regress-only) (default: $mode)"
-    echo "  -a, --asm <mode>            Set the flag to enable/disable asm instrucitons (on/off) (default: $asm)"
+    echo "  -a, --asm <mode>            Set the flag to enable/disable asm instructions (on/off) (default: $asm)"
+    echo "  -A, --avm                   Enable AVM fuzzing mode (uses build-fuzzing-avm)"
     echo "  -h, --help                  Display this help and exit"
     echo "  --show-fuzzers              Display the available fuzzers"
     echo ""
@@ -61,6 +77,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --show-fuzzers)
+            set_main_fuzzer
             show_fuzzers
             exit 0;
             ;;
@@ -84,7 +101,12 @@ while [[ $# -gt 0 ]]; do
             asm="$2";
             shift 2;
             ;;
+        -A|--avm)
+            avm='on';
+            shift;
+            ;;
         -h|--help)
+            set_main_fuzzer
             show_help;
             exit 0;
             ;;
@@ -106,8 +128,17 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
 }
 
-post_fuzzer="./build-fuzzing-asan/bin"
-cov_fuzzer="./build-fuzzing-cov/bin"
+# Set the main fuzzer path based on flags
+set_main_fuzzer
+
+# AVM mode uses the same build for post-crash analysis (no separate ASAN build)
+if [[ "$avm" == "on" ]]; then
+    post_fuzzer="./build-fuzzing-avm/bin"
+    cov_fuzzer="./build-fuzzing-avm/bin"
+else
+    post_fuzzer="./build-fuzzing-asan/bin"
+    cov_fuzzer="./build-fuzzing-cov/bin"
+fi
 
 workdir="/home/fuzzer"
 
@@ -142,7 +173,9 @@ main_fuzzer="$main_fuzzer/$fuzzer"
 post_fuzzer="$post_fuzzer/$fuzzer"
 cov_fuzzer="$cov_fuzzer/$fuzzer"
 
-if [[ "$asm" == "off" ]]; then
+if [[ "$avm" == "on" ]]; then
+    fuzzer="$fuzzer"_avm
+elif [[ "$asm" == "off" ]]; then
     fuzzer="$fuzzer"_noasm
 fi
 

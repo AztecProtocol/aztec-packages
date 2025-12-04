@@ -5,6 +5,7 @@ verbosity='0'
 timeout='2592000' # 1 month
 mode='fuzzing'
 asm='on'
+avm='off'
 cpus='8'
 mem="16G"
 jobs_="$cpus"
@@ -20,11 +21,11 @@ show_help() {
     echo "  -t, --timeout <timeout>     Set the maximum total time for fuzzing in seconds (default: $timeout - 1 month)"
     echo "  -c, --cpus <cpus>           Set the amount of CPUs for container to use (default: $cpus)"
     echo "  --mem <memory>              Set the amount of memory for container to use (default: $mem)"
-    echo "  -m, --mode <mode>           Set the mode of operation (fuzzing or coverage) (default: $mode)"
+    echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage or regress-only) (default: $mode)"
     echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs_)"
     echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
-    echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage or regress-only) (default: $mode)"
-    echo "  -a, --asm <mode>            Set the flag to enable/disable asm instrucitons (on/off) (default: $asm)"
+    echo "  -a, --asm <mode>            Set the flag to enable/disable asm instructions (on/off) (default: $asm)"
+    echo "  -A, --avm                   Enable AVM fuzzing mode (uses build-fuzzing-avm)"
     echo "  -h, --help                  Display this help and exit"
     echo "  --show-fuzzers              Display the available fuzzers"
     echo ""
@@ -67,6 +68,10 @@ while [[ $# -gt 0 ]]; do
             asm="$2";
             shift 2;
             ;;
+        -A|--avm)
+            avm='on';
+            shift;
+            ;;
         -c|--cpus)
             cpus="$2";
             shift 2;
@@ -87,7 +92,7 @@ while [[ $# -gt 0 ]]; do
             echo "Error: Unsupported flag $1" >&2
             exit 1
             ;;
-        *) 
+        *)
             break
             ;;
     esac
@@ -101,10 +106,14 @@ if [[ $? -ne 0 ]]; then
 fi
 
 if [[ "$mode" == "show-fuzzers" ]]; then
+    avm_flag=""
+    if [[ "$avm" == "on" ]]; then
+        avm_flag="--avm"
+    fi
     docker run -it --rm                                      \
         --entrypoint "./entrypoint.sh"                       \
         "$image_name"                                        \
-        --show-fuzzers                                        
+        $avm_flag --show-fuzzers
     exit 0;
 fi
 
@@ -121,6 +130,11 @@ fi
 [[ -d corpus ]] || mkdir corpus;
 [[ -d coverage ]] || mkdir coverage;
 
+avm_flag=""
+if [[ "$avm" == "on" ]]; then
+    avm_flag="--avm"
+fi
+
 if [[ $verbosity == '1' ]]; then
     docker run -it --rm                                         \
         --user root                                             \
@@ -135,6 +149,7 @@ if [[ $verbosity == '1' ]]; then
         --fuzzer "$fuzzer"                                      \
         --mode "$mode"                                          \
         --asm "$asm"                                            \
+        $avm_flag                                               \
         --timeout "$timeout"                                    \
         --workers "$workers"                                    \
         --jobs "$jobs_"
@@ -151,6 +166,7 @@ else
         --fuzzer "$fuzzer"                                      \
         --mode "$mode"                                          \
         --asm "$asm"                                            \
+        $avm_flag                                               \
         --timeout "$timeout"                                    \
         --workers "$workers"                                    \
         --jobs "$jobs_"
