@@ -8,6 +8,14 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 - [**`yarn-project`**](/yarn-project): Typescript code for client and backend
 - [**`docs`**](/docs): Documentation source for the docs site
 
+  ## Local development setup
+
+To build and work with the full Aztec monorepo locally, you will usually:
+
+1. Clone this repository.
+2. Run the bootstrap script to fetch dependencies and build core components.
+3. Use the language-specific tooling (Node.js, Rust, etc.) inside the workspace.
+
 ## Popular packages
 
 - [Aztec.nr](./noir-projects/aztec-nr/): A [Noir](https://noir-lang.org) framework for smart contracts on Aztec.
