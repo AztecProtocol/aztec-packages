@@ -156,22 +156,30 @@ std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> Mu
                                                      shifted_accumulator_commitment,
                                                      claim_batching_challenge);
 
-    // Verify that the sumcheck claimed evaluations match the evaluations computed from the verifier for the eq
-    // polynomials
-    bool verified = true;
-    auto equality_verified = sumcheck_result.claimed_evaluations.w_evaluations_accumulator ==
-                                 VerifierEqPolynomial<FF>::eval(accumulator_challenges, sumcheck_result.challenge) &&
-                             sumcheck_result.claimed_evaluations.w_evaluations_instance ==
-                                 VerifierEqPolynomial<FF>::eval(instance_sumcheck.challenge, sumcheck_result.challenge);
-
-    if constexpr (IsRecursiveFlavor<Flavor>) {
-        equality_verified.assert_equal(stdlib::bool_t(equality_verified.get_context(), true));
-        verified = sumcheck_result.verified && equality_verified.get_value();
-    } else {
-        verified = sumcheck_result.verified && equality_verified;
-    }
+    bool eq_consistent = check_eq_consistency(sumcheck_result, accumulator_challenges, instance_sumcheck.challenge);
+    bool verified = sumcheck_result.verified && eq_consistent;
 
     return { verified, verifier_claim };
+}
+
+template <typename Flavor_>
+bool MultilinearBatchingVerifier<Flavor_>::check_eq_consistency(const SumcheckOutput<Flavor>& sumcheck_result,
+                                                                const std::vector<FF>& accumulator_challenges,
+                                                                const std::vector<InstanceFF>& instance_challenges)
+{
+    auto accumulator_eq_check = sumcheck_result.claimed_evaluations.w_evaluations_accumulator ==
+                                VerifierEqPolynomial<FF>::eval(accumulator_challenges, sumcheck_result.challenge);
+    auto instance_eq_check = sumcheck_result.claimed_evaluations.w_evaluations_instance ==
+                             VerifierEqPolynomial<FF>::eval(instance_challenges, sumcheck_result.challenge);
+
+    if constexpr (IsRecursiveFlavor<Flavor>) {
+        const auto equality_verified = accumulator_eq_check && instance_eq_check;
+        bool equality_verified_value = equality_verified.get_value();
+        equality_verified.assert_equal(stdlib::bool_t(equality_verified.get_context(), true));
+        return equality_verified_value;
+    } else {
+        return accumulator_eq_check && instance_eq_check;
+    }
 }
 
 template class MultilinearBatchingVerifier<MultilinearBatchingFlavor>;

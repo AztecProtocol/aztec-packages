@@ -83,6 +83,16 @@ template <typename Flavor_> class MultilinearBatchingVerifier {
                                     const Commitment& non_shifted_accumulator_commitment,
                                     const Commitment& shifted_accumulator_commitment,
                                     const FF& batching_challenge);
+
+    /**
+     * @brief Verify that the prover used the correct eq polynomials.
+     * @details The batching relation uses eq(r_acc, u) and eq(r_inst, u) to "select" the correct evaluation point.
+     * The prover provides these as evaluations of witness polynomials, but the verifier can compute them directly from
+     * the known challenges. This check ensures consistency.
+     */
+    bool check_eq_consistency(const SumcheckOutput<Flavor>& sumcheck_result,
+                              const std::vector<FF>& accumulator_challenges,
+                              const std::vector<InstanceFF>& instance_challenges);
 };
 
 } // namespace bb

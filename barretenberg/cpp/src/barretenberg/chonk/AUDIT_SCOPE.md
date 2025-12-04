@@ -160,6 +160,16 @@ struct VerificationResult {
 | Complex QUEUE_TYPE state machine | `chonk.hpp` | Needs careful review |
 | Point at infinity initialization | `empty_ecc_op_tables()` | Edge case |
 
+## Architectural Notes
+
+**`Goblin::recursively_verify_merge` placement** (`goblin.hpp:112`)
+
+This method performs in-circuit (recursive) verification but lives in the native `Goblin` class alongside prover state (`op_queue`, `commitment_key`). It uses stdlib types (`MegaBuilder&`, `RecursiveTranscript`, `PairingPoints`) and consumes from `merge_verification_queue`.
+
+Rationale: The method needs access to the instance's `merge_verification_queue` to track which proofs need recursive verification during circuit accumulation.
+
+Consider: Could be cleaner as a standalone helper or in a `GoblinRecursiveVerifier` class, similar to how `MergeRecursiveVerifier` is separate from `MergeProver`.
+
 ---
 
 ## ZK Properties (Lower Priority)
@@ -180,3 +190,36 @@ struct VerificationResult {
 | Merge | ✓ `MERGE_PROTOCOL.md` with ZK analysis |
 | HyperNova | Covered in Chonk README |
 | Databus | Covered in Chonk README |
+
+---
+
+## Inline Documentation Gaps
+
+Issues identified during code review that need addressing:
+
+### High Priority (Core Concepts)
+
+| Issue | Location | Status |
+|-------|----------|--------|
+| `padding_indicator_array` unexplained | `hypernova_verifier.cpp`, etc. | Covered in sumcheck docs |
+| Shifted vs unshifted polynomials | `hypernova_prover.hpp` | ✓ Done |
+| Accumulator structure concept | `hypernova_prover.hpp` | ✓ Done |
+| Tuple return `(bool, bool, Accumulator)` unclear | `hypernova_verifier.hpp:verify_folding_proof` | ✓ Done |
+
+### Medium Priority (Function Docs)
+
+| Issue | Location | Status |
+|-------|----------|--------|
+| PREPEND vs APPEND mode logic | `merge_verifier.cpp:133-141` | ✓ Done |
+| eq polynomial verification purpose | `multilinear_batching_verifier.cpp:159-162` | ✓ Done |
+| FIFO queue rationale | `goblin.cpp:recursively_verify_merge` | ✓ Done |
+| `ensure_well_formed_op_queue_for_avm` purpose | `goblin.cpp:124` | TODO |
+
+### Low Priority (Missing @brief)
+
+| Function | Location |
+|----------|----------|
+| `prove_merge` | `goblin.cpp` |
+| `prove_eccvm` | `goblin.cpp` |
+| `prove_translator` | `goblin.cpp` |
+| `HypernovaDeciderProver::construct_proof` | `hypernova_decider_prover.cpp` |
