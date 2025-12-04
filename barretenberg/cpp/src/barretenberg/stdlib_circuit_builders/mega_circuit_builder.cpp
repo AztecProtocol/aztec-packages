@@ -227,7 +227,8 @@ template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
  *
  * @details This op provides statistical hiding (~508 bits) for the accumulated_result in Translator/ECCVM.
  * The Px, Py values are random field elements that may not be on the curve. The op uses opcode 3 (eq+reset)
- * for Translator compatibility. In ECCVM, this op is prepended to land at row 1 (lagrange_second).
+ * for Translator compatibility. In ECCVM, this op is prepended to land at row 1 (lagrange_second == 1),
+ * since row 0 is identically zero (for shifts).
  *
  * @param Px Random field element for x-coordinate
  * @param Py Random field element for y-coordinate

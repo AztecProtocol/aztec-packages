@@ -525,7 +525,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * @brief Enforce q_eq = 1 and q_reset = 1 at the hiding op row (row 1, lagrange_second = 1).
      * This ensures the prover sets the correct opcode (3 = eq + reset) for the hiding op.
      * q_reset = 1 is needed so the accumulator is reset to (0,0) after the hiding row,
-     * ensuring the boundary condition (is_accumulator_empty = 1 at row 2) is satisfied.
+     * ensuring the boundary condition (is_accumulator_empty = 1 at row 2) enforced by relation 11 is satisfied.
      */
     std::get<25>(accumulator) += lagrange_second * (-q_eq + 1) * scaling_factor;                // degree 2
     std::get<26>(accumulator) += lagrange_second * (-q_reset_accumulator + 1) * scaling_factor; // degree 2

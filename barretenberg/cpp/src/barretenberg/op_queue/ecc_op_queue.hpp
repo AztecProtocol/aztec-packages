@@ -278,7 +278,12 @@ class ECCOpQueue {
      * @details The hiding op contributes random Px, Py field elements to both ECCVM transcript polynomials
      * and Translator's accumulated_result, providing statistical hiding.
      *
-     * In ECCVM: prepended at index 0, landing at row 1 (lagrange_second = 1).
+     * In ECCVM: stored separately and prepended to eccvm_ops_reconstructed at index 0 during get_eccvm_ops().
+     * This places it at row 1 in the ECCVM transcript table (row 0 is the zero row for shifts),
+     * where lagrange_second = 1. The eq and on-curve constraints are gated by (1 - lagrange_second) so they
+     * don't apply to this row. The transcript relation enforces q_eq = 1 and q_reset = 1 at this row, ensuring
+     * the accumulator is reset so that is_accumulator_empty = 1 at row 2 (the first real op row).
+     *
      * In Ultra/Translator: appended to current subtable through normal flow, landing in the accumulation range.
      *
      * The hiding op uses opcode q_eq = 1, q_reset = 1 (value = 3) to preserve the Px, Py values in the
