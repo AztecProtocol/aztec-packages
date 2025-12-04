@@ -50,10 +50,6 @@ case $cmd in
   compile|new|init|flamegraph)
     $script_dir/${cmd}.sh "$@"
     ;;
-  fmt|check|lsp)
-    # TODO: These should be removed, just use nargo directly.
-    nargo $cmd "$@"
-    ;;
   *)
     aztec $cmd "$@"
     ;;
