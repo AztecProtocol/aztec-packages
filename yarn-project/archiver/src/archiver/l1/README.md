@@ -39,7 +39,19 @@ Second attempt to decode the transaction as a direct `propose` call to the rollu
 - Return the transaction input as the propose calldata
 
 This handles scenarios where clients submit transactions directly to the rollup contract without
-using multicall3 for bundling. Any validation failure triggers fallback to the last step.
+using multicall3 for bundling. Any validation failure triggers fallback to the next step.
+
+### Spire Proposer Call
+
+Given existing attempts to route the call via the Spire proposer, we also check if the tx is `to` the 
+proposer known address, and if so, we try decoding it as either a multicall3 or a direct call to the
+rollup contract.
+
+Similar as with the multicall3 check, we check that there are no other calls in the Spire proposer, so
+we are absolutely sure that the only call is the successful one to the rollup.
+
+Furthermore, since the Spire proposer is upgradeable, we check if the implementation has not changed in
+order to decode. As usual, any validation failure triggers fallback to the next step.
 
 ### Verifying Multicall3 Arguments
 
