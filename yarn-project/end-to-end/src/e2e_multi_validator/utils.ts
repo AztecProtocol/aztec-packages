@@ -42,8 +42,8 @@ export function createJSONRPCSigner(keyLookup: Map<string, EthPrivateKey>, stats
           stats.set(lowerCaseAddress, (stats.get(lowerCaseAddress) ?? 0) + 1);
 
           // Find the private key for the address
-          const privateKey = keyLookup.get(address.toLowerCase());
-          if (!privateKey) {
+          const privateKeySecret = keyLookup.get(address.toLowerCase());
+          if (!privateKeySecret) {
             res.end(
               JSON.stringify({
                 jsonrpc: '2.0',
@@ -54,6 +54,8 @@ export function createJSONRPCSigner(keyLookup: Map<string, EthPrivateKey>, stats
             return;
           }
 
+          // Unwrap the SecretValue to get the raw private key for signing
+          const privateKey = privateKeySecret.getValue() as `0x${string}`;
           const promise =
             jsonRequest.method === 'eth_sign'
               ? signMessage({ message: { raw: data as `0x${string}` }, privateKey })
@@ -109,7 +111,7 @@ export async function createKeyFile1(
           addressCount: 1,
         },
         coinbase: coinbase.toChecksumString(),
-        publisher: [publisher1Key, publisher2Key],
+        publisher: [publisher1Key.getValue(), publisher2Key.getValue()],
         feeRecipient: feeRecipient.toString(),
       },
     ],
@@ -129,7 +131,7 @@ export async function createKeyFile2(
     schemaVersion: 1,
     validators: [
       {
-        attester: validatorKey,
+        attester: validatorKey.getValue(),
         coinbase: coinbase.toChecksumString(),
         publisher: {
           mnemonic: publisherMnemonic,
@@ -159,7 +161,7 @@ export async function createKeyFile3(
       {
         attester: validatorAddress.toChecksumString(),
         coinbase: coinbase.toChecksumString(),
-        publisher: [publisher1Key, publisher2Key],
+        publisher: [publisher1Key.getValue(), publisher2Key.getValue()],
         feeRecipient: feeRecipient.toString(),
         remoteSigner: {
           remoteSignerUrl: remoteSignerUrl,
@@ -204,7 +206,7 @@ export async function createKeyFile4(
       {
         attester: validator2Address.toChecksumString(),
         coinbase: coinbase2.toChecksumString(),
-        publisher: [publisher2Key, publisher3Key],
+        publisher: [publisher2Key.getValue(), publisher3Key.getValue()],
         feeRecipient: feeRecipient2.toString(),
       },
     ],
@@ -254,5 +256,5 @@ export async function createKeyFile6(
 }
 
 export function addressForPrivateKey(privateKey: EthPrivateKey): EthAddress {
-  return EthAddress.fromString(getAddressFromPrivateKey(privateKey));
+  return EthAddress.fromString(getAddressFromPrivateKey(privateKey.getValue() as `0x${string}`));
 }

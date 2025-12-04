@@ -3,6 +3,7 @@
  *
  * Handles loading and parsing keystore configuration files.
  */
+import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
 
 import { readFileSync, readdirSync, statSync } from 'fs';
@@ -39,7 +40,8 @@ export function loadKeystoreFile(filePath: string): KeyStore {
     const content = readFileSync(filePath, 'utf-8');
 
     // Parse JSON and validate with Zod schema (following Aztec patterns)
-    return keystoreSchema.parse(JSON.parse(content));
+    const result = keystoreSchema.parse(JSON.parse(content));
+    return result;
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new KeyStoreLoadError('Invalid JSON format', filePath, error);
@@ -222,13 +224,19 @@ export function mergeKeystores(keystores: KeyStore[]): KeyStore {
         // Check for duplicate attester addresses
         const attesterKeys = extractAttesterKeys(validator.attester);
         for (const key of attesterKeys) {
-          if (attesterAddresses.has(key)) {
+          const keyString = key instanceof SecretValue ? (key.getValue() as string) : key;
+          if (attesterAddresses.has(keyString)) {
+            const displayKey = redactAttesterKeyForDisplay(key, validator.attester);
             throw new KeyStoreLoadError(
-              `Duplicate attester address ${key} found across keystore files`,
+              `Duplicate attester account ${displayKey} found across keystore files`,
               `keystores[${i}].validators`,
             );
           }
-          attesterAddresses.add(key);
+          if (key instanceof SecretValue) {
+            attesterAddresses.add(key.getValue() as string);
+          } else {
+            attesterAddresses.add(key);
+          }
         }
       }
       merged.validators!.push(...keystore.validators);
@@ -284,15 +292,15 @@ export function mergeKeystores(keystores: KeyStore[]): KeyStore {
  * @param attester The attester configuration in any supported shape.
  * @returns Array of string keys used to detect duplicates.
  */
-function extractAttesterKeys(attester: unknown): string[] {
+function extractAttesterKeys(attester: unknown): (string | SecretValue<string>)[] {
   // String forms (private key or other) - return as-is for coarse uniqueness
-  if (typeof attester === 'string') {
+  if (typeof attester === 'string' || attester instanceof SecretValue) {
     return [attester];
   }
 
   // Arrays of attester items
   if (Array.isArray(attester)) {
-    const keys: string[] = [];
+    const keys: (string | SecretValue<string>)[] = [];
     for (const item of attester) {
       keys.push(...extractAttesterKeys(item));
     }
@@ -312,10 +320,97 @@ function extractAttesterKeys(attester: unknown): string[] {
       return [String((obj as any).address)];
     }
 
-    // Mnemonic or other object shapes: stringify
-    return [JSON.stringify(attester)];
+    // JSON V3 keystore: { path, password } - use path as unique identifier
+    if ('path' in obj) {
+      return [String(obj.path)];
+    }
+
+    // Mnemonic-based account: { mnemonic, addressIndex? }
+    if ('mnemonic' in obj) {
+      const mnemonic = String(obj.mnemonic);
+      const addressIndex = Number(obj.addressIndex ?? 0);
+      // Combine mnemonic and index for uniqueness check
+      return [`${mnemonic}:${addressIndex}`];
+    }
   }
 
   // Fallback stringify for anything else (null/undefined)
   return [JSON.stringify(attester)];
+}
+
+/**
+ * Redacts sensitive fields in attester keys for safe display in error messages.
+ *
+ * @param key The key to redact (may contain sensitive data).
+ * @param attester The original attester config (to reconstruct redacted version).
+ * @returns A redacted string safe for display.
+ */
+function redactAttesterKeyForDisplay(key: string | SecretValue<string>, attester: unknown): string {
+  if (key instanceof SecretValue) {
+    return '[REDACTED]';
+  }
+
+  // If the attester is an object with sensitive fields, reconstruct with redaction
+  if (attester && typeof attester === 'object' && !Array.isArray(attester)) {
+    const obj = attester as Record<string, unknown>;
+
+    // JSON V3 keystore: { path, password }
+    if ('path' in obj && 'password' in obj) {
+      return JSON.stringify({ path: obj.path, password: '[REDACTED]' });
+    }
+
+    // Mnemonic-based account: { mnemonic, addressIndex? }
+    if ('mnemonic' in obj) {
+      const redacted: Record<string, unknown> = { mnemonic: '[REDACTED]' };
+      if ('addressIndex' in obj) {
+        redacted.addressIndex = obj.addressIndex;
+      }
+      return JSON.stringify(redacted);
+    }
+
+    // Remote signer with certPass
+    if ('certPass' in obj) {
+      const redacted = { ...obj, certPass: '[REDACTED]' };
+      return JSON.stringify(redacted);
+    }
+  }
+
+  // Try to parse as JSON and redact known sensitive fields
+  try {
+    const parsed = JSON.parse(key);
+    if (typeof parsed === 'object' && parsed !== null) {
+      const redacted = { ...parsed };
+      let hasRedaction = false;
+      if ('password' in redacted) {
+        redacted.password = '[REDACTED]';
+        hasRedaction = true;
+      }
+      if ('mnemonic' in redacted) {
+        redacted.mnemonic = '[REDACTED]';
+        hasRedaction = true;
+      }
+      if ('certPass' in redacted) {
+        redacted.certPass = '[REDACTED]';
+        hasRedaction = true;
+      }
+      if (hasRedaction) {
+        return JSON.stringify(redacted);
+      }
+    }
+  } catch {
+    // Not JSON, continue
+  }
+
+  // Check if it looks like a mnemonic:index format
+  const colonIndex = key.lastIndexOf(':');
+  if (colonIndex > 0) {
+    const maybeMnemonic = key.slice(0, colonIndex);
+    const maybeIndex = key.slice(colonIndex + 1);
+    // Mnemonics are typically 12+ words
+    if (maybeMnemonic.split(' ').length >= 12) {
+      return JSON.stringify({ mnemonic: '[REDACTED]', addressIndex: parseInt(maybeIndex, 10) || 0 });
+    }
+  }
+
+  return key;
 }

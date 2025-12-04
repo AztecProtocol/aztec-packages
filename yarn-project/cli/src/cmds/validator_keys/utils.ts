@@ -59,8 +59,8 @@ export function validatePublisherOptions(options: { publishers?: string[]; publi
   }
 
   if (options.publishers && options.publishers.length > 0) {
-    // Normalize each private key by adding 0x prefix if missing
-    const normalizedKeys: string[] = [];
+    // Normalize and validate each private key
+    const normalizedKeysValues: string[] = [];
     for (const key of options.publishers) {
       let privateKey = key.trim();
       if (!privateKey.startsWith('0x')) {
@@ -68,13 +68,14 @@ export function validatePublisherOptions(options: { publishers?: string[]; publi
       }
 
       try {
-        ethPrivateKeySchema.parse(privateKey);
-        normalizedKeys.push(privateKey);
+        // ethPrivateKeySchema validates and wraps in SecretValue
+        const parsed = ethPrivateKeySchema.parse(privateKey);
+        normalizedKeysValues.push(parsed.getValue());
       } catch (error) {
         throw new Error(`Invalid publisher private key: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     // Update the options with the normalized keys
-    options.publishers = normalizedKeys as EthPrivateKey[];
+    (options as any).publishers = normalizedKeysValues;
   }
 }

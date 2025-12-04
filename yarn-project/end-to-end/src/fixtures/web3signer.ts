@@ -1,13 +1,13 @@
 import { randomBytes } from '@aztec/foundation/crypto';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { RemoteSigner } from '@aztec/node-keystore';
+import { type EthPrivateKey, RemoteSigner } from '@aztec/node-keystore';
 
 import { mkdirSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-export async function createWeb3SignerKeystore(dir: string, ...privateKeys: string[]) {
+export async function createWeb3SignerKeystore(dir: string, ...privateKeys: EthPrivateKey[]) {
   const yaml = privateKeys
     .map(
       pk => `\

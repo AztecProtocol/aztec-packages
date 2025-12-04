@@ -56,12 +56,13 @@ const BLOCK_COUNT = 20;
 
 const publishers = Array.from({ length: PUBLISHER_COUNT }, (_, i) => ({
   index: i + PUBLISHER_KEY_START_INDEX,
-  key: `0x${getPrivateKeyFromIndex(i + PUBLISHER_KEY_START_INDEX)!.toString('hex')}` as EthPrivateKey,
+  key: new SecretValue(`0x${getPrivateKeyFromIndex(i + PUBLISHER_KEY_START_INDEX)!.toString('hex')}`) as EthPrivateKey,
 }));
 
 const validators = Array.from(
   { length: VALIDATOR_COUNT },
-  (_, i) => `0x${getPrivateKeyFromIndex(i + VALIDATOR_KEY_START_INDEX)!.toString('hex')}` as EthPrivateKey,
+  (_, i) =>
+    new SecretValue(`0x${getPrivateKeyFromIndex(i + VALIDATOR_KEY_START_INDEX)!.toString('hex')}`) as EthPrivateKey,
 );
 
 async function createKeyFiles() {
@@ -75,7 +76,9 @@ async function createKeyFiles() {
   const file5 = join(directory, 'keyfile5.json');
   const file6 = join(directory, 'keyfile6.json');
 
-  const proverPrivateKey = `0x${getPrivateKeyFromIndex(PROVER_PUBLISHER_INDEX)!.toString('hex')}` as EthPrivateKey;
+  const proverPrivateKey = new SecretValue(
+    `0x${getPrivateKeyFromIndex(PROVER_PUBLISHER_INDEX)!.toString('hex')}`,
+  ) as EthPrivateKey;
 
   const coinbaseAddresses = Array.from({ length: VALIDATOR_COUNT }, (_, i) => {
     return EthAddress.fromNumber(i + 1);
@@ -225,7 +228,7 @@ describe('e2e_multi_validator_node', () => {
     );
 
     // Now collect the sets of expected publishers
-    const publisherAddresses = publishers.map(x => getAddressFromPrivateKey(x.key));
+    const publisherAddresses = publishers.map(x => getAddressFromPrivateKey(x.key.getValue()));
 
     expectedPublishers.set(validatorAddresses[0].toLowerCase(), [
       publisherAddresses[0].toLowerCase(),
@@ -269,8 +272,9 @@ describe('e2e_multi_validator_node', () => {
 
     // Create keys and wallets for signing using our remote signer
     for (let i = 0; i < VALIDATOR_COUNT + PUBLISHER_COUNT + 1; i++) {
-      const pk = `0x${getPrivateKeyFromIndex(i + VALIDATOR_KEY_START_INDEX)!.toString('hex')}` as EthPrivateKey;
-      const account = getAddressFromPrivateKey(pk);
+      const pkHex = `0x${getPrivateKeyFromIndex(i + VALIDATOR_KEY_START_INDEX)!.toString('hex')}` as `0x${string}`;
+      const pk = new SecretValue(pkHex) as EthPrivateKey;
+      const account = getAddressFromPrivateKey(pkHex);
       addressToPrivateKey.set(account.toLowerCase(), pk);
     }
 

@@ -246,7 +246,7 @@ describe('NodeKeystoreAdapter', () => {
         ],
       };
       expect(() => NodeKeystoreAdapter.fromKeystoreConfig(dup)).toThrow(
-        `Duplicate attester address found: ${lower(A.ATTESTER_1)}. An attester address may only appear once across all configuration blocks.`,
+        `Duplicate attester account found: ${lower(A.ATTESTER_1)}. An attester account may only appear once across all configuration blocks.`,
       );
     });
 

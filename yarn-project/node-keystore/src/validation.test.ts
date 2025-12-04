@@ -1,6 +1,7 @@
 /**
  * Tests for keystore duplication check logic and validation integration
  */
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -17,7 +18,7 @@ import type { KeyStore, ProverKeyStoreWithId } from '../src/types.js';
 const logger = createLogger('node-keystore:validation-test');
 
 describe('Keystore Duplication Validation', () => {
-  it('should reject duplicate attester addresses across keystores', () => {
+  it('should reject duplicate attester accountes across keystores', () => {
     logger.info('Testing duplicate attester validation');
 
     const keystore1: KeyStore = {
@@ -41,7 +42,7 @@ describe('Keystore Duplication Validation', () => {
     };
 
     expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
-    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Duplicate attester address/);
+    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Duplicate attester account/);
   });
 
   it('should reject multiple prover configurations across keystores', () => {
@@ -87,7 +88,131 @@ describe('Keystore Duplication Validation', () => {
     };
 
     expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
-    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Duplicate attester address/);
+    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Duplicate attester account/);
+  });
+
+  it('should redact sensitive fields (password) in duplicate attester error messages', () => {
+    const secretPassword = 'SUPER_SECRET_PASSWORD_12345';
+
+    const keystore1: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: { path: '/path/to/key.json', password: secretPassword } as any,
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
+
+    const keystore2: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: { path: '/path/to/key.json', password: secretPassword } as any, // Duplicate!
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
+
+    let thrownError: Error | undefined;
+    try {
+      mergeKeystores([keystore1, keystore2]);
+    } catch (error) {
+      thrownError = error as Error;
+    }
+
+    expect(thrownError).toBeDefined();
+    expect(thrownError!.message).toContain('Duplicate attester account');
+    // Password should NOT appear in the error message
+    expect(thrownError!.message).not.toContain(secretPassword);
+    // Path should still be visible for debugging
+    expect(thrownError!.message).toContain('/path/to/key.json');
+    // Should show redacted placeholder
+    expect(thrownError!.message).toContain('[REDACTED]');
+  });
+
+  it('should redact sensitive fields (mnemonic) in duplicate attester error messages', () => {
+    const secretMnemonic =
+      'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+
+    const keystore1: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: { mnemonic: secretMnemonic, addressIndex: 0 } as any,
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
+
+    const keystore2: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: { mnemonic: secretMnemonic, addressIndex: 0 } as any, // Duplicate!
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
+
+    let thrownError: Error | undefined;
+    try {
+      mergeKeystores([keystore1, keystore2]);
+    } catch (error) {
+      thrownError = error as Error;
+    }
+
+    expect(thrownError).toBeDefined();
+    expect(thrownError!.message).toContain('Duplicate attester account');
+    // Mnemonic should NOT appear in the error message
+    expect(thrownError!.message).not.toContain(secretMnemonic);
+    expect(thrownError!.message).not.toContain('abandon');
+    // Should show redacted placeholder
+    expect(thrownError!.message).toContain('[REDACTED]');
+  });
+
+  it('should redact certPass in duplicate attester error messages', () => {
+    const secretCertPass = 'MY_SUPER_SECRET_CERT_PASSWORD';
+
+    const keystore1: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: {
+            address: '0x1234567890123456789012345678901234567890',
+            remoteSignerUrl: 'https://signer.example.com',
+            certPass: secretCertPass,
+          } as any,
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
+
+    const keystore2: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: {
+            address: '0x1234567890123456789012345678901234567890', // Same address = duplicate
+            remoteSignerUrl: 'https://signer.example.com',
+            certPass: secretCertPass,
+          } as any,
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
+
+    let thrownError: Error | undefined;
+    try {
+      mergeKeystores([keystore1, keystore2]);
+    } catch (error) {
+      thrownError = error as Error;
+    }
+
+    expect(thrownError).toBeDefined();
+    expect(thrownError!.message).toContain('Duplicate attester account');
+    // certPass should NOT appear in the error message
+    expect(thrownError!.message).not.toContain(secretCertPass);
   });
 
   it('should allow unique attester addresses across keystores', () => {
@@ -152,7 +277,7 @@ describe('Keystore Duplication Validation', () => {
     expect(signers).toHaveLength(3);
   });
 
-  it('should detect duplicate attester addresses across JSON V3 and private key after resolution', async () => {
+  it('should detect duplicate attester accountes across JSON V3 and private key after resolution', async () => {
     // Create a temp directory with one JSON V3 keystore whose address matches a given private key
     const { Wallet } = await import('@ethersproject/wallet');
     const { mkdtempSync, writeFileSync } = await import('fs');
@@ -176,7 +301,7 @@ describe('Keystore Duplication Validation', () => {
           feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
         },
         {
-          attester: { path: dir, password } as any,
+          attester: { path: dir, password: new SecretValue(password) } as any,
           feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
         },
       ],
@@ -184,7 +309,7 @@ describe('Keystore Duplication Validation', () => {
 
     const manager = new KeystoreManager(keystore);
     expect(() => manager.validateResolvedUniqueAttesterAddresses()).toThrow(KeystoreError);
-    expect(() => manager.validateResolvedUniqueAttesterAddresses()).toThrow(/Duplicate attester address/);
+    expect(() => manager.validateResolvedUniqueAttesterAddresses()).toThrow(/Duplicate attester account/);
   });
 
   // Integration tests moved from examples.integration.test.ts
@@ -225,9 +350,11 @@ describe('Keystore Duplication Validation', () => {
     // File-level remote signer
     expect(ks.remoteSigner).toBeDefined();
 
-    // File-level funding account
+    // File-level funding account (now wrapped in SecretValue after schema parsing)
     expect(ks.fundingAccount).toBeDefined();
-    expect(ks.fundingAccount).toBe('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    expect((ks.fundingAccount as SecretValue<string>).getValue()).toBe(
+      '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    );
 
     // Slasher: array with mixed account types (private key, address, remote signer account, mnemonic)
     expect(ks.slasher).toBeDefined();
@@ -261,7 +388,9 @@ describe('Keystore Duplication Validation', () => {
       ),
     ).toBeTruthy();
     expect(v1.fundingAccount).toBeDefined();
-    expect(v1.fundingAccount).toBe('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+    expect((v1.fundingAccount as SecretValue<string>).getValue()).toBe(
+      '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    );
 
     // Prover complex type
     expect(ks.prover).toBeDefined();

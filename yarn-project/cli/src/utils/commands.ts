@@ -3,6 +3,7 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { LogId } from '@aztec/aztec.js/log';
 import { TxHash } from '@aztec/aztec.js/tx';
+import { SecretValue } from '@aztec/foundation/config';
 import type { LogFn } from '@aztec/foundation/log';
 import type { PXE } from '@aztec/pxe/server';
 import { PublicKeys } from '@aztec/stdlib/keys';
@@ -404,8 +405,11 @@ export function parseFields(fields: string[]): Fr[] {
  * @returns A JSON string
  */
 export function prettyPrintJSON(data: Record<string, any>): string {
+  // Must unwrap SecretValue BEFORE stringify because JSON.stringify calls toJSON()
+  // before passing to the replacer, so the replacer would see "[Redacted]" strings
+  const unwrapped = unwrapSecretValues(data);
   return JSON.stringify(
-    data,
+    unwrapped,
     (_key, val) => {
       if (typeof val === 'bigint') {
         return String(val);
@@ -417,4 +421,28 @@ export function prettyPrintJSON(data: Record<string, any>): string {
     },
     2,
   );
+}
+
+/**
+ * Recursively unwraps SecretValue objects to their actual values.
+ * This must be done BEFORE JSON.stringify because toJSON() is called before the replacer.
+ * Only transforms plain objects; class instances (with custom prototypes/toJSON) are preserved.
+ */
+function unwrapSecretValues(value: unknown): unknown {
+  if (value instanceof SecretValue) {
+    return value.getValue();
+  }
+  if (Array.isArray(value)) {
+    return value.map(unwrapSecretValues);
+  }
+  // Only transform plain objects (not class instances with custom prototypes)
+  // Class instances like AztecAddress have their own toJSON() that should be preserved
+  if (value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value)) {
+      result[key] = unwrapSecretValues(val);
+    }
+    return result;
+  }
+  return value;
 }

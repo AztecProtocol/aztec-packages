@@ -5,6 +5,7 @@
  */
 import type { EthSigner } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -15,7 +16,6 @@ import { extname, join } from 'path';
 import type { TypedDataDefinition } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { ethPrivateKeySchema } from './schemas.js';
 import { LocalSigner, RemoteSigner } from './signer.js';
 import type {
   AttesterAccounts,
@@ -139,7 +139,7 @@ export class KeystoreManager {
    * Validates that attester addresses are unique across all validators
    * Only checks simple private key attesters, not JSON-V3 or mnemonic attesters,
    * these are validated when decrypting the JSON-V3 keystore files
-   * @throws KeystoreError if duplicate attester addresses are found
+   * @throws KeystoreError if duplicate attester accounts are found
    */
   private validateUniqueAttesterAddresses(): void {
     const seenAddresses = new Set<string>();
@@ -151,7 +151,7 @@ export class KeystoreManager {
         const address = addr.toString().toLowerCase();
         if (seenAddresses.has(address)) {
           throw new KeystoreError(
-            `Duplicate attester address found: ${addr.toString()}. An attester address may only appear once across all configuration blocks.`,
+            `Duplicate attester account found: ${addr.toString()}. An attester account may only appear once across all configuration blocks.`,
           );
         }
         seenAddresses.add(address);
@@ -175,15 +175,42 @@ export class KeystoreManager {
     const results: EthAddress[] = [];
 
     const handleAccount = (account: EthAccount): void => {
-      if (typeof account === 'string') {
-        if (account.startsWith('0x') && account.length === 66) {
+      // Cast to unknown first to handle all runtime cases including plain strings
+      const accountAny = account as unknown;
+
+      // Check for plain string (private key or address)
+      if (typeof accountAny === 'string') {
+        if (accountAny.startsWith('0x') && accountAny.length === 66) {
+          // Private key string - extract address
           try {
-            const signer = new LocalSigner(Buffer32.fromString(ethPrivateKeySchema.parse(account)));
+            const signer = new LocalSigner(Buffer32.fromString(accountAny));
+            results.push(signer.address);
+          } catch {
+            // ignore invalid private key at construction time
+          }
+        } else if (accountAny.startsWith('0x') && accountAny.length === 42) {
+          // Ethereum address string
+          results.push(EthAddress.fromString(accountAny));
+        }
+        return;
+      }
+
+      // Check for private key wrapped in SecretValue
+      if (account instanceof SecretValue) {
+        const keyValue = account.getValue();
+        if (typeof keyValue === 'string' && keyValue.startsWith('0x') && keyValue.length === 66) {
+          try {
+            const signer = new LocalSigner(Buffer32.fromString(keyValue));
             results.push(signer.address);
           } catch {
             // ignore invalid private key at construction time
           }
         }
+        return;
+      }
+
+      // From here, account must be an object - skip if it requires sensitive operations
+      if (typeof account !== 'object' || account === null) {
         return;
       }
 
@@ -374,7 +401,7 @@ export class KeystoreManager {
         const address = signer.address.toString().toLowerCase();
         if (seenAddresses.has(address)) {
           throw new KeystoreError(
-            `Duplicate attester address found after resolving accounts: ${address}. An attester address may only appear once across all configuration blocks.`,
+            `Duplicate attester account found after resolving accounts: ${address}. An attester address may only appear once across all configuration blocks.`,
           );
         }
         seenAddresses.add(address);
@@ -420,24 +447,46 @@ export class KeystoreManager {
    * Create a signer from a single EthAccount configuration
    */
   private createSignerFromEthAccount(account: EthAccount, defaultRemoteSigner?: EthRemoteSignerConfig): EthSigner {
-    // Private key (hex string)
-    if (typeof account === 'string') {
-      if (account.startsWith('0x') && account.length === 66) {
+    // Cast to unknown first to handle all runtime cases including plain strings
+    // (EthAddress is a branded string type, so runtime values may be plain strings)
+    const accountAny = account as unknown;
+
+    // Plain string private key or address
+    if (typeof accountAny === 'string') {
+      if (accountAny.startsWith('0x') && accountAny.length === 66) {
+        return new LocalSigner(Buffer32.fromString(accountAny));
+      }
+      // Just an address string - use default remote signer config
+      if (!defaultRemoteSigner) {
+        throw new KeystoreError(`No remote signer configuration found for address ${accountAny}`);
+      }
+      return new RemoteSigner(EthAddress.fromString(accountAny), defaultRemoteSigner);
+    }
+
+    // Private key (wrapped in SecretValue)
+    if (account instanceof SecretValue) {
+      const keyValue = account.getValue();
+      if (typeof keyValue === 'string' && keyValue.startsWith('0x') && keyValue.length === 66) {
         // Private key
-        return new LocalSigner(Buffer32.fromString(ethPrivateKeySchema.parse(account)));
+        return new LocalSigner(Buffer32.fromString(keyValue));
       } else {
         throw new Error(`Invalid private key`);
       }
     }
 
+    // From here, account must be an object
+    if (typeof accountAny !== 'object' || accountAny === null) {
+      throw new Error(`Invalid account type: ${typeof accountAny}`);
+    }
+
     // JSON V3 keystore
-    if ('path' in account) {
-      const result = this.createSignerFromJsonV3(account);
+    if ('path' in accountAny) {
+      const result = this.createSignerFromJsonV3(accountAny as EncryptedKeyFileConfig);
       return result[0];
     }
 
-    // Remote signer account
-    const remoteSigner: EthRemoteSignerAccount = account;
+    // Remote signer account (at this point we've ruled out EncryptedKeyFileConfig)
+    const remoteSigner = account as EthRemoteSignerAccount;
 
     if ('address' in remoteSigner) {
       // Remote signer with config
@@ -518,13 +567,13 @@ export class KeystoreManager {
   /**
    * Create signer from a single JSON V3 keystore file
    */
-  private createSignerFromSingleJsonV3File(filePath: string, password?: string): EthSigner {
+  private createSignerFromSingleJsonV3File(filePath: string, password?: SecretValue<string>): EthSigner {
     try {
       // Read the keystore file
       const keystoreJson = readFileSync(filePath, 'utf8');
 
       // Get password - prompt for it if not provided
-      const resolvedPassword = password;
+      const resolvedPassword = password?.getValue();
       if (!resolvedPassword) {
         throw new KeystoreError(`No password provided for keystore ${filePath}. Provide password in config.`);
       }
@@ -552,8 +601,8 @@ export class KeystoreManager {
     try {
       // Use viem's mnemonic derivation (imported at top of file)
 
-      // Normalize mnemonic by trimming whitespace
-      const normalizedMnemonic = mnemonic.trim();
+      // Normalize mnemonic by trimming whitespace - use .getValue() to get the actual secret
+      const normalizedMnemonic = mnemonic.getValue().trim();
 
       for (let accIdx = accountIndex; accIdx < accountIndex + accountCount; accIdx++) {
         for (let addrIdx = addressIndex; addrIdx < addressIndex + addressCount; addrIdx++) {
@@ -601,11 +650,31 @@ export class KeystoreManager {
 
     // Helper to get address from an account configuration
     const getAddressFromAccount = (account: EthAccount): EthAddress | EthAddress[] | undefined => {
-      if (typeof account === 'string') {
-        if (account.startsWith('0x') && account.length === 66) {
+      // Cast to unknown to handle all runtime cases (EthAddress is a branded string)
+      const accountAny = account as unknown;
+
+      // Plain string (private key or address)
+      if (typeof accountAny === 'string') {
+        if (accountAny.startsWith('0x') && accountAny.length === 66) {
+          // Private key string - derive address
+          try {
+            const signer = new LocalSigner(Buffer32.fromString(accountAny));
+            return signer.address;
+          } catch {
+            return undefined;
+          }
+        }
+        // It's an address string
+        return EthAddress.fromString(accountAny);
+      }
+
+      // Private key wrapped in SecretValue
+      if (account instanceof SecretValue) {
+        const keyValue = account.getValue();
+        if (typeof keyValue === 'string' && keyValue.startsWith('0x') && keyValue.length === 66) {
           // This is a private key - derive the address
           try {
-            const signer = new LocalSigner(Buffer32.fromString(ethPrivateKeySchema.parse(account)));
+            const signer = new LocalSigner(Buffer32.fromString(keyValue));
             return signer.address;
           } catch {
             return undefined;
@@ -614,10 +683,15 @@ export class KeystoreManager {
         return undefined;
       }
 
+      // From here, account must be an object
+      if (typeof accountAny !== 'object' || accountAny === null) {
+        return undefined;
+      }
+
       // JSON V3 keystore
-      if ('path' in account) {
+      if ('path' in accountAny) {
         try {
-          const signers = this.createSignerFromJsonV3(account);
+          const signers = this.createSignerFromJsonV3(accountAny as EncryptedKeyFileConfig);
           return signers.map(s => s.address);
         } catch {
           return undefined;
@@ -625,7 +699,7 @@ export class KeystoreManager {
       }
 
       // Remote signer account, either it is an address or the address is nested
-      const remoteSigner: EthRemoteSignerAccount = account;
+      const remoteSigner = account as EthRemoteSignerAccount;
       if ('address' in remoteSigner) {
         return remoteSigner.address;
       }
@@ -646,20 +720,34 @@ export class KeystoreManager {
         return undefined;
       }
 
+      // Cast to unknown to handle all runtime cases
+      const accountAny = account as unknown;
+
       // Found a match - determine the config to return
-      if (typeof account === 'string') {
+      // Plain string private key - local signer, no remote config
+      if (typeof accountAny === 'string' && accountAny.length === 66) {
+        return undefined;
+      }
+
+      // Plain string address - use defaults
+      if (typeof accountAny === 'string' && accountAny.length === 42) {
+        return validator.remoteSigner || this.keystore.remoteSigner;
+      }
+
+      // Private key (SecretValue) - local signer, no remote config
+      if (account instanceof SecretValue) {
         return undefined;
       }
 
       // JSON V3 - local signer, no remote config
-      if ('path' in account) {
+      if (typeof accountAny === 'object' && accountAny !== null && 'path' in accountAny) {
         return undefined;
       }
 
-      // Remote signer account with potential override
-      const remoteSigner: EthRemoteSignerAccount = account;
+      // Remote signer account with potential override (must be an object at this point)
+      const remoteSigner = account as EthRemoteSignerAccount;
 
-      if ('address' in remoteSigner) {
+      if (typeof remoteSigner === 'object' && remoteSigner !== null && 'address' in remoteSigner) {
         // Has inline config
         if (remoteSigner.remoteSignerUrl) {
           return {

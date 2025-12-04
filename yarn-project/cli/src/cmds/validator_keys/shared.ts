@@ -1,9 +1,10 @@
 import { prettyPrintJSON } from '@aztec/cli/utils';
+import { SecretValue } from '@aztec/foundation/config';
 import { computeBn254G1PublicKeyCompressed, deriveBlsPrivateKey } from '@aztec/foundation/crypto';
 import { createBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
-import type { EthAccount, EthPrivateKey, ValidatorKeyStore } from '@aztec/node-keystore/types';
+import type { BLSPrivateKey, EthAccount, EthPrivateKey, KeyStore, ValidatorKeyStore } from '@aztec/node-keystore/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { Wallet } from '@ethersproject/wallet';
@@ -72,7 +73,7 @@ export function deriveEthAttester(
   const acct = mnemonicToAccount(mnemonic, { accountIndex: baseAccountIndex, addressIndex });
   return remoteSigner
     ? ({ address: acct.address as unknown as EthAddress, remoteSignerUrl: remoteSigner } as EthAccount)
-    : (('0x' + Buffer.from(acct.getHdKey().privateKey!).toString('hex')) as EthPrivateKey);
+    : (new SecretValue('0x' + Buffer.from(acct.getHdKey().privateKey!).toString('hex')) as EthPrivateKey);
 }
 
 export async function buildValidatorEntries(input: BuildValidatorsInput) {
@@ -98,17 +99,20 @@ export async function buildValidatorEntries(input: BuildValidatorsInput) {
       const basePath = blsPath ?? defaultBlsPath;
       const perValidatorPath = withValidatorIndex(basePath, accountIndex, addressIndex);
 
-      const blsPrivKey = ikm || mnemonic ? deriveBlsPrivateKey(mnemonic, ikm, perValidatorPath) : undefined;
-      const blsPubCompressed = blsPrivKey ? await computeBlsPublicKeyCompressed(blsPrivKey) : undefined;
+      const blsPrivKeyRaw = ikm || mnemonic ? deriveBlsPrivateKey(mnemonic, ikm, perValidatorPath) : undefined;
+      const blsPubCompressed = blsPrivKeyRaw ? await computeBlsPublicKeyCompressed(blsPrivKeyRaw) : undefined;
 
       const ethAttester = deriveEthAttester(mnemonic, accountIndex, addressIndex, remoteSigner);
-      const attester = blsPrivKey ? { eth: ethAttester, bls: blsPrivKey } : ethAttester;
+      const attester = blsPrivKeyRaw
+        ? { eth: ethAttester, bls: new SecretValue(blsPrivKeyRaw) as BLSPrivateKey }
+        : ethAttester;
 
       let publisherField: EthAccount | EthPrivateKey | (EthAccount | EthPrivateKey)[] | undefined;
       const publisherAddresses: string[] = [];
       if (publishers && publishers.length > 0) {
         publisherAddresses.push(...publishers);
-        publisherField = publishers.length === 1 ? (publishers[0] as EthPrivateKey) : (publishers as EthPrivateKey[]);
+        const wrappedPublishers = publishers.map(p => new SecretValue(p) as EthPrivateKey);
+        publisherField = wrappedPublishers.length === 1 ? wrappedPublishers[0] : wrappedPublishers;
       } else if (publisherCount > 0) {
         const publishersBaseIndex = baseAddressIndex + validatorCount + i * publisherCount;
         const publisherAccounts = Array.from({ length: publisherCount }, (_unused2, j) => {
@@ -120,7 +124,7 @@ export async function buildValidatorEntries(input: BuildValidatorsInput) {
           publisherAddresses.push(pubAcct.address as unknown as string);
           return remoteSigner
             ? ({ address: pubAcct.address as unknown as EthAddress, remoteSignerUrl: remoteSigner } as EthAccount)
-            : (('0x' + Buffer.from(pubAcct.getHdKey().privateKey!).toString('hex')) as EthPrivateKey);
+            : (new SecretValue('0x' + Buffer.from(pubAcct.getHdKey().privateKey!).toString('hex')) as EthPrivateKey);
         });
         publisherField = publisherCount === 1 ? publisherAccounts[0] : publisherAccounts;
       }
@@ -170,9 +174,41 @@ export async function resolveKeystoreOutputPath(dataDir?: string, file?: string)
   return { resolvedDir, outputPath: outputPath! };
 }
 
-export async function writeKeystoreFile(path: string, keystore: unknown) {
+/**
+ * Writes a keystore to a JSON file, unwrapping any SecretValue objects to their actual values.
+ * This ensures passwords/mnemonics are written correctly rather than as '[Redacted]'.
+ */
+export async function writeKeystoreFile(path: string, keystore: KeyStore) {
   mkdirSync(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(keystore, null, 2), { encoding: 'utf-8' });
+  // Must unwrap SecretValue BEFORE stringify because JSON.stringify calls toJSON()
+  // before passing to the replacer, so the replacer would see "[Redacted]" strings
+  const unwrapped = unwrapSecretValues(keystore);
+  const json = JSON.stringify(unwrapped, null, 2);
+  await writeFile(path, json, { encoding: 'utf-8' });
+}
+
+/**
+ * Recursively unwraps SecretValue objects to their actual values.
+ * This must be done BEFORE JSON.stringify because toJSON() is called before the replacer.
+ * Only transforms plain objects; class instances (with custom prototypes/toJSON) are preserved.
+ */
+function unwrapSecretValues(value: unknown): unknown {
+  if (value instanceof SecretValue) {
+    return value.getValue();
+  }
+  if (Array.isArray(value)) {
+    const result = value.map(v => unwrapSecretValues(v));
+    return result;
+  }
+
+  if (value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value)) {
+      result[key] = unwrapSecretValues(val);
+    }
+    return result;
+  }
+  return value;
 }
 
 export function logValidatorSummaries(log: LogFn, summaries: ValidatorSummary[]) {
@@ -247,19 +283,29 @@ export async function writeBlsBn254ToFile(
     }
     const att = (v as any).attester;
 
-    // Shapes: { bls: <hex> } or { eth: <ethAccount>, bls?: <hex> } or plain EthAccount
-    const blsKey: string | undefined = typeof att === 'object' && 'bls' in att ? (att as any).bls : undefined;
-    if (!blsKey || typeof blsKey !== 'string') {
+    // Shapes: { bls: <hex> } or { eth: <ethAccount>, bls?: <hex> } or plain EthAccount (no BLS key)
+    const blsKey: string | SecretValue<string> | undefined =
+      typeof att === 'object' && 'bls' in att ? (att as any).bls : undefined;
+    if (!blsKey || (!((blsKey as any) instanceof SecretValue) && typeof blsKey !== 'string')) {
       continue;
     }
 
-    const pub = await computeBlsPublicKeyCompressed(blsKey);
+    const blsKeyValue = blsKey instanceof SecretValue ? blsKey.getValue() : blsKey;
+
+    const pub = await computeBlsPublicKeyCompressed(blsKeyValue);
     const path = options.blsPath ?? defaultBlsPath;
     const fileBase = `${String(i + 1)}_${pub.slice(2, 18)}`;
-    const keystorePath = await writeBn254BlsKeystore(options.outDir, fileBase, options.password, blsKey, pub, path);
+    const keystorePath = await writeBn254BlsKeystore(
+      options.outDir,
+      fileBase,
+      options.password,
+      blsKeyValue,
+      pub,
+      path,
+    );
 
     if (typeof att === 'object') {
-      (att as any).bls = { path: keystorePath, password: options.password };
+      (att as any).bls = { path: keystorePath, password: new SecretValue(options.password) };
     }
   }
 }
@@ -289,7 +335,7 @@ export async function writeEthJsonV3ToFile(
     if (typeof account === 'string' && account.startsWith('0x') && account.length === 66) {
       const fileBase = `${label}_${account.slice(2, 10)}`;
       const p = await writeEthJsonV3Keystore(options.outDir, fileBase, options.password, account);
-      return { path: p, password: options.password };
+      return { path: p, password: new SecretValue(options.password) };
     }
     return account;
   };
@@ -302,10 +348,10 @@ export async function writeEthJsonV3ToFile(
 
     // attester may be string (eth), object with eth, or remote signer
     const att = (v as any).attester;
-    if (typeof att === 'string') {
-      (v as any).attester = await maybeEncryptEth(att, `attester_${i + 1}`);
-    } else if (att && typeof att === 'object' && 'eth' in att) {
-      (att as any).eth = await maybeEncryptEth((att as any).eth, `attester_${i + 1}`);
+    if (att instanceof SecretValue) {
+      (v as any).attester = await maybeEncryptEth(att.getValue(), `attester_${i + 1}`);
+    } else if (att && typeof att === 'object' && 'eth' in att && att.eth instanceof SecretValue) {
+      (att as any).eth = await maybeEncryptEth(att.eth.getValue(), `attester_${i + 1}`);
     }
 
     // publisher can be single or array
@@ -314,11 +360,14 @@ export async function writeEthJsonV3ToFile(
       if (Array.isArray(pub)) {
         const out: any[] = [];
         for (let j = 0; j < pub.length; j++) {
-          out.push(await maybeEncryptEth(pub[j], `publisher_${i + 1}_${j + 1}`));
+          const item = pub[j];
+          const value = item instanceof SecretValue ? item.getValue() : item;
+          out.push(await maybeEncryptEth(value, `publisher_${i + 1}_${j + 1}`));
         }
         (v as any).publisher = out;
       } else if (pub !== undefined) {
-        (v as any).publisher = await maybeEncryptEth(pub, `publisher_${i + 1}`);
+        const value = pub instanceof SecretValue ? pub.getValue() : pub;
+        (v as any).publisher = await maybeEncryptEth(value, `publisher_${i + 1}`);
       }
     }
   }

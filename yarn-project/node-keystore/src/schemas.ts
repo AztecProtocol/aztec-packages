@@ -1,6 +1,7 @@
 /**
  * Zod schemas for keystore validation using Aztec's validation functions
  */
+import { SecretValue } from '@aztec/foundation/config';
 import { optional, schemas } from '@aztec/foundation/schemas';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -8,15 +9,18 @@ import { z } from 'zod';
 
 import type { BLSPrivateKey, EthPrivateKey } from './types.js';
 
-// Use Aztec's validation functions but return string types to match our TypeScript interfaces
+// Helper schema for secret string values (password, certPass, mnemonic)
+const secretStringSchema = schemas.SecretValue(z.string());
+
+// Use Aztec's validation functions and wrap in SecretValue to match our TypeScript interfaces
 export const ethPrivateKeySchema = z
   .string()
   .regex(/^0x[0-9a-fA-F]{64}$/, 'Invalid private key (must be 32 bytes with 0x prefix)')
-  .transform(s => s as EthPrivateKey);
+  .transform(s => new SecretValue(s) as EthPrivateKey);
 export const blsPrivateKeySchema = z
   .string()
   .regex(/^0x[0-9a-fA-F]{64}$/, 'Invalid BLS private key (must be 32 bytes with 0x prefix)')
-  .transform(s => s as BLSPrivateKey);
+  .transform(s => new SecretValue(s) as BLSPrivateKey);
 const urlSchema = z.string().url('Invalid URL');
 
 // Remote signer config schema
@@ -26,7 +30,7 @@ const remoteSignerConfigSchema = z.union([
     .object({
       remoteSignerUrl: urlSchema,
       certPath: optional(z.string()),
-      certPass: optional(z.string()),
+      certPass: optional(secretStringSchema),
     })
     .strict(),
 ]);
@@ -39,7 +43,7 @@ const remoteSignerAccountSchema = z.union([
       address: schemas.EthAddress,
       remoteSignerUrl: urlSchema,
       certPath: optional(z.string()),
-      certPass: optional(z.string()),
+      certPass: optional(secretStringSchema),
     })
     .strict(),
 ]);
@@ -48,14 +52,17 @@ const remoteSignerAccountSchema = z.union([
 const encryptedKeyFileSchema = z
   .object({
     path: z.string(),
-    password: optional(z.string()),
+    password: optional(secretStringSchema),
   })
   .strict();
 
 // Mnemonic config schema
 const mnemonicConfigSchema = z
   .object({
-    mnemonic: z.string().min(1, 'Mnemonic cannot be empty'),
+    mnemonic: z
+      .string()
+      .min(1, 'Mnemonic cannot be empty')
+      .transform(s => new SecretValue(s)),
     addressIndex: z.number().int().min(0).default(0),
     accountIndex: z.number().int().min(0).default(0),
     addressCount: z.number().int().min(1).default(1),

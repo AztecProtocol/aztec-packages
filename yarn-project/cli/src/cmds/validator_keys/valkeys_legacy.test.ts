@@ -76,8 +76,8 @@ describe('validator keys utilities (legacy LEGACY_BLS_CLI)', () => {
       const att2 = v2[0].attester as any;
       expect(att1.bls).toBeDefined();
       expect(att2.bls).toBeDefined();
-      expect(att1.bls).toBe(att2.bls);
-      expect(att1.eth).not.toEqual(att2.eth);
+      expect(att1.bls.getValue()).toBe(att2.bls.getValue());
+      expect(att1.eth.getValue()).not.toEqual(att2.eth.getValue());
       delete process.env.LEGACY_BLS_CLI;
     });
 
@@ -98,7 +98,7 @@ describe('validator keys utilities (legacy LEGACY_BLS_CLI)', () => {
 
       expect(att1.bls).toBeDefined();
       expect(att2.bls).toBeDefined();
-      expect(att1.bls).not.toEqual(att2.bls);
+      expect(att1.bls.getValue()).not.toEqual(att2.bls.getValue());
 
       // build single validator with address index 1
       const { validators: v3 } = await buildValidatorEntries({
@@ -112,8 +112,8 @@ describe('validator keys utilities (legacy LEGACY_BLS_CLI)', () => {
       });
       const att3 = v3[0].attester as any;
       expect(att3.bls).toBeDefined();
-      expect(att3.bls).not.toEqual(att1.bls);
-      expect(att3.bls).toEqual(att2.bls);
+      expect(att3.bls.getValue()).not.toEqual(att1.bls.getValue());
+      expect(att3.bls.getValue()).toEqual(att2.bls.getValue());
       delete process.env.LEGACY_BLS_CLI;
 
       // Without legacy, then we expect the same result when we use accountIndex instead of address index.
@@ -127,9 +127,9 @@ describe('validator keys utilities (legacy LEGACY_BLS_CLI)', () => {
       });
       const att4 = v4[0].attester as any;
       expect(att4.bls).toBeDefined();
-      expect(att4.bls).toEqual(att2.bls);
-      expect(att4.bls).toEqual(att3.bls);
-      expect(att4.bls).not.toEqual(att1.bls);
+      expect(att4.bls.getValue()).toEqual(att2.bls.getValue());
+      expect(att4.bls.getValue()).toEqual(att3.bls.getValue());
+      expect(att4.bls.getValue()).not.toEqual(att1.bls.getValue());
     });
   });
 });

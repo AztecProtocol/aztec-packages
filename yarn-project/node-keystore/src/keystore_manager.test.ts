@@ -2,6 +2,7 @@
  * Tests for KeystoreManager
  */
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -176,7 +177,7 @@ describe('KeystoreManager', () => {
         validators: [
           {
             attester: {
-              mnemonic: 'test test test test test test test test test test test junk',
+              mnemonic: new SecretValue('test test test test test test test test test test test junk'),
               addressCount: 2,
             } as any,
             feeRecipient: await AztecAddress.random(),
@@ -314,7 +315,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: testMnemonic,
+                mnemonic: new SecretValue(testMnemonic),
                 // Using defaults: accountIndex: 0, addressIndex: 0, accountCount: 1, addressCount: 1
               } as any,
               feeRecipient: await AztecAddress.random(),
@@ -335,7 +336,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: testMnemonic,
+                mnemonic: new SecretValue(testMnemonic),
                 accountIndex: 0,
                 addressIndex: 1,
                 accountCount: 1,
@@ -361,7 +362,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: testMnemonic,
+                mnemonic: new SecretValue(testMnemonic),
                 accountIndex: 0,
                 addressIndex: 0,
                 accountCount: 1,
@@ -386,7 +387,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: testMnemonic,
+                mnemonic: new SecretValue(testMnemonic),
                 accountIndex: 0,
                 addressIndex: 0,
                 accountCount: 2, // Derive from 2 accounts
@@ -439,7 +440,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: testMnemonic,
+                mnemonic: new SecretValue(testMnemonic),
               } as any,
               feeRecipient: await AztecAddress.random(),
             },
@@ -458,7 +459,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: testMnemonic,
+                mnemonic: new SecretValue(testMnemonic),
                 addressIndex: 3,
               } as any,
               feeRecipient: await AztecAddress.random(),
@@ -478,7 +479,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: testMnemonic,
+                mnemonic: new SecretValue(testMnemonic),
                 accountIndex: 5,
               } as any,
               feeRecipient: await AztecAddress.random(),
@@ -498,7 +499,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: testMnemonic,
+                mnemonic: new SecretValue(testMnemonic),
                 accountIndex: 5,
                 addressIndex: 3,
               } as any,
@@ -519,7 +520,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: testMnemonic,
+                mnemonic: new SecretValue(testMnemonic),
                 accountIndex: 5,
                 addressIndex: 3,
                 addressCount: 2,
@@ -541,7 +542,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: testMnemonic,
+                mnemonic: new SecretValue(testMnemonic),
                 accountIndex: 5,
                 accountCount: 2,
                 addressIndex: 3,
@@ -566,7 +567,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: 'invalid mnemonic phrase that is not valid',
+                mnemonic: new SecretValue('invalid mnemonic phrase that is not valid'),
               } as any,
               feeRecipient: await AztecAddress.random(),
             },
@@ -584,7 +585,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: '  ' + testMnemonic + '  ', // With leading/trailing spaces
+                mnemonic: new SecretValue('  ' + testMnemonic + '  '), // With leading/trailing spaces
               } as any,
               feeRecipient: await AztecAddress.random(),
             },
@@ -606,7 +607,7 @@ describe('KeystoreManager', () => {
           validators: [
             {
               attester: {
-                mnemonic: testMnemonic,
+                mnemonic: new SecretValue(testMnemonic),
               } as any,
               feeRecipient: await AztecAddress.random(),
             },
@@ -653,7 +654,7 @@ describe('KeystoreManager', () => {
           {
             attester: {
               path: jsonKeystoreFile,
-              password: testPassword,
+              password: new SecretValue(testPassword),
             } as any,
             feeRecipient: await AztecAddress.random(),
           },
@@ -679,7 +680,7 @@ describe('KeystoreManager', () => {
           {
             attester: {
               path: jsonKeystoreFile,
-              password: 'wrong-password',
+              password: new SecretValue('wrong-password'),
             } as any,
             feeRecipient: await AztecAddress.random(),
           },
@@ -700,7 +701,7 @@ describe('KeystoreManager', () => {
           {
             attester: {
               path: jsonKeystoreFile,
-              password: testPassword,
+              password: new SecretValue(testPassword),
             } as any,
             feeRecipient: await AztecAddress.random(),
           },
@@ -746,7 +747,7 @@ describe('KeystoreManager', () => {
           {
             attester: {
               path: tempDir,
-              password: testPassword,
+              password: new SecretValue(testPassword),
             } as any,
             feeRecipient: await AztecAddress.random(),
           },
@@ -775,7 +776,7 @@ describe('KeystoreManager', () => {
           {
             attester: {
               path: tempDir,
-              password: 'some-password',
+              password: new SecretValue('some-password'),
             } as any,
             feeRecipient: await AztecAddress.random(),
           },
@@ -810,7 +811,7 @@ describe('KeystoreManager', () => {
           {
             attester: {
               path: tempDir,
-              password: testPassword,
+              password: new SecretValue(testPassword),
             } as any,
             feeRecipient: await AztecAddress.random(),
           },
@@ -846,7 +847,7 @@ describe('KeystoreManager', () => {
           {
             attester: {
               path: tempDir,
-              password,
+              password: new SecretValue(password),
             } as any,
             feeRecipient: await AztecAddress.random(),
           },
@@ -878,7 +879,7 @@ describe('KeystoreManager', () => {
           {
             attester: {
               path: tempDir,
-              password: testPassword,
+              password: new SecretValue(testPassword),
             } as any,
             feeRecipient: await AztecAddress.random(),
           },
@@ -1017,7 +1018,7 @@ describe('KeystoreManager', () => {
         prover: {
           id: id,
           publisher: {
-            mnemonic: mnemonic,
+            mnemonic: new SecretValue(mnemonic),
             addressCount: 1,
           },
         },
@@ -1151,7 +1152,7 @@ describe('KeystoreManager', () => {
         schemaVersion: 1,
         validators: [
           {
-            attester: { mnemonic: testMnemonic } as any,
+            attester: { mnemonic: new SecretValue(testMnemonic) } as any,
             feeRecipient: await AztecAddress.random(),
           },
         ],
@@ -1324,11 +1325,13 @@ describe('KeystoreManager', () => {
         schemaVersion: 1,
         validators: [
           {
-            attester: { mnemonic: 'test test test test test test test test test test test junk' } as any,
+            attester: {
+              mnemonic: new SecretValue('test test test test test test test test test test test junk'),
+            } as any,
             feeRecipient: await AztecAddress.random(),
           },
           {
-            attester: { path: '/some/path.json', password: 'test' } as any,
+            attester: { path: '/some/path.json', password: new SecretValue('test') } as any,
             feeRecipient: await AztecAddress.random(),
           },
         ],

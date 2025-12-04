@@ -1,3 +1,4 @@
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { EthPrivateKey } from '@aztec/node-keystore';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
@@ -15,19 +16,23 @@ function privateKeyToEthAddress(privateKey: Hex): EthAddress {
 }
 
 describe('createKeyStoreForValidator', () => {
-  const mockValidatorKey1 = generatePrivateKey() as EthPrivateKey;
-  const mockValidatorKey2 = generatePrivateKey() as EthPrivateKey;
-  const mockPublisherKey1 = generatePrivateKey() as EthPrivateKey;
-  const mockPublisherKey2 = generatePrivateKey() as EthPrivateKey;
+  const mockValidatorKey1Raw = generatePrivateKey();
+  const mockValidatorKey2Raw = generatePrivateKey();
+  const mockPublisherKey1Raw = generatePrivateKey();
+  const mockPublisherKey2Raw = generatePrivateKey();
+  const mockValidatorKey1 = new SecretValue(mockValidatorKey1Raw) as EthPrivateKey;
+  const mockValidatorKey2 = new SecretValue(mockValidatorKey2Raw) as EthPrivateKey;
+  const mockPublisherKey1 = new SecretValue(mockPublisherKey1Raw) as EthPrivateKey;
+  const mockPublisherKey2 = new SecretValue(mockPublisherKey2Raw) as EthPrivateKey;
   const mockCoinbase = EthAddress.random();
   const web3SignerUrl = 'http://web3signer:1000';
-  const mockValidatorAddresses = [mockValidatorKey1, mockValidatorKey2].map(privateKeyToEthAddress);
-  const mockPublisherAddresses = [mockPublisherKey1, mockPublisherKey2].map(privateKeyToEthAddress);
+  const mockValidatorAddresses = [mockValidatorKey1Raw, mockValidatorKey2Raw].map(privateKeyToEthAddress);
+  const mockPublisherAddresses = [mockPublisherKey1Raw, mockPublisherKey2Raw].map(privateKeyToEthAddress);
   let mockFeeRecipient: AztecAddress;
 
   const createMockConfig = (
-    validatorKeys: string[] = [],
-    publisherKeys: string[] = [],
+    validatorKeys: EthPrivateKey[] = [],
+    publisherKeys: EthPrivateKey[] = [],
     coinbase?: EthAddress,
     feeRecipient?: AztecAddress,
     web3SignerUrl?: string,
@@ -37,12 +42,14 @@ describe('createKeyStoreForValidator', () => {
     const mockValidatorPrivateKeys =
       validatorKeys.length > 0
         ? {
-            getValue: () => validatorKeys,
+            getValue: () => validatorKeys.map(key => key.getValue() as `0x${string}`),
           }
         : undefined;
 
     const mockPublisherPrivateKeys =
-      publisherKeys.length > 0 ? publisherKeys.map(key => ({ getValue: () => key })) : undefined;
+      publisherKeys.length > 0
+        ? publisherKeys.map(key => ({ getValue: () => key.getValue() as `0x${string}` }))
+        : undefined;
 
     return {
       validatorPrivateKeys: mockValidatorPrivateKeys,
@@ -80,7 +87,7 @@ describe('createKeyStoreForValidator', () => {
     const config = createMockConfig([mockValidatorKey1]);
     const result = createKeyStoreForValidator(config);
 
-    const expectedCoinbase = privateKeyToEthAddress(mockValidatorKey1);
+    const expectedCoinbase = privateKeyToEthAddress(mockValidatorKey1Raw);
     const expectedFeeRecipient = AztecAddress.ZERO;
 
     expect(result).toEqual({
@@ -104,7 +111,7 @@ describe('createKeyStoreForValidator', () => {
     const config = createMockConfig([mockValidatorKey1, mockValidatorKey2]);
     const result = createKeyStoreForValidator(config);
 
-    const expectedCoinbase = privateKeyToEthAddress(mockValidatorKey1);
+    const expectedCoinbase = privateKeyToEthAddress(mockValidatorKey1Raw);
 
     expect(result).toEqual({
       schemaVersion: 1,
@@ -148,7 +155,7 @@ describe('createKeyStoreForValidator', () => {
     const config = createMockConfig([mockValidatorKey1], [mockPublisherKey1, mockPublisherKey2]);
     const result = createKeyStoreForValidator(config);
 
-    const expectedCoinbase = privateKeyToEthAddress(mockValidatorKey1);
+    const expectedCoinbase = privateKeyToEthAddress(mockValidatorKey1Raw);
 
     expect(result).toEqual({
       schemaVersion: 1,
@@ -204,7 +211,7 @@ describe('createKeyStoreForValidator', () => {
     const config = createMockConfig([mockValidatorKey1, mockValidatorKey2]);
     const result = createKeyStoreForValidator(config);
 
-    const expectedCoinbase = privateKeyToEthAddress(mockValidatorKey1);
+    const expectedCoinbase = privateKeyToEthAddress(mockValidatorKey1Raw);
     expect(result?.validators?.[0]?.coinbase?.equals(expectedCoinbase)).toBeTruthy();
   });
 

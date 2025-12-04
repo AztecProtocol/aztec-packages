@@ -5,6 +5,7 @@
  * These types define the JSON structure for configuring validators, provers, and
  * their associated keys and addresses.
  */
+import type { SecretValue } from '@aztec/foundation/config';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Hex } from '@aztec/foundation/string';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -15,13 +16,13 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
  * - JSON V3 format for ETH keys (Ethereum wallet standard)
  * - EIP-2335 format for BLS keys (Ethereum 2.0 validator standard)
  */
-export type EncryptedKeyFileConfig = { path: string; password?: string };
+export type EncryptedKeyFileConfig = { path: string; password?: SecretValue<string> };
 
 /** A private key is a 32-byte 0x-prefixed hex */
-export type EthPrivateKey = Hex<32>;
+export type EthPrivateKey = SecretValue<Hex<32>>;
 
 /** A BLS private key is a 32-byte 0x-prefixed hex */
-export type BLSPrivateKey = Hex<32>;
+export type BLSPrivateKey = SecretValue<Hex<32>>;
 
 /** URL type for remote signers */
 export type Url = string;
@@ -34,7 +35,7 @@ export type EthRemoteSignerConfig =
   | {
       remoteSignerUrl: Url;
       certPath?: string;
-      certPass?: string;
+      certPass?: SecretValue<string>;
     };
 
 /**
@@ -47,7 +48,7 @@ export type EthRemoteSignerAccount =
       address: EthAddress;
       remoteSignerUrl: Url;
       certPath?: string;
-      certPass?: string;
+      certPass?: SecretValue<string>;
     };
 
 /** An L1 account is a private key, a remote signer configuration, or an encrypted keystore file (JSON V3 format) */
@@ -55,7 +56,7 @@ export type EthAccount = EthPrivateKey | EthRemoteSignerAccount | EncryptedKeyFi
 
 /** A mnemonic can be used to define a set of accounts */
 export type MnemonicConfig = {
-  mnemonic: string;
+  mnemonic: SecretValue<string>;
   addressIndex?: number;
   accountIndex?: number;
   addressCount?: number;

@@ -27,7 +27,9 @@ describe('Keystore Schema Validation', () => {
     const parsed = keystoreSchema.parse(keystore);
     expect(parsed.schemaVersion).toBe(1);
     expect(parsed.validators).toHaveLength(1);
-    expect(parsed.validators![0].attester).toBe('0x1234567890123456789012345678901234567890123456789012345678901234');
+    expect((parsed.validators![0].attester as any).getValue()).toBe(
+      '0x1234567890123456789012345678901234567890123456789012345678901234',
+    );
     expect(
       parsed.validators![0].feeRecipient.equals(
         AztecAddress.fromString('0x1234567890123456789012345678901234567890123456789012345678901234'),
@@ -42,7 +44,9 @@ describe('Keystore Schema Validation', () => {
     const parsed = keystoreSchema.parse(keystore);
     expect(parsed.schemaVersion).toBe(1);
     expect(parsed.validators).toHaveLength(1);
-    expect(parsed.validators![0].attester).toBe('0x1234567890123456789012345678901234567890123456789012345678901234');
+    expect((parsed.validators![0].attester as any).getValue()).toBe(
+      '0x1234567890123456789012345678901234567890123456789012345678901234',
+    );
     expect(parsed.remoteSigner).toBeUndefined();
   });
 
@@ -52,7 +56,9 @@ describe('Keystore Schema Validation', () => {
 
     const parsed = keystoreSchema.parse(keystore);
     expect(parsed.schemaVersion).toBe(1);
-    expect(parsed.prover).toBe('0x1234567890123456789012345678901234567890123456789012345678901234');
+    expect((parsed.prover as any).getValue()).toBe(
+      '0x1234567890123456789012345678901234567890123456789012345678901234',
+    );
   });
 
   it('should validate complex multiple validators with remote signer example', () => {
@@ -70,8 +76,12 @@ describe('Keystore Schema Validation', () => {
     expect(parsed.validators).toBeDefined();
     const v0: any = parsed.validators![4];
     expect(typeof v0.attester).toBe('object');
-    expect(v0.attester.eth).toBe('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
-    expect(v0.attester.bls).toBe('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+    expect((v0.attester.eth as any).getValue()).toBe(
+      '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    );
+    expect((v0.attester.bls as any).getValue()).toBe(
+      '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    );
   });
 
   it('should validate prover with publishers example', () => {
@@ -85,7 +95,9 @@ describe('Keystore Schema Validation', () => {
     expect(prover.id.equals(EthAddress.fromString('0x1234567890123456789012345678901234567890'))).toBeTruthy();
     expect(Array.isArray(prover.publisher)).toBe(true);
     expect(prover.publisher as any[]).toHaveLength(2);
-    expect(parsed.fundingAccount).toBe('0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd');
+    expect((parsed.fundingAccount as any).getValue()).toBe(
+      '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+    );
   });
 
   it('should validate prover with single publisher example', () => {
@@ -99,10 +111,13 @@ describe('Keystore Schema Validation', () => {
     expect(prover.id.equals(EthAddress.fromString('0x1234567890123456789012345678901234567890'))).toBeTruthy();
     if (Array.isArray(prover.publisher)) {
       expect(prover.publisher).toHaveLength(1);
-      expect(prover.publisher[0]).toBe('0x1234567890123456789012345678901234567890123456789012345678901234');
+      expect((prover.publisher[0] as any).getValue()).toBe(
+        '0x1234567890123456789012345678901234567890123456789012345678901234',
+      );
     } else {
-      expect(typeof prover.publisher === 'string').toBe(true);
-      expect(prover.publisher).toBe('0x1234567890123456789012345678901234567890123456789012345678901234');
+      expect((prover.publisher as any).getValue()).toBe(
+        '0x1234567890123456789012345678901234567890123456789012345678901234',
+      );
     }
   });
 
@@ -118,7 +133,7 @@ describe('Keystore Schema Validation', () => {
 
     const mnemonic = 'test test test test test test test test test test test junk';
     const publisher: MnemonicConfig = prover.publisher as MnemonicConfig;
-    expect(publisher.mnemonic).toBe(mnemonic);
+    expect(publisher.mnemonic.getValue()).toBe(mnemonic);
     expect(publisher.addressCount).toBe(3);
   });
 

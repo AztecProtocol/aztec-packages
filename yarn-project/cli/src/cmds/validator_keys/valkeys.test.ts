@@ -1,3 +1,4 @@
+import { SecretValue } from '@aztec/foundation/config';
 import { deriveBlsPrivateKey } from '@aztec/foundation/crypto';
 import { decryptBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import { loadKeystoreFile } from '@aztec/node-keystore/loader';
@@ -98,10 +99,10 @@ describe('validator keys utilities', () => {
   });
 
   describe('deriveEthAttester', () => {
-    it('returns a raw private key string when remote signer is not provided', () => {
+    it('returns a SecretValue wrapped private key when remote signer is not provided', () => {
       const out = deriveEthAttester(TEST_MNEMONIC, 0, 0);
-      expect(typeof out).toBe('string');
-      expect((out as string).startsWith('0x')).toBe(true);
+      expect(out).toBeInstanceOf(SecretValue);
+      expect((out as SecretValue<string>).getValue().startsWith('0x')).toBe(true);
     });
 
     it('returns an account object when remote signer is provided', () => {
@@ -175,15 +176,15 @@ describe('validator keys utilities', () => {
       const att1 = v1[0].attester as any;
       const att2 = v2[0].attester as any;
 
-      // Assert ETH addresses are different
-      expect(att1.eth).not.toEqual(att2.eth);
+      // Assert ETH keys are different
+      expect(att1.eth.getValue()).not.toEqual(att2.eth.getValue());
       expect(s1[0].attesterEth).not.toEqual(s2[0].attesterEth);
 
       // Assert BLS keys are different
       expect(att1.bls).toBeDefined();
       expect(att2.bls).toBeDefined();
-      expect(att1.bls).not.toBe(att2.bls);
-      expect(s1[0].attesterBls).not.toBe(s2[0].attesterBls);
+      expect(att1.bls.getValue()).not.toEqual(att2.bls.getValue());
+      expect(s1[0].attesterBls).not.toEqual(s2[0].attesterBls);
     });
 
     it('derives different BLS and ETH keys when address index changes', async () => {
@@ -212,13 +213,13 @@ describe('validator keys utilities', () => {
       const att2 = v2[0].attester as any;
 
       // Assert ETH addresses are different
-      expect(att1.eth).not.toEqual(att2.eth);
+      expect(att1.eth.getValue()).not.toEqual(att2.eth.getValue());
       expect(s1[0].attesterEth).not.toEqual(s2[0].attesterEth);
 
       // Assert BLS keys are different
       expect(att1.bls).toBeDefined();
       expect(att2.bls).toBeDefined();
-      expect(att1.bls).not.toEqual(att2.bls);
+      expect(att1.bls.getValue()).not.toEqual(att2.bls.getValue());
       expect(s1[0].attesterBls).not.toEqual(s2[0].attesterBls);
     });
 
@@ -481,7 +482,7 @@ describe('validator keys utilities', () => {
       // Verify BLS key is a BN254 keystore reference
       const blsConfig = att!.bls as any;
       expect(blsConfig.path).toBeDefined();
-      expect(blsConfig.password).toBe(password);
+      expect(blsConfig.password.getValue()).toBe(password);
 
       // Actually decrypt the BLS keystore using node-keystore's BN254 keystore decryption
       const decryptedBlsKey = decryptBn254Keystore(blsConfig.path, password);
@@ -516,7 +517,8 @@ describe('validator keys utilities', () => {
       expect(keystore.validators).toBeDefined();
       expect(keystore.validators!.length).toBe(1);
       const validator = keystore.validators![0];
-      expect(validator.publisher).toBe(publisherKey);
+      expect(validator.publisher).toBeDefined();
+      expect((validator.publisher as any).getValue()).toEqual(publisherKey);
     });
 
     it('accepts publishers option without 0x prefix and normalizes it', async () => {
@@ -542,8 +544,8 @@ describe('validator keys utilities', () => {
       expect(keystore.validators).toBeDefined();
       expect(keystore.validators!.length).toBe(2);
       // Both validators should have the same normalized publisher
-      expect(keystore.validators![0].publisher).toBe(expectedKey);
-      expect(keystore.validators![1].publisher).toBe(expectedKey);
+      expect((keystore.validators![0].publisher as any).getValue()).toEqual(expectedKey);
+      expect((keystore.validators![1].publisher as any).getValue()).toEqual(expectedKey);
     });
 
     it('rejects invalid publisher private key', async () => {
@@ -590,16 +592,22 @@ describe('validator keys utilities', () => {
       expect(keystore.validators!.length).toBe(1);
       const validator = keystore.validators![0];
       expect(Array.isArray(validator.publisher)).toBe(true);
-      expect(validator.publisher).toEqual([publisherKey1, publisherKey2]);
+      expect((validator.publisher as any).map((v: SecretValue<string>) => v.getValue())).toEqual([
+        publisherKey1,
+        publisherKey2,
+      ]);
     });
   });
 
   describe('materialization helpers (invoked directly)', () => {
     it('replaces plaintext keys with file references', async () => {
       const validators = [
-        { attester: '0x' + 'aa'.repeat(32), feeRecipient: ('0x' + '99'.repeat(32)) as unknown as AztecAddress },
         {
-          attester: { eth: '0x' + 'bb'.repeat(32), bls: '0x' + 'cc'.repeat(32) },
+          attester: new SecretValue('0x' + 'aa'.repeat(32)),
+          feeRecipient: ('0x' + '99'.repeat(32)) as unknown as AztecAddress,
+        },
+        {
+          attester: { eth: new SecretValue('0x' + 'bb'.repeat(32)), bls: new SecretValue('0x' + 'cc'.repeat(32)) },
           feeRecipient: ('0x' + '88'.repeat(32)) as unknown as AztecAddress,
         },
       ] as any;
@@ -628,6 +636,8 @@ describe('validator keys utilities', () => {
         ],
       } as any;
       writeFileSync(existing, JSON.stringify(baseKeystore, null, 2), 'utf-8');
+
+      const fileContent = readFileSync(existing, 'utf-8');
 
       const logs: string[] = [];
       const log = (s: string) => logs.push(s);
@@ -664,6 +674,187 @@ describe('validator keys utilities', () => {
           () => {},
         ),
       ).rejects.toThrow('Schema validation failed');
+    });
+
+    it('preserves all original validator values when adding new validators', async () => {
+      // This comprehensive test ensures that when we load an existing keystore with various
+      // key types and add new validators, ALL existing values are preserved exactly
+      // and nothing is corrupted to "[Redacted]" or "[REDACTED]".
+
+      const keystorePath = join(tmp, 'preserve-all-values.json');
+
+      // Define all the secret/sensitive values we want to verify are preserved
+      const ethPassword = 'eth-keystore-password-123';
+      const blsPassword = 'bls-keystore-password-456';
+      const ethPrivateKey = '0x' + 'ab'.repeat(32);
+      const blsPrivateKey = '0x' + 'cd'.repeat(32);
+      const remoteSignerUrl = 'http://localhost:9000';
+      const remoteSignerCertPath = '/path/to/cert.pem';
+      const remoteSignerCertPass = 'cert-password-789';
+      const publisherPrivateKey = '0x' + 'ef'.repeat(32);
+      const fundingAccountKey = '0x' + '12'.repeat(32);
+      const coinbaseAddress = '0x' + 'aa'.repeat(20);
+      const feeRecipientHex = '0x' + 'bb'.repeat(32);
+
+      // Create a comprehensive keystore with all key types manually
+      const originalKeystoreJson = {
+        schemaVersion: 1,
+        validators: [
+          // Validator 1: Encrypted keyfile config (path + password) for both ETH and BLS
+          {
+            attester: {
+              eth: { path: '/path/to/eth-keystore.json', password: ethPassword },
+              bls: { path: '/path/to/bls-keystore.json', password: blsPassword },
+            },
+            coinbase: coinbaseAddress,
+            feeRecipient: feeRecipientHex,
+          },
+          // Validator 2: Remote signer account with full config
+          {
+            attester: {
+              eth: {
+                address: '0x' + 'cc'.repeat(20),
+                remoteSignerUrl: remoteSignerUrl,
+                certPath: remoteSignerCertPath,
+                certPass: remoteSignerCertPass,
+              },
+              bls: blsPrivateKey, // BLS as plain private key
+            },
+            feeRecipient: feeRecipientHex,
+          },
+          // Validator 3: Plain private keys for both ETH and BLS
+          {
+            attester: {
+              eth: ethPrivateKey,
+              bls: blsPrivateKey,
+            },
+            publisher: publisherPrivateKey,
+            feeRecipient: feeRecipientHex,
+          },
+          // Validator 4: Simple ETH private key as attester (no separate eth/bls object)
+          {
+            attester: ethPrivateKey,
+            publisher: [publisherPrivateKey, '0x' + '34'.repeat(32)], // Array of publishers
+            feeRecipient: feeRecipientHex,
+            fundingAccount: { path: '/path/to/funding.json', password: 'funding-pass' },
+          },
+          // Validator 5: Remote signer with just address (minimal config)
+          {
+            attester: {
+              eth: { address: '0x' + 'dd'.repeat(20), remoteSignerUrl: 'http://other-signer:9001' },
+            },
+            feeRecipient: feeRecipientHex,
+          },
+        ],
+        fundingAccount: fundingAccountKey,
+        remoteSigner: {
+          remoteSignerUrl: 'http://default-signer:9000',
+          certPath: '/default/cert.pem',
+          certPass: 'default-cert-pass',
+        },
+      };
+
+      // Write the original keystore
+      writeFileSync(keystorePath, JSON.stringify(originalKeystoreJson, null, 2), 'utf-8');
+
+      // Load and verify initial keystore
+      const initialKeystore: KeyStore = loadKeystoreFile(keystorePath);
+      expect(initialKeystore.validators?.length).toBe(5);
+
+      // Add a new validator
+      const logs: string[] = [];
+      await addValidatorKeys(
+        keystorePath,
+        {
+          dataDir: tmp,
+          count: 1,
+          mnemonic: 'legal winner thank year wave sausage worth useful legal winner thank yellow',
+          feeRecipient: ('0x' + 'bb'.repeat(32)) as unknown as AztecAddress,
+          addressIndex: 99, // Use high address index to avoid conflicts
+        },
+        (s: string) => logs.push(s),
+      );
+
+      // Read the raw JSON to check the actual content on disk
+      const rawJson = readFileSync(keystorePath, 'utf-8');
+
+      // ===== Verify NO values are redacted =====
+      expect(rawJson).not.toContain('[Redacted]');
+      expect(rawJson).not.toContain('[REDACTED]');
+      expect(rawJson).not.toContain('redacted');
+
+      // ===== Verify ALL original secret values are preserved exactly =====
+      expect(rawJson).toContain(ethPassword);
+      expect(rawJson).toContain(blsPassword);
+      expect(rawJson).toContain(ethPrivateKey);
+      expect(rawJson).toContain(blsPrivateKey);
+      expect(rawJson).toContain(remoteSignerUrl);
+      expect(rawJson).toContain(remoteSignerCertPath);
+      expect(rawJson).toContain(remoteSignerCertPass);
+      expect(rawJson).toContain(publisherPrivateKey);
+      expect(rawJson).toContain(fundingAccountKey);
+      expect(rawJson).toContain(coinbaseAddress);
+      expect(rawJson).toContain('funding-pass');
+      expect(rawJson).toContain('default-cert-pass');
+      expect(rawJson).toContain('http://other-signer:9001');
+      expect(rawJson).toContain('http://default-signer:9000');
+      expect(rawJson).toContain('/default/cert.pem');
+
+      // ===== Load and verify through the schema/loader that values are accessible =====
+      const updatedKeystore: KeyStore = loadKeystoreFile(keystorePath);
+      expect(updatedKeystore.validators?.length).toBe(6); // 5 original + 1 new
+
+      // Verify validator 1: Encrypted keyfile config
+      const v1 = updatedKeystore.validators![0];
+      const v1Att = v1.attester as any;
+      expect(v1Att.eth?.path).toBe('/path/to/eth-keystore.json');
+      expect(v1Att.eth?.password?.getValue()).toBe(ethPassword);
+      expect(v1Att.bls?.path).toBe('/path/to/bls-keystore.json');
+      expect(v1Att.bls?.password?.getValue()).toBe(blsPassword);
+      expect(String(v1.coinbase).toLowerCase()).toBe(coinbaseAddress.toLowerCase());
+
+      // Verify validator 2: Remote signer account with full config
+      const v2 = updatedKeystore.validators![1];
+      const v2Att = v2.attester as any;
+      expect(String(v2Att.eth?.address).toLowerCase()).toBe(('0x' + 'cc'.repeat(20)).toLowerCase());
+      expect(v2Att.eth?.remoteSignerUrl).toBe(remoteSignerUrl);
+      expect(v2Att.eth?.certPath).toBe(remoteSignerCertPath);
+      expect(v2Att.eth?.certPass?.getValue()).toBe(remoteSignerCertPass);
+      expect(v2Att.bls?.getValue()).toBe(blsPrivateKey);
+
+      // Verify validator 3: Plain private keys
+      const v3 = updatedKeystore.validators![2];
+      const v3Att = v3.attester as any;
+      expect(v3Att.eth?.getValue()).toBe(ethPrivateKey);
+      expect(v3Att.bls?.getValue()).toBe(blsPrivateKey);
+      expect((v3.publisher as any)?.getValue()).toBe(publisherPrivateKey);
+
+      // Verify validator 4: Simple attester with array of publishers
+      const v4 = updatedKeystore.validators![3];
+      expect((v4.attester as any)?.getValue()).toBe(ethPrivateKey);
+      expect(Array.isArray(v4.publisher)).toBe(true);
+      const v4Publishers = v4.publisher as any[];
+      expect(v4Publishers[0]?.getValue()).toBe(publisherPrivateKey);
+      expect(v4Publishers[1]?.getValue()).toBe('0x' + '34'.repeat(32));
+      expect((v4 as any).fundingAccount?.path).toBe('/path/to/funding.json');
+      expect((v4 as any).fundingAccount?.password?.getValue()).toBe('funding-pass');
+
+      // Verify validator 5: Remote signer with minimal config
+      const v5 = updatedKeystore.validators![4];
+      const v5Att = v5.attester as any;
+      expect(String(v5Att.eth?.address).toLowerCase()).toBe(('0x' + 'dd'.repeat(20)).toLowerCase());
+      expect(v5Att.eth?.remoteSignerUrl).toBe('http://other-signer:9001');
+
+      // Verify file-level settings preserved
+      expect((updatedKeystore.fundingAccount as any)?.getValue()).toBe(fundingAccountKey);
+      expect((updatedKeystore.remoteSigner as any)?.remoteSignerUrl).toBe('http://default-signer:9000');
+      expect((updatedKeystore.remoteSigner as any)?.certPath).toBe('/default/cert.pem');
+      expect((updatedKeystore.remoteSigner as any)?.certPass?.getValue()).toBe('default-cert-pass');
+
+      // Verify the new validator was added correctly (validator 6)
+      const v6 = updatedKeystore.validators![5];
+      expect(v6.feeRecipient).toBeDefined();
+      expect(v6.attester).toBeDefined();
     });
   });
 

@@ -1,5 +1,6 @@
 import { prettyPrintJSON } from '@aztec/cli/utils';
 import { GSEContract, createEthereumChain } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import { computeBn254G1PublicKey, computeBn254G2PublicKey } from '@aztec/foundation/crypto';
 import { decryptBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -10,8 +11,10 @@ import type {
   AttesterAccount,
   AttesterAccounts,
   BLSAccount,
+  BLSPrivateKey,
   EncryptedKeyFileConfig,
   EthAccount,
+  EthPrivateKey,
   MnemonicConfig,
 } from '@aztec/node-keystore/types';
 
@@ -63,17 +66,22 @@ function isEncryptedKeyFileConfig(value: unknown): value is EncryptedKeyFileConf
 }
 
 /**
- * Check if a BLSAccount is a private key string (not an encrypted keystore file)
+ * Check if a BLSAccount is a private key (SecretValue wrapping a hex string)
  */
-function isBlsPrivateKey(bls: unknown): bls is string {
-  return typeof bls === 'string' && bls.startsWith('0x');
+function isBlsPrivateKey(bls: unknown): bls is BLSPrivateKey {
+  return bls instanceof SecretValue && typeof bls.getValue() === 'string' && bls.getValue().startsWith('0x');
 }
 
 /**
- * Check if an EthAccount is a private key string (66 chars: 0x + 64 hex)
+ * Check if an EthAccount is a private key (SecretValue wrapping a 66-char hex string)
  */
-function isEthPrivateKey(eth: unknown): eth is string {
-  return typeof eth === 'string' && eth.startsWith('0x') && eth.length === 66;
+function isEthPrivateKey(eth: unknown): eth is EthPrivateKey {
+  return (
+    eth instanceof SecretValue &&
+    typeof eth.getValue() === 'string' &&
+    eth.getValue().startsWith('0x') &&
+    eth.getValue().length === 66
+  );
 }
 
 /**
@@ -88,14 +96,14 @@ function isEthAddress(value: unknown): value is string {
  */
 function decryptBlsKey(bls: BLSAccount, password?: string): string | undefined {
   if (isBlsPrivateKey(bls)) {
-    return bls;
+    return bls.getValue();
   }
 
   if (isEncryptedKeyFileConfig(bls)) {
     if (!password && !bls.password) {
       return undefined; // Can't decrypt without password
     }
-    const pwd = password ?? bls.password!;
+    const pwd = password ?? bls.password!.getValue();
     return decryptBn254Keystore(bls.path, pwd);
   }
 
@@ -107,14 +115,14 @@ function decryptBlsKey(bls: BLSAccount, password?: string): string | undefined {
  */
 async function decryptEthKey(eth: EthAccount, password?: string): Promise<string | undefined> {
   if (isEthPrivateKey(eth)) {
-    return eth;
+    return eth.getValue();
   }
 
   if (isEncryptedKeyFileConfig(eth)) {
     if (!password && !eth.password) {
       return undefined; // Can't decrypt without password
     }
-    const pwd = password ?? eth.password!;
+    const pwd = password ?? eth.password!.getValue();
     const json = readFileSync(eth.path, 'utf-8');
     const wallet = await Wallet.fromEncryptedJson(json, pwd);
     return wallet.privateKey as string;
@@ -127,9 +135,9 @@ async function decryptEthKey(eth: EthAccount, password?: string): Promise<string
  * Extract Ethereum address from an EthAccount (or private key)
  */
 async function getEthAddress(eth: EthAccount | string, password?: string): Promise<EthAddress | undefined> {
-  // Case 1: It's a private key string - derive the address
+  // Case 1: It's a private key (SecretValue) - derive the address
   if (isEthPrivateKey(eth)) {
-    return privateKeyToAddress(eth as `0x${string}`) as unknown as EthAddress;
+    return privateKeyToAddress(eth.getValue() as `0x${string}`) as unknown as EthAddress;
   }
 
   // Case 2: It's just an address string directly (EthRemoteSignerAccount can be just EthAddress)
