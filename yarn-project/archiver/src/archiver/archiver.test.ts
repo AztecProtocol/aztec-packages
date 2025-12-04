@@ -5,6 +5,7 @@ import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig, InboxContract, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
+import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
@@ -80,9 +81,22 @@ interface MockInboxContractEvents {
 }
 
 describe('Archiver', () => {
-  const rollupAddress = EthAddress.ZERO;
-  const inboxAddress = EthAddress.ZERO;
-  const registryAddress = EthAddress.ZERO;
+  const rollupAddress = EthAddress.random();
+  const inboxAddress = EthAddress.random();
+  const registryAddress = EthAddress.random();
+  const governanceProposerAddress = EthAddress.random();
+  const slashFactoryAddress = EthAddress.random();
+  const slashingProposerAddress = EthAddress.random();
+
+  const blockNumbers = [1, 2, 3];
+  const txsPerBlock = 4;
+
+  const getNumPrivateLogsForTx = (blockNumber: number, txIndex: number) => txIndex + blockNumber;
+  const getNumPrivateLogsForBlock = (blockNumber: number) =>
+    Array(txsPerBlock)
+      .fill(0)
+      .map((_, i) => getNumPrivateLogsForTx(blockNumber, i))
+      .reduce((accum, num) => accum + num, 0);
 
   const mockL1BlockNumbers = (...l1BlockNumbers: bigint[]) => {
     // During each archiver sync, we read the block number 3 times, so this ensures all three reads are consistent across the run.
@@ -137,6 +151,7 @@ describe('Archiver', () => {
   };
 
   let publicClient: MockProxy<ViemPublicClient>;
+  let debugClient: MockProxy<ViemPublicClient>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let blobSinkClient: MockProxy<BlobSinkClientInterface>;
   let epochCache: MockProxy<EpochCache>;
@@ -196,6 +211,9 @@ describe('Archiver', () => {
       } as FormattedBlock;
     }) as any);
 
+    // Debug client uses the same mock as public client for tests
+    debugClient = publicClient;
+
     blobSinkClient = mock<BlobSinkClientInterface>();
     epochCache = mock<EpochCache>();
     epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
@@ -214,11 +232,26 @@ describe('Archiver', () => {
       genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT),
     };
 
+    const contractAddresses = {
+      rollupAddress,
+      inboxAddress,
+      registryAddress,
+      governanceProposerAddress,
+      slashFactoryAddress,
+      slashingProposerAddress,
+    };
+
     archiver = new Archiver(
       publicClient,
-      { rollupAddress, inboxAddress, registryAddress },
+      debugClient,
+      contractAddresses,
       archiverStore,
-      { pollingIntervalMs: 1000, batchSize: 1000, maxAllowedEthClientDriftSeconds: 300 },
+      {
+        pollingIntervalMs: 1000,
+        batchSize: 1000,
+        maxAllowedEthClientDriftSeconds: 300,
+        ethereumAllowNoDebugHosts: true,
+      },
       blobSinkClient,
       epochCache,
       dateProvider,
@@ -1325,14 +1358,19 @@ describe('Archiver', () => {
       args: [
         [
           {
-            target: EthAddress.ZERO.toString(),
+            target: rollupAddress.toString(),
             callData: rollupInput,
             allowFailure: false,
           },
         ],
       ],
     });
-    const tx = { input: multiCallInput, hash: archive, blockHash: archive } as Transaction<bigint, number>;
+    const tx = {
+      input: multiCallInput,
+      hash: archive,
+      blockHash: archive,
+      to: MULTI_CALL_3_ADDRESS as `0x${string}`,
+    } as Transaction<bigint, number>;
     allRollupTxs.set(checkpoint.archive.root.toString(), tx);
     return tx;
   };

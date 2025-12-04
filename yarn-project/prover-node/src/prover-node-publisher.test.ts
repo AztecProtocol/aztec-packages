@@ -30,6 +30,7 @@ describe('prover-node-publisher', () => {
     config = {
       l1ChainId: 1,
       l1RpcUrls: ['http://localhost:8545'],
+      l1DebugRpcUrls: [],
       publisherPrivateKeys: [new SecretValue('0x1234')],
       viemPollingIntervalMS: 1000,
       l1Contracts: {
