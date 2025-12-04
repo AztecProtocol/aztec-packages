@@ -70,8 +70,8 @@ TEST(stdlib_blake3s, test_too_large_input)
     std::vector<uint8_t> input_v(1025, 0);
 
     byte_array_ct input_arr(&builder, input_v);
-    EXPECT_THROW_OR_ABORT(stdlib::Blake3s<UltraBuilder>::hash(input_arr),
-                          "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
+    EXPECT_THROW_WITH_MESSAGE(stdlib::Blake3s<UltraBuilder>::hash(input_arr),
+                              "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
 }
 
 TEST(stdlib_blake3s, test_witness_and_constant)

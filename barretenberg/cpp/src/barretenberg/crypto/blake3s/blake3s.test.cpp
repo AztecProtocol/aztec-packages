@@ -419,5 +419,5 @@ TEST(MiscBlake3s, TestVectors)
 TEST(MiscBlake3s, TooLargeInputTest)
 {
     std::vector<uint8_t> input(1025, 0);
-    EXPECT_THROW_OR_ABORT(blake3::blake3s(input), "Assertion failed");
+    EXPECT_THROW_WITH_MESSAGE(blake3::blake3s(input), "Assertion failed");
 }
