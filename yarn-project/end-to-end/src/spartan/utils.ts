@@ -194,9 +194,9 @@ export function getExternalIP(namespace: string, serviceName: string): Promise<s
   return promise;
 }
 
-export function startPortForwardForRPC(namespace: string, resourceType = 'services', index = 0) {
+export function startPortForwardForRPC(namespace: string, index = 0) {
   return startPortForward({
-    resource: `${resourceType}/${namespace}-rpc-aztec-node-${index}`,
+    resource: `pod/${namespace}-rpc-aztec-node-${index}`,
     namespace,
     containerPort: 8080,
   });
