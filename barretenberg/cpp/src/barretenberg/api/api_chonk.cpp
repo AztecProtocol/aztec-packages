@@ -1,3 +1,7 @@
+//
+// CLI implementation for Chonk proving system.
+// See: chonk/README.md for architecture overview.
+//
 #include "api_chonk.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/log.hpp"
@@ -21,12 +25,13 @@ namespace bb {
 namespace { // anonymous namespace
 
 /**
- * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
+ * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated by Chonk.
  * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
  * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
+
  *
- * @param bytecode_path
- * @param witness_path
+ * @param bytecode ACIR bytecode of the circuit
+ * @param output_path Directory to write the VK (or "-" for stdout)
  */
 void write_standalone_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path)
 {
@@ -41,9 +46,19 @@ void write_standalone_vk(std::vector<uint8_t> bytecode, const std::filesystem::p
         write_file(output_path / "vk", response.bytes);
     }
 }
+
+/**
+ * @brief Compute and write the Chonk verification key.
+ *
+ * @details Computes the VK for the hiding kernel circuit. The bytecode parameter should be
+ * the last circuit in the IVC chain (e.g., private-tail in Aztec), as this determines
+ * the public inputs structure of the hiding kernel.
+ *
+ * @param bytecode ACIR bytecode of the final circuit in the IVC chain
+ * @param output_dir Directory to write the VK (or "-" for stdout)
+ */
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir)
 {
-    // compute the hiding kernel's vk
     info("Chonk: computing IVC vk for hiding kernel circuit");
     auto response = bbapi::ChonkComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute();
     const bool output_to_stdout = output_dir == "-";

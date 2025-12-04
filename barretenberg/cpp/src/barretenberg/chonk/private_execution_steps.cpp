@@ -1,3 +1,7 @@
+//
+// Implementation of private execution step loading and IVC accumulation.
+// See: private_execution_steps.hpp for data flow overview.
+//
 #include "private_execution_steps.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -5,7 +9,11 @@
 #include <libdeflate.h>
 
 namespace bb {
+namespace {
 
+/**
+ * Save modified ivc-inputs.msgpack when VKs are rewritten.
+ */
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
 {
     auto compressor =
@@ -27,6 +35,9 @@ std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
     return compressed;
 }
 
+/**
+ * Decompress bytecode and witness fields from ivc-inputs.msgpack.
+ */
 std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {
     std::vector<uint8_t> content;
@@ -53,6 +64,9 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
     return content;
 }
 
+/**
+ * @brief Deserialize msgpack data from file.
+ */
 template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 {
     std::ifstream fin;
@@ -73,6 +87,8 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
     msgpack::unpack(encoded_data.data(), fsize).get().convert(result);
     return result;
 }
+
+} // anonymous namespace
 
 // TODO(#7371) we should not have so many levels of serialization here.
 std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load(const std::filesystem::path& input_path)
