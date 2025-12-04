@@ -4,7 +4,7 @@ set -euo pipefail
 script_dir="$(dirname "$(realpath "$0")")"
 
 function aztec {
-  node --no-warnings $script_dir/../dest/bin/index.js "$@"
+  exec node --no-warnings $script_dir/../dest/bin/index.js "$@"
 }
 
 cmd=${1:-}
