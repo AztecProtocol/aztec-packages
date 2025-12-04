@@ -12,12 +12,13 @@ cpus='8'
 mem="16G"
 jobs_="$cpus"
 workers='0'
+avm='off'
 
 show_help() {
 	echo "Usage: $0 [options]"
 	echo ""
 	echo "Options:"
-	echo "  -v, --verbosity <verbosity> Enable fuzzer's verbose mode (default: $verbosity)"
+	echo "  -v, --verbose               Enable fuzzer's verbose mode (default: disabled)"
 	echo "  -f, --fuzzer <fuzzer_name>  Specify the fuzzer to use (current: $fuzzer)"
 	echo "  -t, --timeout <timeout>     Set the maximum total time for fuzzing in seconds (default: $timeout - 1 month)"
 	echo "  -c, --cpus <cpus>           Set the amount of CPUs for container to use (default: $cpus)"
@@ -25,7 +26,8 @@ show_help() {
 	echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs_)"
 	echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
 	echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage or regress-only) (default: $mode)"
-	echo "  -a, --asm <mode>            Set the flag to enable/disable asm instrucitons (on/off) (default: $asm)"
+	echo "  -a, --asm <mode>            Set the flag to enable/disable asm instructions (on/off) (default: $asm)"
+	echo "  -A, --avm                   Enable AVM fuzzing mode (uses build-fuzzing-avm) (default: $avm)"
 	echo "  -h, --help                  Display this help and exit"
 	echo "  --show-fuzzers              Display the available fuzzers"
 	echo ""
@@ -35,9 +37,9 @@ show_help() {
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-	-v | --verbosity)
-		verbosity="$2"
-		shift 2
+	-v | --verbose)
+		verbosity="1"
+		shift
 		;;
 	-f | --fuzzer)
 		fuzzer="$2"
@@ -66,6 +68,10 @@ while [[ $# -gt 0 ]]; do
 	-a | --asm)
 		asm="$2"
 		shift 2
+		;;
+	-A | --avm)
+		avm='on'
+		shift
 		;;
 	-c | --cpus)
 		cpus="$2"
@@ -98,10 +104,14 @@ image_name=barretenberg-fuzzer
 docker build src/ -t "$image_name":latest
 
 if [[ "$mode" == "show-fuzzers" ]]; then
-	docker run -it --rm \
+	entrypoint_args=(--show_fuzzers)
+	entrypoint_args+=(--asm "$asm")
+	entrypoint_args+=(--avm "$avm")
+
+	docker run -it --rm                \
 		--entrypoint "./entrypoint.sh" \
-		"$image_name" \
-		--show-fuzzers
+		"$image_name"                  \
+		"${entrypoint_args[@]}"
 	exit 0
 fi
 
@@ -131,6 +141,7 @@ entrypoint_args=(
 	--fuzzer "$fuzzer"
 	--mode "$mode"
 	--asm "$asm"
+	--avm "$avm"
 	--timeout "$timeout"
 	--workers "$workers"
 	--jobs "$jobs_"

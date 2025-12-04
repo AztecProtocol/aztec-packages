@@ -13,24 +13,29 @@ jobs_='4'
 workers='0'
 asm='on'
 show_only=0
+avm='off'
 
 set_main_fuzzer() {
 	main_fuzzer=''
-	case "$asm" in
-	on)
-		main_fuzzer="./build-fuzzing/bin"
-		;;
-	off)
-		main_fuzzer="./build-fuzzing-noasm/bin"
-		;;
-	*)
-		log "Unexpected asm flag value: $asm. Expecting on/off"
-		exit 1
-		;;
-	esac
+	if [[ "$avm" == "on" ]]; then
+		main_fuzzer="./build-fuzzing-avm/bin"
+	else
+		case "$asm" in
+		on)
+			main_fuzzer="./build-fuzzing/bin"
+			;;
+		off)
+			main_fuzzer="./build-fuzzing-noasm/bin"
+			;;
+		*)
+			log "Unexpected asm flag value: $asm. Expecting on/off"
+			exit 1
+			;;
+		esac
+	fi
 
 	post_fuzzer="./build-fuzzing-asan/bin"
-	cov_fuzzer="./build-fuzzing-cov/bin"
+	cov_fuzzer="./build-fuzzing-cov/bin" # TODO(defkit): implement cov fuzzer for AVM
 }
 
 show_fuzzers() {
@@ -54,6 +59,7 @@ show_help() {
 	echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
 	echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage or regress-only) (default: $mode)"
 	echo "  -a, --asm <mode>            Set the flag to enable/disable asm instructions (on/off) (default: $asm)"
+	echo "  -A, --avm <mode>            Enable AVM fuzzing mode (uses build-fuzzing-avm) (on/off) (default: $avm)"
 	echo "  -h, --help                  Display this help and exit"
 	echo "  --show-fuzzers              Display the available fuzzers"
 	echo ""
@@ -99,6 +105,10 @@ while [[ $# -gt 0 ]]; do
 		;;
 	-a | --asm)
 		asm="$2"
+		shift 2
+		;;
+	-A | --avm)
+		avm="$2"
 		shift 2
 		;;
 	-h | --help)
