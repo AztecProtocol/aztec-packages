@@ -67,7 +67,7 @@ MultilinearBatchingVerifier<Flavor_>::Commitment MultilinearBatchingVerifier<Fla
     if constexpr (IsRecursiveFlavor<Flavor>) {
         return Curve::Group::batch_mul(points, scalars);
     } else {
-        return batch_mul_native(points, scalars);
+        return batch_mul_native<Curve>(points, scalars);
     }
 }
 
