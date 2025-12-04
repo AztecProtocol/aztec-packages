@@ -1,5 +1,6 @@
 import { DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, encodeArguments } from '@aztec/stdlib/abi';
 import { PublicSimulatorConfig, type PublicTxResult } from '@aztec/stdlib/avm';
@@ -227,6 +228,6 @@ export function defaultGlobals() {
   const globals = GlobalVariables.empty();
   globals.timestamp = DEFAULT_TIMESTAMP;
   globals.gasFees = DEFAULT_GAS_FEES; // apply some nonzero default gas fees
-  globals.blockNumber = DEFAULT_BLOCK_NUMBER;
+  globals.blockNumber = BlockNumber(DEFAULT_BLOCK_NUMBER);
   return globals;
 }

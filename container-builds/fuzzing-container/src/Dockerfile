@@ -54,6 +54,10 @@ RUN cmake --build build-fuzzing-asan
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-coverage
 RUN cmake --build build-fuzzing-cov
 
+# Build avm fuzzers
+RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-avm
+RUN cmake --build build-fuzzing-avm
+
 # Runtime stage
 FROM ubuntu:noble AS runtime
 
@@ -82,6 +86,7 @@ COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing/b
 COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-noasm/bin ./build-fuzzing-noasm/bin
 COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-asan/bin ./build-fuzzing-asan/bin
 COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-cov/bin ./build-fuzzing-cov/bin
+COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-avm/bin ./build-fuzzing-avm/bin
 COPY --from=builder /root/.bb-crs /root/.bb-crs
 
 # Copy entrypoint script

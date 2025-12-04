@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import type { ContractDataProvider } from '@aztec/pxe/server';
 import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
@@ -14,11 +15,11 @@ import {
 export class TXEPublicContractDataSource implements ContractDataSource {
   #privateFunctionsRoot: Map<string, Buffer> = new Map();
   constructor(
-    private blockNumber: number,
+    private blockNumber: BlockNumber,
     private contractDataProvider: ContractDataProvider,
   ) {}
 
-  getBlockNumber(): Promise<number> {
+  getBlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(this.blockNumber);
   }
 

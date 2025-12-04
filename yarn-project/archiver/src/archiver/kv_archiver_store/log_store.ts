@@ -1,4 +1,5 @@
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
@@ -389,9 +390,9 @@ export class LogStore {
       const log = txLogs[logIndex];
       if (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) {
         if (log instanceof ContractClassLog) {
-          results.push(new ExtendedContractClassLog(new LogId(blockNumber, txIndex, logIndex), log));
+          results.push(new ExtendedContractClassLog(new LogId(BlockNumber(blockNumber), txIndex, logIndex), log));
         } else {
-          results.push(new ExtendedPublicLog(new LogId(blockNumber, txIndex, logIndex), log));
+          results.push(new ExtendedPublicLog(new LogId(BlockNumber(blockNumber), txIndex, logIndex), log));
         }
 
         if (results.length >= this.#logsMaxPageSize) {

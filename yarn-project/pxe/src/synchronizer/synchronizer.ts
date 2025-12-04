@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
@@ -109,7 +110,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      await this.syncDataProvider.setHeader((await this.node.getBlockHeader(0))!);
+      await this.syncDataProvider.setHeader((await this.node.getBlockHeader(BlockNumber.ZERO))!);
     }
     await this.blockStream.sync();
   }

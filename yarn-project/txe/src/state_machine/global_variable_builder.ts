@@ -1,4 +1,4 @@
-import type { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -11,7 +11,7 @@ export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
   }
 
   public buildGlobalVariables(
-    _blockNumber: number,
+    _blockNumber: BlockNumber,
     _coinbase: EthAddress,
     _feeRecipient: AztecAddress,
     _slotNumber?: SlotNumber,

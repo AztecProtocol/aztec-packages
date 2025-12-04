@@ -1,6 +1,6 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 
 import { jest } from '@jest/globals';
 
@@ -52,18 +52,18 @@ describe('e2e_epochs/epochs_multiple', () => {
       epochNumber++;
 
       // Verify the state syncs
-      await test.waitForNodeToSync(provenCheckpointNumber, 'proven');
-      await test.verifyHistoricBlock(provenCheckpointNumber, true);
+      await test.waitForNodeToSync(BlockNumber(Number(provenCheckpointNumber)), 'proven');
+      await test.verifyHistoricBlock(BlockNumber(Number(provenCheckpointNumber)), true);
 
       // right now finalization means a checkpoint is two L2 epochs deep. If this rule changes then we need this test needs to be updated
       const provenBlockNumber = Number(provenCheckpointNumber);
       const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2, 0);
       const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1, 1);
       const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
-      await test.waitForNodeToSync(expectedOldestHistoricBlock, 'historic');
-      await test.verifyHistoricBlock(expectedOldestHistoricBlock, true);
+      await test.waitForNodeToSync(BlockNumber(expectedOldestHistoricBlock), 'historic');
+      await test.verifyHistoricBlock(BlockNumber(expectedOldestHistoricBlock), true);
       if (expectedBlockRemoved > 0) {
-        await test.verifyHistoricBlock(expectedBlockRemoved, false);
+        await test.verifyHistoricBlock(BlockNumber(expectedBlockRemoved), false);
       }
     }
     logger.info('Test Succeeded');

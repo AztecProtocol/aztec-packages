@@ -5,6 +5,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { GeneratorIndex, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { siloNullifier } from '@aztec/stdlib/hash';
@@ -91,7 +92,7 @@ describe('Keys', () => {
 
     const getNumNullifiedNotes = async (nskApp: Fr, contractAddress: AztecAddress) => {
       // 1. Get all the note hashes
-      const blocks = await aztecNode.getBlocks(INITIAL_L2_BLOCK_NUM, 1000);
+      const blocks = await aztecNode.getBlocks(BlockNumber(INITIAL_L2_BLOCK_NUM), 1000);
       const noteHashes = blocks.flatMap((block: L2Block) =>
         block.body.txEffects.flatMap(txEffect => txEffect.noteHashes),
       );
