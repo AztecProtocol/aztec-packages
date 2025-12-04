@@ -132,8 +132,11 @@ TEST(stdlib_blake2s, test_multiple_sized_blocks)
     }
 }
 
-// Edge case that caused addition overflow issues in Blake. See https://hackmd.io/@aztec-network/SyTHLkAWZx for a
-// detailed description of the addition overflow issue.
+// Previously, certain inputs were pushing the addition overflows in `g` to beyond 3 bits (where `add_normalize` can
+// tolerate up to 3 bits of overflow), causing failures. This has been addressed by calling `add_normalize` in the
+// second half of every call to `g` to ensure that the overflow doesn't go beyond 3 bits. The edge case that caused
+// addition overflow issues in Blake is tested here. See https://hackmd.io/@aztec-network/SyTHLkAWZx for a detailed
+// description of the addition overflow issue.
 TEST(stdlib_blake2s, test_edge_case_addition_overflow)
 {
     std::array<uint8_t, 62> v = { 0x0E, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6,
