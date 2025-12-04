@@ -29,6 +29,7 @@ set_main_fuzzer() {
 
 show_fuzzers() {
     echo "The following fuzzers are available:"
+    echo
     if compgen -G "$main_fuzzer/*"* &> /dev/null; then
         for f in "$main_fuzzer/"*; do
             basename "$f";
