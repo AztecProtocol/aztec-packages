@@ -1756,6 +1756,7 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
 
             debug("@", pc, " ", instruction.to_string());
             context.set_next_pc(pc + static_cast<uint32_t>(instruction.size_in_bytes()));
+            // next_pc is overwritten in dispatch_opcode() for JUMP, JUMPI, INTERNALCALL, and INTERNALRETURN.
 
             // Resolve the operands.
             auto addressing = execution_components.make_addressing(addressing_event);
