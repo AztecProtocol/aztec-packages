@@ -70,6 +70,22 @@ sel = 0;
 pol commit sel; // subtrace selector
 sel * (1 - sel) = 0;
 
+/**
+* SELECTOR DEACTIVATION CASCADE
+*
+* When `sel == 0`, a lot of selectors in this sub-trace are enforced to be 0.
+* In particular, the opcode selectors or dispatching selectors to other sub-traces.
+* We observe the following deactivation cascade of selectors:
+* `sel == 0` ==> `sel_bytecode_retrieval_success == 0` ==> `sel_instruction_fetching_success == 0`
+* ==> `sel_should_read_registers == 0` ==> `sel_should_check_gas == 0` ==> `sel_should_execute_opcode == 0`
+* ==> `sel_should_write_registers = 0`
+* By #[SUBTRACE_ID_DECOMPOSITION], this implies that dispatching selectors are off on an inactive row,
+* i.e., `sel_exec_dispatch_execution == 0`, `sel_exec_dispatch_alu == 0`, `sel_exec_dispatch_bitwise == 0`, ...
+* From #[EXEC_OP_ID_DECOMPOSITION], we have the selectors for execution opcodes:
+* `sel_execute_get_env_var == 0`, `sel_execute_mov == 0`, `sel_execute_jump == 0`, `sel_execute_jumpi == 0`, ...
+*/
+
+
 // Selector indicating enqueued call boundaries.
 // Used by TX trace for lookups to dispatch and retrieve results/reverted.
 pol commit enqueued_call_start;
@@ -90,6 +106,19 @@ enqueued_call_end = sel_exit_call * (1 - has_parent_ctx);
 // This is the only row where bytecode retrieval is active.
 pol commit sel_first_row_in_context;
 sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
+
+/**
+* DEACTIVATION FOR ENQUEUED_CALL_START/END/SEL_FIRST_ROW_IN_CONTEXT
+* If `sel == 0`, we have `enqueued_call_start == 0` by definition (#[ENQUEUED_CALL_START]);
+* From the "above cascade of de-activation":
+* `sel == 0` ==> `sel_execute_call == 0` and `sel_execute_static_call == 0`.
+* Thus, `sel_enter_call == 0` by definition in context.pil.
+* As a consequence, `sel_first_row_in_context == 0` by definition.
+* As explained below at the definition of `sel_error`, we also have `sel_error == 0` if `sel == 0`.
+* Combining this with `sel_exec_return == 0`, `sel_exec_revert == 0`, and the definition of `sel_exit_call`
+* in context.pil, we have `sel_exit_call == 0` if `sel == 0`.
+* Finally, it follows that enqueued_call_end == 0 if `sel == 0`.
+*/
 
 /**************************************************************************************************
  *  Setup (some general constraints)
@@ -137,6 +166,9 @@ sel_first_row_in_context {
 // it to be 0 for all subsequent rows in the context.
 #[BYTECODE_RETRIEVAL_NO_FAILURE]
 (1 - sel_first_row_in_context) * sel_bytecode_retrieval_failure = 0;
+
+// Since `sel == 0` ==> `sel_first_row_in_context == 0`, we have:
+// `sel == 0` ==> `sel_bytecode_retrieval_failure == 0`
 
 pol commit sel_bytecode_retrieval_success;
 // If sel = 0, we enforce sel_bytecode_retrieval_success = 0.
@@ -756,7 +788,7 @@ sel_execute_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // W
 pol commit sel_should_write_registers;
 sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
 
-// NOTE: Constraints on the registers are in execution_registers.pil.
+// NOTE: Constraints on the registers are in execution/registers.pil.
 // There is no output because this group cannot fail.
 
 /**************************************************************************************************
@@ -765,8 +797,10 @@ sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
 
 // sel_error is 1 iff any kind of error happens at the execution level.
 pol commit sel_error;
-// Observe that the errors are mutually exclusive over active rows (sel == 1):
+// Observe that the errors are mutually exclusive:
 // Namely, we enforced a cascade of selectors to ensure that only one error can be set at a time.
+// If sel == 0, sel_bytecode_retrieval_failure == 0 (remark after #[BYTECODE_RETRIEVAL_NO_FAILURE])
+// and sel_bytecode_retrieval_success == 0 (definition of sel_bytecode_retrieval_success).
 // If `sel_bytecode_retrieval_failure = 1`, we constrain `sel_bytecode_retrieval_success == 0`
 // and from #[NO_FETCHING_NO_INSTR_FETCH_ERROR] we have `sel_instruction_fetching_failure == 0`.
 // By definition, `sel_bytecode_retrieval_success == 0` implies `sel_instruction_fetching_success == 0`.
@@ -777,7 +811,8 @@ pol commit sel_error;
 // In gas.pil, we have `sel_should_check_gas == 0` implies `sel_out_of_gas == 0`. By definition,
 // `sel_should_check_gas == 0` implies `sel_should_execute_opcode == 0`. Above, we enforce that
 // `sel_should_execute_opcode == 0` implies `sel_opcode_error == 0`.
-// sel_error is therefore a boolean on active rows.
+// sel_error is therefore a boolean.
+// Note also that `sel == 0` ==> `sel_error == 0` from the above explanation.
 sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + sel_addressing_error
           + sel_register_read_error + sel_out_of_gas + sel_opcode_error;
 
@@ -795,11 +830,7 @@ sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + 
 
 // To prevent a malicious prover from activating non legitimate permutations, we should also enforce that
 // the source permutations selector is off on an inactive row.
-// This is already enforced through the following cascade of selectors:
-// sel == 0 ==> sel_bytecode_retrieval_success == 0 ==> sel_instruction_fetching_success == 0
-// ==> sel_should_read_registers == 0 ==> sel_should_check_gas == 0 ==> sel_should_execute_opcode == 0
-// By #[SUBTRACE_ID_DECOMPOSITION], this implies that dispatching selectors are off on an inactive row,
-// i.e., sel_exec_dispatch_alu == 0, sel_exec_dispatch_bitwise == 0, sel_exec_dispatch_cast == 0, ...
+// This is already enforced through the "selector deactivation cascade" explained at the top of this file.
 
 #[DISPATCH_TO_ALU]
 sel_exec_dispatch_alu {
