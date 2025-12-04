@@ -15,13 +15,13 @@ else
   NON_INTERACTIVE=${NON_INTERACTIVE:-0}
 fi
 
-AZTEC_PATH="${AZTEC_PATH:-$HOME/.aztec}"
-BIN_PATH=${BIN_PATH:-$AZTEC_PATH/bin}
+aztec_path=$HOME/.aztec
+bin_path=$aztec_path/bin
 
 # For testing you can override the INSTALL_URI to point to a file uri e.g. file:///home/user/aztec-packages/aztec-up/bin
-if [ -z "$INSTALL_URI" ]; then
+if [ -z "${INSTALL_URI:-}" ]; then
   INSTALL_URI=https://install.aztec.network
-  if [ -z "${VERSION:-}" ]; then
+  if [ -n "${VERSION:-}" ]; then
     INSTALL_URI+="/$VERSION"
   fi
 fi
@@ -108,14 +108,14 @@ function check_toolchains {
 }
 
 function install_file {
-  local dest="$AZTEC_PATH/$1"
+  local dest="$aztec_path/$1"
   curl -fsSL "$INSTALL_URI/$1" -o "$dest"
   echo "Installed: $dest"
 }
 
 # Copy a file from the install source path to the bin path and make it executable.
 function install_bin {
-  local dest="$BIN_PATH/$1"
+  local dest="$bin_path/$1"
   curl -fsSL "$INSTALL_URI/$1" -o "$dest"
   chmod +x "$dest"
   echo "Installed: $dest"
@@ -123,7 +123,7 @@ function install_bin {
 
 # Updates appropriate shell script to ensure the bin path is in the PATH.
 function update_path_env_var {
-  local target_dir=$BIN_PATH
+  local target_dir=$bin_path
   # Check if the target directory is in the user's PATH.
   if [[ ":$PATH:" == *":$target_dir:"* ]]; then
     return
@@ -175,29 +175,34 @@ function install_jq {
       ;;
   esac
 
-  curl -Ls "$url_base/$bin" -o $BIN_PATH/jq || return 1
-  chmod +x $BIN_PATH/jq
+  curl -Ls "$url_base/$bin" -o $bin_path/jq || return 1
+  chmod +x $bin_path/jq
 }
 
 function install_aztec_up {
-  rm -rf $BIN_PATH && mkdir -p $BIN_PATH
+  set -euo pipefail
+  mkdir -p $bin_path
+  rm -f $bin_path/*
   install_bin aztec-up
   install_file versions
   update_path_env_var
 }
 
 function install_noir {
+  set -euo pipefail
   curl -Ls https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
-  $HOME/.nargo/bin/noirup -v $(cat $AZTEC_PATH/versions | grep noir | cut -d' ' -f2)
+  $HOME/.nargo/bin/noirup -v $(cat $aztec_path/versions | grep noir | cut -d' ' -f2)
 }
 
 function install_foundry {
+  set -euo pipefail
   curl -L https://foundry.paradigm.xyz | bash
-  $HOME/.foundry/bin/foundryup -i $(cat $AZTEC_PATH/versions | grep foundry | cut -d' ' -f2)
+  $HOME/.foundry/bin/foundryup -i $(cat $aztec_path/versions | grep foundry | cut -d' ' -f2)
 }
 
 function install_aztec_packages {
-  local version=$(cat $AZTEC_PATH/versions | grep aztec | cut -d' ' -f2)
+  set -euo pipefail
+  local version=$(cat $aztec_path/versions | grep aztec | cut -d' ' -f2)
   npm i -g @aztec/aztec@$version @aztec/cli-wallet@$version @aztec/bb.js@$version
 }
 
