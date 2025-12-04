@@ -139,7 +139,7 @@ sel_first_row_in_context {
 (1 - sel_first_row_in_context) * sel_bytecode_retrieval_failure = 0;
 
 pol commit sel_bytecode_retrieval_success;
-// If sel = 0, we want sel_bytecode_retrieval_success = 0. We shouldn't be using it.
+// If sel = 0, we enforce sel_bytecode_retrieval_success = 0.
 sel_bytecode_retrieval_success = sel * (1 - sel_bytecode_retrieval_failure);
 
 /**************************************************************************************************
@@ -172,7 +172,7 @@ sel_bytecode_retrieval_success {
 };
 
 pol commit sel_instruction_fetching_success;
-// If sel = 0, we want sel_instruction_fetching_success = 0. We shouldn't be using it.
+// If sel = 0, note that sel_instruction_fetching_success = 0 by transitive reasoning.
 sel_instruction_fetching_success = sel_bytecode_retrieval_success * (1 - sel_instruction_fetching_failure);
 
 #[NO_FETCHING_NO_INSTR_FETCH_ERROR]
@@ -329,6 +329,7 @@ pol commit rop[7];
  **************************************************************************************************/
 
 pol commit sel_should_read_registers;
+// Note that sel == 0 ==> sel_should_read_registers = 0 by transitive reasoning.
 sel_should_read_registers = SEL_SHOULD_RESOLVE_ADDRESS * (1 - sel_addressing_error);
 
 // Registers
@@ -352,6 +353,7 @@ pol commit expected_tag_reg[6];
  **************************************************************************************************/
 
 pol commit sel_should_check_gas;
+// Note that sel == 0 ==> sel_should_check_gas = 0 by transitive reasoning.
 sel_should_check_gas = sel_should_read_registers * (1 - sel_register_read_error);
 // NOTE: Gas is constrained in gas.pil.
 // The "output we want is" sel_out_of_gas from gas.pil.
@@ -463,6 +465,7 @@ sel_gas_emit_unencrypted_log * (/*log_size=*/ register[0] - dynamic_da_gas_facto
  **************************************************************************************************/
 
 pol commit sel_should_execute_opcode;
+// Note that sel == 0 ==> sel_should_check_gas = 0 by transitive reasoning.
 sel_should_execute_opcode = sel_should_check_gas * (1 - sel_out_of_gas);
 
 pol commit sel_opcode_error;
@@ -507,6 +510,7 @@ sel_exec_dispatch_keccakf1600 * (1 - sel_exec_dispatch_keccakf1600) = 0;
 sel_exec_dispatch_ecc_add * (1 - sel_exec_dispatch_ecc_add) = 0;
 sel_exec_dispatch_to_radix * (1 - sel_exec_dispatch_to_radix) = 0;
 
+// Note that sel == 0 ==> sel_exec_dispatch_XXX = 0 by transitive reasoning.
 #[SUBTRACE_ID_DECOMPOSITION]
 sel_exec_dispatch_execution * constants.AVM_SUBTRACE_ID_EXECUTION +
 sel_exec_dispatch_alu * constants.AVM_SUBTRACE_ID_ALU +
@@ -572,6 +576,7 @@ sel_execute_nullifier_exists * (1 - sel_execute_nullifier_exists) = 0;
 sel_execute_emit_nullifier * (1 - sel_execute_emit_nullifier) = 0;
 sel_execute_send_l2_to_l1_msg * (1 - sel_execute_send_l2_to_l1_msg) = 0;
 
+// Note that sel == 0 ==> sel_execute_XXX = 0 by transitive reasoning.
 #[EXEC_OP_ID_DECOMPOSITION]
 sel_execute_get_env_var * constants.AVM_EXEC_OP_ID_GETENVVAR +
 sel_execute_mov * constants.AVM_EXEC_OP_ID_MOV +
@@ -595,8 +600,9 @@ sel_execute_nullifier_exists * constants.AVM_EXEC_OP_ID_NULLIFIER_EXISTS +
 sel_execute_emit_nullifier * constants.AVM_EXEC_OP_ID_EMIT_NULLIFIER +
 sel_execute_send_l2_to_l1_msg * constants.AVM_EXEC_OP_ID_SENDL2TOL1MSG
 // We force the selectors to be 0 if we are not executing an opcode
-// or when we are not in the execution subtrace.
-= sel_should_execute_opcode * sel_exec_dispatch_execution * subtrace_operation_id;
+// of execution subtrace. Note that sel_should_execute_opcode == 0
+// implies sel_exec_dispatch_execution == 0. (#[SUBTRACE_ID_DECOMPOSITION])
+= sel_exec_dispatch_execution * subtrace_operation_id;
 
 // Dynamic gas opcode selectors.
 // Each of these selectors takes into account both which opcode we are considering executing
@@ -779,9 +785,21 @@ sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + 
  *  Dispatching to other subtraces
  **************************************************************************************************/
 
-// This contains all the lookups dispatching opcode computation to their pertaining sub-trace.
+// This contains all the lookups/permutations dispatching opcode computation to their pertaining sub-trace.
 // For every entry in the enum SubtraceSel, there is a lookup table except for SubtraceSel::EXECUTION
 // which are handled by the execution subtrace.
+
+// It is important that for any dispatching computation creating side-effects or affecting memory,
+// we use a permutation instead of a lookup. In the following interactions, we exclusively use
+// lookups for pure computations which are also de-duplicated (alu.pil and bitwise.pil sub-traces).
+
+// To prevent a malicious prover from activating non legitimate permutations, we should also enforce that
+// the source permutations selector is off on an inactive row.
+// This is already enforced through the following cascade of selectors:
+// sel == 0 ==> sel_bytecode_retrieval_success == 0 ==> sel_instruction_fetching_success == 0
+// ==> sel_should_read_registers == 0 ==> sel_should_check_gas == 0 ==> sel_should_execute_opcode == 0
+// By #[SUBTRACE_ID_DECOMPOSITION], this implies that dispatching selectors are off on an inactive row,
+// i.e., sel_exec_dispatch_alu == 0, sel_exec_dispatch_bitwise == 0, sel_exec_dispatch_cast == 0, ...
 
 #[DISPATCH_TO_ALU]
 sel_exec_dispatch_alu {
@@ -926,7 +944,7 @@ sel_exec_dispatch_emit_unencrypted_log {
         // Error
         sel_opcode_error,
         discard
-} in emit_unencrypted_log.start {
+} is emit_unencrypted_log.start {
         emit_unencrypted_log.execution_clk,
         emit_unencrypted_log.space_id,
         emit_unencrypted_log.log_address,

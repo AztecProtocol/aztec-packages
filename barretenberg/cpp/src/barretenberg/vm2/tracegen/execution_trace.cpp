@@ -1189,7 +1189,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_execution_dispatch_to_cast_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_dispatch_to_set_settings, InteractionType::LookupGeneric>()
         .add<perm_execution_dispatch_to_get_contract_instance_settings, InteractionType::Permutation>()
-        .add<lookup_execution_dispatch_to_emit_unencrypted_log_settings, InteractionType::LookupGeneric>()
+        .add<perm_execution_dispatch_to_emit_unencrypted_log_settings, InteractionType::Permutation>()
         .add<perm_execution_dispatch_to_poseidon2_perm_settings, InteractionType::Permutation>()
         .add<perm_execution_dispatch_to_sha256_compression_settings, InteractionType::Permutation>()
         .add<perm_execution_dispatch_to_keccakf1600_settings, InteractionType::Permutation>()
