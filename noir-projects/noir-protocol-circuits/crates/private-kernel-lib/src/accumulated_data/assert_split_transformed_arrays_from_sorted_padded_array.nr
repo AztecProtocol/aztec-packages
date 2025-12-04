@@ -1,12 +1,15 @@
 use types::{
-    constants::MAX_U32_VALUE, side_effect::Ordered, traits::Empty, utils::arrays::find_first_index,
+    constants::MAX_U32_VALUE,
+    side_effect::Ordered,
+    traits::Empty,
+    utils::arrays::{ClaimedLengthArray, find_first_index},
 };
 
 /// Verifies that an array of sorted and padded items is correctly transformed and split into two arrays based on a
 /// given `split_counter` and the number of padded (dummy) items for the `transformed_array_lt` array.
 ///
 /// ### Arguments
-/// - `sorted_padded_array`: The array of items that have been sorted and padded with dummy items.
+/// - `sorted_padded_array`: The claimed length array of items that have been sorted and padded with dummy items.
 /// - `transformed_array_lt`: The transformed array of items whose counters are `< split_counter`.
 /// - `transformed_array_gte`: The transformed array of items whose counters are `>= split_counter`.
 /// - `split_counter`: The counter value used to divide items into the two arrays.
@@ -18,14 +21,14 @@ use types::{
 ///   - Items within `original_array.length` must not be nullish.
 ///   - Items beyond `original_array.length` must be nullish.
 /// - Items within `original_array.length` in `original_array` must have been sorted by counter in ascending order.
-/// - Items beyond `original_array.length` in `original_array` must have a counter of 0.
+/// - Items beyond `original_array.length` in `original_array` can have any counter value.
 /// - `num_padded_lt` must not be larger than the total number of padded items and empty items in `sorted_padded_array`.
 ///
 /// This function checks that:
 /// 1. Each item in the `original_array` is correctly transformed and placed in either:
-///    - `transformed_array_lt`: for items whose counters are **less than** `split_counter`.
+///    - `transformed_array_lt`: for items whose counters are **less than** `split_counter` or are padded items.
 ///    - `transformed_array_gte`: for items with counters **greater than or equal to** `split_counter`.
-/// 2. The correct number of padded items are added to both transformed arrays.
+/// 2. A user chosen number of padded items are added to both transformed arrays.
 /// 3. All unused slots in both transformed arrays contain empty items.
 ///
 /// ### Notes
@@ -33,7 +36,7 @@ use types::{
 ///   reset circuit to hide the actual number of side effects emitted in the tx.
 /// - This function does not mutate the input arrays; it only validates correctness.
 pub fn assert_split_transformed_arrays_from_sorted_padded_array<T, S, let N: u32, Env>(
-    sorted_padded_array: [T; N],
+    sorted_padded_array: ClaimedLengthArray<T, N>,
     transformed_array_lt: [S; N],
     transformed_array_gte: [S; N],
     split_counter: u32,
@@ -47,8 +50,13 @@ where
     // Safety: The hints are constrained by `assert_split_transformed_arrays_from_sorted_padded_array_with_hint`.
     let (first_after_split_index, first_padded_index) = unsafe {
         (
-            find_first_index(sorted_padded_array, |n: T| n.counter() >= split_counter),
-            find_first_index(sorted_padded_array, |n: T| n.counter() == MAX_U32_VALUE),
+            find_first_index(
+                sorted_padded_array.array,
+                |n: T| (n.counter() >= split_counter) | (n.counter() == 0),
+            ), find_first_index(
+                sorted_padded_array.array,
+                |n: T| n.counter() == MAX_U32_VALUE,
+            ),
         )
     };
 
@@ -65,7 +73,7 @@ where
 }
 
 fn assert_split_transformed_arrays_from_sorted_padded_array_with_hint<T, S, let N: u32, Env>(
-    sorted_padded_array: [T; N],
+    sorted_padded_array: ClaimedLengthArray<T, N>,
     transformed_array_lt: [S; N],
     transformed_array_gte: [S; N],
     split_counter: u32,
@@ -82,29 +90,38 @@ where
 
     // Validate `first_after_split_index`:
     // sorted_padded_array[first_after_split_index - 1].counter() < split_counter <= sorted_padded_array[first_after_split_index].counter()
+    // We need to validate that the first_after_split_index is less than the claimed length, or a malicious prover
+    // could use one of the padding items or falsely choose N as the first_after_split_index.
+    assert(
+        first_after_split_index <= sorted_padded_array.length,
+        "first_after_split_index is beyond the claimed length",
+    );
     if first_after_split_index != 0 {
         assert(
-            sorted_padded_array[first_after_split_index - 1].counter() < split_counter,
+            sorted_padded_array.array[first_after_split_index - 1].counter() < split_counter,
             "first_after_split_index is too large",
         );
     }
     if first_after_split_index != N {
-        let counter = sorted_padded_array[first_after_split_index].counter();
+        let counter = sorted_padded_array.array[first_after_split_index].counter();
         // Note: An empty item (counter == 0) can also be the first item after the split counter.
         assert((counter == 0) | (counter >= split_counter), "incorrect first_after_split_index");
     }
 
     // Validate `first_padded_index`:
-    // sorted_padded_array[first_padded_index - 1].counter() is not nullish, but sorted_padded_array[first_padded_index].counter() is nullish.
+    // sorted_padded_array[first_padded_index - 1].counter() is not MAX_U32_VALUE, but sorted_padded_array[first_padded_index].counter() is MAX_U32_VALUE.
+    // We don't validate that the first_padded_index is lte than the claimed length. It's not necessary since:
+    // - If you choose a value that is too low, the below validation will fail
+    // - If you choose a value too high, more padded/empty items will be added to the _gte array, which is fine
     if first_padded_index != 0 {
         assert(
-            sorted_padded_array[first_padded_index - 1].counter() != MAX_U32_VALUE,
+            sorted_padded_array.array[first_padded_index - 1].counter() != MAX_U32_VALUE,
             "first_padded_index is too large",
         );
     }
     if first_padded_index != N {
         assert_eq(
-            sorted_padded_array[first_padded_index].counter(),
+            sorted_padded_array.array[first_padded_index].counter(),
             MAX_U32_VALUE,
             "incorrect first_padded_index",
         );
@@ -121,12 +138,12 @@ where
     //
     // There are 4 phases in the iteration:
     // 1. Processing items that belong to the `_lt` array and are not padded: `non_padded_lt`
-    // 2. Processing items that belong to the `_lt` array and are padded: `padded_lt`
-    // 3. Processing items that belong to the `_gte` array and are not padded: `non_padded_gte`
+    // 2. Processing items that belong to the `_gte` array and are not padded: `non_padded_gte`
+    // 3. Processing items that belong to the `_lt` array and are padded: `padded_lt`
     // 4. Processing items that belong to the `_gte` array and are padded: `padded_gte`
     //
     // Note that the empty trailing items in the `sorted_padded_array` will be processed in:
-    // - Phase 2 if there are no padded items for the `_gte` array (`first_padded_gte_index` == `N`).
+    // - Phase 3 if there are no padded items for the `_gte` array (`first_padded_gte_index` == `N`).
     // - Phase 4 otherwise.
     //
     // We can use the following statements to determine the phase:
@@ -135,9 +152,9 @@ where
     // } else if is_padded_gte {
     //     Phase 4
     // } else if is_padded {
-    //     Phase 2
-    // } else {
     //     Phase 3
+    // } else {
+    //     Phase 2
     // }
     let mut is_non_padded_lt = true;
     let mut is_padded = false;
@@ -158,18 +175,18 @@ where
         // From:
         // sorted_padded_array: [...Phase_1, ...Phase_2, ...Phase_3, ...Phase_4]
         // To:
-        // _lt: [...Phase_1, ...Phase_2, ...empty_items]
-        // _gte: [...Phase_3, ...Phase_4, ...empty_items]
-        let original = sorted_padded_array[i];
+        // _lt: [...Phase_1, ...Phase_3, ...empty_items]
+        // _gte: [...Phase_2, ...Phase_4, ...empty_items]
+        let original = sorted_padded_array.array[i];
         // Determine target index in the destination arrays based on phase,
         let to_index = if is_non_padded_lt {
             i // Phase 1
         } else if is_padded_gte {
             i - num_lt // Phase 4
         } else if is_padded {
-            i - num_non_padded_gte // Phase 2
+            i - num_non_padded_gte // Phase 3
         } else {
-            i - num_non_padded_lt // Phase 3
+            i - num_non_padded_lt // Phase 2
         };
         // Get the value from the correct destination array.
         let transformed = if is_lt {
@@ -181,16 +198,16 @@ where
         assert_transformed(original, transformed);
 
         // For every item added to the `_lt` array, there is an empty item padded to the `_gte` array. And vice versa.
-        // _lt: [...Phase_1, ...Phase_2, ...padded_from_Phase_3, ...padded_from_Phase_4]
-        // _gte: [...Phase_3, ...Phase_4, ...padded_from_Phase_2, ...padded_from_Phase_1]
+        // _lt: [...Phase_1, ...Phase_3, ...empty_from_Phase_2, ...empty_from_Phase_4]
+        // _gte: [...Phase_2, ...Phase_4, ...empty_from_Phase_3, ...empty_from_Phase_1]
         let empty_index = if is_non_padded_lt {
             N - i - 1 // Phase 1
         } else if is_padded_gte {
             i // Phase 4
         } else if is_padded {
-            N - to_index - 1 // Phase 2
+            N - to_index - 1 // Phase 3
         } else {
-            i + num_padded_lt // Phase 3
+            i + num_padded_lt // Phase 2
         };
         // Get the value from the correct destination array.
         let padded_empty = if is_lt {
@@ -208,7 +225,12 @@ mod tests {
         assert_split_transformed_arrays_from_sorted_padded_array,
         assert_split_transformed_arrays_from_sorted_padded_array_with_hint,
     };
-    use types::{constants::MAX_U32_VALUE, tests::{types::TestValue, utils::pad_end}, traits::Empty};
+    use types::{
+        constants::MAX_U32_VALUE,
+        tests::{types::TestValue, utils::pad_end},
+        traits::Empty,
+        utils::arrays::ClaimedLengthArray,
+    };
 
     global NUM_TEST_ITEMS: u32 = 8;
 
@@ -217,7 +239,7 @@ mod tests {
     }
 
     struct TestBuilder {
-        sorted_padded_array: [TestValue; NUM_TEST_ITEMS],
+        sorted_padded_array: ClaimedLengthArray<TestValue, NUM_TEST_ITEMS>,
         transformed_array_lt: [Field; NUM_TEST_ITEMS],
         transformed_array_gte: [Field; NUM_TEST_ITEMS],
         split_counter: u32,
@@ -228,14 +250,17 @@ mod tests {
 
     impl TestBuilder {
         pub fn new() -> Self {
-            let sorted_padded_array = pad_end([
-                TestValue { value: 40, counter: 3 },
-                TestValue { value: 30, counter: 7 },
-                TestValue { value: 80, counter: 13 },
-                TestValue { value: 20, counter: MAX_U32_VALUE },
-                TestValue { value: 50, counter: MAX_U32_VALUE },
-                TestValue { value: 10, counter: MAX_U32_VALUE },
-            ]);
+            let sorted_padded_array = ClaimedLengthArray {
+                array: pad_end([
+                    TestValue { value: 40, counter: 3 },
+                    TestValue { value: 30, counter: 7 },
+                    TestValue { value: 80, counter: 13 },
+                    TestValue { value: 20, counter: MAX_U32_VALUE },
+                    TestValue { value: 50, counter: MAX_U32_VALUE },
+                    TestValue { value: 10, counter: MAX_U32_VALUE },
+                ]),
+                length: 6,
+            };
 
             let transformed_array_lt = pad_end([40, 30, 20]);
 
@@ -253,11 +278,14 @@ mod tests {
         }
 
         pub fn new_without_padded() -> Self {
-            let sorted_padded_array = pad_end([
-                TestValue { value: 40, counter: 3 },
-                TestValue { value: 30, counter: 7 },
-                TestValue { value: 80, counter: 13 },
-            ]);
+            let sorted_padded_array = ClaimedLengthArray {
+                array: pad_end([
+                    TestValue { value: 40, counter: 3 },
+                    TestValue { value: 30, counter: 7 },
+                    TestValue { value: 80, counter: 13 },
+                ]),
+                length: 3,
+            };
 
             let transformed_array_lt = pad_end([40, 30]);
 
@@ -276,7 +304,7 @@ mod tests {
 
         pub fn new_empty() -> Self {
             TestBuilder {
-                sorted_padded_array: [TestValue::empty(); NUM_TEST_ITEMS],
+                sorted_padded_array: ClaimedLengthArray::empty(),
                 transformed_array_lt: [0; NUM_TEST_ITEMS],
                 transformed_array_gte: [0; NUM_TEST_ITEMS],
                 split_counter: 12,
@@ -451,6 +479,28 @@ mod tests {
         let mut builder = TestBuilder::new();
 
         builder.first_padded_index += 1;
+
+        builder.execute_with_hint();
+    }
+
+    #[test(should_fail_with = "first_after_split_index is beyond the claimed length")]
+    fn fake_split_counter_beyond_claimed_length_fails() {
+        let mut builder = TestBuilder::new_empty();
+
+        builder.sorted_padded_array = ClaimedLengthArray {
+            array: pad_end([TestValue { value: 80, counter: 13 }]),
+            length: 3,
+        };
+
+        builder.split_counter = 12;
+
+        // Incorrect
+        builder.transformed_array_lt = pad_end([80]);
+
+        // This confuses the validation for the split counter.
+        builder.first_after_split_index = 5;
+        builder.num_padded_lt = 0;
+        builder.first_padded_index = NUM_TEST_ITEMS;
 
         builder.execute_with_hint();
     }

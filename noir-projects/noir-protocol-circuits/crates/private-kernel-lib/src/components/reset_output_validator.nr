@@ -370,9 +370,10 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
                     index,
                     self.output.claimed_first_nullifier,
                     self.output.is_private_only,
-                    self.output.min_revertible_side_effect_counter,
+                    self.output.claimed_revertible_counter,
                 );
                 assert(out.contract_address.is_zero());
+                // counter is checked in assert_sorted_padded_transformed_array_capped_size
             },
         );
     }
