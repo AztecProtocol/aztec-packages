@@ -147,7 +147,11 @@ function check_toolchains {
 }
 
 function versions {
-  echo "aztec: $((git describe --tags --exact-match 2>/dev/null || jq -r '."."' .release-please-manifest.json) | tr -d v)"
+  if semver check $REF_NAME; then
+    echo "aztec: ${REF_NAME#v}"
+  else
+    echo "aztec: $(jq -r '."."' .release-please-manifest.json | tr -d v)"
+  fi
   echo "noir: $(git -C noir/noir-repo describe --tags --exact-match HEAD)"
   echo "foundry: $(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')"
   echo "node: $(node --version | cut -d 'v' -f 2)"
