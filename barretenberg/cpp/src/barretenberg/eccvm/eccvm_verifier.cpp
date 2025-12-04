@@ -6,33 +6,33 @@
 
 #include "./eccvm_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
+#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb {
 
 /**
- * @brief This function verifies an ECCVM Honk proof for given program settings.
+ * @brief Verifies an ECCVM Honk proof for given program settings.
+ * @details Works for both native verification and recursive (in-circuit) verification.
  */
-bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
+template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<Flavor>::verify_proof()
 {
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
     using Shplonk = ShplonkVerifier_<Curve>;
     using OpeningClaim = OpeningClaim<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
-    using ClaimBatch = ClaimBatcher::Batch;
+    using ClaimBatch = typename ClaimBatcher::Batch;
 
     RelationParameters<FF> relation_parameters;
 
-    ipa_transcript->load_proof(proof.ipa_proof);
-    transcript->load_proof(proof.pre_ipa_proof);
+    // Load proof into transcript
+    transcript->load_proof(proof);
 
-    // Fiat-Shamir the vk hash
-    typename Flavor::BF vk_hash = key->hash();
+    // Fiat-Shamir the vk hash (computed in constructor)
     transcript->add_to_hash_buffer("vk_hash", vk_hash);
-    vinfo("ECCVM vk hash in verifier: ", vk_hash);
+    vinfo("ECCVM vk hash: ", vk_hash);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -85,7 +85,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
-    bool consistency_checked = true;
+    consistency_checked = true;
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
@@ -109,29 +109,30 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     OpeningClaim multivariate_to_univariate_opening_claim =
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
 
-    // Produce the opening claim for batch opening of `op`, `Px`, `Py`, `z1`, and `z2` wires as univariate polynomials
-    std::array<Commitment, NUM_TRANSLATION_EVALUATIONS> translation_commitments = { commitments.transcript_op,
-                                                                                    commitments.transcript_Px,
-                                                                                    commitments.transcript_Py,
-                                                                                    commitments.transcript_z1,
-                                                                                    commitments.transcript_z2 };
+    // Produce the opening claim for batch opening of `op`, `Px`, `Py`, `z1`, and `z2` wires as univariate
+    // polynomials
 
+    std::vector<Commitment> translation_commitments = { commitments.transcript_op,
+                                                        commitments.transcript_Px,
+                                                        commitments.transcript_Py,
+                                                        commitments.transcript_z1,
+                                                        commitments.transcript_z2 };
     compute_translation_opening_claims(translation_commitments);
 
     opening_claims.back() = multivariate_to_univariate_opening_claim;
 
-    // Construct and verify the combined opening claim
+    // Construct the combined opening claim
     const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key.get_g1_identity(), opening_claims, transcript);
 
-    const bool batched_opening_verified =
-        PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
-    vinfo("eccvm sumcheck verified?: ", sumcheck_output.verified);
-    vinfo("batch opening verified?: ", batched_opening_verified);
+    sumcheck_verified = sumcheck_output.verified;
+    vinfo("eccvm sumcheck verified?: ", sumcheck_verified);
     vinfo("eccvm consistency check verified?: ", consistency_checked);
     vinfo("translation masking consistency checked?: ", translation_masking_consistency_checked);
-    return sumcheck_output.verified && batched_opening_verified && consistency_checked &&
-           translation_masking_consistency_checked;
+
+    compute_accumulated_result();
+
+    return batch_opening_claim;
 }
 
 /**
@@ -143,19 +144,19 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
  * @param translation_commitments Commitments to  `op`, `Px`, `Py`, `z1`, and `z2`
  * @return Populate `opening_claims`.
  */
-void ECCVMVerifier::compute_translation_opening_claims(
-    const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments)
+template <typename Flavor>
+void ECCVMVerifier_<Flavor>::compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments)
 {
     // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
-    using SmallIPA = SmallSubgroupIPAVerifier<ECCVMFlavor::Curve>;
+    using SmallIPA = SmallSubgroupIPAVerifier<Curve>;
 
     // Initialize SmallSubgroupIPA structures
     SmallSubgroupIPACommitments<Commitment> small_ipa_commitments;
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
-    const std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels = SmallIPA::evaluation_labels("Translation:");
+    const auto labels = SmallIPA::evaluation_labels("Translation:");
 
-    // Get a commitment to M + Z_H * R, where M is a concatenation of the masking terms of `translation_polynomials`,
-    // Z_H = X^{|H|} - 1, and R is a random degree 2 polynomial
+    // Get a commitment to M + Z_H * R, where M is a concatenation of the masking terms of
+    // `translation_polynomials`, Z_H = X^{|H|} - 1, and R is a random degree 2 polynomial
     small_ipa_commitments.concatenated =
         transcript->template receive_from_prover<Commitment>("Translation:concatenated_masking_term_commitment");
 
@@ -195,7 +196,16 @@ void ECCVMVerifier::compute_translation_opening_claims(
                                 small_ipa_commitments.get_all()[idx] };
     }
 
+    // OriginTag false positive: Small IPA evaluations need to satisfy an identity where they are mixing without
+    // challenges, it is safe because these evaluations are opened in Shplonk.
+    if constexpr (IsRecursive) {
+        for (auto& eval : small_ipa_evaluations) {
+            eval.clear_round_provenance();
+        }
+    }
+
     // Check Grand Sum Identity at r
+
     translation_masking_consistency_checked =
         SmallIPA::check_eccvm_evaluations_consistency(small_ipa_evaluations,
                                                       small_ipa_evaluation_challenge,
@@ -204,28 +214,35 @@ void ECCVMVerifier::compute_translation_opening_claims(
                                                       translation_masking_term_eval);
 
     // Compute the batched commitment and batched evaluation for the univariate opening claim
-    Commitment batched_commitment = translation_commitments[0];
     FF batched_translation_evaluation = translation_evaluations.get_all()[0];
     FF batching_scalar = batching_challenge_v;
+
+    Commitment batched_commitment;
+    std::vector<FF> batching_challenges = { FF::one() };
     for (size_t idx = 1; idx < NUM_TRANSLATION_EVALUATIONS; ++idx) {
-        batched_commitment = batched_commitment + translation_commitments[idx] * batching_scalar;
         batched_translation_evaluation += batching_scalar * translation_evaluations.get_all()[idx];
+        batching_challenges.emplace_back(batching_scalar);
         batching_scalar *= batching_challenge_v;
+    }
+    if constexpr (IsRecursive) {
+        batched_commitment = Commitment::batch_mul(translation_commitments, batching_challenges);
+    } else {
+        batched_commitment = batch_mul_native(translation_commitments, batching_challenges);
     }
 
     // Place the claim to the array containing the SmallSubgroupIPA opening claims
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
                                                   batched_commitment };
 
-    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK}
+    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size -
+    // NUM_DISABLED_ROWS_IN_SUMCHECK}
     shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
-    compute_accumulated_result();
-};
+}
 
 // Compute the accumulated result from translation evaluations
 // This is the value that Translator will use in its relations
 // Formula: accumulated_result = (op + v*Px + v²*Py + v³*z1 + v⁴*z2 - masking_term) / x
-void ECCVMVerifier::compute_accumulated_result()
+template <typename Flavor> void ECCVMVerifier_<Flavor>::compute_accumulated_result()
 {
     FF v = batching_challenge_v;
     FF v_squared = v * v;
@@ -238,4 +255,9 @@ void ECCVMVerifier::compute_accumulated_result()
 
     accumulated_result = batched_eval_minus_masking / evaluation_challenge_x;
 }
+
+// Explicit template instantiations
+template class ECCVMVerifier_<ECCVMFlavor>;
+template class ECCVMVerifier_<ECCVMRecursiveFlavor>;
+
 } // namespace bb
