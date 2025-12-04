@@ -105,15 +105,17 @@ class ECCOpQueue {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops
     // getters more memory efficient
 
-    // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already
+    // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already.
+    // The hiding op (set via append_hiding_op) is always prepended at index 0.
     std::vector<ECCVMOperation>& get_eccvm_ops()
     {
         if (eccvm_ops_reconstructed.empty()) {
             construct_full_eccvm_ops_table();
-            // If a hiding op is set, prepend it to the beginning (index 0)
-            if (has_hiding_op) {
-                eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), hiding_op_for_eccvm);
+            // Prepend the hiding op at index 0 (required for ZK)
+            if (!has_hiding_op) {
+                throw_or_abort("Hiding op must be set before calling get_eccvm_ops()");
             }
+            eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), hiding_op_for_eccvm);
         }
         return eccvm_ops_reconstructed;
     }
@@ -325,11 +327,6 @@ class ECCOpQueue {
         // Do NOT update the accumulator - the hiding op doesn't perform any actual EC computation
         return ultra_op;
     }
-
-    /**
-     * @brief Check if a hiding op has been set for the ECCVM
-     */
-    bool has_eccvm_hiding_op() const { return has_hiding_op; }
 
   private:
     // Storage for the hiding op (prepended to eccvm ops during reconstruction)

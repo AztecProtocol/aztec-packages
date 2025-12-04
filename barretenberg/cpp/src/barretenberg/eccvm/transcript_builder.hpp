@@ -129,16 +129,16 @@ class ECCVMTranscriptBuilder {
      * elliptic curve operations in Jacobian (a.k.a projective) coordinates, and then normalizes these points to affine
      * coordinates. Batch inversion is used to optimize expensive finite field inversions.
      *
-     * @param vm_operations ECCOpQueue
+     * The first operation (index 0) is always a hiding op with random (possibly non-curve) Px, Py values
+     * that should not undergo EC computation. This is required for ZK in production.
+     *
+     * @param vm_operations ECCOpQueue (first op must be the hiding op)
      * @param total_number_of_muls The total number of multiplications in the series of operations.
-     * @param has_hiding_op If true, the first operation (index 0) is a hiding op with random (possibly non-curve)
-     *                      Px, Py values that should not undergo EC computation.
      *
      * @return A vector of TranscriptRows
      */
     static std::vector<TranscriptRow> compute_rows(const std::vector<ECCVMOperation>& vm_operations,
-                                                   const uint32_t total_number_of_muls,
-                                                   bool has_hiding_op = false)
+                                                   const uint32_t total_number_of_muls)
     {
         const size_t num_vm_entries = vm_operations.size();
         // The transcript contains an extra zero row at the beginning and the accumulated state at the end
@@ -175,33 +175,33 @@ class ECCVMTranscriptBuilder {
         // add an empty row: first row is all zeroes because of our shiftable polynomials.
         transcript_state[0] = (TranscriptRow{});
 
+        // Handle hiding op (index 0) separately before the main loop.
+        // The hiding op has random (non-curve) Px, Py values for ZK purposes - we skip EC computation
+        // and just record the raw field elements. Uses opcode 3 (q_eq=1, q_reset=1).
+        {
+            const ECCVMOperation& hiding_entry = vm_operations[0];
+            TranscriptRow& hiding_row = transcript_state[1];
+
+            hiding_row.base_x = hiding_entry.base_point.x;
+            hiding_row.base_y = hiding_entry.base_point.y;
+            hiding_row.q_eq = hiding_entry.op_code.eq;
+            hiding_row.q_reset_accumulator = hiding_entry.op_code.reset;
+            hiding_row.opcode = hiding_entry.op_code.value();
+            hiding_row.pc = state.pc;
+
+            // Initialize trace arrays to avoid uninitialized values in batch operations
+            accumulator_trace[0] = state.accumulator;
+            msm_accumulator_trace[0] = Element::infinity();
+            intermediate_accumulator_trace[0] = Element::infinity();
+            msm_count_at_transition_inverse_trace[0] = 0;
+        }
+
         // during the first iteration over the ECCOpQueue, the operations are being performed using Jacobian (a.k.a.
         // projective) coordinates and the base point coordinates are recorded in the transcript. at the same time, the
-        // transcript logic is being populated
-        for (size_t i = 0; i < num_vm_entries; i++) {
+        // transcript logic is being populated (starting from index 1, since index 0 is the hiding op handled above)
+        for (size_t i = 1; i < num_vm_entries; i++) {
             TranscriptRow& row = transcript_state[i + 1];
             const ECCVMOperation& entry = vm_operations[i];
-
-            // Special handling for index 0 when has_hiding_op is true: this is the hiding op with random
-            // (non-curve) Px, Py values. We skip native EC computation and just record the raw field elements.
-            // The hiding op has q_eq = 1, q_reset = 1 (opcode = 3) to match the Translator opcode.
-            if (has_hiding_op && i == 0) {
-                row.base_x = entry.base_point.x;
-                row.base_y = entry.base_point.y;
-                row.q_eq = entry.op_code.eq;
-                row.q_reset_accumulator = entry.op_code.reset;
-                row.opcode = entry.op_code.value(); // Use actual opcode (3 = eq + reset)
-                row.pc = state.pc;
-
-                // Initialize trace arrays for the hiding op row to avoid uninitialized values in batch operations
-                accumulator_trace[i] = state.accumulator;
-                msm_accumulator_trace[i] = Element::infinity();
-                intermediate_accumulator_trace[i] = Element::infinity();
-                msm_count_at_transition_inverse_trace[i] = 0;
-
-                // Skip to next iteration - no EC computation for hiding op
-                continue;
-            }
 
             updated_state = state;
 

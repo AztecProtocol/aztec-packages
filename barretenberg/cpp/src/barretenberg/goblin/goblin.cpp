@@ -135,10 +135,10 @@ void Goblin::ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();
-    // Add a hiding op for the ECCVM (required for the q_eq = 1 constraint at row 1)
-    // This is appended to ultra ops normally, but prepended in ECCVM reconstruction
+    // In the AVM Recursive Verifier case, we don't need ZK; so we place a deterministic non-op as a "hiding_op", it
+    // does not contribute to the actual MSM circuit.
     using Fq = curve::Grumpkin::ScalarField;
-    builder.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
+    builder.queue_ecc_hiding_op(Fq(0), Fq(0));
 }
 
 } // namespace bb

@@ -548,9 +548,8 @@ TEST(ECCVMCircuitBuilderTests, InfinityFailure)
 
     auto eccvm_builder = ECCVMCircuitBuilder(op_queue);
 
-    // Note: With the zero eq op prepended, the mul op is now at index 1, so we check row 2
-    auto transcript_rows =
-        ECCVMTranscriptBuilder::compute_rows(op_queue->get_eccvm_ops(), 1, op_queue->has_eccvm_hiding_op());
+    // Note: With the hiding op at index 0, the mul op is at index 1, so we check row 2
+    auto transcript_rows = ECCVMTranscriptBuilder::compute_rows(op_queue->get_eccvm_ops(), 1);
 
     // check that the corresponding op is mul (now at row 2 due to hiding op at row 1)
     bool row_op_code_correct = transcript_rows[2].opcode == 4;

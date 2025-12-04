@@ -8,7 +8,6 @@ Previously, the `accumulated_result` in Translator was masked using a valid on-c
 2. The point must be on the BN254 curve (constrained by ECCVM's on-curve check)
 3. Only the scalar contributes randomness to the batched evaluation
 
-This provided **computational hiding** but not **statistical hiding**.
 
 ## Implemented Solution
 

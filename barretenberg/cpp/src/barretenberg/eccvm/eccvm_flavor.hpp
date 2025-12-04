@@ -494,7 +494,7 @@ class ECCVMFlavor {
          * @details RawPolynomial member polynomials that this fn must populate described below
          *          For full details see `eccvm/eccvm_flavor.hpp`
          *
-         *          lagrange_first: lagrange_first[0] = 1, 0 elsewhere (zeros for shiftability)
+         *          lagrange_first: lagrange_first[0] = 1, 0 elsewhere
          *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere (hiding op row)
          *          lagrange_third: lagrange_third[2] = 1, 0 elsewhere (first real op row)
          *          lagrange_last: lagrange_last[lagrange_last.size() - 1] = 1, 0 elsewhere
@@ -588,10 +588,9 @@ class ECCVMFlavor {
 #endif
         {
             // compute rows for the three different sections of the ECCVM execution trace
-            // Pass has_eccvm_hiding_op() to indicate if the first operation is a hiding op with random Px, Py values
-            const auto transcript_rows = ECCVMTranscriptBuilder::compute_rows(builder.op_queue->get_eccvm_ops(),
-                                                                              builder.get_number_of_muls(),
-                                                                              builder.op_queue->has_eccvm_hiding_op());
+            // Note: the first operation (index 0) is always a hiding op with random Px, Py values
+            const auto transcript_rows =
+                ECCVMTranscriptBuilder::compute_rows(builder.op_queue->get_eccvm_ops(), builder.get_number_of_muls());
             const std::vector<MSM> msms = builder.get_msms();
             const auto point_table_rows =
                 ECCVMPointTablePrecomputationBuilder::compute_rows(CircuitBuilder::get_flattened_scalar_muls(msms));

@@ -10,6 +10,17 @@
 
 using namespace bb;
 
+namespace {
+/**
+ * @brief Add a hiding op with random Px, Py to the op_queue for testing.
+ */
+void add_hiding_op_for_test(const std::shared_ptr<ECCOpQueue>& op_queue)
+{
+    using Fq = curve::BN254::BaseField;
+    op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
+}
+} // namespace
+
 class ECCVMTranscriptTests : public ::testing::Test {
   public:
     void SetUp() override { srs::init_file_crs_factory(srs::bb_crs_path()); };
@@ -272,6 +283,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         op_queue->mul_accumulate(b, x);
         op_queue->mul_accumulate(c, x);
         op_queue->merge();
+        add_hiding_op_for_test(op_queue);
 
         ECCVMCircuitBuilder builder{ op_queue };
         return builder;
