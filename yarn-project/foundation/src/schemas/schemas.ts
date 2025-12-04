@@ -5,7 +5,7 @@ import { SecretValue } from '../config/secret_value.js';
 import { EthAddress } from '../eth-address/index.js';
 import { Fq, Fr } from '../fields/fields.js';
 import { Point } from '../fields/point.js';
-import { isHex, withoutHexPrefix } from '../string/index.js';
+import { isHex, withHexPrefix, withoutHexPrefix } from '../string/index.js';
 import { bufferSchema, hexSchema } from './utils.js';
 
 export const schemas = {
@@ -73,6 +73,9 @@ export const schemas = {
 
   /** Hex string with an optional 0x prefix which gets removed as part of the parsing. */
   HexString: hexSchema,
+
+  /** Hex string with an optional 0x prefix which gets enforced as part of the parsing. */
+  HexStringWith0x: z.string().refine(isHex, 'Not a valid hex string').transform(withHexPrefix),
 
   /** A secret config value */
   SecretValue: SecretValue.schema,
