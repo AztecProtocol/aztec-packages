@@ -1,6 +1,6 @@
+#include "arithmetic_constraints.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-#include "big_quad_constraints.hpp"
 
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
@@ -218,7 +218,7 @@ class ArithmeticConstraintsTestingFunctions {
         // Construct the big quad constraint
         Acir::Opcode::AssertZero acir_assert_zero{ .value = expression };
         AcirFormat dummy_acir_format;
-        handle_arithmetic(acir_assert_zero, dummy_acir_format, 0);
+        assert_zero_to_quad_constraints(acir_assert_zero, dummy_acir_format, 0);
 
         // Check that the construction worked as expected
         size_t EXPECTED_NUM_GATES = expected_num_gates();

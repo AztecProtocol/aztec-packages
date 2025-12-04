@@ -225,7 +225,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         }
 
         // Construct a constraint system containing the business logic and ivc recursion constraints
-        program.constraints.varnum = static_cast<uint32_t>(program.witness.size());
+        program.constraints.max_witness_index = static_cast<uint32_t>(program.witness.size() - 1);
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(hn_recursion_constraints.size());
         program.constraints.hn_recursion_constraints = hn_recursion_constraints;
         program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
@@ -260,7 +260,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
     static std::shared_ptr<Chonk::MegaVerificationKey> construct_kernel_vk_from_acir_program(AcirProgram& program)
     {
         // Create kernel circuit from the kernel program
-        Builder kernel = acir_format::create_circuit<Builder>(program);
+        auto kernel = acir_format::create_circuit<Builder>(program);
 
         // Manually construct the VK for the kernel circuit
         auto prover_instance = std::make_shared<Chonk::ProverInstance>(kernel);
@@ -616,7 +616,7 @@ TEST_F(HypernovaRecursionConstraintTest, InitKernelGateCount)
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
     ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
 
-    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+    auto kernel = acir_format::create_circuit<Builder>(program, metadata);
 
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
@@ -649,7 +649,7 @@ TEST_F(HypernovaRecursionConstraintTest, InnerKernelGateCount)
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
     ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
 
-    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+    auto kernel = acir_format::create_circuit<Builder>(program, metadata);
 
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 2);
@@ -681,7 +681,7 @@ TEST_F(HypernovaRecursionConstraintTest, TailKernelGateCount)
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
     ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
 
-    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+    auto kernel = acir_format::create_circuit<Builder>(program, metadata);
 
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
@@ -713,7 +713,7 @@ TEST_F(HypernovaRecursionConstraintTest, HidingKernelGateCount)
     AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
     ProgramMetadata metadata{ .ivc = ivc, .collect_gates_per_opcode = true };
 
-    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+    auto kernel = acir_format::create_circuit<Builder>(program, metadata);
 
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);

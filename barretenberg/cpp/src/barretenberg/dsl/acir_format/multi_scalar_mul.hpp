@@ -31,9 +31,6 @@ struct MultiScalarMul {
     friend bool operator==(MultiScalarMul const& lhs, MultiScalarMul const& rhs) = default;
 };
 
-template <typename Builder>
-void create_multi_scalar_mul_constraint(Builder& builder,
-                                        const MultiScalarMul& input,
-                                        bool has_valid_witness_assignments);
+template <typename Builder> void create_multi_scalar_mul_constraint(Builder& builder, const MultiScalarMul& input);
 
 } // namespace acir_format

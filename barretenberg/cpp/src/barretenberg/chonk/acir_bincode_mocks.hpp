@@ -2,6 +2,7 @@
 
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include <cstddef>
 #include <vector>
 
@@ -56,24 +57,32 @@ inline std::vector<uint8_t> hex_string_to_bytes(const std::string& str)
  */
 inline std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circuit_bytecode(size_t num_constraints = 1)
 {
+    std::vector<bb::fr> witness_values;
+
+    // Acir representation of a circuit
     Acir::Circuit circuit;
 
     // No public inputs
     circuit.public_parameters = Acir::PublicInputs{ {} };
 
-    std::vector<uint8_t> one = hex_string_to_bytes("0000000000000000000000000000000000000000000000000000000000000001");
-    std::vector<uint8_t> minus_one =
-        hex_string_to_bytes("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000");
+    std::vector<uint8_t> one = bb::fr::one().to_buffer();
+    std::vector<uint8_t> minus_one = bb::fr(-1).to_buffer();
 
     // Add num_constraints identical constraints, each using different witnesses
     for (size_t i = 0; i < num_constraints; ++i) {
         Acir::Expression expr;
-        uint32_t base_witness = static_cast<uint32_t>(i * 3);
 
-        // Create constraint: w[base] * w[base+1] - w[base+2] = 0
-        expr.mul_terms = { { one, Acir::Witness{ base_witness }, Acir::Witness{ base_witness + 1 } } };
-        expr.linear_combinations = { { minus_one, Acir::Witness{ base_witness + 2 } } };
-        expr.q_c = hex_string_to_bytes("0000000000000000000000000000000000000000000000000000000000000000");
+        // Create constraint: w[index] * w[index+1] - w[index+2] = 0
+        bb::fr a = bb::fr(2);
+        bb::fr b = bb::fr(3);
+        bb::fr c = a * b;
+        uint32_t a_idx = acir_format::add_to_witness_and_track_indices(witness_values, a);
+        uint32_t b_idx = acir_format::add_to_witness_and_track_indices(witness_values, b);
+        uint32_t c_idx = acir_format::add_to_witness_and_track_indices(witness_values, c);
+
+        expr.mul_terms = { { one, Acir::Witness{ a_idx }, Acir::Witness{ b_idx } } };
+        expr.linear_combinations = { { minus_one, Acir::Witness{ c_idx } } };
+        expr.q_c = bb::fr::zero().to_buffer();
 
         Acir::Opcode::AssertZero assert_zero;
         assert_zero.value = expr;
@@ -82,7 +91,7 @@ inline std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circu
         circuit.opcodes.push_back(opcode);
     }
 
-    circuit.current_witness_index = static_cast<uint32_t>(num_constraints * 3);
+    circuit.current_witness_index = static_cast<uint32_t>(witness_values.size());
     circuit.function_name = "simple_circuit";
     circuit.private_parameters = {};
     circuit.return_values = Acir::PublicInputs{ {} };
@@ -98,14 +107,12 @@ inline std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circu
     Witnesses::StackItem stack_item{};
 
     // For each constraint, add witnesses: w[i*3]=2, w[i*3+1]=3, w[i*3+2]=6 (so 2*3=6)
+    uint32_t witness_idx = 0;
     for (size_t i = 0; i < num_constraints; ++i) {
-        uint32_t base_witness = static_cast<uint32_t>(i * 3);
-        stack_item.witness.value[Witnesses::Witness{ base_witness }] =
-            hex_string_to_bytes("0000000000000000000000000000000000000000000000000000000000000002"); // = 2
-        stack_item.witness.value[Witnesses::Witness{ base_witness + 1 }] =
-            hex_string_to_bytes("0000000000000000000000000000000000000000000000000000000000000003"); // = 3
-        stack_item.witness.value[Witnesses::Witness{ base_witness + 2 }] =
-            hex_string_to_bytes("0000000000000000000000000000000000000000000000000000000000000006"); // = 6
+        for (size_t j = 0; j < 3; ++j) {
+            stack_item.witness.value[Witnesses::Witness{ witness_idx }] = witness_values[witness_idx].to_buffer();
+            witness_idx++;
+        }
     }
     witness_stack.stack.push_back(stack_item);
 

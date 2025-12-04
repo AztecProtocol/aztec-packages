@@ -12,14 +12,24 @@
 
 namespace acir_format {
 
-using Builder = bb::UltraCircuitBuilder;
+using namespace bb;
 
+/**
+ * @brief Logic constraint representation in ACIR format.
+ *
+ * @details The logic constraint enforces that:
+ *  1. The inputs a and b fit into num_bits bits.
+ *  2. That the result is the bitwise AND or XOR of a and b, depending on the is_xor_gate flag.
+ *
+ * NOTE: num_bits must be <= MAX_NO_WRAP_INTEGER_BIT_LENGTH (252)
+ *
+ */
 struct LogicConstraint {
-    WitnessOrConstant<bb::fr> a;
-    WitnessOrConstant<bb::fr> b;
+    WitnessOrConstant<fr> a;
+    WitnessOrConstant<fr> b;
     uint32_t result;
     uint32_t num_bits;
-    uint32_t is_xor_gate;
+    bool is_xor_gate;
 
     friend bool operator==(LogicConstraint const& lhs, LogicConstraint const& rhs) = default;
 
@@ -29,13 +39,13 @@ struct LogicConstraint {
 
 template <typename Builder>
 void create_logic_gate(Builder& builder,
-                       WitnessOrConstant<bb::fr> a,
-                       WitnessOrConstant<bb::fr> b,
+                       WitnessOrConstant<fr> a,
+                       WitnessOrConstant<fr> b,
                        uint32_t result,
                        std::size_t num_bits,
                        bool is_xor_gate);
 
-void xor_gate(Builder& builder, WitnessOrConstant<bb::fr> a, WitnessOrConstant<bb::fr> b, uint32_t result);
+void xor_gate(UltraCircuitBuilder& builder, WitnessOrConstant<fr> a, WitnessOrConstant<fr> b, uint32_t result);
 
-void and_gate(Builder& builder, WitnessOrConstant<bb::fr> a, WitnessOrConstant<bb::fr> b, uint32_t result);
+void and_gate(UltraCircuitBuilder& builder, WitnessOrConstant<fr> a, WitnessOrConstant<fr> b, uint32_t result);
 } // namespace acir_format

@@ -260,8 +260,8 @@ export class AztecClientBackend {
     const proofFields = [
       proveResult.proof.megaProof,
       proveResult.proof.goblinProof.mergeProof,
-      proveResult.proof.goblinProof.eccvmProof.preIpaProof,
-      proveResult.proof.goblinProof.eccvmProof.ipaProof,
+      proveResult.proof.goblinProof.eccvmProof,
+      proveResult.proof.goblinProof.ipaProof,
       proveResult.proof.goblinProof.translatorProof,
     ].flat();
 
