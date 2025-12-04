@@ -104,7 +104,7 @@ image_name=barretenberg-fuzzer
 docker build src/ -t "$image_name":latest
 
 if [[ "$mode" == "show-fuzzers" ]]; then
-	entrypoint_args=(--show_fuzzers)
+	entrypoint_args=(--show-fuzzers)
 	entrypoint_args+=(--asm "$asm")
 	entrypoint_args+=(--avm "$avm")
 
