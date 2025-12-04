@@ -48,3 +48,14 @@ We use marker commits and [git-subrepo](https://github.com/ingydotnet/git-subrep
 For a broad overview of the CI system take a look at [CI.md](CI.md).
 
 For some deeper information on individual scripts etc (for developing CI itself), take a look at [ci3/README.md](ci3/README.md).
+
+## Documentation map
+
+If you are not sure where to start in this monorepo, these entry points can help:
+
+- **User and operator docs** – high-level concepts, tutorials and node/operator guides live at the Aztec docs site.
+- **Developer docs** – contract and client development guides are in the `docs` package of this repository.
+- **CI and release pipeline** – see `CI.md` and `ci3/README.md` for how bootstrap scripts, caches and workflows fit together.
+- **Contribution guidelines** – `CONTRIBUTING.md` describes how to propose changes, run checks locally, and follow the project conventions.
+
+Most links from the external docs website point back into this repository, so keeping these files in sync with the docs is particularly valuable for contributors.
