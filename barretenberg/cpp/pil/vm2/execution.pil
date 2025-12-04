@@ -785,10 +785,15 @@ sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + 
 
 #[DISPATCH_TO_ALU]
 sel_exec_dispatch_alu {
-    register[0], mem_tag_reg[0], register[1],
-    mem_tag_reg[1], register[2], mem_tag_reg[2], subtrace_operation_id, sel_opcode_error
+    register[0], mem_tag_reg[0],
+    register[1], mem_tag_reg[1],
+    register[2], mem_tag_reg[2],
+    subtrace_operation_id, sel_opcode_error
 } in alu.sel {
-    alu.ia, alu.ia_tag, alu.ib, alu.ib_tag, alu.ic, alu.ic_tag, alu.op_id, alu.sel_err
+    alu.ia, alu.ia_tag,
+    alu.ib, alu.ib_tag,
+    alu.ic, alu.ic_tag,
+    alu.op_id, alu.sel_err
 };
 
 #[DISPATCH_TO_BITWISE]
