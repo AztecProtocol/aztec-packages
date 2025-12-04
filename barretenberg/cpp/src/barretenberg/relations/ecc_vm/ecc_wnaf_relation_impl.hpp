@@ -36,7 +36,7 @@ namespace bb {
  * round, slice) to the multiset when point_transition == 1.
  *
  * Furthermore, as the column `point_transition` is committed to by the Prover, we must constrain it is correctly
- * computed (see also `ecc_point_table_relation.cpp` for a description of what the table looks like.)
+ * computed (see also `ecc_point_table_relation_impl.hpp` for a description of what the table looks like.)
  *
  * @tparam FF
  * @tparam AccumulatorTypes
@@ -58,9 +58,12 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     auto round_shift = View(in.precompute_round_shift);
     auto pc = View(in.precompute_pc); // note that this is a _point-counter_.
     auto pc_shift = View(in.precompute_pc_shift);
-    // precompute_select is a boolean column. We only evaluate the ecc_wnaf_relation and the ecc_point_table_relation if
-    // `precompute_select=1`
+    // precompute_select is a boolean column that is 0 at the first row and 1 at all subsequent active rows in the
+    // precompute table. We only evaluate the ecc_wnaf_relation and the ecc_point_table_relation if
+    // `precompute_select=1`. As a reminder, this latter is 0 at the first row and then 1 at the rest of the (active)
+    // rows of the Precomputed table.
     auto precompute_select = View(in.precompute_select);
+
     auto precompute_select_shift = View(in.precompute_select_shift);
 
     const auto& precompute_skew = View(in.precompute_skew);
