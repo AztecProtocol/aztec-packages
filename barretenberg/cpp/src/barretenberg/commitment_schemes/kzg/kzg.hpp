@@ -149,7 +149,7 @@ template <typename Curve_> class KZG {
                                           /*with_edgecases=*/true,
                                           /*masking_scalar=*/masking_challenge);
         } else {
-            P_0 = batch_mul_native<Curve>(batch_opening_claim.commitments, batch_opening_claim.scalars);
+            P_0 = batch_mul_native(batch_opening_claim.commitments, batch_opening_claim.scalars);
         }
         auto P_1 = -quotient_commitment;
 
