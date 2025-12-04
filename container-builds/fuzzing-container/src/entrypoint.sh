@@ -120,8 +120,12 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
 }
 
-post_fuzzer="./build-fuzzing-asan/bin"
-cov_fuzzer="./build-fuzzing-cov/bin"
+if [[ "$avm" == "on" ]]; then
+    post_fuzzer="./build-fuzzing-avm/bin"
+else
+    post_fuzzer="./build-fuzzing-asan/bin"
+fi
+cov_fuzzer="./build-fuzzing-cov/bin" # TODO(defkit): implement cov fuzzer for avm
 
 workdir="/home/fuzzer"
 
