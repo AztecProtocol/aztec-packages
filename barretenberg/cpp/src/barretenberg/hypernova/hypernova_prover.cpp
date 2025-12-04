@@ -36,7 +36,7 @@ HypernovaFoldingProver::Commitment HypernovaFoldingProver::batch_mul(const RefAr
         points[idx++] = point;
     }
 
-    return batch_mul_native<MegaFlavor::Curve>(points, scalars);
+    return batch_mul_native(points, scalars);
 }
 
 HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_accumulator(
