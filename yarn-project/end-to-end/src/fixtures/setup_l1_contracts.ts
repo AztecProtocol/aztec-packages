@@ -4,11 +4,9 @@ import {
   type ForgeDeploymentOptions,
   type L1ContractsConfig,
   type L1ContractsJsonConfig,
-  L1Deployer,
   type Operator,
   RollupContract,
   type ZKPassportArgs,
-  addMultipleValidators,
   deployL1Contracts,
   isAnvilTestChain,
   setupL1ContractsViaForge,
@@ -17,7 +15,7 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 
-import type { HDAccount, Hex, PrivateKeyAccount } from 'viem';
+import type { HDAccount, PrivateKeyAccount } from 'viem';
 import { foundry } from 'viem/chains';
 
 /**
@@ -201,6 +199,8 @@ export const setupL1ContractsWithForge = async (
     chain: foundry,
     config: mergedConfig,
     stakingAssetHandler: Object.keys(stakingAssetHandler).length > 0 ? stakingAssetHandler : undefined,
+    // Pass initial validators to be added by the Forge script (registration tuples computed in setupL1ContractsViaForge)
+    initialValidators: options.initialValidators,
   });
 
   // Create a Rollup contract instance for querying state
@@ -245,71 +245,9 @@ export const setupL1ContractsWithForge = async (
     }
   }
 
-  // Add initial validators if provided (needed for slashing tests with BLS keys)
+  // Log validators added by forge (if any)
   if (options.initialValidators && options.initialValidators.length > 0) {
-    const gseAddress = l1Data.l1ContractAddresses.gseAddress;
-    const stakingAssetAddress = l1Data.l1ContractAddresses.stakingAssetAddress;
-
-    if (!gseAddress || !stakingAssetAddress) {
-      throw new Error('GSE and staking asset addresses are required for adding validators');
-    }
-
-    // Log state before adding validators
-    const [queueLengthBefore, activeAttestorsBefore, preValidatorBlock] = await Promise.all([
-      rollup.getEntryQueueLength(),
-      rollup.getActiveAttesterCount(),
-      l1Data.l1Client.getBlock(),
-    ]);
-
-    logJson(logger, {
-      type: 'add_validators_start',
-      rollupAddress: l1Data.l1ContractAddresses.rollupAddress.toString(),
-      validatorCount: options.initialValidators.length,
-      queueLengthBefore: queueLengthBefore.toString(),
-      activeAttestorsBefore: activeAttestorsBefore.toString(),
-      l1BlockNumber: preValidatorBlock.number.toString(),
-      l1BlockTimestamp: preValidatorBlock.timestamp.toString(),
-    });
-
-    logger.info(`Adding ${options.initialValidators.length} initial validators after forge deployment`);
-
-    const deployer = new L1Deployer(l1Data.l1Client, undefined, undefined, true, logger);
-
-    await addMultipleValidators(
-      l1Data.l1Client,
-      deployer,
-      gseAddress.toString() as Hex,
-      l1Data.l1ContractAddresses.rollupAddress.toString() as Hex,
-      stakingAssetAddress.toString() as Hex,
-      options.initialValidators,
-      true, // acceleratedTestDeployments
-      logger,
-    );
-
-    // Log state after adding validators
-    const [queueLengthAfter, activeAttestorsAfter, postValidatorBlock] = await Promise.all([
-      rollup.getEntryQueueLength(),
-      rollup.getActiveAttesterCount(),
-      l1Data.l1Client.getBlock(),
-    ]);
-
-    logJson(logger, {
-      type: 'add_validators_complete',
-      rollupAddress: l1Data.l1ContractAddresses.rollupAddress.toString(),
-      validatorsAdded: options.initialValidators.length,
-      queueLengthBefore: queueLengthBefore.toString(),
-      queueLengthAfter: queueLengthAfter.toString(),
-      activeAttestorsBefore: activeAttestorsBefore.toString(),
-      activeAttestorsAfter: activeAttestorsAfter.toString(),
-      l1BlockNumber: postValidatorBlock.number.toString(),
-      l1BlockTimestamp: postValidatorBlock.timestamp.toString(),
-      l1BlocksAdvanced: (postValidatorBlock.number - preValidatorBlock.number).toString(),
-      l1TimeAdvanced: (postValidatorBlock.timestamp - preValidatorBlock.timestamp).toString(),
-      genesisTime: genesisTime.toString(),
-      timeSinceGenesis: (postValidatorBlock.timestamp - genesisTime).toString(),
-    });
-
-    logger.info('Initial validators added successfully');
+    logger.info(`${options.initialValidators.length} initial validators were added by forge script`);
   }
 
   return l1Data;

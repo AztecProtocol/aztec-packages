@@ -41,6 +41,8 @@ import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {EthValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 
 /**
  * @title DeployL1Contracts
@@ -185,6 +187,18 @@ contract DeployL1Contracts is Script, Test {
         // Setup and finalize
         wireContracts(feeAsset, stakingAsset, feeAssetHandler, stakingAssetHandler, gse, governance, deployOpts.existingStakingAssetAddress);
         registerRollup(registry, gse, rollup);
+
+        // Add initial validators if provided (mirrors TypeScript addMultipleValidators logic)
+        // Validators are added AFTER registering rollup in GSE but BEFORE handover to governance
+        // This allows us to add validators while deployer still owns the contracts
+        CheatDepositArgs[] memory initialValidators = loadInitialValidators();
+        if (initialValidators.length > 0 && deployOpts.existingStakingAssetAddress == address(0)) {
+            // Only add validators if:
+            // 1. We have validators to add
+            // 2. We control the staking asset (can mint tokens)
+            addValidators(rollup, stakingAsset, initialValidators);
+        }
+
         maybeFundRewardDistributor(feeAsset, rewardDistributor, deployOpts.fundRewardDistributor, deployOpts.existingStakingAssetAddress, rewardDistributorFunding);
         handoverToGovernance(feeAsset, registry, gse, coinIssuer, governance, dateGatedRelayer, deployOpts.existingStakingAssetAddress);
         assertAccessControl(feeAsset, gse, registry, rewardDistributor, coinIssuer, governance, dateGatedRelayer, deployOpts.existingStakingAssetAddress);
@@ -555,6 +569,135 @@ contract DeployL1Contracts is Script, Test {
             assertEq(Ownable(feeAsset).owner(), coinIssuer, "invalid fee asset owner");
             assertEq(Ownable(coinIssuer).owner(), dateGatedRelayer, "invalid coin issuer owner"); // Match TypeScript: ownership to DateGatedRelayer
         }
+    }
+
+    function addValidators(
+        address rollup,
+        address stakingAsset,
+        CheatDepositArgs[] memory validators
+    ) internal {
+        if (validators.length == 0) {
+            console.log("--- No validators to add ---");
+            return;
+        }
+
+        // Deploy MultiAdder helper contract
+        // MultiAdder needs: constructor(address _staking, address _owner)
+        address multiAdder = address(new MultiAdder(rollup, deployer));
+        console.log("--- MultiAdder deployed ---");
+        console.log("  address:", multiAdder);
+
+        // Mint staking tokens to MultiAdder
+        uint256 activationThreshold = Rollup(rollup).getActivationThreshold();
+        uint256 stakeNeeded = activationThreshold * validators.length;
+
+        console.log("--- Transaction: StakingAsset.mint (validator staking) ---");
+        console.log("  to:", stakingAsset);
+        console.log("  recipient:", multiAdder);
+        console.log("  amount:", stakeNeeded);
+        TestERC20(stakingAsset).mint(multiAdder, stakeNeeded);
+
+        // Add validators in chunks (limited by stack depth and tx size)
+        uint256 chunkSize = 16;
+        console.log("--- Adding validators ---");
+        console.log("  total validators:", validators.length);
+
+        for (uint256 i = 0; i < validators.length; i += chunkSize) {
+            uint256 end = i + chunkSize > validators.length ? validators.length : i + chunkSize;
+            uint256 chunkLen = end - i;
+
+            // Create chunk array
+            CheatDepositArgs[] memory chunk = new CheatDepositArgs[](chunkLen);
+            for (uint256 j = 0; j < chunkLen; j++) {
+                chunk[j] = validators[i + j];
+            }
+
+            console.log("--- Transaction: MultiAdder.addValidators ---");
+            console.log("  to:", multiAdder);
+            console.log("  validators in chunk:", chunkLen);
+
+            // Call MultiAdder.addValidators (doesn't flush yet, flush happens separately)
+            MultiAdder(multiAdder).addValidators(chunk, 0);
+        }
+
+        // Flush validators from queue to active set
+        console.log("--- Flushing validators from entry queue ---");
+        uint256 flushChunkSize = 16;
+        while (true) {
+            uint256 queueLength = Rollup(rollup).getEntryQueueLength();
+            if (queueLength == 0) {
+                break;
+            }
+
+            uint256 availableFlushes = Rollup(rollup).getAvailableValidatorFlushes();
+            if (availableFlushes == 0) {
+                break;
+            }
+
+            Rollup(rollup).flushEntryQueue(flushChunkSize);
+        }
+        console.log("--- Validator initialization complete ---");
+    }
+
+    // Load initial validators from JSON config
+    // Validators are passed as an array of objects with attester, withdrawer, and BN254 key data
+    // JSON format:
+    // {
+    //   "initialValidators": [
+    //     {
+    //       "attester": "0x...",
+    //       "withdrawer": "0x...",
+    //       "publicKeyInG1": { "x": "0x...", "y": "0x..." },
+    //       "publicKeyInG2": { "x0": "0x...", "x1": "0x...", "y0": "0x...", "y1": "0x..." },
+    //       "proofOfPossession": { "x": "0x...", "y": "0x..." }
+    //     }
+    //   ]
+    // }
+    function loadInitialValidators() internal view returns (CheatDepositArgs[] memory) {
+        // Check if initialValidators array exists in config
+        if (!vm.keyExistsJson(configJson, ".initialValidators")) {
+            return new CheatDepositArgs[](0);
+        }
+
+        // Get the array length
+        string[] memory validatorKeys = vm.parseJsonKeys(configJson, ".initialValidators");
+        uint256 validatorCount = validatorKeys.length;
+
+        if (validatorCount == 0) {
+            return new CheatDepositArgs[](0);
+        }
+
+        console.log("--- Loading initial validators from config ---");
+        console.log("  validator count:", validatorCount);
+
+        CheatDepositArgs[] memory validators = new CheatDepositArgs[](validatorCount);
+
+        for (uint256 i = 0; i < validatorCount; i++) {
+            string memory basePath = string.concat(".initialValidators[", vm.toString(i), "]");
+
+            validators[i] = CheatDepositArgs({
+                attester: vm.parseJsonAddress(configJson, string.concat(basePath, ".attester")),
+                withdrawer: vm.parseJsonAddress(configJson, string.concat(basePath, ".withdrawer")),
+                publicKeyInG1: G1Point({
+                    x: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG1.x")),
+                    y: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG1.y"))
+                }),
+                publicKeyInG2: G2Point({
+                    x0: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.x0")),
+                    x1: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.x1")),
+                    y0: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.y0")),
+                    y1: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.y1"))
+                }),
+                proofOfPossession: G1Point({
+                    x: vm.parseJsonUint(configJson, string.concat(basePath, ".proofOfPossession.x")),
+                    y: vm.parseJsonUint(configJson, string.concat(basePath, ".proofOfPossession.y"))
+                })
+            });
+
+            console.log("  validator", i, "attester:", validators[i].attester);
+        }
+
+        return validators;
     }
 
     // ============ Configuration Loading Functions ============

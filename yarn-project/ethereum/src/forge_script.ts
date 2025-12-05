@@ -1,15 +1,22 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
+import { bn254 } from '@noble/curves/bn254';
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { createPublicClient, getContract, http } from 'viem';
+import { createPublicClient, getContract, http, keccak256 as viemKeccak256 } from 'viem';
 import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from './client.js';
-import { type L1ContractsDeployConfig, stringifyConfig } from './forge_deploy_config.js';
+import type { Operator } from './deploy_l1_contracts.js';
+import {
+  type L1ContractsDeployConfig,
+  type L1ContractsJsonConfig,
+  type ValidatorJson,
+  stringifyConfig,
+} from './forge_deploy_config.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
@@ -32,6 +39,10 @@ export type {
   GovernanceSection,
   RewardSection,
   StakingQueueSection,
+  // Validator types (Operator is exported from deploy_l1_contracts.js)
+  ValidatorJson,
+  G1PointJson,
+  G2PointJson,
   // Legacy types (deprecated)
   ForgeDeploymentConfig,
   ForgeDeploymentJsonConfig,
@@ -270,6 +281,121 @@ export interface ForgeDeployL1ContractsReturnType {
 // ForgeDeploymentOptions is now an alias for the new L1ContractsDeployConfig
 export type ForgeDeploymentOptions = L1ContractsDeployConfig;
 
+// Domain separator for BN254 proof of possession (must match BN254Lib.sol)
+const STAKING_DOMAIN_SEPARATOR = 'AZTEC_BLS_POP_BN254_V1';
+
+/**
+ * Computes the registration tuple for a validator from their BN254 secret key.
+ * This mirrors the logic in GSEContract.makeRegistrationTuple but without needing the GSE contract.
+ *
+ * The proof of possession proves:
+ * 1. Knowledge of the secret key for publicKeyInG2 (prevents rogue-key attacks)
+ * 2. That publicKeyInG1 and publicKeyInG2 share the same secret key
+ */
+function computeRegistrationTuple(operator: Operator): ValidatorJson {
+  const privateKey = operator.bn254SecretKey.getValue();
+
+  // Compute G1 public key: pk1 = privateKey * G1
+  const publicKeyG1 = bn254.G1.ProjectivePoint.BASE.multiply(privateKey);
+  const publicKeyG1Affine = publicKeyG1.toAffine();
+
+  // Compute G2 public key: pk2 = privateKey * G2
+  const publicKeyG2 = bn254.G2.ProjectivePoint.BASE.multiply(privateKey);
+  const publicKeyG2Affine = publicKeyG2.toAffine();
+
+  // Compute the digest point (hash of pk1 to a curve point)
+  // This matches BN254Lib.g1ToDigestPoint which calls hashToPoint(STAKING_DOMAIN_SEPARATOR, pk1)
+  const pk1Bytes = Buffer.concat([
+    Buffer.from(publicKeyG1Affine.x.toString(16).padStart(64, '0'), 'hex'),
+    Buffer.from(publicKeyG1Affine.y.toString(16).padStart(64, '0'), 'hex'),
+  ]);
+  const digestPoint = hashToPoint(STAKING_DOMAIN_SEPARATOR, pk1Bytes);
+
+  // Compute proof of possession: signature = privateKey * digestPoint
+  const signature = digestPoint.multiply(privateKey);
+  const signatureAffine = signature.toAffine();
+
+  return {
+    attester: operator.attester.toString(),
+    withdrawer: operator.withdrawer.toString(),
+    publicKeyInG1: {
+      x: publicKeyG1Affine.x.toString(),
+      y: publicKeyG1Affine.y.toString(),
+    },
+    publicKeyInG2: {
+      x0: publicKeyG2Affine.x.c0.toString(),
+      x1: publicKeyG2Affine.x.c1.toString(),
+      y0: publicKeyG2Affine.y.c0.toString(),
+      y1: publicKeyG2Affine.y.c1.toString(),
+    },
+    proofOfPossession: {
+      x: signatureAffine.x.toString(),
+      y: signatureAffine.y.toString(),
+    },
+  };
+}
+
+/**
+ * Hash to point implementation matching BN254Lib.hashToPoint in Solidity.
+ * Maps arbitrary data to a point on the BN254 G1 curve.
+ */
+function hashToPoint(domain: string, message: Buffer): typeof bn254.G1.ProjectivePoint.BASE {
+  const domainBytes = Buffer.from(domain);
+  const Fp = bn254.fields.Fp;
+
+  let attempts = 0n;
+  while (true) {
+    // x = keccak256(domain, message, attempts) mod p
+    const preimage = Buffer.concat([domainBytes, message, Buffer.from(attempts.toString(16).padStart(64, '0'), 'hex')]);
+
+    // Use keccak256 hash
+    const hash = keccak256(preimage);
+    const x = BigInt('0x' + hash.toString('hex')) % Fp.ORDER;
+    attempts++;
+
+    if (x >= Fp.ORDER) {
+      continue;
+    }
+
+    // y^2 = x^3 + 3 (BN254 curve equation: y^2 = x^3 + b where b = 3)
+    const x3 = Fp.mul(Fp.mul(x, x), x);
+    const y2 = Fp.add(x3, 3n);
+
+    // Try to compute sqrt
+    const y = Fp.sqrt(y2);
+    if (y !== undefined) {
+      // Deterministically choose between y and -y
+      const y0 = y < Fp.ORDER - y ? y : Fp.ORDER - y;
+      const y1 = Fp.ORDER - y0;
+
+      // Use additional hash to determine which root to use
+      const bPreimage = Buffer.concat([
+        domainBytes,
+        message,
+        Buffer.from(
+          BigInt(2n ** 256n - 1n)
+            .toString(16)
+            .padStart(64, '0'),
+          'hex',
+        ),
+      ]);
+      const bHash = keccak256(bPreimage);
+      const b = BigInt('0x' + bHash.toString('hex'));
+
+      const finalY = (b & 1n) === 0n ? y0 : y1;
+      return bn254.G1.ProjectivePoint.fromAffine({ x, y: finalY });
+    }
+  }
+}
+
+/**
+ * Keccak256 hash returning a Buffer.
+ */
+function keccak256(data: Buffer): Buffer {
+  const hash = viemKeccak256(data);
+  return Buffer.from(hash.slice(2), 'hex');
+}
+
 /**
  * Deploys L1 contracts using forge and returns a result compatible with the TypeScript deployL1Contracts function.
  * This queries the Rollup contract to get the inbox, outbox, and feeJuicePortal addresses.
@@ -290,11 +416,24 @@ export async function setupL1ContractsViaForge(
   const logger = options.logger ?? createLogger('setup-l1-contracts-forge');
   const chain = options.chain ?? foundry;
 
+  // Build the config, computing registration tuples for any initial validators
+  const config: L1ContractsJsonConfig = { ...options.config };
+
+  // If initial validators are provided, compute their registration tuples
+  if (options.initialValidators && options.initialValidators.length > 0) {
+    logger.info(`Computing registration tuples for ${options.initialValidators.length} initial validators`);
+    config.initialValidators = options.initialValidators.map(operator => {
+      const tuple = computeRegistrationTuple(operator);
+      logger.verbose(`Computed registration tuple for validator ${tuple.attester}`);
+      return tuple;
+    });
+  }
+
   // Build JSON config string to pass as script parameter
   // DeploymentConfig.sol parses the JSON and applies defaults for missing values
-  const jsonConfigStr = stringifyConfig(options.config ?? {});
+  const jsonConfigStr = stringifyConfig(config);
 
-  const useMockVerifier = options.config?.deployment?.useMockVerifier !== false;
+  const useMockVerifier = config.deployment?.useMockVerifier !== false;
   logger.info(`Using ${useMockVerifier ? 'MockVerifier' : 'HonkVerifier'}`);
   logger.verbose('Forge deployment config', jsonConfigStr);
 

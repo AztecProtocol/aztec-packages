@@ -2,6 +2,8 @@ import type { Logger } from '@aztec/foundation/log';
 
 import type { Chain } from 'viem';
 
+import type { Operator } from './deploy_l1_contracts.js';
+
 // ============ Runtime Options (not passed to Solidity) ============
 
 /**
@@ -108,6 +110,31 @@ export interface ZkPassportSection {
   scope?: string;
 }
 
+// Validator types for initial validator setup
+export interface G1PointJson {
+  x: string;
+  y: string;
+}
+
+export interface G2PointJson {
+  x0: string;
+  x1: string;
+  y0: string;
+  y1: string;
+}
+
+/**
+ * Pre-computed validator registration data for Solidity.
+ * This matches the CheatDepositArgs struct in MultiAdder.sol.
+ */
+export interface ValidatorJson {
+  attester: string;
+  withdrawer: string;
+  publicKeyInG1: G1PointJson;
+  publicKeyInG2: G2PointJson;
+  proofOfPossession: G1PointJson;
+}
+
 // ============ Script-specific JSON Configs ============
 
 /**
@@ -126,6 +153,8 @@ export interface L1ContractsJsonConfig {
   reward?: RewardSection;
   stakingQueue?: StakingQueueSection;
   zkPassport?: ZkPassportSection;
+  /** Pre-computed initial validators to add during deployment */
+  initialValidators?: ValidatorJson[];
 }
 
 /**
@@ -150,6 +179,11 @@ export interface L1ContractsDeployConfig extends ForgeRuntimeOptions {
   config?: L1ContractsJsonConfig;
   /** Config for StakingAssetHandler deployment (passed to DeployStakingAssetHandler.s.sol) */
   stakingAssetHandler?: Partial<StakingAssetHandlerJsonConfig>;
+  /**
+   * Initial validators to add during deployment.
+   * The registration tuples will be computed from the secret keys before passing to Solidity.
+   */
+  initialValidators?: Operator[];
 }
 
 /**
