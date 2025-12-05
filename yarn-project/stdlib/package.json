@@ -66,7 +66,7 @@
   "scripts": {
     "build": "yarn clean && yarn generate && tsgo -b",
     "generate": "./scripts/copy-contracts.sh",
-    "build:dev": "tsgo -b --watch",
+    "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },

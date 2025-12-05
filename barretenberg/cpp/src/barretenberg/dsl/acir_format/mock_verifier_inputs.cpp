@@ -358,10 +358,11 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t inner
     HonkProof mega_proof = create_mock_honk_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(
         inner_public_inputs_size);
     Goblin::MergeProof merge_proof = create_mock_merge_proof();
-    ECCVMProof eccvm_proof{ create_mock_pre_ipa_proof(), create_mock_ipa_proof() };
+    HonkProof eccvm_proof{ create_mock_eccvm_proof() };
+    HonkProof ipa_proof = create_mock_ipa_proof();
     HonkProof translator_proof = create_mock_translator_proof();
 
-    Chonk::Proof chonk_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
+    Chonk::Proof chonk_proof{ mega_proof, { merge_proof, eccvm_proof, ipa_proof, translator_proof } };
     proof = chonk_proof.to_field_elements();
 
     return proof;
@@ -374,7 +375,7 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t inner
  *
  * @return HonkProof
  */
-HonkProof create_mock_pre_ipa_proof()
+HonkProof create_mock_eccvm_proof()
 {
     using FF = ECCVMFlavor::FF;
     HonkProof proof;
@@ -461,7 +462,7 @@ HonkProof create_mock_pre_ipa_proof()
     // 27. Shplonk
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    BB_ASSERT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
+    BB_ASSERT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 
     return proof;
 }
@@ -499,18 +500,15 @@ HonkProof create_mock_ipa_proof()
  */
 HonkProof create_mock_translator_proof()
 {
-    using BF = TranslatorFlavor::BF;
     using Curve = TranslatorFlavor::Curve;
 
     HonkProof proof;
 
-    // 1. Accumulated result
-    populate_field_elements<BF>(proof, 1);
-
-    // 2. NUM_WITNESS_ENTITIES commitments (includes gemini masking, wires, ordered range constraints, z_perm; excludes
-    // 4 interleaved)
+    // 1. NUM_WITNESS_ENTITIES commitments (includes gemini masking, wires, ordered range constraints, z_perm; excludes
+    // 2 interleaved)
     populate_field_elements_for_mock_commitments<Curve>(proof,
-                                                        /*num_commitments=*/TranslatorFlavor::NUM_WITNESS_ENTITIES - 3);
+                                                        /*num_commitments=*/TranslatorFlavor::NUM_WITNESS_ENTITIES - 3 -
+                                                            TranslatorFlavor::NUM_OP_QUEUE_WIRES);
 
     // 3. Decider proof (Libra + sumcheck + Gemini + PCS)
     HonkProof decider_proof = create_mock_decider_proof<TranslatorFlavor>();
@@ -561,7 +559,8 @@ template <typename Flavor> std::shared_ptr<VerifierInstance_<Flavor>> create_moc
             0, 0); // metadata does not need to be accurate
     verifier_instance->vk = vk;
     verifier_instance->is_complete = true;
-    verifier_instance->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), FF::random_element());
+    verifier_instance->gate_challenges =
+        std::vector<FF>(static_cast<size_t>(CONST_FOLDING_LOG_N), FF::random_element());
 
     for (auto& commitment : verifier_instance->witness_commitments.get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment

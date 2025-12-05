@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -52,6 +53,8 @@ using simulation::RangeCheck;
 using simulation::RangeCheckEvent;
 using simulation::ToRadixEvent;
 using simulation::ToRadixMemoryEvent;
+
+constexpr uint64_t MAX_MEM = AVM_MEMORY_SIZE;
 
 TEST(ToRadixConstrainingTest, EmptyRow)
 {
@@ -415,10 +418,10 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
         // Row 0
         {
             { C::precomputed_first_row, 1 },
-            // GT check - Dst > AVM_HIGHEST_MEM_ADDRESS = false
+            // GT check - Dst > MAX_MEM = false
             { C::gt_sel, 1 },
-            { C::gt_input_a, dst_addr + num_limbs - 1 },
-            { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+            { C::gt_input_a, dst_addr + num_limbs },
+            { C::gt_input_b, MAX_MEM },
             { C::gt_res, 0 }, // GT should return true
             // Execution Trace (No gas)
             { C::execution_sel, 1 },
@@ -434,14 +437,14 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
         {
             // To Radix Mem
             { C::to_radix_mem_sel, 1 },
-            { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+            { C::to_radix_mem_max_mem_size, MAX_MEM },
             { C::to_radix_mem_two, 2 },
             { C::to_radix_mem_two_five_six, 256 },
             // Memory Inputs
             { C::to_radix_mem_execution_clk, 0 },
             { C::to_radix_mem_space_id, 0 },
             { C::to_radix_mem_dst_addr, dst_addr },
-            { C::to_radix_mem_max_write_addr, dst_addr + num_limbs - 1 },
+            { C::to_radix_mem_write_addr_upper_bound, dst_addr + num_limbs },
             // To Radix Inputs
             { C::to_radix_mem_value_to_decompose, value },
             { C::to_radix_mem_radix, radix },
@@ -610,7 +613,7 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
     FF value = FF(1337);
     uint32_t radix = 10;
     uint32_t num_limbs = 2;
-    uint32_t dst_addr = static_cast<uint32_t>(AVM_HIGHEST_MEM_ADDRESS - 1); // This will cause an out-of-bounds error
+    auto dst_addr = static_cast<uint64_t>(MAX_MEM - 1); // This will cause an out-of-bounds error
 
     TestTraceContainer trace = TestTraceContainer({
         // Row 0
@@ -618,8 +621,8 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
             { C::precomputed_first_row, 1 },
             // GT check
             { C::gt_sel, 1 },
-            { C::gt_input_a, dst_addr + num_limbs - 1 },
-            { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+            { C::gt_input_a, dst_addr + num_limbs },
+            { C::gt_input_b, MAX_MEM },
             { C::gt_res, 1 }, // GT should return true
         },
         // Row 1
@@ -636,14 +639,14 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
 
             // To Radix Mem
             { C::to_radix_mem_sel, 1 },
-            { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+            { C::to_radix_mem_max_mem_size, MAX_MEM },
             { C::to_radix_mem_two, 2 },
             { C::to_radix_mem_two_five_six, 256 },
             // Memory Inputs
             { C::to_radix_mem_execution_clk, 0 },
             { C::to_radix_mem_space_id, 0 },
             { C::to_radix_mem_dst_addr, dst_addr },
-            { C::to_radix_mem_max_write_addr, dst_addr + num_limbs - 1 },
+            { C::to_radix_mem_write_addr_upper_bound, dst_addr + num_limbs },
             // To Radix Inputs
             { C::to_radix_mem_value_to_decompose, value },
             { C::to_radix_mem_radix, radix },
@@ -691,14 +694,14 @@ TEST(ToRadixMemoryConstrainingTest, InvalidRadix)
         // Row 1
         {
             { C::to_radix_mem_sel, 1 },
-            { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+            { C::to_radix_mem_max_mem_size, MAX_MEM },
             { C::to_radix_mem_two, 2 },
             { C::to_radix_mem_two_five_six, 256 },
             // Memory Inputs
             { C::to_radix_mem_execution_clk, 0 },
             { C::to_radix_mem_space_id, 0 },
             { C::to_radix_mem_dst_addr, dst_addr },
-            { C::to_radix_mem_max_write_addr, dst_addr + num_limbs - 1 },
+            { C::to_radix_mem_write_addr_upper_bound, dst_addr + num_limbs },
             // To Radix Inputs
             { C::to_radix_mem_value_to_decompose, value },
             { C::to_radix_mem_radix, radix },
@@ -745,14 +748,14 @@ TEST(ToRadixMemoryConstrainingTest, InvalidBitwiseRadix)
         // Row 1
         {
             { C::to_radix_mem_sel, 1 },
-            { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+            { C::to_radix_mem_max_mem_size, MAX_MEM },
             { C::to_radix_mem_two, 2 },
             { C::to_radix_mem_two_five_six, 256 },
             // Memory Inputs
             { C::to_radix_mem_execution_clk, 0 },
             { C::to_radix_mem_space_id, 0 },
             { C::to_radix_mem_dst_addr, dst_addr },
-            { C::to_radix_mem_max_write_addr, dst_addr + num_limbs - 1 },
+            { C::to_radix_mem_write_addr_upper_bound, dst_addr + num_limbs },
             // To Radix Inputs
             { C::to_radix_mem_value_to_decompose, value },
             { C::to_radix_mem_radix, radix },
@@ -799,14 +802,14 @@ TEST(ToRadixMemoryConstrainingTest, InvalidNumLimbsForValue)
         // Row 1
         {
             { C::to_radix_mem_sel, 1 },
-            { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+            { C::to_radix_mem_max_mem_size, MAX_MEM },
             { C::to_radix_mem_two, 2 },
             { C::to_radix_mem_two_five_six, 256 },
             // Memory Inputs
             { C::to_radix_mem_execution_clk, 0 },
             { C::to_radix_mem_space_id, 0 },
             { C::to_radix_mem_dst_addr, dst_addr },
-            { C::to_radix_mem_max_write_addr, dst_addr + num_limbs - 1 },
+            { C::to_radix_mem_write_addr_upper_bound, dst_addr + num_limbs },
             // To Radix Inputs
             { C::to_radix_mem_value_to_decompose, value },
             { C::to_radix_mem_radix, radix },
@@ -853,14 +856,14 @@ TEST(ToRadixMemoryConstrainingTest, TruncationError)
         // Row 1
         {
             { C::to_radix_mem_sel, 1 },
-            { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+            { C::to_radix_mem_max_mem_size, MAX_MEM },
             { C::to_radix_mem_two, 2 },
             { C::to_radix_mem_two_five_six, 256 },
             // Memory Inputs
             { C::to_radix_mem_execution_clk, 0 },
             { C::to_radix_mem_space_id, 0 },
             { C::to_radix_mem_dst_addr, dst_addr },
-            { C::to_radix_mem_max_write_addr, dst_addr + num_limbs - 1 },
+            { C::to_radix_mem_write_addr_upper_bound, dst_addr + num_limbs },
             // To Radix Inputs
             { C::to_radix_mem_value_to_decompose, value },
             { C::to_radix_mem_radix, radix },
@@ -921,14 +924,14 @@ TEST(ToRadixMemoryConstrainingTest, ZeroNumLimbsAndZeroValueIsNoop)
         // Row 1
         {
             { C::to_radix_mem_sel, 1 },
-            { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+            { C::to_radix_mem_max_mem_size, MAX_MEM },
             { C::to_radix_mem_two, 2 },
             { C::to_radix_mem_two_five_six, 256 },
             // Memory Inputs
             { C::to_radix_mem_execution_clk, 0 },
             { C::to_radix_mem_space_id, 0 },
             { C::to_radix_mem_dst_addr, dst_addr },
-            { C::to_radix_mem_max_write_addr, dst_addr + num_limbs - 1 },
+            { C::to_radix_mem_write_addr_upper_bound, dst_addr + num_limbs },
             // To Radix Inputs
             { C::to_radix_mem_value_to_decompose, value },
             { C::to_radix_mem_radix, radix },

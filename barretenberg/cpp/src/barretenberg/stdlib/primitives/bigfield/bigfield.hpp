@@ -961,6 +961,20 @@ template <typename Builder, typename T> class bigfield {
     }
 
     /**
+     * @brief Decompose a single witness into two limbs, range constrained to NUM_LIMB_BITS (68) and
+     * num_limb_bits - NUM_LIMB_BITS, respectively.
+     *
+     * @details Doesn't create gates constraining the limbs to each other.
+     *
+     * @param ctx The circuit context
+     * @param limb_idx The index of the limb that will be decomposed
+     * @param num_limb_bits The range we want to constrain the original limb to
+     * @return std::array<uint32_t, 2> The indices of new limbs.
+     */
+    static std::array<uint32_t, 2> decompose_non_native_field_double_width_limb(
+        Builder* ctx, const uint32_t limb_idx, const size_t num_limb_bits = (2 * NUM_LIMB_BITS));
+
+    /**
      * @brief Compute the quotient and remainder values for dividing (a * b + (to_add[0] + ... + to_add[-1])) with p
      *
      * @param a Left multiplicand

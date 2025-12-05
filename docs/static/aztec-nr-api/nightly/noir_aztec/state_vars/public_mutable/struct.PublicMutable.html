@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct PublicMutable documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PublicMutable</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -68,7 +74,7 @@ access to the current state during public function execution.</p>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <span class="fn">read</span>(self) -> T
+<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
@@ -83,7 +89,7 @@ is an unconstrained environment on the user's local device.</p>
 </div>
 </div></div><h3><code class="code-header">impl&lt;Context, T&gt; <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, Context&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Initializes a new PublicMutable state variable.</p>
@@ -104,7 +110,7 @@ behind the scenes.</li>
 </div>
 </div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="read" class="code-header">pub fn <span class="fn">read</span>(self) -> T
+<div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
@@ -116,7 +122,7 @@ behind the scenes.</li>
 </ul>
 <p>docs:start:public_mutable_struct_read</p>
 </div>
-</div><code id="write" class="code-header">pub fn <span class="fn">write</span>(self, value: T)
+</div><code id="write" class="code-header">pub fn <a href="#write"><span class="fn">write</span></a>(self, value: T)
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
@@ -140,5 +146,6 @@ the same transaction.</p>
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 </div></main>
+</span>
 </body>
 </html>

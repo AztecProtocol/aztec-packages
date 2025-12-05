@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -127,7 +128,7 @@ describe('LibP2PService', () => {
 
     it('should return false and penalize on number mismatch', async () => {
       const requested = new Fr(10);
-      const resp = await L2Block.random(9);
+      const resp = await L2Block.random(BlockNumber(9));
 
       const ok = await service.validateRequestedBlock(requested, resp, peerId);
 
@@ -138,7 +139,7 @@ describe('LibP2PService', () => {
     it('should return false (no penalty) when numbers match and no local block', async () => {
       archiver.getBlock.mockResolvedValue(undefined);
       const requested = new Fr(10);
-      const resp = await L2Block.random(10);
+      const resp = await L2Block.random(BlockNumber(10));
 
       const ok = await service.validateRequestedBlock(requested, resp, peerId);
 
@@ -148,7 +149,7 @@ describe('LibP2PService', () => {
 
     it('should return true when numbers match and hashes match', async () => {
       const requested = new Fr(10);
-      const local = await L2Block.random(10);
+      const local = await L2Block.random(BlockNumber(10));
 
       const resp = L2Block.fromBuffer(local.toBuffer());
       archiver.getBlock.mockResolvedValue(local);
@@ -161,7 +162,7 @@ describe('LibP2PService', () => {
 
     it('should return false and penalize when hashes mismatch', async () => {
       const requested = new Fr(10);
-      const local = await L2Block.random(10);
+      const local = await L2Block.random(BlockNumber(10));
 
       const resp = L2Block.fromBuffer(local.toBuffer());
       resp.header.globalVariables.coinbase = EthAddress.random();
@@ -176,7 +177,7 @@ describe('LibP2PService', () => {
     it('should return false on archiver error', async () => {
       archiver.getBlock.mockRejectedValue(new Error('boom'));
       const requested = new Fr(10);
-      const resp = await L2Block.random(10);
+      const resp = await L2Block.random(BlockNumber(10));
 
       const ok = await service.validateRequestedBlock(requested, resp, peerId);
 

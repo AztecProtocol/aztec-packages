@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
@@ -55,7 +56,7 @@ export class TxProvider implements ITxProvider {
   /** Gathers txs from the tx pool, proposal body, remote rpc nodes, and reqresp. */
   public getTxsForBlockProposal(
     blockProposal: BlockProposal,
-    blockNumber: number,
+    blockNumber: BlockNumber,
     opts: { pinnedPeer: PeerId | undefined; deadline: Date },
   ): Promise<{ txs: Tx[]; missingTxs: TxHash[] }> {
     return this.getOrderedTxsFromAllSources(

@@ -21,6 +21,7 @@ struct Poseidon2Constraint {
     friend bool operator==(Poseidon2Constraint const& lhs, Poseidon2Constraint const& rhs) = default;
 };
 
-template <typename Builder> void create_poseidon2_permutations(Builder& builder, const Poseidon2Constraint& constraint);
+template <typename Builder>
+void create_poseidon2_permutations_constraints(Builder& builder, const Poseidon2Constraint& constraint);
 
 } // namespace acir_format

@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import type { AvmProvingRequest } from '../avm/avm_proving_request.js';
 import type { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
-import type { SimulationError } from '../errors/simulation_error.js';
+import { SimulationError } from '../errors/simulation_error.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { computeL2ToL1MessageHash } from '../hash/hash.js';
@@ -173,6 +173,12 @@ export function makeProcessedTxFromTxWithPublicCalls(
     contractClassLogs,
   );
 
+  // Some callers expect a revert reason if the tx reverted.
+  const finalRevertReason =
+    revertReason === undefined && !revertCode.isOK()
+      ? new SimulationError('TX reverted', /*functionErrorStack=*/ [], /*revertData=*/ [])
+      : revertReason;
+
   return {
     hash: txEffect.txHash,
     data: tx.data,
@@ -182,6 +188,6 @@ export function makeProcessedTxFromTxWithPublicCalls(
     txEffect,
     gasUsed,
     revertCode,
-    revertReason,
+    revertReason: finalRevertReason,
   };
 }

@@ -564,9 +564,8 @@ std::vector<Chonk::FF> Chonk::Proof::to_field_elements() const
 
     proof.insert(proof.end(), mega_proof.begin(), mega_proof.end());
     proof.insert(proof.end(), goblin_proof.merge_proof.begin(), goblin_proof.merge_proof.end());
-    proof.insert(
-        proof.end(), goblin_proof.eccvm_proof.pre_ipa_proof.begin(), goblin_proof.eccvm_proof.pre_ipa_proof.end());
-    proof.insert(proof.end(), goblin_proof.eccvm_proof.ipa_proof.begin(), goblin_proof.eccvm_proof.ipa_proof.end());
+    proof.insert(proof.end(), goblin_proof.eccvm_proof.begin(), goblin_proof.eccvm_proof.end());
+    proof.insert(proof.end(), goblin_proof.ipa_proof.begin(), goblin_proof.ipa_proof.end());
     proof.insert(proof.end(), goblin_proof.translator_proof.begin(), goblin_proof.translator_proof.end());
     return proof;
 };
@@ -590,15 +589,15 @@ Chonk::Proof Chonk::Proof::from_field_elements(const std::vector<Chonk::FF>& fie
     end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
     goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), start_idx, end_idx);
 
-    // ECCVM pre-ipa proof
+    // ECCVM proof
     start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
-    goblin_proof.eccvm_proof.pre_ipa_proof.insert(goblin_proof.eccvm_proof.pre_ipa_proof.end(), start_idx, end_idx);
+    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), start_idx, end_idx);
 
-    // ECCVM ipa proof
+    // IPA proof
     start_idx = end_idx;
     end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
-    goblin_proof.eccvm_proof.ipa_proof.insert(goblin_proof.eccvm_proof.ipa_proof.end(), start_idx, end_idx);
+    goblin_proof.ipa_proof.insert(goblin_proof.ipa_proof.end(), start_idx, end_idx);
 
     // Translator proof
     start_idx = end_idx;

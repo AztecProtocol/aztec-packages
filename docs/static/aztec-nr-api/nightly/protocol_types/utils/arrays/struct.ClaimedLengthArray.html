@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct ClaimedLengthArray documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ClaimedLengthArray</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -79,35 +85,35 @@ Validation must include:</p>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;</code></h3>
 
-<div class="padded-methods"><code id="assert_dense_trimmed" class="code-header">pub fn <span class="fn">assert_dense_trimmed</span>(self)
+<div class="padded-methods"><code id="assert_dense_trimmed" class="code-header">pub fn <a href="#assert_dense_trimmed"><span class="fn">assert_dense_trimmed</span></a>(self)
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
 
-<code id="assert_empty" class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<code id="assert_empty" class="code-header">pub fn <a href="#assert_empty"><span class="fn">assert_empty</span></a>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
 
-<code id="assert_length_within_bounds" class="code-header">pub fn <span class="fn">assert_length_within_bounds</span>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<code id="assert_length_within_bounds" class="code-header">pub fn <a href="#assert_length_within_bounds"><span class="fn">assert_length_within_bounds</span></a>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
 
-<code id="push" class="code-header">pub fn <span class="fn">push</span>(&mut self, item: T)
+<code id="push" class="code-header">pub fn <a href="#push"><span class="fn">push</span></a>(&mut self, item: T)
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
 
-<code id="pop" class="code-header">pub fn <span class="fn">pop</span>(&mut self) -> T
+<code id="pop" class="code-header">pub fn <a href="#pop"><span class="fn">pop</span></a>(&mut self) -> T
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
 
-<code id="for_each" class="code-header">pub fn <span class="fn">for_each</span>&lt;Env&gt;(self, f: fn[Env](T))
+<code id="for_each" class="code-header">pub fn <a href="#for_each"><span class="fn">for_each</span></a>&lt;Env&gt;(self, f: fn[Env](T))
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
 
-<code id="for_each_i" class="code-header">pub fn <span class="fn">for_each_i</span>&lt;Env&gt;(self, f: fn[Env](T, <a href="../../../std/primitive.u32.html" class="primitive">u32</a>))
+<code id="for_each_i" class="code-header">pub fn <a href="#for_each_i"><span class="fn">for_each_i</span></a>&lt;Env&gt;(self, f: fn[Env](T, <a href="../../../std/primitive.u32.html" class="primitive">u32</a>))
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
 
-<code id="from_bounded_vec" class="code-header">pub fn <span class="fn">from_bounded_vec</span>(vec: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, N&gt;) -> Self
+<code id="from_bounded_vec" class="code-header">pub fn <a href="#from_bounded_vec"><span class="fn">from_bounded_vec</span></a>(vec: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, N&gt;) -> Self
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
 
@@ -143,5 +149,6 @@ Validation must include:</p>
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N * &lt;(resolved type) as Serialize&gt;::N + 1]</code>
 
 </div></main>
+</span>
 </body>
 </html>

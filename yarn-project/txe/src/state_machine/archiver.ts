@@ -1,6 +1,6 @@
 import { ArchiverStoreHelper, KVArchiverDataStore, type PublishedL2Block } from '@aztec/archiver';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -33,7 +33,7 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  public getBlockNumber(): Promise<number> {
+  public getBlockNumber(): Promise<BlockNumber> {
     return this.store.getSynchedL2BlockNumber();
   }
 
@@ -41,7 +41,7 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
    * Gets the number of the latest L2 block proven seen by the block source implementation.
    * @returns The number of the latest L2 block proven seen by the block source implementation.
    */
-  public getProvenBlockNumber(): Promise<number> {
+  public getProvenBlockNumber(): Promise<BlockNumber> {
     return this.store.getSynchedL2BlockNumber();
   }
 
@@ -58,7 +58,7 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     if (number == 0) {
       return undefined;
     }
-    const blocks = await this.store.getPublishedBlocks(number, 1);
+    const blocks = await this.store.getPublishedBlocks(BlockNumber(number), 1);
     return blocks.length === 0 ? undefined : blocks[0];
   }
 
@@ -83,16 +83,20 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     if (number === 0) {
       return undefined;
     }
-    const headers = await this.store.getBlockHeaders(number, 1);
+    const headers = await this.store.getBlockHeaders(BlockNumber(number), 1);
     return headers.length === 0 ? undefined : headers[0];
   }
 
   public getBlocks(from: number, limit: number, _proven?: boolean): Promise<L2Block[]> {
-    return this.getPublishedBlocks(from, limit).then(blocks => blocks.map(b => b.block));
+    return this.getPublishedBlocks(BlockNumber(from), limit).then(blocks => blocks.map(b => b.block));
   }
 
   public getPublishedCheckpoints(_from: CheckpointNumber, _limit: number): Promise<PublishedCheckpoint[]> {
     throw new Error('TXE Archiver does not implement "getPublishedCheckpoints"');
+  }
+
+  public getCheckpointByArchive(_archive: Fr): Promise<Checkpoint | undefined> {
+    throw new Error('TXE Archiver does not implement "getCheckpointByArchive"');
   }
 
   public getL2SlotNumber(): Promise<SlotNumber | undefined> {
