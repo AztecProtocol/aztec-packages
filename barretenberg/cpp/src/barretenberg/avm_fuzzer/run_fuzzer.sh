@@ -31,7 +31,7 @@ if [ "$COMMAND" = "list-targets" ]; then
     echo "  ecc - ECC fuzzer (harness_ecc_fuzzer)"
     echo "  gt - Greater Than fuzzer (harness_gt_fuzzer)"
     echo "  merkle_check - Merkle Check fuzzer (harness_merkle_check_fuzzer)"
-    echo "  calldata - Calldata fuzzer (harness_gt_fuzzer)"
+    echo "  calldata - Calldata fuzzer (harness_calldata_fuzzer)"
     exit 0
 fi
 
