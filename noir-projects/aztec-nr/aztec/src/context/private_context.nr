@@ -695,7 +695,7 @@ impl PrivateContext {
         //     "Ending setup at counter {0}",
         //     [self.side_effect_counter as Field]
         // );
-        self.min_revertible_side_effect_counter = self.side_effect_counter;
+        self.min_revertible_side_effect_counter = self.next_counter();
         notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
     }
 
