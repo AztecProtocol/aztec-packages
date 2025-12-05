@@ -7,6 +7,7 @@
     "clean": "./scripts/clean.sh",
     "dev:netlify": "yarn netlify dev",
     "generate:aztec-nr-api": "./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh",
+    "generate:protocol-circuits-api": "./scripts/protocol_circuits_docs_generation/generate_protocol_circuits_docs.sh",
     "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js",
     "preprocess:move": "sh scripts/move_processed.sh",
     "serve": "docusaurus serve",

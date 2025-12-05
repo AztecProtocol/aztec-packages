@@ -12,7 +12,14 @@ This script generates API documentation for the `noir-protocol-circuits` using `
 ./generate_protocol_circuits_docs.sh v1.0.0
 ```
 
-Or from the docs root:
+Or using yarn from the docs root:
+
+```bash
+yarn generate:protocol-circuits-api
+yarn generate:protocol-circuits-api v1.0.0
+```
+
+Or directly:
 
 ```bash
 ./scripts/protocol_circuits_docs_generation/generate_protocol_circuits_docs.sh [version]
