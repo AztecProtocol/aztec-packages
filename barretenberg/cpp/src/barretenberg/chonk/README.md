@@ -240,13 +240,13 @@ This allows expressing the lookup as two subrelations:
 
 1. **Inverse correctness** (only checked where $a_i \neq 0$ or $q_{busread,i} = 1$):
 
-$$I_i \cdot (b_i + i\beta + \gamma)(w_{1,i} + w_{2,i}\beta + \gamma) - \text{is\_active}_i = 0$$
+$$I_i \cdot (b_i + i\beta + \gamma)(w_{1,i} + w_{2,i}\beta + \gamma) - \varepsilon_i = 0$$
 
 2. **Lookup relation**:
 
 $$\sum_{i=0}^{n-1} a_i \cdot I_i \cdot (w_{1,i} + w_{2,i}\beta + \gamma) - q_{busread,i} \cdot I_i \cdot (b_i + i\beta + \gamma) = 0$$
 
-The `is_active` indicator requires a `read_tags` polynomial (1 if `read_counts > 0`, else 0) because the algebraic expression `is_active` $= q_{busread} + read\_tags - q_{busread} \cdot read\_tags$ only works for binary inputs.
+The `is_active` flag $\varepsilon$ requires a `read_tags` polynomial (1 if `read_counts > 0`, else 0) because the algebraic expression $\varepsilon = q_{busread} + \text{read_tags} - q_{busread} \cdot \text{read_tags}$ only works for binary inputs.
 
 **Multiple columns**: Each bus column (calldata, secondary_calldata, return_data) has separate subrelations, distinguished by column-specific selectors $q_j$.
 
