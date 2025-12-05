@@ -583,7 +583,7 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
 }
 
 /**
- * Generalized Permutation Methods
+ * Range constraint methods
  **/
 template <typename ExecutionTrace>
 typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<ExecutionTrace>::create_range_list(
@@ -768,6 +768,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uin
                         // constraint. It would be difficult to remove an existing range check. Instead deep-copy the
                         // variable and apply a range check to new variable
                         const uint32_t copied_witness = this->add_variable(this->get_variable(variable_index));
+                        // the following arithmetic gate copy-constrains `variable_index` and `copied_witness`
                         create_add_gate({ .a = variable_index,
                                           .b = copied_witness,
                                           .c = this->zero_idx(),

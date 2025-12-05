@@ -75,10 +75,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     };
 
     struct RangeList {
-        uint64_t target_range;
-        uint32_t range_tag;
-        uint32_t tau_tag;
-        std::vector<uint32_t> variable_indices;
+        uint64_t target_range;                  // range constraint will be for the range [0, target_range].
+        uint32_t range_tag;                     // Tag assigned to the unsorted variables. RAJU: check this.
+        uint32_t tau_tag;                       // Tag assigned to the sorted reference set
+        std::vector<uint32_t> variable_indices; // All variable-indices constrained to this range.
         bool operator==(const RangeList& other) const noexcept
         {
             return target_range == other.target_range && range_tag == other.range_tag && tau_tag == other.tau_tag &&
