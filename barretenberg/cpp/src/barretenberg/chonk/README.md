@@ -11,33 +11,46 @@ Efficient recursion supports low memory proving - statements can be decomposed v
 
 ## Design Principles
 
-CHONK builds on [PlonK](https://eprint.iacr.org/2019/953), sharing its foundation:
+CHONK builds on PlonK [[2](#ref-plonk)], sharing its foundation:
 - Elliptic curves and pairings
 - Circuit constraints via selector polynomials and copy constraints
 
 Its deviations from PlonK are motivated by the goals above:
 
-1. **Proving sequences of circuits**: Contract execution translates to multiple circuits (different contract functions), with Aztec's *Kernel circuits* handling bookkeeping between them. See the [Aztec documentation](https://docs.aztec.network) and [Stackproofs paper](https://eprint.iacr.org/2024/1281).
+1. **Proving sequences of circuits**: Contract execution translates to multiple circuits (different contract functions), with Aztec's *Kernel circuits* handling bookkeeping between them. See the [Aztec documentation](https://docs.aztec.network) and the Stackproofs paper [[3](#ref-stackproofs)].
 
-2. **Sumcheck instead of univariate quotienting**: Eliminates FFTs, reducing prover time and memory at the expense of proof length. This approach follows [HyperPlonk](https://eprint.iacr.org/2022/1355).
+2. **Sumcheck instead of univariate quotienting**: Eliminates FFTs, reducing prover time and memory at the expense of proof length. This approach follows HyperPlonk [[4](#ref-hyperplonk)].
 
-3. **Folding schemes**: Enable cheaper recursion than standard recursive proofs. We use sumcheck-based folding similar to [HyperNova](https://eprint.iacr.org/2023/573), well-suited for folding non-uniform PlonK circuits.
+3. **Folding schemes**: Enable cheaper recursion than standard recursive proofs. We use sumcheck-based folding similar to HyperNova [[5](#ref-hypernova)], adapted to folding non-uniform PlonK circuits.
 
-4. **Goblin Plonk**: Though folding reduces recursion cost, in-circuit non-native EC scalar multiplications remain expensive. [Goblin Plonk](https://hackmd.io/@aztec-network/BkGNaHUJn/%2FGfNR5SE5ShyXXmLxNCsg3g) (see also [this paper](https://eprint.iacr.org/2024/1651)) defers these operations to a queue, then proves them on the Grumpkin curve where they're native. This curve-switch approach was initiated by [BCTV](https://eprint.iacr.org/2014/595.pdf); a modern comparison is [CycleFold](https://eprint.iacr.org/2023/1192). *Note: The linked documents use older terminology and omit some details (e.g., ZK handling) that have since evolved in the implementation.*
+4. **Goblin Plonk**: Though folding reduces recursion cost, in-circuit non-native EC scalar multiplications remain expensive. Goblin Plonk [[6](#ref-goblin-hackmd)] [[7](#ref-goblin-paper)] defers these operations to a queue, then proves them on the Grumpkin curve where they're native. This curve-switch approach was initiated by BCTV [[8](#ref-bctv)]; a modern comparison is CycleFold [[9](#ref-cyclefold)]. *Note: The linked documents use older terminology and omit some details (e.g., ZK handling) that have since evolved in the implementation.*
 
 5. **Mega flavor**: Chonk circuits use [MegaFlavor](../flavor/mega_flavor.hpp), which combines UltraHonk's custom gates with Goblin's ECC op queue. [MegaZKFlavor](../flavor/mega_zk_flavor.hpp) is the ZK variant, used for the final [hiding kernel](#circuit-structure) proof.
 
-*For a video presentation, see [this talk](https://www.youtube.com/watch?v=j6wlamEPKlE).*
+*For a video presentation, see [[10](#ref-video)].*
+
+### References
+
+1. <a name="ref-shplemini"></a>**A note on the soundness of an optimized gemini variant** (Ariel Gabizon, Nishat Koti): [Paper](https://eprint.iacr.org/2025/1793.pdf#6)
+2. <a name="ref-plonk"></a>**PlonK: Permutations over Lagrange-bases for Oecumenical Noninteractive arguments of Knowledge** (Ariel Gabizon, Zachary J. Williamson, Oana Ciobotaru): [Paper](https://eprint.iacr.org/2019/953)
+3. <a name="ref-stackproofs"></a>**Stackproofs: Private proofs of stack and contract execution using Protogalaxy** (Liam Eagen, Ariel Gabizon): [Paper](https://eprint.iacr.org/2024/1281)
+4. <a name="ref-hyperplonk"></a>**HyperPlonk: Plonk with Linear-Time Prover and High-Degree Custom Gates** (Binyi Chen, Benedikt Bünz, Dan Boneh, Zhenfei Zhang): [Paper](https://eprint.iacr.org/2022/1355)
+5. <a name="ref-hypernova"></a>**HyperNova: Recursive arguments for customizable constraint systems** (Abhiram Kothapalli, Srinath Setty): [Paper](https://eprint.iacr.org/2023/573)
+6. <a name="ref-goblin-hackmd"></a>**Goblin Plonk** (Aztec): [HackMD](https://hackmd.io/@aztec-network/BkGNaHUJn/%2FGfNR5SE5ShyXXmLxNCsg3g)
+7. <a name="ref-goblin-paper"></a>**One-Shot Native Proofs of Non-Native Operations in Incrementally Verifiable Computations** (Tohru Kohrita, Patrick Towa, Zachary J. Williamson): [Paper](https://eprint.iacr.org/2024/1651)
+8. <a name="ref-bctv"></a>**Scalable Zero Knowledge via Cycles of Elliptic Curves** (Eli Ben-Sasson, Alessandro Chiesa, Eran Tromer, Madars Virza): [Paper](https://eprint.iacr.org/2014/595.pdf)
+9. <a name="ref-cyclefold"></a>**CycleFold: Folding-scheme-based recursive arguments over a cycle of elliptic curves** (Abhiram Kothapalli, Srinath Setty): [Paper](https://eprint.iacr.org/2023/1192)
+10. <a name="ref-video"></a>**ZK10: How to build a modern SNARK - Zac Williamson**: [YouTube](https://www.youtube.com/watch?v=j6wlamEPKlE)
 
 ---
 
 ## Overview
 
-Chonk implements Repeated Computation with Global state (RCG) as defined in the [Stackproofs paper](https://eprint.iacr.org/2024/1281). It combines HyperNova folding with Goblin to produce a single succinct proof.
+Chonk implements Repeated Computation with Global state (RCG) as defined in the Stackproofs paper [[3](#ref-stackproofs)]. It combines HyperNova folding with Goblin to produce a single succinct proof.
 
 ### RCG vs IVC
 
-Unlike Incrementally Verifiable Computation (IVC), RCG:
+Unlike Incrementally Verifiable Computation (IVC), RCG has the following properties:
 
 - **Deferred proving**: Witness generation for all circuits completes before proving starts
 - **Global consistency**: Supports global consistency checks across the whole computation (not just local state transitions)
@@ -87,7 +100,7 @@ In a standard recursive verification setup, each circuit must verify the previou
 
 1. **Sumcheck verification**: 21 rounds, each receiving univariate polynomials and computing challenges. Relatively cheap in-circuit.
 
-2. **PCS (Polynomial Commitment Scheme) verification via Shplemini**: This is where the cost explodes. The verifier must:
+2. **PCS (Polynomial Commitment Scheme) verification via Shplemini** [[1](#ref-shplemini)]: This is where the cost explodes. The verifier must:
    - Batch all polynomial commitments into opening claims
    - Run Shplemini to reduce multivariate claims to univariate
    - Perform KZG verification
@@ -167,7 +180,7 @@ A key benefit of Chonk's folding approach is that prover memory is bounded by th
 
 ### HyperNova Folding
 
-Chonk uses [HyperNova](https://eprint.iacr.org/2023/573) for folding circuits into accumulators. Each circuit goes through Sumcheck to produce evaluation claims, which are batched into an accumulator. The `MultilinearBatchingSumcheck` protocol combines accumulators at different evaluation points into a single accumulator at a common point.
+Chonk uses HyperNova [[5](#ref-hypernova)] for folding circuits into accumulators. Each circuit goes through Sumcheck to produce evaluation claims, which are batched into an accumulator. The `MultilinearBatchingSumcheck` protocol combines accumulators at different evaluation points into a single accumulator at a common point.
 
 See [HyperNova Folding Details](#hypernova-folding-details) for the full protocol specification.
 
@@ -227,13 +240,13 @@ This allows expressing the lookup as two subrelations:
 
 1. **Inverse correctness** (only checked where $a_i \neq 0$ or $q_{busread,i} = 1$):
 
-$$I_i \cdot (b_i + i\beta + \gamma)(w_{1,i} + w_{2,i}\beta + \gamma) - is\_active_i = 0$$
+$$I_i \cdot (b_i + i\beta + \gamma)(w_{1,i} + w_{2,i}\beta + \gamma) - is\_{active}_i = 0$$
 
 2. **Lookup relation**:
 
 $$\sum_{i=0}^{n-1} a_i \cdot I_i \cdot (w_{1,i} + w_{2,i}\beta + \gamma) - q_{busread,i} \cdot I_i \cdot (b_i + i\beta + \gamma) = 0$$
 
-The `is_active` indicator requires a `read_tags` polynomial (1 if `read_counts > 0`, else 0) because the algebraic expression $is\_active = q_{busread} + read\_tags - q_{busread} \cdot read\_tags$ only works for binary inputs.
+The `is_active` indicator requires a `read_tags` polynomial (1 if `read_counts > 0`, else 0) because the algebraic expression `is_active` $= q_{busread} + read\_tags - q_{busread} \cdot read\_tags$ only works for binary inputs.
 
 **Multiple columns**: Each bus column (calldata, secondary_calldata, return_data) has separate subrelations, distinguished by column-specific selectors $q_j$.
 
@@ -265,30 +278,30 @@ App₁ ──return_data [R'₁]──┐
 
 #### Inter-Circuit Consistency Protocol
 
-**Notation**: $\pi_i$ denotes the proof of folding the $i$-th kernel, and $\pi'_i$ denotes the proof of folding the $i$-th app.
+**Notation**: $\pi_i$ denotes the proof of folding the $i$-th kernel, $\pi'_i$ denotes the proof of folding the $i$-th app, and $\text{PI}$ denotes public inputs.
 
 The key insight: circuit $K_{i+1}$ verifies the data transfer between $K_{i-1}$ and $K_i$. It has access to $[R_{i-1}]$ through public inputs and $[C_i]$ through the proof $\pi_i$.
 
 **Kernel $K_0$** (first kernel):
 - Initializes $C'_0 = R'_0$ (from App₀)
 - Produces return data $R_0$
-- Extracts $\pi'_0.[R'_0]$, adds to $\pi_0.\text{pub_inputs}$
+- Extracts $\pi'_0.[R'_0]$, adds to $\pi_0.\text{PI}$
 - $\pi_0$ contains: $[R_0]$, $[C'_0]$
 
 **Kernel $K_1$**:
 - Sets $C_1 = R_0$ and $C'_1 = R'_1$ (private inputs)
 - Produces $R_1$ as a function of $C_1$, $C'_1$, and accumulated side effects (note hashes, nullifiers, logs, etc.)
-- **Checks**: $\pi_0.[C'_0] = \pi_0.\text{pub_inputs}.[R'_0]$
-- Extracts $\pi_0.[R_0]$ and $\pi'_1.[R'_1]$, adds to $\pi_1.\text{pub_inputs}$
+- **Checks**: $\pi_0.[C'_0] = \pi_0.\text{PI}.[R'_0]$
+- Extracts $\pi_0.[R_0]$ and $\pi'_1.[R'_1]$, adds to $\pi_1.\text{PI}$
 - $\pi_1$ contains: $[C_1]$, $[C'_1]$, $[R_1]$
 
 **Kernel $K_i$** (general case, $i \geq 2$):
 - Sets $C_i = R_{i-1}$ and $C'_i = R'_i$ (private inputs)
 - Produces $R_i$ as a function of $C_i$, $C'_i$, and accumulated side effects
 - **Checks**:
-  - $\pi_{i-1}.[C_{i-1}] = \pi_{i-1}.\text{pub_inputs}.[R_{i-2}]$ (kernel chain)
-  - $\pi_{i-1}.[C'_{i-1}] = \pi_{i-1}.\text{pub_inputs}.[R'_{i-1}]$ (app input)
-- Extracts $\pi_{i-1}.[R_{i-1}]$ and $\pi'_i.[R'_i]$, adds to $\pi_i.\text{pub_inputs}$
+  - $\pi_{i-1}.[C_{i-1}] = \pi_{i-1}.\text{PI}.[R_{i-2}]$ (kernel chain)
+  - $\pi_{i-1}.[C'_{i-1}] = \pi_{i-1}.\text{PI}.[R'_{i-1}]$ (app input)
+- Extracts $\pi_{i-1}.[R_{i-1}]$ and $\pi'_i.[R'_i]$, adds to $\pi_i.\text{PI}$
 - $\pi_i$ contains: $[C_i]$, $[C'_i]$, $[R_i]$
 
 **Tail Kernel $K_{n-1}$**:
