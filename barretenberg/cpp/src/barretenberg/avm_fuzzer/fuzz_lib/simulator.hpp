@@ -29,16 +29,16 @@ class Simulator {
     Simulator& operator=(Simulator&&) = delete;
     Simulator() = default;
     virtual SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
-                                     const std::vector<uint8_t>& bytecode,
-                                     const std::vector<FF>& calldata) = 0;
+                                     fuzzer::FuzzerContractDB& contract_db,
+                                     const Tx& tx) = 0;
 };
 
 /// @brief uses barretenberg/vm2 to simulate the bytecode
 class CppSimulator : public Simulator {
   public:
     SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
-                             const std::vector<uint8_t>& bytecode,
-                             const std::vector<FF>& calldata) override;
+                             fuzzer::FuzzerContractDB& contract_db,
+                             const Tx& tx) override;
 };
 
 /// @brief uses the yarn-project/simulator to simulate the bytecode
@@ -61,8 +61,8 @@ class JsSimulator : public Simulator {
     static void initialize(std::string& simulator_path);
 
     SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
-                             const std::vector<uint8_t>& bytecode,
-                             const std::vector<FF>& calldata) override;
+                             fuzzer::FuzzerContractDB& contract_db,
+                             const Tx& tx) override;
 };
 
 bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2);

@@ -6,6 +6,9 @@ import {
   deserializeFromMessagePack,
   serializeWithMessagePack,
 } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { PublicKeys } from '@aztec/stdlib/keys';
 import { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
@@ -16,6 +19,43 @@ import { SimpleContractDataSource } from '../fixtures/simple_contract_data_sourc
 import { PublicContractsDB } from '../public_db_sources.js';
 import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { createFuzzerTx, registerContract } from './helpers.js';
+
+/**
+ * Converts a raw C++ ContractClass (deserialized from msgpack) to ContractClassPublic.
+ * C++ sends: { id, artifactHash, privateFunctionsRoot, packedBytecode }
+ * TS needs: { id, version, artifactHash, privateFunctionsRoot, privateFunctions, utilityFunctions, packedBytecode }
+ */
+function contractClassFromCpp(rawClass: any): ContractClassPublic {
+  return {
+    id: Fr.fromPlainObject(rawClass.id),
+    version: 1 as const,
+    artifactHash: Fr.fromPlainObject(rawClass.artifactHash),
+    privateFunctionsRoot: Fr.fromPlainObject(rawClass.privateFunctionsRoot),
+    privateFunctions: [],
+    utilityFunctions: [],
+    packedBytecode:
+      rawClass.packedBytecode instanceof Buffer ? rawClass.packedBytecode : Buffer.from(rawClass.packedBytecode),
+  };
+}
+
+/**
+ * Converts a raw C++ ContractInstance (deserialized from msgpack) to ContractInstanceWithAddress.
+ * C++ sends: { salt, deployer, currentContractClassId, originalContractClassId, initializationHash, publicKeys }
+ * TS needs: { address, version, salt, deployer, currentContractClassId, originalContractClassId, initializationHash, publicKeys }
+ * The address comes from the map key.
+ */
+function contractInstanceFromCpp(address: AztecAddress, rawInstance: any): ContractInstanceWithAddress {
+  return {
+    address,
+    version: 1 as const,
+    salt: Fr.fromPlainObject(rawInstance.salt),
+    deployer: AztecAddress.fromPlainObject(rawInstance.deployer),
+    currentContractClassId: Fr.fromPlainObject(rawInstance.currentContractClassId),
+    originalContractClassId: Fr.fromPlainObject(rawInstance.originalContractClassId),
+    initializationHash: Fr.fromPlainObject(rawInstance.initializationHash),
+    publicKeys: PublicKeys.fromPlainObject(rawInstance.publicKeys),
+  };
+}
 
 // This cache holds opened world states to avoid reopening them for each invocation.
 // It's a map so that in the future we could support multiple world states (if we had multiple fuzzers).
@@ -42,28 +82,26 @@ async function openExistingWorldState(dataDir: string, mapSizeKb: number): Promi
 async function simulateWithPublicTxSimulator(
   dataDir: string,
   mapSizeKb: number,
-  bytecode: Buffer,
   cppTx: AvmTxHint,
   cppGlobals: GlobalVariables,
+  contractClasses: ContractClassPublic[],
+  contractInstances: ContractInstanceWithAddress[],
 ): Promise<{ reverted: boolean; output: Fr[]; revertReason?: string; publicInputs: AvmCircuitPublicInputs }> {
   const worldStateService = await openExistingWorldState(dataDir, mapSizeKb);
   const merkleTrees = await worldStateService.fork();
 
-  // todo(ilyas): enable this once we can handle multiple bytecodes across multiple enqueued calls
-  // Concat all the enqueued calls, extract the de-duplicated contract addresses so we can register them
-  //const teardownCalls = cppTx.teardownEnqueuedCall ? [cppTx.teardownEnqueuedCall] : [];
-  //const contractAddresses = new Set([...cppTx.setupEnqueuedCalls, ...cppTx.appLogicEnqueuedCalls, ...teardownCalls].map(
-  //    call => call.request.contractAddress,
-  //));
-  //await Promise.all([...contractAddresses].map(addr => registerContract(merkleTrees, addr)));
-  //await Promise.all(
-  //    [...contractAddresses].map(addr => contractDataSource.addContractWithBytecode(addr, bytecode)),
-  //);
-
-  const contractAddress = cppTx.appLogicEnqueuedCalls[0].request.contractAddress;
-  await registerContract(merkleTrees, contractAddress);
   const contractDataSource = new SimpleContractDataSource();
-  await contractDataSource.addContractWithBytecode(contractAddress, bytecode);
+
+  // Register contract classes from C++
+  for (const contractClass of contractClasses) {
+    await contractDataSource.addContractClass(contractClass);
+  }
+
+  // Register contract instances from C++
+  for (const contractInstance of contractInstances) {
+    await registerContract(merkleTrees, contractInstance.address);
+    await contractDataSource.addContractInstance(contractInstance);
+  }
 
   const contractsDb = new PublicContractsDB(contractDataSource);
 
@@ -91,21 +129,51 @@ async function simulateWithPublicTxSimulator(
 async function executeFromJson(jsonLine: string): Promise<void> {
   try {
     const input = JSON.parse(jsonLine.trim());
-    if (!input.bytecode || !input.ws_data_dir || !input.ws_map_size_kb || !input.tx || !input.globals) {
+    if (
+      !input.ws_data_dir ||
+      !input.ws_map_size_kb ||
+      !input.tx ||
+      !input.globals ||
+      !input.contractClasses ||
+      !input.contractInstances
+    ) {
       writeSync(
         process.stdout.fd,
-        'Error: JSON must contain "bytecode", "ws_data_dir", "ws_map_size_kb", "tx", and "globals" fields\n',
+        'Error: JSON must contain "ws_data_dir", "ws_map_size_kb", "tx", "globals", "contractClasses", and "contractInstances" fields\n',
       );
       return;
     }
 
-    const bytecode = Buffer.from(input.bytecode, 'base64');
     const rawTx: object = deserializeFromMessagePack(Buffer.from(input.tx, 'base64'));
     const tx = AvmTxHint.fromPlainObject(rawTx);
     const rawGlobals = deserializeFromMessagePack(Buffer.from(input.globals, 'base64'));
     const globals = GlobalVariables.fromPlainObject(rawGlobals);
 
-    const result = await simulateWithPublicTxSimulator(input.ws_data_dir, input.ws_map_size_kb, bytecode, tx, globals);
+    // Parse contract classes from C++ (bytecode is inside packedBytecode field)
+    // C++ sends a vector<ContractClass> - id is already inside each class
+    const rawClassesArray: any[] = deserializeFromMessagePack(Buffer.from(input.contractClasses, 'base64'));
+    const contractClasses: ContractClassPublic[] = [];
+    for (const rawClass of rawClassesArray) {
+      contractClasses.push(contractClassFromCpp(rawClass));
+    }
+
+    // Parse contract instances from C++
+    // C++ sends a vector<pair<AztecAddress, ContractInstance>>
+    const rawInstancesArray: [any, any][] = deserializeFromMessagePack(Buffer.from(input.contractInstances, 'base64'));
+    const contractInstances: ContractInstanceWithAddress[] = [];
+    for (const [rawAddress, rawInstance] of rawInstancesArray) {
+      const address = AztecAddress.fromPlainObject(rawAddress);
+      contractInstances.push(contractInstanceFromCpp(address, rawInstance));
+    }
+
+    const result = await simulateWithPublicTxSimulator(
+      input.ws_data_dir,
+      input.ws_map_size_kb,
+      tx,
+      globals,
+      contractClasses,
+      contractInstances,
+    );
     const resultBuffer = serializeWithMessagePack({
       reverted: result.reverted,
       output: result.output,
