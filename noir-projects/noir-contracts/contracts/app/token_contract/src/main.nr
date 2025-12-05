@@ -1,5 +1,4 @@
 // docs:start:imports
-mod types;
 mod test;
 
 use aztec::macros::aztec;
@@ -32,7 +31,7 @@ pub contract Token {
 
     use uint_note::uint_note::{PartialUintNote, UintNote};
 
-    use crate::types::balance_set::BalanceSet;
+    use balance_set::BalanceSet;
 
     // docs:end::imports
 

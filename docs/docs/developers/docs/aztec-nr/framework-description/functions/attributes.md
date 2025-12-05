@@ -21,45 +21,25 @@ A private function operates on private information, and is executed by the user 
 
 `#[external("private")]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../foundational-topics/advanced/circuits/kernels/private_kernel.md).
 
-To help illustrate how this interacts with the internals of Aztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
+If you are interested in what exactly the macros are doing we encourage you to run `nargo expand` on your contract.
+This will display your contract's code after the transformations are performed.
 
-#### Before expansion
-
-#include_code simple_macro_example /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
-
-#### After expansion
-
-#include_code simple_macro_example_expanded /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+(If you are using VSCode you can display the expanded code by pressing `CMD + Shift + P` and typing `nargo expand` and selecting `Noir: nargo expand on current package.)
 
 #### The expansion broken down
 
 Viewing the expanded Aztec contract uncovers a lot about how Aztec contracts interact with the kernel. To aid with developing intuition, we will break down each inserted line.
 
 **Receiving context from the kernel.**
-#include_code context-example-inputs /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 Private function calls are able to interact with each other through orchestration from within the kernel circuits. The kernel circuit forwards information to each contract function (recall each contract function is a circuit). This information then becomes part of the private context.
-For example, within each private function we can access some global variables. To access them we can call on the `context`, e.g. `context.chain_id()`. The value of the chain ID comes from the values passed into the circuit from the kernel.
+For example, within each private function we can access some global variables. To access them we can call on the `self.context`, e.g. `self.context.chain_id()`. The value of the chain ID comes from the values passed into the circuit from the kernel.
 
 The kernel checks that all of the values passed to each circuit in a function call are the same.
 
-**Returning the context to the kernel.**
-#include_code context-example-return /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
-
-The contract function must return information about the execution back to the kernel. This is done through a rigid structure we call the `PrivateCircuitPublicInputs`.
-
-> _Why is it called the `PrivateCircuitPublicInputs`?_
-> When verifying zk programs, return values are not computed at verification runtime, rather expected return values are provided as inputs and checked for correctness. Hence, the return values are considered public inputs.
-
-This structure contains a host of information about the executed program. It will contain any newly created nullifiers, any messages to be sent to l2 and most importantly it will contain the return values of the function.
-
-
 **Creating the function's `self.`**
-#include_code contract_self_creation /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 Each Aztec function has access to a `self` object. Upon creation it accepts storage and context. Context is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
-
-#include_code context-example-context-return /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 We use the kernel to pass information between circuits. This means that the return values of functions must also be passed to the kernel (where they can be later passed on to another function).
 We achieve this by pushing return values to the execution context, which we then pass to the kernel.
@@ -67,6 +47,15 @@ We achieve this by pushing return values to the execution context, which we then
 **Hashing the function inputs.**
 
 Inside the kernel circuits, the inputs to functions are reduced to a single value; the inputs hash. This prevents the need for multiple different kernel circuits; each supporting differing numbers of inputs. Hashing the inputs allows to reduce all of the inputs to a single value.
+
+**Returning the context to the kernel.**
+
+The contract function must return information about the execution back to the kernel. This is done through a rigid structure we call the `PrivateCircuitPublicInputs`.
+
+> _Why is it called the `PrivateCircuitPublicInputs`?_
+> When verifying zk programs, return values are not computed at verification runtime, rather expected return values are provided as inputs and checked for correctness. Hence, the return values are considered public inputs.
+
+This structure contains a host of information about the executed program. It will contain any newly created nullifiers, any messages to be sent to l2 and most importantly it will contain the return values of the function.
 
 **Making the contract's storage available**
 
@@ -78,7 +67,6 @@ If Storage is note defined `self.storage` contains only a placeholder value.
 Any state variables declared in the `Storage` struct can now be accessed as normal struct members.
 
 **Returning the function context to the kernel.**
-#include_code context-example-finish /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 This function takes the application context, and converts it into the `PrivateCircuitPublicInputs` structure. This structure is then passed to the kernel circuit.
 

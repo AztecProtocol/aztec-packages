@@ -87,8 +87,7 @@ type = "contract"
 aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master" , directory = "aztec" }
 
 # Optional libraries
-easy_private_state = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master" , directory = "easy-private-state" }
-value_note = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master" , directory = "value-note" }
+field_note = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master" , directory = "field-note" }
 ```
 
 ## Installation
