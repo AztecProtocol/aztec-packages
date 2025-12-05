@@ -42,7 +42,7 @@ contract MyContract {
 }
 ```
 
-**Note:** [Noir's VSCode extension](https://docs.aztec.network/nightly/developers/docs/aztec-nr/installation) is able to take care of most imports and put them in the correct place automatically.
+**Note:** [Noir's VSCode extension](../installation) is able to take care of most imports and put them in the correct place automatically.
 
 ## State Variables
 
@@ -133,8 +133,6 @@ contract MyContract {
 ```
 
 Additionally, contracts can also define `internal` functions, which cannot be called by other contracts (like any `internal` Solidity function). These exist to help organize the user's code, reuse functionality, etc.
-
-// show an internal fn being called from one or two external ones. this feature is not yet complete in Aztec.nr
 
 ### Current Limitations
 
