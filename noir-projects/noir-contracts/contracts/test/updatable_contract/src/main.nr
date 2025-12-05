@@ -13,11 +13,11 @@ contract Updatable {
         state_vars::{Owned, PrivateMutable, PublicMutable},
     };
     use contract_instance_registry::ContractInstanceRegistry;
-    use value_note::value_note::ValueNote;
+    use field_note::field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {
-        private_value: Owned<PrivateMutable<ValueNote, Context>, Context>,
+        private_value: Owned<PrivateMutable<FieldNote, Context>, Context>,
         public_value: PublicMutable<Field, Context>,
     }
 
@@ -25,7 +25,7 @@ contract Updatable {
     #[external("private")]
     fn initialize(initial_value: Field) {
         let owner = self.msg_sender().unwrap();
-        let note = ValueNote::new(initial_value);
+        let note = FieldNote::new(initial_value);
         self.storage.private_value.at(owner).initialize(note).emit(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,

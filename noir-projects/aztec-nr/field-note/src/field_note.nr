@@ -2,13 +2,13 @@ use aztec::{macros::notes::note, protocol_types::traits::{Deserialize, Packable,
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
 #[note]
-pub struct ValueNote {
+pub struct FieldNote {
     value: Field,
 }
 
-impl ValueNote {
+impl FieldNote {
     pub fn new(value: Field) -> Self {
-        ValueNote { value }
+        FieldNote { value }
     }
 
     pub fn value(self) -> Field {

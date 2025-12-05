@@ -13,8 +13,8 @@ use aztec::{
     },
     state_vars::{Owned, PrivateSet, StateVariable},
 };
+use field_note::field_note::FieldNote;
 use std::meta::derive;
-use value_note::value_note::ValueNote;
 
 #[derive(Packable, Serialize)]
 pub struct Card {
@@ -47,7 +47,7 @@ fn test_to_from_field() {
 
 pub struct CardNote {
     card: Card,
-    note: ValueNote,
+    note: FieldNote,
 }
 
 impl CardNote {
@@ -57,16 +57,16 @@ impl CardNote {
     }
 
     pub fn from_card(card: Card) -> CardNote {
-        CardNote { card, note: ValueNote::new(card.to_field()) }
+        CardNote { card, note: FieldNote::new(card.to_field()) }
     }
 
-    pub fn from_note(note: ValueNote) -> CardNote {
+    pub fn from_note(note: FieldNote) -> CardNote {
         CardNote { card: Card::from_field(note.value()), note }
     }
 }
 
 pub struct Deck<Context> {
-    owned_set: Owned<PrivateSet<ValueNote, Context>, Context>,
+    owned_set: Owned<PrivateSet<FieldNote, Context>, Context>,
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
@@ -81,9 +81,9 @@ impl<Context> StateVariable<1, Context> for Deck<Context> {
 }
 
 pub fn filter_cards<let N: u32>(
-    retrieved_notes: [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    retrieved_notes: [Option<RetrievedNote<FieldNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     desired_cards: [Card; N],
-) -> [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> [Option<RetrievedNote<FieldNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let mut found = [false; N];
