@@ -34,6 +34,8 @@ export class ArchiverInstrumentation {
   private syncDurationPerMessage: Histogram;
   private syncMessageCount: UpDownCounter;
 
+  private blockProposalTxTargetCount: UpDownCounter;
+
   private log = createLogger('archiver:instrumentation');
 
   private constructor(
@@ -114,6 +116,11 @@ export class ArchiverInstrumentation {
       valueType: ValueType.INT,
     });
 
+    this.blockProposalTxTargetCount = meter.createUpDownCounter(Metrics.ARCHIVER_BLOCK_PROPOSAL_TX_TARGET_COUNT, {
+      description: 'Number of block proposals by tx target',
+      valueType: ValueType.INT,
+    });
+
     this.dbMetrics = new LmdbMetrics(
       meter,
       {
@@ -183,5 +190,12 @@ export class ArchiverInstrumentation {
 
   public updateL1BlockHeight(blockNumber: bigint) {
     this.l1BlockHeight.record(Number(blockNumber));
+  }
+
+  public recordBlockProposalTxTarget(target: string, usedTrace: boolean) {
+    this.blockProposalTxTargetCount.add(1, {
+      [Attributes.L1_BLOCK_PROPOSAL_TX_TARGET]: target.toLowerCase(),
+      [Attributes.L1_BLOCK_PROPOSAL_USED_TRACE]: usedTrace,
+    });
   }
 }

@@ -58,7 +58,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   ethereumAllowNoDebugHosts: {
     env: 'ETHEREUM_ALLOW_NO_DEBUG_HOSTS',
     description: 'Whether to allow starting the archiver without debug/trace method support on Ethereum hosts',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(true),
   },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,

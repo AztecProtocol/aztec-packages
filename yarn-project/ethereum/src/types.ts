@@ -37,8 +37,8 @@ export type DebugCallTrace = {
   type: string;
   input?: Hex;
   output?: Hex;
-  gas: Hex;
-  gasUsed: Hex;
+  gas?: Hex;
+  gasUsed?: Hex;
   value?: Hex;
   error?: string;
   calls?: DebugCallTrace[];
@@ -49,14 +49,14 @@ export type TraceAction = {
   from: Hex;
   to?: Hex;
   callType: string;
-  gas: Hex;
+  gas?: Hex;
   input?: Hex;
   value?: Hex;
 };
 
 /** Result object for a trace_transaction call */
 export type TraceResult = {
-  gasUsed: Hex;
+  gasUsed?: Hex;
   output?: Hex;
 };
 

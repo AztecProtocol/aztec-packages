@@ -31,6 +31,7 @@ import {
 } from 'viem';
 
 import { NoBlobBodiesFoundError } from '../errors.js';
+import type { ArchiverInstrumentation } from '../instrumentation.js';
 import type { DataRetrieval } from '../structs/data_retrieval.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import type { L1PublishedData } from '../structs/published.js';
@@ -156,6 +157,7 @@ export async function retrieveCheckpointsFromRollup(
     slashFactoryAddress?: EthAddress;
     slashingProposerAddress: EthAddress;
   },
+  instrumentation: ArchiverInstrumentation,
   logger: Logger = createLogger('archiver'),
 ): Promise<RetrievedCheckpoint[]> {
   const retrievedCheckpoints: RetrievedCheckpoint[] = [];
@@ -206,6 +208,7 @@ export async function retrieveCheckpointsFromRollup(
       checkpointProposedLogs,
       rollupConstants,
       contractAddresses,
+      instrumentation,
       logger,
     );
     retrievedCheckpoints.push(...newCheckpoints);
@@ -236,13 +239,18 @@ async function processCheckpointProposedLogs(
     slashFactoryAddress?: EthAddress;
     slashingProposerAddress: EthAddress;
   },
+  instrumentation: ArchiverInstrumentation,
   logger: Logger,
 ): Promise<RetrievedCheckpoint[]> {
   const retrievedCheckpoints: RetrievedCheckpoint[] = [];
-  const calldataRetriever = new CalldataRetriever(publicClient, debugClient, targetCommitteeSize, logger, {
-    ...contractAddresses,
-    rollupAddress: EthAddress.fromString(rollup.address),
-  });
+  const calldataRetriever = new CalldataRetriever(
+    publicClient,
+    debugClient,
+    targetCommitteeSize,
+    instrumentation,
+    logger,
+    { ...contractAddresses, rollupAddress: EthAddress.fromString(rollup.address) },
+  );
 
   await asyncPool(10, logs, async log => {
     const checkpointNumber = CheckpointNumber.fromBigInt(log.args.checkpointNumber!);

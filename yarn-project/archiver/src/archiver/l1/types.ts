@@ -7,7 +7,7 @@ import type { Hex } from 'viem';
  */
 export interface CallInfo {
   from: EthAddress;
-  gasUsed: bigint;
+  gasUsed?: bigint;
   input: Hex;
   value: bigint;
 }

@@ -22,6 +22,7 @@ import { ContentCommitment, PartialStateReference, ProposedBlockHeader, StateRef
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type Hex, type Transaction, encodeFunctionData, multicall3Abi, toFunctionSelector } from 'viem';
 
+import type { ArchiverInstrumentation } from '../instrumentation.js';
 import { CalldataRetriever } from './calldata_retriever.js';
 import {
   EIP1967_IMPLEMENTATION_SLOT,
@@ -58,6 +59,7 @@ describe('CalldataRetriever', () => {
   let logger: Logger;
   let retriever: TestCalldataRetriever;
   let txHash: Hex;
+  let instrumentation: MockProxy<ArchiverInstrumentation>;
 
   const TARGET_COMMITTEE_SIZE = 5;
   const rollupAddress = EthAddress.random();
@@ -71,8 +73,9 @@ describe('CalldataRetriever', () => {
     publicClient = mock<ViemPublicClient>();
     debugClient = mock<ViemPublicDebugClient>();
     logger = createLogger('test:calldata_retriever');
+    instrumentation = mock<ArchiverInstrumentation>();
 
-    retriever = new TestCalldataRetriever(publicClient, debugClient, TARGET_COMMITTEE_SIZE, logger, {
+    retriever = new TestCalldataRetriever(publicClient, debugClient, TARGET_COMMITTEE_SIZE, instrumentation, logger, {
       rollupAddress,
       governanceProposerAddress,
       slashFactoryAddress,
@@ -162,6 +165,7 @@ describe('CalldataRetriever', () => {
       expect(result.archiveRoot).toBeInstanceOf(Fr);
       expect(Array.isArray(result.attestations)).toBe(true);
       expect(result.blockHash).toBe(tx.blockHash);
+      expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(MULTI_CALL_3_ADDRESS, false);
     });
 
     it('should fall back to direct propose when multicall3 decoding fails', async () => {
@@ -181,6 +185,7 @@ describe('CalldataRetriever', () => {
 
       expect(result.l2BlockNumber).toBe(l2BlockNumber);
       expect(result.header).toBeInstanceOf(ProposedBlockHeader);
+      expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(rollupAddress.toString(), false);
     });
 
     it('should fall back to trace when both multicall3 and direct propose fail', async () => {
@@ -222,6 +227,7 @@ describe('CalldataRetriever', () => {
 
       expect(result.l2BlockNumber).toBe(l2BlockNumber);
       expect(debugClient.request).toHaveBeenCalledWith({ method: 'trace_transaction', params: [txHash] });
+      expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(wrongAddress.toString(), true);
     });
 
     it('should throw when tracing fails', async () => {
@@ -1010,6 +1016,9 @@ describe('CalldataRetriever', () => {
       expect(result.stateReference.partial).toBeInstanceOf(PartialStateReference);
       expect(result.header.contentCommitment).toBeInstanceOf(ContentCommitment);
       expect(result.header.gasFees).toBeInstanceOf(GasFees);
+
+      // Verify instrumentation was called
+      expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(MULTI_CALL_3_ADDRESS, false);
     });
 
     it('should complete full flow from tx hash to block header via Spire Proposer', async () => {
@@ -1086,6 +1095,9 @@ describe('CalldataRetriever', () => {
 
       // Verify proxy implementation was checked
       expect(publicClient.getStorageAt).toHaveBeenCalled();
+
+      // Verify instrumentation was called with Spire Proposer address
+      expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(SPIRE_PROPOSER_ADDRESS, false);
     });
   });
 });

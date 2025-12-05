@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 
 import { type Hex, type Transaction, decodeFunctionData, getAddress, trim } from 'viem';
@@ -85,8 +86,8 @@ export async function verifyProxyImplementation(
 
 /**
  * Attempts to decode transaction as a Spire Proposer Multicall.
- * Spire Proposer is a proxy contract that wraps a single call.
- * Returns the target address and calldata of the wrapped call if validation succeeds.
+ * Spire Proposer is a proxy contract that wraps multiple calls.
+ * Returns the target address and calldata of the wrapped call if validation succeeds and there is a single call.
  * @param tx - The transaction to decode
  * @param publicClient - The viem public client for proxy verification
  * @param logger - Logger instance
@@ -101,8 +102,8 @@ export async function getCallFromSpireProposer(
 
   try {
     // Check if transaction is to the Spire Proposer address
-    if (!tx.to || tx.to.toLowerCase() !== SPIRE_PROPOSER_ADDRESS.toLowerCase()) {
-      logger.trace(`Transaction is not to Spire Proposer address (to: ${tx.to})`, { txHash });
+    if (!tx.to || !EthAddress.areEqual(tx.to, SPIRE_PROPOSER_ADDRESS)) {
+      logger.debug(`Transaction is not to Spire Proposer address (to: ${tx.to})`, { txHash });
       return undefined;
     }
 
@@ -140,7 +141,7 @@ export async function getCallFromSpireProposer(
 
     const [calls] = spireArgs;
 
-    // Validate exactly ONE call
+    // Validate exactly ONE call (see ./README.md for rationale)
     if (calls.length !== 1) {
       logger.warn(`Spire Proposer multicall must contain exactly one call (got ${calls.length})`, { txHash });
       return undefined;
