@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
@@ -59,7 +60,7 @@ export class SimpleContractDataSource implements ContractDataSource {
 
   /////////////////////////////////////////////////////////////
   // ContractDataSource function implementations
-  getBlockNumber(): Promise<number> {
+  getBlockNumber(): Promise<BlockNumber> {
     throw new Error('Method not implemented.');
   }
 
@@ -90,19 +91,17 @@ export class SimpleContractDataSource implements ContractDataSource {
     return this.contractArtifacts.get(contractInstance!.currentContractClassId.toString());
   }
 
-  async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string> {
+  async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     const contractInstance = await this.getContract(address);
     if (!contractInstance) {
-      this.logger.warn(
-        `Couldn't get fn name for debugging. Contract not in tester's ContractDataSource. Using selector:${selector} instead...`,
-      );
-      return `selector:${selector.toString()}`;
+      this.logger.warn(`Couldn't get fn name for debugging. Contract not in tester's ContractDataSource.`);
+      return undefined;
     }
     const key = `${contractInstance.currentContractClassId.toString()}:${selector.toString()}`;
     const fnName = this.debugFunctionName.get(key);
     if (!fnName) {
-      this.logger.warn(`Couldn't get fn name for debugging. Using selector:${selector} instead...`);
-      return selector.toString();
+      this.logger.warn(`Couldn't get fn name for debugging...`);
+      return undefined;
     }
     return fnName;
   }

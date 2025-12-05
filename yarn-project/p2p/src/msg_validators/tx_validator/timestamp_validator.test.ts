@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import type { AnyTx, Tx } from '@aztec/stdlib/tx';
 import { TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP } from '@aztec/stdlib/tx';
@@ -9,7 +10,7 @@ describe('TimestampTxValidator', () => {
   let seed = 1;
   let validator: TimestampTxValidator<AnyTx>;
 
-  const setValidatorAtBlock = (blockNumber: number) => {
+  const setValidatorAtBlock = (blockNumber: BlockNumber) => {
     timestamp = 10n;
     validator = new TimestampTxValidator({
       timestamp,
@@ -18,7 +19,7 @@ describe('TimestampTxValidator', () => {
   };
 
   beforeEach(() => {
-    setValidatorAtBlock(3);
+    setValidatorAtBlock(BlockNumber(3));
   });
 
   const expectValid = async (tx: Tx) => {
@@ -65,7 +66,7 @@ describe('TimestampTxValidator', () => {
     // is lower than the current timestamp. For details on why the check is disable for block 1 see the
     // `validate_include_by_timestamp` function in
     // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
-    setValidatorAtBlock(1);
+    setValidatorAtBlock(BlockNumber(1));
 
     const [badTx] = await makeTxs();
     badTx.data.includeByTimestamp = timestamp - 1n;

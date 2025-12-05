@@ -115,12 +115,17 @@ Instruction PureTxBytecodeManager::read_instruction(const BytecodeId&,
     try {
         instruction = deserialize_instruction(bytecode, pc);
     } catch (const InstrDeserializationError& error) {
-        throw InstructionFetchingError("Instruction fetching error: " + std::to_string(static_cast<int>(error)));
+        std::string error_msg = format("Instruction fetching error at pc ", pc);
+        if (error.message.has_value()) {
+            error_msg = format(error_msg, ": ", error.message.value());
+        }
+        throw InstructionFetchingError(error_msg);
     }
 
     // If the following code is executed, no error was thrown in deserialize_instruction().
     if (!check_tag(instruction)) {
-        throw InstructionFetchingError("Tag check failed");
+        std::string error_msg = format("Instruction fetching error at pc ", pc, ": Tag check failed");
+        throw InstructionFetchingError(error_msg);
     };
 
     // Save the instruction to the cache.

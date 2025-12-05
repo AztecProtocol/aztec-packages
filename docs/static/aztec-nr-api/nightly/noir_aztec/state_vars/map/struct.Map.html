@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct Map documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Map</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct Map</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.context">context</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#at">at</a></li>
+<li><a href="#new">new</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-HasStorageSlot&lt;1&gt;-for-Map<K, T, Context>">HasStorageSlot&lt;1&gt;</a></li>
+</ul>
+<h2>In module map</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.Map.html">Map</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">state_vars</a>::<a href="index.html">map</a></div>
+<h1>Struct <span id="struct" class="struct">Map</span></h1>
+<pre><code>pub struct Map&lt;K, V, Context&gt; {
+    pub context: Context,
+    <span class="comment">/* private fields */</span>
+}
+</code></pre>
+<div class="comments">
+<p>Map</p>
+<p>A key-value storage container that maps keys to state variables, similar
+to Solidity mappings.</p>
+<p><code>Map</code> enables you to associate keys (like addresses or other identifiers)
+with state variables in your Aztec smart contract. This is conceptually
+similar to Solidity's <code>mapping(K =&gt; V)</code> syntax, where you can store and
+retrieve values by their associated keys.</p>
+<p>You can declare a state variable contained within a Map in your contract's
+#[storage] struct.</p>
+<p>For example, you might use
+<code>Map&lt;AztecAddress, PrivateMutable&lt;ValueNote, Context&gt;, Context&gt;</code> to track
+token balances for different users, similar to how you'd use
+<code>mapping(address =&gt; uint256)</code> in Solidity.</p>
+<blockquote>
+<p>Aside: the verbose <code>Context</code> in the declaration is a consequence of
+leveraging Noir's regular syntax for generics to ensure that certain
+state variable methods can only be called in some contexts (private,
+public, utility).</p>
+</blockquote>
+<p>The methods of Map are:</p>
+<ul>
+<li><code>at</code> (access state variable for a given key)
+(see the method's own doc comments for more info).</li>
+</ul>
+<h2>Generic Parameters</h2>
+<ul>
+<li><code>K</code>: The key type (must implement <code>ToField</code> trait for hashing)</li>
+<li><code>V</code>: The value type:
+<ul>
+<li>any Aztec state variable:
+<ul>
+<li><code>PublicMutable</code></li>
+<li><code>PublicImmutable</code></li>
+<li><code>PrivateMutable</code></li>
+<li><code>PrivateImmutable</code></li>
+<li><code>PrivateSet</code></li>
+<li><code>DelayedPublicMutable</code></li>
+<li><code>Map</code></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><code>Context</code>: The execution context (handles private/public function
+contexts)</li>
+</ul>
+<h2>Usage</h2>
+<p>Maps are typically declared in your contract's #[storage] struct and
+accessed
+using the <code>at(key)</code> method to get the state variable for a specific key.
+The resulting state variable can then be read from or written to using its
+own methods.</p>
+<h2>Advanced</h2>
+<p>Internally, <code>Map</code> uses a single base storage slot to represent the
+mapping
+itself, similar to Solidity's approach. Individual key-value pairs are
+stored at derived storage slots computed by hashing the base storage
+slot
+with the key using Poseidon2. This ensures:</p>
+<ul>
+<li>No storage slot collisions between different keys</li>
+<li>Uniform distribution of storage slots across the storage space</li>
+<li>Compatibility with Aztec's storage tree structure</li>
+<li>Gas-efficient storage access patterns similar to Solidity mappings</li>
+</ul>
+<p>The storage slot derivation uses <code>derive_storage_slot_in_map(base_slot, key)</code> which computes <code>poseidon2_hash([base_slot, key.to_field()])</code>,
+ensuring cryptographically secure slot separation.</p>
+<p>docs:start:map</p>
+</div>
+<h2>Fields</h2>
+<div id="structfield.context" class="struct-field"><code class="code-header">context: Context</code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;Context, K, V&gt; <a href="../../../noir_aztec/state_vars/map/struct.Map.html" class="struct">Map</a>&lt;K, V, Context&gt;</code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(
+    context: Context,
+    storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    state_var_constructor: fn(Context, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> V,
+) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Initializes a new Map state variable.</p>
+<p>This function is usually automatically called within the #[storage]
+macro.
+You typically don't need to call this directly when writing smart contracts.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>context</code> - One of <code>PrivateContext</code>/<code>PublicContext</code>/<code>UtilityContext</code>.
+The Context determines which methods of this struct will
+be made available to the calling smart contract function.</li>
+<li><code>storage_slot</code> - A unique identifier for this Map within the contract.
+Usually, the #[storage] macro will determine an
+appropriate storage_slot automatically. A smart
+contract dev shouldn't have to worry about this, as
+it's managed behind the scenes.</li>
+<li><code>state_var_constructor</code> - A function that creates the value type (V)
+given a context and storage slot. This is
+typically the constructor of the state
+variable type being stored in the Map.</li>
+</ul>
+</div>
+</div><code id="at" class="code-header">pub fn <a href="#at"><span class="fn">at</span></a>(self, key: K) -> V
+<div class="where-clause">where
+    K: <a href="../../../protocol_types/traits/trait.ToField.html" class="trait">ToField</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the state variable associated with the given key.</p>
+<p>This is equivalent to accessing <code>mapping[key]</code> in Solidity. It returns
+the state variable instance for the specified key, which can then be
+used to read or write the value at that key.</p>
+<p>Unlike Solidity mappings which return the value directly, this returns
+the state variable wrapper (like PrivateMutable, PublicMutable, etc.)
+that you then call methods on to interact with the actual value.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>key</code> - The key to look up in the map. Must implement the ToField
+trait (which most basic Noir &amp; Aztec types do).</li>
+</ul>
+<h4>Returns</h4>
+<ul>
+<li><code>V</code> - The state variable instance for this key. You can then call
+methods like <code>.read()</code>, <code>.write()</code>, <code>.get_note()</code>, etc. on this
+depending on the specific state variable type.</li>
+</ul>
+<h4>Example</h4>
+<pre><code><span class="comment">// Get a user's balance (assuming PrivateMutable&lt;ValueNote&gt;)</span>
+<span class="kw">let</span> user_balance = self.storage.balances.at(user_address);
+<span class="kw">let</span> current_note = user_balance.get_note();
+
+<span class="comment">// Update the balance</span>
+user_balance.replace(new_note);</code></pre></div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-HasStorageSlot&lt;1&gt;-for-Map<K, T, Context>"><code class="code-header">impl&lt;Context, K, T&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;1&gt; for <a href="../../../noir_aztec/state_vars/map/struct.Map.html" class="struct">Map</a>&lt;K, T, Context&gt;</code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

@@ -131,7 +131,7 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
   private slashProposer(validationResult: ValidateBlockNegativeResult) {
     const { reason, block } = validationResult;
     const blockNumber = block.blockNumber;
-    const slot = SlotNumber(block.slotNumber);
+    const slot = block.slotNumber;
     const proposer = this.epochCache.getProposerFromEpochCommittee(validationResult, slot);
 
     if (!proposer) {

@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { jest } from '@jest/globals';
@@ -152,7 +153,7 @@ describe('Version', () => {
     const verC = new DatabaseVersion(42, EthAddress.random());
 
     expect(verA.cmp(verB)).toEqual(-1);
-    expect(verB.cmp(verA)).toEqual(1);
+    expect(verB.cmp(verA)).toEqual(BlockNumber(1));
     expect(verA.cmp(new DatabaseVersion(verA.schemaVersion, verA.rollupAddress))).toEqual(0);
     expect(verA.cmp(verC)).toEqual(undefined);
   });

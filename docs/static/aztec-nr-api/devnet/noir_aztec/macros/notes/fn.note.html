@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<title>Function note documentation</title>
+</head>
+<body>
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module notes</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.custom_note.html">custom_note</a></div></li>
+<li><a href="fn.note.html">note</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.NOTES.html">NOTES</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">macros</a>::<a href="index.html">notes</a></div>
+<h1>Function <span class="fn">note</span></h1>
+<pre><code>pub comptime fn note(s: <a href="../../../std/primitive.TypeDefinition.html" class="primitive">TypeDefinition</a>) -> <a href="../../../std/primitive.Quoted.html" class="primitive">Quoted</a></code></pre>
+
+<div class="comments">
+<p>Generates the core note functionality for a struct:</p>
+<ul>
+<li>NoteTypeProperties: Defines the structure and properties of note fields</li>
+<li>NoteType trait implementation: Provides the note type ID</li>
+<li>NoteHash trait implementation: Handles note hash and nullifier computation</li>
+</ul>
+<h2>Requirements</h2>
+<p>The note struct must:</p>
+<ul>
+<li>Have an <code>owner</code> field</li>
+<li>Implement the <code>Packable</code> trait</li>
+<li>Not exceed <code>MAX_NOTE_PACKED_LEN</code> when packed</li>
+</ul>
+<h2>Registration</h2>
+<p>Registers the note in the global <code>NOTES</code> BoundedVec to enable note processing functionality.</p>
+<h2>Generated Code</h2>
+<p>For detailed documentation on the generated implementations, see:</p>
+<ul>
+<li><code>generate_note_properties()</code></li>
+<li><code>generate_note_type_impl()</code></li>
+<li><code>generate_note_hash_trait_impl()</code></li>
+</ul>
+</div>
+</main>
+</body>
+</html>

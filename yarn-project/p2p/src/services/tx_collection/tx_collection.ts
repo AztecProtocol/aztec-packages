@@ -1,8 +1,9 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockInfo, L2BlockNew } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -21,11 +22,11 @@ import type { TxSource } from './tx_source.js';
 
 export type CollectionMethod = 'fast-req-resp' | 'fast-node-rpc' | 'slow-req-resp' | 'slow-node-rpc';
 
-export type MissingTxInfo = { blockNumber: number; deadline: Date; readyForReqResp: boolean };
+export type MissingTxInfo = { blockNumber: BlockNumber; deadline: Date; readyForReqResp: boolean };
 
 export type FastCollectionRequestInput =
-  | { type: 'block'; block: L2Block }
-  | { type: 'proposal'; blockProposal: BlockProposal; blockNumber: number };
+  | { type: 'block'; block: L2BlockNew }
+  | { type: 'proposal'; blockProposal: BlockProposal; blockNumber: BlockNumber };
 
 export type FastCollectionRequest = FastCollectionRequestInput & {
   missingTxHashes: Set<string>;
@@ -152,7 +153,7 @@ export class TxCollection {
   /** Collects the set of txs for the given block proposal as fast as possible */
   public collectFastForProposal(
     blockProposal: BlockProposal,
-    blockNumber: number,
+    blockNumber: BlockNumber,
     txHashes: TxHash[] | string[],
     opts: { deadline: Date; pinnedPeer?: PeerId },
   ) {
@@ -165,7 +166,7 @@ export class TxCollection {
     txHashes: TxHash[] | string[],
     opts: { deadline: Date; pinnedPeer?: PeerId },
   ) {
-    return this.collectFastFor({ type: 'block', block }, txHashes, opts);
+    return this.collectFastFor({ type: 'block', block: block.toL2Block() }, txHashes, opts);
   }
 
   /** Collects the set of txs for the given proposal or block as fast as possible */
@@ -187,7 +188,7 @@ export class TxCollection {
    * Stop collecting all txs for blocks less than or requal to the block number specified.
    * To be called when we no longer care about gathering txs up to a certain block, eg when they become proven or finalized.
    */
-  public stopCollectingForBlocksUpTo(blockNumber: number): void {
+  public stopCollectingForBlocksUpTo(blockNumber: BlockNumber): void {
     this.slowCollection.stopCollectingForBlocksUpTo(blockNumber);
     this.fastCollection.stopCollectingForBlocksUpTo(blockNumber);
   }
@@ -196,7 +197,7 @@ export class TxCollection {
    * Stop collecting all txs for blocks greater than the block number specified.
    * To be called when there is a chain prune and previously mined txs are no longer relevant.
    */
-  public stopCollectingForBlocksAfter(blockNumber: number): void {
+  public stopCollectingForBlocksAfter(blockNumber: BlockNumber): void {
     this.slowCollection.stopCollectingForBlocksAfter(blockNumber);
     this.fastCollection.stopCollectingForBlocksAfter(blockNumber);
   }

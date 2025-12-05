@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Trait NoteType documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">NoteType</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait NoteType</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#get_id">get_id</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-NoteType-for-AddressNote">AddressNote</a></li>
+<li><a href="#impl-NoteType-for-MockNote">MockNote</a></li>
+<li><a href="#impl-NoteType-for-UintNote">UintNote</a></li>
+<li><a href="#impl-NoteType-for-ValueNote">ValueNote</a></li>
+</ul>
+<h2>In module note_interface</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.NoteHash.html">NoteHash</a></div></li>
+<li><a href="trait.NoteProperties.html">NoteProperties</a></div></li>
+<li><a href="trait.NoteType.html">NoteType</a></div></li>
+<li><a href="trait.PartialNote.html">PartialNote</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::<a href="index.html">note_interface</a></div>
+<h1>Trait <span id="trait" class="trait">NoteType</span></h1>
+<pre><code>pub trait NoteType {
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#get_id"><span class="fn">get_id</span></a>() -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a>;
+}</code></pre>
+
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="get_id" class="code-header">pub fn <a href="#get_id"><span class="fn">get_id</span></a>() -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the unique identifier for the note type. This is typically used when processing note logs.</p>
+</div>
+</div></div><h2>Implementors</h2>
+<h3 id="impl-NoteType-for-AddressNote"><code class="code-header">impl <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a> for <a href="../../../address_note/address_note/struct.AddressNote.html" class="struct">AddressNote</a></code></h3>
+
+<h3 id="impl-NoteType-for-MockNote"><code class="code-header">impl <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a> for MockNote</code></h3>
+
+<h3 id="impl-NoteType-for-UintNote"><code class="code-header">impl <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a> for <a href="../../../uint_note/uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
+
+<h3 id="impl-NoteType-for-ValueNote"><code class="code-header">impl <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a> for <a href="../../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
+
+</main>
+</span>
+</body>
+</html>

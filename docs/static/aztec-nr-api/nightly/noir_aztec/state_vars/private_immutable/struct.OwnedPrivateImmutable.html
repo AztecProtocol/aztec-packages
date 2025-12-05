@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct OwnedPrivateImmutable documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">OwnedPrivateImmutable</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct OwnedPrivateImmutable</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#get_note">get_note</a></li>
+<li><a href="#initialize">initialize</a></li>
+<li><a href="#is_initialized">is_initialized</a></li>
+<li><a href="#view_note">view_note</a></li>
+</ul>
+<h2>In module private_immutable</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.OwnedPrivateImmutable.html">OwnedPrivateImmutable</a></div></li>
+<li><a href="struct.PrivateImmutable.html">PrivateImmutable</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">state_vars</a>::<a href="index.html">private_immutable</a></div>
+<h1>Struct <span id="struct" class="struct">OwnedPrivateImmutable</span></h1>
+<pre><code>pub struct OwnedPrivateImmutable&lt;Note, Context&gt;
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>A view of a note in a PrivateImmutable belonging to a specific <code>owner</code>.
+Obtained by calling <code>PrivateImmutable::at(owner)</code>.</p>
+</div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_immutable/struct.OwnedPrivateImmutable.html" class="struct">OwnedPrivateImmutable</a>&lt;Note, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Checks whether this OwnedPrivateImmutable has been initialized.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>bool</code> - <code>true</code> if the OwnedPrivateImmutable has been initialized (the initialization
+nullifier exists), <code>false</code> otherwise.</li>
+</ul>
+</div>
+</div><code id="view_note" class="code-header">pub unconstrained fn <a href="#view_note"><span class="fn">view_note</span></a>(self) -> Note
+<div class="where-clause">where
+    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the permanent note in this OwnedPrivateImmutable without consuming it.</p>
+<p>This function is only available in a UtilityContext (unconstrained environment)
+and is typically used for offchain queries, view functions, or testing.</p>
+<p>Unlike the constrained <code>get_note()</code>, this function does not push read requests
+or perform validation. It simply reads the note from the PXE's database.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>Note</code> - The permanent note stored in this OwnedPrivateImmutable.</li>
+</ul>
+</div>
+</div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/private_immutable/struct.OwnedPrivateImmutable.html" class="struct">OwnedPrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
+
+<div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_immutable/struct.OwnedPrivateImmutable.html" class="struct">OwnedPrivateImmutable</a>&lt;Note, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, note: Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Initializes an OwnedPrivateImmutable state variable instance with a permanent note.</p>
+<p>This function inserts the single, permanent note for this state variable. It can
+only be called once per OwnedPrivateImmutable. Subsequent calls will fail because
+the initialization nullifier will already exist.</p>
+<p>Unlike OwnedPrivateMutable, this note will never be nullified or replaced through
+the state variable interface - it persists for the lifetime of the state variable.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>note</code> - The permanent note to store in this PrivateImmutable. This note
+contains the unchanging value of the state variable.</li>
+</ul>
+<h4>Returns</h4>
+<ul>
+<li><code>NoteEmission&lt;Note&gt;</code> - A type-safe wrapper that requires you to decide
+whether to encrypt and send the note to someone.
+You can call <code>.emit()</code> on it to encrypt and log
+the note, or <code>.discard()</code> to skip emission.
+See NoteEmission for more details.</li>
+</ul>
+<h4>Advanced</h4>
+<p>This function performs the following operations:</p>
+<ul>
+<li>Creates and emits an initialization nullifier to mark this storage slot
+as initialized. This prevents double-initialization.</li>
+<li>Inserts the provided note into the protocol's Note Hash Tree.</li>
+<li>Returns a NoteEmission type that allows the caller to decide how to encrypt
+and deliver the note to its intended recipient.</li>
+</ul>
+</div>
+</div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> Note
+<div class="where-clause">where
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Reads the permanent note of an OwnedPrivateImmutable state variable instance.</p>
+<p>If this OwnedPrivateImmutable state variable has not yet been initialized,
+no note will exist: the call will fail and the transaction will not
+be provable.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>Note</code> - The permanent note stored in this OwnedPrivateImmutable.</li>
+</ul>
+<h4>Advanced</h4>
+<p>This function performs the following operations:</p>
+<ul>
+<li>Retrieves the note from the PXE via an oracle call</li>
+<li>Validates that the note exists and belongs to this contract address and
+storage slot by pushing a read request to the context</li>
+<li>Returns the note content directly without nullification</li>
+</ul>
+<p>Since the note is immutable, there's no risk of reading stale data or
+race conditions - the note never changes after initialization.</p>
+</div>
+</div></div></main>
+</span>
+</body>
+</html>

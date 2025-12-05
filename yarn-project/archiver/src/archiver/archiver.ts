@@ -1,4 +1,5 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   BlockTagTooOldError,
@@ -9,7 +10,7 @@ import {
   createEthereumChain,
 } from '@aztec/ethereum';
 import { maxBigint } from '@aztec/foundation/bigint';
-import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { merge, pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -35,7 +36,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ArchiverEmitter,
   L2Block,
-  type L2BlockId,
   type L2BlockSource,
   L2BlockSourceEvents,
   type L2Tips,
@@ -747,7 +747,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
           this.emit(L2BlockSourceEvents.L2BlockProven, {
             type: L2BlockSourceEvents.L2BlockProven,
-            blockNumber: BigInt(lastProvenBlockNumber),
+            blockNumber: lastProvenBlockNumber,
             slotNumber: provenSlotNumber,
             epochNumber: provenEpochNumber,
           });
@@ -940,7 +940,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         if (err instanceof InitialBlockNumberNotSequentialError) {
           const { previousBlockNumber, newBlockNumber } = err;
           const previousBlock = previousBlockNumber
-            ? await this.store.getPublishedBlock(previousBlockNumber)
+            ? await this.store.getPublishedBlock(BlockNumber(previousBlockNumber))
             : undefined;
           const updatedL1SyncPoint = previousBlock?.l1.blockNumber ?? this.l1constants.l1StartBlock;
           await this.store.setBlockSynchedL1BlockNumber(updatedL1SyncPoint);
@@ -1094,7 +1094,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       if (slot(block) <= end) {
         blocks.push(block);
       }
-      block = await this.getBlock(block.number - 1);
+      block = await this.getBlock(BlockNumber(block.number - 1));
     }
 
     return blocks.reverse();
@@ -1113,7 +1113,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       if (slot(header) <= end) {
         blocks.push(header);
       }
-      header = await this.getBlockHeader(--number);
+      number = BlockNumber(number - 1);
+      header = await this.getBlockHeader(number);
     }
     return blocks.reverse();
   }
@@ -1157,8 +1158,13 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     proven?: boolean,
   ): Promise<PublishedCheckpoint[]> {
     // TODO: Implement this properly. This only works when we have one block per checkpoint.
-    const blocks = await this.getPublishedBlocks(from, limit, proven);
+    const blocks = await this.getPublishedBlocks(BlockNumber(from), limit, proven);
     return blocks.map(b => b.toPublishedCheckpoint());
+  }
+
+  public async getCheckpointByArchive(archive: Fr): Promise<Checkpoint | undefined> {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
+    return (await this.getPublishedBlockByArchive(archive))?.block.toCheckpoint();
   }
 
   public async getCheckpoints(from: CheckpointNumber, limit: number, proven?: boolean): Promise<Checkpoint[]> {
@@ -1207,19 +1213,19 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   public setProvenCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
     // TODO: Create store and apis for checkpoints.
     // Proven checkpoint number will no longer be the same as the proven block number once we support multiple blocks per checkpoint.
-    return this.store.setProvenL2BlockNumber(checkpointNumber);
+    return this.store.setProvenL2BlockNumber(BlockNumber.fromCheckpointNumber(checkpointNumber));
   }
 
   public unwindCheckpoints(from: CheckpointNumber, checkpointsToUnwind: number): Promise<boolean> {
     // TODO: Create store and apis for checkpoints.
     // This only works when we have one block per checkpoint.
-    return this.store.unwindBlocks(from, checkpointsToUnwind);
+    return this.store.unwindBlocks(BlockNumber.fromCheckpointNumber(from), checkpointsToUnwind);
   }
 
-  public getLastBlockNumberInCheckpoint(checkpointNumber: CheckpointNumber): Promise<number> {
+  public getLastBlockNumberInCheckpoint(checkpointNumber: CheckpointNumber): Promise<BlockNumber> {
     // TODO: Create store and apis for checkpoints.
     // Checkpoint number will no longer be the same as the block number once we support multiple blocks per checkpoint.
-    return Promise.resolve(checkpointNumber);
+    return Promise.resolve(BlockNumber.fromCheckpointNumber(checkpointNumber));
   }
 
   public addCheckpoints(
@@ -1234,6 +1240,19 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     );
   }
 
+  public async getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
+    // TODO: Create store and apis for checkpoints.
+    // This only works when we have one block per checkpoint.
+    const blocks = await this.getBlocksForEpoch(epochNumber);
+    return blocks.map(b => b.toCheckpoint());
+  }
+
+  public getL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    // TODO: Create dedicated api for checkpoints.
+    // This only works when we have one block per checkpoint.
+    return this.getL1ToL2Messages(BlockNumber.fromCheckpointNumber(checkpointNumber));
+  }
+
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
@@ -1241,12 +1260,12 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * @param proven - If true, only return blocks that have been proven.
    * @returns The requested L2 blocks.
    */
-  public getBlocks(from: number, limit: number, proven?: boolean): Promise<L2Block[]> {
+  public getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2Block[]> {
     return this.getPublishedBlocks(from, limit, proven).then(blocks => blocks.map(b => b.block));
   }
 
   /** Equivalent to getBlocks but includes publish data. */
-  public async getPublishedBlocks(from: number, limit: number, proven?: boolean): Promise<PublishedL2Block[]> {
+  public async getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<PublishedL2Block[]> {
     const limitWithProven = proven
       ? Math.min(limit, Math.max((await this.store.getProvenL2BlockNumber()) - from + 1, 0))
       : limit;
@@ -1274,7 +1293,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * @param number - The block number to return.
    * @returns The requested L2 block.
    */
-  public async getBlock(number: number): Promise<L2Block | undefined> {
+  public async getBlock(number: BlockNumber): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
       number = await this.store.getSynchedL2BlockNumber();
@@ -1286,7 +1305,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return publishedBlock?.block;
   }
 
-  public async getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
+  public async getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
     if (number === 'latest') {
       number = await this.store.getSynchedL2BlockNumber();
     }
@@ -1311,7 +1330,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * @param limit - The maximum number of blocks to retrieve logs from.
    * @returns An array of private logs from the specified range of blocks.
    */
-  public getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
+  public getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]> {
     return this.store.getPrivateLogs(from, limit);
   }
 
@@ -1347,16 +1366,16 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  public getBlockNumber(): Promise<number> {
+  public getBlockNumber(): Promise<BlockNumber> {
     return this.store.getSynchedL2BlockNumber();
   }
 
-  public getProvenBlockNumber(): Promise<number> {
+  public getProvenBlockNumber(): Promise<BlockNumber> {
     return this.store.getProvenL2BlockNumber();
   }
 
   /** Forcefully updates the last proven block number. Use for testing. */
-  public setProvenBlockNumber(blockNumber: number): Promise<void> {
+  public setProvenBlockNumber(blockNumber: BlockNumber): Promise<void> {
     return this.store.setProvenL2BlockNumber(blockNumber);
   }
 
@@ -1389,7 +1408,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
+  getL1ToL2Messages(blockNumber: BlockNumber): Promise<Fr[]> {
     return this.store.getL1ToL2Messages(blockNumber);
   }
 
@@ -1431,7 +1450,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     // TODO(#13569): Compute proper finalized block number based on L1 finalized block.
     // We just force it 2 epochs worth of proven data for now.
     // NOTE: update end-to-end/src/e2e_epochs/epochs_empty_blocks.test.ts as that uses finalized blocks in computations
-    const finalizedBlockNumber = Math.max(provenBlockNumber - this.l1constants.epochDuration * 2, 0);
+    const finalizedBlockNumber = BlockNumber(Math.max(provenBlockNumber - this.l1constants.epochDuration * 2, 0));
 
     const [latestBlockHeader, provenBlockHeader, finalizedBlockHeader] = await Promise.all([
       latestBlockNumber > 0 ? this.getBlockHeader(latestBlockNumber) : undefined,
@@ -1455,27 +1474,18 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       );
     }
 
-    const latestBlockHeaderHash = await latestBlockHeader?.hash();
-    const provenBlockHeaderHash = await provenBlockHeader?.hash();
-    const finalizedBlockHeaderHash = await finalizedBlockHeader?.hash();
+    const latestBlockHeaderHash = (await latestBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
+    const provenBlockHeaderHash = (await provenBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
+    const finalizedBlockHeaderHash = (await finalizedBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
 
     return {
-      latest: {
-        number: latestBlockNumber,
-        hash: latestBlockHeaderHash?.toString(),
-      } as L2BlockId,
-      proven: {
-        number: provenBlockNumber,
-        hash: provenBlockHeaderHash?.toString(),
-      } as L2BlockId,
-      finalized: {
-        number: finalizedBlockNumber,
-        hash: finalizedBlockHeaderHash?.toString(),
-      } as L2BlockId,
+      latest: { number: latestBlockNumber, hash: latestBlockHeaderHash.toString() },
+      proven: { number: provenBlockNumber, hash: provenBlockHeaderHash.toString() },
+      finalized: { number: finalizedBlockNumber, hash: finalizedBlockHeaderHash.toString() },
     };
   }
 
-  public async rollbackTo(targetL2BlockNumber: number): Promise<void> {
+  public async rollbackTo(targetL2BlockNumber: BlockNumber): Promise<void> {
     const currentBlocks = await this.getL2Tips();
     const currentL2Block = currentBlocks.latest.number;
     const currentProvenBlock = currentBlocks.proven.number;
@@ -1492,7 +1502,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     const targetL1BlockNumber = targetL2Block.l1.blockNumber;
     const targetL1BlockHash = await this.getL1BlockHash(targetL1BlockNumber);
     this.log.info(`Unwinding ${blocksToUnwind} blocks from L2 block ${currentL2Block}`);
-    await this.store.unwindBlocks(currentL2Block, blocksToUnwind);
+    await this.store.unwindBlocks(BlockNumber(currentL2Block), blocksToUnwind);
     this.log.info(`Unwinding L1 to L2 messages to ${targetL2BlockNumber}`);
     await this.store.rollbackL1ToL2MessagesToL2Block(targetL2BlockNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
@@ -1500,7 +1510,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     await this.store.setMessageSynchedL1Block({ l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash });
     if (targetL2BlockNumber < currentProvenBlock) {
       this.log.info(`Clearing proven L2 block number`);
-      await this.store.setProvenL2BlockNumber(0);
+      await this.store.setProvenL2BlockNumber(BlockNumber.ZERO);
     }
     // TODO(palla/reorg): Set the finalized block when we add support for it.
     // if (targetL2BlockNumber < currentFinalizedBlock) {
@@ -1548,7 +1558,7 @@ export class ArchiverStoreHelper
    * Extracts and stores contract classes out of ContractClassPublished events emitted by the class registry contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
-  async #updatePublishedContractClasses(allLogs: ContractClassLog[], blockNum: number, operation: Operation) {
+  async #updatePublishedContractClasses(allLogs: ContractClassLog[], blockNum: BlockNumber, operation: Operation) {
     const contractClassPublishedEvents = allLogs
       .filter(log => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
       .map(log => ContractClassPublishedEvent.fromLog(log));
@@ -1573,7 +1583,7 @@ export class ArchiverStoreHelper
    * Extracts and stores contract instances out of ContractInstancePublished events emitted by the canonical deployer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
-  async #updateDeployedContractInstances(allLogs: PrivateLog[], blockNum: number, operation: Operation) {
+  async #updateDeployedContractInstances(allLogs: PrivateLog[], blockNum: BlockNumber, operation: Operation) {
     const contractInstances = allLogs
       .filter(log => ContractInstancePublishedEvent.isContractInstancePublishedEvent(log))
       .map(log => ContractInstancePublishedEvent.fromLog(log))
@@ -1626,7 +1636,7 @@ export class ArchiverStoreHelper
    * @param _blockNum - The block number
    * @returns
    */
-  async #storeBroadcastedIndividualFunctions(allLogs: ContractClassLog[], _blockNum: number) {
+  async #storeBroadcastedIndividualFunctions(allLogs: ContractClassLog[], _blockNum: BlockNumber) {
     // Filter out private and utility function broadcast events
     const privateFnEvents = allLogs
       .filter(log => PrivateFunctionBroadcastedEvent.isPrivateFunctionBroadcastedEvent(log))
@@ -1716,7 +1726,7 @@ export class ArchiverStoreHelper
     });
   }
 
-  public async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
+  public async unwindBlocks(from: BlockNumber, blocksToUnwind: number): Promise<boolean> {
     const last = await this.getSynchedL2BlockNumber();
     if (from != last) {
       throw new Error(`Cannot unwind blocks from block ${from} when the last block is ${last}`);
@@ -1726,7 +1736,7 @@ export class ArchiverStoreHelper
     }
 
     // from - blocksToUnwind = the new head, so + 1 for what we need to remove
-    const blocks = await this.getPublishedBlocks(from - blocksToUnwind + 1, blocksToUnwind);
+    const blocks = await this.getPublishedBlocks(BlockNumber(from - blocksToUnwind + 1), blocksToUnwind);
 
     const opResults = await Promise.all([
       // Prune rolls back to the last proven block, which is by definition valid
@@ -1758,10 +1768,10 @@ export class ArchiverStoreHelper
     return opResults.every(Boolean);
   }
 
-  getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
+  getPublishedBlocks(from: BlockNumber, limit: number): Promise<PublishedL2Block[]> {
     return this.store.getPublishedBlocks(from, limit);
   }
-  getPublishedBlock(number: number): Promise<PublishedL2Block | undefined> {
+  getPublishedBlock(number: BlockNumber): Promise<PublishedL2Block | undefined> {
     return this.store.getPublishedBlock(number);
   }
   getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
@@ -1770,7 +1780,7 @@ export class ArchiverStoreHelper
   getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
     return this.store.getPublishedBlockByArchive(archive);
   }
-  getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
+  getBlockHeaders(from: BlockNumber, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);
   }
   getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
@@ -1788,13 +1798,13 @@ export class ArchiverStoreHelper
   addL1ToL2Messages(messages: InboxMessage[]): Promise<void> {
     return this.store.addL1ToL2Messages(messages);
   }
-  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
+  getL1ToL2Messages(blockNumber: BlockNumber): Promise<Fr[]> {
     return this.store.getL1ToL2Messages(blockNumber);
   }
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
-  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
+  getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]> {
     return this.store.getPrivateLogs(from, limit);
   }
   getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
@@ -1806,13 +1816,13 @@ export class ArchiverStoreHelper
   getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     return this.store.getContractClassLogs(filter);
   }
-  getSynchedL2BlockNumber(): Promise<number> {
+  getSynchedL2BlockNumber(): Promise<BlockNumber> {
     return this.store.getSynchedL2BlockNumber();
   }
-  getProvenL2BlockNumber(): Promise<number> {
+  getProvenL2BlockNumber(): Promise<BlockNumber> {
     return this.store.getProvenL2BlockNumber();
   }
-  setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
+  setProvenL2BlockNumber(l2BlockNumber: BlockNumber): Promise<void> {
     return this.store.setProvenL2BlockNumber(l2BlockNumber);
   }
   setBlockSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void> {
@@ -1848,7 +1858,7 @@ export class ArchiverStoreHelper
   estimateSize(): Promise<{ mappingSize: number; physicalFileSize: number; actualSize: number; numItems: number }> {
     return this.store.estimateSize();
   }
-  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number): Promise<void> {
+  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: BlockNumber): Promise<void> {
     return this.store.rollbackL1ToL2MessagesToL2Block(targetBlockNumber);
   }
   iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {

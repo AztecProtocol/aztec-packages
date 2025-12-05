@@ -9,9 +9,9 @@
 #include "avm2_recursion_constraint.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 
+#include "arithmetic_constraints.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "big_quad_constraints.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
@@ -32,6 +32,9 @@
 #include <vector>
 
 namespace acir_format {
+
+using QuadConstraints = mul_quad_<fr>;
+using WitnessVector = std::vector<bb::fr>;
 
 /**
  * @brief Indices of the original opcode that originated each constraint in AcirFormat.
@@ -67,11 +70,9 @@ struct AcirFormatOriginalOpcodeIndices {
 };
 
 struct AcirFormat {
-    // The number of witnesses in the circuit
-    uint32_t varnum;
+    uint32_t max_witness_index = 0;
     uint32_t num_acir_opcodes;
 
-    using ArithTripleConstraint = bb::arithmetic_triple_<bb::curve::BN254::ScalarField>;
     std::vector<uint32_t> public_inputs;
 
     std::vector<LogicConstraint> logic_constraints;
@@ -90,18 +91,12 @@ struct AcirFormat {
     std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> hn_recursion_constraints;
     std::vector<RecursionConstraint> chonk_recursion_constraints;
-
-    // A standard plonk arithmetic constraint, as defined in the arithmetic_triple struct, consists of selector values
-    // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
-    // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
-    std::vector<ArithTripleConstraint> arithmetic_triple_constraints;
-    // A standard ultra plonk arithmetic constraint, of width 4: q_Ma*b+q_A*a+q_B*b+q_C*c+q_d*d+q_const = 0
-    std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
+    std::vector<QuadConstraints> quad_constraints; // Standard honk arithmetic constraint of width 4
     // A vector of vector of mul_quad gates (i.e arithmetic constraints of width 4)
     // Each vector of gates represente a 'big' expression (a polynomial of degree 1 or 2 which does not fit inside one
-    // mul_gate) that has been splitted into multiple mul_gates, using w4_omega (the 4th wire of the next gate), to
+    // mul_gate) that has been splitted into multiple mul_gates, using w4_shift (the 4th wire of the next gate), to
     // reduce the number of intermediate variables.
-    std::vector<std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>>> big_quad_constraints;
+    std::vector<std::vector<QuadConstraints>> big_quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
@@ -112,8 +107,7 @@ struct AcirFormat {
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
 
     // For serialization, update with any new fields
-    MSGPACK_FIELDS(varnum,
-                   public_inputs,
+    MSGPACK_FIELDS(public_inputs,
                    logic_constraints,
                    range_constraints,
                    aes128_constraints,
@@ -130,7 +124,6 @@ struct AcirFormat {
                    avm_recursion_constraints,
                    hn_recursion_constraints,
                    chonk_recursion_constraints,
-                   arithmetic_triple_constraints,
                    quad_constraints,
                    big_quad_constraints,
                    block_constraints);
@@ -138,46 +131,12 @@ struct AcirFormat {
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };
 
-using WitnessVector = std::vector<bb::fr>;
-using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
-
 struct AcirProgram {
     AcirFormat constraints;
-    WitnessVector witness = {};
-};
-
-/**
- * @brief Storage for constaint_systems/witnesses for a stack of acir programs
- * @details In general the number of items in the witness stack will be equal or greater than the number of constraint
- * systems because the program may consist of multiple calls to the same function.
- *
- */
-struct AcirProgramStack {
-    std::vector<AcirFormat> constraint_systems;
-    WitnessVectorStack witness_stack;
-
-    AcirProgramStack(std::vector<AcirFormat> constraint_systems_in, WitnessVectorStack witness_stack_in)
-        : constraint_systems(std::move(constraint_systems_in))
-        , witness_stack(std::move(witness_stack_in))
-    {}
-
-    size_t size() const { return witness_stack.size(); }
-    bool empty() const { return witness_stack.empty(); }
-
-    AcirProgram back()
-    {
-        auto witness_stack_item = witness_stack.back();
-        auto witness = witness_stack_item.second;
-        auto constraint_system = constraint_systems[witness_stack_item.first];
-
-        return { constraint_system, witness };
-    }
-
-    void pop_back() { witness_stack.pop_back(); }
+    WitnessVector witness;
 };
 
 struct ProgramMetadata {
-
     // An IVC instance; needed to construct a circuit from IVC recursion constraints
     std::shared_ptr<bb::IVCBase> ivc = nullptr;
 
@@ -190,11 +149,11 @@ struct ProgramMetadata {
 };
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
-template <typename Builder = bb::UltraCircuitBuilder>
+template <typename Builder>
 Builder create_circuit(AcirProgram& program, const ProgramMetadata& metadata = ProgramMetadata{});
 
 template <typename Builder>
-void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata);
+void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramMetadata& metadata);
 
 /**
  * @brief Utility class for tracking the gate count of acir constraints
@@ -230,23 +189,4 @@ template <typename Builder> class GateCounter {
     bool collect_gates_per_opcode;
     size_t prev_gate_count{};
 };
-
-/**
- * @brief Replace indices which are set to IS_CONSTANT with the zero index of the builder
- *
- * @details When creating a mul_quad_ gate, unused witness indices are set to IS_CONSTANT. When adding the gate to
- * the builder, we replace these indices with the zero index. Note that we don't do this replacement for a, so that
- * we implicitly get a check that the gate is non-zero when adding it to the Builder.
- */
-template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad);
-
-/**
- * @brief Check if a mul add gate is valid.
- *
- */
-template <typename Builder>
-void check_mul_add_gate(Builder& builder,
-                        const mul_quad_<typename Builder::FF>& mul_quad,
-                        const typename Builder::FF next_wire_w4 = Builder::FF::zero());
-
 } // namespace acir_format

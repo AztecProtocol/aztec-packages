@@ -1,4 +1,5 @@
 import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -37,7 +38,7 @@ export class CheatCodes {
    * @param targetTimestamp - The target timestamp to warp to (in seconds)
    */
   async warpL2TimeAtLeastTo(sequencerClient: SequencerClient, node: AztecNode, targetTimestamp: bigint | number) {
-    const currentL2BlockNumber = await node.getBlockNumber();
+    const currentL2BlockNumber: BlockNumber = await node.getBlockNumber();
 
     // We warp the L1 timestamp
     await this.eth.warp(targetTimestamp, { resetBlockInterval: true });
@@ -49,7 +50,7 @@ export class CheatCodes {
 
     await retryUntil(
       async () => {
-        const newL2BlockNumber = await node.getBlockNumber();
+        const newL2BlockNumber: BlockNumber = await node.getBlockNumber();
         return newL2BlockNumber > currentL2BlockNumber;
       },
       'new block after warping L2 time',

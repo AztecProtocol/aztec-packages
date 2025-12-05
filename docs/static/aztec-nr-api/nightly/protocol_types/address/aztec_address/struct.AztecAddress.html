@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct AztecAddress documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">AztecAddress</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct AztecAddress</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.inner">inner</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#assert_is_zero">assert_is_zero</a></li>
+<li><a href="#compute">compute</a></li>
+<li><a href="#compute_from_class_id">compute_from_class_id</a></li>
+<li><a href="#is_protocol_contract">is_protocol_contract</a></li>
+<li><a href="#is_zero">is_zero</a></li>
+<li><a href="#to_address_point">to_address_point</a></li>
+<li><a href="#zero">zero</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-AztecAddress">Deserialize</a></li>
+<li><a href="#impl-Empty-for-AztecAddress">Empty</a></li>
+<li><a href="#impl-Eq-for-AztecAddress">Eq</a></li>
+<li><a href="#impl-FromField-for-AztecAddress">FromField</a></li>
+<li><a href="#impl-Packable-for-AztecAddress">Packable</a></li>
+<li><a href="#impl-Serialize-for-AztecAddress">Serialize</a></li>
+<li><a href="#impl-ToField-for-AztecAddress">ToField</a></li>
+</ul>
+<h2>In module aztec_address</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.AztecAddress.html">AztecAddress</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">address</a>::<a href="index.html">aztec_address</a></div>
+<h1>Struct <span id="struct" class="struct">AztecAddress</span></h1>
+<pre><code>pub struct AztecAddress {
+    pub inner: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.inner" class="struct-field"><code class="code-header">inner: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></h3>
+
+<div class="padded-methods"><code id="zero" class="code-header">pub fn <a href="#zero"><span class="fn">zero</span></a>() -> Self</code>
+
+<code id="to_address_point" class="code-header">pub fn <a href="#to_address_point"><span class="fn">to_address_point</span></a>(self) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../protocol_types/public_keys/struct.AddressPoint.html" class="struct">AddressPoint</a>&gt;</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns an address's <code>AddressPoint</code>, which can be used to create shared secrets with the owner
+of the address. If the address is invalid (i.e. it is not a properly derived Aztec address), then this
+returns <code>Option::none()</code>, and no shared secrets can be created.</p>
+</div>
+</div><code id="compute" class="code-header">pub fn <a href="#compute"><span class="fn">compute</span></a>(public_keys: <a href="../../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a>, partial_address: <a href="../../../protocol_types/address/partial_address/struct.PartialAddress.html" class="struct">PartialAddress</a>) -> Self</code>
+
+<code id="compute_from_class_id" class="code-header">pub fn <a href="#compute_from_class_id"><span class="fn">compute_from_class_id</span></a>(
+    contract_class_id: <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a>,
+    salted_initialization_hash: <a href="../../../protocol_types/address/salted_initialization_hash/struct.SaltedInitializationHash.html" class="struct">SaltedInitializationHash</a>,
+    public_keys: <a href="../../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a>,
+) -> Self</code>
+
+<code id="is_protocol_contract" class="code-header">pub fn <a href="#is_protocol_contract"><span class="fn">is_protocol_contract</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code id="is_zero" class="code-header">pub fn <a href="#is_zero"><span class="fn">is_zero</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code id="assert_is_zero" class="code-header">pub fn <a href="#assert_is_zero"><span class="fn">assert_is_zero</span></a>(self)</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-AztecAddress"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 1]) -> Self</code>
+
+</div><h3 id="impl-Empty-for-AztecAddress"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
+
+</div><h3 id="impl-Eq-for-AztecAddress"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-FromField-for-AztecAddress"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.FromField.html" class="trait">FromField</a> for <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">from_field</span>(value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+</div><h3 id="impl-Packable-for-AztecAddress"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 1]</code>
+
+<code class="code-header">pub fn <span class="fn">unpack</span>(packed: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 1]) -> Self</code>
+
+</div><h3 id="impl-Serialize-for-AztecAddress"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 1]</code>
+
+</div><h3 id="impl-ToField-for-AztecAddress"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.ToField.html" class="trait">ToField</a> for <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">to_field</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

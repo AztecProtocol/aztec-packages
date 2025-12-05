@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { encodeSlashConsensusVotes, getSlashConsensusVotesFromOffenses } from './tally.js';
@@ -122,7 +123,7 @@ describe('TallySlashingHelpers', () => {
       expect(votes).toHaveLength(4);
       expect(votes[0]).toEqual(2); // validator1 in committee1, epoch 5 offense (20n)
       expect(votes[1]).toEqual(0); // validator2 in committee1, no offenses
-      expect(votes[2]).toEqual(1); // validator1 in committee2, epoch 6 offense (10n)
+      expect(votes[2]).toEqual(BlockNumber(1)); // validator1 in committee2, epoch 6 offense (10n)
       expect(votes[3]).toEqual(0); // validator3 in committee2, no offenses
     });
 
@@ -187,7 +188,7 @@ describe('TallySlashingHelpers', () => {
 
       expect(votes).toHaveLength(4);
       expect(votes[0]).toEqual(3); // validator1 in committee1, always-slash (30n)
-      expect(votes[1]).toEqual(1); // validator2 in committee1, epoch 5 offense (10n)
+      expect(votes[1]).toEqual(BlockNumber(1)); // validator2 in committee1, epoch 5 offense (10n)
       expect(votes[2]).toEqual(3); // validator1 in committee2, always-slash (30n)
       expect(votes[3]).toEqual(0); // validator3 in committee2, no offenses
     });
@@ -213,7 +214,7 @@ describe('TallySlashingHelpers', () => {
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
       expect(votes).toHaveLength(3);
-      expect(votes[0]).toEqual(1); // validator1: 15n offense maps to epoch 2
+      expect(votes[0]).toEqual(BlockNumber(1)); // validator1: 15n offense maps to epoch 2
       expect(votes[1]).toEqual(2); // validator2: 20n offense maps to epoch 2
       expect(votes[2]).toEqual(0); // validator3: no offenses
     });
@@ -328,7 +329,7 @@ describe('TallySlashingHelpers', () => {
       const votes = getSlashConsensusVotesFromOffenses(offenses, committees, epochsForCommittees, settings);
 
       expect(votes).toHaveLength(4);
-      expect(votes[0]).toEqual(1); // validator1 epoch0: 15n offense
+      expect(votes[0]).toEqual(BlockNumber(1)); // validator1 epoch0: 15n offense
       expect(votes[1]).toEqual(0); // validator2 epoch0: no matching offenses
       expect(votes[2]).toEqual(0); // validator1 epoch1: no matching offenses
       expect(votes[3]).toEqual(2); // validator2 epoch1: 20n offense
@@ -356,7 +357,7 @@ describe('TallySlashingHelpers', () => {
 
       expect(votes).toHaveLength(3);
       expect(votes[0]).toEqual(0); // validator1: 0n amount = 0 slash units
-      expect(votes[1]).toEqual(1); // validator2: 15n amount = 1 slash unit
+      expect(votes[1]).toEqual(BlockNumber(1)); // validator2: 15n amount = 1 slash unit
       expect(votes[2]).toEqual(0); // validator3: no offenses
     });
   });
@@ -366,7 +367,7 @@ describe('TallySlashingHelpers', () => {
       const votes = [1, 2, 0, 3];
       const buffer = encodeSlashConsensusVotes(votes);
 
-      expect(buffer.length).toEqual(1);
+      expect(buffer.length).toEqual(BlockNumber(1));
       expect(buffer[0]).toEqual(1 | (2 << 2) | (0 << 4) | (3 << 6)); // 0xC9
     });
 
@@ -385,7 +386,7 @@ describe('TallySlashingHelpers', () => {
       const votes = [3, 3, 3, 3];
       const buffer = encodeSlashConsensusVotes(votes);
 
-      expect(buffer.length).toEqual(1);
+      expect(buffer.length).toEqual(BlockNumber(1));
       // Corrected encoding: all validators get 3 units
       expect(buffer[0]).toEqual(3 | (3 << 2) | (3 << 4) | (3 << 6)); // 0xFF
     });
@@ -394,7 +395,7 @@ describe('TallySlashingHelpers', () => {
       const votes = [0, 0, 1, 2];
       const buffer = encodeSlashConsensusVotes(votes);
 
-      expect(buffer.length).toEqual(1);
+      expect(buffer.length).toEqual(BlockNumber(1));
       // Corrected encoding: validator[0]=0, validator[1]=0, validator[2]=1, validator[3]=2
       expect(buffer[0]).toEqual(0 | (0 << 2) | (1 << 4) | (2 << 6)); // 0x90
     });

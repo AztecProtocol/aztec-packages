@@ -48,6 +48,7 @@ class ECCVMFlavor {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using MSM = bb::eccvm::MSM<CycleGroup>;
     using Transcript = NativeTranscript;
+    using Proof = HonkProof;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -150,8 +151,7 @@ class ECCVMFlavor {
         /* 24 Translator grand sum shift eval */ (num_frs_fq) +
         /* 25 Translator grand sum eval */ (num_frs_fq) +
         /* 26 Translator quotient eval */ (num_frs_fq) +
-        /* 27 Shplonk Q commitment */ (num_frs_comm) +
-        /* 28 IPA proof */ IPA_PROOF_LENGTH;
+        /* 27 Shplonk Q commitment */ (num_frs_comm);
 
     // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
     // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the

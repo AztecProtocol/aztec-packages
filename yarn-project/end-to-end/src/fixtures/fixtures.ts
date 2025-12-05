@@ -22,8 +22,7 @@ export const BITSIZE_TOO_BIG_ERROR = "Assertion failed: call to assert_max_bit_s
 export const DUPLICATE_NULLIFIER_ERROR = /dropped|nullifier|reverted/i;
 export const NO_L1_TO_L2_MSG_ERROR =
   /No non-nullified L1 to L2 message found for message hash|Tried to consume nonexistent L1-to-L2 message/;
-export const STATIC_CALL_STATE_MODIFICATION_ERROR =
-  /Static call cannot update the state, emit L2->L1 messages or generate logs.*/;
+export const STATIC_CALL_STATE_MODIFICATION_ERROR = /Static call cannot update the state.*/;
 export const STATIC_CONTEXT_ASSERTION_ERROR = /Assertion failed: Function .* can only be called statically.*/;
 
 export const DEFAULT_BLOB_SINK_PORT = '5052';

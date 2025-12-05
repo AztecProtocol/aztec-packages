@@ -74,16 +74,15 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
     BB_BENCH_NAME("Polynomial::Polynomial(size_t, size_t, size_t)");
     allocate_backing_memory(size, virtual_size, start_index);
 
-    size_t num_threads = calculate_num_threads(size);
-    size_t range_per_thread = size / num_threads;
-    size_t leftovers = size - (range_per_thread * num_threads);
-
-    parallel_for(num_threads, [&](size_t j) {
-        size_t offset = j * range_per_thread;
-        size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
-        BB_ASSERT(offset < size || size == 0);
-        BB_ASSERT_LTE((offset + range), size);
-        memset(static_cast<void*>(coefficients_.data() + offset), 0, sizeof(Fr) * range);
+    parallel_for([&](const ThreadChunk& chunk) {
+        auto range = chunk.range(size);
+        if (!range.empty()) {
+            size_t start = *range.begin();
+            size_t range_size = range.size();
+            BB_ASSERT(start < size || size == 0);
+            BB_ASSERT_LTE((start + range_size), size);
+            memset(static_cast<void*>(coefficients_.data() + start), 0, sizeof(Fr) * range_size);
+        }
     });
 }
 
@@ -176,13 +175,9 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
-    size_t num_threads = calculate_num_threads(other.size());
-    size_t range_per_thread = other.size() / num_threads;
-    size_t leftovers = other.size() - (range_per_thread * num_threads);
-    parallel_for(num_threads, [&](size_t j) {
-        size_t offset = j * range_per_thread + other.start_index;
-        size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-        for (size_t i = offset; i < end; ++i) {
+    parallel_for([&](const ThreadChunk& chunk) {
+        for (size_t offset : chunk.range(other.size())) {
+            size_t i = offset + other.start_index;
             at(i) += other[i];
         }
     });
@@ -217,13 +212,9 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
-    const size_t num_threads = calculate_num_threads(other.size());
-    const size_t range_per_thread = other.size() / num_threads;
-    const size_t leftovers = other.size() - (range_per_thread * num_threads);
-    parallel_for(num_threads, [&](size_t j) {
-        const size_t offset = j * range_per_thread + other.start_index;
-        const size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-        for (size_t i = offset; i < end; ++i) {
+    parallel_for([&](const ThreadChunk& chunk) {
+        for (size_t offset : chunk.range(other.size())) {
+            size_t i = offset + other.start_index;
             at(i) -= other[i];
         }
     });

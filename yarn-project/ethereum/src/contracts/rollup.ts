@@ -420,8 +420,12 @@ export class RollupContract {
     return this.rollup.read.getCheckpoint([BigInt(checkpointNumber)]);
   }
 
-  getTips() {
-    return this.rollup.read.getTips();
+  async getTips(): Promise<{ pending: CheckpointNumber; proven: CheckpointNumber }> {
+    const { pending, proven } = await this.rollup.read.getTips();
+    return {
+      pending: CheckpointNumber.fromBigInt(pending),
+      proven: CheckpointNumber.fromBigInt(proven),
+    };
   }
 
   getTimestampForSlot(slot: SlotNumber) {

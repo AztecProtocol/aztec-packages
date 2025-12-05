@@ -58,6 +58,5 @@ struct EcAdd {
     friend bool operator==(EcAdd const& lhs, EcAdd const& rhs) = default;
 };
 
-template <typename Builder>
-void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_valid_witness_assignments);
+template <typename Builder> void create_ec_add_constraint(Builder& builder, const EcAdd& input);
 } // namespace acir_format
