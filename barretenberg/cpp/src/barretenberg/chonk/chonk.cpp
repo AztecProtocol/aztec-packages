@@ -297,7 +297,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         hiding_output.set_public();
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
-        // Extract native verifier accumulator from the stdlib accum for use on the next round
+        // Extract native verifier accumulator from the stdlib accum to use it in the next round
         recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
 
         KernelIO kernel_output;
