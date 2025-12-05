@@ -936,16 +936,14 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     bool some_final_check_failed = std::ranges::any_of(addr_event.resolution_info, [](const auto& info) {
         return info.error.has_value() && *info.error == AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
     });
-    FF batched_tags_diff_inv = 0;
+    FF batched_tags_diff = 0;
     if (some_final_check_failed) {
-        FF batched_tags_diff = 0;
         FF power_of_2 = 1;
         for (size_t i = 0; i < AVM_MAX_OPERANDS; ++i) {
             batched_tags_diff +=
                 FF(is_indirect_effective[i] ? 1 : 0) * power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
             power_of_2 *= 8; // 2^3
         }
-        batched_tags_diff_inv = batched_tags_diff; // Will be inverted in batch later.
     }
 
     // Collect addressing errors. See PIL file for reference.
@@ -979,6 +977,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
             { C::execution_base_address_val, addr_event.base_address.as_ff() },
             { C::execution_base_address_tag, static_cast<uint8_t>(addr_event.base_address.get_tag()) },
             { C::execution_base_address_tag_diff_inv, base_address_tag_diff }, // Will be inverted in batch.
+            { C::execution_batched_tags_diff_inv, batched_tags_diff },         // Will be inverted in batch.
             { C::execution_sel_some_final_check_failed, some_final_check_failed ? 1 : 0 },
             { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
             { C::execution_num_relative_operands_inv,
@@ -1007,6 +1006,7 @@ void ExecutionTraceBuilder::invert_columns(TraceContainer& trace)
         C::execution_dying_context_diff_inv,
         // Addressing.
         C::execution_addressing_error_collection_inv,
+        C::execution_batched_tags_diff_inv,
         C::execution_base_address_tag_diff_inv,
         C::execution_num_relative_operands_inv,
     } });
@@ -1060,24 +1060,22 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
         }
     }
 
-    FF batched_tags_diff_inv_reg = 0;
+    FF batched_tags_diff_reg = 0;
     if (some_tag_check_failed) {
-        FF batched_tags_diff = 0;
         FF power_of_2 = 1;
         for (size_t i = 0; i < AVM_MAX_REGISTERS; ++i) {
             if (register_info.need_tag_check(i)) {
-                batched_tags_diff += power_of_2 * (FF(static_cast<uint8_t>(registers[i].get_tag())) -
-                                                   FF(static_cast<uint8_t>(*register_info.expected_tag(i))));
+                batched_tags_diff_reg += power_of_2 * (FF(static_cast<uint8_t>(registers[i].get_tag())) -
+                                                       FF(static_cast<uint8_t>(*register_info.expected_tag(i))));
             }
             power_of_2 *= 8; // 2^3
         }
-        batched_tags_diff_inv_reg = batched_tags_diff; // Will be inverted in batch later.
     }
 
     trace.set(row,
               { {
                   { C::execution_sel_should_read_registers, 1 },
-                  { C::execution_batched_tags_diff_inv_reg, batched_tags_diff_inv_reg }, // Will be inverted in batch.
+                  { C::execution_batched_tags_diff_inv_reg, batched_tags_diff_reg }, // Will be inverted in batch.
                   { C::execution_sel_register_read_error, some_tag_check_failed ? 1 : 0 },
               } });
 }

@@ -539,9 +539,6 @@ pol commit sel_should_execute_opcode;
 // Note that sel == 0 ==> sel_should_check_gas = 0 by transitive reasoning.
 sel_should_execute_opcode = sel_should_check_gas * (1 - sel_out_of_gas);
 
-pol commit sel_opcode_error;
-sel_opcode_error * (1 - sel_opcode_error) = 0;
-
 // Decomposed selectors (from precomputed.pil see #[EXEC_SPEC_READ])
 pol commit subtrace_id;
 pol commit subtrace_operation_id;
@@ -674,10 +671,6 @@ sel_execute_send_l2_to_l1_msg * constants.AVM_EXEC_OP_ID_SENDL2TOL1MSG
 // implies sel_exec_dispatch_execution == 0. (#[SUBTRACE_ID_DECOMPOSITION])
 = sel_exec_dispatch_execution * subtrace_operation_id;
 
-// Whether the opcode logic failed.
-pol commit sel_opcode_failure;
-sel_opcode_failure * (1 - sel_opcode_failure) = 0;
-
 /**************************************************************************************************
  *  Opcode specific constraints
  **************************************************************************************************/
@@ -751,6 +744,10 @@ sel_execute_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // W
 (1 - sel_first_row_in_context) * (prev_retrieved_bytecodes_tree_root - retrieved_bytecodes_tree_root) = 0;
 #[RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED]
 (1 - sel_first_row_in_context) * (prev_retrieved_bytecodes_tree_size - retrieved_bytecodes_tree_size) = 0;
+
+// Whether the opcode logic failed.
+pol commit sel_opcode_error;
+sel_opcode_error * (1 - sel_opcode_error) = 0;
 
 // Some opcodes cannot fail during opcode execution. They should not be able to set sel_opcode_error.
 // Note that some of these opcodes can fail in the stages before execution.
