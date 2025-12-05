@@ -15,7 +15,7 @@ use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToFi
 /// #[storage] struct.
 ///
 /// For example, you might use
-/// `Map<AztecAddress, PublicMutable<ValueNote, Context>, Context>` to track
+/// `Map<AztecAddress, PublicMutable<FieldNote, Context>, Context>` to track
 /// token balances for different users, similar to how you'd use
 /// `mapping(address => uint256)` in Solidity.
 ///
@@ -113,7 +113,7 @@ impl<K, V, Context> Map<K, V, Context> {
     /// # Example
     ///
     /// ```noir
-    /// // Get a user's balance (assuming PrivateMutable<ValueNote>)
+    /// // Get a user's balance (assuming PrivateMutable<FieldNote>)
     /// let user_balance = self.storage.balances.at(user_address);
     /// let current_note = user_balance.get_note();
     ///

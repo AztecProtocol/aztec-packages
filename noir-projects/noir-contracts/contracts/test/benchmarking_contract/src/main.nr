@@ -14,18 +14,18 @@ pub contract Benchmarking {
         protocol_types::address::AztecAddress,
         state_vars::{Map, Owned, PrivateSet, PublicMutable},
     };
-    use value_note::value_note::ValueNote;
+    use field_note::field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {
-        notes: Owned<PrivateSet<ValueNote, Context>, Context>,
+        notes: Owned<PrivateSet<FieldNote, Context>, Context>,
         balances: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
     }
 
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
-        let note = ValueNote::new(value);
+        let note = FieldNote::new(value);
         self.storage.notes.at(owner).insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
     // Deletes a note at a specific index in the set and creates a new one with the same value.
