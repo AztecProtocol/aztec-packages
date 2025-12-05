@@ -2,17 +2,19 @@ use poseidon::poseidon2::Poseidon2Hasher;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault};
 
 use super::utils::AsStrQuote;
-use super::utils::get_storage_size;
 
 /// Stores a map from a module to the name of the struct that describes its storage layout.
 /// This is then used when generating a `storage_layout()` getter on the contract struct.
 pub comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
-/// Marks a struct as the one describing the storage layout of a contract.
-///
-/// The contract's storage is accessed via the `storage` variable, which will will automatically be made available in
-/// all functions as an instance of the struct this macro was applied to.
+/// This function
+/// - marks the contract as having storage, so that `macros::utils::module_has_storage` will return true,
+/// - marks the struct `s` as the one describing the storage layout of a contract,
+/// - generates an `impl` block for the storage struct with an `init` function (call to `init` is then injected at the
+///   beginning of every `#[external(...)]` and `#[internal]` contract function and the storage is then available as
+///   `self.storage`),
+/// - creates a `StorageLayout` struct that is is exposed via the `abi(storage)` macro in the contract artifact.
 ///
 /// Only a single struct in the entire contract should have this macro (or `storage_no_init`) applied to it, and the
 /// struct has to be called 'Storage'.
@@ -29,56 +31,59 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
         f"Only one of #[storage] and #[storage_no_init] can be applied to the Storage struct.",
     );
 
-    // This macro performs three things:
-    //  - it marks the contract as having storage, so that `macros::utils::module_has_storage` will return true and
-    //    functions will have the storage variable injected and initialized via the `init` function.
-    //  - it implements said `init` function by allocating appropriate storage slots to each state variable.
-    //  - it exposes the storage layout by creating a `StorageLayout` struct that is exposed via the `abi(storage)`
-    //    macro.
     let mut slot: u32 = 1;
     let mut storage_vars_constructors = &[];
-    let mut storage_layout_fields = &[];
+    let mut storage_layout_struct_members = &[];
     let mut storage_layout_constructors = &[];
 
-    // TODO(#8658): uncomment the code below to inject the Context type parameter.
-    //let mut new_storage_fields = &[];
-    //let context_generic = s.add_generic("Context");
-    for field in s.fields_as_written() {
-        // FIXME: This doesn't handle field types with generics
-        let (name, typ, _) = field;
-        let slot_field = slot as Field;
-        let (storage_field_constructor, storage_size) =
-            generate_storage_field_constructor(typ, quote { $slot_field });
-        storage_vars_constructors =
-            storage_vars_constructors.push_back(quote { $name: $storage_field_constructor });
+    for storage_struct_member in s.fields_as_written() {
+        let (name, typ, _) = storage_struct_member;
+
+        let maybe_storage_size = std::meta::typ::fresh_type_variable();
+        let _maybe_context = std::meta::typ::fresh_type_variable();
+
+        if !typ.implements(
+            quote { crate::state_vars::state_variable::StateVariable<$maybe_storage_size, $_maybe_context> }
+                .as_trait_constraint(),
+        ) {
+            let _maybe_owned_context = std::meta::typ::fresh_type_variable();
+            if typ.implements(
+                quote { crate::state_vars::owned_state_variable::OwnedStateVariable<$_maybe_owned_context> }
+                    .as_trait_constraint(),
+            ) {
+                panic(
+                    f"Type {typ} implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Define the type in storage as Owned<{typ}<..., Context>>, Context>.",
+                )
+            }
+
+            panic(
+                f"Type {typ} does not implement StateVariable and hence cannot be placed in Storage struct.",
+            )
+        }
+
+        let storage_size = maybe_storage_size.as_constant().unwrap();
+        let slot_as_field = slot as Field;
+
+        storage_vars_constructors = storage_vars_constructors.push_back(
+            quote { $name: aztec::state_vars::state_variable::StateVariable::<$storage_size, Context>::new(context, $slot_as_field) },
+        );
+
         // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
         // because that way a dev gets a more reasonable error if he defines a struct with the same name in
         // a contract.
-        storage_layout_fields = storage_layout_fields.push_back(
-            quote { pub $name: dep::aztec::state_vars::storage::Storable },
+        storage_layout_struct_members = storage_layout_struct_members.push_back(
+            quote { pub $name: aztec::state_vars::storage::Storable },
         );
         storage_layout_constructors = storage_layout_constructors.push_back(
-            quote { $name: dep::aztec::state_vars::storage::Storable { slot: $slot_field } },
+            quote { $name: aztec::state_vars::storage::Storable { slot: $slot_as_field } },
         );
-        //let with_context_generic = add_context_generic(typ, context_generic);
-        //println(with_context_generic);
-        //new_storage_fields = new_storage_fields.push_back((name,  with_context_generic ));
+
         slot += storage_size;
     }
 
-    //s.set_fields(new_storage_fields);
     let storage_vars_constructors = storage_vars_constructors.join(quote {,});
-    let storage_impl = quote {
-        impl<Context> Storage<Context> {
-            fn init(context: Context) -> Self {
-                Self {
-                    $storage_vars_constructors
-                }
-            }
-        }
-    };
 
-    let storage_layout_fields = storage_layout_fields.join(quote {,});
+    let storage_layout_struct_members = storage_layout_struct_members.join(quote {,});
     let storage_layout_constructors = storage_layout_constructors.join(quote {,});
 
     let module = s.module();
@@ -88,10 +93,16 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
     STORAGE_LAYOUT_NAME.insert(module, storage_layout_name);
 
     quote {
-        $storage_impl
+        impl<Context> Storage<Context> {
+            fn init(context: Context) -> Self {
+                Self {
+                    $storage_vars_constructors
+                }
+            }
+        }
 
         pub struct StorageLayoutFields {
-            $storage_layout_fields
+            $storage_layout_struct_members
         }
 
         pub struct StorageLayout<let N: u32> {
@@ -134,63 +145,4 @@ pub comptime fn storage_no_init(s: TypeDefinition) {
         !s.has_named_attribute("storage"),
         f"Only one of #[storage] and #[storage_no_init] can be applied to the Storage struct.",
     );
-}
-
-/// Returns the expression required to initialize a state variable with a given slot, along with its serialization size,
-/// i.e. how many contiguous storage slots the variable requires.
-comptime fn generate_storage_field_constructor(typ: Type, slot: Quoted) -> (Quoted, u32) {
-    assert(
-        typ.as_data_type().is_some(),
-        "Storage containers must be generic structs of the form `Container<_, Context>`, or Map<Key, _, Context>",
-    );
-    let (container_struct, generics) = typ.as_data_type().unwrap();
-    let struct_name = container_struct.name();
-
-    let constructor = if is_storage_map(typ) {
-        // Map state variables recursively initialize their contents - this includes nested maps.
-        let (value_constructor, _) =
-            generate_storage_field_constructor(generics[1], quote { slot });
-
-        quote { $struct_name::new(context, $slot, | context, slot | { $value_constructor }) }
-    } else {
-        // We assume below that all state variables implement `fn new<Context>(context: Context, slot: Field) -> Self`.
-        quote { $struct_name::new(context, $slot)}
-    };
-
-    (constructor, get_storage_size(typ))
-}
-
-/// Returns true if `typ` is `state_vars::map::Map`.
-comptime fn is_storage_map(typ: Type) -> bool {
-    if typ.as_data_type().is_some() {
-        let (def, generics) = typ.as_data_type().unwrap();
-        let maybe_map = if (def.name() == quote { Map }) & (generics.len() == 3) {
-            let maybe_key = generics[0];
-            let maybe_value = generics[1];
-            let maybe_context = generics[2];
-            quote { crate::state_vars::map::Map<$maybe_key, $maybe_value, $maybe_context> }.as_type()
-        } else {
-            quote {()}.as_type()
-        };
-        typ == maybe_map
-    } else {
-        false
-    }
-}
-
-comptime fn add_context_generic(typ: Type, context_generic: Type) -> Type {
-    let (def, mut generics) = typ.as_data_type().expect(
-        f"Storage containers must be generic structs of the form `Container<..., Context>`",
-    );
-    let name = def.name();
-
-    if is_storage_map(typ) {
-        generics[generics.len() - 2] = add_context_generic(generics[1], context_generic);
-        generics[generics.len() - 1] = context_generic;
-    } else {
-        generics[generics.len() - 1] = context_generic;
-    }
-
-    let generics = generics.map(|typ: Type| quote {$typ}).join(quote {,});
-    quote { $name<$generics> }.as_type()
 }

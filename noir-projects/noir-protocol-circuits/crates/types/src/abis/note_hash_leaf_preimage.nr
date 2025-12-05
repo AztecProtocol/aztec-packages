@@ -1,11 +1,6 @@
 global NOTE_HASH_LEAF_PREIMAGE_LENGTH: u32 = 1;
 
-use crate::{
-    address::aztec_address::AztecAddress,
-    merkle_tree::LeafPreimage,
-    side_effect::{Counted, Readable, Scoped},
-    traits::Empty,
-};
+use crate::{merkle_tree::LeafPreimage, side_effect::{Counted, Readable, Scoped}, traits::Empty};
 
 pub struct NoteHashLeafPreimage {
     pub value: Field,

@@ -10,44 +10,23 @@ use dep::aztec::{
     protocol_types::{
         address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
     },
-    state_vars::{private_set::OwnedPrivateSet, PrivateSet, storage::HasStorageSlot},
+    state_vars::{owned_state_variable::OwnedStateVariable, PrivateSet},
 };
 use dep::uint_note::uint_note::UintNote;
 use std::ops::Add;
 
 pub struct BalanceSet<Context> {
-    pub set: PrivateSet<UintNote, Context>,
+    set: PrivateSet<UintNote, Context>,
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Context> HasStorageSlot<1> for BalanceSet<Context> {
-    fn get_storage_slot(self) -> Field {
-        self.set.get_storage_slot()
+impl<Context> OwnedStateVariable<Context> for BalanceSet<Context> {
+    fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
+        Self { set: PrivateSet::new(context, storage_slot, owner) }
     }
 }
 
-impl<Context> BalanceSet<Context> {
-    pub fn new(context: Context, storage_slot: Field) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        Self { set: PrivateSet::new(context, storage_slot) }
-    }
-
-    pub fn at(self, owner: AztecAddress) -> OwnedBalanceSet<Context> {
-        OwnedBalanceSet::new(self.set.at(owner))
-    }
-}
-
-pub struct OwnedBalanceSet<Context> {
-    owned_set: OwnedPrivateSet<UintNote, Context>,
-}
-
-impl<Context> OwnedBalanceSet<Context> {
-    pub fn new(owned_set: OwnedPrivateSet<UintNote, Context>) -> Self {
-        Self { owned_set }
-    }
-}
-
-impl OwnedBalanceSet<UtilityContext> {
+impl BalanceSet<UtilityContext> {
     pub unconstrained fn balance_of(self: Self) -> u128 {
         self.balance_of_with_offset(0)
     }
@@ -55,7 +34,7 @@ impl OwnedBalanceSet<UtilityContext> {
     pub unconstrained fn balance_of_with_offset(self: Self, offset: u32) -> u128 {
         let mut balance = 0 as u128;
         let mut options = NoteViewerOptions::<UintNote, <UintNote as Packable>::N>::new();
-        let notes = self.owned_set.view_notes(options.set_offset(offset));
+        let notes = self.set.view_notes(options.set_offset(offset));
         for i in 0..options.limit {
             if i < notes.len() {
                 balance = balance + notes.get_unchecked(i).get_value();
@@ -69,17 +48,17 @@ impl OwnedBalanceSet<UtilityContext> {
     }
 }
 
-impl OwnedBalanceSet<&mut PrivateContext> {
+impl BalanceSet<&mut PrivateContext> {
     pub fn add(self: Self, addend: u128) -> OuterNoteEmission<UintNote> {
         let content = if addend == 0 as u128 {
             Option::none()
         } else {
             let addend_note = UintNote::new(addend);
 
-            Option::some(self.owned_set.insert(addend_note).content)
+            Option::some(self.set.insert(addend_note).content)
         };
 
-        OuterNoteEmission::new(content, self.owned_set.context)
+        OuterNoteEmission::new(content, self.set.context)
     }
 
     pub fn sub(self: Self, amount: u128) -> OuterNoteEmission<UintNote> {
@@ -109,7 +88,7 @@ impl OwnedBalanceSet<&mut PrivateContext> {
         let options = NoteGetterOptions::with_preprocessor(preprocess_notes_min_sum, target_amount)
             .sort(UintNote::properties().value, SortOrder.DESC)
             .set_limit(max_notes);
-        let notes = self.owned_set.pop_notes(options);
+        let notes = self.set.pop_notes(options);
 
         let mut subtracted = 0 as u128;
         for i in 0..options.limit {
@@ -151,6 +130,7 @@ pub fn preprocess_notes_min_sum(
 mod test {
     use crate::{test::utils, Token};
     use super::BalanceSet;
+    use aztec::state_vars::owned_state_variable::OwnedStateVariable;
 
     #[test]
     unconstrained fn subtract_balance_small_note_first() {
@@ -187,13 +167,13 @@ mod test {
             first_note_value + second_note_value,
         );
 
-        // We now instantiate a OwnedBalanceSet state variable for the recipient and subtract an amount equal to the smallest
+        // We now instantiate a BalanceSet state variable for the recipient and subtract an amount equal to the smallest
         // of the two notes. Because large notes are consumed first, we should see that a change note is created with
         // amount equal to large - small, indicating that the larger note was consumed regardless of the order in which
         // the notes were created.
         env.private_context_at(token_contract_address, |context| {
             let recipient_balance_set =
-                BalanceSet::new(context, Token::storage_layout().balances.slot).at(recipient);
+                BalanceSet::new(context, Token::storage_layout().balances.slot, recipient);
 
             let smaller_note_value = std::cmp::min(first_note_value, second_note_value);
             let larger_note_value = std::cmp::max(first_note_value, second_note_value);

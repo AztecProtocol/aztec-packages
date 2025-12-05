@@ -9,7 +9,7 @@ pub contract Child {
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},
-        state_vars::{PrivateSet, PublicMutable},
+        state_vars::{Owned, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
     use dep::value_note::value_note::ValueNote;
@@ -17,7 +17,7 @@ pub contract Child {
     #[storage]
     struct Storage<Context> {
         current_value: PublicMutable<Field, Context>,
-        private_values: PrivateSet<ValueNote, Context>,
+        private_values: Owned<PrivateSet<ValueNote, Context>, Context>,
     }
 
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
