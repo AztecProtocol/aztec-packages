@@ -240,7 +240,7 @@ This allows expressing the lookup as two subrelations:
 
 1. **Inverse correctness** (only checked where $a_i \neq 0$ or $q_{busread,i} = 1$):
 
-$$I_i \cdot (b_i + i\beta + \gamma)(w_{1,i} + w_{2,i}\beta + \gamma) - is\_{active}_i = 0$$
+$$I_i \cdot (b_i + i\beta + \gamma)(w_{1,i} + w_{2,i}\beta + \gamma) - \text{is\_active}_i = 0$$
 
 2. **Lookup relation**:
 
