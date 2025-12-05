@@ -7,7 +7,9 @@ pub contract StateVars {
         macros::{functions::{external, view}, storage::{storage, storage_no_init}},
         messages::message_delivery::MessageDelivery,
         protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
-        state_vars::{PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable},
+        state_vars::{
+            Owned, PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable, StateVariable,
+        },
     };
 
     use value_note::value_note::ValueNote;
@@ -21,8 +23,8 @@ pub contract StateVars {
     #[storage_no_init]
     struct Storage<Context> {
         mock_struct: PublicMutable<MockStruct, Context>,
-        private_mutable: PrivateMutable<ValueNote, Context>,
-        private_immutable: PrivateImmutable<ValueNote, Context>,
+        private_mutable: Owned<PrivateMutable<ValueNote, Context>, Context>,
+        private_immutable: Owned<PrivateImmutable<ValueNote, Context>, Context>,
         public_immutable: PublicImmutable<MockStruct, Context>,
     }
 
@@ -30,8 +32,8 @@ pub contract StateVars {
         fn init(context: Context) -> Self {
             Storage {
                 mock_struct: PublicMutable::new(context, 1),
-                private_mutable: PrivateMutable::new(context, 3),
-                private_immutable: PrivateImmutable::new(context, 6),
+                private_mutable: Owned::new(context, 3),
+                private_immutable: Owned::new(context, 6),
                 public_immutable: PublicImmutable::new(context, 7),
             }
         }
