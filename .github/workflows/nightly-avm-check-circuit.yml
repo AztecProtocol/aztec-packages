@@ -21,8 +21,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          # TODO: Change back to 'ref: next' after testing from PR
-          #ref: next
+          ref: next
           persist-credentials: false
 
       - name: Run AVM Check-Circuit

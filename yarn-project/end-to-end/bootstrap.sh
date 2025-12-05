@@ -173,8 +173,14 @@ function test_and_collect_avm_inputs {
 # Generates commands to run avm_check_circuit on all dumped AVM circuit inputs
 function avm_check_circuit_cmds {
   local bb_avm="barretenberg/cpp/build/bin/bb-avm"
-  # Commands run from repo root via parallelize, so use full path
+  # Commands run from repo root via parallelize, so use path from top
   local dump_dir_from_top="yarn-project/end-to-end/$default_avm_inputs_dump_dir"
+
+  # Specify timeout and resources
+  # WARNING: theoretically, transactions could need more CPU and MEM than we allocate here.
+  # In that case, they might start timing out. For now, all of the e2e test txs seem to be relatively
+  # small and the AVM can run check-circuit with limited resources.
+  local prefix="$hash:ISOLATE=1:TIMEOUT=20s:CPUS=8:MEM=8g"
 
   # Find all .bin files in the dump directory (handles nested dirs)
   for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin; do
@@ -197,7 +203,7 @@ function avm_check_circuit_cmds {
 
     # Use full path from repo root for the command (parallelize runs from there)
     local input_path="$dump_dir_from_top/$rel_path"
-    echo "$hash:NAME=$name $bb_avm avm_check_circuit --avm-inputs $input_path"
+    echo "$prefix:NAME=$name $bb_avm avm_check_circuit -v --avm-inputs $input_path"
   done
 }
 
@@ -217,8 +223,8 @@ function avm_check_circuit {
     exit 1
   fi
 
-  # Run check-circuit serially (1 job at a time) - avm is resource-intensive
-  avm_check_circuit_cmds | parallelize 1
+  # Run check-circuit
+  avm_check_circuit_cmds | parallelize
 }
 
 case "$cmd" in

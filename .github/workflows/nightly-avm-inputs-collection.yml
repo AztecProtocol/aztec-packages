@@ -1,8 +1,6 @@
 name: Nightly AVM Circuit Inputs Collection
 
 on:
-  # TODO: Remove pull_request trigger after testing
-  pull_request:
   schedule:
     # Run nightly at 3:00 AM UTC
     - cron: "0 3 * * *"
@@ -19,8 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          # TODO: Change back to 'ref: next' after testing from PR
-          #ref: next
+          ref: next
           persist-credentials: false
 
       - name: Collect AVM Circuit Inputs
