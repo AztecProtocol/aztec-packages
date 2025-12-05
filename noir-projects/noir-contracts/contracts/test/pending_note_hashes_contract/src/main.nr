@@ -17,13 +17,13 @@ pub contract PendingNoteHashes {
             constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL},
             traits::{Packable, ToField},
         },
-        state_vars::PrivateSet,
+        state_vars::{Owned, PrivateSet},
     };
     use value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
     #[storage]
     struct Storage<Context> {
-        balances: PrivateSet<ValueNote, Context>,
+        balances: Owned<PrivateSet<ValueNote, Context>, Context>,
     }
 
     // TODO(dbanks12): consolidate code into internal helper functions

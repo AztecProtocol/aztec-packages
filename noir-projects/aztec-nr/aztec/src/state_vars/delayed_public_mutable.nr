@@ -10,7 +10,7 @@ use dep::protocol_types::{
 
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
-    state_vars::storage::HasStorageSlot,
+    state_vars::state_variable::StateVariable,
     utils::with_hash::WithHash,
 };
 
@@ -19,17 +19,6 @@ mod test;
 pub struct DelayedPublicMutable<T, let InitialDelay: u64, Context> {
     context: Context,
     storage_slot: Field,
-}
-
-// This will make the Aztec macros require that T implements the Packable and Eq traits, and allocate `M + 1` storage
-// slots to this state variable.
-impl<T, let InitialDelay: u64, Context, let M: u32> HasStorageSlot<M + 1> for DelayedPublicMutable<T, InitialDelay, Context>
-where
-    DelayedPublicMutableValues<T, InitialDelay>: Packable<N = M>,
-{
-    fn get_storage_slot(self) -> Field {
-        self.storage_slot
-    }
 }
 
 // DelayedPublicMutable<T> stores a value of type T that is:
@@ -43,10 +32,20 @@ where
 // too far into the future, so that they can guarantee the value will not have possibly changed by then (because of the
 // delay). The delay for changing a value is initially equal to InitialDelay, but can be changed by calling
 // `schedule_delay_change`.
-impl<T, let InitialDelay: u64, Context> DelayedPublicMutable<T, InitialDelay, Context> {
-    pub fn new(context: Context, storage_slot: Field) -> Self {
+//
+// This implementation requires that T implements the Packable and Eq traits, and allocates `M + 1` storage slots to
+// this state variable.
+impl<T, let InitialDelay: u64, Context, let M: u32> StateVariable<M + 1, Context> for DelayedPublicMutable<T, InitialDelay, Context>
+where
+    DelayedPublicMutableValues<T, InitialDelay>: Packable<N = M>,
+{
+    fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
+    }
+
+    fn get_storage_slot(self) -> Field {
+        self.storage_slot
     }
 }
 

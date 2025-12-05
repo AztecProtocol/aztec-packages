@@ -1,8 +1,5 @@
-/// State variables must implement this trait in order to placed in the storage struct (i.e. the one marked with the
-/// #[storage] attribute). The `N` value determines how many storage slots will be reserved for the state variable.
-pub trait HasStorageSlot<let N: u32> {
-    fn get_storage_slot(self) -> Field;
-}
+// TODO(benesjan): This is just for the macro-generated StorageLayout struct. It seems strange to have it here and
+// the file needs renaming to storable.nr.
 
 // Struct representing an exportable storage variable in the contract
 // Every entry in the storage struct will be exported in the compilation artifact as a
