@@ -445,15 +445,16 @@ precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
 
 // num_p_limbs is stored in a precomputed table that supports radix values in the range [0, 256].
 // To ensure the lookup never fails if radix > 256, we just set num_p_limbs to 32.
-// It is expected that an error will later be thrown when the to_radix subtrace validates the radix (located in register[1])
+// It is expected that an error will later be thrown when the to_radix subtrace validates
+// the radix (located in register[1]).
 
-// TODO: Theoretically, because we have access to a GreaterThan gadget - we could compare 257 > radix (instead of radix > 256)
-//       This potentially more optimal for the circuit as the boolen result of this can be used directly in the GET_SAFE_LIMBS lookup
-
-// In reality to keep the simulator cleaner and more sane, we will perform radix > 256.
 pol commit two_five_six;
 sel_gas_to_radix * (two_five_six - 256) = 0; // While we don't support constants in lookups
 
+// Note that this check is performed again in to_radix_mem.pil (#[CHECK_RADIX_GT_256]) but
+// for simplicify reason we do not want to pass selector `sel_radix_gt_256` through the
+// dispatching permutation (#[DISPATCH_TO_TO_RADIX]) to the to_radix subtrace. This would
+// make simulator code less readable (to_radix would not be self-contained).
 pol commit sel_radix_gt_256; // sel_radix_gt_256 = 1 iff radix > 256
 #[CHECK_RADIX_GT_256]
 sel_gas_to_radix { /*radix=*/register[1], two_five_six, sel_radix_gt_256 }
@@ -467,7 +468,7 @@ sel_lookup_num_p_limbs = sel_gas_to_radix * (1 - sel_radix_gt_256);
 // If radix > 256, num_p_limbs has to equal 32 - otherwise we rely on the lookup
 pol commit num_p_limbs;
 #[NUM_P_LIMBS_CEIL]
-sel_gas_to_radix * (sel_radix_gt_256 * (num_p_limbs - 32)) = 0;
+sel_gas_to_radix * sel_radix_gt_256 * (num_p_limbs - 32) = 0;
 
 #[GET_P_LIMBS]
 sel_lookup_num_p_limbs { /*radix=*/register[1], num_p_limbs }
@@ -476,7 +477,7 @@ precomputed.sel_to_radix_p_limb_counts
     { precomputed.clk, precomputed.to_radix_num_limbs_for_p };
 
 // We now compute the dynamic l2 gas factor as max(num_limbs, num_p_limbs)
-// The easiest way to do this is to do check if num_limbs > num_p_limbs.
+// The easiest way to do this is to check if `num_limbs > num_p_limbs`.
 // If so then dynamic_l2_gas_factor = num_limbs
 // Otherwise dynamic_l2_gas_factor = num_p_limbs
 pol commit sel_use_num_limbs;
