@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct OwnedPrivateSet documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">OwnedPrivateSet</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -52,7 +58,7 @@ Obtained by calling <code>PrivateSet::at(owner)</code>.</p>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_set/struct.OwnedPrivateSet.html" class="struct">OwnedPrivateSet</a>&lt;Note, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="insert" class="code-header">pub fn <span class="fn">insert</span>(self, note: Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
+<div class="padded-methods"><code id="insert" class="code-header">pub fn <a href="#insert"><span class="fn">insert</span></a>(self, note: Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
@@ -131,7 +137,7 @@ yield a <code>unique_siloed_note_hash</code> (see the protocol spec for more).</
 </li>
 </ul>
 </div>
-</div><code id="pop_notes" class="code-header">pub fn <span class="fn">pop_notes</span>&lt;PreprocessorArgs, FilterArgs, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+</div><code id="pop_notes" class="code-header">pub fn <a href="#pop_notes"><span class="fn">pop_notes</span></a>&lt;PreprocessorArgs, FilterArgs, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     self,
     options: <a href="../../../noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html" class="struct">NoteGetterOptions</a>&lt;Note, M, PreprocessorArgs, FilterArgs&gt;,
 ) -> <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;Note, 16&gt;
@@ -228,7 +234,7 @@ supports efficient non-membership proofs.</li>
 </li>
 </ul>
 </div>
-</div><code id="remove" class="code-header">pub fn <span class="fn">remove</span>(self, retrieved_note: <a href="../../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;)
+</div><code id="remove" class="code-header">pub fn <a href="#remove"><span class="fn">remove</span></a>(self, retrieved_note: <a href="../../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;)
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
@@ -270,7 +276,7 @@ easier ways to customize your own note encryption options.</p>
 </li>
 </ul>
 </div>
-</div><code id="get_notes" class="code-header">pub fn <span class="fn">get_notes</span>&lt;PreprocessorArgs, FilterArgs, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+</div><code id="get_notes" class="code-header">pub fn <a href="#get_notes"><span class="fn">get_notes</span></a>&lt;PreprocessorArgs, FilterArgs, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     self,
     options: <a href="../../../noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html" class="struct">NoteGetterOptions</a>&lt;Note, M, PreprocessorArgs, FilterArgs&gt;,
 ) -> <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;, 16&gt;
@@ -345,7 +351,7 @@ note was indeed emitted by some earlier execution frame of this tx.</li>
 </div>
 </div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_set/struct.OwnedPrivateSet.html" class="struct">OwnedPrivateSet</a>&lt;Note, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="view_notes" class="code-header">pub unconstrained fn <span class="fn">view_notes</span>(
+<div class="padded-methods"><code id="view_notes" class="code-header">pub unconstrained fn <a href="#view_notes"><span class="fn">view_notes</span></a>(
     self,
     options: <a href="../../../noir_aztec/note/note_viewer_options/struct.NoteViewerOptions.html" class="struct">NoteViewerOptions</a>&lt;Note, &lt;Note as Packable&gt;::N&gt;,
 ) -> <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;Note, 10&gt;
@@ -370,5 +376,6 @@ call to the PXE.</li>
 </div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/private_set/struct.OwnedPrivateSet.html" class="struct">OwnedPrivateSet</a>&lt;Note, Context&gt;</code></h3>
 
 <div class="padded-methods"></div></main>
+</span>
 </body>
 </html>
