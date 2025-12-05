@@ -16,8 +16,8 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsgo -b",
-    "build:dev": "tsgo -b --watch",
+    "build": "yarn clean && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "start:dev": "concurrently -k \"tsgo -b -w\" \"nodemon --watch dest --exec yarn start\"",
     "start": "node ./dest/index.js",
