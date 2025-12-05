@@ -504,8 +504,8 @@ contract DeployL1Contracts is Script, Test {
 
             console.log("--- Transaction: CoinIssuer.transferOwnership ---");
             console.log("  to:", coinIssuer);
-            console.log("  newOwner:", governance);
-            CoinIssuer(coinIssuer).transferOwnership(governance); // Match TypeScript: transfer to Governance, not DateGatedRelayer
+            console.log("  newOwner:", dateGatedRelayer);
+            CoinIssuer(coinIssuer).transferOwnership(dateGatedRelayer); // Match TypeScript: transfer to DateGatedRelayer
         }
     }
 
@@ -522,7 +522,7 @@ contract DeployL1Contracts is Script, Test {
 
         if (existingStakingAssetAddress == address(0)) {
             assertEq(Ownable(feeAsset).owner(), coinIssuer, "invalid fee asset owner");
-            assertEq(Ownable(coinIssuer).owner(), governance, "invalid coin issuer owner"); // Match TypeScript: ownership to Governance
+            assertEq(Ownable(coinIssuer).owner(), dateGatedRelayer, "invalid coin issuer owner"); // Match TypeScript: ownership to DateGatedRelayer
         }
     }
 
