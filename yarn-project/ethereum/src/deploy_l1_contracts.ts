@@ -1516,6 +1516,7 @@ export const deployL1Contracts = async (
   if (isAnvilTestChain(chain.id)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
     //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
+    //        This is critical to avoid HeaderLib__InvalidSlotNumber errors when the rollup processes new block headers.
     try {
       // Need to get the time
       const currentSlot = await rollup.getSlotNumber();
@@ -1524,12 +1525,12 @@ export const deployL1Contracts = async (
         const ts = Number(await rollup.getTimestampForSlot(SlotNumber(1)));
         await rpcCall('evm_setNextBlockTimestamp', [ts]);
         await rpcCall('hardhat_mine', [1]);
-        const currentSlot = await rollup.getSlotNumber();
+        const newSlot = await rollup.getSlotNumber();
 
-        if (currentSlot !== 1) {
-          throw new Error(`Error jumping time: current slot is ${currentSlot}`);
+        if (newSlot !== 1) {
+          throw new Error(`Error jumping time: current slot is ${newSlot}, expected 1`);
         }
-        logger.info(`Jumped to slot 1`);
+        logger.info(`Jumped to slot 1 to ensure block headers validate correctly`);
       }
     } catch (e) {
       throw new Error(`Error jumping time: ${e}`);

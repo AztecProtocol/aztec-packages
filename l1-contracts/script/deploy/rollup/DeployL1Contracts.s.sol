@@ -372,6 +372,35 @@ contract DeployL1Contracts is Script, Test {
         console.log("  rollupConfig.targetCommitteeSize:", rollupConfig.targetCommitteeSize);
         console.log("  rollupConfig.aztecProofSubmissionEpochs:", rollupConfig.aztecProofSubmissionEpochs);
         console.log("  rollupConfig.slasherFlavor:", uint8(rollupConfig.slasherFlavor));
+        console.log("  rollupConfig.lagInEpochsForValidatorSet:", rollupConfig.lagInEpochsForValidatorSet);
+        console.log("  rollupConfig.lagInEpochsForRandao:", rollupConfig.lagInEpochsForRandao);
+        console.log("  rollupConfig.slashingQuorum:", rollupConfig.slashingQuorum);
+        console.log("  rollupConfig.slashingRoundSize:", rollupConfig.slashingRoundSize);
+        console.log("  rollupConfig.manaTarget:", rollupConfig.manaTarget);
+        console.log("  rollupConfig.provingCostPerMana:", EthValue.unwrap(rollupConfig.provingCostPerMana));
+        console.log("  rollupConfig.slashingOffsetInRounds:", rollupConfig.slashingOffsetInRounds);
+        console.log("  rollupConfig.slashAmounts[0]:", rollupConfig.slashAmounts[0]);
+        console.log("  rollupConfig.slashAmounts[1]:", rollupConfig.slashAmounts[1]);
+        console.log("  rollupConfig.slashAmounts[2]:", rollupConfig.slashAmounts[2]);
+        console.log("  rollupConfig.exitDelaySeconds:", rollupConfig.exitDelaySeconds);
+        console.log("  rollupConfig.localEjectionThreshold:", rollupConfig.localEjectionThreshold);
+        console.log("  rollupConfig.slashingDisableDuration:", rollupConfig.slashingDisableDuration);
+        console.log("  rollupConfig.slashingLifetimeInRounds:", rollupConfig.slashingLifetimeInRounds);
+        console.log("  rollupConfig.slashingExecutionDelayInRounds:", rollupConfig.slashingExecutionDelayInRounds);
+        console.log("  rollupConfig.rewardConfig.sequencerBps:", Bps.unwrap(rollupConfig.rewardConfig.sequencerBps));
+        console.log("  rollupConfig.rewardConfig.checkpointReward:", rollupConfig.rewardConfig.checkpointReward);
+        console.log("  rollupConfig.rewardBoostConfig.increment:", rollupConfig.rewardBoostConfig.increment);
+        console.log("  rollupConfig.rewardBoostConfig.maxScore:", rollupConfig.rewardBoostConfig.maxScore);
+        console.log("  rollupConfig.rewardBoostConfig.a:", rollupConfig.rewardBoostConfig.a);
+        console.log("  rollupConfig.rewardBoostConfig.k:", rollupConfig.rewardBoostConfig.k);
+        console.log("  rollupConfig.rewardBoostConfig.minimum:", rollupConfig.rewardBoostConfig.minimum);
+        console.log("  rollupConfig.stakingQueueConfig.bootstrapValidatorSetSize:", rollupConfig.stakingQueueConfig.bootstrapValidatorSetSize);
+        console.log("  rollupConfig.stakingQueueConfig.bootstrapFlushSize:", rollupConfig.stakingQueueConfig.bootstrapFlushSize);
+        console.log("  rollupConfig.stakingQueueConfig.normalFlushSizeMin:", rollupConfig.stakingQueueConfig.normalFlushSizeMin);
+        console.log("  rollupConfig.stakingQueueConfig.normalFlushSizeQuotient:", rollupConfig.stakingQueueConfig.normalFlushSizeQuotient);
+        console.log("  rollupConfig.stakingQueueConfig.maxQueueFlushSize:", rollupConfig.stakingQueueConfig.maxQueueFlushSize);
+        console.log("  rollupConfig.version:", rollupConfig.version);
+        console.log("  rollupConfig.earliestRewardsClaimableTimestamp:", Timestamp.unwrap(rollupConfig.earliestRewardsClaimableTimestamp));
 
         return address(new Rollup(
             IERC20(feeAsset),
