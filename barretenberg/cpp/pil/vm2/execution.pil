@@ -387,8 +387,46 @@ pol commit expected_tag_reg[6];
 pol commit sel_should_check_gas;
 // Note that sel == 0 ==> sel_should_check_gas = 0 by transitive reasoning.
 sel_should_check_gas = sel_should_read_registers * (1 - sel_register_read_error);
-// NOTE: Gas is constrained in gas.pil.
+// NOTE: Gas is constrained in gas.pil but we set here the following dynamic gas factors
+// declared in gas.pil:
+// - dynamic_l2_gas_factor
+// - dynamic_da_gas_factor
+
 // The "output we want is" sel_out_of_gas from gas.pil.
+
+//////////////////////////////////////////
+// Dynamic Gas Selectors Dispatching
+//////////////////////////////////////////
+
+pol commit dyn_gas_id; // from precomputed.pil (#[EXEC_SPEC_READ])
+
+// Dynamic gas opcode selectors.
+// Each of these selectors takes into account both which opcode we are considering executing
+// and whether there was any error before the actual gas step. Therefore, the
+// selector can be used to gate the execution of the (dynamic) gas logic.
+pol commit sel_gas_calldata_copy;
+pol commit sel_gas_returndata_copy;
+pol commit sel_gas_to_radix;
+pol commit sel_gas_bitwise;
+pol commit sel_gas_emit_unencrypted_log;
+pol commit sel_gas_sstore;
+sel_gas_calldata_copy * (1 - sel_gas_calldata_copy) = 0;
+sel_gas_returndata_copy * (1 - sel_gas_returndata_copy) = 0;
+sel_gas_to_radix * (1 - sel_gas_to_radix) = 0;
+sel_gas_bitwise * (1 - sel_gas_bitwise) = 0;
+sel_gas_emit_unencrypted_log * (1 - sel_gas_emit_unencrypted_log) = 0;
+sel_gas_sstore * (1 - sel_gas_sstore) = 0;
+
+#[DYN_GAS_ID_DECOMPOSITION]
+sel_gas_calldata_copy * constants.AVM_DYN_GAS_ID_CALLDATACOPY +
+sel_gas_returndata_copy * constants.AVM_DYN_GAS_ID_RETURNDATACOPY +
+sel_gas_to_radix * constants.AVM_DYN_GAS_ID_TORADIX +
+sel_gas_bitwise * constants.AVM_DYN_GAS_ID_BITWISE +
+sel_gas_emit_unencrypted_log * constants.AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG +
+sel_gas_sstore * constants.AVM_DYN_GAS_ID_SSTORE
+// We force the selectors to be 0 if we failed before gas checks
+// or when we are not in the execution subtrace.
+= sel_should_check_gas * dyn_gas_id;
 
 //////////////////////////////////////////
 // Bitwise, Dynamic L2 Gas Calculation
@@ -503,10 +541,9 @@ sel_should_execute_opcode = sel_should_check_gas * (1 - sel_out_of_gas);
 pol commit sel_opcode_error;
 sel_opcode_error * (1 - sel_opcode_error) = 0;
 
-// Decomposed selectors (from precomputed)
+// Decomposed selectors (from precomputed.pil see #[EXEC_SPEC_READ])
 pol commit subtrace_id;
 pol commit subtrace_operation_id;
-pol commit dyn_gas_id;
 
 // Subtrace Dispatch selectors.
 // Each of these selectors takes into account both which opcode we are considering executing
@@ -635,34 +672,6 @@ sel_execute_send_l2_to_l1_msg * constants.AVM_EXEC_OP_ID_SENDL2TOL1MSG
 // of execution subtrace. Note that sel_should_execute_opcode == 0
 // implies sel_exec_dispatch_execution == 0. (#[SUBTRACE_ID_DECOMPOSITION])
 = sel_exec_dispatch_execution * subtrace_operation_id;
-
-// Dynamic gas opcode selectors.
-// Each of these selectors takes into account both which opcode we are considering executing
-// and whether there was any error before the actual gas step. Therefore, the
-// selector can be used to gate the execution of the (dynamic) gas logic.
-pol commit sel_gas_calldata_copy;
-pol commit sel_gas_returndata_copy;
-pol commit sel_gas_to_radix;
-pol commit sel_gas_bitwise;
-pol commit sel_gas_emit_unencrypted_log;
-pol commit sel_gas_sstore;
-sel_gas_calldata_copy * (1 - sel_gas_calldata_copy) = 0;
-sel_gas_returndata_copy * (1 - sel_gas_returndata_copy) = 0;
-sel_gas_to_radix * (1 - sel_gas_to_radix) = 0;
-sel_gas_bitwise * (1 - sel_gas_bitwise) = 0;
-sel_gas_emit_unencrypted_log * (1 - sel_gas_emit_unencrypted_log) = 0;
-sel_gas_sstore * (1 - sel_gas_sstore) = 0;
-
-#[DYN_GAS_ID_DECOMPOSITION]
-sel_gas_calldata_copy * constants.AVM_DYN_GAS_ID_CALLDATACOPY +
-sel_gas_returndata_copy * constants.AVM_DYN_GAS_ID_RETURNDATACOPY +
-sel_gas_to_radix * constants.AVM_DYN_GAS_ID_TORADIX +
-sel_gas_bitwise * constants.AVM_DYN_GAS_ID_BITWISE +
-sel_gas_emit_unencrypted_log * constants.AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG +
-sel_gas_sstore * constants.AVM_DYN_GAS_ID_SSTORE
-// We force the selectors to be 0 if we failed before gas checks
-// or when we are not in the execution subtrace.
-= sel_should_check_gas * dyn_gas_id;
 
 // Whether the opcode logic failed.
 pol commit sel_opcode_failure;
