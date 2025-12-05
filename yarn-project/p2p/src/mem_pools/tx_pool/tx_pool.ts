@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -102,7 +103,7 @@ export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
    * Gets the hashes of mined transactions currently in the tx pool.
    * @returns An array of mined transaction hashes found in the tx pool.
    */
-  getMinedTxHashes(): Promise<[tx: TxHash, blockNumber: number][]>;
+  getMinedTxHashes(): Promise<[tx: TxHash, blockNumber: BlockNumber][]>;
 
   /**
    * Returns whether the given tx hash is flagged as pending, mined, or deleted.
@@ -131,5 +132,5 @@ export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
    * @param blockNumber - Block number threshold. Deleted mined txs from this block or earlier will be permanently deleted.
    * @returns The number of transactions permanently deleted.
    */
-  cleanupDeletedMinedTxs(blockNumber: number): Promise<number>;
+  cleanupDeletedMinedTxs(blockNumber: BlockNumber): Promise<number>;
 }

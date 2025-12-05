@@ -1,4 +1,4 @@
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -93,7 +93,7 @@ export const makeGlobals = (
   return GlobalVariables.from({
     chainId: checkpointConstants.chainId,
     version: checkpointConstants.version,
-    blockNumber /** block number */,
+    blockNumber: BlockNumber(blockNumber) /** block number */,
     slotNumber: SlotNumber(slotNumber) /** slot number */,
     timestamp: BigInt(blockNumber * 123) /** block number * 123 as pseudo-timestamp for testing */,
     coinbase: checkpointConstants.coinbase,

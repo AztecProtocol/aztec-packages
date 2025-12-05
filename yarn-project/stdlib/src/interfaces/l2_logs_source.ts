@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields';
 
 import type { LogFilter } from '../logs/log_filter.js';
@@ -15,7 +16,7 @@ export interface L2LogsSource {
    * @param limit - The maximum number of blocks to retrieve logs from.
    * @returns An array of private logs from the specified range of blocks.
    */
-  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]>;
+  getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]>;
 
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
@@ -44,5 +45,5 @@ export interface L2LogsSource {
    * Gets the number of the latest L2 block processed by the implementation.
    * @returns The number of the latest L2 block processed by the implementation.
    */
-  getBlockNumber(): Promise<number>;
+  getBlockNumber(): Promise<BlockNumber>;
 }

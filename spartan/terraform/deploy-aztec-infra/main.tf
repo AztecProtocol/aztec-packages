@@ -67,6 +67,9 @@ locals {
     tag        = split(":", var.AZTEC_DOCKER_IMAGE)[1]
   }
 
+  # Detect local kind context (e.g., "kind-kind") to gate Service types
+  is_kind = can(regex("^kind", var.K8S_CLUSTER_CONTEXT))
+
   internal_boot_node_url = var.DEPLOY_INTERNAL_BOOTNODE ? "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080" : ""
 
   internal_rpc_url       = "http://${var.RELEASE_PREFIX}-rpc-aztec-node.${var.NAMESPACE}.svc.cluster.local:8080"
@@ -118,8 +121,14 @@ locals {
         "p2p-bootstrap.yaml",
         "p2p-bootstrap-resources-${var.P2P_BOOTSTRAP_RESOURCE_PROFILE}.yaml"
       ]
+      inline_values = [yamlencode({
+        service = {
+          p2p = { publicIP = var.P2P_PUBLIC_IP }
+        }
+      })]
       custom_settings = {
-        "nodeType" = "p2p-bootstrap"
+        "nodeType"                    = "p2p-bootstrap"
+        "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -134,7 +143,15 @@ locals {
         "validator.yaml",
         "validator-resources-${var.VALIDATOR_RESOURCE_PROFILE}.yaml"
       ]
+      inline_values = [yamlencode({
+        validator = {
+          service = {
+            p2p = { publicIP = var.P2P_PUBLIC_IP }
+          }
+        }
+      })]
       custom_settings = {
+        "validator.service.p2p.nodePortEnabled"                   = var.P2P_NODEPORT_ENABLED
         "validator.web3signerUrl"                                  = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "validator.mnemonic"                                       = var.VALIDATOR_MNEMONIC
         "validator.mnemonicStartIndex"                             = var.VALIDATOR_MNEMONIC_START_INDEX
@@ -194,6 +211,13 @@ locals {
         "prover.yaml",
         "prover-resources-${var.PROVER_RESOURCE_PROFILE}.yaml"
       ]
+      inline_values = [yamlencode({
+        node = {
+          service = {
+            p2p = { publicIP = var.P2P_PUBLIC_IP }
+          }
+        }
+      })]
       custom_settings = merge(
         {
           "node.mnemonic"                                       = var.PROVER_MNEMONIC
@@ -232,6 +256,7 @@ locals {
           "node.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
           "node.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
           "node.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
+          "node.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
         },
         # Only set web3signerUrl if proof publishing is enabled
         !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
@@ -253,6 +278,7 @@ locals {
       ]
       inline_values = var.RPC_INGRESS_ENABLED ? [yamlencode({
         service = {
+          p2p = { publicIP = var.P2P_PUBLIC_IP }
           rpc = {
             annotations = {
               "cloud.google.com/neg" = jsonencode({ ingress = true })
@@ -272,11 +298,12 @@ locals {
             }
           }
         }
-        })] : [yamlencode({
+      })] : [yamlencode({
         service = {
+          p2p = { publicIP = var.P2P_PUBLIC_IP }
           rpc = {
             enabled = true
-            type    = "LoadBalancer"
+            type    = local.is_kind ? "ClusterIP" : "LoadBalancer"
           }
         }
       })]
@@ -284,6 +311,9 @@ locals {
       custom_settings = merge({
         "nodeType"                                    = "rpc"
         "replicaCount"                                = var.RPC_REPLICAS
+        "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
+
+        # Ensure the JSON-RPC server binds the same port the probe checks
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "ingress.rpc.enabled"                         = var.RPC_INGRESS_ENABLED
         "ingress.rpc.host"                            = var.RPC_INGRESS_HOST
@@ -327,9 +357,15 @@ locals {
         "full-node.yaml",
         "full-node-resources-${var.FULL_NODE_RESOURCE_PROFILE}.yaml"
       ]
+      inline_values = [yamlencode({
+        service = {
+          p2p = { publicIP = var.P2P_PUBLIC_IP }
+        }
+      })]
       custom_settings = {
         "nodeType"                                    = "full-node"
         "replicaCount"                                = var.FULL_NODE_REPLICAS
+        "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
@@ -360,8 +396,14 @@ locals {
         "archive.yaml",
         "archive-resources-dev.yaml"
       ]
+      inline_values = [yamlencode({
+        service = {
+          p2p = { publicIP = var.P2P_PUBLIC_IP }
+        }
+      })]
       custom_settings = {
         "nodeType"                                    = "archive"
+        "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
         "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS

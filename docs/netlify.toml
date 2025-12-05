@@ -4,6 +4,13 @@
   command = "yarn build"
   functions = "netlify/functions"
 
+# Install nargo only for preview deploys (not needed for production)
+[context.deploy-preview]
+  command = "./scripts/netlify-preview-build.sh"
+
+[context.branch-deploy]
+  command = "./scripts/netlify-preview-build.sh"
+
 [[redirects]]
     from = "/try_testnet"
     to = "/ignition_info"

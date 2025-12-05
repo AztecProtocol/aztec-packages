@@ -1,5 +1,6 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 
@@ -107,14 +108,14 @@ describe('buildNoteHashReadRequestHints', () => {
 
   it('builds hints for pending note hash read requests', async () => {
     readPendingNoteHash(2);
-    readPendingNoteHash(1);
+    readPendingNoteHash(BlockNumber(1));
     const hints = await buildHints();
     expect(hints).toEqual(expectedHints);
   });
 
   it('builds hints for settled note hash read requests', async () => {
     readSettledNoteHash(0);
-    readSettledNoteHash(1);
+    readSettledNoteHash(BlockNumber(1));
     const hints = await buildHints();
     expect(hints).toEqual(expectedHints);
   });
@@ -124,9 +125,9 @@ describe('buildNoteHashReadRequestHints', () => {
     readSettledNoteHash(2);
     readSettledNoteHash(0);
     readFutureNoteHash(0);
-    readPendingNoteHash(1);
-    readFutureNoteHash(1);
-    readPendingNoteHash(1);
+    readPendingNoteHash(BlockNumber(1));
+    readFutureNoteHash(BlockNumber(1));
+    readPendingNoteHash(BlockNumber(1));
     readSettledNoteHash(2);
     const hints = await buildHints();
     expect(hints).toEqual(expectedHints);

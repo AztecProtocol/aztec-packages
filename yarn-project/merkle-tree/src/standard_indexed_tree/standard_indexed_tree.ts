@@ -1,4 +1,5 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { FromBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
@@ -595,11 +596,11 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     return fullSiblingPath.getSubtreeSiblingPath(subtreeHeight);
   }
 
-  snapshot(blockNumber: number): Promise<IndexedTreeSnapshot> {
+  snapshot(blockNumber: BlockNumber): Promise<IndexedTreeSnapshot> {
     return this.#snapshotBuilder.snapshot(blockNumber);
   }
 
-  getSnapshot(blockNumber: number): Promise<IndexedTreeSnapshot> {
+  getSnapshot(blockNumber: BlockNumber): Promise<IndexedTreeSnapshot> {
     return this.#snapshotBuilder.getSnapshot(blockNumber);
   }
 

@@ -82,7 +82,7 @@ describe('abi/encoder', () => {
     };
 
     const str = 'abc';
-    // As bigints padded with 0 for length 4. ("a" = 97, "b" = 98, "c" = 99, 0)
+    // As bigints padded with 0 for length 4. ("a" = 97, "b" = 98, "c" = 99, BlockNumber.ZERO)
     const expected = [new Fr(97), new Fr(98), new Fr(99), new Fr(0)];
     expect(encodeArguments(abi, [str])).toEqual(expected);
   });

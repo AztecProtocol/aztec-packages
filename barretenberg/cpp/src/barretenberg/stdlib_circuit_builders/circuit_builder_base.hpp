@@ -93,7 +93,7 @@ template <typename FF_> class CircuitBuilderBase {
     std::vector<uint32_t> real_variable_tags;
     uint32_t current_tag = DUMMY_TAG;
 
-    CircuitBuilderBase(size_t size_hint = 0, bool has_dummy_witnesses = false);
+    CircuitBuilderBase(size_t size_hint = 0, bool is_write_vk_mode = false);
 
     CircuitBuilderBase(const CircuitBuilderBase& other) = default;
     CircuitBuilderBase(CircuitBuilderBase&& other) noexcept = default;
@@ -129,6 +129,7 @@ template <typename FF_> class CircuitBuilderBase {
      */
     inline FF get_variable(const uint32_t index) const
     {
+        BB_ASSERT_DEBUG(real_variable_index.size() > index);
         BB_ASSERT_DEBUG(variables.size() > real_variable_index[index]);
         return variables[real_variable_index[index]];
     }
@@ -145,8 +146,9 @@ template <typename FF_> class CircuitBuilderBase {
      */
     inline void set_variable(const uint32_t index, const FF& value)
     {
+        BB_ASSERT(is_write_vk_mode());
+        BB_ASSERT_DEBUG(real_variable_index.size() > index);
         BB_ASSERT_DEBUG(variables.size() > real_variable_index[index]);
-        BB_ASSERT(has_dummy_witnesses());
         variables[real_variable_index[index]] = value;
     }
 
@@ -211,8 +213,8 @@ template <typename FF_> class CircuitBuilderBase {
     bool _failed = false;
     std::string _err;
 
-    // True if we have dummy witnesses; Used to disable certain warnings in the write_vk context
-    bool _has_dummy_witnesses = false;
+    // True if we are writing a vk; used to disable certain warnings
+    bool _is_write_vk_mode = false;
 
   protected:
     std::unordered_map<uint32_t, std::string> variable_names;
@@ -243,7 +245,7 @@ template <typename FF_> class CircuitBuilderBase {
      */
     mutable PairingPointsTagging pairing_points_tagging;
 
-    bool has_dummy_witnesses() const { return _has_dummy_witnesses; }
+    bool is_write_vk_mode() const { return _is_write_vk_mode; }
 };
 
 /**

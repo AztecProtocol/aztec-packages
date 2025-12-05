@@ -26,8 +26,6 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     static constexpr size_t num_polynomials = 7;
     // Number of shiftable polynomials
     static constexpr size_t num_shiftable = 2;
-    // Number of polynomials to be right shifted by k
-    static constexpr size_t num_right_shiftable_by_k = 2;
 
     // The length of the mock sumcheck univariates.
     static constexpr size_t sumcheck_univariate_length = 24;
@@ -42,6 +40,13 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
 using TestSettings = ::testing::Types<BN254Settings, GrumpkinSettings>;
 
 TYPED_TEST_SUITE(ShpleminiTest, TestSettings);
+
+// Non-template test fixture for KZG-specific tests
+class ShpleminiKZGTest : public CommitmentTest<curve::BN254> {
+  public:
+    static constexpr size_t log_n = 9;
+    static constexpr size_t n = 1UL << log_n;
+};
 
 // This test checks that batch_multivariate_opening_claims method operates correctly
 TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
@@ -66,7 +71,6 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     MockClaimGenerator<Curve> mock_claims(this->n,
                                           /*num_polynomials*/ this->num_polynomials,
                                           /*num_to_be_shifted*/ this->num_shiftable,
-                                          /*num_to_be_right_shifted_by_k*/ this->num_right_shiftable_by_k,
                                           mle_opening_point,
                                           ck);
 
@@ -85,7 +89,6 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     Fr batched_evaluation(0);
     update_batched_eval(batched_evaluation, mock_claims.unshifted.evals, rho_power);
     update_batched_eval(batched_evaluation, mock_claims.to_be_shifted.evals, rho_power);
-    update_batched_eval(batched_evaluation, mock_claims.to_be_right_shifted_by_k.evals, rho_power);
 
     // Lambda to compute batched commitment
     auto compute_batched_commitment = [&](const std::vector<Commitment>& commitments, Fr& rho_power) {
@@ -103,20 +106,13 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
         compute_batched_commitment(mock_claims.unshifted.commitments, rho_power);
     GroupElement batched_commitment_to_be_shifted =
         compute_batched_commitment(mock_claims.to_be_shifted.commitments, rho_power);
-    GroupElement batched_commitment_to_be_right_shifted_by_k =
-        compute_batched_commitment(mock_claims.to_be_right_shifted_by_k.commitments, rho_power);
 
     // Compute expected result manually
-    GroupElement to_be_right_shifted_by_k_contribution =
-        batched_commitment_to_be_right_shifted_by_k *
-        gemini_eval_challenge.pow(mock_claims.claim_batcher.k_shift_magnitude);
     GroupElement to_be_shifted_contribution = batched_commitment_to_be_shifted * gemini_eval_challenge.invert();
 
-    GroupElement commitment_to_univariate_pos =
-        batched_commitment_unshifted + to_be_right_shifted_by_k_contribution + to_be_shifted_contribution;
+    GroupElement commitment_to_univariate_pos = batched_commitment_unshifted + to_be_shifted_contribution;
 
-    GroupElement commitment_to_univariate_neg =
-        batched_commitment_unshifted + to_be_right_shifted_by_k_contribution - to_be_shifted_contribution;
+    GroupElement commitment_to_univariate_neg = batched_commitment_unshifted - to_be_shifted_contribution;
 
     GroupElement expected_result =
         commitment_to_univariate_pos * (shplonk_eval_challenge - gemini_eval_challenge).invert() +
@@ -136,16 +132,14 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     mock_claims.claim_batcher.compute_scalars_for_each_batch(
         inverted_vanishing_evals, shplonk_batching_challenge, gemini_eval_challenge);
 
-    rho_power = Fr{ 1 };
     mock_claims.claim_batcher.update_batch_mul_inputs_and_batched_evaluation(
-        commitments, scalars, verifier_batched_evaluation, rho, rho_power);
+        commitments, scalars, verifier_batched_evaluation, rho);
 
     // Final pairing check
-    GroupElement shplemini_result = batch_mul_native(commitments, scalars);
+    GroupElement shplemini_result = batch_mul_native<Curve>(commitments, scalars);
 
     EXPECT_EQ(commitments.size(),
-              mock_claims.unshifted.commitments.size() + mock_claims.to_be_shifted.commitments.size() +
-                  mock_claims.to_be_right_shifted_by_k.commitments.size());
+              mock_claims.unshifted.commitments.size() + mock_claims.to_be_shifted.commitments.size());
     EXPECT_EQ(batched_evaluation, verifier_batched_evaluation);
     EXPECT_EQ(-expected_result, shplemini_result);
 }
@@ -178,7 +172,6 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     MockClaimGenerator<Curve> mock_claims(this->n,
                                           /*num_polynomials*/ this->num_polynomials,
                                           /*num_to_be_shifted*/ this->num_shiftable,
-                                          /*num_to_be_right_shifted_by_k*/ this->num_right_shiftable_by_k,
                                           mle_opening_point,
                                           ck);
 
@@ -257,7 +250,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
                                                                 expected_constant_term_accumulator);
 
     // Compute the group element using the output of Shplemini method
-    GroupElement shplemini_result = batch_mul_native(commitments, scalars);
+    GroupElement shplemini_result = batch_mul_native<Curve>(commitments, scalars);
 
     EXPECT_EQ(shplemini_result, expected_result);
 }
@@ -294,7 +287,6 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     MockClaimGenerator<Curve> mock_claims(this->n,
                                           /*num_polynomials*/ this->num_polynomials,
                                           /*num_to_be_shifted*/ this->num_shiftable,
-                                          /*num_to_be_right_shifted_by_k*/ this->num_right_shiftable_by_k,
                                           mle_opening_point,
                                           ck);
 
@@ -484,4 +476,143 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
         EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
     }
 }
+
+/**
+ * @brief High degree attack test: prover commits to a higher degree polynomial than expected.
+ * @details The polynomial is crafted such that it folds down to a constant (equal to the claimed evaluation)
+ * after the expected number of rounds. In this case, the verifier accepts.
+ * See: https://hackmd.io/zm5SDfBqTKKXGpI-zQHtpA?view
+ */
+TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
+{
+    using Curve = typename TypeParam::Curve;
+    using Fr = typename Curve::ScalarField;
+    using CK = typename TypeParam::CommitmentKey;
+    using ShpleminiProver = ShpleminiProver_<Curve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    // Use the fixture's n (1 << 9 = 512) as the polynomial size
+    // small_log_n = 3 means we fold to a constant after 3 rounds
+    static constexpr size_t small_log_n = 3;
+    CK ck = create_commitment_key<CK>(this->n);
+
+    // Sample public opening point (u_0, u_1, u_2)
+    auto u = this->random_evaluation_point(small_log_n);
+
+    // Choose a claimed eval at `u`
+    Fr claimed_multilinear_eval = Fr::random_element();
+
+    // poly is of high degrees (up to n), as the SRS allows for it
+    Polynomial poly(this->n);
+
+    // Define poly to be of a specific form such that after small_log_n folds with u, it becomes a constant equal to
+    // claimed_multilinear_eval. The non-zero coefficients are at indices that fold correctly.
+    // For n = 512, small_log_n = 3: indices 4, 504, 508 work (instead of 4, 4088, 4092 for n = 4096)
+    const Fr tail = ((Fr(1) - u[0]) * (Fr(1) - u[1])).invert();
+    poly.at(4) = claimed_multilinear_eval * tail / u[2];
+    poly.at(this->n - 8) = tail;                          // 504 for n=512
+    poly.at(this->n - 4) = -tail * (Fr(1) - u[2]) / u[2]; // 508 for n=512
+
+    MockClaimGenerator<Curve> mock_claims(
+        this->n, std::vector{ std::move(poly) }, std::vector<Fr>{ claimed_multilinear_eval }, ck);
+
+    auto prover_transcript = NativeTranscript::prover_init_empty();
+
+    // Run Shplemini prover
+    const auto opening_claim =
+        ShpleminiProver::prove(this->n, mock_claims.polynomial_batcher, u, ck, prover_transcript);
+
+    // Run KZG/IPA prover
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        TestFixture::IPA::compute_opening_proof(ck, opening_claim, prover_transcript);
+    } else {
+        KZG<Curve>::compute_opening_proof(ck, opening_claim, prover_transcript);
+    }
+
+    // Verifier side
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+
+    std::vector<Fr> padding_indicator_array(small_log_n, Fr{ 1 });
+
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
+        padding_indicator_array, mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript);
+
+    // Verify claim - should succeed because the polynomial was crafted to fold correctly
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        auto result =
+            TestFixture::IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
+        EXPECT_EQ(result, true);
+    } else {
+        const auto pairing_points =
+            KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+        EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
+    }
+}
+
+/**
+ * @brief High degree attack test: prover commits to a random higher degree polynomial.
+ * @details The polynomial does not fold down to a constant after the expected number of rounds.
+ * In this case, the verifier rejects with high probability.
+ */
+TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
+{
+    using Curve = typename TypeParam::Curve;
+    using Fr = typename Curve::ScalarField;
+    using CK = typename TypeParam::CommitmentKey;
+    using ShpleminiProver = ShpleminiProver_<Curve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    // Use a larger SRS size to allow committing to high degree polynomials
+    static constexpr size_t big_n = 1UL << 12;
+    static constexpr size_t small_log_n = 3;
+    static constexpr size_t big_ck_size = 1 << 14;
+    CK ck = create_commitment_key<CK>(big_ck_size);
+
+    // Random high degree polynomial
+    Polynomial poly = Polynomial::random(big_n);
+
+    // Sample public opening point (u_0, u_1, u_2)
+    auto u = this->random_evaluation_point(small_log_n);
+
+    // Choose a random claimed eval at `u` (likely wrong)
+    Fr claimed_multilinear_eval = Fr::random_element();
+
+    MockClaimGenerator<Curve> mock_claims(
+        big_n, std::vector{ std::move(poly) }, std::vector<Fr>{ claimed_multilinear_eval }, ck);
+
+    auto prover_transcript = NativeTranscript::prover_init_empty();
+
+    // Run Shplemini prover
+    const auto opening_claim = ShpleminiProver::prove(big_n, mock_claims.polynomial_batcher, u, ck, prover_transcript);
+
+    // Run KZG/IPA prover
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        TestFixture::IPA::compute_opening_proof(ck, opening_claim, prover_transcript);
+    } else {
+        KZG<Curve>::compute_opening_proof(ck, opening_claim, prover_transcript);
+    }
+
+    // Verifier side
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+
+    std::vector<Fr> padding_indicator_array(small_log_n, Fr{ 1 });
+
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
+        padding_indicator_array, mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript);
+
+    // Verify claim - should fail because the random polynomial doesn't fold correctly
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        // IPA throws an exception on verification failure
+        EXPECT_THROW(
+            TestFixture::IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript),
+            std::runtime_error);
+    } else {
+        const auto pairing_points =
+            KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+        EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), false);
+    }
+}
+
 } // namespace bb

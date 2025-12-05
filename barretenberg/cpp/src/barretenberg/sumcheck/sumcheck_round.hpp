@@ -374,7 +374,6 @@ template <typename Flavor> class SumcheckProverRound {
 
         const size_t min_iterations_per_thread = 1 << 10; // min number of iterations for which we'll spin up a unique
         const size_t num_threads = bb::calculate_num_threads_pow2(effective_round_size, min_iterations_per_thread);
-        const size_t iterations_per_thread = effective_round_size / num_threads; // actual iterations per thread
 
         std::vector<BlockOfContiguousRows> result;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
@@ -382,9 +381,14 @@ template <typename Flavor> class SumcheckProverRound {
         if constexpr (can_skip_rows) {
             std::vector<std::vector<BlockOfContiguousRows>> all_thread_blocks(num_threads);
             parallel_for(num_threads, [&](size_t thread_idx) {
+                ThreadChunk chunk{ .thread_index = thread_idx, .total_threads = num_threads };
+                auto range = chunk.range(effective_round_size);
+                if (range.empty()) {
+                    return;
+                }
                 size_t current_block_size = 0;
-                size_t start = thread_idx * iterations_per_thread;
-                size_t end = (thread_idx + 1) * iterations_per_thread;
+                size_t start = *range.begin();
+                size_t end = start + range.size();
                 std::vector<BlockOfContiguousRows> thread_blocks;
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
                     if (!Flavor::skip_entire_row(polynomials, edge_idx)) {

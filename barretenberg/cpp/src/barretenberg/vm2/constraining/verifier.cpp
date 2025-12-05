@@ -153,9 +153,9 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     // Batch commitments: first commitment has coefficient 1, rest are batched with challenges
     Commitment squashed_unshifted =
-        unshifted_comms[0] + batch_mul_native(unshifted_comms.subspan(1), unshifted_challenges);
+        unshifted_comms[0] + batch_mul_native<Curve>(unshifted_comms.subspan(1), unshifted_challenges);
 
-    Commitment squashed_shifted = batch_mul_native(shifted_comms, shifted_challenges);
+    Commitment squashed_shifted = batch_mul_native<Curve>(shifted_comms, shifted_challenges);
 
     // Batch evaluations: compute inner product with first eval as initial value for unshifted
     FF squashed_unshifted_eval = std::inner_product(
