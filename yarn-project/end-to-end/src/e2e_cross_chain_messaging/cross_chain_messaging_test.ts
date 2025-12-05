@@ -63,7 +63,7 @@ export class CrossChainMessagingTest {
     this.snapshotManager = createSnapshotManager(
       `e2e_cross_chain_messaging/${testName}`,
       dataPath,
-      { useForgeDeployment: false, ...opts },
+      { useForgeDeployment: true, ...opts },
       {
         initialValidators: [],
         ...deployL1ContractsArgs,

@@ -64,7 +64,7 @@ describe('e2e_block_building', () => {
         // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
         // Forge deployment advances L1 time significantly, breaking tests that depend on slot timing.
       } = await setup(2, {
-        useForgeDeployment: false,
+        useForgeDeployment: true,
         archiverPollingIntervalMS: 200,
         transactionPollingIntervalMS: 200,
         worldStateBlockCheckIntervalMS: 200,
@@ -281,7 +281,7 @@ describe('e2e_block_building', () => {
         logger,
         wallet,
         accounts: [ownerAddress],
-      } = await setup(1, { useForgeDeployment: false }));
+      } = await setup(1, { useForgeDeployment: true }));
       contract = await TestContract.deploy(wallet).send({ from: ownerAddress }).deployed();
       logger.info(`Test contract deployed at ${contract.address}`);
     });
@@ -409,7 +409,7 @@ describe('e2e_block_building', () => {
         logger,
         wallet,
         accounts: [ownerAddress],
-      } = await setup(1, { useForgeDeployment: false }));
+      } = await setup(1, { useForgeDeployment: true }));
 
       logger.info(`Deploying test contract`);
       testContract = await TestContract.deploy(wallet).send({ from: ownerAddress }).deployed();
@@ -617,7 +617,7 @@ describe('e2e_block_building', () => {
         cheatCodes,
         watcher,
         accounts: [ownerAddress],
-      } = await setup(1, { useForgeDeployment: false }));
+      } = await setup(1, { useForgeDeployment: true }));
 
       contract = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress }).deployed();
       initialBlockNumber = await aztecNode.getBlockNumber();

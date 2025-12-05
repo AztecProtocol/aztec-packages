@@ -301,7 +301,7 @@ export async function setupL1ContractsViaForge(
   const result = await runForgeScript(
     [
       'script',
-      'script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts',
+      'script/deploy/rollup/DeployL1Contracts.s.sol',
       '--sig',
       'run(string)',
       jsonConfigStr,
@@ -357,53 +357,8 @@ export async function setupL1ContractsViaForge(
 
   // Deploy StakingAssetHandler (for testing validator staking infrastructure)
   // This is a separate script because it's only needed for local testing
-  let stakingAssetHandlerAddress: string | undefined = addresses.stakingAssetHandlerAddress;
-  let zkPassportVerifierAddress: string | undefined = addresses.zkPassportVerifierAddress;
-  if (!stakingAssetHandlerAddress && addresses.stakingAssetAddress && addresses.registryAddress) {
-    logger.info('Deploying StakingAssetHandler...');
-
-    // Build minimal JSON config with only what StakingAssetHandler needs
-    const stakingHandlerConfigStr = stringifyConfig({
-      stakingAsset: addresses.stakingAssetAddress,
-      registry: addresses.registryAddress,
-      zkPassportDomain: options.stakingAssetHandler?.zkPassportDomain,
-      zkPassportScope: options.stakingAssetHandler?.zkPassportScope,
-    });
-
-    const stakingHandlerResult = await runForgeScript(
-      [
-        'script',
-        'script/deploy/rollup/DeployStakingAssetHandler.s.sol:DeployStakingAssetHandler',
-        '--sig',
-        'run(string)',
-        stakingHandlerConfigStr,
-        '--rpc-url',
-        rpcUrl,
-        '--private-key',
-        privateKey,
-        '--broadcast',
-        '-vvv',
-      ],
-      {
-        logger,
-      },
-    );
-
-    if (stakingHandlerResult.success) {
-      // Parse StakingAssetHandler and MockZKPassportVerifier addresses from output
-      const stakingHandlerAddresses = parseDeployedAddresses(stakingHandlerResult.stdout);
-      stakingAssetHandlerAddress = stakingHandlerAddresses.stakingAssetHandlerAddress;
-      zkPassportVerifierAddress = stakingHandlerAddresses.zkPassportVerifierAddress;
-      if (stakingAssetHandlerAddress) {
-        logger.info(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
-      }
-      if (zkPassportVerifierAddress) {
-        logger.info(`Deployed MockZKPassportVerifier at ${zkPassportVerifierAddress}`);
-      }
-    } else {
-      logger.warn('Failed to deploy StakingAssetHandler (non-critical for most tests)');
-    }
-  }
+  const stakingAssetHandlerAddress: string | undefined = addresses.stakingAssetHandlerAddress;
+  const zkPassportVerifierAddress: string | undefined = addresses.zkPassportVerifierAddress;
 
   // Create the extended L1 client
   const l1Client = createExtendedL1Client([rpcUrl], privateKey, chain);

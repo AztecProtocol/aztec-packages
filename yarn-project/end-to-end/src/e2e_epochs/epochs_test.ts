@@ -110,7 +110,7 @@ export class EpochsTestContext {
     // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
     // Forge deployment advances L1 time significantly, breaking tests that warp to specific epochs.
     const context = await setup(opts.numberOfAccounts ?? 0, {
-      useForgeDeployment: false,
+      useForgeDeployment: true,
       automineL1Setup: true,
       checkIntervalMs: 50,
       archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,

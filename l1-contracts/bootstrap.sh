@@ -27,8 +27,8 @@ function build_src {
     git submodule update --init --recursive ./lib
 
     # Compile contracts
-    # Build everything in src, test, and script (except tests that need generated verifier).
-    forge build $(find src test script -name '*.sol' ! -name 'shouting.t.sol')
+    # Build everything in src and test (except tests that need generated verifier).
+    forge build $(find src test -name '*.sol' ! -name 'shouting.t.sol')
 
     # Output storage information for the rollup contract.
     forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
@@ -58,8 +58,9 @@ function build_verifier {
       --optimizer-runs 1 \
       --no-metadata
 
-    # Build the one test that imports the verifier.
-    forge build test/shouting.t.sol
+    # Build the one test that imports the verifier,
+    # and our deployment script used in yarn-project.
+    forge build test/shouting.t.sol script/deploy/rollup/DeployL1Contracts.s.sol
 
     cache_upload $artifact out generated
   fi
