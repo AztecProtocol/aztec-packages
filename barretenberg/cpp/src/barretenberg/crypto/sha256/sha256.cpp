@@ -60,6 +60,16 @@ void prepare_constants(std::array<uint32_t, 8>& input)
     input[7] = init_constants[7];
 }
 
+/**
+ * @brief SHA-256 compression function (FIPS 180-4 Section 6.2.2)
+ *
+ * Processes a single 512-bit (16-word) message block, updating the hash state.
+ * This is the core primitive exposed to ACIR via Sha256Compression opcode.
+ *
+ * @param h_init Previous hash state (or initial constants for first block)
+ * @param input 512-bit message block as 16 x 32-bit words (big-endian)
+ * @return Updated 256-bit hash state as 8 x 32-bit words
+ */
 std::array<uint32_t, 8> sha256_block(const std::array<uint32_t, 8>& h_init, const std::array<uint32_t, 16>& input)
 {
     std::array<uint32_t, 64> w;
@@ -128,8 +138,15 @@ std::array<uint32_t, 8> sha256_block(const std::array<uint32_t, 8>& h_init, cons
     return output;
 }
 
-// AUDITTODO: We do not expose a full sha stdlib equivalent to noir. This should likely be removed (along with the
-// stdlib analog) and we should update the fuzzer to compare sha256_block instead.
+/**
+ * @brief SHA-256 hash function (FIPS 180-4)
+ *
+ * Computes the SHA-256 hash of an arbitrary-length message.
+ * Handles padding (Section 5.1.1) and iterates the compression function.
+ *
+ * @param input Message bytes to hash
+ * @return 256-bit hash as 32 bytes
+ */
 template <typename ByteContainer> Sha256Hash sha256(const ByteContainer& input)
 {
     std::vector<uint8_t> message_schedule;
