@@ -137,11 +137,13 @@ export class CheckpointHeader {
     });
   }
 
-  static random(overrides: Partial<FieldsOf<CheckpointHeader>> = {}): CheckpointHeader {
+  static random(
+    overrides: Partial<FieldsOf<CheckpointHeader>> & Partial<FieldsOf<ContentCommitment>> = {},
+  ): CheckpointHeader {
     return CheckpointHeader.from({
       lastArchiveRoot: Fr.random(),
       blockHeadersHash: Fr.random(),
-      contentCommitment: ContentCommitment.random(),
+      contentCommitment: ContentCommitment.random(overrides),
       slotNumber: SlotNumber(Math.floor(Math.random() * 1000) + 1),
       timestamp: BigInt(Math.floor(Date.now() / 1000)),
       coinbase: EthAddress.random(),

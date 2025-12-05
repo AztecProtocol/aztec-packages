@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct Map documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Map</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -112,7 +118,7 @@ ensuring cryptographically secure slot separation.</p>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Context, K, V&gt; <a href="../../../noir_aztec/state_vars/map/struct.Map.html" class="struct">Map</a>&lt;K, V, Context&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(
     context: Context,
     storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     state_var_constructor: fn(Context, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> V,
@@ -139,7 +145,7 @@ typically the constructor of the state
 variable type being stored in the Map.</li>
 </ul>
 </div>
-</div><code id="at" class="code-header">pub fn <span class="fn">at</span>(self, key: K) -> V
+</div><code id="at" class="code-header">pub fn <a href="#at"><span class="fn">at</span></a>(self, key: K) -> V
 <div class="where-clause">where
     K: <a href="../../../protocol_types/traits/trait.ToField.html" class="trait">ToField</a></div></code>
 
@@ -175,5 +181,6 @@ user_balance.replace(new_note);</code></pre></div>
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 </div></main>
+</span>
 </body>
 </html>

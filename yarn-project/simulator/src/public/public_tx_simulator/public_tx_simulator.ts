@@ -5,7 +5,7 @@ import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { AvmExecutionHints, AvmTxHint, PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
-import type { Gas } from '@aztec/stdlib/gas';
+import { Gas } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import {
   type GlobalVariables,
@@ -129,7 +129,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       const setupResult = await this.simulatePhase(TxExecutionPhase.SETUP, context);
       if (setupResult.reverted) {
         throw new Error(
-          `Setup phase reverted! The transaction will be thrown out. ${setupResult.revertReason?.message}`,
+          `[SETUP] UNRECOVERABLE ERROR! The transaction will be thrown out. ${setupResult.revertReason?.message}`,
         );
       }
       processedPhases.push(setupResult);
@@ -200,9 +200,14 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     const publicInputs = await context.generateAvmCircuitPublicInputs();
     const revertCode = context.getFinalRevertCode();
 
-    // We only return the app logic phase information.
-    const appLogicReturnValues =
+    // We only return the app logic phase information, and only 1 per phase.
+    const appLogicReturnValues: NestedProcessReturnValues[] =
       processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
+
+    // TODO(fcarreiro): This is a temporary backwards compatibility layer until we migrate to the C++ simulator.
+    if (context.revertReason !== undefined) {
+      (appLogicReturnValues as any).revertReason = context.revertReason;
+    }
 
     return new PublicTxResult(
       /*gasUsed=*/ {
@@ -212,8 +217,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
         billedGas: context.getTotalGasUsed(),
       },
       /*revertCode=*/ revertCode,
-      /*revertReason=*/ context.revertReason,
-      /*appLogicReturnValues=*/ appLogicReturnValues,
+      /*callStackMetadata=*/ appLogicReturnValues,
       /*logs=*/ context.state.getActiveStateManager().getLogs(),
       /*hints=*/ hints,
       /*publicInputs=*/ publicInputs,

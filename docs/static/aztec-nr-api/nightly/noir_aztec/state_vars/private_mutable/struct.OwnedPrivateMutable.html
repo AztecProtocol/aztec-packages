@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct OwnedPrivateMutable documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">OwnedPrivateMutable</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -42,7 +48,7 @@ Obtained by calling <code>PrivateMutable::at(owner)</code>.</p>
 
 <div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.OwnedPrivateMutable.html" class="struct">OwnedPrivateMutable</a>&lt;Note, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="initialize" class="code-header">pub fn <span class="fn">initialize</span>(self, note: Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
+<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, note: Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
@@ -81,7 +87,7 @@ and deliver the note to its intended recipient.</li>
 slot and can leak privacy information (see <code>compute_initialization_nullifier</code>
 documentation).</p>
 </div>
-</div><code id="replace" class="code-header">pub fn <span class="fn">replace</span>&lt;Env&gt;(self, f: fn[Env](Note) -> Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
+</div><code id="replace" class="code-header">pub fn <a href="#replace"><span class="fn">replace</span></a>&lt;Env&gt;(self, f: fn[Env](Note) -> Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
@@ -127,7 +133,7 @@ decide how to encrypt and deliver this note to its intended recipient.</li>
 <p>The nullification of the previous note ensures that it cannot be used again,
 maintaining the invariant that a PrivateMutable has exactly one current note.</p>
 </div>
-</div><code id="initialize_or_replace" class="code-header">pub fn <span class="fn">initialize_or_replace</span>&lt;Env&gt;(
+</div><code id="initialize_or_replace" class="code-header">pub fn <a href="#initialize_or_replace"><span class="fn">initialize_or_replace</span></a>&lt;Env&gt;(
     self,
     f: fn[Env](<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;Note&gt;) -> Note,
 ) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
@@ -158,7 +164,7 @@ the note, or <code>.discard()</code> to skip emission.
 See NoteEmission documentation for more details.</li>
 </ul>
 </div>
-</div><code id="get_note" class="code-header">pub fn <span class="fn">get_note</span>(self) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
+</div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
@@ -209,7 +215,7 @@ the future.</p>
 </div>
 </div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.OwnedPrivateMutable.html" class="struct">OwnedPrivateMutable</a>&lt;Note, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <span class="fn">is_initialized</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
@@ -225,7 +231,7 @@ is an unconstrained environment on the user's local device.</p>
 nullifier exists), <code>false</code> otherwise.</li>
 </ul>
 </div>
-</div><code id="view_note" class="code-header">pub unconstrained fn <span class="fn">view_note</span>(self) -> Note
+</div><code id="view_note" class="code-header">pub unconstrained fn <a href="#view_note"><span class="fn">view_note</span></a>(self) -> Note
 <div class="where-clause">where
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
@@ -248,5 +254,6 @@ state.</p>
 <p>docs:start:view_note</p>
 </div>
 </div></div></main>
+</span>
 </body>
 </html>

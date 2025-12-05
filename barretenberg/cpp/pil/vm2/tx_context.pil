@@ -1,7 +1,30 @@
 namespace tx;
 
+   /**
+    * This file manages the tree states and side effect states initialization and propagation/continuity.
+    * It also enforces immutability for all the phases which do not mutate the tree states and side effect states.
+    * It also reads the start and end state of the tree states and side effect states from the public inputs.
+    *
+    * Example for Note Hash Tree Root:
+    * - Initialization: We read the start state of the note hash tree root from the public inputs in #[PUBLIC_INPUTS_NOTE_HASH_TREE].
+    * - End state PI write: We write the end state of the note hash tree root to the public inputs in #[PUBLIC_INPUTS_NOTE_HASH_TREE].
+    * - Continuity (next_note_hash_tree_root -> prev_note_hash_tree_root'): We constrain the continuity of the note hash tree root across
+    *   active rows in #[NOTE_HASH_ROOT_CONTINUITY] except when `reverted` is 1.
+    *   If `reverted` is 1, we restore the note hash tree to its value at the end of the setup phase in #[RESTORE_STATE_ON_REVERT].
+    * - Immutability (prev_note_hash_tree_root -> next_note_hash_tree_root):
+    *   A) Phase non-emitting note hashes: We constrain the immutability of the note hash tree across phases in #[NOTE_HASH_ROOT_IMMUTABILITY].
+    *   B) Phase emitting note hashes but padded: We constrain the immutability of the note hash tree across phases in #[NOTE_HASH_ROOT_PADDED_IMMUTABILITY].
+    * - Mutability (prev_note_hash_tree_root -> next_note_hash_tree_root) happens in tx.pil:
+    *   C) Public call request, non-padded: Mutation happens in #[DISPATCH_EXEC_START] and #[DISPATCH_EXEC_END].
+    *   D) (Non-)Revertible append note hash: Mutation happens in #[NOTE_HASH_APPEND] for non-padded and non-reverted rows.
+    *
+    * - Revert: On a reverted row, next_note_hash_tree_root is not constrained. It is fine, because we restore the note hash tree root
+    *           in #[RESTORE_STATE_ON_REVERT] which correctly constrains prev_note_hash_tree_root' (next row).
+    *
+    * Similar mechanisms apply for other tree states and side effect states.
+    */
 
-    // This the same sel as in tx
+    // This is the same sel as in tx
     #[skippable_if]
     sel = 0;
 
@@ -22,11 +45,11 @@ namespace tx;
 
     // L1 to L2 tree doesn't evolve during execution of the AVM
     pol commit l1_l2_tree_root;
+    pol commit l1_l2_tree_size;
 
     pol commit prev_retrieved_bytecodes_tree_root;
     pol commit prev_retrieved_bytecodes_tree_size;
 
-    // TODO: Constrain first row read from PI
     pol commit prev_l2_gas_used;
     pol commit prev_da_gas_used;
 
@@ -39,10 +62,8 @@ namespace tx;
     pol commit prev_num_l2_to_l1_messages;
 
     // ==== READ START/END STATE FROM PI ====
-    // TODO: Consider making this mechanism generic - might not be worth it in a short trace like the tx one.
-
     // Selector used to read trees and gas used from PI.
-    pol commit sel_read_trees_and_gas_used; // @boolean Because start_tx and is_cleanup are disjoint and booleans.
+    pol commit sel_read_trees_and_gas_used; // @boolean because start_tx and is_cleanup are disjoint and booleans.
     sel_read_trees_and_gas_used = start_tx + is_cleanup;
 
     // Read start/end state of the note hash tree from PI
@@ -98,10 +119,15 @@ namespace tx;
     };
 
     // Ensure the written public data slots tree starts with the expected state on every tx execution.
+    // This is a transient tree, so we do not write the output at the end of the tx.
     start_tx * (constants.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT - prev_written_public_data_slots_tree_root) = 0;
     start_tx * (constants.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE - prev_written_public_data_slots_tree_size) = 0;
 
     // Read the state of the l1 to l2 message tree from PI
+    // This tree is immutable during the tx execution of the AVM but for consistency with other trees we read
+    // and write the root/size to public inputs.
+    // The only reason to use l1_l2_tree_size in this trace is to enforce immutability.
+    // l1_l2_tree_root however is sent to execution.pil through a public call request (see #[DISPATCH_EXEC_START] in tx.pil).
     pol commit l1_l2_pi_offset;
     l1_l2_pi_offset = start_tx   * constants.AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX
                     + is_cleanup * constants.AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX;
@@ -109,10 +135,12 @@ namespace tx;
     #[PUBLIC_INPUTS_L1_L2_TREE]
     sel_read_trees_and_gas_used {
         l1_l2_pi_offset,
-        l1_l2_tree_root
+        l1_l2_tree_root,
+        l1_l2_tree_size
     } in public_inputs.sel {
         precomputed.clk,
-        public_inputs.cols[0]
+        public_inputs.cols[0],
+        public_inputs.cols[1]
     };
 
     // Ensure the retrieved bytecodes tree starts with the expected state on every tx execution.
@@ -141,9 +169,9 @@ namespace tx;
     start_tx * (constants.AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX - gas_limit_pi_offset) = 0;
     is_teardown * (constants.AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX - gas_limit_pi_offset) = 0;
 
-    // Gas limit is read twice, but not on start and end, but rather on start and teardown.
+    // Gas limit is read twice, but not on start and end; rather, on start and teardown.
     // On start we read the general tx gas limit, and on teardown we read the teardown gas limit.
-    pol commit should_read_gas_limit;
+    pol commit should_read_gas_limit; // @boolean (follows from definition and mutual exclusivity of start_tx and is_teardown)
     should_read_gas_limit = start_tx + is_teardown;
 
     #[PUBLIC_INPUTS_READ_GAS_LIMIT]
@@ -160,7 +188,7 @@ namespace tx;
     // Read reverted from PI
 
     // Whether this tx reverted
-    pol commit tx_reverted;
+    pol commit tx_reverted; // @boolean (on active rows due to #[INIT_TX_REVERTED] and #[TX_REVERTED_CONTINUITY])
     #[INIT_TX_REVERTED]
     start_tx * (reverted - tx_reverted) = 0;
     // If reverted == 1, tx_reverted == 1, otherwise it must be continuous (see #[TX_REVERTED_CONTINUITY])
@@ -236,6 +264,8 @@ namespace tx;
     NOT_LAST_ROW * (1 - reverted) * (next_written_public_data_slots_tree_size - prev_written_public_data_slots_tree_size') = 0;
     #[L1_L2_TREE_ROOT_CONTINUITY]
     NOT_LAST_ROW * (l1_l2_tree_root - l1_l2_tree_root') = 0;
+    #[L1_L2_TREE_SIZE_CONTINUITY]
+    NOT_LAST_ROW * (l1_l2_tree_size - l1_l2_tree_size') = 0;
     #[RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY]
     NOT_LAST_ROW * (next_retrieved_bytecodes_tree_root - prev_retrieved_bytecodes_tree_root') = 0;
     #[RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY]
@@ -246,7 +276,7 @@ namespace tx;
     #[NUM_L2_TO_L1_MESSAGES_CONTINUITY]
     NOT_LAST_ROW * (1 - reverted) * (next_num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;
 
-    // tx_reverted stays the same unless we revert, where it must be 1 (see #[SET_TX_REVERTED]).
+    // tx_reverted stays the same unless we revert, in which case it must be 1 (see #[SET_TX_REVERTED]).
     // This results in a column with 0s until a reverted phase, where it flips once and remains 1.
     #[TX_REVERTED_CONTINUITY]
     NOT_LAST_ROW * (1 - reverted') * (tx_reverted - tx_reverted') = 0;
@@ -254,6 +284,7 @@ namespace tx;
     pol commit setup_phase_value;
     sel * (constants.AVM_TX_PHASE_VALUE_SETUP - setup_phase_value) = 0;
 
+    // Restore side effect and tree states to their values at the end of setup phase.
     #[RESTORE_STATE_ON_REVERT]
     reverted {
         setup_phase_value,
@@ -298,47 +329,56 @@ namespace tx;
     #[PROPAGATE_DA_GAS_LIMIT]
     NOT_LAST_ROW * (1 - is_teardown') * (da_gas_limit - da_gas_limit') = 0;
 
-    // Selectors to allow prev => next state changes on the different phases
-    pol commit sel_can_emit_note_hash;
-    pol commit sel_can_emit_nullifier;
-    pol commit sel_can_write_public_data;
-    pol commit sel_can_emit_unencrypted_log;
-    pol commit sel_can_emit_l2_l1_msg;
+    // Selectors to allow prev => next state changes in the different phases
+    pol SEL_CAN_EMIT_NOTE_HASH = is_public_call_request + sel_non_revertible_append_note_hash + sel_revertible_append_note_hash;
+    pol SEL_CAN_EMIT_NULLIFIER = is_public_call_request + sel_non_revertible_append_nullifier + sel_revertible_append_nullifier;
+    pol SEL_CAN_WRITE_PUBLIC_DATA = is_public_call_request + is_collect_fee;
+    pol SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS = is_public_call_request;
+    pol SEL_CAN_EMIT_UNENCRYPTED_LOG = is_public_call_request;
+    pol SEL_CAN_EMIT_L2_L1_MSG = is_public_call_request + sel_non_revertible_append_l2_l1_msg + sel_revertible_append_l2_l1_msg;
+    // The 6 above selectors are booleans on active rows due to #[READ_PHASE_SPEC] and
+    // mutual exclusivity of the selectors on the right-hand side.
 
 
     #[NOTE_HASH_ROOT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_note_hash) * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
+    (1 - SEL_CAN_EMIT_NOTE_HASH) * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
+
+    // In tree padding phase, we mutate the size of the note hash tree.
+    // Note that `is_tree_padding` is mutually exclusive with SEL_CAN_EMIT_NOTE_HASH on active rows.
     #[NOTE_HASH_SIZE_IMMUTABILITY]
-    sel * (1 - sel_can_emit_note_hash) * (prev_note_hash_tree_size - next_note_hash_tree_size) = 0;
+    (1 - SEL_CAN_EMIT_NOTE_HASH - is_tree_padding) * (prev_note_hash_tree_size - next_note_hash_tree_size) = 0;
     #[NOTE_HASH_COUNT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_note_hash) * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
+    (1 - SEL_CAN_EMIT_NOTE_HASH) * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
 
     #[NULLIFIER_ROOT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_nullifier) * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
+    (1 - SEL_CAN_EMIT_NULLIFIER) * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
+
+    // In tree padding phase, we mutate the size of the nullifier tree.
+    // Note that `is_tree_padding` is mutually exclusive with SEL_CAN_EMIT_NULLIFIER on active rows.
     #[NULLIFIER_SIZE_IMMUTABILITY]
-    sel * (1 - sel_can_emit_nullifier) * (prev_nullifier_tree_size - next_nullifier_tree_size) = 0;
+    (1 - SEL_CAN_EMIT_NULLIFIER - is_tree_padding) * (prev_nullifier_tree_size - next_nullifier_tree_size) = 0;
     #[NULLIFIER_COUNT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_nullifier) * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
+    (1 - SEL_CAN_EMIT_NULLIFIER) * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
 
     #[PUBLIC_DATA_ROOT_IMMUTABILITY]
-    sel * (1 - sel_can_write_public_data) * (prev_public_data_tree_root - next_public_data_tree_root) = 0;
+    (1 - SEL_CAN_WRITE_PUBLIC_DATA) * (prev_public_data_tree_root - next_public_data_tree_root) = 0;
     #[PUBLIC_DATA_SIZE_IMMUTABILITY]
-    sel * (1 - sel_can_write_public_data) * (prev_public_data_tree_size - next_public_data_tree_size) = 0;
+    (1 - SEL_CAN_WRITE_PUBLIC_DATA) * (prev_public_data_tree_size - next_public_data_tree_size) = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY]
-    sel * (1 - sel_can_write_public_data) * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
+    (1 - SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS) * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY]
-    sel * (1 - sel_can_write_public_data) * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
+    (1 - SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS) * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
 
     #[UNENCRYPTED_LOG_COUNT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_unencrypted_log) * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
+    (1 - SEL_CAN_EMIT_UNENCRYPTED_LOG) * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
 
     #[L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY]
-    sel * (1 - sel_can_emit_l2_l1_msg) * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
+    (1 - SEL_CAN_EMIT_L2_L1_MSG) * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
     #[RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY]
-    sel * (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_root - next_retrieved_bytecodes_tree_root) = 0;
+    (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_root - next_retrieved_bytecodes_tree_root) = 0;
     #[RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY]
-    sel * (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_size - next_retrieved_bytecodes_tree_size) = 0;
+    (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_size - next_retrieved_bytecodes_tree_size) = 0;
 
     // Padded rows are not allowed to change the state
     #[NOTE_HASH_ROOT_PADDED_IMMUTABILITY]
@@ -372,11 +412,12 @@ namespace tx;
     is_padded * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
     #[L2_GAS_USED_IMMUTABILITY]
-    sel * (1 - should_process_call_request) * (prev_l2_gas_used - next_l2_gas_used) = 0;
+    (1 - should_process_call_request) * (prev_l2_gas_used - next_l2_gas_used) = 0;
     #[DA_GAS_USED_IMMUTABILITY]
-    sel * (1 - should_process_call_request) * (prev_da_gas_used - next_da_gas_used) = 0;
+    (1 - should_process_call_request) * (prev_da_gas_used - next_da_gas_used) = 0;
 
-    // Write end counters to PI
+
+    // ===== WRITE END COUNTERS TO PI =====
 
     // Write note hash count to PI
     pol commit array_length_note_hashes_pi_offset;
@@ -439,7 +480,7 @@ namespace tx;
 
     // ===== EXECUTION CONTEXT ID =====
 
-    // The next available context id. When peforming an enqueued call, this is the context id used by it.
+    // The next available context id. When performing an enqueued call, this is the context id used by it.
     pol commit next_context_id;
     // Initial next context id is 1
     #[NEXT_CONTEXT_ID_INITIAL_VALUE]
@@ -448,4 +489,4 @@ namespace tx;
     // We normally propagate the next context id, unless a call is issued, where the execution trace
     // controls the next row's next context id.
     #[NEXT_CONTEXT_ID_CONTINUITY]
-    NOT_LAST * (1 - should_process_call_request) * (next_context_id' - next_context_id) = 0;
+    NOT_LAST_ROW * (1 - should_process_call_request) * (next_context_id' - next_context_id) = 0;

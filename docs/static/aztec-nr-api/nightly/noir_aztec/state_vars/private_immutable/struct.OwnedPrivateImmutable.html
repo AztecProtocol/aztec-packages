@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct OwnedPrivateImmutable documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">OwnedPrivateImmutable</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -38,7 +44,7 @@ Obtained by calling <code>PrivateImmutable::at(owner)</code>.</p>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_immutable/struct.OwnedPrivateImmutable.html" class="struct">OwnedPrivateImmutable</a>&lt;Note, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <span class="fn">is_initialized</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
@@ -52,7 +58,7 @@ Obtained by calling <code>PrivateImmutable::at(owner)</code>.</p>
 nullifier exists), <code>false</code> otherwise.</li>
 </ul>
 </div>
-</div><code id="view_note" class="code-header">pub unconstrained fn <span class="fn">view_note</span>(self) -> Note
+</div><code id="view_note" class="code-header">pub unconstrained fn <a href="#view_note"><span class="fn">view_note</span></a>(self) -> Note
 <div class="where-clause">where
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
@@ -74,7 +80,7 @@ or perform validation. It simply reads the note from the PXE's database.</p>
 
 <div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_immutable/struct.OwnedPrivateImmutable.html" class="struct">OwnedPrivateImmutable</a>&lt;Note, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="initialize" class="code-header">pub fn <span class="fn">initialize</span>(self, note: Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
+<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, note: Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
@@ -110,7 +116,7 @@ as initialized. This prevents double-initialization.</li>
 and deliver the note to its intended recipient.</li>
 </ul>
 </div>
-</div><code id="get_note" class="code-header">pub fn <span class="fn">get_note</span>(self) -> Note
+</div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> Note
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
@@ -137,5 +143,6 @@ storage slot by pushing a read request to the context</li>
 race conditions - the note never changes after initialization.</p>
 </div>
 </div></div></main>
+</span>
 </body>
 </html>

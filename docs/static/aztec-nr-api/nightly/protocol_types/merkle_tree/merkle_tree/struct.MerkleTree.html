@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct MerkleTree documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">MerkleTree</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -53,21 +59,21 @@
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;let NumLeaves: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../protocol_types/merkle_tree/merkle_tree/struct.MerkleTree.html" class="struct">MerkleTree</a>&lt;NumLeaves&gt;</code></h3>
 
-<div class="padded-methods"><code id="update_leaf" class="code-header">pub fn <span class="fn">update_leaf</span>&lt;let TreeHeight: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+<div class="padded-methods"><code id="update_leaf" class="code-header">pub fn <a href="#update_leaf"><span class="fn">update_leaf</span></a>&lt;let TreeHeight: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 </div><h3><code class="code-header">impl&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../protocol_types/merkle_tree/merkle_tree/struct.MerkleTree.html" class="struct">MerkleTree</a>&lt;N&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(leaves: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(leaves: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> Self</code>
 
-<code id="new_sha" class="code-header">pub fn <span class="fn">new_sha</span>(leaves: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> Self</code>
+<code id="new_sha" class="code-header">pub fn <a href="#new_sha"><span class="fn">new_sha</span></a>(leaves: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> Self</code>
 
-<code id="get_root" class="code-header">pub fn <span class="fn">get_root</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+<code id="get_root" class="code-header">pub fn <a href="#get_root"><span class="fn">get_root</span></a>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-<code id="get_sibling_path" class="code-header">pub fn <span class="fn">get_sibling_path</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, leaf_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; K]</code>
+<code id="get_sibling_path" class="code-header">pub fn <a href="#get_sibling_path"><span class="fn">get_sibling_path</span></a>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, leaf_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; K]</code>
 
 </div><h3><code class="code-header">impl <a href="../../../protocol_types/merkle_tree/merkle_tree/struct.MerkleTree.html" class="struct">MerkleTree</a>&lt;128&gt;</code></h3>
 
-<div class="padded-methods"><code id="update_vk_hash" class="code-header">pub fn <span class="fn">update_vk_hash</span>(&mut self, vk_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, vk_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+<div class="padded-methods"><code id="update_vk_hash" class="code-header">pub fn <a href="#update_vk_hash"><span class="fn">update_vk_hash</span></a>(&mut self, vk_index: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, vk_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 </div><h2>Trait implementations</h2>
 <h3 id="impl-Empty-for-MerkleTree<N>"><code class="code-header">impl&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../protocol_types/merkle_tree/merkle_tree/struct.MerkleTree.html" class="struct">MerkleTree</a>&lt;N&gt;</code></h3>
@@ -83,5 +89,6 @@
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 </div></main>
+</span>
 </body>
 </html>

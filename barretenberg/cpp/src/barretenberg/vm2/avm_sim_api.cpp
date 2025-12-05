@@ -12,7 +12,7 @@ TxSimulationResult AvmSimAPI::simulate(const FastSimulationInputs& inputs,
                                        simulation::ContractDBInterface& contract_db,
                                        world_state::WorldState& ws)
 {
-    info("Simulating...");
+    vinfo("Simulating...");
     AvmSimulationHelper simulation_helper;
     // TODO(MW): Add hint checks here
     return AVM_TRACK_TIME_V("simulation/all",
@@ -27,7 +27,7 @@ TxSimulationResult AvmSimAPI::simulate(const FastSimulationInputs& inputs,
 
 TxSimulationResult AvmSimAPI::simulate_with_hinted_dbs(const ProvingInputs& inputs)
 {
-    info("Simulating...");
+    vinfo("Simulating...");
     AvmSimulationHelper simulation_helper;
     auto result = AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_fast_with_hinted_dbs(inputs.hints));
 

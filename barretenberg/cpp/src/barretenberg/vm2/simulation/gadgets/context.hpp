@@ -65,6 +65,7 @@ class BaseContext : public ContextInterface {
     // Having getters and setters make it easier to mock the context.
     // Machine state.
     MemoryInterface& get_memory() override { return *memory; }
+    const MemoryInterface& get_memory() const override { return *memory; }
     BytecodeManagerInterface& get_bytecode_manager() override { return *bytecode; }
     InternalCallStackManagerInterface& get_internal_call_stack_manager() override
     {
@@ -96,6 +97,7 @@ class BaseContext : public ContextInterface {
     const GlobalVariables& get_globals() const override { return globals; }
 
     ContextInterface& get_child_context() override { return *child_context; }
+    const ContextInterface& get_child_context() const override { return *child_context; }
     void set_child_context(std::unique_ptr<ContextInterface> child_ctx) override
     {
         child_context = std::move(child_ctx);
@@ -120,7 +122,7 @@ class BaseContext : public ContextInterface {
     uint32_t get_checkpoint_id_at_creation() const override { return checkpoint_id_at_creation; }
 
     // Input / Output
-    std::vector<MemoryValue> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) override;
+    std::vector<MemoryValue> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) const override;
 
   protected:
     HighLevelMerkleDBInterface& merkle_db;

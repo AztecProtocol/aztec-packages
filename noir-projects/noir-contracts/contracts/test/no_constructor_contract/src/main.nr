@@ -8,14 +8,14 @@ pub contract NoConstructor {
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
-        state_vars::PrivateMutable,
+        state_vars::{Owned, PrivateMutable},
     };
 
-    use value_note::value_note::ValueNote;
+    use field_note::field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {
-        private_mutable: PrivateMutable<ValueNote, Context>,
+        private_mutable: Owned<PrivateMutable<FieldNote, Context>, Context>,
     }
 
     /// Arbitrary public method used to test that publishing for public execution works for a contract with no constructor.
@@ -29,7 +29,7 @@ pub contract NoConstructor {
     #[external("private")]
     fn initialize_private_mutable(value: Field) {
         let owner = self.msg_sender().unwrap();
-        let note = ValueNote::new(value);
+        let note = FieldNote::new(value);
 
         self.storage.private_mutable.at(owner).initialize(note).emit(
             owner,

@@ -588,6 +588,50 @@ fn validate_side_effect_counters_duplicated_contract_class_log_counter_in_other_
     builder.validate();
 }
 
+// Min revertible side effect counter
+#[test(should_fail_with = "start counter must be greater than previous counter")]
+fn validate_side_effect_counters_min_revertible_side_effect_counter_less_than_counter_start_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_from_counter(50);
+
+    builder.private_call.min_revertible_side_effect_counter = 49;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "end counter must be less than the end counter of the call")]
+fn validate_side_effect_counters_min_revertible_side_effect_counter_greater_than_counter_end_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_from_counter(50);
+
+    builder.private_call.min_revertible_side_effect_counter = 100;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "start counter must be greater than previous counter")]
+fn validate_side_effect_counters_duplicated_min_revertible_side_effect_counter_against_call_request_end_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_from_counter(10);
+
+    builder.private_call.append_private_call_requests(2);
+
+    let another_item = builder.private_call.private_call_requests.get(0);
+    builder.private_call.min_revertible_side_effect_counter = another_item.end_side_effect_counter;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "start counter must be greater than previous counter")]
+fn validate_side_effect_counters_duplicated_min_revertible_side_effect_counter_against_call_request_start_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_from_counter(10);
+
+    builder.private_call.append_private_call_requests(2);
+
+    let another_item = builder.private_call.private_call_requests.get(1);
+    builder.private_call.min_revertible_side_effect_counter =
+        another_item.start_side_effect_counter;
+
+    builder.validate();
+}
+
 // Modifying hints
 
 #[test(should_fail_with = "side effect range index out of bounds")]

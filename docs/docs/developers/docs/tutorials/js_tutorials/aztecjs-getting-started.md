@@ -145,6 +145,6 @@ console.log(`Bob's balance: ${bobBalance}`);
 
 :::info
 
-Have a look at the [contract source](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). Notice is that the `mint_to_private` function we used above actually starts a [partial note](../../foundational-topics/advanced/storage/partial_notes.md). This allows the total balance to increase while keeping the recipient private! How cool is that?
+Have a look at the [contract source](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). Notice is that the `mint_to_private` function we used above actually starts a [partial note](../../aztec-nr/framework-description/advanced/partial_notes.md). This allows the total balance to increase while keeping the recipient private! How cool is that?
 
 :::

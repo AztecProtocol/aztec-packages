@@ -12,15 +12,15 @@ pub contract StatefulTest {
     };
     use aztec::{
         messages::message_delivery::MessageDelivery,
-        note::note_getter_options::NoteGetterOptions,
+        note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        state_vars::{Map, PrivateSet, PublicMutable},
+        state_vars::{Map, Owned, PrivateSet, PublicMutable},
     };
-    use value_note::{balance_utils, value_note::ValueNote};
+    use field_note::field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {
-        notes: PrivateSet<ValueNote, Context>,
+        notes: Owned<PrivateSet<FieldNote, Context>, Context>,
         public_values: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
     }
 
@@ -46,7 +46,7 @@ pub contract StatefulTest {
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
         if (value != 0) {
-            let note = ValueNote::new(value);
+            let note = FieldNote::new(value);
             self.storage.notes.at(owner).insert(note).emit(
                 owner,
                 MessageDelivery.CONSTRAINED_ONCHAIN,
@@ -58,7 +58,7 @@ pub contract StatefulTest {
     #[noinitcheck]
     fn create_note_no_init_check(owner: AztecAddress, value: Field) {
         if (value != 0) {
-            let note = ValueNote::new(value);
+            let note = FieldNote::new(value);
             self.storage.notes.at(owner).insert(note).emit(
                 owner,
                 MessageDelivery.CONSTRAINED_ONCHAIN,
@@ -73,7 +73,7 @@ pub contract StatefulTest {
 
         let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 
-        self.storage.notes.at(recipient).insert(ValueNote::new(92)).emit(
+        self.storage.notes.at(recipient).insert(FieldNote::new(92)).emit(
             recipient,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -86,7 +86,7 @@ pub contract StatefulTest {
 
         let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 
-        self.storage.notes.at(recipient).insert(ValueNote::new(92)).emit(
+        self.storage.notes.at(recipient).insert(FieldNote::new(92)).emit(
             recipient,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -106,9 +106,30 @@ pub contract StatefulTest {
     }
 
     #[external("utility")]
-    unconstrained fn summed_values(owner: AztecAddress) -> Field {
+    unconstrained fn summed_values(owner: AztecAddress) -> pub Field {
         // Return the sum of all notes in the set.
-        balance_utils::get_balance(self.storage.notes, owner)
+        get_balance_with_offset(self.storage.notes.at(owner), 0)
+    }
+
+    #[contract_library_method]
+    unconstrained fn get_balance_with_offset(
+        set: PrivateSet<FieldNote, aztec::context::UtilityContext>,
+        offset: u32,
+    ) -> Field {
+        let mut balance = 0;
+        let mut options = NoteViewerOptions::new();
+        let notes = set.view_notes(options.set_offset(offset));
+        for i in 0..options.limit {
+            if i < notes.len() {
+                balance += notes.get_unchecked(i).value();
+            }
+        }
+
+        if (notes.len() == options.limit) {
+            balance += get_balance_with_offset(set, offset + options.limit);
+        }
+
+        balance
     }
 
     #[external("public")]

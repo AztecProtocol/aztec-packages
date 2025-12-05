@@ -59,7 +59,7 @@ export class TXEStateMachine {
 
   public async handleL2Block(block: L2Block) {
     await Promise.all([
-      this.synchronizer.handleL2Block(block),
+      this.synchronizer.handleL2Block(block.toL2Block()),
       this.archiver.addBlocks([
         PublishedL2Block.fromFields({
           block,
