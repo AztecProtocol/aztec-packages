@@ -81,7 +81,7 @@ template <typename FF_> class CircuitBuilderBase {
     /**
      * @brief The permutation on variable tags, as a constituent of the generalized permutation argument.
      * @details See S6 of https://github.com/AztecProtocol/plonk-with-lookups-private/blob/new-stuff/GenPermuations.pdf
-     * DOCTODO(#231): replace with the relevant wiki link
+     * See also relations/PERMUTATION_ARGUMENT_README.md
      * @note The Generalized Permutation argument combines the usual permutation argument with several multiset-equality
      * checks. It does this by modifying the sigma and ID polynomials at certain points with "tags".
      * @note In the internal representation, the key/values of `_tau` are _real_ variable indicies.
@@ -97,7 +97,7 @@ template <typename FF_> class CircuitBuilderBase {
      * variable index" and thus the same witness value. If the witness is not involved in any copy constraints, then
      * real_variable_index[index] == index, i.e., it is the identity map.
      *
-     * @note If there is a copy constraint between witness indices idx_a and idx_b, then their they will both point to
+     * @note If there is a copy constraint between witness indices idx_a and idx_b, then they will both point to
      * the same element in real_variable_index.
      * @note Copy cycles, the mediating data structure used to translate copy constraint into sigma polynomials, will be
      * indexed on those real_variable_indices that are actually pointed to at the end of circuit construction.

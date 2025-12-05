@@ -25,7 +25,7 @@ template <class Flavor> class TraceToPolynomials {
 
     /**
      * @brief Given a circuit, populate a proving key with wire polys, selector polys, and sigma/id polys
-     * @note By default, this method constructs an exectution trace that is sorted by gate type.
+     * @note By default, this method constructs an execution trace that is sorted by gate type.
      *
      * @param builder
      */

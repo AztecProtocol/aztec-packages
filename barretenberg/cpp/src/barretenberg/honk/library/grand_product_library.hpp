@@ -20,7 +20,8 @@ namespace bb {
 
 /**
  * @brief Compute a grand product polynomial, `grand_product_polynomial`, which for historical reasons is sometimes also
- * called Z_perm(X).
+ * called Z_perm(X). This polynomial will bear witness to some subset of: {copy constraints, multiset-equality, public
+ * inputs}.
  *
  * @note The name Z_Perm(X) is historical, as the first use of the grand product polynomial was for the "permutation
  * argument", i.e., checking the correctness of copy-constraints. However, it may also be used for bare
@@ -37,7 +38,7 @@ namespace bb {
  * where ∏ := ∏_{j=0:i-1}
  *
  * (Note that Z_perm[1] may be thought of as the quotient of the empty product by the empty product, and hence setting
- * is 1 is .)
+ * is 1 is consistent.)
  *
  * The specific algebraic relation used by Z_perm is
  *      * specified by Flavor::GrandProductRelations, for Flavor in {ECCVM, Translator}; and
@@ -46,15 +47,15 @@ namespace bb {
  * `public_input_delta`, which doesn't as cleanly fit into the `compute_grand_products` pattern. (This latter is an
  * optimization having to do with public inputs.)
  *
- * The following is the classic, no-public-inputs PLONK permutation argument on 4 wires. This bears witness to the
- * correctness of copy-constraints.
+ * The multilinear polynomial Z_perm is designed to take into account copy-constraints, multiset equality checks, and
+ * public inputs. The formula is given as below. Here, the sigma polynomials (wires) encode the permutation (and, in the
+ * more general case, multiset tags.)
  *
  *                  (w_1(j) + β⋅id_1(j) + γ) ⋅ (w_2(j) + β⋅id_2(j) + γ) ⋅ (w_3(j) + β⋅id_3(j) + γ)
  * Z_perm[i] = ∏ --------------------------------------------------------------------------------
  *                  (w_1(j) + β⋅σ_1(j) + γ) ⋅ (w_2(j) + β⋅σ_2(j) + γ) ⋅ (w_3(j) + β⋅σ_3(j) + γ)
  * where ∏ := ∏_{j=0:i-1} and id_i(X) = id(X) + n*(i-1); here n is also called the SEPARATOR.
  *
- * For Ultra/Mega, the actual computation is a slight optimization of this, taking into account public inputs.
  *
  * The grand product is constructed over the course of three steps.
  *
@@ -107,7 +108,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t end = thread_data.end[thread_idx];
         typename Flavor::AllValues row;
         for (size_t i = start; i < end; ++i) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
+            // OPTIMIZE(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
             if constexpr (IsUltraOrMegaHonk<Flavor>) {
                 row = full_polynomials.get_row_for_permutation_arg(i);
             } else {
