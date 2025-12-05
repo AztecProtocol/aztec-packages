@@ -240,7 +240,7 @@ void MegaCircuitBuilder_<FF>::queue_ecc_hiding_op(const curve::BN254::BaseField&
     auto ultra_op = op_queue->append_hiding_op(Px, Py);
 
     // Add corresponding gates for the operation
-    (void)populate_ecc_op_wires(ultra_op);
+    populate_ecc_op_wires(ultra_op);
 }
 
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
