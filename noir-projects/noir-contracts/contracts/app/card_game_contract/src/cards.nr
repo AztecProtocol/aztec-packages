@@ -11,7 +11,7 @@ use aztec::{
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         traits::{FromField, Hash, Packable, Serialize, ToField},
     },
-    state_vars::{PrivateSet, storage::HasStorageSlot},
+    state_vars::{Owned, PrivateSet, StateVariable},
 };
 use std::meta::derive;
 use value_note::value_note::ValueNote;
@@ -66,13 +66,17 @@ impl CardNote {
 }
 
 pub struct Deck<Context> {
-    set: PrivateSet<ValueNote, Context>,
+    owned_set: Owned<PrivateSet<ValueNote, Context>, Context>,
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Context> HasStorageSlot<1> for Deck<Context> {
+impl<Context> StateVariable<1, Context> for Deck<Context> {
+    fn new(context: Context, storage_slot: Field) -> Self {
+        Deck { owned_set: Owned::new(context, storage_slot) }
+    }
+
     fn get_storage_slot(self) -> Field {
-        self.set.get_storage_slot()
+        self.owned_set.get_storage_slot()
     }
 }
 
@@ -104,8 +108,8 @@ pub fn filter_cards<let N: u32>(
 
 impl<Context> Deck<Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
-        let set = PrivateSet { context, storage_slot };
-        Deck { set }
+        let owned_set = Owned::new(context, storage_slot);
+        Deck { owned_set }
     }
 }
 
@@ -114,7 +118,7 @@ impl Deck<&mut PrivateContext> {
         let mut inserted_cards = &[];
         for card in cards {
             let card_note = CardNote::from_card(card);
-            self.set.at(owner).insert(card_note.note).emit(
+            self.owned_set.at(owner).insert(card_note.note).emit(
                 owner,
                 MessageDelivery.CONSTRAINED_ONCHAIN,
             );
@@ -126,7 +130,7 @@ impl Deck<&mut PrivateContext> {
 
     pub fn remove_cards<let N: u32>(&mut self, cards: [Card; N], owner: AztecAddress) {
         let options = NoteGetterOptions::with_filter(filter_cards, cards);
-        let notes = self.set.at(owner).pop_notes(options);
+        let notes = self.owned_set.at(owner).pop_notes(options);
         assert(notes.len() == N, "Not all cards were removed");
     }
 }
@@ -138,7 +142,7 @@ impl Deck<UtilityContext> {
         offset: u32,
     ) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
         let mut options = NoteViewerOptions::new();
-        let notes = self.set.at(owner).view_notes(options.set_offset(offset));
+        let notes = self.owned_set.at(owner).view_notes(options.set_offset(offset));
 
         notes.map(|note| Card::from_field(note.value()))
     }

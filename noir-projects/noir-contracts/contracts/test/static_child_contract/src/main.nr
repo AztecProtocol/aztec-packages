@@ -8,7 +8,7 @@ pub contract StaticChild {
         messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol_types::address::AztecAddress,
-        state_vars::{PrivateSet, PublicMutable},
+        state_vars::{Owned, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
     use dep::value_note::value_note::ValueNote;
@@ -17,7 +17,7 @@ pub contract StaticChild {
     #[storage]
     struct Storage<Context> {
         current_value: PublicMutable<Field, Context>,
-        a_private_value: PrivateSet<ValueNote, Context>,
+        a_private_value: Owned<PrivateSet<ValueNote, Context>, Context>,
     }
 
     // Returns base_value + chain_id + version + block_number + timestamp statically

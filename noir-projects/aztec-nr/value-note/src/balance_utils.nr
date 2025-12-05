@@ -3,12 +3,12 @@ use dep::aztec::{
     context::UtilityContext,
     note::note_viewer_options::NoteViewerOptions,
     protocol_types::address::AztecAddress,
-    state_vars::private_set::{OwnedPrivateSet, PrivateSet},
+    state_vars::{owned::Owned, private_set::PrivateSet},
 };
 
 // DEPRECATED: Having this functionality in the value note package is incorrect and will be removed in the future.
 pub unconstrained fn get_balance(
-    set: PrivateSet<ValueNote, UtilityContext>,
+    set: Owned<PrivateSet<ValueNote, UtilityContext>, UtilityContext>,
     owner: AztecAddress,
 ) -> Field {
     get_balance_with_offset(set.at(owner), 0)
@@ -16,7 +16,7 @@ pub unconstrained fn get_balance(
 
 // DEPRECATED: Having this functionality in the value note package is incorrect and will be removed in the future.
 unconstrained fn get_balance_with_offset(
-    set: OwnedPrivateSet<ValueNote, UtilityContext>,
+    set: PrivateSet<ValueNote, UtilityContext>,
     offset: u32,
 ) -> Field {
     let mut balance = 0;
