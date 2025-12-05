@@ -58,6 +58,7 @@ const int max_num_events = 20;
 const int max_calldata_fields = 20;
 const uint8_t default_calldata_fields = 16;
 
+// TODO(MW): Increase and track the below?
 // extern "C" {
 // __attribute__((section("__libfuzzer_extra_counters"))) uint8_t max_calldata_fields = 0;
 // }
@@ -159,6 +160,7 @@ struct CalldataFuzzerInput {
     }
 };
 
+// TODO(MW): Use mutate_calldata_vec (modify BASIC_VEC_MUTATION_CONFIGURATION for this fuzzer?)
 std::vector<std::vector<FF>> generate_calldata_values(const CalldataFuzzerInput& input)
 {
     std::vector<std::vector<FF>> all_calldata_fields(input.num_events_input, std::vector<FF>(0));
@@ -217,6 +219,38 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     std::uniform_int_distribution<int> mutation_dist(0, 3);
     int mutation_choice = mutation_dist(rng);
 
+    /**
+     * Mutation choices:
+     *
+     * We have a nested CalldataFuzzerInput struct. The top level configures:
+     *   - starting context id (this will increment for each calldata instance)
+     *   - number of events (i.e. number of calldata instances to retrieve and hash)
+     *   - array of initial values (as in the memory gadget fuzzer, an array to fields to generate values from)
+     * Then for each event, we have a CalldataFuzzerInstance which configures:
+     *   - number of calldata fields
+     *   - selection encoding (as in the memory gadget fuzzer, configures generation of calldata values from the parent
+     * initial values)
+     *   - mutation (a choice of test case for this calldata instance):
+     *       - 0: do nothing to the calldata and emit as is
+     *       - 1: modify this calldata to be a copy of another instance
+     *       - 2: clear this calldata, so we emit an empty calldata array
+     *
+     * Every call to this custom mutator mutates **one** of:
+     * 0: starting context id
+     * 1: number of events
+     * 2: a single initial value
+     * 3: a single calldata instance
+     *
+     * If case 3 is chosen, one calldata instance is selected and **one** of the following is mutated for it:
+     * 0: mutation (choice of test case for this one calldata instance)
+     * 1: number of fields
+     * 3: selection encoding (how to generate the calldata fields)
+     *
+     * This method may be too 'nested' and granular, so it may be better to move to using something like
+     * mutate_calldata_vec rather than rely on initial values, where it is relatively slow to reach the case where we
+     * actually change the fields in a calldata instance.
+     */
+
     switch (mutation_choice) {
     case 0: {
         // Modify number of events
@@ -233,6 +267,7 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     }
     case 2: {
         // Modify a random initial value
+        // TODO(MW): Use mutate_calldata_vec (modify BASIC_VEC_MUTATION_CONFIGURATION for this fuzzer?)
         std::uniform_int_distribution<size_t> index_dist(0, input.init_calldata_values.size() - 1);
         size_t value_idx = index_dist(rng);
         std::uniform_int_distribution<uint64_t> dist(0, std::numeric_limits<uint64_t>::max());
@@ -248,7 +283,7 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
         int inner_mutation_choice = inner_mutation_dist(rng);
         switch (inner_mutation_choice) {
         case 0: {
-            // Set mutation choice (see generate_calldata_values)
+            // Set mutation choice for calldata fields (see generate_calldata_values)
             std::uniform_int_distribution<int> choice_dist(0, 2);
             input.calldata_instances[value_idx].mutation = uint8_t(choice_dist(rng));
             break;
@@ -261,6 +296,7 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
         }
         case 2: {
             // Set selection encoding:
+            // TODO(MW): Use mutate_calldata_vec (modify BASIC_VEC_MUTATION_CONFIGURATION for this fuzzer?)
             std::uniform_int_distribution<size_t> entry_dist(0, input.calldata_instances[value_idx].num_fields - 1);
             size_t entry_idx = entry_dist(rng);
             input.calldata_instances[value_idx].selection_encoding ^= (1ULL << entry_idx);
