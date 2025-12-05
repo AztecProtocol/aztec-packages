@@ -40,7 +40,3 @@ This note discovery scheme will be implemented by Aztec contracts rather than by
 - **You cannot receive notes from an unknown sender**. If you do not know the sender’s address, you cannot create the shared secret, and therefore cannot create the note tag. There are potential ways around this, such as senders adding themselves to a contract and then recipients searching for note tags from all the senders in the contract. However this is out of scope at this point in time.
 
 - **Index synchronization can be complicated**. If transactions are reverted or mined out of order, the recipient may stop searching after receiving a tag with the latest index they expect. This means they can miss notes that belong to them. We cannot redo a reverted a transaction with the same index, because then the tag will be the same and the notes will be linked, leaking privacy. We can solve this by widening the search window (not too much, or it becomes brute force) and implementing a few restrictions on sending notes. A user will not be able to send a large amount of notes from the same contract to the same recipient within a short time frame.
-
-## Further reading
-
-- [How partial notes are discovered](./partial_notes.md#note-discovery)
