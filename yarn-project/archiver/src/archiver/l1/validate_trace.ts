@@ -15,7 +15,7 @@ const logger = createLogger('aztec:archiver:validate_trace');
  * @param client - The Viem public debug client
  * @param txHash - Transaction hash to trace
  * @param schema - Zod schema to validate the response
- * @param methodName - Name of the RPC method ('debug_traceTransaction' or 'trace_transaction')
+ * @param method - Name of the RPC method ('debug_traceTransaction' or 'trace_transaction')
  * @param blockType - Type of block being tested ('recent' or 'old')
  * @returns true if the method works and validation passes, false otherwise
  */
@@ -23,30 +23,22 @@ async function testTraceMethod(
   client: ViemPublicDebugClient,
   txHash: Hex,
   schema: ZodSchema,
-  methodName: 'debug_traceTransaction' | 'trace_transaction',
+  method: 'debug_traceTransaction' | 'trace_transaction',
   blockType: string,
 ): Promise<boolean> {
   try {
-    let result: unknown;
-
     // Make request with appropriate params based on method name
-    if (methodName === 'debug_traceTransaction') {
-      result = await client.request({
-        method: 'debug_traceTransaction',
-        params: [txHash, { tracer: 'callTracer' }],
-      });
-    } else {
-      result = await client.request({
-        method: 'trace_transaction',
-        params: [txHash],
-      });
-    }
+    const result = await client.request(
+      method === 'debug_traceTransaction'
+        ? { method, params: [txHash, { tracer: 'callTracer' }] }
+        : { method, params: [txHash] },
+    );
 
     schema.parse(result);
-    logger.debug(`${methodName} works for ${blockType} blocks`);
+    logger.debug(`${method} works for ${blockType} blocks`);
     return true;
   } catch (error) {
-    logger.debug(`${methodName} failed for ${blockType} blocks: ${error}`);
+    logger.warn(`${method} failed for ${blockType} blocks: ${error}`);
     return false;
   }
 }
@@ -80,18 +72,15 @@ export async function validateTraceAvailability(client: ViemPublicDebugClient): 
   try {
     // Get the latest block
     let latestBlock = await client.getBlock({ blockTag: 'latest' });
+    let attempts = 10;
 
     // Loop back to find a block with transactions (handles dev/test scenarios)
-    while (
-      (!latestBlock.transactions || latestBlock.transactions.length === 0) &&
-      latestBlock.number &&
-      latestBlock.number > 0n
-    ) {
+    while (!hasTxs(latestBlock) && latestBlock.number && latestBlock.number > 0n && --attempts > 0) {
       logger.debug(`Block ${latestBlock.number} has no transactions, checking previous block`);
       latestBlock = await client.getBlock({ blockNumber: latestBlock.number - 1n });
     }
 
-    if (!latestBlock.transactions || latestBlock.transactions.length === 0) {
+    if (!hasTxs(latestBlock)) {
       logger.warn('No blocks with transactions found from latest back to genesis, cannot validate trace availability');
       return result;
     }
@@ -125,14 +114,15 @@ export async function validateTraceAvailability(client: ViemPublicDebugClient): 
     }
 
     let oldBlock = await client.getBlock({ blockNumber: oldBlockNumber });
+    attempts = 10;
 
     // Loop back to find a block with transactions (handles dev/test scenarios)
-    while ((!oldBlock.transactions || oldBlock.transactions.length === 0) && oldBlock.number && oldBlock.number > 0n) {
+    while (!hasTxs(oldBlock) && oldBlock.number && oldBlock.number > 0n && --attempts > 0) {
       logger.debug(`Block ${oldBlock.number} has no transactions, checking previous block`);
       oldBlock = await client.getBlock({ blockNumber: oldBlock.number - 1n });
     }
 
-    if (!oldBlock.transactions || oldBlock.transactions.length === 0) {
+    if (!hasTxs(oldBlock)) {
       logger.debug(
         'No blocks with transactions found from old block back to genesis, cannot validate trace availability for old blocks',
       );
@@ -153,10 +143,14 @@ export async function validateTraceAvailability(client: ViemPublicDebugClient): 
       'old',
     );
   } catch (error) {
-    logger.error(`Error during trace availability validation: ${error}`);
+    logger.warn(`Error validating debug_traceTransaction and trace_transaction availability: ${error}`);
   }
 
   return result;
+}
+
+function hasTxs(block: { transactions?: Hex[] }): boolean {
+  return Array.isArray(block.transactions) && block.transactions.length > 0;
 }
 
 /**
@@ -205,15 +199,13 @@ export async function validateAndLogTraceAvailability(
   } else {
     // Error case: no support at all
     const errorMessage =
-      'Ethereum client does not support debug_traceTransaction or trace_transaction methods. Transaction tracing will not be available.';
+      'Ethereum debug client does not support debug_traceTransaction or trace_transaction methods. Transaction tracing will not be available. This may impact archiver syncing.';
 
     if (ethereumAllowNoDebugHosts) {
       logger.warn(`${errorMessage} Continuing because ETHEREUM_ALLOW_NO_DEBUG_HOSTS is set to true.`);
     } else {
       logger.error(errorMessage);
-      throw new Error(
-        `${errorMessage} Set ETHEREUM_ALLOW_NO_DEBUG_HOSTS=true to bypass this check if trace functionality is not required.`,
-      );
+      throw new Error(`${errorMessage} Set ETHEREUM_ALLOW_NO_DEBUG_HOSTS=true to bypass this check.`);
     }
   }
 }

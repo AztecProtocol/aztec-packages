@@ -20,16 +20,9 @@ import {
 import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
 
-import {
-  type Hex,
-  type Transaction,
-  decodeFunctionData,
-  getAddress,
-  hexToBytes,
-  multicall3Abi,
-  toFunctionSelector,
-} from 'viem';
+import { type Hex, type Transaction, decodeFunctionData, hexToBytes, multicall3Abi, toFunctionSelector } from 'viem';
 
+import type { ArchiverInstrumentation } from '../instrumentation.js';
 import type { RetrievedL2Block } from './data_retrieval.js';
 import { getSuccessfulCallsFromDebug } from './debug_tx.js';
 import { getCallFromSpireProposer } from './spire_proposer.js';
@@ -50,6 +43,7 @@ export class CalldataRetriever {
     private readonly publicClient: ViemPublicClient,
     private readonly debugClient: ViemPublicDebugClient,
     private readonly targetCommitteeSize: number,
+    private readonly instrumentation: ArchiverInstrumentation | undefined,
     private readonly logger: Logger,
     contractAddresses: {
       rollupAddress: EthAddress;
@@ -83,10 +77,9 @@ export class CalldataRetriever {
   protected async getProposeCallData(tx: Transaction, l2BlockNumber: number): Promise<Hex> {
     // Try to decode as multicall3 with validation
     const proposeCalldata = this.tryDecodeMulticall3(tx);
-
-    // Successfully decoded via multicall3, proceed with decoding
     if (proposeCalldata) {
       this.logger.trace(`Decoded propose calldata from multicall3 for tx ${tx.hash}`);
+      this.instrumentation?.recordBlockProposalTxTarget(tx.to!, false);
       return proposeCalldata;
     }
 
@@ -94,6 +87,7 @@ export class CalldataRetriever {
     const directProposeCalldata = this.tryDecodeDirectPropose(tx);
     if (directProposeCalldata) {
       this.logger.trace(`Decoded propose calldata from direct call for tx ${tx.hash}`);
+      this.instrumentation?.recordBlockProposalTxTarget(tx.to!, false);
       return directProposeCalldata;
     }
 
@@ -101,13 +95,15 @@ export class CalldataRetriever {
     const spireProposeCalldata = await this.tryDecodeSpireProposer(tx);
     if (spireProposeCalldata) {
       this.logger.trace(`Decoded propose calldata from Spire Proposer for tx ${tx.hash}`);
+      this.instrumentation?.recordBlockProposalTxTarget(tx.to!, false);
       return spireProposeCalldata;
     }
 
     // Fall back to trace-based extraction
     this.logger.warn(
-      `Failed to decode multicall3, direct propose, or Spire Proposer for L1 tx ${tx.hash}, falling back to trace for L2 block ${l2BlockNumber}`,
+      `Failed to decode multicall3, direct propose, or Spire proposer for L1 tx ${tx.hash}, falling back to trace for L2 block ${l2BlockNumber}`,
     );
+    this.instrumentation?.recordBlockProposalTxTarget(tx.to ?? EthAddress.ZERO.toString(), true);
     return await this.extractCalldataViaTrace(tx.hash);
   }
 
@@ -158,8 +154,8 @@ export class CalldataRetriever {
 
     try {
       // Check if transaction is to Multicall3 address
-      if (!tx.to || tx.to.toLowerCase() !== MULTI_CALL_3_ADDRESS.toLowerCase()) {
-        this.logger.warn(`Transaction is not to Multicall3 address (to: ${tx.to})`, { txHash, to: tx.to });
+      if (!tx.to || !EthAddress.areEqual(tx.to, MULTI_CALL_3_ADDRESS)) {
+        this.logger.debug(`Transaction is not to Multicall3 address (to: ${tx.to})`, { txHash, to: tx.to });
         return undefined;
       }
 
@@ -252,8 +248,8 @@ export class CalldataRetriever {
     const txHash = tx.hash;
     try {
       // Check if transaction is to the rollup address
-      if (!tx.to || getAddress(tx.to) !== getAddress(this.rollupAddress.toString())) {
-        this.logger.warn(`Transaction is not to rollup address (to: ${tx.to})`, { txHash });
+      if (!tx.to || !EthAddress.areEqual(tx.to, this.rollupAddress)) {
+        this.logger.debug(`Transaction is not to rollup address (to: ${tx.to})`, { txHash });
         return undefined;
       }
 
@@ -304,7 +300,7 @@ export class CalldataRetriever {
         this.logger.debug(`Successfully traced using debug_traceTransaction, found ${calls.length} calls`);
       } catch (debugErr) {
         const debugError = debugErr instanceof Error ? debugErr : new Error(String(debugErr));
-        this.logger.error(`All tracing methods failed for tx ${txHash}`, {
+        this.logger.warn(`All tracing methods failed for tx ${txHash}`, {
           traceError,
           debugError,
           txHash,

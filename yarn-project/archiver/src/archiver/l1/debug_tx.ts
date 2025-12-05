@@ -17,8 +17,8 @@ export const callTraceSchema: ZodFor<DebugCallTrace> = z.lazy(() =>
     type: z.string(),
     input: schemas.HexStringWith0x.optional(),
     output: schemas.HexStringWith0x.optional(),
-    gas: schemas.HexStringWith0x,
-    gasUsed: schemas.HexStringWith0x,
+    gas: schemas.HexStringWith0x.optional(),
+    gasUsed: schemas.HexStringWith0x.optional(),
     value: schemas.HexStringWith0x.optional(),
     error: z.string().optional(),
     calls: z.array(callTraceSchema).optional(),
@@ -52,6 +52,10 @@ export async function getSuccessfulCallsFromDebug(
     params: [txHash, { tracer: 'callTracer' }],
   });
 
+  if (rawTrace === null || rawTrace === undefined) {
+    throw new Error(`Failed to retrieve debug_traceTransaction for ${txHash}`);
+  }
+
   logger?.trace(`Retrieved debug_traceTransaction for ${txHash}`, { trace: rawTrace });
 
   // Validate the response with zod
@@ -76,7 +80,7 @@ export async function getSuccessfulCallsFromDebug(
     ) {
       results.push({
         from: EthAddress.fromString(callTrace.from),
-        gasUsed: BigInt(callTrace.gasUsed),
+        gasUsed: callTrace.gasUsed === undefined ? undefined : BigInt(callTrace.gasUsed),
         input: callTrace.input,
         value: callTrace.value ? BigInt(callTrace.value) : 0n,
       });
