@@ -1,5 +1,3 @@
-mod types;
-
 use aztec::macros::aztec;
 
 // Minimal token contract. Do not use
@@ -27,7 +25,7 @@ pub contract SimpleToken {
 
     use uint_note::uint_note::{PartialUintNote, UintNote};
 
-    use crate::types::balance_set::BalanceSet;
+    use balance_set::BalanceSet;
 
     global INITIAL_TRANSFER_CALL_MAX_NOTES: u32 = 2;
     global RECURSIVE_TRANSFER_CALL_MAX_NOTES: u32 = 8;
