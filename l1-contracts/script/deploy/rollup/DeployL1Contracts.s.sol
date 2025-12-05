@@ -237,23 +237,33 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function maybeDeployAssets(address existingStakingAssetAddress) internal returns (address feeAsset, address stakingAsset) {
-        if (existingStakingAssetAddress != address(0)) {
-            console.log("--- TestERC20 (FeeAsset/StakingAsset): using existing ---");
-            console.log("  address:", existingStakingAssetAddress);
-            return (existingStakingAssetAddress, existingStakingAssetAddress);
-        }
-        console.log("--- TestERC20 (FeeAsset/StakingAsset) constructor args ---");
-        console.log("  name: Fee Asset");
+        // Deploy FeeAsset
+        console.log("--- TestERC20 (FeeAsset) constructor args ---");
+        console.log("  name: FeeJuice");
         console.log("  symbol: FEE");
         console.log("  owner:", deployer);
-        TestERC20 asset = new TestERC20("Fee Asset", "FEE", deployer);
+        TestERC20 feeAssetContract = new TestERC20("FeeJuice", "FEE", deployer);
 
         console.log("--- Transaction: FeeAsset.mint (initial supply) ---");
-        console.log("  to:", address(asset));
+        console.log("  to:", address(feeAssetContract));
         console.log("  recipient:", deployer);
-        console.log("  amount: 1000000000000000000000000000");
-        asset.mint(deployer, 1_000_000_000e18);
-        return (address(asset), address(asset));
+        console.log("  amount: 1000000000000000000");
+        feeAssetContract.mint(deployer, 1e18); // 1 ETH, matching TypeScript
+
+        // Deploy StakingAsset (separate contract, or use existing)
+        if (existingStakingAssetAddress != address(0)) {
+            console.log("--- TestERC20 (StakingAsset): using existing ---");
+            console.log("  address:", existingStakingAssetAddress);
+            return (address(feeAssetContract), existingStakingAssetAddress);
+        }
+
+        console.log("--- TestERC20 (StakingAsset) constructor args ---");
+        console.log("  name: Staking");
+        console.log("  symbol: STK");
+        console.log("  owner:", deployer);
+        TestERC20 stakingAssetContract = new TestERC20("Staking", "STK", deployer);
+
+        return (address(feeAssetContract), address(stakingAssetContract));
     }
 
     function deployCoinIssuer(address feeAsset, uint256 coinIssuerRate) internal returns (address) {
@@ -494,8 +504,8 @@ contract DeployL1Contracts is Script, Test {
 
             console.log("--- Transaction: CoinIssuer.transferOwnership ---");
             console.log("  to:", coinIssuer);
-            console.log("  newOwner:", dateGatedRelayer);
-            CoinIssuer(coinIssuer).transferOwnership(dateGatedRelayer);
+            console.log("  newOwner:", governance);
+            CoinIssuer(coinIssuer).transferOwnership(governance); // Match TypeScript: transfer to Governance, not DateGatedRelayer
         }
     }
 
@@ -512,7 +522,7 @@ contract DeployL1Contracts is Script, Test {
 
         if (existingStakingAssetAddress == address(0)) {
             assertEq(Ownable(feeAsset).owner(), coinIssuer, "invalid fee asset owner");
-            assertEq(Ownable(coinIssuer).owner(), dateGatedRelayer, "invalid coin issuer owner");
+            assertEq(Ownable(coinIssuer).owner(), governance, "invalid coin issuer owner"); // Match TypeScript: ownership to Governance
         }
     }
 
@@ -601,7 +611,11 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function loadRewardDistributorFunding() internal {
-        rewardDistributorFunding = _readUint(".deployment.rewardDistributorFunding", 50_000_000e18);
+        // Match TypeScript calculation: funding = checkpointReward * 200000
+        // See deploy_l1_contracts.ts line 493
+        (,uint96 checkpointReward) = _getRewardConfigDefaults();
+        uint256 defaultFunding = uint256(checkpointReward) * 200_000;
+        rewardDistributorFunding = _readUint(".deployment.rewardDistributorFunding", defaultFunding);
     }
 
     function buildRollupConfiguration(IRewardDistributor rewardDistributor) internal view returns (RollupConfigInput memory config) {
