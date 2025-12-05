@@ -53,6 +53,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         using Curve = curve::BN254;
         using G1 = Curve::Element;
         using Fr = Curve::ScalarField;
+        using Fq = curve::Grumpkin::ScalarField;
 
         std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
         G1 a = G1::random_element(engine);
@@ -77,6 +78,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
             op_queue->mul_accumulate(c, x);
             op_queue->merge();
         }
+        // Set hiding op for ECCVM ZK (required before ECCVMCircuitBuilder construction)
+        op_queue->append_hiding_op(Fq::random_element(engine), Fq::random_element(engine));
         InnerBuilder builder{ op_queue };
         return builder;
     }
@@ -156,7 +159,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         }
 
         // Check that the size of the recursive verifier is consistent with historical expectation
-        uint32_t NUM_GATES_EXPECTED = 214043;
+        uint32_t NUM_GATES_EXPECTED = 215193;
         ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()), NUM_GATES_EXPECTED)
             << "Ultra-arithmetized ECCVM Recursive verifier gate count changed! Update this value if you are sure this "
                "is expected.";
