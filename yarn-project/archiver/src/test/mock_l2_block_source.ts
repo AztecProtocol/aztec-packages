@@ -1,6 +1,6 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -114,9 +114,14 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
-  public async getPublishedCheckpoints(from: number, limit: number) {
+  public async getPublishedCheckpoints(from: CheckpointNumber, limit: number) {
     // TODO: Implement this properly. This only works when we have one block per checkpoint.
     return (await this.getPublishedBlocks(from, limit)).map(block => block.toPublishedCheckpoint());
+  }
+
+  public async getCheckpointByArchive(archive: Fr): Promise<Checkpoint | undefined> {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
+    return (await this.getPublishedBlockByArchive(archive))?.block.toCheckpoint();
   }
 
   public async getPublishedBlocks(from: number, limit: number, proven?: boolean) {
