@@ -1,21 +1,15 @@
 # Build stage
-FROM ubuntu:noble AS builder
+FROM ubuntu:noble AS base-build
 
 RUN apt-get update && \
     apt-get install -y \
         build-essential \
         python3 \
-        wget \
-        curl \
-        unzip \
-        git \
-        cmake \
-        clang \
-        ninja-build \
-        libdw-dev \
-        binutils-dev \
-        libelf-dev \
-        libdwarf-dev && \
+        git wget curl unzip \
+        clang llvm-18 libstdc++6 libgcc-s1 libc6 \
+        cmake ninja-build\
+        libdw-dev libelf-dev libdwarf-dev libdw1 libelf1 libdwarf1 binutils-dev \
+        ca-certificates && \
     apt-get -y autoremove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -54,40 +48,9 @@ RUN cmake --build build-fuzzing-asan
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-coverage
 RUN cmake --build build-fuzzing-cov
 
-# Build avm fuzzers
+# Build AVM fuzzers
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-avm
 RUN cmake --build build-fuzzing-avm
-
-# Runtime stage
-FROM ubuntu:noble AS runtime
-
-# Install only runtime dependencies needed for fuzzing and coverage tools
-RUN apt-get update && \
-    apt-get install -y \
-        libstdc++6 \
-        libgcc-s1 \
-        libc6 \
-        libdw1 \
-        libelf1 \
-        libdwarf1 \
-        llvm-18 \
-        curl \
-        unzip \
-        ca-certificates && \
-    apt-get -y autoremove && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-RUN useradd -m fuzzer -G sudo
-WORKDIR /home/fuzzer
-
-# Copy binaries from build stage
-COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing/bin ./build-fuzzing/bin
-COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-noasm/bin ./build-fuzzing-noasm/bin
-COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-asan/bin ./build-fuzzing-asan/bin
-COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-cov/bin ./build-fuzzing-cov/bin
-COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-avm/bin ./build-fuzzing-avm/bin
-COPY --from=builder /root/.bb-crs /root/.bb-crs
 
 # Copy entrypoint script
 COPY entrypoint.sh .
