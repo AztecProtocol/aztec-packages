@@ -1,5 +1,6 @@
 import { findNapiBinary } from '@aztec/bb.js';
 import { type LogLevel, LogLevels } from '@aztec/foundation/log';
+import { Semaphore } from '@aztec/foundation/queue';
 
 import { createRequire } from 'module';
 
@@ -97,6 +98,21 @@ const nativeAvmSimulateWithHintedDbs = nativeModule.avmSimulateWithHintedDbs as 
 ) => Promise<Buffer>;
 
 /**
+ * Concurrency limiting for C++ AVM simulation to prevent libuv thread pool exhaustion.
+ *
+ * The C++ simulator uses NAPI BlockingCall to callback to TypeScript for contract data.
+ * This blocks the libuv thread while waiting for the callback to complete. If all libuv
+ * threads are blocked waiting for callbacks, no threads remain to service those callbacks,
+ * causing deadlock.
+ *
+ * We limit concurrent simulations to UV_THREADPOOL_SIZE / 2 to ensure threads remain
+ * available for callback processing.
+ */
+const UV_THREADPOOL_SIZE = parseInt(process.env.UV_THREADPOOL_SIZE ?? '4', 10);
+const MAX_CONCURRENT_AVM_SIMULATIONS = Math.max(1, Math.floor(UV_THREADPOOL_SIZE / 2));
+const avmSimulationSemaphore = new Semaphore(MAX_CONCURRENT_AVM_SIMULATIONS);
+
+/**
  * AVM simulation function that takes serialized inputs and a contract provider.
  * The contract provider enables C++ to callback to TypeScript for contract data during simulation.
  * @param inputs - Msgpack-serialized AvmFastSimulationInputs buffer
@@ -105,13 +121,18 @@ const nativeAvmSimulateWithHintedDbs = nativeModule.avmSimulateWithHintedDbs as 
  * @param logLevel - Log level to control C++ verbosity
  * @returns Promise resolving to msgpack-serialized AvmCircuitPublicInputs buffer
  */
-export function avmSimulate(
+export async function avmSimulate(
   inputs: Buffer,
   contractProvider: ContractProvider,
   worldStateHandle: any,
   logLevel: LogLevel = 'info',
 ): Promise<Buffer> {
-  return nativeAvmSimulate(inputs, contractProvider, worldStateHandle, LogLevels.indexOf(logLevel));
+  await avmSimulationSemaphore.acquire();
+  try {
+    return await nativeAvmSimulate(inputs, contractProvider, worldStateHandle, LogLevels.indexOf(logLevel));
+  } finally {
+    avmSimulationSemaphore.release();
+  }
 }
 
 /**
@@ -122,6 +143,11 @@ export function avmSimulate(
  * @param logLevel - Log level to control C++ verbosity
  * @returns Promise resolving to msgpack-serialized simulation results buffer
  */
-export function avmSimulateWithHintedDbs(inputs: Buffer, logLevel: LogLevel = 'info'): Promise<Buffer> {
-  return nativeAvmSimulateWithHintedDbs(inputs, LogLevels.indexOf(logLevel));
+export async function avmSimulateWithHintedDbs(inputs: Buffer, logLevel: LogLevel = 'info'): Promise<Buffer> {
+  await avmSimulationSemaphore.acquire();
+  try {
+    return await nativeAvmSimulateWithHintedDbs(inputs, LogLevels.indexOf(logLevel));
+  } finally {
+    avmSimulationSemaphore.release();
+  }
 }
