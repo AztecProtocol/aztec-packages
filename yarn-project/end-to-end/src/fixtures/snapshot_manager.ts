@@ -378,10 +378,14 @@ async function setupFromFresh(
     });
     const privateKeyHex = `0x${publisherPrivKey!.toString('hex')}` as `0x${string}`;
     deployL1ContractsValues = await setupL1ContractsWithForge(aztecNodeConfig.l1RpcUrls[0], privateKeyHex, logger, {
+      ...getL1ContractsConfigEnvVars(),
+      ...deployL1ContractsArgs,
+      // Override with specific values that need special handling
       genesisArchiveRoot: genesisArchiveRoot.toString() as `0x${string}`,
       realVerifier: deployL1ContractsArgs.realVerifier,
       fundRewardDistributor: opts.fundRewardDistributor,
       zkPassportArgs: deployL1ContractsArgs.zkPassportArgs,
+      initialValidators: opts.initialValidators,
     });
 
     // Fund the fee juice portal after forge deployment

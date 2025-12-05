@@ -98,6 +98,7 @@ contract DeployL1Contracts is Script, Test {
 
     address public deployer;
     string internal configJson;
+    string internal networkName;
 
     // Configuration objects
     DeploymentOptions internal deployOpts;
@@ -115,6 +116,9 @@ contract DeployL1Contracts is Script, Test {
 
     function run(string memory _configJson) public {
         configJson = _configJson;
+        // Read networkName from config, default to "local"
+        // Valid values: local, devnet, next-net, staging-public, testnet, staging-ignition, mainnet
+        networkName = _readString(".deployment.networkName", "local");
         loadDeploymentOptions();
         loadCoinIssuerConfig();
         loadGseConfig();
@@ -414,14 +418,16 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function loadGseConfig() internal {
+        // Match TypeScript DefaultL1ContractsConfig (config.ts lines 85-86)
         gseConfig = GseConfiguration({
-            activationThreshold: _readUint(".gse.activationThreshold", 100_000e18),
-            ejectionThreshold: _readUint(".gse.ejectionThreshold", 50_000e18)
+            activationThreshold: _readUint(".gse.activationThreshold", 100e18),  // Match TS: 100e18
+            ejectionThreshold: _readUint(".gse.ejectionThreshold", 50e18)        // Match TS: 50e18
         });
     }
 
     function loadGovernanceProposerConfig() internal {
-        uint256 roundSize = _readUint(".governance.proposerRoundSize", 10);
+        // Match TypeScript DefaultL1ContractsConfig (config.ts line 95)
+        uint256 roundSize = _readUint(".governance.proposerRoundSize", 300);  // Match TS: 300, not 10!
         uint256 defaultQuorum = roundSize / 2 + 1;
 
         govProposerConfig = GovernanceProposerConfiguration({
@@ -431,18 +437,31 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function loadGovernanceConfig() internal {
+        // Get network-specific defaults, then allow JSON config to override
+        (
+            uint256 lockDelay,
+            uint256 lockAmount,
+            uint256 votingDelay,
+            uint256 votingDuration,
+            uint256 executionDelay,
+            uint256 gracePeriod,
+            uint256 quorum,
+            uint256 requiredYeaMargin,
+            uint256 minimumVotes
+        ) = _getGovernanceConfigDefaults();
+
         governanceConfig = GovernanceConfiguration({
             proposeConfig: ProposeWithLockConfiguration({
-                lockDelay: Timestamp.wrap(_readUint(".governance.proposeLockDelay", 90 days)),
-                lockAmount: _readUint(".governance.proposeLockAmount", 10_000_000e18)
+                lockDelay: Timestamp.wrap(_readUint(".governance.proposeLockDelay", lockDelay)),
+                lockAmount: _readUint(".governance.proposeLockAmount", lockAmount)
             }),
-            votingDelay: Timestamp.wrap(_readUint(".governance.votingDelay", 1 days)),
-            votingDuration: Timestamp.wrap(_readUint(".governance.votingDuration", 7 days)),
-            executionDelay: Timestamp.wrap(_readUint(".governance.executionDelay", 1 days)),
-            gracePeriod: Timestamp.wrap(_readUint(".governance.gracePeriod", 7 days)),
-            quorum: _readUint(".governance.quorum", 0.1e18),
-            requiredYeaMargin: _readUint(".governance.requiredYeaMargin", 0.5e18),
-            minimumVotes: _readUint(".governance.minimumVotes", 100_000e18)
+            votingDelay: Timestamp.wrap(_readUint(".governance.votingDelay", votingDelay)),
+            votingDuration: Timestamp.wrap(_readUint(".governance.votingDuration", votingDuration)),
+            executionDelay: Timestamp.wrap(_readUint(".governance.executionDelay", executionDelay)),
+            gracePeriod: Timestamp.wrap(_readUint(".governance.gracePeriod", gracePeriod)),
+            quorum: _readUint(".governance.quorum", quorum),
+            requiredYeaMargin: _readUint(".governance.requiredYeaMargin", requiredYeaMargin),
+            minimumVotes: _readUint(".governance.minimumVotes", minimumVotes)
         });
     }
 
@@ -466,15 +485,16 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function buildRollupConfiguration(IRewardDistributor rewardDistributor) internal view returns (RollupConfigInput memory config) {
+        // Match TypeScript DefaultL1ContractsConfig (config.ts lines 77-102)
         config.aztecSlotDuration = _readUint(".timing.aztecSlotDuration", 36);
         config.aztecEpochDuration = _readUint(".timing.aztecEpochDuration", 32);
-        config.targetCommitteeSize = _readUint(".timing.targetCommitteeSize", 0);
+        config.targetCommitteeSize = _readUint(".timing.targetCommitteeSize", 48);  // Match TS DefaultL1ContractsConfig
 
-        config.lagInEpochsForValidatorSet = _readUint(".validatorSet.lagInEpochsForValidatorSet", 3);
+        config.lagInEpochsForValidatorSet = _readUint(".validatorSet.lagInEpochsForValidatorSet", 2);  // Match TS: 2, not 3
         config.lagInEpochsForRandao = _readUint(".validatorSet.lagInEpochsForRandao", 2);
-        config.aztecProofSubmissionEpochs = _readUint(".validatorSet.aztecProofSubmissionEpochs", 2);
+        config.aztecProofSubmissionEpochs = _readUint(".validatorSet.aztecProofSubmissionEpochs", 1);  // Match TS: 1, not 2
 
-        config.slasherFlavor = _parseSlasherFlavor(_readString(".slashing.flavor", "none"));
+        config.slasherFlavor = _parseSlasherFlavor(_readString(".slashing.flavor", "tally"));  // Match TS: 'tally', not 'none'
 
         uint256 roundSizeInEpochs = _readUint(".slashing.roundSizeInEpochs", 4);
         uint256 defaultRoundSize = roundSizeInEpochs * config.aztecEpochDuration;
@@ -486,21 +506,24 @@ contract DeployL1Contracts is Script, Test {
         config.slashingLifetimeInRounds = _readUint(".slashing.lifetimeInRounds", 5);
         config.slashingExecutionDelayInRounds = _readUint(".slashing.executionDelayInRounds", 0);
 
+        // Match TS: slashingOffsetInRounds = 2 (config.ts line 100)
         uint256 defaultOffset = config.slasherFlavor == SlasherFlavor.TALLY ? 2 : 0;
         config.slashingOffsetInRounds = _readUint(".slashing.offsetInRounds", defaultOffset);
 
         config.slashingDisableDuration = _readUint(".slashing.disableDuration", 5 days);
         config.slashingVetoer = _readAddress(".slashing.vetoer", address(0));
+
+        // Match TS DefaultL1ContractsConfig (config.ts lines 88-90)
         config.slashAmounts = [
-            _readUint(".slashing.amountSmall", 10_000e18),
-            _readUint(".slashing.amountMedium", 10_000e18),
-            _readUint(".slashing.amountLarge", 10_000e18)
+            _readUint(".slashing.amountSmall", 10e18),    // Match TS: 10e18
+            _readUint(".slashing.amountMedium", 20e18),   // Match TS: 20e18
+            _readUint(".slashing.amountLarge", 50e18)     // Match TS: 50e18
         ];
 
-        config.manaTarget = _readUint(".fee.manaTarget", 100_000_000);
-        config.exitDelaySeconds = _readUint(".fee.exitDelaySeconds", 4 days);
-        config.provingCostPerMana = EthValue.wrap(_readUint(".fee.provingCostPerMana", 0));
-        config.localEjectionThreshold = _readUint(".fee.localEjectionThreshold", 96_000e18);
+        config.manaTarget = _readUint(".fee.manaTarget", 100_000_000);  // Match TS: BigInt(100e6)
+        config.exitDelaySeconds = _readUint(".fee.exitDelaySeconds", 2 days);  // Match TS: 2 * 24 * 60 * 60
+        config.provingCostPerMana = EthValue.wrap(_readUint(".fee.provingCostPerMana", 100));  // Match TS: BigInt(100)
+        config.localEjectionThreshold = _readUint(".fee.localEjectionThreshold", 98e18);  // Match TS: 98e18
 
         config.version = 0;
         config.rewardConfig = _buildRewardConfig(rewardDistributor);
@@ -510,11 +533,14 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function _buildRewardConfig(IRewardDistributor rewardDistributor) private view returns (RewardConfig memory) {
+        // Get network-specific defaults, then allow JSON config to override
+        (uint16 sequencerBps, uint96 checkpointReward) = _getRewardConfigDefaults();
+
         return RewardConfig({
             rewardDistributor: rewardDistributor,
-            sequencerBps: Bps.wrap(uint16(_readUint(".reward.sequencerBps", 5000))),
+            sequencerBps: Bps.wrap(uint16(_readUint(".reward.sequencerBps", sequencerBps))),
             booster: IBoosterCore(address(0)),
-            checkpointReward: uint96(_readUint(".reward.checkpointReward", 50e18))
+            checkpointReward: uint96(_readUint(".reward.checkpointReward", checkpointReward))
         });
     }
 
@@ -523,13 +549,168 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function _buildStakingQueueConfig() private view returns (StakingQueueConfig memory) {
+        // Get network-specific defaults, then allow JSON config to override
+        (uint64 bootstrapValidatorSetSize, uint64 bootstrapFlushSize, uint64 normalFlushSizeMin, uint64 normalFlushSizeQuotient, uint64 maxQueueFlushSize) = _getEntryQueueConfigDefaults();
+
         return StakingQueueConfig({
-            bootstrapValidatorSetSize: uint64(_readUint(".stakingQueue.bootstrapValidatorSetSize", 48)),
-            bootstrapFlushSize: uint64(_readUint(".stakingQueue.bootstrapFlushSize", 8)),
-            normalFlushSizeMin: uint64(_readUint(".stakingQueue.normalFlushSizeMin", 1)),
-            normalFlushSizeQuotient: uint64(_readUint(".stakingQueue.normalFlushSizeQuotient", 2048)),
-            maxQueueFlushSize: uint64(_readUint(".stakingQueue.maxQueueFlushSize", 8))
+            bootstrapValidatorSetSize: uint64(_readUint(".stakingQueue.bootstrapValidatorSetSize", bootstrapValidatorSetSize)),
+            bootstrapFlushSize: uint64(_readUint(".stakingQueue.bootstrapFlushSize", bootstrapFlushSize)),
+            normalFlushSizeMin: uint64(_readUint(".stakingQueue.normalFlushSizeMin", normalFlushSizeMin)),
+            normalFlushSizeQuotient: uint64(_readUint(".stakingQueue.normalFlushSizeQuotient", normalFlushSizeQuotient)),
+            maxQueueFlushSize: uint64(_readUint(".stakingQueue.maxQueueFlushSize", maxQueueFlushSize))
         });
+    }
+
+    // ============ Network-Specific Config Helpers ============
+
+    function _getEntryQueueConfigDefaults() private view returns (uint64, uint64, uint64, uint64, uint64) {
+        bytes32 networkHash = keccak256(bytes(networkName));
+
+        // local, devnet, next-net: LocalEntryQueueConfig
+        if (networkHash == keccak256(bytes("local")) ||
+            networkHash == keccak256(bytes("devnet")) ||
+            networkHash == keccak256(bytes("next-net"))) {
+            return (0, 0, 48, 2, 48);
+        }
+
+        // staging-public: StagingPublicEntryQueueConfig
+        if (networkHash == keccak256(bytes("staging-public"))) {
+            return (48, 48, 1, 2475, 32);
+        }
+
+        // testnet: TestnetEntryQueueConfig
+        if (networkHash == keccak256(bytes("testnet"))) {
+            return (256, 256, 4, 2048, 8);
+        }
+
+        // staging-ignition: StagingIgnitionEntryQueueConfig
+        if (networkHash == keccak256(bytes("staging-ignition"))) {
+            return (48, 48, 1, 2048, 24);
+        }
+
+        // mainnet: MainnetEntryQueueConfig
+        if (networkHash == keccak256(bytes("mainnet"))) {
+            return (1000, 1000, 1, 2048, 8);
+        }
+
+        // Default to local config
+        return (0, 0, 48, 2, 48);
+    }
+
+    function _getRewardConfigDefaults() private view returns (uint16 sequencerBps, uint96 checkpointReward) {
+        bytes32 networkHash = keccak256(bytes(networkName));
+
+        // mainnet: MainnetRewardConfig
+        if (networkHash == keccak256(bytes("mainnet"))) {
+            return (7000, 400e18);
+        }
+
+        // All others: DefaultRewardConfig
+        return (8000, 500e18);
+    }
+
+    function _getGovernanceConfigDefaults() private view returns (
+        uint256 lockDelay,
+        uint256 lockAmount,
+        uint256 votingDelay,
+        uint256 votingDuration,
+        uint256 executionDelay,
+        uint256 gracePeriod,
+        uint256 quorum,
+        uint256 requiredYeaMargin,
+        uint256 minimumVotes
+    ) {
+        bytes32 networkHash = keccak256(bytes(networkName));
+
+        // local, next-net, devnet: LocalGovernanceConfiguration
+        if (networkHash == keccak256(bytes("local")) ||
+            networkHash == keccak256(bytes("next-net")) ||
+            networkHash == keccak256(bytes("devnet"))) {
+            return (
+                60 * 60 * 24 * 30,  // lockDelay
+                1e24,               // lockAmount
+                60,                 // votingDelay
+                60 * 60,            // votingDuration
+                60,                 // executionDelay
+                60 * 60 * 24 * 7,   // gracePeriod
+                0.1e18,             // quorum (10%)
+                0.04e18,            // requiredYeaMargin (4%)
+                400e18              // minimumVotes
+            );
+        }
+
+        // staging-public: StagingPublicGovernanceConfiguration
+        if (networkHash == keccak256(bytes("staging-public"))) {
+            return (
+                60 * 60 * 24 * 30,  // lockDelay
+                100e18 * 100,       // lockAmount (activationThreshold * 100)
+                60,                 // votingDelay
+                60 * 60,            // votingDuration
+                60,                 // executionDelay
+                60 * 60 * 24 * 7,   // gracePeriod
+                0.3e18,             // quorum (30%)
+                0.04e18,            // requiredYeaMargin (4%)
+                50_000e18 * 200     // minimumVotes (ejectionThreshold * 200)
+            );
+        }
+
+        // testnet: TestnetGovernanceConfiguration
+        if (networkHash == keccak256(bytes("testnet"))) {
+            return (
+                10 * 365 * 24 * 60 * 60,  // lockDelay
+                1250 * 200_000e18,        // lockAmount
+                12 * 60 * 60,             // votingDelay (12 hours)
+                1 * 24 * 60 * 60,         // votingDuration (1 day)
+                12 * 60 * 60,             // executionDelay (12 hours)
+                1 * 24 * 60 * 60,         // gracePeriod (1 day)
+                0.2e18,                   // quorum (20%)
+                0.1e18,                   // requiredYeaMargin (10%)
+                100 * 200_000e18          // minimumVotes
+            );
+        }
+
+        // staging-ignition: StagingIgnitionGovernanceConfiguration
+        if (networkHash == keccak256(bytes("staging-ignition"))) {
+            return (
+                10 * 365 * 24 * 60 * 60,  // lockDelay
+                1250 * 200_000e18,        // lockAmount
+                7 * 24 * 60 * 60,         // votingDelay
+                7 * 24 * 60 * 60,         // votingDuration
+                30 * 24 * 60 * 60,        // executionDelay
+                7 * 24 * 60 * 60,         // gracePeriod
+                0.2e18,                   // quorum (20%)
+                0.1e18,                   // requiredYeaMargin (10%)
+                1250 * 200_000e18         // minimumVotes
+            );
+        }
+
+        // mainnet: MainnetGovernanceConfiguration
+        if (networkHash == keccak256(bytes("mainnet"))) {
+            return (
+                90 * 24 * 60 * 60,        // lockDelay
+                258_750_000e18,           // lockAmount
+                3 * 24 * 60 * 60,         // votingDelay
+                7 * 24 * 60 * 60,         // votingDuration
+                7 * 24 * 60 * 60,         // executionDelay
+                7 * 24 * 60 * 60,         // gracePeriod
+                0.2e18,                   // quorum (20%)
+                0.33e18,                  // requiredYeaMargin (33%)
+                1000 * 200_000e18         // minimumVotes
+            );
+        }
+
+        // Default to local config
+        return (
+            60 * 60 * 24 * 30,  // lockDelay
+            1e24,               // lockAmount
+            60,                 // votingDelay
+            60 * 60,            // votingDuration
+            60,                 // executionDelay
+            60 * 60 * 24 * 7,   // gracePeriod
+            0.1e18,             // quorum (10%)
+            0.04e18,            // requiredYeaMargin (4%)
+            400e18              // minimumVotes
+        );
     }
 
     // ============ JSON Parsing Helpers ============

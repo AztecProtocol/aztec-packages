@@ -10,8 +10,10 @@ import {
   type ZKPassportArgs,
   addMultipleValidators,
   deployL1Contracts,
+  isAnvilTestChain,
   setupL1ContractsViaForge,
 } from '@aztec/ethereum';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 
@@ -222,6 +224,26 @@ export const setupL1ContractsWithForge = async (
     registryAddress: l1Data.l1ContractAddresses.registryAddress.toString(),
     rollupVersion: l1Data.rollupVersion,
   });
+
+  // Jump to slot 1 to avoid the edge case where genesis block occupies slot 0
+  // This matches the behavior of the TypeScript deployment (see deploy_l1_contracts.ts)
+  if (isAnvilTestChain(foundry.id)) {
+    try {
+      const currentSlot = await rollup.getSlotNumber();
+      if (currentSlot === 0) {
+        const ts = Number(await rollup.getTimestampForSlot(SlotNumber(1)));
+        await l1Data.l1Client.transport.request({ method: 'evm_setNextBlockTimestamp', params: [ts] });
+        await l1Data.l1Client.transport.request({ method: 'hardhat_mine', params: [1] });
+        const newSlot = await rollup.getSlotNumber();
+        if (newSlot !== 1) {
+          throw new Error(`Error jumping time: current slot is ${newSlot}`);
+        }
+        logger.info('Jumped to slot 1');
+      }
+    } catch (e) {
+      throw new Error(`Error jumping time: ${e}`);
+    }
+  }
 
   // Add initial validators if provided (needed for slashing tests with BLS keys)
   if (options.initialValidators && options.initialValidators.length > 0) {

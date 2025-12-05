@@ -18,9 +18,13 @@ export interface ForgeRuntimeOptions {
 // ============ JSON Config Sections (match Solidity DeploymentConfig.sol) ============
 
 export interface DeploymentSection {
+  networkName?: string; // Network name: local, devnet, next-net, staging-public, testnet, staging-ignition, mainnet
   useMockVerifier?: boolean;
   fundRewardDistributor?: boolean;
   rewardDistributorFunding?: string;
+  existingStakingAssetAddress?: string;
+  deployFeeAssetHandler?: boolean;
+  deployStakingAssetHandler?: boolean;
 }
 
 export interface GenesisSection {
@@ -69,17 +73,26 @@ export interface FeeSection {
 }
 
 export interface GovernanceSection {
+  // Proposer configuration
   proposerQuorum?: number;
   proposerRoundSize?: number;
+  // Governance voting configuration
+  proposeLockDelay?: number;
+  proposeLockAmount?: string;
   votingDelay?: number;
   votingDuration?: number;
   executionDelay?: number;
   gracePeriod?: number;
+  quorum?: string;
+  requiredYeaMargin?: string;
+  minimumVotes?: string;
 }
 
 export interface RewardSection {
   sequencerBps?: number;
   checkpointReward?: string;
+  // Note: earliestRewardsClaimableTimestamp is hardcoded in Solidity to block.timestamp + 90 days
+  // It's not configurable via JSON in DeployL1Contracts.s.sol (see line 509)
 }
 
 export interface StakingQueueSection {
@@ -88,6 +101,11 @@ export interface StakingQueueSection {
   normalFlushSizeMin?: number;
   normalFlushSizeQuotient?: number;
   maxQueueFlushSize?: number;
+}
+
+export interface ZkPassportSection {
+  domain?: string;
+  scope?: string;
 }
 
 // ============ Script-specific JSON Configs ============
@@ -107,6 +125,7 @@ export interface L1ContractsJsonConfig {
   governance?: GovernanceSection;
   reward?: RewardSection;
   stakingQueue?: StakingQueueSection;
+  zkPassport?: ZkPassportSection;
 }
 
 /**
@@ -323,6 +342,8 @@ export function buildForgeJsonConfig(config: ForgeDeploymentConfig): L1Contracts
       votingDuration: config.governanceVotingDuration,
       executionDelay: config.governanceExecutionDelay,
       gracePeriod: config.governanceGracePeriod,
+      // Note: proposeLockDelay, proposeLockAmount, quorum, requiredYeaMargin, minimumVotes
+      // are not in legacy config - use new L1ContractsJsonConfig format instead
     },
     reward: {
       sequencerBps: config.sequencerBps,
