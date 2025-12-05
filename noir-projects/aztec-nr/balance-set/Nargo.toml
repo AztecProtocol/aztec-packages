@@ -1,9 +1,10 @@
 [package]
-name = "easy_private_state"
+name = "balance_set"
 authors = ["aztec-labs"]
 compiler_version = ">=0.18.0"
 type = "lib"
 
 [dependencies]
 aztec = { path = "../aztec" }
-value_note = { path = "../value-note" }
+uint_note = { path = "../uint-note" }
+

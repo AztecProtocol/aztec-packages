@@ -2,11 +2,14 @@
 // read (eventually even nullified) in the same TX. This contract
 // also contains some "bad" test cases to ensure that notes cannot
 // be read/nullified before their creation etc.
+mod filter;
+
 use aztec::macros::aztec;
 
 #[aztec]
 pub contract PendingNoteHashes {
     // Libs
+    use crate::filter::filter_notes_min_sum;
     use aztec::{
         macros::{functions::{external, internal}, storage::storage},
         messages::message_delivery::MessageDelivery,
@@ -19,11 +22,11 @@ pub contract PendingNoteHashes {
         },
         state_vars::{Owned, PrivateSet},
     };
-    use value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
+    use field_note::field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {
-        balances: Owned<PrivateSet<ValueNote, Context>, Context>,
+        balances: Owned<PrivateSet<FieldNote, Context>, Context>,
     }
 
     // TODO(dbanks12): consolidate code into internal helper functions
@@ -40,7 +43,7 @@ pub contract PendingNoteHashes {
     ) -> Field {
         let owner_balance = self.storage.balances.at(owner);
 
-        let note = ValueNote::new(amount);
+        let note = FieldNote::new(amount);
 
         // Insert note
         owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -68,7 +71,7 @@ pub contract PendingNoteHashes {
         assert(notes.len() == 0);
 
         // Insert note
-        let note = ValueNote::new(amount);
+        let note = FieldNote::new(amount);
         owner_balance.insert(note).discard();
 
         0
@@ -83,7 +86,7 @@ pub contract PendingNoteHashes {
     fn insert_note(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
-        let note = ValueNote::new(amount);
+        let note = FieldNote::new(amount);
 
         // Insert note
         owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -98,7 +101,7 @@ pub contract PendingNoteHashes {
 
         // Note that the following is severely misusing the Packable trait as we should never be messing with internal
         // encoding. This is brittle but I don't care.
-        let note = ValueNote::unpack([amount.to_field()]);
+        let note = FieldNote::unpack([amount.to_field()]);
 
         // Insert note
         owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -110,7 +113,7 @@ pub contract PendingNoteHashes {
     fn insert_note_extra_emit(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
-        let note = ValueNote::new(amount);
+        let note = FieldNote::new(amount);
 
         // Insert note
         let emission = owner_balance.insert(note);
@@ -326,7 +329,7 @@ pub contract PendingNoteHashes {
     fn test_emit_bad_note_log(owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
-        let good_note = ValueNote::new(10);
+        let good_note = FieldNote::new(10);
         // Insert good note with real log
         let good_note_emission = owner_balance.insert(good_note);
         good_note_emission.emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
@@ -335,7 +338,7 @@ pub contract PendingNoteHashes {
         // This note has not been inserted...
         // ...but we need a 'good' note's storage slot and note hash counter to get the context to add the note log
         let bad_note_emission = NoteEmission::new(
-            ValueNote::new(5),
+            FieldNote::new(5),
             owner,
             good_note_emission.content.storage_slot,
             good_note_emission.content.randomness,
@@ -351,7 +354,7 @@ pub contract PendingNoteHashes {
         let owner_balance = self.storage.balances.at(owner);
 
         for i in 0..self.internal.max_notes_per_call() {
-            let note = ValueNote::new(i as Field);
+            let note = FieldNote::new(i as Field);
             owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }

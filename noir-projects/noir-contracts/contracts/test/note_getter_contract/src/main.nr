@@ -14,17 +14,17 @@ pub contract NoteGetter {
         state_vars::{Owned, PrivateSet},
     };
 
-    use value_note::value_note::ValueNote;
+    use field_note::field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {
-        set: Owned<PrivateSet<ValueNote, Context>, Context>,
+        set: Owned<PrivateSet<FieldNote, Context>, Context>,
     }
 
     #[external("private")]
     fn insert_note(value: Field) {
         let owner = self.msg_sender().unwrap();
-        let note = ValueNote::new(value);
+        let note = FieldNote::new(value);
 
         self.storage.set.at(owner).insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
@@ -36,7 +36,7 @@ pub contract NoteGetter {
         value: Field,
     ) -> BoundedVec<Field, 10> {
         let notes = self.storage.set.at(owner).view_notes(NoteViewerOptions::new().select(
-            ValueNote::properties().value,
+            FieldNote::properties().value,
             comparator,
             value,
         ));

@@ -7,12 +7,14 @@ pub contract BobToken {
     // docs:end:start
     use aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
-        protocol_types::address::AztecAddress, state_vars::Map,
+        messages::message_delivery::MessageDelivery,
+        protocol_types::address::AztecAddress,
+        state_vars::{Map, Owned},
         state_vars::public_mutable::PublicMutable,
     };
     // docs:end:imports
 
-    use easy_private_state::EasyPrivateUint;
+    use balance_set::BalanceSet;
 
     // docs:start:public_storage
     // docs:start:storage
@@ -24,7 +26,7 @@ pub contract BobToken {
         public_balances: Map<AztecAddress, PublicMutable<u64, Context>, Context>,
         // docs:end:public_storage
         // Private balances - only the owner can see these
-        private_balances: EasyPrivateUint<Context>,
+        private_balances: Owned<BalanceSet<Context>, Context>,
     }
     // docs:end:storage
 
@@ -80,7 +82,10 @@ pub contract BobToken {
         // This will enqueue a public function to deduct from public balance
         self.enqueue_self._deduct_public_balance(sender, amount);
         // Add to private balance
-        self.storage.private_balances.add(amount, sender);
+        self.storage.private_balances.at(sender).add(amount as u128).emit(
+            sender,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
     // docs:end:public_to_private
 
@@ -100,16 +105,22 @@ pub contract BobToken {
     fn transfer_private(to: AztecAddress, amount: u64) {
         let sender = self.msg_sender().unwrap();
         // Spend sender's notes (consumes existing notes)
-        self.storage.private_balances.sub(amount, sender);
+        self.storage.private_balances.at(sender).sub(amount as u128).emit(
+            sender,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         // Create new notes for recipient
-        self.storage.private_balances.add(amount, to);
+        self.storage.private_balances.at(to).add(amount as u128).emit(
+            to,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
     // docs:end:transfer_private
 
     // docs:start:check_balances
     #[external("utility")]
-    unconstrained fn private_balance_of(owner: AztecAddress) -> Field {
-        self.storage.private_balances.get_value(owner)
+    unconstrained fn private_balance_of(owner: AztecAddress) -> pub u128 {
+        self.storage.private_balances.at(owner).balance_of()
     }
 
     #[external("utility")]
@@ -133,7 +144,10 @@ pub contract BobToken {
         self.enqueue_self._assert_is_owner(self.msg_sender().unwrap());
 
         // If check passes, mint tokens privately
-        self.storage.private_balances.add(amount, employee);
+        self.storage.private_balances.at(employee).add(amount as u128).emit(
+            employee,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
     // docs:end:mint_private
 
@@ -143,7 +157,10 @@ pub contract BobToken {
     fn private_to_public(amount: u64) {
         let sender = self.msg_sender().unwrap();
         // Remove from private balance
-        self.storage.private_balances.sub(amount, sender);
+        self.storage.private_balances.at(sender).sub(amount as u128).emit(
+            sender,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         // Enqueue public credit
         self.enqueue_self._credit_public_balance(sender, amount);
     }
