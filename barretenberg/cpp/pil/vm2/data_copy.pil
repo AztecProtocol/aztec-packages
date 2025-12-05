@@ -247,7 +247,8 @@ namespace data_copy;
     // and read_addr_upper_bound = AVM_HIGHEST_MEM_ADDRESS + 1 <= AVM_MEMORY_SIZE.
     // An out-of-range error is raised when read_addr_upper_bound/write_addr_upper_bound > AVM_MEMORY_SIZE.
 
-    // Note that for a top-level call, src_addr == 0 (enforced outside of this subtrace) and src_out_of_range_err == 0.
+    // Note that for a top-level call, src_addr == 0 (enforced in context.pil (#[CD_OFFSET_ENQUEUED_CALL_IS_ZERO]))
+    // and src_out_of_range_err == 0.
     pol commit read_addr_upper_bound;
     read_addr_upper_bound = sel_start * (src_addr + data_index_upper_bound);
     #[CHECK_SRC_ADDR_IN_RANGE]

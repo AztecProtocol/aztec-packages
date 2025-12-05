@@ -121,15 +121,18 @@ Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
     const auto& bytecode = *bytecode_ptr;
     instr_fetching_event.bytecode = std::move(bytecode_ptr);
 
+    // Keep full error for exception message, but only store enum in event
+    std::optional<InstrDeserializationError> deserialization_error;
+
     try {
         instr_fetching_event.instruction = deserialize_instruction(bytecode, pc);
 
         // If the following code is executed, no error was thrown in deserialize_instruction().
         if (!check_tag(instr_fetching_event.instruction)) {
-            instr_fetching_event.error = InstrDeserializationError::TAG_OUT_OF_RANGE;
+            instr_fetching_event.error = InstrDeserializationEventError::TAG_OUT_OF_RANGE;
         };
     } catch (const InstrDeserializationError& error) {
-        instr_fetching_event.error = error;
+        instr_fetching_event.error = error.type;
     }
 
     // We are showing whether bytecode_size > pc or not. If there is no fetching error,

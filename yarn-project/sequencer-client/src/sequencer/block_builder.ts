@@ -12,7 +12,7 @@ import {
   GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
-  TelemetryPublicTxSimulator,
+  TelemetryCppPublicTxSimulator,
 } from '@aztec/simulator/server';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -122,7 +122,7 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
     const guardedFork = new GuardedMerkleTreeOperations(fork);
 
-    const publicTxSimulator = new TelemetryPublicTxSimulator(
+    const publicTxSimulator = new TelemetryCppPublicTxSimulator(
       guardedFork,
       contractsDB,
       globalVariables,
@@ -131,7 +131,6 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
         skipFeeEnforcement: false,
         collectDebugLogs: false,
         collectHints: false,
-        maxDebugLogMemoryReads: 0,
         collectStatistics: false,
         collectCallMetadata: false,
       }),

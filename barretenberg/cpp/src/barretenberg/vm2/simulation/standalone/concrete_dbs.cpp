@@ -127,7 +127,13 @@ void PureMerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract
         raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NULLIFIER_TREE, siloed_nullifier);
 
     if (present) {
-        throw NullifierCollisionException(format("Nullifier ", nullifier, " already exists"));
+        throw NullifierCollisionException(
+            contract_address.has_value() ? format("Attempted to emit duplicate nullifier ",
+                                                  nullifier,
+                                                  " (contract address: ",
+                                                  contract_address.value(),
+                                                  ").")
+                                         : format("Attempted to emit duplicate siloed nullifier ", nullifier, "."));
     }
 
     raw_merkle_db.insert_indexed_leaves_nullifier_tree(siloed_nullifier);
