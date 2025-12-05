@@ -6,13 +6,13 @@ contract BoxReact {
         macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
-        state_vars::PrivateMutable,
+        state_vars::{Owned, PrivateMutable},
     };
     use value_note::value_note::ValueNote;
 
     #[storage]
     struct Storage<Context> {
-        numbers: PrivateMutable<ValueNote, Context>,
+        numbers: Owned<PrivateMutable<ValueNote, Context>, Context>,
     }
 
     #[external("private")]

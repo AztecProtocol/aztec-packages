@@ -14,13 +14,13 @@ pub contract StatefulTest {
         messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        state_vars::{Map, PrivateSet, PublicMutable},
+        state_vars::{Map, Owned, PrivateSet, PublicMutable},
     };
     use value_note::{balance_utils, value_note::ValueNote};
 
     #[storage]
     struct Storage<Context> {
-        notes: PrivateSet<ValueNote, Context>,
+        notes: Owned<PrivateSet<ValueNote, Context>, Context>,
         public_values: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
     }
 

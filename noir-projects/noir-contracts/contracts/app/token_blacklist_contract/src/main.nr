@@ -31,7 +31,7 @@ pub contract TokenBlacklist {
             note_interface::{NoteHash, NoteProperties, NoteType},
         },
         protocol_types::traits::ToField,
-        state_vars::{DelayedPublicMutable, Map, PrivateSet, PublicMutable},
+        state_vars::{DelayedPublicMutable, Map, Owned, PrivateSet, PublicMutable, StateVariable},
         utils::comparison::Comparator,
     };
 
@@ -57,7 +57,7 @@ pub contract TokenBlacklist {
     struct Storage<Context> {
         balances: BalancesMap<TokenNote, Context>,
         total_supply: PublicMutable<u128, Context>,
-        pending_shields: PrivateSet<TransparentNote, Context>,
+        pending_shields: Owned<PrivateSet<TransparentNote, Context>, Context>,
         public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
         roles: Map<AztecAddress, DelayedPublicMutable<UserFlags, CHANGE_ROLES_DELAY, Context>, Context>,
     }
@@ -128,7 +128,7 @@ pub contract TokenBlacklist {
         // by anyone who has the secret (preimage of the secret_hash stored in the note).
         let note_hash = note.compute_note_hash(
             AztecAddress::zero(),
-            self.storage.pending_shields.storage_slot,
+            self.storage.pending_shields.get_storage_slot(),
             TRANSPARENT_NOTE_RANDOMNESS,
         );
         self.context.push_note_hash(note_hash);
@@ -152,7 +152,7 @@ pub contract TokenBlacklist {
         // by anyone who has the secret (preimage of the secret_hash stored in the note).
         let note_hash = note.compute_note_hash(
             AztecAddress::zero(),
-            self.storage.pending_shields.storage_slot,
+            self.storage.pending_shields.get_storage_slot(),
             TRANSPARENT_NOTE_RANDOMNESS,
         );
         self.context.push_note_hash(note_hash);

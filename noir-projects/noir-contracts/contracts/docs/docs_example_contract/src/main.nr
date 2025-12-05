@@ -14,7 +14,8 @@ pub contract DocsExample {
         note::{note_interface::NoteProperties, note_viewer_options::NoteViewerOptions},
         protocol_types::address::AztecAddress,
         state_vars::{
-            Map, PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, PublicMutable,
+            Map, Owned, PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable,
+            PublicMutable, StateVariable,
         },
     };
 
@@ -25,9 +26,9 @@ pub contract DocsExample {
     struct Storage<Context> {
         // Shows how to create a custom struct in PublicMutable
         leader: PublicMutable<Leader, Context>,
-        legendary_card: PrivateMutable<CardNote, Context>,
-        set: PrivateSet<CardNote, Context>,
-        private_immutable: PrivateImmutable<CardNote, Context>,
+        legendary_card: Owned<PrivateMutable<CardNote, Context>, Context>,
+        set: Owned<PrivateSet<CardNote, Context>, Context>,
+        private_immutable: Owned<PrivateImmutable<CardNote, Context>, Context>,
         public_immutable: PublicImmutable<Leader, Context>,
         minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
     }
@@ -38,14 +39,13 @@ pub contract DocsExample {
         fn init(context: Context) -> Self {
             Storage {
                 leader: PublicMutable::new(context, 1),
-                legendary_card: PrivateMutable::new(context, 3),
-                set: PrivateSet::new(context, 5),
-                private_immutable: PrivateImmutable::new(context, 6),
+                legendary_card: Owned::new(context, 3),
+                set: Owned::new(context, 5),
+                private_immutable: Owned::new(context, 6),
                 public_immutable: PublicImmutable::new(context, 7),
-                minters: Map::new(
+                minters: Map::<AztecAddress, PublicMutable<bool, Context>, Context>::new(
                     context,
                     8,
-                    |context, slot| PublicMutable::new(context, slot),
                 ),
             }
         }
