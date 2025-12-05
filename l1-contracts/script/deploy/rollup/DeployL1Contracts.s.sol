@@ -244,11 +244,12 @@ contract DeployL1Contracts is Script, Test {
         console.log("  owner:", deployer);
         TestERC20 feeAssetContract = new TestERC20("FeeJuice", "FEE", deployer);
 
+        // Mint a tiny bit of tokens to satisfy coin-issuer constraints
         console.log("--- Transaction: FeeAsset.mint (initial supply) ---");
         console.log("  to:", address(feeAssetContract));
         console.log("  recipient:", deployer);
         console.log("  amount: 1000000000000000000");
-        feeAssetContract.mint(deployer, 1e18); // 1 ETH, matching TypeScript
+        feeAssetContract.mint(deployer, 1e18);
 
         // Deploy StakingAsset (separate contract, or use existing)
         if (existingStakingAssetAddress != address(0)) {
@@ -392,7 +393,7 @@ contract DeployL1Contracts is Script, Test {
     function deployDateGatedRelayer(address governance) internal returns (address) {
         console.log("--- DateGatedRelayer constructor args ---");
         console.log("  governance:", governance);
-        console.log("  activationTimestamp: 1798761600");
+        console.log("  activationTimestamp: 1798761600"); // 2027-01-01 00:00:00 UTC
         return address(new DateGatedRelayer(governance, 1798761600));
     }
 
@@ -502,10 +503,11 @@ contract DeployL1Contracts is Script, Test {
             console.log("  to:", coinIssuer);
             CoinIssuer(coinIssuer).acceptTokenOwnership();
 
+            // Transfer ownership to the DateGatedRelayer (which is owned by Governance)
             console.log("--- Transaction: CoinIssuer.transferOwnership ---");
             console.log("  to:", coinIssuer);
             console.log("  newOwner:", dateGatedRelayer);
-            CoinIssuer(coinIssuer).transferOwnership(dateGatedRelayer); // Match TypeScript: transfer to DateGatedRelayer
+            CoinIssuer(coinIssuer).transferOwnership(dateGatedRelayer);
         }
     }
 
@@ -611,8 +613,8 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function loadRewardDistributorFunding() internal {
-        // Match TypeScript calculation: funding = checkpointReward * 200000
-        // See deploy_l1_contracts.ts line 493
+        // Funding calculation from deploy_l1_contracts.ts:493
+        // const funding = checkpointReward * 200000n;
         (,uint96 checkpointReward) = _getRewardConfigDefaults();
         uint256 defaultFunding = uint256(checkpointReward) * 200_000;
         rewardDistributorFunding = _readUint(".deployment.rewardDistributorFunding", defaultFunding);
