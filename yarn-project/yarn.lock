@@ -766,6 +766,7 @@ __metadata:
     tslib: "npm:^2.5.0"
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
+    zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
 

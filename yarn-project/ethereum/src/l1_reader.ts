@@ -6,6 +6,8 @@ import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contr
 export interface L1ReaderConfig {
   /** The RPC Url of the ethereum host. */
   l1RpcUrls: string[];
+  /** The RPC Url of the ethereum debug host for trace and debug methods. */
+  l1DebugRpcUrls: string[];
   /** The chain ID of the ethereum host. */
   l1ChainId: number;
   /** The deployed l1 contract addresses */
@@ -27,6 +29,12 @@ export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
   l1RpcUrls: {
     env: 'ETHEREUM_HOSTS',
     description: 'The RPC Url of the ethereum host.',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    defaultValue: [],
+  },
+  l1DebugRpcUrls: {
+    env: 'ETHEREUM_DEBUG_HOSTS',
+    description: 'The RPC Url of the ethereum debug host for trace and debug methods.',
     parseEnv: (val: string) => val.split(',').map(url => url.trim()),
     defaultValue: [],
   },

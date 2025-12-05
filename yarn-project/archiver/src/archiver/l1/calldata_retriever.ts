@@ -1,0 +1,492 @@
+import type {
+  ViemCommitteeAttestations,
+  ViemHeader,
+  ViemPublicClient,
+  ViemPublicDebugClient,
+  ViemStateReference,
+} from '@aztec/ethereum';
+import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import type { ViemSignature } from '@aztec/foundation/eth-signature';
+import { Fr } from '@aztec/foundation/fields';
+import type { Logger } from '@aztec/foundation/log';
+import {
+  EmpireSlashingProposerAbi,
+  GovernanceProposerAbi,
+  RollupAbi,
+  SlashFactoryAbi,
+  TallySlashingProposerAbi,
+} from '@aztec/l1-artifacts';
+import { CommitteeAttestation } from '@aztec/stdlib/block';
+import { ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
+
+import {
+  type Hex,
+  type Transaction,
+  decodeFunctionData,
+  getAddress,
+  hexToBytes,
+  multicall3Abi,
+  toFunctionSelector,
+} from 'viem';
+
+import type { RetrievedL2Block } from './data_retrieval.js';
+import { getSuccessfulCallsFromDebug } from './debug_tx.js';
+import { getSuccessfulCallsFromTrace } from './trace_tx.js';
+import type { CallInfo } from './types.js';
+
+/**
+ * Extracts calldata to the `propose` method of the rollup contract from an L1 transaction
+ * in order to reconstruct an L2 block header.
+ */
+export class CalldataRetriever {
+  /** Pre-computed valid contract calls for validation */
+  private readonly validContractCalls: ValidContractCall[];
+
+  private readonly rollupAddress: EthAddress;
+
+  constructor(
+    private readonly publicClient: ViemPublicClient,
+    private readonly debugClient: ViemPublicDebugClient,
+    private readonly targetCommitteeSize: number,
+    private readonly logger: Logger,
+    contractAddresses: {
+      rollupAddress: EthAddress;
+      governanceProposerAddress: EthAddress;
+      slashingProposerAddress: EthAddress;
+      slashFactoryAddress?: EthAddress;
+    },
+  ) {
+    this.rollupAddress = contractAddresses.rollupAddress;
+    this.validContractCalls = computeValidContractCalls(contractAddresses);
+  }
+
+  /**
+   * Gets block header and metadata from the calldata of an L1 transaction.
+   * Tries multicall3 decoding, falls back to trace-based extraction.
+   * @param txHash - Hash of the tx that published it.
+   * @param blobHashes - Blob hashes for the block
+   * @param l2BlockNumber - L2 block number.
+   * @returns L2 block header and metadata from the calldata, deserialized (without body)
+   */
+  async getBlockHeaderFromRollupTx(
+    txHash: `0x${string}`,
+    blobHashes: Buffer[],
+    l2BlockNumber: number,
+  ): Promise<Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version' | 'body'> & { blockHash: string }> {
+    this.logger.trace(`Fetching L2 block ${l2BlockNumber} from rollup tx ${txHash}`);
+    const tx = await this.publicClient.getTransaction({ hash: txHash });
+    const proposeCalldata = await this.getProposeCallData(tx, l2BlockNumber);
+    return this.decodeAndBuildBlockHeader(proposeCalldata, tx.blockHash!, blobHashes, l2BlockNumber);
+  }
+
+  /** Gets rollup propose calldata from a transaction */
+  protected async getProposeCallData(tx: Transaction, l2BlockNumber: number): Promise<Hex> {
+    // Try to decode as multicall3 with validation
+    const proposeCalldata = this.tryDecodeMulticall3(tx);
+
+    // Successfully decoded via multicall3, proceed with decoding
+    if (proposeCalldata) {
+      this.logger.trace(`Decoded propose calldata from multicall3 for tx ${tx.hash}`);
+      return proposeCalldata;
+    }
+
+    // Try to decode as direct propose call
+    const directProposeCalldata = this.tryDecodeDirectPropose(tx);
+    if (directProposeCalldata) {
+      this.logger.trace(`Decoded propose calldata from direct call for tx ${tx.hash}`);
+      return directProposeCalldata;
+    }
+
+    // Fall back to trace-based extraction
+    this.logger.warn(
+      `Failed to decode multicall3 or direct propose for L1 tx ${tx.hash}, falling back to trace for L2 block ${l2BlockNumber}`,
+    );
+    return await this.extractCalldataViaTrace(tx.hash);
+  }
+
+  /**
+   * Attempts to decode transaction input as multicall3 and extract propose calldata.
+   * Returns undefined if validation fails.
+   * @param tx - The transaction to decode
+   * @returns The propose calldata if successfully validated, undefined otherwise
+   */
+  protected tryDecodeMulticall3(tx: Transaction): Hex | undefined {
+    const txHash = tx.hash;
+
+    try {
+      // Check if transaction is to Multicall3 address
+      if (!tx.to || tx.to.toLowerCase() !== MULTI_CALL_3_ADDRESS.toLowerCase()) {
+        this.logger.warn(`Transaction is not to Multicall3 address (to: ${tx.to})`, { txHash, to: tx.to });
+        return undefined;
+      }
+
+      // Try to decode as multicall3 aggregate3 call
+      const { functionName: multicall3Fn, args: multicall3Args } = decodeFunctionData({
+        abi: multicall3Abi,
+        data: tx.input,
+      });
+
+      // If not aggregate3, return undefined (not a multicall3 transaction)
+      if (multicall3Fn !== 'aggregate3') {
+        this.logger.warn(`Transaction is not multicall3 aggregate3 (got ${multicall3Fn})`, { txHash });
+        return undefined;
+      }
+
+      if (multicall3Args.length !== 1) {
+        this.logger.warn(`Unexpected number of arguments for multicall3 (got ${multicall3Args.length})`, { txHash });
+        return undefined;
+      }
+
+      const [calls] = multicall3Args;
+
+      // Validate all calls and find propose calls
+      const rollupAddressLower = this.rollupAddress.toString().toLowerCase();
+      const proposeCalls: Hex[] = [];
+
+      for (let i = 0; i < calls.length; i++) {
+        const addr = calls[i].target.toLowerCase();
+        const callData = calls[i].callData;
+
+        // Extract function selector (first 4 bytes)
+        if (callData.length < 10) {
+          // "0x" + 8 hex chars = 10 chars minimum for a valid function call
+          this.logger.warn(`Invalid calldata length at index ${i} (${callData.length})`, { txHash });
+          return undefined;
+        }
+        const functionSelector = callData.slice(0, 10) as Hex;
+
+        // Validate this call is allowed by searching through valid calls
+        const validCall = this.validContractCalls.find(
+          vc => vc.address === addr && vc.functionSelector === functionSelector,
+        );
+
+        if (!validCall) {
+          this.logger.warn(`Invalid contract call detected in multicall3`, {
+            index: i,
+            targetAddress: addr,
+            functionSelector,
+            validCalls: this.validContractCalls.map(c => ({ address: c.address, selector: c.functionSelector })),
+            txHash,
+          });
+          return undefined;
+        }
+
+        this.logger.trace(`Valid call found to ${addr}`, { validCall });
+
+        // Collect propose calls specifically
+        if (addr === rollupAddressLower && validCall.functionName === 'propose') {
+          proposeCalls.push(callData);
+        }
+      }
+
+      // Validate exactly ONE propose call
+      if (proposeCalls.length === 0) {
+        this.logger.warn(`No propose calls found in multicall3`, { txHash });
+        return undefined;
+      }
+
+      if (proposeCalls.length > 1) {
+        this.logger.warn(`Multiple propose calls found in multicall3 (${proposeCalls.length})`, { txHash });
+        return undefined;
+      }
+
+      // Successfully extracted single propose call
+      return proposeCalls[0];
+    } catch (err) {
+      // Any decoding error triggers fallback to trace
+      this.logger.warn(`Failed to decode multicall3: ${err}`, { txHash });
+      return undefined;
+    }
+  }
+
+  /**
+   * Attempts to decode transaction as a direct propose call to the rollup contract.
+   * Returns undefined if validation fails.
+   * @param tx - The transaction to decode
+   * @returns The propose calldata if successfully validated, undefined otherwise
+   */
+  protected tryDecodeDirectPropose(tx: Transaction): Hex | undefined {
+    const txHash = tx.hash;
+    try {
+      // Check if transaction is to the rollup address
+      if (!tx.to || getAddress(tx.to) !== getAddress(this.rollupAddress.toString())) {
+        this.logger.warn(`Transaction is not to rollup address (to: ${tx.to})`, { txHash });
+        return undefined;
+      }
+
+      // Try to decode as propose call
+      const { functionName } = decodeFunctionData({ abi: RollupAbi, data: tx.input });
+
+      // If not propose, return undefined
+      if (functionName !== 'propose') {
+        this.logger.warn(`Transaction to rollup is not propose (got ${functionName})`, { txHash });
+        return undefined;
+      }
+
+      // Successfully validated direct propose call
+      this.logger.trace(`Validated direct propose call to rollup`, { txHash });
+      return tx.input;
+    } catch (err) {
+      // Any decoding error means it's not a valid propose call
+      this.logger.warn(`Failed to decode as direct propose: ${err}`, { txHash });
+      return undefined;
+    }
+  }
+
+  /**
+   * Uses debug/trace RPC to extract the actual calldata from the successful propose call.
+   * This is the definitive fallback that works for any transaction pattern.
+   * Tries trace_transaction first, then falls back to debug_traceTransaction.
+   * @param txHash - The transaction hash to trace
+   * @returns The propose calldata from the successful call
+   */
+  protected async extractCalldataViaTrace(txHash: Hex): Promise<Hex> {
+    const rollupAddress = this.rollupAddress;
+    const selector = PROPOSE_SELECTOR;
+
+    let calls: CallInfo[];
+    try {
+      // Try trace_transaction first (using Parity/OpenEthereum/Erigon RPC)
+      this.logger.debug(`Attempting to trace transaction ${txHash} using trace_transaction`);
+      calls = await getSuccessfulCallsFromTrace(this.debugClient, txHash, rollupAddress, selector, this.logger);
+      this.logger.debug(`Successfully traced using trace_transaction, found ${calls.length} calls`);
+    } catch (err) {
+      const traceError = err instanceof Error ? err : new Error(String(err));
+      this.logger.verbose(`Failed trace_transaction for ${txHash}`, { traceError });
+
+      try {
+        // Fall back to debug_traceTransaction (Geth RPC)
+        this.logger.debug(`Attempting to trace transaction ${txHash} using debug_traceTransaction`);
+        calls = await getSuccessfulCallsFromDebug(this.debugClient, txHash, rollupAddress, selector, this.logger);
+        this.logger.debug(`Successfully traced using debug_traceTransaction, found ${calls.length} calls`);
+      } catch (debugErr) {
+        const debugError = debugErr instanceof Error ? debugErr : new Error(String(debugErr));
+        this.logger.error(`All tracing methods failed for tx ${txHash}`, {
+          traceError,
+          debugError,
+          txHash,
+        });
+        throw new Error(`Failed to trace transaction ${txHash} to extract propose calldata`);
+      }
+    }
+
+    // Validate exactly ONE successful propose call
+    if (calls.length === 0) {
+      throw new Error(`No successful propose calls found in transaction ${txHash}`);
+    }
+
+    if (calls.length > 1) {
+      throw new Error(`Multiple successful propose calls found in transaction ${txHash} (${calls.length})`);
+    }
+
+    // Return the calldata from the single successful propose call
+    return calls[0].input;
+  }
+
+  /**
+   * Decodes propose calldata and builds the block header structure.
+   * @param proposeCalldata - The propose function calldata
+   * @param blockHash - The L1 block hash containing this transaction
+   * @param blobHashes - The blob hashes for this block
+   * @param l2BlockNumber - The L2 block number
+   * @returns The decoded block header and metadata
+   */
+  protected decodeAndBuildBlockHeader(
+    proposeCalldata: Hex,
+    blockHash: Hex,
+    blobHashes: Buffer[],
+    l2BlockNumber: number,
+  ): Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version' | 'body'> & { blockHash: string } {
+    const { functionName: rollupFunctionName, args: rollupArgs } = decodeFunctionData({
+      abi: RollupAbi,
+      data: proposeCalldata,
+    });
+
+    if (rollupFunctionName !== 'propose') {
+      throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
+    }
+
+    const [decodedArgs, packedAttestations, _signers, _attestationsAndSignersSignature, _blobInput] =
+      rollupArgs! as readonly [
+        {
+          archive: Hex;
+          stateReference: ViemStateReference;
+          oracleInput: { feeAssetPriceModifier: bigint };
+          header: ViemHeader;
+        },
+        ViemCommitteeAttestations,
+        Hex[],
+        ViemSignature,
+        Hex,
+      ];
+
+    const attestations = CommitteeAttestation.fromPacked(packedAttestations, this.targetCommitteeSize);
+
+    this.logger.trace(`Decoded propose calldata`, {
+      l2BlockNumber,
+      archive: decodedArgs.archive,
+      stateReference: decodedArgs.stateReference,
+      header: decodedArgs.header,
+      l1BlockHash: blockHash,
+      blobHashes,
+      attestations,
+      packedAttestations,
+      targetCommitteeSize: this.targetCommitteeSize,
+    });
+
+    const header = ProposedBlockHeader.fromViem(decodedArgs.header);
+    const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
+    const stateReference = StateReference.fromViem(decodedArgs.stateReference);
+
+    return {
+      l2BlockNumber,
+      archiveRoot,
+      stateReference,
+      header,
+      attestations,
+      blockHash,
+    };
+  }
+}
+
+/**
+ * Pre-computed function selectors for all valid contract calls.
+ * These are computed once at module load time from the ABIs.
+ * Based on analysis of sequencer-client/src/publisher/sequencer-publisher.ts
+ */
+
+// Rollup contract function selectors (always valid)
+const PROPOSE_SELECTOR = toFunctionSelector(RollupAbi.find(x => x.type === 'function' && x.name === 'propose')!);
+const INVALIDATE_BAD_ATTESTATION_SELECTOR = toFunctionSelector(
+  RollupAbi.find(x => x.type === 'function' && x.name === 'invalidateBadAttestation')!,
+);
+const INVALIDATE_INSUFFICIENT_ATTESTATIONS_SELECTOR = toFunctionSelector(
+  RollupAbi.find(x => x.type === 'function' && x.name === 'invalidateInsufficientAttestations')!,
+);
+
+// Governance proposer function selectors
+const GOVERNANCE_SIGNAL_WITH_SIG_SELECTOR = toFunctionSelector(
+  GovernanceProposerAbi.find(x => x.type === 'function' && x.name === 'signalWithSig')!,
+);
+
+// Slash factory function selectors
+const CREATE_SLASH_PAYLOAD_SELECTOR = toFunctionSelector(
+  SlashFactoryAbi.find(x => x.type === 'function' && x.name === 'createSlashPayload')!,
+);
+
+// Empire slashing proposer function selectors
+const EMPIRE_SIGNAL_WITH_SIG_SELECTOR = toFunctionSelector(
+  EmpireSlashingProposerAbi.find(x => x.type === 'function' && x.name === 'signalWithSig')!,
+);
+const EMPIRE_SUBMIT_ROUND_WINNER_SELECTOR = toFunctionSelector(
+  EmpireSlashingProposerAbi.find(x => x.type === 'function' && x.name === 'submitRoundWinner')!,
+);
+
+// Tally slashing proposer function selectors
+const TALLY_VOTE_SELECTOR = toFunctionSelector(
+  TallySlashingProposerAbi.find(x => x.type === 'function' && x.name === 'vote')!,
+);
+const TALLY_EXECUTE_ROUND_SELECTOR = toFunctionSelector(
+  TallySlashingProposerAbi.find(x => x.type === 'function' && x.name === 'executeRound')!,
+);
+
+/**
+ * Defines a valid contract call that can appear in a sequencer publisher transaction
+ */
+interface ValidContractCall {
+  /** Contract address (lowercase for comparison) */
+  address: string;
+  /** Function selector (4 bytes) */
+  functionSelector: Hex;
+  /** Human-readable function name for logging */
+  functionName: string;
+}
+
+/**
+ * All valid contract calls that the sequencer publisher can make.
+ * Builds the list of valid (address, selector) pairs for validation.
+ *
+ * Alternatively, if we are absolutely sure that no code path from any of these
+ * contracts can eventually land on another call to `propose`, we can remove the
+ * function selectors.
+ */
+function computeValidContractCalls(addresses: {
+  rollupAddress: EthAddress;
+  governanceProposerAddress?: EthAddress;
+  slashFactoryAddress?: EthAddress;
+  slashingProposerAddress?: EthAddress;
+}): ValidContractCall[] {
+  const { rollupAddress, governanceProposerAddress, slashFactoryAddress, slashingProposerAddress } = addresses;
+  const calls: ValidContractCall[] = [];
+
+  // Rollup contract calls (always present)
+  calls.push(
+    {
+      address: rollupAddress.toString().toLowerCase(),
+      functionSelector: PROPOSE_SELECTOR,
+      functionName: 'propose',
+    },
+    {
+      address: rollupAddress.toString().toLowerCase(),
+      functionSelector: INVALIDATE_BAD_ATTESTATION_SELECTOR,
+      functionName: 'invalidateBadAttestation',
+    },
+    {
+      address: rollupAddress.toString().toLowerCase(),
+      functionSelector: INVALIDATE_INSUFFICIENT_ATTESTATIONS_SELECTOR,
+      functionName: 'invalidateInsufficientAttestations',
+    },
+  );
+
+  // Governance proposer calls (optional)
+  if (governanceProposerAddress && !governanceProposerAddress.isZero()) {
+    calls.push({
+      address: governanceProposerAddress.toString().toLowerCase(),
+      functionSelector: GOVERNANCE_SIGNAL_WITH_SIG_SELECTOR,
+      functionName: 'signalWithSig',
+    });
+  }
+
+  // Slash factory calls (optional)
+  if (slashFactoryAddress && !slashFactoryAddress.isZero()) {
+    calls.push({
+      address: slashFactoryAddress.toString().toLowerCase(),
+      functionSelector: CREATE_SLASH_PAYLOAD_SELECTOR,
+      functionName: 'createSlashPayload',
+    });
+  }
+
+  // Slashing proposer calls (optional, can be either Empire or Tally)
+  if (slashingProposerAddress && !slashingProposerAddress.isZero()) {
+    // Empire calls
+    calls.push(
+      {
+        address: slashingProposerAddress.toString().toLowerCase(),
+        functionSelector: EMPIRE_SIGNAL_WITH_SIG_SELECTOR,
+        functionName: 'signalWithSig (empire)',
+      },
+      {
+        address: slashingProposerAddress.toString().toLowerCase(),
+        functionSelector: EMPIRE_SUBMIT_ROUND_WINNER_SELECTOR,
+        functionName: 'submitRoundWinner',
+      },
+    );
+
+    // Tally calls
+    calls.push(
+      {
+        address: slashingProposerAddress.toString().toLowerCase(),
+        functionSelector: TALLY_VOTE_SELECTOR,
+        functionName: 'vote',
+      },
+      {
+        address: slashingProposerAddress.toString().toLowerCase(),
+        functionSelector: TALLY_EXECUTE_ROUND_SELECTOR,
+        functionName: 'executeRound',
+      },
+    );
+  }
+
+  return calls;
+}

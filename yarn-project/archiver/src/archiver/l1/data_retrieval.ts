@@ -1,17 +1,9 @@
 import { Blob, BlobDeserializationError, EMPTY_BLOB_VERSIONED_HASH } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import type {
-  EpochProofPublicInputArgs,
-  ViemClient,
-  ViemCommitteeAttestations,
-  ViemHeader,
-  ViemPublicClient,
-  ViemStateReference,
-} from '@aztec/ethereum';
+import type { EpochProofPublicInputArgs, ViemClient, ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
-import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { ViemSignature } from '@aztec/foundation/eth-signature';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
@@ -28,13 +20,13 @@ import {
   decodeFunctionData,
   getAbiItem,
   hexToBytes,
-  multicall3Abi,
 } from 'viem';
 
-import { NoBlobBodiesFoundError } from './errors.js';
-import type { DataRetrieval } from './structs/data_retrieval.js';
-import type { InboxMessage } from './structs/inbox_message.js';
-import type { L1PublishedData } from './structs/published.js';
+import { NoBlobBodiesFoundError } from '../errors.js';
+import type { DataRetrieval } from '../structs/data_retrieval.js';
+import type { InboxMessage } from '../structs/inbox_message.js';
+import type { L1PublishedData } from '../structs/published.js';
+import { CalldataRetriever } from './calldata_retriever.js';
 
 export type RetrievedL2Block = {
   l2BlockNumber: number;
@@ -94,6 +86,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
 /**
  * Fetches new L2 blocks.
  * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param debugClient - The viem debug client to use for trace/debug RPC methods (optional).
  * @param rollupAddress - The address of the rollup contract.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
@@ -103,9 +96,15 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
 export async function retrieveBlocksFromRollup(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
+  debugClient: ViemPublicDebugClient,
   blobSinkClient: BlobSinkClientInterface,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
+  contractAddresses: {
+    governanceProposerAddress: EthAddress;
+    slashFactoryAddress?: EthAddress;
+    slashingProposerAddress: EthAddress;
+  },
   logger: Logger = createLogger('archiver'),
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
@@ -151,9 +150,11 @@ export async function retrieveBlocksFromRollup(
     const newBlocks = await processL2BlockProposedLogs(
       rollup,
       publicClient,
+      debugClient,
       blobSinkClient,
       l2BlockProposedLogs,
       rollupConstants,
+      contractAddresses,
       logger,
     );
     retrievedBlocks.push(...newBlocks);
@@ -168,18 +169,30 @@ export async function retrieveBlocksFromRollup(
  * Processes newly received L2BlockProposed logs.
  * @param rollup - The rollup contract
  * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param debugClient - The viem debug client to use for trace/debug RPC methods (optional).
  * @param logs - L2BlockProposed logs.
  * @returns - An array blocks.
  */
 async function processL2BlockProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
+  debugClient: ViemPublicDebugClient,
   blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
   { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
+  contractAddresses: {
+    governanceProposerAddress: EthAddress;
+    slashFactoryAddress?: EthAddress;
+    slashingProposerAddress: EthAddress;
+  },
   logger: Logger,
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
+  const calldataRetriever = new CalldataRetriever(publicClient, debugClient, targetCommitteeSize, logger, {
+    ...contractAddresses,
+    rollupAddress: EthAddress.fromString(rollup.address),
+  });
+
   await asyncPool(10, logs, async log => {
     const l2BlockNumber = Number(log.args.blockNumber!);
     const archive = log.args.archive!;
@@ -188,14 +201,16 @@ async function processL2BlockProposedLogs(
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {
-      const block = await getBlockFromRollupTx(
-        publicClient,
-        blobSinkClient,
+      const blockHeader = await calldataRetriever.getBlockHeaderFromRollupTx(
         log.transactionHash!,
         blobHashes,
         l2BlockNumber,
-        rollup.address,
-        targetCommitteeSize,
+      );
+      const body = await getBlockBodyFromBlobs(
+        blobSinkClient,
+        blockHeader.blockHash,
+        blobHashes,
+        l2BlockNumber,
         logger,
       );
 
@@ -205,12 +220,13 @@ async function processL2BlockProposedLogs(
         timestamp: await getL1BlockTime(publicClient, log.blockNumber),
       };
 
-      retrievedBlocks.push({ ...block, l1, chainId, version });
+      const { blockHash: _blockHash, ...blockData } = blockHeader;
+      retrievedBlocks.push({ ...blockData, body, l1, chainId, version });
       logger.trace(`Retrieved L2 block ${l2BlockNumber} from L1 tx ${log.transactionHash}`, {
         l1BlockNumber: log.blockNumber,
         l2BlockNumber,
         archive: archive.toString(),
-        attestations: block.attestations,
+        attestations: blockHeader.attestations,
       });
     } else {
       logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
@@ -228,144 +244,13 @@ export async function getL1BlockTime(publicClient: ViemPublicClient, blockNumber
   return block.timestamp;
 }
 
-/**
- * Extracts the first 'propose' method calldata from a multicall3 transaction's data.
- * @param multicall3Data - The multicall3 transaction input data
- * @param rollupAddress - The address of the rollup contract
- * @returns The calldata for the first 'propose' method call to the rollup contract
- */
-function extractRollupProposeCalldata(multicall3Data: Hex, rollupAddress: Hex): Hex {
-  const { functionName: multicall3FunctionName, args: multicall3Args } = decodeFunctionData({
-    abi: multicall3Abi,
-    data: multicall3Data,
-  });
-
-  if (multicall3FunctionName !== 'aggregate3') {
-    throw new Error(`Unexpected multicall3 method called ${multicall3FunctionName}`);
-  }
-
-  if (multicall3Args.length !== 1) {
-    throw new Error(`Unexpected number of arguments for multicall3`);
-  }
-
-  const [calls] = multicall3Args;
-
-  // Find all rollup calls
-  const rollupAddressLower = rollupAddress.toLowerCase();
-
-  for (let i = 0; i < calls.length; i++) {
-    const addr = calls[i].target;
-    if (addr.toLowerCase() !== rollupAddressLower) {
-      continue;
-    }
-    const callData = calls[i].callData;
-
-    try {
-      const { functionName: rollupFunctionName } = decodeFunctionData({
-        abi: RollupAbi,
-        data: callData,
-      });
-
-      if (rollupFunctionName === 'propose') {
-        return callData;
-      }
-    } catch {
-      // Skip invalid function data
-      continue;
-    }
-  }
-
-  throw new Error(`Rollup address not found in multicall3 args`);
-}
-
-/**
- * Gets block from the calldata of an L1 transaction.
- * Assumes that the block was published from an EOA.
- * TODO: Add retries and error management.
- * @param publicClient - The viem public client to use for transaction retrieval.
- * @param txHash - Hash of the tx that published it.
- * @param l2BlockNumber - L2 block number.
- * @returns L2 block from the calldata, deserialized
- */
-async function getBlockFromRollupTx(
-  publicClient: ViemPublicClient,
-  blobSinkClient: BlobSinkClientInterface,
-  txHash: `0x${string}`,
-  blobHashes: Buffer[], // TODO(md): buffer32?
-  l2BlockNumber: number,
-  rollupAddress: Hex,
-  targetCommitteeSize: number,
-  logger: Logger,
-): Promise<Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version'>> {
-  logger.trace(`Fetching L2 block ${l2BlockNumber} from rollup tx ${txHash}`);
-  const { input: forwarderData, blockHash } = await publicClient.getTransaction({ hash: txHash });
-
-  const rollupData = extractRollupProposeCalldata(forwarderData, rollupAddress);
-  const { functionName: rollupFunctionName, args: rollupArgs } = decodeFunctionData({
-    abi: RollupAbi,
-    data: rollupData,
-  });
-
-  if (rollupFunctionName !== 'propose') {
-    throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
-  }
-
-  const [decodedArgs, packedAttestations, _signers, _blobInput] = rollupArgs! as readonly [
-    {
-      archive: Hex;
-      stateReference: ViemStateReference;
-      oracleInput: {
-        feeAssetPriceModifier: bigint;
-      };
-      header: ViemHeader;
-      txHashes: readonly Hex[];
-    },
-    ViemCommitteeAttestations,
-    Hex[],
-    ViemSignature,
-    Hex,
-  ];
-
-  const attestations = CommitteeAttestation.fromPacked(packedAttestations, targetCommitteeSize);
-
-  logger.trace(`Recovered propose calldata from tx ${txHash}`, {
-    l2BlockNumber,
-    archive: decodedArgs.archive,
-    stateReference: decodedArgs.stateReference,
-    header: decodedArgs.header,
-    l1BlockHash: blockHash,
-    blobHashes,
-    attestations,
-    packedAttestations,
-    targetCommitteeSize,
-  });
-
-  // TODO(md): why is the proposed block header different to the actual block header?
-  // This is likely going to be a footgun
-  const header = ProposedBlockHeader.fromViem(decodedArgs.header);
-  const body = await getBlockBodyFromBlobs(blobSinkClient, blockHash!, blobHashes, l2BlockNumber, logger);
-
-  const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
-
-  const stateReference = StateReference.fromViem(decodedArgs.stateReference);
-
-  return {
-    l2BlockNumber,
-    archiveRoot,
-    stateReference,
-    header,
-    body,
-    attestations,
-  };
-}
-
-async function getBlockBodyFromBlobs(
+export async function getBlockBodyFromBlobs(
   blobSinkClient: BlobSinkClientInterface,
   blockHash: string,
   blobHashes: Buffer<ArrayBufferLike>[],
   l2BlockNumber: number,
   logger: Logger,
-) {
+): Promise<Body> {
   const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   logger.trace(`Fetched ${blobBodies.length} blob bodies for L2 block ${l2BlockNumber}`, {
     blobHashes: blobHashes.map(bufferToHex),

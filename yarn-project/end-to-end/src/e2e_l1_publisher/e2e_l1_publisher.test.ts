@@ -237,6 +237,7 @@ describe('L1Publisher integration', () => {
     publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
+        l1DebugRpcUrls: [],
         l1Contracts: l1ContractAddresses,
         publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1ChainId: chainId,
