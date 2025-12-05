@@ -11,13 +11,13 @@ pub contract StaticChild {
         state_vars::{Owned, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
-    use dep::value_note::value_note::ValueNote;
     use aztec::note::note_interface::NoteProperties;
+    use field_note::field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {
         current_value: PublicMutable<Field, Context>,
-        a_private_value: Owned<PrivateSet<ValueNote, Context>, Context>,
+        a_private_value: Owned<PrivateSet<FieldNote, Context>, Context>,
     }
 
     // Returns base_value + chain_id + version + block_number + timestamp statically
@@ -45,7 +45,7 @@ pub contract StaticChild {
     #[external("private")]
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let note = ValueNote::new(new_value);
+        let note = FieldNote::new(new_value);
         self.storage.a_private_value.at(owner).insert(note).emit(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
@@ -56,7 +56,7 @@ pub contract StaticChild {
     // Modify a note
     #[external("private")]
     fn private_set_value(new_value: Field, owner: AztecAddress, sender: AztecAddress) -> Field {
-        let note = ValueNote::new(new_value);
+        let note = FieldNote::new(new_value);
 
         self.storage.a_private_value.at(owner).insert(note).emit(
             owner,
@@ -70,7 +70,7 @@ pub contract StaticChild {
     #[view]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let mut options = NoteGetterOptions::new();
-        options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);
+        options = options.select(FieldNote::properties().value, Comparator.EQ, amount).set_limit(1);
         let retrieved_notes = self.storage.a_private_value.at(owner).get_notes(options);
         retrieved_notes.get(0).note.value()
     }

@@ -12,7 +12,7 @@ pub contract StateVars {
         },
     };
 
-    use value_note::value_note::ValueNote;
+    use field_note::field_note::FieldNote;
 
     #[derive(Deserialize, Eq, Packable, Serialize)]
     pub struct MockStruct {
@@ -23,8 +23,8 @@ pub contract StateVars {
     #[storage_no_init]
     struct Storage<Context> {
         mock_struct: PublicMutable<MockStruct, Context>,
-        private_mutable: Owned<PrivateMutable<ValueNote, Context>, Context>,
-        private_immutable: Owned<PrivateImmutable<ValueNote, Context>, Context>,
+        private_mutable: Owned<PrivateMutable<FieldNote, Context>, Context>,
+        private_immutable: Owned<PrivateImmutable<FieldNote, Context>, Context>,
         public_immutable: PublicImmutable<MockStruct, Context>,
     }
 
@@ -98,7 +98,7 @@ pub contract StateVars {
     #[external("private")]
     fn initialize_private_immutable(randomness: Field, value: Field) {
         let owner = self.msg_sender().unwrap();
-        let new_note = ValueNote::new(value);
+        let new_note = FieldNote::new(value);
 
         self.storage.private_immutable.at(owner).initialize(new_note).emit(
             owner,
@@ -109,7 +109,7 @@ pub contract StateVars {
     #[external("private")]
     fn initialize_private(randomness: Field, value: Field) {
         let owner = self.msg_sender().unwrap();
-        let private_mutable = ValueNote::new(value);
+        let private_mutable = FieldNote::new(value);
 
         self.storage.private_mutable.at(owner).initialize(private_mutable).emit(
             owner,
@@ -120,7 +120,7 @@ pub contract StateVars {
     #[external("private")]
     fn update_private_mutable(randomness: Field, value: Field) {
         let owner = self.msg_sender().unwrap();
-        self.storage.private_mutable.at(owner).replace(|_old_note| ValueNote::new(value)).emit(
+        self.storage.private_mutable.at(owner).replace(|_old_note| FieldNote::new(value)).emit(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -136,13 +136,13 @@ pub contract StateVars {
             .at(owner)
             .replace(|old_note| {
                 let new_value = old_note.value() + 1;
-                ValueNote::new(new_value)
+                FieldNote::new(new_value)
             })
             .emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("utility")]
-    unconstrained fn get_private_mutable(owner: AztecAddress) -> ValueNote {
+    unconstrained fn get_private_mutable(owner: AztecAddress) -> FieldNote {
         self.storage.private_mutable.at(owner).view_note()
     }
 
@@ -152,7 +152,7 @@ pub contract StateVars {
     }
 
     #[external("utility")]
-    unconstrained fn view_private_immutable(owner: AztecAddress) -> ValueNote {
+    unconstrained fn view_private_immutable(owner: AztecAddress) -> FieldNote {
         self.storage.private_immutable.at(owner).view_note()
     }
 
