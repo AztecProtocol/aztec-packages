@@ -238,14 +238,29 @@ contract DeployL1Contracts is Script, Test {
 
     function maybeDeployAssets(address existingStakingAssetAddress) internal returns (address feeAsset, address stakingAsset) {
         if (existingStakingAssetAddress != address(0)) {
+            console.log("--- TestERC20 (FeeAsset/StakingAsset): using existing ---");
+            console.log("  address:", existingStakingAssetAddress);
             return (existingStakingAssetAddress, existingStakingAssetAddress);
         }
+        console.log("--- TestERC20 (FeeAsset/StakingAsset) constructor args ---");
+        console.log("  name: Fee Asset");
+        console.log("  symbol: FEE");
+        console.log("  owner:", deployer);
         TestERC20 asset = new TestERC20("Fee Asset", "FEE", deployer);
+
+        console.log("--- Transaction: FeeAsset.mint (initial supply) ---");
+        console.log("  to:", address(asset));
+        console.log("  recipient:", deployer);
+        console.log("  amount: 1000000000000000000000000000");
         asset.mint(deployer, 1_000_000_000e18);
         return (address(asset), address(asset));
     }
 
     function deployCoinIssuer(address feeAsset, uint256 coinIssuerRate) internal returns (address) {
+        console.log("--- CoinIssuer constructor args ---");
+        console.log("  feeAsset:", feeAsset);
+        console.log("  coinIssuerRate:", coinIssuerRate);
+        console.log("  owner:", deployer);
         return address(new CoinIssuer(IMintableERC20(feeAsset), coinIssuerRate, deployer));
     }
 
@@ -253,31 +268,63 @@ contract DeployL1Contracts is Script, Test {
         if (!shouldDeploy) {
             return address(0);
         }
+        console.log("--- FeeAssetHandler constructor args ---");
+        console.log("  owner:", deployer);
+        console.log("  feeAsset:", feeAsset);
+        console.log("  initialMint: 1000e18");
         return address(new FeeAssetHandler(deployer, feeAsset, 1000e18));
     }
 
     function deployGSE(address stakingAsset, uint256 activationThreshold, uint256 ejectionThreshold) internal returns (address) {
+        console.log("--- GSE constructor args ---");
+        console.log("  owner:", deployer);
+        console.log("  stakingAsset:", stakingAsset);
+        console.log("  activationThreshold:", activationThreshold);
+        console.log("  ejectionThreshold:", ejectionThreshold);
         return address(new GSE(deployer, IERC20(stakingAsset), activationThreshold, ejectionThreshold));
     }
 
     function deployRegistry(address feeAsset) internal returns (address registry, address rewardDistributor) {
+        console.log("--- Registry constructor args ---");
+        console.log("  owner:", deployer);
+        console.log("  feeAsset:", feeAsset);
         Registry reg = new Registry(deployer, IERC20(feeAsset));
         return (address(reg), address(reg.getRewardDistributor()));
     }
 
     function deployGovernanceProposer(address registry, address gse, uint256 quorum, uint256 roundSize) internal returns (address) {
+        console.log("--- GovernanceProposer constructor args ---");
+        console.log("  registry:", registry);
+        console.log("  gse:", gse);
+        console.log("  quorum:", quorum);
+        console.log("  roundSize:", roundSize);
         return address(new GovernanceProposer(
             Registry(registry), GSE(gse), quorum, roundSize
         ));
     }
 
     function deployGovernance(address stakingAsset, address govProposer, address gse, GovernanceConfiguration memory config) internal returns (address) {
+        console.log("--- Governance constructor args ---");
+        console.log("  stakingAsset:", stakingAsset);
+        console.log("  govProposer:", govProposer);
+        console.log("  gse:", gse);
+        console.log("  config.proposeConfig.lockDelay:", Timestamp.unwrap(config.proposeConfig.lockDelay));
+        console.log("  config.proposeConfig.lockAmount:", config.proposeConfig.lockAmount);
+        console.log("  config.votingDelay:", Timestamp.unwrap(config.votingDelay));
+        console.log("  config.votingDuration:", Timestamp.unwrap(config.votingDuration));
+        console.log("  config.executionDelay:", Timestamp.unwrap(config.executionDelay));
+        console.log("  config.gracePeriod:", Timestamp.unwrap(config.gracePeriod));
+        console.log("  config.quorum:", config.quorum);
+        console.log("  config.requiredYeaMargin:", config.requiredYeaMargin);
+        console.log("  config.minimumVotes:", config.minimumVotes);
         return address(new Governance(
             IERC20(stakingAsset), govProposer, gse, config
         ));
     }
 
     function deployVerifier(bool useMockVerifier) internal returns (address) {
+        console.log("--- Verifier constructor args ---");
+        console.log("  useMockVerifier:", useMockVerifier);
         if (useMockVerifier) {
             return address(new MockVerifier());
         }
@@ -300,6 +347,21 @@ contract DeployL1Contracts is Script, Test {
 
         RollupConfigInput memory rollupConfig = buildRollupConfiguration(IRewardDistributor(rewardDistributor));
 
+        console.log("--- Rollup constructor args ---");
+        console.log("  feeAsset:", feeAsset);
+        console.log("  stakingAsset:", stakingAsset);
+        console.log("  gse:", gse);
+        console.log("  verifier:", verifier);
+        console.log("  governance:", governance);
+        console.log("  genesisState.vkTreeRoot:", uint256(genesisState.vkTreeRoot));
+        console.log("  genesisState.protocolContractsHash:", uint256(genesisState.protocolContractsHash));
+        console.log("  genesisState.genesisArchiveRoot:", uint256(genesisState.genesisArchiveRoot));
+        console.log("  rollupConfig.aztecSlotDuration:", rollupConfig.aztecSlotDuration);
+        console.log("  rollupConfig.aztecEpochDuration:", rollupConfig.aztecEpochDuration);
+        console.log("  rollupConfig.targetCommitteeSize:", rollupConfig.targetCommitteeSize);
+        console.log("  rollupConfig.aztecProofSubmissionEpochs:", rollupConfig.aztecProofSubmissionEpochs);
+        console.log("  rollupConfig.slasherFlavor:", uint8(rollupConfig.slasherFlavor));
+
         return address(new Rollup(
             IERC20(feeAsset),
             IERC20(stakingAsset),
@@ -312,10 +374,15 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function deploySlashFactory(address rollup) internal returns (address) {
+        console.log("--- SlashFactory constructor args ---");
+        console.log("  rollup:", rollup);
         return address(new SlashFactory(Rollup(rollup)));
     }
 
     function deployDateGatedRelayer(address governance) internal returns (address) {
+        console.log("--- DateGatedRelayer constructor args ---");
+        console.log("  governance:", governance);
+        console.log("  activationTimestamp: 1798761600");
         return address(new DateGatedRelayer(governance, 1798761600));
     }
 
@@ -324,7 +391,23 @@ contract DeployL1Contracts is Script, Test {
             return (address(0), address(0));
         }
 
+        console.log("--- MockZKPassportVerifier constructor args ---");
+        console.log("  (no args)");
         MockZKPassportVerifier zkVerifier = new MockZKPassportVerifier();
+
+        console.log("--- StakingAssetHandler constructor args ---");
+        console.log("  owner:", deployer);
+        console.log("  stakingAsset:", stakingAsset);
+        console.log("  registry:", registry);
+        console.log("  withdrawer:", deployer);
+        console.log("  validatorsToFlush: 16");
+        console.log("  mintInterval: 86400");
+        console.log("  depositsPerMint: 10");
+        console.log("  zkPassportVerifier:", address(zkVerifier));
+        console.log("  domain:", zkPassportDomain);
+        console.log("  scope:", zkPassportScope);
+        console.log("  skipBindCheck: true");
+        console.log("  skipMerkleCheck: true");
 
         StakingAssetHandler.StakingAssetHandlerArgs memory args = StakingAssetHandler.StakingAssetHandlerArgs({
             owner: deployer,
@@ -349,32 +432,69 @@ contract DeployL1Contracts is Script, Test {
 
     function wireContracts(address feeAsset, address stakingAsset, address feeAssetHandler, address stakingAssetHandler, address gse, address governance, address existingStakingAssetAddress) internal {
         if (feeAssetHandler != address(0) && existingStakingAssetAddress == address(0)) {
+            console.log("--- Transaction: FeeAsset.addMinter ---");
+            console.log("  to:", feeAsset);
+            console.log("  minter:", feeAssetHandler);
             TestERC20(feeAsset).addMinter(feeAssetHandler);
         }
         if (stakingAssetHandler != address(0) && existingStakingAssetAddress == address(0)) {
+            console.log("--- Transaction: StakingAsset.addMinter ---");
+            console.log("  to:", stakingAsset);
+            console.log("  minter:", stakingAssetHandler);
             TestERC20(stakingAsset).addMinter(stakingAssetHandler);
         }
+        console.log("--- Transaction: GSE.setGovernance ---");
+        console.log("  to:", gse);
+        console.log("  governance:", governance);
         GSE(gse).setGovernance(Governance(governance));
     }
 
     function registerRollup(address registry, address gse, address rollup) internal {
+        console.log("--- Transaction: Registry.addRollup ---");
+        console.log("  to:", registry);
+        console.log("  rollup:", rollup);
         Registry(registry).addRollup(IHaveVersion(rollup));
+
+        console.log("--- Transaction: GSE.addRollup ---");
+        console.log("  to:", gse);
+        console.log("  rollup:", rollup);
         GSE(gse).addRollup(rollup);
     }
 
     function maybeFundRewardDistributor(address feeAsset, address rewardDistributor, bool shouldFund, address existingStakingAssetAddress, uint256 amount) internal {
         if (shouldFund && existingStakingAssetAddress == address(0)) {
+            console.log("--- Transaction: FeeAsset.mint (RewardDistributor funding) ---");
+            console.log("  to:", feeAsset);
+            console.log("  recipient:", rewardDistributor);
+            console.log("  amount:", amount);
             TestERC20(feeAsset).mint(rewardDistributor, amount);
         }
     }
 
     function handoverToGovernance(address feeAsset, address registry, address gse, address coinIssuer, address governance, address dateGatedRelayer, address existingStakingAssetAddress) internal {
+        console.log("--- Transaction: Registry.transferOwnership ---");
+        console.log("  to:", registry);
+        console.log("  newOwner:", governance);
         Registry(registry).transferOwnership(governance);
+
+        console.log("--- Transaction: GSE.transferOwnership ---");
+        console.log("  to:", gse);
+        console.log("  newOwner:", governance);
         GSE(gse).transferOwnership(governance);
 
         if (existingStakingAssetAddress == address(0)) {
+            console.log("--- Transaction: FeeAsset.transferOwnership ---");
+            console.log("  to:", feeAsset);
+            console.log("  newOwner:", coinIssuer);
             TestERC20(feeAsset).transferOwnership(coinIssuer);
+
+            console.log("--- Transaction: CoinIssuer.acceptTokenOwnership ---");
+            console.log("  to:", coinIssuer);
             CoinIssuer(coinIssuer).acceptTokenOwnership();
+
+            console.log("--- Transaction: CoinIssuer.transferOwnership ---");
+            console.log("  to:", coinIssuer);
+            console.log("  newOwner:", dateGatedRelayer);
             CoinIssuer(coinIssuer).transferOwnership(dateGatedRelayer);
         }
     }

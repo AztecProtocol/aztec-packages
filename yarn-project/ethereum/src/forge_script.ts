@@ -5,7 +5,7 @@ import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { type Chain, createPublicClient, getContract, http } from 'viem';
+import { createPublicClient, getContract, http } from 'viem';
 import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from './client.js';
@@ -174,7 +174,7 @@ function parseDeployedAddresses(stdout: string): Partial<L1DeploymentAddresses> 
  * @param options - Optional configuration
  * @returns The script result
  */
-export async function runForgeScript(
+export function runForgeScript(
   args: string[],
   options: {
     cwd?: string;
@@ -385,6 +385,8 @@ export async function setupL1ContractsViaForge(
       : undefined,
     zkPassportVerifierAddress: zkPassportVerifierAddress ? EthAddress.fromString(zkPassportVerifierAddress) : undefined,
   };
+
+  logger.info('Forge script completed successfully');
 
   return {
     l1Client,
