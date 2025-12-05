@@ -25,8 +25,10 @@ std::string extract_error_from_napi_value(const Napi::CallbackInfo& cb_info)
     return "Unknown error from TypeScript";
 }
 
-Napi::Function create_buffer_resolve_handler(Napi::Env env, CallbackResults* cb_results)
+Napi::Function create_buffer_resolve_handler(Napi::Env env, std::shared_ptr<CallbackResults> cb_results)
 {
+    // Capture shared_ptr by value to ensure CallbackResults outlives the Promise handler.
+    // This prevents use-after-free when timeouts occur before the Promise resolves.
     return Napi::Function::New(
         env,
         [cb_results](const Napi::CallbackInfo& cb_info) -> Napi::Value {
@@ -56,8 +58,9 @@ Napi::Function create_buffer_resolve_handler(Napi::Env env, CallbackResults* cb_
         "resolveHandler");
 }
 
-Napi::Function create_string_resolve_handler(Napi::Env env, CallbackResults* cb_results)
+Napi::Function create_string_resolve_handler(Napi::Env env, std::shared_ptr<CallbackResults> cb_results)
 {
+    // Capture shared_ptr by value to ensure CallbackResults outlives the Promise handler.
     return Napi::Function::New(
         env,
         [cb_results](const Napi::CallbackInfo& cb_info) -> Napi::Value {
@@ -87,8 +90,9 @@ Napi::Function create_string_resolve_handler(Napi::Env env, CallbackResults* cb_
         "resolveHandler");
 }
 
-Napi::Function create_void_resolve_handler(Napi::Env env, CallbackResults* cb_results)
+Napi::Function create_void_resolve_handler(Napi::Env env, std::shared_ptr<CallbackResults> cb_results)
 {
+    // Capture shared_ptr by value to ensure CallbackResults outlives the Promise handler.
     return Napi::Function::New(
         env,
         [cb_results](const Napi::CallbackInfo& cb_info) -> Napi::Value {
@@ -98,8 +102,9 @@ Napi::Function create_void_resolve_handler(Napi::Env env, CallbackResults* cb_re
         "resolveHandler");
 }
 
-Napi::Function create_reject_handler(Napi::Env env, CallbackResults* cb_results)
+Napi::Function create_reject_handler(Napi::Env env, std::shared_ptr<CallbackResults> cb_results)
 {
+    // Capture shared_ptr by value to ensure CallbackResults outlives the Promise handler.
     return Napi::Function::New(
         env,
         [cb_results](const Napi::CallbackInfo& cb_info) -> Napi::Value {
@@ -110,16 +115,11 @@ Napi::Function create_reject_handler(Napi::Env env, CallbackResults* cb_results)
         "rejectHandler");
 }
 
-void attach_promise_handlers(Napi::Promise promise,
-                             Napi::Function resolve_handler,
-                             Napi::Function reject_handler,
-                             CallbackResults* cb_results)
+void attach_promise_handlers(Napi::Promise promise, Napi::Function resolve_handler, Napi::Function reject_handler)
 {
     auto then_prop = promise.Get("then");
     if (!then_prop.IsFunction()) {
-        cb_results->error_message = "Promise does not have .then() method";
-        cb_results->result_promise.set_value(std::nullopt);
-        return;
+        throw std::runtime_error("Promise does not have .then() method");
     }
 
     auto then_fn = then_prop.As<Napi::Function>();
@@ -149,24 +149,28 @@ template <typename T> T deserialize_from_msgpack(const std::vector<uint8_t>& dat
 std::optional<std::vector<uint8_t>> invoke_ts_callback_with_promise(
     const Napi::ThreadSafeFunction& callback,
     const std::string& operation_name,
-    std::function<void(Napi::Env, Napi::Function, CallbackResults*)> call_js_function,
+    std::function<void(Napi::Env, Napi::Function, std::shared_ptr<CallbackResults>)> call_js_function,
     std::chrono::seconds timeout)
 {
-    // Create promise/future pair for synchronization
+    // Create promise/future pair for synchronization.
+    // The shared_ptr is passed to call_js_function which MUST capture it in Promise handlers.
+    // This ensures CallbackResults outlives the Promise, even if we timeout and return early.
     auto callback_data = std::make_shared<CallbackResults>();
     auto future = callback_data->result_promise.get_future();
 
-    // Call TypeScript callback on the JS main thread
+    // Call TypeScript callback on the JS main thread.
+    // We pass the shared_ptr to the call_js_function so it can be captured by Promise handlers.
     auto status = callback.BlockingCall(
         callback_data.get(),
-        [call_js_function](Napi::Env env, Napi::Function js_callback, CallbackResults* cb_results) {
+        [call_js_function, callback_data](Napi::Env env, Napi::Function js_callback, CallbackResults* /*cb_results*/) {
             try {
-                // Call the TypeScript function with appropriate arguments
-                call_js_function(env, js_callback, cb_results);
+                // Call the TypeScript function with the shared_ptr (not raw pointer).
+                // The call_js_function MUST capture this shared_ptr in Promise handlers.
+                call_js_function(env, js_callback, callback_data);
 
             } catch (const std::exception& e) {
-                cb_results->error_message = std::string("Exception calling TypeScript: ") + e.what();
-                cb_results->result_promise.set_value(std::nullopt);
+                callback_data->error_message = std::string("Exception calling TypeScript: ") + e.what();
+                callback_data->result_promise.set_value(std::nullopt);
             }
         });
 
@@ -174,7 +178,8 @@ std::optional<std::vector<uint8_t>> invoke_ts_callback_with_promise(
         throw std::runtime_error("Failed to invoke TypeScript callback for " + operation_name);
     }
 
-    // Wait for the promise to be fulfilled (with timeout)
+    // Wait for the promise to be fulfilled (with timeout).
+    // If timeout occurs, we throw but callback_data stays alive via shared_ptr in Promise handlers.
     auto wait_status = future.wait_for(timeout);
     if (wait_status == std::future_status::timeout) {
         throw std::runtime_error("Timeout waiting for TypeScript callback for " + operation_name);
@@ -196,7 +201,9 @@ std::optional<std::vector<uint8_t>> invoke_single_string_callback(const Napi::Th
                                                                   const std::string& operation_name)
 {
     return invoke_ts_callback_with_promise(
-        callback, operation_name, [input_str](Napi::Env env, Napi::Function js_callback, CallbackResults* cb_results) {
+        callback,
+        operation_name,
+        [input_str](Napi::Env env, Napi::Function js_callback, std::shared_ptr<CallbackResults> cb_results) {
             auto js_input = Napi::String::New(env, input_str);
             auto js_result = js_callback.Call({ js_input });
 
@@ -207,9 +214,10 @@ std::optional<std::vector<uint8_t>> invoke_single_string_callback(const Napi::Th
             }
 
             auto promise = js_result.As<Napi::Promise>();
+            // Pass shared_ptr to handlers so CallbackResults outlives the Promise
             auto resolve_handler = create_buffer_resolve_handler(env, cb_results);
             auto reject_handler = create_reject_handler(env, cb_results);
-            attach_promise_handlers(promise, resolve_handler, reject_handler, cb_results);
+            attach_promise_handlers(promise, resolve_handler, reject_handler);
         });
 }
 
@@ -221,7 +229,8 @@ std::optional<std::vector<uint8_t>> invoke_double_string_callback(const Napi::Th
     return invoke_ts_callback_with_promise(
         callback,
         operation_name,
-        [input_str1, input_str2](Napi::Env env, Napi::Function js_callback, CallbackResults* cb_results) {
+        [input_str1,
+         input_str2](Napi::Env env, Napi::Function js_callback, std::shared_ptr<CallbackResults> cb_results) {
             auto js_input1 = Napi::String::New(env, input_str1);
             auto js_input2 = Napi::String::New(env, input_str2);
             auto js_result = js_callback.Call({ js_input1, js_input2 });
@@ -233,9 +242,10 @@ std::optional<std::vector<uint8_t>> invoke_double_string_callback(const Napi::Th
             }
 
             auto promise = js_result.As<Napi::Promise>();
+            // Pass shared_ptr to handlers so CallbackResults outlives the Promise
             auto resolve_handler = create_string_resolve_handler(env, cb_results);
             auto reject_handler = create_reject_handler(env, cb_results);
-            attach_promise_handlers(promise, resolve_handler, reject_handler, cb_results);
+            attach_promise_handlers(promise, resolve_handler, reject_handler);
         });
 }
 
@@ -246,7 +256,8 @@ void invoke_buffer_void_callback(const Napi::ThreadSafeFunction& callback,
     auto result = invoke_ts_callback_with_promise(
         callback,
         operation_name,
-        [buffer_data = std::move(buffer_data)](Napi::Env env, Napi::Function js_callback, CallbackResults* cb_results) {
+        [buffer_data = std::move(buffer_data)](
+            Napi::Env env, Napi::Function js_callback, std::shared_ptr<CallbackResults> cb_results) {
             auto js_buffer = Napi::Buffer<uint8_t>::Copy(env, buffer_data.data(), buffer_data.size());
             auto js_result = js_callback.Call({ js_buffer });
 
@@ -257,9 +268,10 @@ void invoke_buffer_void_callback(const Napi::ThreadSafeFunction& callback,
             }
 
             auto promise = js_result.As<Napi::Promise>();
+            // Pass shared_ptr to handlers so CallbackResults outlives the Promise
             auto resolve_handler = create_void_resolve_handler(env, cb_results);
             auto reject_handler = create_reject_handler(env, cb_results);
-            attach_promise_handlers(promise, resolve_handler, reject_handler, cb_results);
+            attach_promise_handlers(promise, resolve_handler, reject_handler);
         });
 
     // For void callbacks, we just need to ensure no errors occurred
