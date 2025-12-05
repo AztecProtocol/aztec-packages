@@ -11,7 +11,7 @@ High-level structure of how Aztec smart contracts including the different compon
 
 All contracts start with importing the required files and declaring a contract using the `contract` keyword:
 
-```noir
+```rust
 // import the `aztec` macro from Aztec.nr
 use aztec::macros::aztec;
 
@@ -32,7 +32,7 @@ The `#[aztec]` macro performs a lot of the low-level operations required to take
 
 Aside from the `#[aztec]` macro import, all other imports need to go _inside_ the `contract` block - this is because `contract` acts like `mod`, creating a new [module](https://noir-lang.org/docs/noir/modules_packages_crates/modules).
 
-```noir
+```rust
 use aztec::macros::aztec;
 
 #[aztec]
@@ -63,7 +63,7 @@ In Aztec this process is a bit more involved, as not only are there both private
 
 We define state using a [`struct`](https://noir-lang.org/docs/noir/concepts/data_types/structs) that will hold the entire contract state. we call this struct _the storage struct_, and each variable inside this struct is called [_a state variable_.](https://docs.aztec.network/nightly/developers/docs/aztec-nr/framework-description/state-variables)
 
-```noir
+```rust
 use aztec::macros::aztec;
 
 #[aztec]
@@ -91,7 +91,7 @@ As in Solidity, Aztec contracts can define events to notify that some state has 
 
 Events are a struct marked with the `#[event]` macro:
 
-```noir
+```rust
 #[event]
 struct Transfer {
     from: AztecAddress,
@@ -108,7 +108,7 @@ Contracts are interacted with by invoking their `external` functions. there are 
 - External **public** functions, which are invoked publicly by nodes in the network (like any `external` Solidity contract function).
 - External **utility** functions, which are executed off chain on the user's device by applications in order to display useful information, e.g. retrieve contract state. These are never part of a transaction.
 
-```noir
+```rust
 use aztec::macros::aztec;
 
 #[aztec]
@@ -138,7 +138,7 @@ Additionally, contracts can also define `internal` functions, which cannot be ca
 
 ### Current Limitations
 
-All #[external] contract functions must be defined _directly inside the `contract` block_, that is, in the same file. it is possible to define `#[internal]` and helper functions in `mod`s in other files, but not `#[external]` functions.
+All `#[external]` contract functions must be defined _directly inside the `contract` block_, that is, in the same file. It is possible to define `#[internal]` and helper functions in `mod`s in other files, but not `#[external]` functions.
 
 Additionally, **Noir does not feature inheritance** nor is there currently any other mechanism to extend and reuse contract logic. e.g. it is not possible to take a token contract and extend it to add minting functionality, or to reuse it in a liquidity pool. Like in Vyper, the entire logic must live in a single file.
 
