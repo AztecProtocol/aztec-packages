@@ -26,14 +26,14 @@ bb::fr from_buffer_with_bound_checks(const std::vector<uint8_t>& buffer);
 /**
  * @brief Parse an Acir::FunctionInput (which can either be a witness or a constant) into a WitnessOrConstant.
  */
-WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input);
+WitnessOrConstant<bb::fr> parse_input(const Acir::FunctionInput& input);
 
 /**
  * @brief Extract the witness index from an Acir::FunctionInput representing a witness.
  *
  * @note The function asserts that the input is indeed a witness variant.
  */
-uint32_t get_witness_from_function_input(Acir::FunctionInput input);
+uint32_t get_witness_from_function_input(const Acir::FunctionInput& input);
 
 /**
  * @brief Update the max_witness_index.
@@ -43,7 +43,7 @@ uint32_t get_witness_from_function_input(Acir::FunctionInput input);
  * minus one to avoid buffer overrides.
  *
  */
-void update_max_witness_index(uint32_t witness_idx, AcirFormat& af);
+void update_max_witness_index(const uint32_t witness_idx, AcirFormat& af);
 
 /**
  * @brief Update max_witness_index by processing all witnesses in an Acir::Expression.

@@ -35,7 +35,7 @@ bb::fr from_buffer_with_bound_checks(const std::vector<uint8_t>& buffer)
     return fr::serialize_from_buffer(buffer.data());
 }
 
-WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
+WitnessOrConstant<bb::fr> parse_input(const Acir::FunctionInput& input)
 {
     WitnessOrConstant<bb::fr> result = std::visit(
         [&](auto&& e) {
@@ -61,7 +61,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
     return result;
 }
 
-uint32_t get_witness_from_function_input(Acir::FunctionInput input)
+uint32_t get_witness_from_function_input(const Acir::FunctionInput& input)
 {
     BB_ASSERT(std::holds_alternative<Acir::FunctionInput::Witness>(input.value),
               "acir_format::get_witness_from_function_input: input must be a Witness variant. An error here means "
@@ -70,7 +70,7 @@ uint32_t get_witness_from_function_input(Acir::FunctionInput input)
     return std::get<Acir::FunctionInput::Witness>(input.value).value.value;
 }
 
-void update_max_witness_index(uint32_t witness_idx, AcirFormat& af)
+void update_max_witness_index(const uint32_t witness_idx, AcirFormat& af)
 {
     if (witness_idx != stdlib::IS_CONSTANT) {
         af.max_witness_index = std::max(af.max_witness_index, witness_idx);
@@ -326,12 +326,12 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
     af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
     af.public_inputs = join({
         transform::map(circuit.public_parameters.value,
-                       [&](auto e) {
+                       [&](const Acir::Witness& e) {
                            update_max_witness_index(e.value, af);
                            return e.value;
                        }),
         transform::map(circuit.return_values.value,
-                       [&](auto e) {
+                       [&](const Acir::Witness& e) {
                            update_max_witness_index(e.value, af);
                            return e.value;
                        }),
@@ -597,9 +597,9 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                                            AcirFormat& af,
                                            size_t opcode_index)
 {
-    auto to_witness_or_constant = [&](auto& e) { return parse_input(e); };
-    auto to_witness = [&](auto& e) { return e.value; };
-    auto to_witness_from_input = [&](auto& e) { return get_witness_from_function_input(e); };
+    auto to_witness_or_constant = [&](const Acir::FunctionInput& e) { return parse_input(e); };
+    auto to_witness = [&](const Acir::Witness& e) { return e.value; };
+    auto to_witness_from_input = [&](const Acir::FunctionInput& e) { return get_witness_from_function_input(e); };
 
     std::visit(
         [&](auto&& arg) {
