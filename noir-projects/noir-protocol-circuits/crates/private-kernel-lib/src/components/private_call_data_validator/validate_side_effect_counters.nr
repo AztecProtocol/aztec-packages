@@ -4,12 +4,13 @@ use types::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
     },
     constants::{
-        GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET, GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET,
-        GLOBAL_INDEX_NOTE_HASH_OFFSET, GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
-        GLOBAL_INDEX_NULLIFIER_OFFSET, GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
-        GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET, GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
-        GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
-        MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
+        GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
+        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET,
+        GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET, GLOBAL_INDEX_NOTE_HASH_OFFSET,
+        GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET, GLOBAL_INDEX_NULLIFIER_OFFSET,
+        GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET, GLOBAL_INDEX_PRIVATE_CALL_REQUEST_OFFSET,
+        GLOBAL_INDEX_PRIVATE_LOG_OFFSET, GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET,
+        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
@@ -46,6 +47,7 @@ pub struct SideEffectUniquenessHints {
     pub l2_to_l1_msgs_indices: [u32; MAX_L2_TO_L1_MSGS_PER_CALL],
     pub private_logs_indices: [u32; MAX_PRIVATE_LOGS_PER_CALL],
     pub contract_class_logs_hashes_indices: [u32; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
+    pub min_revertible_side_effect_counter_index: u32,
 }
 
 impl Empty for SideEffectUniquenessHints {
@@ -63,6 +65,7 @@ impl Empty for SideEffectUniquenessHints {
             l2_to_l1_msgs_indices: [0; MAX_L2_TO_L1_MSGS_PER_CALL],
             private_logs_indices: [0; MAX_PRIVATE_LOGS_PER_CALL],
             contract_class_logs_hashes_indices: [0; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
+            min_revertible_side_effect_counter_index: 0,
         }
     }
 }
@@ -102,7 +105,12 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
         + public_inputs.public_call_requests.length
         + public_inputs.l2_to_l1_msgs.length
         + public_inputs.private_logs.length
-        + public_inputs.contract_class_logs_hashes.length;
+        + public_inputs.contract_class_logs_hashes.length
+        + if public_inputs.min_revertible_side_effect_counter == 0 {
+            0
+        } else {
+            1
+        };
 
     // If the global index offsets constants were incorrectly calculated, this would be very bad. There is a test in constants.nr to check that they are properly computed.
     validate_side_effect_ranges_for_counted_side_effects(
@@ -169,6 +177,14 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
         total_side_effects,
     );
 
+    validate_side_effect_range_for_single_value(
+        public_inputs.min_revertible_side_effect_counter,
+        side_effect_sorting_hints.min_revertible_side_effect_counter_index,
+        side_effect_ranges,
+        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET,
+        total_side_effects,
+    );
+
     let counter_start = public_inputs.start_side_effect_counter;
     let counter_end = public_inputs.end_side_effect_counter;
 
@@ -214,6 +230,31 @@ where
                 "range global index does not match side effect global index",
             );
         }
+    }
+}
+
+fn validate_side_effect_range_for_single_value(
+    counter: u32, // Could be 0.
+    index: u32,
+    side_effect_ranges: [SideEffectCounterRange; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
+    global_index_offset: u32,
+    total_side_effects: u32,
+) {
+    let global_index = global_index_offset;
+    let range = side_effect_ranges[index];
+
+    if counter != 0 {
+        // Validate index
+        assert(index < total_side_effects, "side effect range index out of bounds");
+        // Validate that counter == range item
+        assert_eq(counter, range.start, "counter does not match start range item");
+        assert_eq(counter, range.end, "counter does not match end range item");
+        // The range points to this exact side effect. This avoids pointing two side effects to the same range, which would lead to incorrect validation.
+        assert_eq(
+            global_index,
+            range.side_effect_global_index,
+            "range global index does not match side effect global index",
+        );
     }
 }
 
@@ -374,6 +415,16 @@ pub unconstrained fn build_uniqueness_hints(
         ));
     }
 
+    if public_inputs.min_revertible_side_effect_counter != 0 {
+        side_effect_ranges.push(
+            SideEffectCounterRange {
+                start: public_inputs.min_revertible_side_effect_counter,
+                end: public_inputs.min_revertible_side_effect_counter,
+                side_effect_global_index: GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET,
+            },
+        );
+    }
+
     let sorted_side_effect_ranges = side_effect_ranges.storage().sort_via(|a, b| {
         if b.is_empty() {
             true
@@ -410,5 +461,6 @@ pub unconstrained fn build_uniqueness_hints(
             indices,
             GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
         ),
+        min_revertible_side_effect_counter_index: indices[GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET],
     }
 }
