@@ -82,12 +82,16 @@ TEST(stdlib_sha256, test_sha256_block_NIST_vector_one)
 }
 
 /**
- * @brief Test sha256_block with two blocks (NIST vector two)
+ * @brief Test sha256_block against NIST vector two (56-byte message)
  *
- * Message: "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq" (56 bytes)
- * This requires two blocks due to padding.
+ * This tests chained compression by manually padding a two-block message
+ * and comparing against the known NIST hash output.
+ *
+ * For "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq" (56 bytes):
+ * - Block 1: message bytes + padding bit (0x80)
+ * - Block 2: zeros + 64-bit length (448 bits = 0x1c0)
  */
-TEST(stdlib_sha256, test_sha256_block_two_blocks)
+TEST(stdlib_sha256, test_sha256_block_NIST_vector_two)
 {
     auto builder = Builder();
 
@@ -156,13 +160,14 @@ TEST(stdlib_sha256, test_sha256_block_two_blocks)
 }
 
 /**
- * @brief Test that extend_witness values are properly constrained
+ * @brief Test extend_witness constraints (boomerang attack regression)
  *
- * This regression test ensures that modifying any extended witness value
- * causes the circuit to fail, preventing "boomerang" attacks where
- * intermediate values could be manipulated.
+ * This security test verifies that SHA256::extend_witness() properly constrains
+ * all 64 extended message schedule words. Modifying any word should cause
+ * circuit failure.
+ *
  */
-TEST(stdlib_sha256, test_boomerang_value_regression)
+TEST(stdlib_sha256, test_extend_witness_constraints)
 {
     BB_DISABLE_ASSERTS();
 
