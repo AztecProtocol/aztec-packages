@@ -23,75 +23,75 @@ function test_cmds {
 
 	# Longest-running tests first
 	# Can't run full prover tests on ARM because AVM is disabled.
-	#if ../../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm; then
-	#	if [ "$CI_FULL" -eq 1 ]; then
-	#		echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_client_real $run_test_script simple e2e_prover/client"
-	#	else
-	#		echo "$prefix:NAME=e2e_prover_client_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/client"
-	#	fi
-	#else
-	#	if [ "$CI_FULL" -eq 1 ]; then
-	#		echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
-	#	else
-	#		echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
-	#	fi
-	#fi
+	if ../../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm; then
+		if [ "$CI_FULL" -eq 1 ]; then
+			echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_client_real $run_test_script simple e2e_prover/client"
+		else
+			echo "$prefix:NAME=e2e_prover_client_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/client"
+		fi
+	else
+		if [ "$CI_FULL" -eq 1 ]; then
+			echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+		else
+			echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
+		fi
+	fi
 
 	echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
 
-	#local tests=(
-	#	# List all standalone and nested tests, except for the ones listed above.
-	#	src/e2e_!(prover)/*.test.ts
-	#	src/e2e_!(block_building).test.ts
-	#)
+	local tests=(
+		# List all standalone and nested tests, except for the ones listed above.
+		src/e2e_!(prover)/*.test.ts
+		src/e2e_!(block_building).test.ts
+	)
 
-	#for test in "${tests[@]}"; do
-	#	local name=${test#*e2e_}
-	#	name=e2e_${name%.test.ts}
+	for test in "${tests[@]}"; do
+		local name=${test#*e2e_}
+		name=e2e_${name%.test.ts}
 
-	#	# Check if this is a .parallel.test.ts file
-	#	if [[ "$test" == *.parallel.test.ts ]]; then
-	#		# Extract individual test names and create a command for each
-	#		while IFS= read -r test_name; do
-	#			# Create a safe name for the individual test (replace spaces with underscores)
-	#			local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
-	#			local full_name="${name}_${safe_test_name}"
-	#			echo "$prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
-	#		done < <(extract_test_names "$test")
-	#	else
-	#		# Regular test file - run the whole file
-	#		echo "$prefix:NAME=$name $(set_dump_avm $name) $run_test_script simple $test"
-	#	fi
-	#done
+		# Check if this is a .parallel.test.ts file
+		if [[ "$test" == *.parallel.test.ts ]]; then
+			# Extract individual test names and create a command for each
+			while IFS= read -r test_name; do
+				# Create a safe name for the individual test (replace spaces with underscores)
+				local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
+				local full_name="${name}_${safe_test_name}"
+				echo "$prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
+			done < <(extract_test_names "$test")
+		else
+			# Regular test file - run the whole file
+			echo "$prefix:NAME=$name $(set_dump_avm $name) $run_test_script simple $test"
+		fi
+	done
 
-	## compose-based tests (use running local network)
-	#tests=(
-	#  src/composed/!(integration_proof_verification|e2e_persistence).test.ts
-	#  src/guides/*.test.ts
-	#)
-	#for test in "${tests[@]}"; do
-	#  # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
-	#  echo "$hash:ONLY_TERM_PARENT=1 $run_test_script compose $test"
-	#done
+	# compose-based tests (use running local network)
+	tests=(
+	  src/composed/!(integration_proof_verification|e2e_persistence).test.ts
+	  src/guides/*.test.ts
+	)
+	for test in "${tests[@]}"; do
+	  # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
+	  echo "$hash:ONLY_TERM_PARENT=1 $run_test_script compose $test"
+	done
 
-	#tests=(
-	#  src/composed/web3signer/*.test.ts
-	#)
-	#for test in "${tests[@]}"; do
-	#  # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
-	#  echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer $test"
-	#done
+	tests=(
+	  src/composed/web3signer/*.test.ts
+	)
+	for test in "${tests[@]}"; do
+	  # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
+	  echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer $test"
+	done
 
-	##echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"
-	##echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
-	##echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/e2e_multi_validator/e2e_multi_validator_node_key_store.test.ts"
+	#echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"
+	#echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
+	#echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/e2e_multi_validator/e2e_multi_validator_node_key_store.test.ts"
 
-	## compose-based tests with custom scripts
-	#for flow in ../cli-wallet/test/flows/*.sh; do
-	#  # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
-	#  # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
-	#  echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=info $run_test_script compose $flow"
-	#done
+	# compose-based tests with custom scripts
+	for flow in ../cli-wallet/test/flows/*.sh; do
+	  # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
+	  # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
+	  echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=info $run_test_script compose $flow"
+	done
 }
 
 function test {
@@ -175,6 +175,7 @@ function test_and_collect_avm_inputs {
 # Generates commands to run avm_check_circuit on all dumped AVM circuit inputs
 function avm_check_circuit_cmds {
 	local bb_avm="barretenberg/cpp/build/bin/bb-avm"
+	local dump_dir_from_top="yarn-project/end-to-end/$default_avm_inputs_dump_dir"
 
 	# Find all .bin files in the dump directory (handles nested dirs)
 	for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin; do
@@ -195,7 +196,9 @@ function avm_check_circuit_cmds {
 		local safe_test_dir="${test_dir//\//_}"
 		local name="avm_cc_${safe_test_dir}_${short_hash}"
 
-		echo "$hash:NAME=$name $bb_avm avm_check_circuit --avm-inputs $input_file"
+		# Use full path from repo root for the command ("parallelize" runs these cmds from there)
+		local input_path="$dump_dir_from_top/$rel_path"
+		echo "$hash:NAME=$name $bb_avm avm_check_circuit --avm-inputs $input_path"
 	done
 }
 
