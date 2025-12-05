@@ -11,14 +11,14 @@ pub contract NoteGetter {
         macros::{functions::external, storage::storage},
         note::note_viewer_options::NoteViewerOptions,
         protocol_types::address::AztecAddress,
-        state_vars::PrivateSet,
+        state_vars::{Owned, PrivateSet},
     };
 
     use value_note::value_note::ValueNote;
 
     #[storage]
     struct Storage<Context> {
-        set: PrivateSet<ValueNote, Context>,
+        set: Owned<PrivateSet<ValueNote, Context>, Context>,
     }
 
     #[external("private")]

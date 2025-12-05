@@ -3,7 +3,7 @@ use aztec::{
     messages::message_delivery::MessageDelivery,
     note::note_getter_options::NoteGetterOptions,
     protocol_types::address::AztecAddress,
-    state_vars::{PrivateSet, storage::HasStorageSlot},
+    state_vars::{Owned, PrivateSet, state_variable::StateVariable},
 };
 use value_note::{balance_utils, filter::filter_notes_min_sum, value_note::ValueNote};
 
@@ -19,19 +19,17 @@ use value_note::{balance_utils, filter::filter_notes_min_sum, value_note::ValueN
 /// - Decremented by the owner of the private state.
 pub struct EasyPrivateUint<Context> {
     context: Context,
-    set: PrivateSet<ValueNote, Context>,
+    set: Owned<PrivateSet<ValueNote, Context>, Context>,
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Context> HasStorageSlot<1> for EasyPrivateUint<Context> {
+impl<Context> StateVariable<1, Context> for EasyPrivateUint<Context> {
+    fn new(context: Context, storage_slot: Field) -> Self {
+        EasyPrivateUint { context, set: Owned::new(context, storage_slot) }
+    }
+
     fn get_storage_slot(self) -> Field {
         self.set.get_storage_slot()
-    }
-}
-
-impl<Context> EasyPrivateUint<Context> {
-    pub fn new(context: Context, storage_slot: Field) -> Self {
-        EasyPrivateUint { context, set: PrivateSet::new(context, storage_slot) }
     }
 }
 

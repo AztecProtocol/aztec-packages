@@ -12,13 +12,13 @@ pub contract Benchmarking {
         messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol_types::address::AztecAddress,
-        state_vars::{Map, PrivateSet, PublicMutable},
+        state_vars::{Map, Owned, PrivateSet, PublicMutable},
     };
     use value_note::value_note::ValueNote;
 
     #[storage]
     struct Storage<Context> {
-        notes: PrivateSet<ValueNote, Context>,
+        notes: Owned<PrivateSet<ValueNote, Context>, Context>,
         balances: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
     }
 
