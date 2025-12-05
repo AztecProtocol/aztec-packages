@@ -9,14 +9,14 @@ contract Updated {
         protocol_types::{
             address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
         },
-        state_vars::{PrivateMutable, PublicMutable},
+        state_vars::{Owned, PrivateMutable, PublicMutable},
     };
     use contract_instance_registry::ContractInstanceRegistry;
     use value_note::value_note::ValueNote;
 
     #[storage]
     struct Storage<Context> {
-        private_value: PrivateMutable<ValueNote, Context>,
+        private_value: Owned<PrivateMutable<ValueNote, Context>, Context>,
         public_value: PublicMutable<Field, Context>,
     }
 
