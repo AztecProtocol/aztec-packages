@@ -22,7 +22,7 @@ namespace bb::numeric {
  */
 template <typename T> constexpr T ceil_div(const T& numerator, const T& denominator)
 {
-    if (denominator == 0) {
+    if (denominator <= 0) {
         bb::assert_failure("Denominator must be greater than zero.");
     }
 
