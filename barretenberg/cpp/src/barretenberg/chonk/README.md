@@ -246,7 +246,7 @@ $$I_i \cdot (b_i + i\beta + \gamma)(w_{1,i} + w_{2,i}\beta + \gamma) - \varepsil
 
 $$\sum_{i=0}^{n-1} a_i \cdot I_i \cdot (w_{1,i} + w_{2,i}\beta + \gamma) - q_{busread,i} \cdot I_i \cdot (b_i + i\beta + \gamma) = 0$$
 
-The `is_active` flag $\varepsilon$ requires a `read_tags` polynomial (1 if `read_counts > 0`, else 0) because the algebraic expression $\varepsilon = q_{busread} + \text{read_tags} - q_{busread} \cdot \text{read_tags}$ only works for binary inputs.
+The `is_active` flag $\varepsilon$ indicates when the inverse $I$ needs to be computed. It is given by the expression `q_busread OR read_tags = q_busread + read_tags - q_busread * read_tags `. Third subrelation `read_tags * read_tags = read_tags` ensures `read_tags` entries are boolean, which is required for the OR formula to work correctly.
 
 **Multiple columns**: Each bus column (calldata, secondary_calldata, return_data) has separate subrelations, distinguished by column-specific selectors $q_j$.
 
