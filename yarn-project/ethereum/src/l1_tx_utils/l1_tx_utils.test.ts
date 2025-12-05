@@ -553,28 +553,29 @@ describe('L1TxUtils', () => {
       expect(retryGasPrice.maxFeePerGas).toBe(expectedMaxFee);
     });
 
-    it('uses competitive fee from pending txs and fee history on retry attempts', async () => {
+    it('uses competitive fee from pending blob txs and fee history on retry attempts', async () => {
       await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
       await cheatCodes.evmMine();
 
-      // Mock pending block with transactions having higher fees
+      // Mock pending block with blob transactions having higher fees
       const originalGetBlock = l1Client.getBlock;
-      const mockPendingFee = WEI_CONST * 3n; // 3 gwei pending txs
+      const mockPendingFee = WEI_CONST * 3n; // 3 gwei pending blob txs
       l1Client.getBlock = ((params: any) => {
         if (params?.blockTag === 'pending') {
           return Promise.resolve({
             transactions: [
-              { maxPriorityFeePerGas: WEI_CONST }, // 1 gwei
-              { maxPriorityFeePerGas: WEI_CONST * 2n }, // 2 gwei
-              { maxPriorityFeePerGas: mockPendingFee }, // 3 gwei
-              { maxPriorityFeePerGas: WEI_CONST * 4n }, // 4 gwei (outlier)
+              { maxPriorityFeePerGas: WEI_CONST, maxFeePerBlobGas: WEI_CONST * 10n }, // 1 gwei blob tx
+              { maxPriorityFeePerGas: WEI_CONST * 2n, maxFeePerBlobGas: WEI_CONST * 20n }, // 2 gwei blob tx
+              { maxPriorityFeePerGas: mockPendingFee, maxFeePerBlobGas: WEI_CONST * 30n }, // 3 gwei blob tx
+              { maxPriorityFeePerGas: WEI_CONST * 4n, maxFeePerBlobGas: WEI_CONST * 40n }, // 4 gwei blob tx (outlier)
+              { maxPriorityFeePerGas: WEI_CONST * 10n }, // 10 gwei non-blob tx (should be ignored)
             ],
           } as any);
         }
         return originalGetBlock(params);
       }) as any;
 
-      // Mock fee history to return moderate fees
+      // Mock fee history to return moderate fees from blob txs
       const originalGetFeeHistory = l1Client.getFeeHistory;
       const mockHistoricalFee = WEI_CONST * 2n; // 2 gwei (lower than pending)
       l1Client.getFeeHistory = () =>
@@ -583,7 +584,7 @@ describe('L1TxUtils', () => {
           gasUsedRatio: [0.5],
           oldestBlock: 1n,
           reward: [
-            [WEI_CONST / 2n, WEI_CONST, mockHistoricalFee], // 25th, 50th, 75th percentile
+            [WEI_CONST / 2n, WEI_CONST, mockHistoricalFee], // 25th, 50th, 75th percentile from blob txs
           ],
         } as any);
 
@@ -593,7 +594,7 @@ describe('L1TxUtils', () => {
       try {
         const initialGasPrice = await gasUtils['getGasPrice']();
 
-        // Get retry gas price - should use competitive fee from pending (3 gwei at 75th percentile)
+        // Get retry gas price - should use competitive fee from pending blob txs (3 gwei at 75th percentile)
         const retryGasPrice = await gasUtils['getGasPrice'](undefined, false, 1, initialGasPrice);
 
         // Competitive fee should be: max(network=1gwei, historical=2gwei, pending=3gwei) = 3gwei, then bumped by 50%
@@ -613,6 +614,146 @@ describe('L1TxUtils', () => {
         l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
       }
     });
+
+    it('only considers blob transactions when sending blob tx', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+      await cheatCodes.evmMine();
+
+      // Send a mix of blob and non-blob transactions to the pending block
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+
+      const blobData = new Uint8Array(131072).fill(1);
+      const kzg = Blob.getViemKzgInstance();
+
+      // Send non-blob tx with high priority fee (should be ignored when isBlobTx=true)
+      const hash1 = await l1Client.sendTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+        maxFeePerGas: WEI_CONST * 20n,
+        maxPriorityFeePerGas: WEI_CONST * 10n, // 10 gwei - very high, but non-blob
+      });
+
+      // Send blob tx with lower priority fee (should be considered)
+      const hash2 = await l1Client.sendTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+        maxFeePerGas: WEI_CONST * 10n,
+        maxPriorityFeePerGas: WEI_CONST * 2n, // 2 gwei blob tx
+        blobs: [blobData],
+        kzg,
+        maxFeePerBlobGas: WEI_CONST * 10n,
+      });
+
+      // Send another blob tx
+      const hash3 = await l1Client.sendTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+        maxFeePerGas: WEI_CONST * 10n,
+        maxPriorityFeePerGas: WEI_CONST * 3n, // 3 gwei blob tx
+        blobs: [blobData],
+        kzg,
+        maxFeePerBlobGas: WEI_CONST * 15n,
+      });
+
+      // Ensure all transactions are in the mempool before querying gas prices
+      await Promise.all([
+        l1Client.getTransaction({ hash: hash1 }),
+        l1Client.getTransaction({ hash: hash2 }),
+        l1Client.getTransaction({ hash: hash3 }),
+      ]);
+
+      // Mock estimateMaxPriorityFeePerGas to return baseline
+      const originalEstimate = l1Client.estimateMaxPriorityFeePerGas;
+      l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(WEI_CONST); // 1 gwei
+
+      try {
+        // Get gas price for BLOB tx - should only consider blob txs
+        const gasPrice = await gasUtils['getGasPrice'](undefined, true);
+
+        // The competitive fee should be based on blob txs (2-3 gwei range)
+        // NOT the non-blob tx with 10 gwei
+        // With 2 blob txs, 75th percentile is 3 gwei, bumped by 20% = 3.6 gwei
+        const expectedMinPriorityFee = (WEI_CONST * 3n * 120n) / 100n; // 3.6 gwei
+
+        expect(gasPrice.maxPriorityFeePerGas).toBeGreaterThanOrEqual(expectedMinPriorityFee);
+        // Should be less than if the 10 gwei non-blob tx was considered
+        expect(gasPrice.maxPriorityFeePerGas).toBeLessThan(WEI_CONST * 10n);
+      } finally {
+        l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
+        await cheatCodes.setAutomine(true);
+      }
+    }, 20_000);
+
+    it('considers all transactions when sending non-blob tx', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+      await cheatCodes.evmMine();
+
+      // Send a mix of blob and non-blob transactions to the pending block
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+
+      const blobData = new Uint8Array(131072).fill(1);
+      const kzg = Blob.getViemKzgInstance();
+
+      // Send non-blob tx with high priority fee (should be considered for non-blob tx)
+      const hash1 = await l1Client.sendTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+        maxFeePerGas: WEI_CONST * 20n,
+        maxPriorityFeePerGas: WEI_CONST * 10n, // 10 gwei
+      });
+
+      // Send blob tx with lower priority fee (should also be considered)
+      const hash2 = await l1Client.sendTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+        maxFeePerGas: WEI_CONST * 10n,
+        maxPriorityFeePerGas: WEI_CONST * 2n, // 2 gwei blob tx
+        blobs: [blobData],
+        kzg,
+        maxFeePerBlobGas: WEI_CONST * 10n,
+      });
+
+      // Send another non-blob tx
+      const hash3 = await l1Client.sendTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+        maxFeePerGas: WEI_CONST * 15n,
+        maxPriorityFeePerGas: WEI_CONST * 5n, // 5 gwei
+      });
+
+      // Ensure all transactions are in the mempool before querying gas prices
+      await Promise.all([
+        l1Client.getTransaction({ hash: hash1 }),
+        l1Client.getTransaction({ hash: hash2 }),
+        l1Client.getTransaction({ hash: hash3 }),
+      ]);
+
+      // Mock estimateMaxPriorityFeePerGas to return baseline
+      const originalEstimate = l1Client.estimateMaxPriorityFeePerGas;
+      l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(WEI_CONST); // 1 gwei
+
+      try {
+        // Get gas price for NON-BLOB tx - should consider all txs
+        const gasPrice = await gasUtils['getGasPrice'](undefined, false);
+
+        // The competitive fee should be based on ALL txs: [2, 5, 10] gwei
+        // 75th percentile is 10 gwei, bumped by 20% = 12 gwei
+        const expectedMinPriorityFee = (WEI_CONST * 10n * 120n) / 100n; // 12 gwei
+
+        expect(gasPrice.maxPriorityFeePerGas).toBeGreaterThanOrEqual(expectedMinPriorityFee);
+      } finally {
+        l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
+        await cheatCodes.setAutomine(true);
+      }
+    }, 20_000);
 
     it('falls back to network estimate when fee history is unavailable', async () => {
       await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
@@ -642,6 +783,54 @@ describe('L1TxUtils', () => {
       } finally {
         // Restore original methods
         l1Client.getFeeHistory = originalGetFeeHistory;
+        l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
+      }
+    });
+
+    it('respects competitiveFeeCapMultiplier config', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
+      await cheatCodes.evmMine();
+
+      // Mock pending block with very high blob tx fees
+      const originalGetBlock = l1Client.getBlock;
+      l1Client.getBlock = ((params: any) => {
+        if (params?.blockTag === 'pending') {
+          return Promise.resolve({
+            transactions: [
+              { maxPriorityFeePerGas: WEI_CONST * 100n, maxFeePerBlobGas: WEI_CONST * 10n }, // 100 gwei blob tx
+            ],
+          } as any);
+        }
+        return originalGetBlock(params);
+      }) as any;
+
+      const originalEstimate = l1Client.estimateMaxPriorityFeePerGas;
+      l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(WEI_CONST); // 1 gwei network estimate
+
+      try {
+        // Test with cap enabled (10x multiplier)
+        gasUtils.updateConfig({
+          ...config,
+          competitiveFeeCapMultiplier: 10,
+        });
+
+        const gasPrice1 = await gasUtils['getGasPrice']();
+        // Should be capped at 10x network estimate = 10 gwei
+        const maxAllowed = (WEI_CONST * 10n * 120n) / 100n; // 12 gwei after bump
+        expect(gasPrice1.maxPriorityFeePerGas).toBeLessThanOrEqual(maxAllowed);
+
+        // Test with cap disabled (-1)
+        gasUtils.updateConfig({
+          ...config,
+          competitiveFeeCapMultiplier: -1,
+        });
+
+        const gasPrice2 = await gasUtils['getGasPrice']();
+        // Should use the competitive fee from pending (100 gwei * 1.2 = 120 gwei)
+        const expectedHighFee = (WEI_CONST * 100n * 120n) / 100n;
+        expect(gasPrice2.maxPriorityFeePerGas).toBeGreaterThanOrEqual(expectedHighFee);
+      } finally {
+        l1Client.getBlock = originalGetBlock;
         l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
       }
     });
@@ -1678,6 +1867,249 @@ describe('L1TxUtils', () => {
       await store.close();
       await kvStore.close();
     }, 15_000);
+  });
+
+  describe('getBlobPriorityFeeHistory', () => {
+    // Restart Anvil before each test to ensure clean state
+    beforeEach(async () => {
+      await cheatCodes.setIntervalMining(0);
+      await anvil.stop().catch(() => {});
+      ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: 1, port: port++, log: false }));
+      cheatCodes = new EthCheatCodes([rpcUrl]);
+      const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
+      const privKeyRaw = hdAccount.getHdKey().privateKey;
+      if (!privKeyRaw) {
+        throw new Error('Failed to get private key');
+      }
+      const privKey = Buffer.from(privKeyRaw).toString('hex');
+      const account = privateKeyToAccount(`0x${privKey}`);
+      l1Client = createExtendedL1Client([rpcUrl], account, foundry);
+      await cheatCodes.setNextBlockBaseFeePerGas(initialBaseFee);
+      await cheatCodes.evmMine();
+    });
+
+    it('filters out non-blob transactions from historical blocks', async () => {
+      const { getBlobPriorityFeeHistory } = await import('./utils.js');
+
+      // Disable automine to put all transactions in one block
+      await cheatCodes.setAutomine(false);
+
+      const blobData = new Uint8Array(131072).fill(1);
+      const kzg = Blob.getViemKzgInstance();
+
+      // Send transactions sequentially to avoid nonce conflicts
+      // Non-blob tx with high priority fee
+      const hash1 = await l1Client.sendTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+        maxFeePerGas: WEI_CONST * 20n,
+        maxPriorityFeePerGas: WEI_CONST * 15n, // 15 gwei - should be ignored
+      });
+
+      // Blob tx 1
+      const hash2 = await l1Client.sendTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+        maxFeePerGas: WEI_CONST * 10n,
+        maxPriorityFeePerGas: WEI_CONST * 2n, // 2 gwei
+        blobs: [blobData],
+        kzg,
+        maxFeePerBlobGas: WEI_CONST * 10n,
+      });
+
+      // Blob tx 2
+      const hash3 = await l1Client.sendTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+        maxFeePerGas: WEI_CONST * 10n,
+        maxPriorityFeePerGas: WEI_CONST * 3n, // 3 gwei
+        blobs: [blobData],
+        kzg,
+        maxFeePerBlobGas: WEI_CONST * 15n,
+      });
+
+      // Blob tx 3
+      const hash4 = await l1Client.sendTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+        maxFeePerGas: WEI_CONST * 10n,
+        maxPriorityFeePerGas: WEI_CONST * 4n, // 4 gwei
+        blobs: [blobData],
+        kzg,
+        maxFeePerBlobGas: WEI_CONST * 15n,
+      });
+
+      // Ensure all transactions are in the mempool before mining
+      // by fetching each transaction from the pending pool
+      await Promise.all([
+        l1Client.getTransaction({ hash: hash1 }),
+        l1Client.getTransaction({ hash: hash2 }),
+        l1Client.getTransaction({ hash: hash3 }),
+        l1Client.getTransaction({ hash: hash4 }),
+      ]);
+
+      // Mine a single block with all transactions
+      await cheatCodes.evmMine();
+
+      // Wait for all transactions to be confirmed
+      await Promise.all([
+        l1Client.waitForTransactionReceipt({ hash: hash1 }),
+        l1Client.waitForTransactionReceipt({ hash: hash2 }),
+        l1Client.waitForTransactionReceipt({ hash: hash3 }),
+        l1Client.waitForTransactionReceipt({ hash: hash4 }),
+      ]);
+
+      // Re-enable automine for other tests
+      await cheatCodes.setAutomine(true);
+
+      // Get blob fee history for the last block
+      const result = await getBlobPriorityFeeHistory(l1Client, 1, [50, 75]);
+
+      expect(result).toBeDefined();
+      expect(result!.reward).toBeDefined();
+      expect(result!.reward!.length).toBe(1);
+      expect(result!.reward![0].length).toBe(2); // 50th and 75th percentile
+
+      // 50th percentile = 3 gwei
+      expect(result!.reward![0][0]).toBe(WEI_CONST * 3n);
+      // 75th percentile = 4 gwei
+      expect(result!.reward![0][1]).toBe(WEI_CONST * 4n);
+
+      // The 15 gwei non-blob tx should not affect the results
+      expect(result!.reward![0][1]).toBeLessThan(WEI_CONST * 15n);
+    }, 30_000);
+
+    it('calculates correct percentiles for multiple blocks with blob txs', async () => {
+      const { getBlobPriorityFeeHistory } = await import('./utils.js');
+
+      await cheatCodes.setAutomine(false);
+
+      const blobData = new Uint8Array(131072).fill(1);
+      const kzg = Blob.getViemKzgInstance();
+
+      // Block 1: Send 3 blob txs with 1, 2, 3 gwei sequentially
+      const block1Hashes: `0x${string}`[] = [];
+      for (let i = 1; i <= 3; i++) {
+        const hash = await l1Client.sendTransaction({
+          to: '0x1234567890123456789012345678901234567890',
+          data: '0x',
+          value: 0n,
+          maxFeePerGas: WEI_CONST * 10n,
+          maxPriorityFeePerGas: WEI_CONST * BigInt(i),
+          blobs: [blobData],
+          kzg,
+          maxFeePerBlobGas: WEI_CONST * 10n,
+        });
+        block1Hashes.push(hash);
+      }
+
+      // Ensure all transactions are in the mempool before mining
+      await Promise.all(block1Hashes.map(hash => l1Client.getTransaction({ hash })));
+
+      // Mine block 1
+      await cheatCodes.evmMine();
+
+      // Block 2: Send 3 blob txs with 4, 5, 6 gwei sequentially
+      const block2Hashes: `0x${string}`[] = [];
+      for (let i = 4; i <= 6; i++) {
+        const hash = await l1Client.sendTransaction({
+          to: '0x1234567890123456789012345678901234567890',
+          data: '0x',
+          value: 0n,
+          maxFeePerGas: WEI_CONST * 10n,
+          maxPriorityFeePerGas: WEI_CONST * BigInt(i),
+          blobs: [blobData],
+          kzg,
+          maxFeePerBlobGas: WEI_CONST * 10n,
+        });
+        block2Hashes.push(hash);
+      }
+
+      // Ensure all transactions are in the mempool before mining
+      await Promise.all(block2Hashes.map(hash => l1Client.getTransaction({ hash })));
+
+      // Mine block 2
+      await cheatCodes.evmMine();
+
+      // Wait for all transactions to be confirmed
+      await Promise.all([...block1Hashes, ...block2Hashes].map(hash => l1Client.waitForTransactionReceipt({ hash })));
+
+      // Re-enable automine for other tests
+      await cheatCodes.setAutomine(true);
+
+      // Get fee history for last 2 blocks
+      const result = await getBlobPriorityFeeHistory(l1Client, 2, [75]);
+
+      expect(result).toBeDefined();
+      expect(result!.reward).toBeDefined();
+      expect(result!.reward!.length).toBe(2);
+
+      // Results are in chronological order (oldest first), matching getFeeHistory behavior
+      // reward[0] = Block 1 (oldest): 75th percentile of [1, 2, 3] gwei = 3 gwei
+      expect(result!.reward![0][0]).toBe(WEI_CONST * 3n);
+
+      // reward[1] = Block 2 (newest): 75th percentile of [4, 5, 6] gwei = 6 gwei
+      expect(result!.reward![1][0]).toBe(WEI_CONST * 6n);
+
+      // Verify other fields are populated correctly
+      expect(result!.baseFeePerGas).toBeDefined();
+      expect(result!.baseFeePerGas.length).toBe(2);
+      expect(result!.gasUsedRatio).toBeDefined();
+      expect(result!.gasUsedRatio.length).toBe(2);
+      expect(result!.oldestBlock).toBeDefined();
+    }, 20_000);
+
+    it('returns zeros for blocks with no blob transactions', async () => {
+      const { getBlobPriorityFeeHistory } = await import('./utils.js');
+
+      await cheatCodes.setAutomine(true);
+
+      // Send only non-blob transactions
+      const txHash = await l1Client.sendTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+        maxFeePerGas: WEI_CONST * 10n,
+        maxPriorityFeePerGas: WEI_CONST * 5n,
+      });
+
+      // Wait for transaction to be mined
+      await l1Client.waitForTransactionReceipt({ hash: txHash });
+
+      // Get fee history for the last block
+      const result = await getBlobPriorityFeeHistory(l1Client, 1, [50, 75]);
+
+      expect(result).toBeDefined();
+      expect(result!.reward).toBeDefined();
+      expect(result!.reward!.length).toBe(1);
+
+      // Should return zeros since there were no blob txs
+      expect(result!.reward![0][0]).toBe(0n);
+      expect(result!.reward![0][1]).toBe(0n);
+    }, 20_000);
+
+    it('handles empty blocks gracefully', async () => {
+      const { getBlobPriorityFeeHistory } = await import('./utils.js');
+
+      await cheatCodes.setAutomine(true);
+
+      // Mine an empty block
+      await cheatCodes.evmMine();
+
+      // Get fee history
+      const result = await getBlobPriorityFeeHistory(l1Client, 1, [75]);
+
+      expect(result).toBeDefined();
+      expect(result!.reward).toBeDefined();
+      expect(result!.reward!.length).toBe(1);
+
+      // Should return zeros for empty block
+      expect(result!.reward![0][0]).toBe(0n);
+    }, 20_000);
   });
 
   describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {

@@ -76,6 +76,7 @@ describe('e2e_multi_eoa', () => {
         publisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
         l1PublisherKey: allKeysAndAddresses[0].key,
         maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
+        priorityFeeBumpPercentage: 0,
       }));
       sequencer = sequencerClient! as TestSequencerClient;
       publisherManager = sequencer.publisherManager;

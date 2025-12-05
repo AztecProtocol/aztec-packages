@@ -33,6 +33,12 @@ export interface L1TxUtilsConfig {
    */
   fixedPriorityFeePerGas?: number;
   /**
+   * Multiplier for capping competitive fee relative to network estimate.
+   * Competitive fee is capped at (networkEstimate * multiplier).
+   * Set to -1 to disable this sanity check.
+   */
+  competitiveFeeCapMultiplier?: number;
+  /**
    * Maximum number of speed-up attempts
    */
   maxSpeedUpAttempts?: number;
@@ -95,6 +101,11 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     env: 'L1_FIXED_PRIORITY_FEE_PER_GAS',
     fallback: ['L1_FIXED_PRIORITY_FEE_PER_GAS_GWEI'],
     ...floatConfigHelper(0),
+  },
+  competitiveFeeCapMultiplier: {
+    description: 'Multiplier for capping competitive fee relative to network estimate. Off by default.',
+    env: 'L1_COMPETITIVE_FEE_CAP_MULTIPLIER',
+    ...numberConfigHelper(-1),
   },
   maxSpeedUpAttempts: {
     description: 'Maximum number of speed-up attempts',
