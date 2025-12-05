@@ -425,8 +425,10 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         const bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_RETRIEVAL;
+        const bool sel_first_row_in_context = prev_row_was_enter_call || is_first_event_in_enqueued_call;
         trace.set(row,
                   { {
+                      { C::execution_sel_first_row_in_context, sel_first_row_in_context ? 1 : 0 },
                       { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
                       { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
                       { C::execution_bytecode_id, ex_event.after_context_event.bytecode_id },
@@ -505,42 +507,13 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 5: Opcode execution.
          **************************************************************************************************/
 
-        // TODO(ilyas): This can possibly be gated with some boolean but I'm not sure what is going on.
-        // TODO: this needs a refactor and is most likely wrong.
-
-        // Overly verbose but maximising readibility here
-        // FIXME(ilyas): We currently cannot move this into the if statement because they are used outside of this
-        // temporality group (e.g. in recomputing discard)
         const bool should_execute_opcode = should_check_gas && !oog;
-        const bool should_execute_call =
-            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::CALL;
-        const bool should_execute_static_call =
-            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
-        const bool should_execute_return =
-            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
-        const bool should_execute_revert =
-            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
 
-        const bool is_err = ex_event.error != ExecutionError::NONE;
-        const bool is_failure = should_execute_revert || is_err;
-        const bool sel_enter_call = should_execute_call || should_execute_static_call;
-        // TODO: would is_err here catch any error at the opcode execution step which we dont want to consider?
-        const bool sel_exit_call = should_execute_return || should_execute_revert || is_err;
-
-        if (sel_exit_call) {
-            // We rollback if we revert or error and we have a parent context.
-            trace.set(row,
-                      { {
-                          // Exit reason - opcode or error
-                          { C::execution_sel_execute_return, should_execute_return ? 1 : 0 },
-                          { C::execution_sel_execute_revert, should_execute_revert ? 1 : 0 },
-                          { C::execution_sel_exit_call, 1 },
-                          { C::execution_nested_return, should_execute_return && has_parent ? 1 : 0 },
-                          // Enqueued or nested exit dependent on if we are a child context
-                          { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
-                          { C::execution_nested_exit_call, has_parent ? 1 : 0 },
-                      } });
-        }
+        // These booleans are used after of the "opcode code execution" block but need
+        // to be set as part of the "opcode code execution" block.
+        bool sel_enter_call = false;
+        bool sel_exit_call = false;
+        bool should_execute_revert = false;
 
         const bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
         if (should_execute_opcode) {
@@ -558,8 +531,11 @@ void ExecutionTraceBuilder::process(
                 trace.set(get_execution_opcode_selector(*exec_opcode), row, 1);
             }
 
-            // Call specific logic
-            if (sel_enter_call) {
+            // Execution trace opcodes specific logic.
+            // Note that the opcode selectors were set above. (e.g., sel_execute_call, sel_execute_static_call, ..).
+            if (*exec_opcode == ExecutionOpCode::CALL || *exec_opcode == ExecutionOpCode::STATICCALL) {
+                sel_enter_call = true;
+
                 Gas gas_left = ex_event.after_context_event.gas_limit - ex_event.after_context_event.gas_used;
 
                 uint32_t allocated_l2_gas = registers[0].as<uint32_t>();
@@ -570,20 +546,22 @@ void ExecutionTraceBuilder::process(
 
                 trace.set(row,
                           { {
-                              { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
-                              { C::execution_sel_execute_call, should_execute_call ? 1 : 0 },
-                              { C::execution_sel_execute_static_call, should_execute_static_call ? 1 : 0 },
+                              { C::execution_sel_enter_call, 1 },
                               { C::execution_l2_gas_left, gas_left.l2_gas },
                               { C::execution_da_gas_left, gas_left.da_gas },
                               { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
                           } });
-            }
-            // Separate if-statement for opcodes.
-            // This cannot be an else-if chained to the above,
-            // because `sel_exit_call` can happen on any opcode
-            // and we still need to tracegen the opcode-specific logic.
-            if (exec_opcode == ExecutionOpCode::GETENVVAR) {
+            } else if (*exec_opcode == ExecutionOpCode::RETURN) {
+                sel_exit_call = true;
+                trace.set(row,
+                          { {
+                              { C::execution_nested_return, has_parent ? 1 : 0 },
+                          } });
+            } else if (*exec_opcode == ExecutionOpCode::REVERT) {
+                sel_exit_call = true;
+                should_execute_revert = true;
+            } else if (exec_opcode == ExecutionOpCode::GETENVVAR) {
                 assert(ex_event.addressing_event.resolution_info.size() == 2 &&
                        "GETENVVAR should have exactly two resolved operands (envvar enum and output)");
                 // rop[1] is the envvar enum
@@ -676,7 +654,7 @@ void ExecutionTraceBuilder::process(
         }
 
         /**************************************************************************************************
-         *  Discarding.
+         *  Discarding and error related selectors.
          **************************************************************************************************/
 
         const bool is_dying_context = discard == 1 && (ex_event.after_context_event.id == dying_context_id);
@@ -688,23 +666,22 @@ void ExecutionTraceBuilder::process(
             dying_context_diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
         }
 
-        // Needed for bc retrieval
-        const bool sel_first_row_in_context = prev_row_was_enter_call || is_first_event_in_enqueued_call;
-
-        const bool enqueued_call_end = sel_exit_call && !has_parent;
-        const bool resolves_dying_context = is_failure && is_dying_context;
-        const bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
-
         // This is here instead of guarded by `should_execute_opcode` because is_err is a higher level error
         // than just an opcode error (i.e., it is on if there are any errors in any temporality group).
+        const bool is_err = ex_event.error != ExecutionError::NONE;
+        sel_exit_call = sel_exit_call || is_err; // sel_execute_revert || sel_execute_return || sel_error
+        const bool is_failure = should_execute_revert || is_err;
+        const bool nested_exit_call = sel_exit_call && has_parent;
+        const bool enqueued_call_end = sel_exit_call && !has_parent;
         const bool rollback_context = (should_execute_revert || is_err) && has_parent;
+        const bool resolves_dying_context = is_failure && is_dying_context;
+        const bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
 
         trace.set(
             row,
             { {
-
-                // sel_exit_call and rollback has to be set here because they include sel_error
                 { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
                 { C::execution_rollback_context, rollback_context ? 1 : 0 },
                 { C::execution_sel_error, is_err ? 1 : 0 },
                 { C::execution_sel_failure, is_failure ? 1 : 0 },
@@ -714,7 +691,6 @@ void ExecutionTraceBuilder::process(
                 { C::execution_is_dying_context, is_dying_context ? 1 : 0 },
                 { C::execution_dying_context_diff_inv, dying_context_diff }, // Will be inverted in batch.
                 { C::execution_enqueued_call_end, enqueued_call_end ? 1 : 0 },
-                { C::execution_sel_first_row_in_context, sel_first_row_in_context ? 1 : 0 },
                 { C::execution_resolves_dying_context, resolves_dying_context ? 1 : 0 },
                 { C::execution_nested_call_from_undiscarded_context, nested_call_rom_undiscarded_context ? 1 : 0 },
             } });
