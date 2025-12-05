@@ -23,6 +23,13 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type Hex, type Transaction, encodeFunctionData, multicall3Abi, toFunctionSelector } from 'viem';
 
 import { CalldataRetriever } from './calldata_retriever.js';
+import {
+  EIP1967_IMPLEMENTATION_SLOT,
+  SPIRE_PROPOSER_ADDRESS,
+  SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION,
+  getCallFromSpireProposer,
+  verifyProxyImplementation,
+} from './spire_proposer.js';
 
 /**
  * Test class that exposes protected methods for testing
@@ -40,13 +47,8 @@ class TestCalldataRetriever extends CalldataRetriever {
     return await super.extractCalldataViaTrace(txHash);
   }
 
-  public override decodeAndBuildBlockHeader(
-    proposeCalldata: Hex,
-    blockHash: Hex,
-    blobHashes: Buffer[],
-    l2BlockNumber: number,
-  ) {
-    return super.decodeAndBuildBlockHeader(proposeCalldata, blockHash, blobHashes, l2BlockNumber);
+  public override decodeAndBuildBlockHeader(proposeCalldata: Hex, blockHash: Hex, l2BlockNumber: number) {
+    return super.decodeAndBuildBlockHeader(proposeCalldata, blockHash, l2BlockNumber);
   }
 }
 
@@ -144,7 +146,6 @@ describe('CalldataRetriever', () => {
   }
 
   describe('getBlockHeaderFromRollupTx', () => {
-    const blobHashes = [Buffer.from('blob1'), Buffer.from('blob2')];
     const l2BlockNumber = 42;
 
     it('should successfully decode valid multicall3 transaction', async () => {
@@ -153,7 +154,7 @@ describe('CalldataRetriever', () => {
 
       publicClient.getTransaction.mockResolvedValue(tx);
 
-      const result = await retriever.getBlockHeaderFromRollupTx(txHash, blobHashes, l2BlockNumber);
+      const result = await retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber);
 
       expect(result.l2BlockNumber).toBe(l2BlockNumber);
       expect(result.header).toBeInstanceOf(ProposedBlockHeader);
@@ -176,7 +177,7 @@ describe('CalldataRetriever', () => {
 
       publicClient.getTransaction.mockResolvedValue(tx);
 
-      const result = await retriever.getBlockHeaderFromRollupTx(txHash, blobHashes, l2BlockNumber);
+      const result = await retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber);
 
       expect(result.l2BlockNumber).toBe(l2BlockNumber);
       expect(result.header).toBeInstanceOf(ProposedBlockHeader);
@@ -217,7 +218,7 @@ describe('CalldataRetriever', () => {
         },
       ]);
 
-      const result = await retriever.getBlockHeaderFromRollupTx(txHash, blobHashes, l2BlockNumber);
+      const result = await retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber);
 
       expect(result.l2BlockNumber).toBe(l2BlockNumber);
       expect(debugClient.request).toHaveBeenCalledWith({ method: 'trace_transaction', params: [txHash] });
@@ -240,7 +241,7 @@ describe('CalldataRetriever', () => {
       // Mock both trace methods to fail
       debugClient.request.mockRejectedValue(new Error(`Method not available`));
 
-      await expect(retriever.getBlockHeaderFromRollupTx(txHash, blobHashes, l2BlockNumber)).rejects.toThrow(
+      await expect(retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber)).rejects.toThrow(
         'Failed to trace transaction',
       );
     });
@@ -248,7 +249,7 @@ describe('CalldataRetriever', () => {
     it('should throw when transaction retrieval fails', async () => {
       publicClient.getTransaction.mockRejectedValue(new Error('Transaction not found'));
 
-      await expect(retriever.getBlockHeaderFromRollupTx(txHash, blobHashes, l2BlockNumber)).rejects.toThrow(
+      await expect(retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber)).rejects.toThrow(
         'Transaction not found',
       );
     });
@@ -495,6 +496,311 @@ describe('CalldataRetriever', () => {
     });
   });
 
+  describe('tryDecodeSpireProposer', () => {
+    function makeSpireProposerMulticallTransaction(call: { target: Hex; data: Hex }): Transaction {
+      const spireMulticallData = encodeFunctionData({
+        abi: [
+          {
+            inputs: [
+              {
+                components: [
+                  { internalType: 'address', name: 'proposer', type: 'address' },
+                  { internalType: 'address', name: 'target', type: 'address' },
+                  { internalType: 'bytes', name: 'data', type: 'bytes' },
+                  { internalType: 'uint256', name: 'value', type: 'uint256' },
+                  { internalType: 'uint256', name: 'gasLimit', type: 'uint256' },
+                ],
+                internalType: 'struct IProposerMulticall.Call[]',
+                name: '_calls',
+                type: 'tuple[]',
+              },
+            ],
+            name: 'multicall',
+            outputs: [],
+            stateMutability: 'nonpayable',
+            type: 'function',
+          },
+        ] as const,
+        functionName: 'multicall',
+        args: [
+          [
+            {
+              proposer: EthAddress.random().toString() as Hex,
+              target: call.target,
+              data: call.data,
+              value: 0n,
+              gasLimit: 1000000n,
+            },
+          ],
+        ],
+      });
+
+      return {
+        input: spireMulticallData,
+        blockHash,
+        to: SPIRE_PROPOSER_ADDRESS as Hex,
+        hash: txHash,
+      } as Transaction;
+    }
+
+    it('should decode Spire Proposer with direct propose call', async () => {
+      const proposeCalldata = await makeProposeCalldata();
+      const tx = makeSpireProposerMulticallTransaction({
+        target: rollupAddress.toString() as Hex,
+        data: proposeCalldata,
+      });
+
+      // Mock the proxy implementation verification
+      publicClient.getStorageAt.mockResolvedValue(
+        ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
+      );
+
+      const result = await getCallFromSpireProposer(tx, publicClient, logger);
+
+      expect(result).toBeDefined();
+      expect(result?.to.toLowerCase()).toBe(rollupAddress.toString().toLowerCase());
+      expect(result?.data).toBe(proposeCalldata);
+      expect(publicClient.getStorageAt).toHaveBeenCalledWith({
+        address: SPIRE_PROPOSER_ADDRESS,
+        slot: EIP1967_IMPLEMENTATION_SLOT,
+      });
+    });
+
+    it('should decode Spire Proposer with multicall3 containing propose', async () => {
+      const proposeCalldata = await makeProposeCalldata();
+      const multicall3Data = encodeFunctionData({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        args: [[{ target: rollupAddress.toString() as Hex, allowFailure: false, callData: proposeCalldata }]],
+      });
+
+      const tx = makeSpireProposerMulticallTransaction({
+        target: MULTI_CALL_3_ADDRESS as Hex,
+        data: multicall3Data,
+      });
+
+      // Mock the proxy implementation verification
+      publicClient.getStorageAt.mockResolvedValue(
+        ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
+      );
+
+      const result = await getCallFromSpireProposer(tx, publicClient, logger);
+
+      expect(result).toBeDefined();
+      expect(result?.to).toBe(MULTI_CALL_3_ADDRESS);
+      expect(result?.data).toBe(multicall3Data);
+    });
+
+    it('should return undefined when not to Spire Proposer address', async () => {
+      const proposeCalldata = await makeProposeCalldata();
+      const tx = {
+        input: proposeCalldata,
+        to: rollupAddress.toString() as Hex,
+        hash: txHash,
+      } as Transaction;
+
+      const result = await getCallFromSpireProposer(tx, publicClient, logger);
+
+      expect(result).toBeUndefined();
+      expect(publicClient.getStorageAt).not.toHaveBeenCalled();
+    });
+
+    it('should return undefined when proxy implementation verification fails', async () => {
+      const proposeCalldata = await makeProposeCalldata();
+      const tx = makeSpireProposerMulticallTransaction({
+        target: rollupAddress.toString() as Hex,
+        data: proposeCalldata,
+      });
+
+      // Mock the proxy pointing to wrong implementation
+      publicClient.getStorageAt.mockResolvedValue('0x000000000000000000000000wrongimplementation0000000000' as Hex);
+
+      const result = await getCallFromSpireProposer(tx, publicClient, logger);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should return undefined when Spire Proposer contains multiple calls', async () => {
+      const proposeCalldata = await makeProposeCalldata();
+      const spireMulticallData = encodeFunctionData({
+        abi: [
+          {
+            inputs: [
+              {
+                components: [
+                  { internalType: 'address', name: 'proposer', type: 'address' },
+                  { internalType: 'address', name: 'target', type: 'address' },
+                  { internalType: 'bytes', name: 'data', type: 'bytes' },
+                  { internalType: 'uint256', name: 'value', type: 'uint256' },
+                  { internalType: 'uint256', name: 'gasLimit', type: 'uint256' },
+                ],
+                internalType: 'struct IProposerMulticall.Call[]',
+                name: '_calls',
+                type: 'tuple[]',
+              },
+            ],
+            name: 'multicall',
+            outputs: [],
+            stateMutability: 'nonpayable',
+            type: 'function',
+          },
+        ] as const,
+        functionName: 'multicall',
+        args: [
+          [
+            {
+              proposer: EthAddress.random().toString() as Hex,
+              target: rollupAddress.toString() as Hex,
+              data: proposeCalldata,
+              value: 0n,
+              gasLimit: 1000000n,
+            },
+            {
+              proposer: EthAddress.random().toString() as Hex,
+              target: rollupAddress.toString() as Hex,
+              data: proposeCalldata,
+              value: 0n,
+              gasLimit: 1000000n,
+            },
+          ],
+        ],
+      });
+
+      const tx = {
+        input: spireMulticallData,
+        blockHash,
+        to: SPIRE_PROPOSER_ADDRESS as Hex,
+        hash: txHash,
+      } as Transaction;
+
+      // Mock the proxy implementation verification
+      publicClient.getStorageAt.mockResolvedValue(
+        ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
+      );
+
+      const result = await getCallFromSpireProposer(tx, publicClient, logger);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should extract call even if target is unknown (validation happens in next step)', async () => {
+      const unknownAddress = EthAddress.random();
+      const tx = makeSpireProposerMulticallTransaction({
+        target: unknownAddress.toString() as Hex,
+        data: '0x12345678' as Hex,
+      });
+
+      // Mock the proxy implementation verification
+      publicClient.getStorageAt.mockResolvedValue(
+        ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
+      );
+
+      const result = await getCallFromSpireProposer(tx, publicClient, logger);
+
+      // Spire proposer should successfully extract the call, even if target is unknown
+      // The validation of the target happens in the next step (tryDecodeMulticall3 or tryDecodeDirectPropose)
+      expect(result).toBeDefined();
+      expect(result?.to.toLowerCase()).toBe(unknownAddress.toString().toLowerCase());
+      expect(result?.data).toBe('0x12345678');
+    });
+
+    it('should extract multicall3 call (validation of inner calls happens in next step)', async () => {
+      const proposeCalldata = await makeProposeCalldata();
+      const invalidCalldata = '0x99999999' as Hex; // Unknown selector
+
+      const multicall3Data = encodeFunctionData({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        args: [
+          [
+            { target: rollupAddress.toString() as Hex, allowFailure: false, callData: proposeCalldata },
+            { target: rollupAddress.toString() as Hex, allowFailure: false, callData: invalidCalldata },
+          ],
+        ],
+      });
+
+      const tx = makeSpireProposerMulticallTransaction({
+        target: MULTI_CALL_3_ADDRESS as Hex,
+        data: multicall3Data,
+      });
+
+      // Mock the proxy implementation verification
+      publicClient.getStorageAt.mockResolvedValue(
+        ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
+      );
+
+      const result = await getCallFromSpireProposer(tx, publicClient, logger);
+
+      // Spire proposer should successfully extract the multicall3 call
+      // Validation of the inner calls happens in tryDecodeMulticall3
+      expect(result).toBeDefined();
+      expect(result?.to).toBe(MULTI_CALL_3_ADDRESS);
+      expect(result?.data).toBe(multicall3Data);
+    });
+  });
+
+  describe('verifyProxyImplementation', () => {
+    it('should return true when proxy points to expected implementation', async () => {
+      // Mock storage slot containing the implementation address (padded to 32 bytes)
+      publicClient.getStorageAt.mockResolvedValue(
+        ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
+      );
+
+      const result = await verifyProxyImplementation(
+        publicClient,
+        SPIRE_PROPOSER_ADDRESS as Hex,
+        SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION as Hex,
+        logger,
+      );
+
+      expect(result).toBe(true);
+      expect(publicClient.getStorageAt).toHaveBeenCalledWith({
+        address: SPIRE_PROPOSER_ADDRESS,
+        slot: EIP1967_IMPLEMENTATION_SLOT,
+      });
+    });
+
+    it('should return false when proxy points to different implementation', async () => {
+      // Mock storage slot with wrong implementation
+      publicClient.getStorageAt.mockResolvedValue('0x000000000000000000000000wrongimplementation0000000000' as Hex);
+
+      const result = await verifyProxyImplementation(
+        publicClient,
+        SPIRE_PROPOSER_ADDRESS as Hex,
+        SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION as Hex,
+        logger,
+      );
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when storage slot is empty', async () => {
+      publicClient.getStorageAt.mockResolvedValue(undefined);
+
+      const result = await verifyProxyImplementation(
+        publicClient,
+        SPIRE_PROPOSER_ADDRESS as Hex,
+        SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION as Hex,
+        logger,
+      );
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when getStorageAt throws error', async () => {
+      publicClient.getStorageAt.mockRejectedValue(new Error('RPC error'));
+
+      const result = await verifyProxyImplementation(
+        publicClient,
+        SPIRE_PROPOSER_ADDRESS as Hex,
+        SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION as Hex,
+        logger,
+      );
+
+      expect(result).toBe(false);
+    });
+  });
+
   describe('extractCalldataViaTrace', () => {
     it('should successfully extract calldata using trace_transaction', async () => {
       const proposeCalldata = await makeProposeCalldata();
@@ -640,13 +946,12 @@ describe('CalldataRetriever', () => {
 
   describe('decodeAndBuildBlockHeader', () => {
     const blockHash = Fr.random().toString() as Hex;
-    const blobHashes = [Buffer.from('blob1'), Buffer.from('blob2')];
     const l2BlockNumber = 42;
 
     it('should correctly decode propose calldata and build block header', async () => {
       const proposeCalldata = await makeProposeCalldata();
 
-      const result = retriever.decodeAndBuildBlockHeader(proposeCalldata, blockHash, blobHashes, l2BlockNumber);
+      const result = retriever.decodeAndBuildBlockHeader(proposeCalldata, blockHash, l2BlockNumber);
 
       expect(result.l2BlockNumber).toBe(l2BlockNumber);
       expect(result.header).toBeInstanceOf(ProposedBlockHeader);
@@ -660,7 +965,7 @@ describe('CalldataRetriever', () => {
       const attestations = makeViemCommitteeAttestations();
       const proposeCalldata = await makeProposeCalldata(undefined, undefined, attestations);
 
-      const result = retriever.decodeAndBuildBlockHeader(proposeCalldata, blockHash, blobHashes, l2BlockNumber);
+      const result = retriever.decodeAndBuildBlockHeader(proposeCalldata, blockHash, l2BlockNumber);
 
       expect(result.attestations).toHaveLength(TARGET_COMMITTEE_SIZE);
     });
@@ -671,22 +976,17 @@ describe('CalldataRetriever', () => {
       );
       const invalidCalldata = (invalidateBadSelector + '0'.repeat(120)) as Hex;
 
-      expect(() =>
-        retriever.decodeAndBuildBlockHeader(invalidCalldata, blockHash, blobHashes, l2BlockNumber),
-      ).toThrow();
+      expect(() => retriever.decodeAndBuildBlockHeader(invalidCalldata, blockHash, l2BlockNumber)).toThrow();
     });
 
     it('should throw when calldata is malformed', () => {
       const malformedCalldata = '0xinvalid' as Hex;
 
-      expect(() =>
-        retriever.decodeAndBuildBlockHeader(malformedCalldata, blockHash, blobHashes, l2BlockNumber),
-      ).toThrow();
+      expect(() => retriever.decodeAndBuildBlockHeader(malformedCalldata, blockHash, l2BlockNumber)).toThrow();
     });
   });
 
   describe('integration', () => {
-    const blobHashes = [Buffer.from('blob1'), Buffer.from('blob2')];
     const l2BlockNumber = 42;
 
     it('should complete full flow from tx hash to block header via multicall3', async () => {
@@ -695,7 +995,7 @@ describe('CalldataRetriever', () => {
 
       publicClient.getTransaction.mockResolvedValue(tx);
 
-      const result = await retriever.getBlockHeaderFromRollupTx(txHash, blobHashes, l2BlockNumber);
+      const result = await retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber);
 
       expect(result).toBeDefined();
       expect(result.l2BlockNumber).toBe(l2BlockNumber);
@@ -710,6 +1010,82 @@ describe('CalldataRetriever', () => {
       expect(result.stateReference.partial).toBeInstanceOf(PartialStateReference);
       expect(result.header.contentCommitment).toBeInstanceOf(ContentCommitment);
       expect(result.header.gasFees).toBeInstanceOf(GasFees);
+    });
+
+    it('should complete full flow from tx hash to block header via Spire Proposer', async () => {
+      const SPIRE_PROPOSER_ADDRESS = '0x9ccc2f3ecde026230e11a5c8799ac7524f2bb294';
+      const SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION = '0x7d38d47e7c82195e6e607d3b0f1c20c615c7bf42';
+
+      const proposeCalldata = await makeProposeCalldata();
+
+      // Create Spire Proposer multicall transaction
+      const spireMulticallData = encodeFunctionData({
+        abi: [
+          {
+            inputs: [
+              {
+                components: [
+                  { internalType: 'address', name: 'proposer', type: 'address' },
+                  { internalType: 'address', name: 'target', type: 'address' },
+                  { internalType: 'bytes', name: 'data', type: 'bytes' },
+                  { internalType: 'uint256', name: 'value', type: 'uint256' },
+                  { internalType: 'uint256', name: 'gasLimit', type: 'uint256' },
+                ],
+                internalType: 'struct IProposerMulticall.Call[]',
+                name: '_calls',
+                type: 'tuple[]',
+              },
+            ],
+            name: 'multicall',
+            outputs: [],
+            stateMutability: 'nonpayable',
+            type: 'function',
+          },
+        ] as const,
+        functionName: 'multicall',
+        args: [
+          [
+            {
+              proposer: EthAddress.random().toString() as Hex,
+              target: rollupAddress.toString() as Hex,
+              data: proposeCalldata,
+              value: 0n,
+              gasLimit: 1000000n,
+            },
+          ],
+        ],
+      });
+
+      const tx = {
+        input: spireMulticallData,
+        blockHash,
+        to: SPIRE_PROPOSER_ADDRESS as Hex,
+        hash: txHash,
+      } as Transaction;
+
+      publicClient.getTransaction.mockResolvedValue(tx);
+      publicClient.getStorageAt.mockResolvedValue(
+        ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
+      );
+
+      const result = await retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber);
+
+      expect(result).toBeDefined();
+      expect(result.l2BlockNumber).toBe(l2BlockNumber);
+      expect(result.header).toBeInstanceOf(ProposedBlockHeader);
+      expect(result.stateReference).toBeInstanceOf(StateReference);
+      expect(result.archiveRoot).toBeInstanceOf(Fr);
+      expect(Array.isArray(result.attestations)).toBe(true);
+      expect(result.blockHash).toBe(blockHash);
+
+      // Verify all components are properly decoded
+      expect(result.stateReference.l1ToL2MessageTree).toBeInstanceOf(AppendOnlyTreeSnapshot);
+      expect(result.stateReference.partial).toBeInstanceOf(PartialStateReference);
+      expect(result.header.contentCommitment).toBeInstanceOf(ContentCommitment);
+      expect(result.header.gasFees).toBeInstanceOf(GasFees);
+
+      // Verify proxy implementation was checked
+      expect(publicClient.getStorageAt).toHaveBeenCalled();
     });
   });
 });

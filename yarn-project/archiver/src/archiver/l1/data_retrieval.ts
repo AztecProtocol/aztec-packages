@@ -201,11 +201,8 @@ async function processL2BlockProposedLogs(
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {
-      const blockHeader = await calldataRetriever.getBlockHeaderFromRollupTx(
-        log.transactionHash!,
-        blobHashes,
-        l2BlockNumber,
-      );
+      const blockHeader = await calldataRetriever.getBlockHeaderFromRollupTx(log.transactionHash!, l2BlockNumber);
+
       const body = await getBlockBodyFromBlobs(
         blobSinkClient,
         blockHeader.blockHash,

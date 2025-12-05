@@ -32,6 +32,7 @@ import {
 
 import type { RetrievedL2Block } from './data_retrieval.js';
 import { getSuccessfulCallsFromDebug } from './debug_tx.js';
+import { getCallFromSpireProposer } from './spire_proposer.js';
 import { getSuccessfulCallsFromTrace } from './trace_tx.js';
 import type { CallInfo } from './types.js';
 
@@ -65,19 +66,17 @@ export class CalldataRetriever {
    * Gets block header and metadata from the calldata of an L1 transaction.
    * Tries multicall3 decoding, falls back to trace-based extraction.
    * @param txHash - Hash of the tx that published it.
-   * @param blobHashes - Blob hashes for the block
    * @param l2BlockNumber - L2 block number.
    * @returns L2 block header and metadata from the calldata, deserialized (without body)
    */
   async getBlockHeaderFromRollupTx(
     txHash: `0x${string}`,
-    blobHashes: Buffer[],
     l2BlockNumber: number,
   ): Promise<Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version' | 'body'> & { blockHash: string }> {
     this.logger.trace(`Fetching L2 block ${l2BlockNumber} from rollup tx ${txHash}`);
     const tx = await this.publicClient.getTransaction({ hash: txHash });
     const proposeCalldata = await this.getProposeCallData(tx, l2BlockNumber);
-    return this.decodeAndBuildBlockHeader(proposeCalldata, tx.blockHash!, blobHashes, l2BlockNumber);
+    return this.decodeAndBuildBlockHeader(proposeCalldata, tx.blockHash!, l2BlockNumber);
   }
 
   /** Gets rollup propose calldata from a transaction */
@@ -98,20 +97,63 @@ export class CalldataRetriever {
       return directProposeCalldata;
     }
 
+    // Try to decode as Spire Proposer multicall wrapper
+    const spireProposeCalldata = await this.tryDecodeSpireProposer(tx);
+    if (spireProposeCalldata) {
+      this.logger.trace(`Decoded propose calldata from Spire Proposer for tx ${tx.hash}`);
+      return spireProposeCalldata;
+    }
+
     // Fall back to trace-based extraction
     this.logger.warn(
-      `Failed to decode multicall3 or direct propose for L1 tx ${tx.hash}, falling back to trace for L2 block ${l2BlockNumber}`,
+      `Failed to decode multicall3, direct propose, or Spire Proposer for L1 tx ${tx.hash}, falling back to trace for L2 block ${l2BlockNumber}`,
     );
     return await this.extractCalldataViaTrace(tx.hash);
   }
 
   /**
+   * Attempts to decode a transaction as a Spire Proposer multicall wrapper.
+   * If successful, extracts the wrapped call and validates it as either multicall3 or direct propose.
+   * @param tx - The transaction to decode
+   * @returns The propose calldata if successfully decoded and validated, undefined otherwise
+   */
+  protected async tryDecodeSpireProposer(tx: Transaction): Promise<Hex | undefined> {
+    // Try to decode as Spire Proposer multicall (extracts the wrapped call)
+    const spireWrappedCall = await getCallFromSpireProposer(tx, this.publicClient, this.logger);
+    if (!spireWrappedCall) {
+      return undefined;
+    }
+
+    this.logger.trace(`Decoded Spire Proposer wrapping for tx ${tx.hash}, inner call to ${spireWrappedCall.to}`);
+
+    // Now try to decode the wrapped call as either multicall3 or direct propose
+    const wrappedTx = { to: spireWrappedCall.to, input: spireWrappedCall.data, hash: tx.hash };
+
+    const multicall3Calldata = this.tryDecodeMulticall3(wrappedTx);
+    if (multicall3Calldata) {
+      this.logger.trace(`Decoded propose calldata from Spire Proposer to multicall3 for tx ${tx.hash}`);
+      return multicall3Calldata;
+    }
+
+    const directProposeCalldata = this.tryDecodeDirectPropose(wrappedTx);
+    if (directProposeCalldata) {
+      this.logger.trace(`Decoded propose calldata from Spire Proposer to direct propose for tx ${tx.hash}`);
+      return directProposeCalldata;
+    }
+
+    this.logger.warn(
+      `Spire Proposer wrapped call could not be decoded as multicall3 or direct propose for tx ${tx.hash}`,
+    );
+    return undefined;
+  }
+
+  /**
    * Attempts to decode transaction input as multicall3 and extract propose calldata.
    * Returns undefined if validation fails.
-   * @param tx - The transaction to decode
+   * @param tx - The transaction-like object with to, input, and hash
    * @returns The propose calldata if successfully validated, undefined otherwise
    */
-  protected tryDecodeMulticall3(tx: Transaction): Hex | undefined {
+  protected tryDecodeMulticall3(tx: { to: Hex | null | undefined; input: Hex; hash: Hex }): Hex | undefined {
     const txHash = tx.hash;
 
     try {
@@ -203,10 +245,10 @@ export class CalldataRetriever {
   /**
    * Attempts to decode transaction as a direct propose call to the rollup contract.
    * Returns undefined if validation fails.
-   * @param tx - The transaction to decode
+   * @param tx - The transaction-like object with to, input, and hash
    * @returns The propose calldata if successfully validated, undefined otherwise
    */
-  protected tryDecodeDirectPropose(tx: Transaction): Hex | undefined {
+  protected tryDecodeDirectPropose(tx: { to: Hex | null | undefined; input: Hex; hash: Hex }): Hex | undefined {
     const txHash = tx.hash;
     try {
       // Check if transaction is to the rollup address
@@ -295,7 +337,6 @@ export class CalldataRetriever {
   protected decodeAndBuildBlockHeader(
     proposeCalldata: Hex,
     blockHash: Hex,
-    blobHashes: Buffer[],
     l2BlockNumber: number,
   ): Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version' | 'body'> & { blockHash: string } {
     const { functionName: rollupFunctionName, args: rollupArgs } = decodeFunctionData({
@@ -329,7 +370,6 @@ export class CalldataRetriever {
       stateReference: decodedArgs.stateReference,
       header: decodedArgs.header,
       l1BlockHash: blockHash,
-      blobHashes,
       attestations,
       packedAttestations,
       targetCommitteeSize: this.targetCommitteeSize,
