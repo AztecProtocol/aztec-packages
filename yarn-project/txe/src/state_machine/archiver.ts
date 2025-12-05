@@ -95,6 +95,10 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     throw new Error('TXE Archiver does not implement "getPublishedCheckpoints"');
   }
 
+  public getCheckpointByArchive(_archive: Fr): Promise<Checkpoint | undefined> {
+    throw new Error('TXE Archiver does not implement "getCheckpointByArchive"');
+  }
+
   public getL2SlotNumber(): Promise<SlotNumber | undefined> {
     throw new Error('TXE Archiver does not implement "getL2SlotNumber"');
   }

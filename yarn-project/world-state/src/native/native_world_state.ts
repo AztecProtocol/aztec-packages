@@ -5,7 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { L2Block, L2BlockNew } from '@aztec/stdlib/block';
+import type { L2BlockNew } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type {
   IndexedTreeId,
@@ -181,19 +181,25 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async handleL2BlockAndMessages(
-    l2Block: L2Block | L2BlockNew,
+    l2Block: L2BlockNew,
     l1ToL2Messages: Fr[],
-    // TODO(#17027)
-    // Temporary hack to only insert l1 to l2 messages for the first block in a checkpoint.
-    isFirstBlock = true,
+    isFirstBlock: boolean,
   ): Promise<WorldStateStatusFull> {
-    // We have to pad both the values within tx effects because that's how the trees are built by circuits.
-    const paddedNoteHashes = l2Block.body.txEffects.flatMap(txEffect =>
-      padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-    );
+    if (!isFirstBlock && l1ToL2Messages.length > 0) {
+      throw new Error(
+        `L1 to L2 messages must be empty for non-first blocks, but got ${l1ToL2Messages.length} messages for block ${l2Block.number}.`,
+      );
+    }
+
+    // We have to pad the given l1 to l2 messages, and the note hashes and nullifiers within tx effects, because that's
+    // how the trees are built by circuits.
     const paddedL1ToL2Messages = isFirstBlock
       ? padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
       : [];
+
+    const paddedNoteHashes = l2Block.body.txEffects.flatMap(txEffect =>
+      padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+    );
 
     const paddedNullifiers = l2Block.body.txEffects
       .flatMap(txEffect => padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX))
