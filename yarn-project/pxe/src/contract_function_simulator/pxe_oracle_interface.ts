@@ -1,7 +1,7 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields/fields';
-import { Point } from '@aztec/foundation/fields/point';
+import { Fr } from '@aztec/foundation/fields/bn254';
+import { Point } from '@aztec/foundation/fields/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { EventSelector, type FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';

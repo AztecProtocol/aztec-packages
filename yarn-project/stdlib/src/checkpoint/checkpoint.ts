@@ -1,6 +1,6 @@
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 

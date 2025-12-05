@@ -1,5 +1,5 @@
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
-import { Fr } from '../fields/fields.js';
+import { Fr } from '../fields/bn254/field.js';
 import { numToUInt32BE } from './free_funcs.js';
 
 /**

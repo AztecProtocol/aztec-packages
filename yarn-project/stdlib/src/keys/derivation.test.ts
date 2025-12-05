@@ -1,5 +1,5 @@
-import { Fr } from '@aztec/foundation/fields/fields';
-import { Point } from '@aztec/foundation/fields/point';
+import { Fr } from '@aztec/foundation/fields/bn254';
+import { Point } from '@aztec/foundation/fields/grumpkin';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { computeAddress, computePreaddress } from './derivation.js';

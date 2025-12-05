@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { BenchmarkingContractArtifact } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';

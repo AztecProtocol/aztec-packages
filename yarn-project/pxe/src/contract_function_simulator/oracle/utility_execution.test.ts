@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';

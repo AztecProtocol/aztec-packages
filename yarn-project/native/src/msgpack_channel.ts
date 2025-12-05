@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { MessageHeader, TypedMessage } from '@aztec/foundation/message';
 
 import { Encoder, addExtension } from 'msgpackr';

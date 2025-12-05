@@ -1,5 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 
 import { BlobWithIndex } from '../types/index.js';
 import type { BlobStore } from './interface.js';

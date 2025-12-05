@@ -8,8 +8,8 @@ import {
   poseidon2Hash,
   sha256,
 } from '@aztec/foundation/crypto';
-import { Fq, Fr } from '@aztec/foundation/fields/fields';
-import { Point } from '@aztec/foundation/fields/point';
+import { Fq, Fr } from '@aztec/foundation/fields/bn254';
+import { Point } from '@aztec/foundation/fields/grumpkin';
 import type { Fieldable } from '@aztec/foundation/serialize';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';

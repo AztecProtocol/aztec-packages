@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 
 import type { PublicTreesDB } from '../public_db_sources.js';
 import { NullifierCollisionError } from '../side_effect_errors.js';

@@ -1,4 +1,4 @@
-import { GrumpkinScalar } from '@aztec/foundation/fields/fields';
+import { GrumpkinScalar } from '@aztec/foundation/fields/grumpkin';
 
 import { TextEncoder } from 'util';
 

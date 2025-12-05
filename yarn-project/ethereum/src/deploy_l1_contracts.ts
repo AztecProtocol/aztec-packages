@@ -3,7 +3,7 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue, getActiveNetworkName } from '@aztec/foundation/config';
 import { keccak256String } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';

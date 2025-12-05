@@ -1,5 +1,5 @@
 import { MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 import type { IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
 import type { L2Block, L2BlockNew } from '@aztec/stdlib/block';
 import type { ForkMerkleTreeOperations, MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';

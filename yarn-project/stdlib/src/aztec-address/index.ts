@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-import { Fr, fromBuffer } from '@aztec/foundation/fields/fields';
-import { Point } from '@aztec/foundation/fields/point';
+import { Fr, fromBuffer } from '@aztec/foundation/fields/bn254';
+import { Point } from '@aztec/foundation/fields/grumpkin';
 import { type ZodFor, bufferSchemaFor, hexSchemaFor } from '@aztec/foundation/schemas';
 import { type BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';

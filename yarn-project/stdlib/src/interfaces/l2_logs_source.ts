@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 
 import type { LogFilter } from '../logs/log_filter.js';
 import type { PrivateLog } from '../logs/private_log.js';

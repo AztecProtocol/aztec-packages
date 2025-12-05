@@ -1,5 +1,5 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 export class ValidatorError extends Error {

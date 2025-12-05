@@ -1,6 +1,6 @@
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import { merge, pick } from '@aztec/foundation/collection';
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';

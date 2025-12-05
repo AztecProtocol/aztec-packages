@@ -1,5 +1,5 @@
 import { sha256Trunc } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type { FunctionSelector } from '@aztec/stdlib/abi';

@@ -1,6 +1,7 @@
 import { BarretenbergSync } from '@aztec/bb.js';
-import { Fr, type GrumpkinScalar } from '@aztec/foundation/fields/fields';
-import { Point } from '@aztec/foundation/fields/point';
+import { Fr } from '@aztec/foundation/fields/bn254';
+import type { GrumpkinScalar } from '@aztec/foundation/fields/grumpkin';
+import { Point } from '@aztec/foundation/fields/grumpkin';
 
 /**
  * Grumpkin elliptic curve operations.

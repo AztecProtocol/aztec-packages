@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 import { serializeToFields } from '@aztec/foundation/serialize';
 
 import { BlockHeader } from '../tx/block_header.js';

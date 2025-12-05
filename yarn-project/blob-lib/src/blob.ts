@@ -1,6 +1,6 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
-import { BLS12Fr } from '@aztec/foundation/fields/bls12_fields';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { BLS12Fr } from '@aztec/foundation/fields/bls12';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { computeBlobCommitment, computeChallengeZ, computeEthVersionedBlobHash } from './hash.js';

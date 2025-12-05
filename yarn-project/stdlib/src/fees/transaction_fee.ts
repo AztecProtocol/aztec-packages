@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 
 import { strict as assert } from 'assert';
 

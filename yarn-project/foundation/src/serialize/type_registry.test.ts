@@ -1,5 +1,5 @@
 import { EthAddress } from '../eth-address/index.js';
-import { Fq, Fr } from '../fields/fields.js';
+import { Fq, Fr } from '../fields/bn254/field.js';
 import { resolver, reviver } from './type_registry.js';
 
 class NonRegisteredType {

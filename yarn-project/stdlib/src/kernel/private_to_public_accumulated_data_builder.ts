@@ -7,7 +7,7 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 
 import { PrivateLog } from '../logs/private_log.js';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';

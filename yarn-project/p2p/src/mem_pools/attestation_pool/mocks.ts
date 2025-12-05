@@ -1,5 +1,5 @@
 import type { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import {
   BlockAttestation,
   ConsensusPayload,

@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 import type { Timer } from '@aztec/foundation/timer';
 
 import type { L2Block } from '../block/l2_block.js';

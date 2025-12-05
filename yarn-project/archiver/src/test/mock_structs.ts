@@ -1,6 +1,6 @@
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { randomBigInt, randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 
 import { type InboxMessage, updateRollingHash } from '../archiver/structs/inbox_message.js';

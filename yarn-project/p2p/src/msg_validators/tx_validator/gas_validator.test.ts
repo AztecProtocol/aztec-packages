@@ -5,7 +5,7 @@ import {
   FIXED_DA_GAS,
   FIXED_L2_GAS,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import type { Writeable } from '@aztec/foundation/types';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';

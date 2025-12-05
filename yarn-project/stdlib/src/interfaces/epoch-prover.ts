@@ -1,7 +1,7 @@
 import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import type { EpochNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 
 import type { Proof } from '../proofs/proof.js';
 import type { CheckpointConstantData } from '../rollup/checkpoint_constant_data.js';

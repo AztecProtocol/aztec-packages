@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import type { FieldsOf } from '@aztec/foundation/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { UInt64 } from '@aztec/stdlib/types';

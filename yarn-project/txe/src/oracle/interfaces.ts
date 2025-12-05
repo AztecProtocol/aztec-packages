@@ -2,7 +2,7 @@ import type { ContractArtifact } from '@aztec/aztec.js/abi';
 import { CompleteAddress } from '@aztec/aztec.js/addresses';
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { TxHash } from '@aztec/aztec.js/tx';
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { UInt32, UInt64 } from '@aztec/stdlib/types';

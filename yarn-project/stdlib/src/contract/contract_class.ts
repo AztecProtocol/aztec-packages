@@ -1,5 +1,5 @@
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
 import { hashVK } from '../hash/hash.js';

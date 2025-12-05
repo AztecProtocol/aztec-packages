@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { type FunctionAbi, FunctionType } from '../abi/index.js';

@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 
 import { FunctionSelector } from '../abi/function_selector.js';
 import { computeContractClassId } from './contract_class_id.js';

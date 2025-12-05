@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { computeUnbalancedPoseidonRoot } from '@aztec/foundation/trees';
 
 import type { BlockHeader } from '../tx/block_header.js';

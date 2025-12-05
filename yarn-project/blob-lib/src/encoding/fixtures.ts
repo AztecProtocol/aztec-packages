@@ -9,7 +9,7 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 
 import type { BlockBlobData, BlockEndBlobData } from './block_blob_data.js';
 import type { BlockEndMarker } from './block_end_marker.js';

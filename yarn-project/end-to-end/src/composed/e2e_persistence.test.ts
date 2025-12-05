@@ -4,7 +4,7 @@ import { computeSecretHash } from '@aztec/aztec.js/crypto';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { TxHash } from '@aztec/aztec.js/tx';
 import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 // We use TokenBlacklist because we want to test the persistence of manually added notes and standard token no longer
 // implements TransparentNote shield flow.
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';

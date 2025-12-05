@@ -5,7 +5,7 @@ import {
   CHONK_VK_LENGTH_IN_FIELDS,
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';

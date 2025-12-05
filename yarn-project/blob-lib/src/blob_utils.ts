@@ -1,6 +1,6 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
-import { BLS12Point } from '@aztec/foundation/fields/bls12_point';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { BLS12Point } from '@aztec/foundation/fields/bls12';
+import { Fr } from '@aztec/foundation/fields/bn254';
 
 import type { BatchedBlob } from './batched_blob.js';
 import { Blob } from './blob.js';

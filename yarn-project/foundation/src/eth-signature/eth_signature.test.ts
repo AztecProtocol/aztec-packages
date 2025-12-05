@@ -1,6 +1,6 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer, recoverAddress } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 
 import { Signature } from './eth_signature.js';
 

@@ -1,6 +1,6 @@
 import { Grumpkin, poseidon2Hash } from '@aztec/foundation/crypto';
-import { type Fq, Fr } from '@aztec/foundation/fields/fields';
-import type { Point } from '@aztec/foundation/fields/point';
+import { type Fq, Fr } from '@aztec/foundation/fields/bn254';
+import type { Point } from '@aztec/foundation/fields/grumpkin';
 
 import { z } from 'zod';
 

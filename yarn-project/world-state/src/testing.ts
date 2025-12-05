@@ -1,5 +1,5 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';

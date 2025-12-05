@@ -1,6 +1,6 @@
 import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 import type { EthAddress } from '@aztec/stdlib/block';
 import type { EpochProver } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';

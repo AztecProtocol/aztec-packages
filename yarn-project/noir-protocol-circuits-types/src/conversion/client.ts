@@ -1,5 +1,5 @@
 import { MEGA_VK_LENGTH_IN_FIELDS, UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { type Bufferable, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import {
   CountedPublicCallRequest,

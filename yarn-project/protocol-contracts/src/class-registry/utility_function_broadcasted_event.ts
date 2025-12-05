@@ -4,7 +4,7 @@ import {
   MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS,
 } from '@aztec/constants';
 import { removeArrayPaddingEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';

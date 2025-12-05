@@ -1,7 +1,7 @@
 import { BLOCK_HEADER_LENGTH, GeneratorIndex } from '@aztec/constants';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';

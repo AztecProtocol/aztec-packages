@@ -1,7 +1,7 @@
 import { ULTRA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
-import { Fq, Fr } from '@aztec/foundation/fields/fields';
+import { Fq, Fr } from '@aztec/foundation/fields/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';

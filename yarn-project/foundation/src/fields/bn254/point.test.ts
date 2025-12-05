@@ -1,6 +1,6 @@
 import { BBApiException, BarretenbergSync } from '@aztec/bb.js';
 
-import { Fq, Fr } from '../../fields/fields.js';
+import { Fq, Fr } from './field.js';
 import { Bn254G1Point, Bn254G2Point } from './index.js';
 
 describe('Bn254 Point Classes', () => {

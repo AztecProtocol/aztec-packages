@@ -2,7 +2,7 @@ import { Blob, type BlobJson } from '@aztec/blob-lib';
 import { makeRandomBlob } from '@aztec/blob-lib/testing';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 
 import { jest } from '@jest/globals';
 import http from 'http';

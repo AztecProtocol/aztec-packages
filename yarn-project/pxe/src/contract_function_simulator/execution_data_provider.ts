@@ -1,6 +1,6 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/fields/fields';
-import type { Point } from '@aztec/foundation/fields/point';
+import type { Fr } from '@aztec/foundation/fields/bn254';
+import type { Point } from '@aztec/foundation/fields/grumpkin';
 import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';

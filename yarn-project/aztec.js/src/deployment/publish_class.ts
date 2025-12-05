@@ -2,7 +2,7 @@ import {
   CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
   MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ContractArtifact, bufferAsFields } from '@aztec/stdlib/abi';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';

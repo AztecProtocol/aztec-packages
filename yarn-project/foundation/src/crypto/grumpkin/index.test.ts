@@ -1,7 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 
-import { GrumpkinScalar } from '../../fields/fields.js';
-import type { Point } from '../../fields/point.js';
+import { GrumpkinScalar } from '../../fields/grumpkin/index.js';
+import type { Point } from '../../fields/grumpkin/point.js';
 import { Grumpkin } from './index.js';
 
 const log = createLogger('circuits:grumpkin_test');

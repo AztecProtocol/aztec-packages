@@ -1,6 +1,6 @@
 import { MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../../aztec-address/index.js';

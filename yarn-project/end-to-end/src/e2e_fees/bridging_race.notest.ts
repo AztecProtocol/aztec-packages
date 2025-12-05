@@ -1,7 +1,7 @@
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { Fq } from '@aztec/foundation/fields/fields';
+import { Fq } from '@aztec/foundation/fields/bn254';
 import { sleep } from '@aztec/foundation/sleep';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { TestWallet } from '@aztec/test-wallet/server';

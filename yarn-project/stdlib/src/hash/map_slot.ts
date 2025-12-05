@@ -1,5 +1,5 @@
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 
 /**
  * Computes the resulting storage slot for an entry in a map.

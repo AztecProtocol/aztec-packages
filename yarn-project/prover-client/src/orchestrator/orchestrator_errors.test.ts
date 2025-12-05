@@ -1,7 +1,7 @@
 import type { FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';

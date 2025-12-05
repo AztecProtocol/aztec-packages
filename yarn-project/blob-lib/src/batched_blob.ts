@@ -1,6 +1,6 @@
-import { BLS12Fr } from '@aztec/foundation/fields/bls12_fields';
-import { BLS12Point } from '@aztec/foundation/fields/bls12_point';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { BLS12Fr } from '@aztec/foundation/fields/bls12';
+import { BLS12Point } from '@aztec/foundation/fields/bls12';
+import { Fr } from '@aztec/foundation/fields/bn254';
 
 import { FinalBlobAccumulator } from './circuit_types/index.js';
 

@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 
 import { randomBytes } from '../crypto/index.js';
-import { Fq, Fr } from '../fields/fields.js';
+import { Fq, Fr } from '../fields/bn254/field.js';
 import { BufferReader } from './buffer_reader.js';
 import { bigintToUInt64BE, bigintToUInt128BE } from './free_funcs.js';
 import { serializeArrayOfBufferableToVector, serializeBigInt, serializeToBuffer } from './serialize.js';

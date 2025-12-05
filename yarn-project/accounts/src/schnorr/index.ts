@@ -6,7 +6,8 @@
  */
 import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/fields/grumpkin';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { deriveSigningKey } from '@aztec/stdlib/keys';

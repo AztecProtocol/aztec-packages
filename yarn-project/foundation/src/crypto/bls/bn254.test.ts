@@ -1,4 +1,4 @@
-import { Fq, Fr } from '../../fields/fields.js';
+import { Fq, Fr } from '../../fields/bn254/field.js';
 import { deriveBlsKeyFromEntropy, deriveBlsKeyFromMnemonic } from './index.js';
 
 describe('BN254 BLS Implementation', () => {

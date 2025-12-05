@@ -2,7 +2,7 @@
 import { GSEContract } from '@aztec/ethereum';
 import { computeBn254G1PublicKey, computeBn254G2PublicKey, deriveBlsKeyFromMnemonic } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import type { AttesterAccount, BLSAccount, EthAccount } from '@aztec/node-keystore/types';
 
 import { wordlist } from '@scure/bip39/wordlists/english.js';

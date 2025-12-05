@@ -1,2 +1,2 @@
-export { Fr, Fq, GrumpkinScalar } from '@aztec/foundation/fields/fields';
-export { Point } from '@aztec/foundation/fields/point';
+export { Fr, Fq } from '@aztec/foundation/fields/bn254';
+export { GrumpkinScalar, Point } from '@aztec/foundation/fields/grumpkin';

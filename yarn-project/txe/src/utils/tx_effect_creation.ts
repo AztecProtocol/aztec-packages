@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import type { ExecutionNoteCache } from '@aztec/pxe/simulator';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';

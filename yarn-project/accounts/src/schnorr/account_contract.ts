@@ -1,6 +1,7 @@
 import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { Schnorr } from '@aztec/foundation/crypto';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/fields/grumpkin';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 

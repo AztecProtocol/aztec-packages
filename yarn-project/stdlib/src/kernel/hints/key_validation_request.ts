@@ -1,6 +1,7 @@
 import { KEY_VALIDATION_REQUEST_LENGTH } from '@aztec/constants';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields/fields';
-import { Point } from '@aztec/foundation/fields/point';
+import { Fr } from '@aztec/foundation/fields/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/fields/grumpkin';
+import { Point } from '@aztec/foundation/fields/grumpkin';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**

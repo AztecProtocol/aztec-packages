@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 
 import { computeL2ToL1MembershipWitnessFromMessagesForAllTxs } from './l2_to_l1_membership.js';
 

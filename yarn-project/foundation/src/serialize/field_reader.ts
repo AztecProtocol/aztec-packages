@@ -1,4 +1,4 @@
-import { Fq, type Fr } from '../fields/fields.js';
+import { Fq, type Fr } from '../fields/bn254/field.js';
 import type { Tuple } from './types.js';
 
 /**

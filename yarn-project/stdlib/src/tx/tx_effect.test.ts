@@ -1,5 +1,5 @@
 import { BlobDeserializationError } from '@aztec/blob-lib';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { TxEffect } from './tx_effect.js';

@@ -11,7 +11,7 @@ import {
   NUM_BASE_PARITY_PER_ROOT_PARITY,
 } from '@aztec/constants';
 import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields/fields';
+import { Fr } from '@aztec/foundation/fields/bn254';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';

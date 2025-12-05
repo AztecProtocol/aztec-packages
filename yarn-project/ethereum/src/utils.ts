@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields/fields';
+import type { Fr } from '@aztec/foundation/fields/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import { ErrorsAbi } from '@aztec/l1-artifacts/ErrorsAbi';
 
