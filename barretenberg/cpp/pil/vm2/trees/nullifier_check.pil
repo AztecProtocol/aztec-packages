@@ -48,7 +48,7 @@ include "../precomputed.pil";
  *       discard,
  *       nullifier_index,
  *       should_silo,
- *       address
+ *       address // Can be omitted if should_silo is precomputed.zero
  * } in nullifier_check.write {
  *     nullifier_check.nullifier,
  *     nullifier_check.root,

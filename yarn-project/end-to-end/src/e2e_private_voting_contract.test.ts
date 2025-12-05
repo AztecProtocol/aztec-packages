@@ -41,7 +41,7 @@ describe('e2e_voting_contract', () => {
       // We try voting again, but our TX is dropped due to trying to emit duplicate nullifiers
       // first confirm that it fails simulation
       await expect(votingContract.methods.cast_vote(candidate).simulate({ from: owner })).rejects.toThrow(
-        /Nullifier collision/,
+        /Nullifier collision|duplicate.*nullifier/,
       );
       // if we skip simulation, tx fails
       await expect(votingContract.methods.cast_vote(candidate).send({ from: owner }).wait()).rejects.toThrow(

@@ -51,9 +51,9 @@ import { AssertionError } from 'assert';
 
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import {
-  type PublicTxSimulator,
   type PublicTxSimulatorConfig,
-  TelemetryPublicTxSimulator,
+  type PublicTxSimulatorInterface,
+  TelemetryCppPublicTxSimulator,
 } from '../public_tx_simulator/index.js';
 import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
@@ -99,8 +99,8 @@ export class PublicProcessorFactory {
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     config?: Partial<PublicTxSimulatorConfig>,
-  ): PublicTxSimulator {
-    return new TelemetryPublicTxSimulator(merkleTree, contractsDB, globalVariables, this.telemetryClient, config);
+  ): PublicTxSimulatorInterface {
+    return new TelemetryCppPublicTxSimulator(merkleTree, contractsDB, globalVariables, this.telemetryClient, config);
   }
 }
 
@@ -122,7 +122,7 @@ export class PublicProcessor implements Traceable {
     protected globalVariables: GlobalVariables,
     private guardedMerkleTree: GuardedMerkleTreeOperations,
     protected contractsDB: PublicContractsDB,
-    protected publicTxSimulator: PublicTxSimulator,
+    protected publicTxSimulator: PublicTxSimulatorInterface,
     private dateProvider: DateProvider,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     private log = createLogger('simulator:public-processor'),
@@ -521,13 +521,9 @@ export class PublicProcessor implements Traceable {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const { hints, publicInputs, gasUsed, revertCode, revertReason, appLogicReturnValues } =
-      await this.publicTxSimulator.simulate(tx);
-
-    if (!hints) {
-      this.metrics.recordFailedTx();
-      throw new Error('Avm proving result was not generated.');
-    }
+    const result = await this.publicTxSimulator.simulate(tx);
+    // TODO: use the callStackMetadata here to extract more data about public execution
+    const { hints, publicInputs, gasUsed, revertCode /*callStackMetadata*/ } = result;
 
     const contractClassLogs = revertCode.isOK()
       ? tx.getContractClassLogs()
@@ -539,9 +535,13 @@ export class PublicProcessor implements Traceable {
     );
 
     // TODO(fcarreiro): remove phase count metric.
-    const phaseCount = 1;
     const durationMs = timer.ms();
-    this.metrics.recordTx(phaseCount, durationMs, gasUsed.publicGas);
+    this.metrics.recordTx(/*phaseCount=*/ 1, durationMs, gasUsed.publicGas);
+
+    // Extract the return values from the call stack metadata.
+    const appLogicReturnValues: NestedProcessReturnValues[] = result.getAppLogicReturnValues();
+    // Extract the revert reason from the call stack metadata.
+    const revertReason = result.findRevertReason();
 
     const processedTx = makeProcessedTxFromTxWithPublicCalls(
       tx,
@@ -551,7 +551,7 @@ export class PublicProcessor implements Traceable {
       revertReason,
     );
 
-    return [processedTx, appLogicReturnValues ?? []];
+    return [processedTx, appLogicReturnValues];
   }
 
   /**
@@ -559,7 +559,7 @@ export class PublicProcessor implements Traceable {
    */
   private static generateProvingRequest(
     publicInputs: AvmCircuitPublicInputs,
-    hints: AvmExecutionHints,
+    hints: AvmExecutionHints = AvmExecutionHints.empty(),
   ): AvmProvingRequest {
     return {
       type: ProvingRequestType.PUBLIC_VM,

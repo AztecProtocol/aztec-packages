@@ -90,18 +90,25 @@ where
 ```
 
 `PrivateImmutable`, `PrivateMutable` and `PrivateSet` got modified to directly contain the owner instead of implicitly "containing it" by including it in the storage slot via a `Map`.
-Now the `Map` is redundant and the relevant state variable should be moved out of it:
+These state variables now implement a newly introduced `OwnedStateVariable` trait (see docs of `OwnedStateVariable` for explanation of what it is).
+These changes make the state variables incompatible with `Map` and now instead these should be wrapped in new `Owned` state variable:
 
 ```diff
 #[storage]
 struct Storage<Context> {
 -    private_nfts: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
-+    private_nfts: PrivateSet<NFTNote, Context>,
++    private_nfts: Owned<PrivateSet<NFTNote, Context>, Context>,
 }
 ```
 
-Now we have an `at` method on the private state variables that scopes it to a given owner.
-Given that we used to call `at` on the map and now we call it directly on the set if you so the above change it should not be required of you to do any further changes in your contract.
+Note that even though the types of your state variables are changing from `Map<AztecAddress, T, Context>` to `Owned<T, Context>`, usage remains unchanged:
+
+```
+let nft_notes = self.storage.private_nfts.at(from).pop_notes(NoteGetterOptions::new().select(NFTNote::properties().token_id, Comparator.EQ, token_id).set_limit(1));
+```
+
+With this change the underlying notes will inherit the storage slot of the `Owned` state variable.
+This is unlike `Map` where the nested state variable got the storage slot computed as `hash([map_storage_slot, key])`.
 
 if you had `PrivateImmutable` or `PrivateMutable` defined out of a `Map`, e.g.:
 
@@ -113,12 +120,23 @@ struct Storage<Context> {
 ```
 
 you were most likely dealing with some kind of admin flow where only the admin can modify the state variable.
-Now, unfortunately, there is a bit of a regression and you will need to call `at` on the state var:
+Now, unfortunately, there is a bit of a regression and you will need to wrap the state variable in `Owned` and call `at` on the state var:
 
 ```diff
-- self.storage.signing_public_key.initialize(pub_key_note)
-+ self.storage.signing_public_key.at(self.address).initialize(pub_key_note)
-    .emit(self.address, MessageDelivery.CONSTRAINED_ONCHAIN);
++ use aztec::state_vars::Owned;
+
+#[storage]
+struct Storage<Context> {
+-   signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
++   signing_public_key: Owned<PrivateImmutable<PublicKeyNote, Context>, Context>,
+}
+
+#[external("private")]
+fn my_external_function() {
+-   self.storage.signing_public_key.initialize(pub_key_note)
++   self.storage.signing_public_key.at(self.address).initialize(pub_key_note)
+        .emit(self.address, MessageDelivery.CONSTRAINED_ONCHAIN);
+}
 ```
 
 We are likely to come up with a concept of admin state variables in the future.

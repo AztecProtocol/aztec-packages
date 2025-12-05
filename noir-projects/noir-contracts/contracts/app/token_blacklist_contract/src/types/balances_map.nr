@@ -5,7 +5,7 @@ use dep::aztec::{
     protocol_types::{
         address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
     },
-    state_vars::{PrivateSet, storage::HasStorageSlot},
+    state_vars::{Owned, PrivateSet, state_variable::StateVariable},
 };
 use dep::aztec::note::{
     note_interface::{NoteHash, NoteType},
@@ -16,20 +16,18 @@ use dep::aztec::note::{
 use std::ops::Add;
 
 pub struct BalancesMap<Note, Context> {
-    set: PrivateSet<Note, Context>,
+    set: Owned<PrivateSet<Note, Context>, Context>,
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Note, Context> HasStorageSlot<1> for BalancesMap<Note, Context> {
+impl<Note, Context> StateVariable<1, Context> for BalancesMap<Note, Context> {
+    fn new(context: Context, storage_slot: Field) -> Self {
+        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
+        Self { set: Owned::new(context, storage_slot) }
+    }
+
     fn get_storage_slot(self) -> Field {
         self.set.get_storage_slot()
-    }
-}
-
-impl<Note, Context> BalancesMap<Note, Context> {
-    pub fn new(context: Context, storage_slot: Field) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        Self { set: PrivateSet::new(context, storage_slot) }
     }
 }
 
