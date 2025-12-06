@@ -48,3 +48,17 @@ We use marker commits and [git-subrepo](https://github.com/ingydotnet/git-subrep
 For a broad overview of the CI system take a look at [CI.md](CI.md).
 
 For some deeper information on individual scripts etc (for developing CI itself), take a look at [ci3/README.md](ci3/README.md).
+
+## Where to file issues
+
+Aztec is a large monorepo with many moving parts. As a rule of thumb:
+
+- Protocol or infrastructure bugs related to the core system can be filed in this repository.
+- Documentation issues that originate from the docs site but refer to this codebase can also be filed here.
+- If you are unsure whether this is the right place, open an issue with as much context as possible and maintainers will help route it.
+
+When opening an issue, please include:
+
+- A clear description of the problem.
+- Steps to reproduce (if applicable).
+- Any relevant logs, stack traces, or screenshots.
