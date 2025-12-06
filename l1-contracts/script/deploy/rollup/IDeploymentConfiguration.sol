@@ -46,8 +46,6 @@ struct FlushRewardConfiguration {
 struct DeploymentOptions {
     bool useMockVerifier;
     bool fundRewardDistributor;
-    bool deployFeeAssetHandler;
-    bool deployStakingAssetHandler;
     address existingStakingAssetAddress;
 }
 

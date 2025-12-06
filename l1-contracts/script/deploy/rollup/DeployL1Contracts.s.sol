@@ -115,6 +115,9 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function _deploy() internal {
+        // On a test network, we deploy assets.
+        maybeDeployAssets();
+        // CORE CONTRACTS
         deployCoinIssuer();
         deployGSE();
         deployRegistry();
@@ -125,7 +128,6 @@ contract DeployL1Contracts is Script, Test {
         deploySlashFactory();
         deployDateGatedRelayer();
         // CHEATCODE CONTRACTS (testnets only)
-        maybeDeployAssets();
         maybeDeployFeeAssetHandler();
         maybeDeployStakingAssetHandler();
         // POST-DEPLOY SETUP
@@ -161,7 +163,8 @@ contract DeployL1Contracts is Script, Test {
 
     function maybeDeployFeeAssetHandler() internal {
         DeploymentOptions memory opts = CONFIG.getContractOptions();
-        if (opts.existingStakingAssetAddress != address(0)) {
+        // Deploy on test chains only (when we control the staking asset)
+        if (opts.existingStakingAssetAddress == address(0)) {
             FEE_ASSET_HANDLER = new FeeAssetHandler(DEPLOYER, address(FEE_ASSET), 1000e18);
             TestERC20(address(FEE_ASSET)).addMinter(address(FEE_ASSET_HANDLER));
         }
@@ -254,13 +257,12 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function maybeDeployStakingAssetHandler() internal {
-        // Only if on sepolia (and anvil) will we deploy the staking asset handler
-        // Should not be deployed to devnet since it would cause caos with sequencers there etc.
+        DeploymentOptions memory opts = CONFIG.getContractOptions();
+
+        // Only deploy on sepolia and anvil (not devnet etc.)
         bool isSepoliaTestChain = block.chainid == 11155111;
         bool isAnvilTestChain = block.chainid == 31337;
         if (isSepoliaTestChain || isAnvilTestChain) {
-            DeploymentOptions memory opts = CONFIG.getContractOptions();
-
             address zkPassportVerifier;
 
             if (isSepoliaTestChain) {
