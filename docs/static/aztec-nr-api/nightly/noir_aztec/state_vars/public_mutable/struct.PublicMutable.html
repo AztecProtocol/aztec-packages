@@ -20,14 +20,13 @@
 <h2><a href="#struct">Struct PublicMutable</a></h2>
 <h3>Methods</h3>
 <ul class="sidebar-list">
-<li><a href="#new">new</a></li>
 <li><a href="#read">read</a></li>
 <li><a href="#read">read</a></li>
 <li><a href="#write">write</a></li>
 </ul>
 <h3>Trait implementations</h3>
 <ul class="sidebar-list">
-<li><a href="#impl-HasStorageSlot&lt;M&gt;-for-PublicMutable<T, Context>">HasStorageSlot&lt;M&gt;</a></li>
+<li><a href="#impl-StateVariable&lt;M, Context&gt;-for-PublicMutable<T, Context>">StateVariable&lt;M, Context&gt;</a></li>
 </ul>
 <h2>In module public_mutable</h2>
 <h3>Structs</h3><ul class="item-list">
@@ -87,27 +86,6 @@ is an unconstrained environment on the user's local device.</p>
 <li><code>T</code> - The current value stored in this PublicMutable.</li>
 </ul>
 </div>
-</div></div><h3><code class="code-header">impl&lt;Context, T&gt; <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, Context&gt;</code></h3>
-
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
-
-<div class="padded-description"><div class="comments">
-<p>Initializes a new PublicMutable state variable.</p>
-<p>This function is usually automatically called within the #[storage] macro.
-You typically don't need to call this directly when writing smart contracts.</p>
-<h4>Arguments</h4>
-<ul>
-<li><code>context</code> - One of <code>PublicContext</code>/<code>UtilityContext</code>. The Context determines
-which methods of this struct will be made available to the calling
-smart contract function.</li>
-<li><code>storage_slot</code> - A unique identifier for this state variable within the
-contract. Usually, the #[storage] macro will determine an
-appropriate storage_slot automatically. A smart contract
-dev shouldn't have to worry about this, as it's managed
-behind the scenes.</li>
-</ul>
-<p>docs:start:public_mutable_struct_new</p>
-</div>
 </div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
@@ -139,11 +117,13 @@ the same transaction.</p>
 <p>docs:start:public_mutable_struct_write</p>
 </div>
 </div></div><h2>Trait implementations</h2>
-<h3 id="impl-HasStorageSlot&lt;M&gt;-for-PublicMutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/state_vars/storage/trait.HasStorageSlot.html" class="trait">HasStorageSlot</a>&lt;M&gt; for <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, Context&gt;
+<h3 id="impl-StateVariable&lt;M, Context&gt;-for-PublicMutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/state_vars/state_variable/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M, Context&gt; for <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, Context&gt;
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 </div></main>
 </span>
