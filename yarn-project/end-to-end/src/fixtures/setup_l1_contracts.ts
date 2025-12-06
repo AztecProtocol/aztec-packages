@@ -199,7 +199,7 @@ export const setupL1ContractsWithForge = async (
     chain: foundry,
     config: mergedConfig,
     stakingAssetHandler: Object.keys(stakingAssetHandler).length > 0 ? stakingAssetHandler : undefined,
-    // Pass initial validators to be added by the Forge script (registration tuples computed in setupL1ContractsViaForge)
+    // Pass initial validators to be added during forge deployment (before governance handover)
     initialValidators: options.initialValidators,
   });
 
@@ -245,10 +245,9 @@ export const setupL1ContractsWithForge = async (
     }
   }
 
-  // Log validators added by forge (if any)
-  if (options.initialValidators && options.initialValidators.length > 0) {
-    logger.info(`${options.initialValidators.length} initial validators were added by forge script`);
-  }
+  // Note: Initial validators are now added during forge deployment (before governance handover)
+  // The initialValidators option is passed to setupL1ContractsViaForge which computes
+  // registration tuples and passes them to the Solidity script
 
   return l1Data;
 };

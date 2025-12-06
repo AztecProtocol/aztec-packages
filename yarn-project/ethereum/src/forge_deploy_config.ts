@@ -111,11 +111,6 @@ export interface ZkPassportSection {
 }
 
 // Validator types for initial validator setup
-export interface G1PointJson {
-  x: string;
-  y: string;
-}
-
 export interface G2PointJson {
   x0: string;
   x1: string;
@@ -124,15 +119,16 @@ export interface G2PointJson {
 }
 
 /**
- * Pre-computed validator registration data for Solidity.
- * This matches the CheatDepositArgs struct in MultiAdder.sol.
+ * Validator data passed to Solidity for registration.
+ * Solidity will derive publicKeyG1 and proofOfPossession from the privateKey.
  */
 export interface ValidatorJson {
   attester: string;
   withdrawer: string;
-  publicKeyInG1: G1PointJson;
+  /** BN254 secret key (private key) */
+  privateKey: string;
+  /** Pre-computed G2 public key (cannot be computed in Solidity) */
   publicKeyInG2: G2PointJson;
-  proofOfPossession: G1PointJson;
 }
 
 // ============ Script-specific JSON Configs ============

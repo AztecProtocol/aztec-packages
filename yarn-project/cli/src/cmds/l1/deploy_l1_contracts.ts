@@ -4,7 +4,6 @@ import { Fr } from '@aztec/aztec.js/fields';
 import {
   L1Deployer,
   type Operator,
-  addMultipleValidators,
   deploySlashFactory,
   getL1ContractsConfigEnvVars,
   setupL1ContractsViaForge,
@@ -86,6 +85,7 @@ export async function deployL1Contracts(
 
   // Deploy using Forge - DeploymentConfig.sol calculates dependent values
   // (e.g., slashingRoundSize from slashingRoundSizeInEpochs, slashingQuorum from slashingRoundSize)
+  // Initial validators are passed to Forge and added during deployment (before governance handover)
   const { l1ContractAddresses, l1Client, rollupVersion } = await setupL1ContractsViaForge(
     rpcUrls[0],
     deployerPrivateKey,
@@ -93,6 +93,8 @@ export async function deployL1Contracts(
       // Runtime options
       chain: targetChain,
       logger: debugLogger,
+      // Initial validators to add during deployment
+      initialValidators: initialValidatorOperators,
       // JSON config passed to Solidity
       config: {
         genesis: {
@@ -174,21 +176,9 @@ export async function deployL1Contracts(
     debugLogger.info(`Funded fee juice portal at ${feeJuicePortalAddress}`);
   }
 
-  // Register initial validators (if provided)
-  if (initialValidatorOperators.length > 0 && l1ContractAddresses.gseAddress) {
-    debugLogger.info(`Registering ${initialValidatorOperators.length} initial validators...`);
-    await addMultipleValidators(
-      l1Client,
-      deployer,
-      l1ContractAddresses.gseAddress.toString() as `0x${string}`,
-      l1ContractAddresses.rollupAddress.toString() as `0x${string}`,
-      l1ContractAddresses.stakingAssetAddress.toString() as `0x${string}`,
-      initialValidatorOperators,
-      acceleratedTestDeployments,
-      debugLogger,
-    );
-    debugLogger.info('Initial validators registered');
-  }
+  // Note: Initial validators are now added during Forge deployment (before governance handover)
+  // The initialValidators option is passed to setupL1ContractsViaForge which computes
+  // registration tuples and passes them to the Solidity script
 
   // Wait for all deployments to complete
   await deployer.waitForDeployments();

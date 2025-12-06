@@ -41,7 +41,7 @@ import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {EthValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
-import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 
 /**
@@ -640,16 +640,16 @@ contract DeployL1Contracts is Script, Test {
     }
 
     // Load initial validators from JSON config
-    // Validators are passed as an array of objects with attester, withdrawer, and BN254 key data
+    // Validators are passed with privateKey and publicKeyInG2 (G2 computed in TypeScript since no EVM precompile)
+    // This function derives publicKeyInG1 and proofOfPossession from the privateKey
     // JSON format:
     // {
     //   "initialValidators": [
     //     {
     //       "attester": "0x...",
     //       "withdrawer": "0x...",
-    //       "publicKeyInG1": { "x": "0x...", "y": "0x..." },
-    //       "publicKeyInG2": { "x0": "0x...", "x1": "0x...", "y0": "0x...", "y1": "0x..." },
-    //       "proofOfPossession": { "x": "0x...", "y": "0x..." }
+    //       "privateKey": "12345...",
+    //       "publicKeyInG2": { "x0": "...", "x1": "...", "y0": "...", "y1": "..." }
     //     }
     //   ]
     // }
@@ -675,23 +675,32 @@ contract DeployL1Contracts is Script, Test {
         for (uint256 i = 0; i < validatorCount; i++) {
             string memory basePath = string.concat(".initialValidators[", vm.toString(i), "]");
 
+            // Read addresses and private key from JSON
+            address attester = vm.parseJsonAddress(configJson, string.concat(basePath, ".attester"));
+            address withdrawer = vm.parseJsonAddress(configJson, string.concat(basePath, ".withdrawer"));
+            uint256 privateKey = vm.parseJsonUint(configJson, string.concat(basePath, ".privateKey"));
+
+            // Read pre-computed G2 public key (cannot be computed in Solidity - no G2 scalar mul precompile)
+            G2Point memory publicKeyInG2 = G2Point({
+                x0: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.x0")),
+                x1: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.x1")),
+                y0: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.y0")),
+                y1: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.y1"))
+            });
+
+            // Derive G1 public key: pk1 = privateKey * G1
+            G1Point memory publicKeyInG1 = BN254Lib.g1Mul(BN254Lib.g1Generator(), privateKey);
+
+            // Derive proof of possession: sigma = privateKey * hashToPoint(domain, pk1)
+            G1Point memory digestPoint = BN254Lib.g1ToDigestPoint(publicKeyInG1);
+            G1Point memory proofOfPossession = BN254Lib.g1Mul(digestPoint, privateKey);
+
             validators[i] = CheatDepositArgs({
-                attester: vm.parseJsonAddress(configJson, string.concat(basePath, ".attester")),
-                withdrawer: vm.parseJsonAddress(configJson, string.concat(basePath, ".withdrawer")),
-                publicKeyInG1: G1Point({
-                    x: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG1.x")),
-                    y: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG1.y"))
-                }),
-                publicKeyInG2: G2Point({
-                    x0: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.x0")),
-                    x1: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.x1")),
-                    y0: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.y0")),
-                    y1: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.y1"))
-                }),
-                proofOfPossession: G1Point({
-                    x: vm.parseJsonUint(configJson, string.concat(basePath, ".proofOfPossession.x")),
-                    y: vm.parseJsonUint(configJson, string.concat(basePath, ".proofOfPossession.y"))
-                })
+                attester: attester,
+                withdrawer: withdrawer,
+                publicKeyInG1: publicKeyInG1,
+                publicKeyInG2: publicKeyInG2,
+                proofOfPossession: proofOfPossession
             });
 
             console.log("  validator", i, "attester:", validators[i].attester);
