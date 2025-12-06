@@ -7,6 +7,7 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
@@ -143,8 +144,6 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         vinfo("Recursively verifying accumulation of the tail kernel.");
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
 
-        hide_op_queue_accumulation_result(circuit);
-
         auto [_first_verified, _second_verified, final_verifier_accumulator] =
             folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
 
@@ -253,6 +252,9 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Add randomness at the begining of the tail kernel (whose ecc ops fall at the beginning of the op queue table)
         // to ensure the CHONK proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_tail(circuit);
+
+        // Add the hiding op with random (non-curve) Px, Py values for statistical hiding of accumulated_result.
+        hide_op_queue_accumulation_result(circuit);
     }
     circuit.queue_ecc_eq();
 
@@ -447,23 +449,19 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 }
 
 /**
- * @brief Add a valid operation with random data to the op queue to prevent information leakage in Translator
- * proof.
+ * @brief Add a hiding op with fully random Px, Py field elements to prevent information leakage in Translator proof.
  *
  * @details The Translator circuit builder evaluates a batched polynomial (representing the four op queue polynomials
  * in UltraOp format) at a random challenge x. This evaluation result (called accumulated_result in translator) is
  * included in the translator proof and verified against the equivalent computation performed by ECCVM (in
- * verify_translation, establishing equivalence between ECCVM and UltraOp format). To ensure the accumulated_result
- * doesn't reveal information about actual ecc operations in the transaction, when the proof is sent to the rollup, we
- * add a random yet valid operation to the op queue. This guarantees the batched polynomial over Grumpkin contains at
- * least one random coefficient.
+ * verify_translation, establishing equivalence between ECCVM and UltraOp format).
+ *
  */
 void Chonk::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 {
-    Point random_point = Point::random_element();
-    FF random_scalar = FF::random_element();
-    circuit.queue_ecc_mul_accum(random_point, random_scalar);
-    circuit.queue_ecc_eq();
+    // Use random Fq field elements as Px and Py.
+    using Fq = curve::Grumpkin::ScalarField; // Same as BN254::BaseField
+    circuit.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
 }
 
 /**

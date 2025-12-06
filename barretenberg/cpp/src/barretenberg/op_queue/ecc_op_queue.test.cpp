@@ -11,13 +11,16 @@ class ECCOpQueueTest {
     using Polynomial = bb::Polynomial<Fr>;
 
     // Perform some basic interactions with the ECC op queue to mock the behavior of a single circuit
-    static void populate_an_arbitrary_subtable_of_ops(const std::shared_ptr<bb::ECCOpQueue>& op_queue)
+    static void populate_an_arbitrary_subtable_of_ops(const std::shared_ptr<bb::ECCOpQueue>& op_queue,
+                                                      bool initialize = true)
     {
         auto P1 = G1::random_element();
         auto P2 = G1::random_element();
         auto z = Fr::random_element();
 
-        op_queue->initialize_new_subtable();
+        if (initialize) {
+            op_queue->initialize_new_subtable();
+        }
         op_queue->add_accumulate(P1);
         op_queue->mul_accumulate(P2, z);
         op_queue->eq_and_reset();
@@ -89,14 +92,18 @@ class ECCOpQueueTest {
 TEST(ECCOpQueueTest, Basic)
 {
     using G1 = ECCOpQueueTest::G1;
+    using Fq = curve::Grumpkin::ScalarField;
 
     ECCOpQueue op_queue;
     op_queue.add_accumulate(bb::g1::affine_one);
     op_queue.empty_row_for_testing();
+    // Set hiding op for ECCVM ZK (required before get_eccvm_ops())
+    op_queue.append_hiding_op(Fq::random_element(), Fq::random_element());
     op_queue.merge();
     const auto& eccvm_ops = op_queue.get_eccvm_ops();
-    EXPECT_EQ(eccvm_ops[0].base_point, G1::one());
-    EXPECT_EQ(eccvm_ops[1].op_code.add, false);
+    // Index 0 is the hiding op (prepended for ECCVM ZK), so actual ops start at index 1
+    EXPECT_EQ(eccvm_ops[1].base_point, G1::one());
+    EXPECT_EQ(eccvm_ops[2].op_code.add, false);
 }
 
 TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
@@ -127,6 +134,7 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
 // and the current subtable via successive prepending of subtables
 TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependOnly)
 {
+    using Fq = curve::Grumpkin::ScalarField;
 
     // Instantiate an EccOpQueue and populate it with several subtables of ECC ops
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
@@ -134,7 +142,13 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependOnly)
     // Check that the table polynomials have the correct form after each subtable concatenation
     const size_t NUM_SUBTABLES = 5;
     for (size_t i = 0; i < NUM_SUBTABLES; ++i) {
-        ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue);
+        op_queue->initialize_new_subtable();
+        // For prepend: the last subtable becomes the first in the final table.
+        // Add hiding op at the START of the last subtable so it lands at index 0.
+        if (i == NUM_SUBTABLES - 1) {
+            op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
+        }
+        ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue, /*initialize=*/false);
         MergeSettings settings = MergeSettings::PREPEND;
         op_queue->merge(settings);
         ECCOpQueueTest::check_table_column_polynomials(op_queue, settings);
@@ -145,6 +159,7 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependOnly)
 
 TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependThenAppend)
 {
+    using Fq = curve::Grumpkin::ScalarField;
 
     // Instantiate an EccOpQueue and populate it with several subtables of ECC ops
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
@@ -152,13 +167,19 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependThenAppend)
     // Check that the table polynomials have the correct form after each subtable concatenation
     const size_t NUM_SUBTABLES = 2;
     for (size_t i = 0; i < NUM_SUBTABLES; ++i) {
-        ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue);
+        op_queue->initialize_new_subtable();
+        // For prepend: the last prepended subtable (i=1) becomes first in the final table.
+        // Add hiding op at the START of that subtable so it lands at index 0.
+        if (i == NUM_SUBTABLES - 1) {
+            op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
+        }
+        ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue, /*initialize=*/false);
         MergeSettings settings = MergeSettings::PREPEND;
         op_queue->merge(settings);
         ECCOpQueueTest::check_table_column_polynomials(op_queue, settings);
     }
 
-    // Do a single append operation
+    // Do a single append operation (goes at end, after prepended subtables)
     ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue);
     MergeSettings settings = MergeSettings::APPEND;
     op_queue->merge(settings);
@@ -169,6 +190,7 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependThenAppend)
 
 TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependThenAppendAtFixedOffset)
 {
+    using Fq = curve::Grumpkin::ScalarField;
 
     // Instantiate an EccOpQueue and populate it with several subtables of ECC ops
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
@@ -176,7 +198,13 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependThenAppendAtFixedOffset)
     // Check that the table polynomials have the correct form after each subtable concatenation
     const size_t NUM_SUBTABLES = 2;
     for (size_t i = 0; i < NUM_SUBTABLES; ++i) {
-        ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue);
+        op_queue->initialize_new_subtable();
+        // For prepend: the last prepended subtable (i=1) becomes first in the final table.
+        // Add hiding op at the START of that subtable so it lands at index 0.
+        if (i == NUM_SUBTABLES - 1) {
+            op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
+        }
+        ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue, /*initialize=*/false);
         MergeSettings settings = MergeSettings::PREPEND;
         op_queue->merge(settings);
         ECCOpQueueTest::check_table_column_polynomials(op_queue, settings);
