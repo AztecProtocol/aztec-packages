@@ -95,53 +95,42 @@ export async function deployL1Contracts(
       logger: debugLogger,
       // Initial validators to add during deployment
       initialValidators: initialValidatorOperators,
-      // JSON config passed to Solidity
-      config: {
-        genesis: {
-          vkTreeRoot: BigInt(vkTreeRoot.toString()).toString(),
-          protocolContractsHash: BigInt(protocolContractsHash.toString()).toString(),
-          genesisArchiveRoot: BigInt(genesisArchiveRoot.toString()).toString(),
-        },
-        deployment: {
-          useMockVerifier: !realVerifier,
-        },
-        timing: {
-          aztecSlotDuration: config.aztecSlotDuration,
-          aztecEpochDuration: config.aztecEpochDuration,
-          targetCommitteeSize: config.aztecTargetCommitteeSize,
-        },
-        validatorSet: {
-          lagInEpochsForValidatorSet: config.lagInEpochsForValidatorSet,
-          lagInEpochsForRandao: config.lagInEpochsForRandao,
-          aztecProofSubmissionEpochs: config.aztecProofSubmissionEpochs,
-        },
-        gse: {
-          activationThreshold: config.activationThreshold?.toString(),
-          ejectionThreshold: config.ejectionThreshold?.toString(),
-        },
-        slashing: {
-          flavor: config.slasherFlavor as 'none' | 'tally' | 'empire',
-          roundSizeInEpochs: config.slashingRoundSizeInEpochs,
-          offsetInRounds: config.slashingOffsetInRounds,
-          lifetimeInRounds: config.slashingLifetimeInRounds,
-          executionDelayInRounds: config.slashingExecutionDelayInRounds,
-          disableDuration: config.slashingDisableDuration,
-          vetoer: config.slashingVetoer.toString(),
-          amountSmall: config.slashAmountSmall?.toString(),
-          amountMedium: config.slashAmountMedium?.toString(),
-          amountLarge: config.slashAmountLarge?.toString(),
-        },
-        fee: {
-          manaTarget: config.manaTarget?.toString(),
-          provingCostPerMana: config.provingCostPerMana?.toString(),
-          exitDelaySeconds: config.exitDelaySeconds,
-          localEjectionThreshold: config.localEjectionThreshold?.toString(),
-        },
-        governance: {
-          proposerQuorum: config.governanceProposerQuorum,
-          proposerRoundSize: config.governanceProposerRoundSize,
-        },
-      },
+      // Genesis config
+      vkTreeRoot: vkTreeRoot.toString(),
+      protocolContractsHash: protocolContractsHash.toString(),
+      genesisArchiveRoot: genesisArchiveRoot.toString(),
+      // Deployment options
+      useMockVerifier: !realVerifier,
+      // Timing config
+      aztecSlotDuration: config.aztecSlotDuration,
+      aztecEpochDuration: config.aztecEpochDuration,
+      aztecTargetCommitteeSize: config.aztecTargetCommitteeSize,
+      // Validator set config
+      lagInEpochsForValidatorSet: config.lagInEpochsForValidatorSet,
+      lagInEpochsForRandao: config.lagInEpochsForRandao,
+      aztecProofSubmissionEpochs: config.aztecProofSubmissionEpochs,
+      // GSE config
+      activationThreshold: config.activationThreshold?.toString(),
+      ejectionThreshold: config.ejectionThreshold?.toString(),
+      localEjectionThreshold: config.localEjectionThreshold?.toString(),
+      // Slashing config
+      slasherFlavor: config.slasherFlavor,
+      slashingRoundSizeInEpochs: config.slashingRoundSizeInEpochs,
+      slashingOffsetInRounds: config.slashingOffsetInRounds,
+      slashingLifetimeInRounds: config.slashingLifetimeInRounds,
+      slashingExecutionDelayInRounds: config.slashingExecutionDelayInRounds,
+      slashingDisableDuration: config.slashingDisableDuration,
+      slashingVetoer: config.slashingVetoer?.toString(),
+      slashAmountSmall: config.slashAmountSmall?.toString(),
+      slashAmountMedium: config.slashAmountMedium?.toString(),
+      slashAmountLarge: config.slashAmountLarge?.toString(),
+      // Fee config
+      manaTarget: config.manaTarget?.toString(),
+      provingCostPerMana: config.provingCostPerMana?.toString(),
+      exitDelaySeconds: config.exitDelaySeconds,
+      // Governance config
+      governanceProposerQuorum: config.governanceProposerQuorum,
+      governanceProposerRoundSize: config.governanceProposerRoundSize,
     },
   );
 

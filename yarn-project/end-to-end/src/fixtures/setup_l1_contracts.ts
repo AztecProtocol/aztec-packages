@@ -1,9 +1,7 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import {
   type DeployL1ContractsArgs,
-  type ForgeDeploymentOptions,
   type L1ContractsConfig,
-  type L1ContractsJsonConfig,
   type Operator,
   RollupContract,
   type ZKPassportArgs,
@@ -56,8 +54,6 @@ export interface SetupL1ContractsWithForgeOptions extends Partial<L1ContractsCon
   realVerifier?: boolean;
   /** Fund the reward distributor with tokens */
   fundRewardDistributor?: boolean;
-  /** Additional forge deployment options (new nested format) */
-  forgeOptions?: Partial<Omit<ForgeDeploymentOptions, 'chain' | 'logger'>>;
   /** Initial validators to register (with BLS keys) */
   initialValidators?: (Operator & { privateKey?: `0x${string}` })[];
   /** ZkPassport configuration (domain, scope, mock verifier) */
@@ -79,77 +75,6 @@ export interface SetupL1ContractsWithForgeOptions extends Partial<L1ContractsCon
  * @param options - Deployment options including genesisArchiveRoot, realVerifier, etc.
  * @returns The deployed contract addresses and client
  */
-/**
- * Helper to convert bigint to string for JSON config.
- */
-function bigintToStr(value: bigint | undefined): string | undefined {
-  return value !== undefined ? value.toString() : undefined;
-}
-
-/**
- * Build the L1ContractsJsonConfig from SetupL1ContractsWithForgeOptions.
- * This maps the flat L1ContractsConfig options to the nested JSON format expected by forge.
- *
- * Note: ethereumSlotDuration is NOT passed to forge because:
- * 1. The forge script doesn't read this parameter - it's derived from L1 block time
- * 2. The Rollup contract calculates slotNumber based on L1 timestamps, not ethereumSlotDuration config
- */
-function buildL1ContractsJsonConfigFromOptions(
-  options: SetupL1ContractsWithForgeOptions,
-  vkTreeRoot: string,
-): L1ContractsJsonConfig {
-  return {
-    genesis: {
-      vkTreeRoot: BigInt(vkTreeRoot).toString(),
-      protocolContractsHash: BigInt(protocolContractsHash.toString()).toString(),
-      genesisArchiveRoot: options.genesisArchiveRoot ? BigInt(options.genesisArchiveRoot).toString() : undefined,
-    },
-    deployment: {
-      useMockVerifier: !(options.realVerifier ?? false),
-      fundRewardDistributor: options.fundRewardDistributor,
-    },
-    timing: {
-      // Note: ethereumSlotDuration is not passed to forge - L1 block time is inherent to the chain
-      aztecSlotDuration: options.aztecSlotDuration,
-      aztecEpochDuration: options.aztecEpochDuration,
-      targetCommitteeSize: options.aztecTargetCommitteeSize,
-    },
-    validatorSet: {
-      lagInEpochsForValidatorSet: options.lagInEpochsForValidatorSet,
-      lagInEpochsForRandao: options.lagInEpochsForRandao,
-      aztecProofSubmissionEpochs: options.aztecProofSubmissionEpochs,
-    },
-    gse: {
-      activationThreshold: bigintToStr(options.activationThreshold),
-      ejectionThreshold: bigintToStr(options.ejectionThreshold),
-    },
-    slashing: {
-      flavor: options.slasherFlavor,
-      roundSizeInEpochs: options.slashingRoundSizeInEpochs,
-      lifetimeInRounds: options.slashingLifetimeInRounds,
-      executionDelayInRounds: options.slashingExecutionDelayInRounds,
-      offsetInRounds: options.slashingOffsetInRounds,
-      disableDuration:
-        options.slashingDisableDuration !== undefined ? Number(options.slashingDisableDuration) : undefined,
-      vetoer: options.slashingVetoer?.toString(),
-      amountSmall: bigintToStr(options.slashAmountSmall),
-      amountMedium: bigintToStr(options.slashAmountMedium),
-      amountLarge: bigintToStr(options.slashAmountLarge),
-    },
-    fee: {
-      manaTarget: bigintToStr(options.manaTarget),
-      exitDelaySeconds: options.exitDelaySeconds,
-      provingCostPerMana: bigintToStr(options.provingCostPerMana),
-      localEjectionThreshold: bigintToStr(options.localEjectionThreshold),
-    },
-    governance: {
-      proposerQuorum: options.governanceProposerQuorum,
-      proposerRoundSize: options.governanceProposerRoundSize,
-    },
-    // stakingQueue is handled by forge_script.ts defaults using LocalEntryQueueConfig
-  };
-}
-
 export const setupL1ContractsWithForge = async (
   l1RpcUrl: string,
   privateKey: `0x${string}`,
@@ -169,38 +94,52 @@ export const setupL1ContractsWithForge = async (
     ethereumSlotDuration: options.ethereumSlotDuration,
   });
 
-  // Build stakingAssetHandler config, merging zkPassportArgs with any provided forgeOptions
-  // Note: mockZkPassportVerifier is not needed here - the forge script always deploys MockZkPassportVerifier
-  const stakingAssetHandler = {
-    ...options.forgeOptions?.stakingAssetHandler,
-    ...(options.zkPassportArgs?.zkPassportDomain && { zkPassportDomain: options.zkPassportArgs.zkPassportDomain }),
-    ...(options.zkPassportArgs?.zkPassportScope && { zkPassportScope: options.zkPassportArgs.zkPassportScope }),
-  };
-
-  // Build the config from options, then merge with any explicit forgeOptions.config
-  const configFromOptions = buildL1ContractsJsonConfigFromOptions(options, vkTreeRoot.toString());
-
-  // Deep merge: forgeOptions.config overrides configFromOptions
-  const mergedConfig: L1ContractsJsonConfig = {
-    genesis: { ...configFromOptions.genesis, ...options.forgeOptions?.config?.genesis },
-    deployment: { ...configFromOptions.deployment, ...options.forgeOptions?.config?.deployment },
-    timing: { ...configFromOptions.timing, ...options.forgeOptions?.config?.timing },
-    validatorSet: { ...configFromOptions.validatorSet, ...options.forgeOptions?.config?.validatorSet },
-    gse: { ...configFromOptions.gse, ...options.forgeOptions?.config?.gse },
-    slashing: { ...configFromOptions.slashing, ...options.forgeOptions?.config?.slashing },
-    fee: { ...configFromOptions.fee, ...options.forgeOptions?.config?.fee },
-    governance: { ...configFromOptions.governance, ...options.forgeOptions?.config?.governance },
-    reward: options.forgeOptions?.config?.reward,
-    stakingQueue: options.forgeOptions?.config?.stakingQueue,
-  };
-
   const l1Data = await setupL1ContractsViaForge(l1RpcUrl, privateKey, {
+    // Runtime options
     logger,
     chain: foundry,
-    config: mergedConfig,
-    stakingAssetHandler: Object.keys(stakingAssetHandler).length > 0 ? stakingAssetHandler : undefined,
     // Pass initial validators to be added during forge deployment (before governance handover)
     initialValidators: options.initialValidators,
+    // Genesis config
+    vkTreeRoot: vkTreeRoot.toString(),
+    protocolContractsHash: protocolContractsHash.toString(),
+    genesisArchiveRoot: options.genesisArchiveRoot,
+    // Deployment options
+    useMockVerifier: !(options.realVerifier ?? false),
+    fundRewardDistributor: options.fundRewardDistributor,
+    // Timing config (ethereumSlotDuration not passed - derived from L1 block time)
+    aztecSlotDuration: options.aztecSlotDuration,
+    aztecEpochDuration: options.aztecEpochDuration,
+    aztecTargetCommitteeSize: options.aztecTargetCommitteeSize,
+    // Validator set config
+    lagInEpochsForValidatorSet: options.lagInEpochsForValidatorSet,
+    lagInEpochsForRandao: options.lagInEpochsForRandao,
+    aztecProofSubmissionEpochs: options.aztecProofSubmissionEpochs,
+    // GSE config
+    activationThreshold: options.activationThreshold?.toString(),
+    ejectionThreshold: options.ejectionThreshold?.toString(),
+    localEjectionThreshold: options.localEjectionThreshold?.toString(),
+    // Slashing config
+    slasherFlavor: options.slasherFlavor,
+    slashingRoundSizeInEpochs: options.slashingRoundSizeInEpochs,
+    slashingLifetimeInRounds: options.slashingLifetimeInRounds,
+    slashingExecutionDelayInRounds: options.slashingExecutionDelayInRounds,
+    slashingOffsetInRounds: options.slashingOffsetInRounds,
+    slashingDisableDuration: options.slashingDisableDuration,
+    slashingVetoer: options.slashingVetoer?.toString(),
+    slashAmountSmall: options.slashAmountSmall?.toString(),
+    slashAmountMedium: options.slashAmountMedium?.toString(),
+    slashAmountLarge: options.slashAmountLarge?.toString(),
+    // Fee config
+    manaTarget: options.manaTarget?.toString(),
+    exitDelaySeconds: options.exitDelaySeconds,
+    provingCostPerMana: options.provingCostPerMana?.toString(),
+    // Governance config
+    governanceProposerQuorum: options.governanceProposerQuorum,
+    governanceProposerRoundSize: options.governanceProposerRoundSize,
+    // ZK Passport config
+    zkPassportDomain: options.zkPassportArgs?.zkPassportDomain,
+    zkPassportScope: options.zkPassportArgs?.zkPassportScope,
   });
 
   // Create a Rollup contract instance for querying state

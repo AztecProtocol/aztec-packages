@@ -3,20 +3,15 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { bn254 } from '@noble/curves/bn254';
 import { spawn } from 'child_process';
-import { existsSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { createPublicClient, getContract, http } from 'viem';
 import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from './client.js';
 import type { Operator } from './deploy_l1_contracts.js';
-import {
-  type L1ContractsDeployConfig,
-  type L1ContractsJsonConfig,
-  type ValidatorJson,
-  stringifyConfig,
-} from './forge_deploy_config.js';
+import { type L1ContractsDeployConfig, type ValidatorJson, stringifyConfig } from './forge_deploy_config.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
@@ -28,57 +23,12 @@ export type {
   L1ContractsDeployConfig,
   StakingAssetHandlerJsonConfig,
   StakingAssetHandlerDeployConfig,
-  // Section types
-  DeploymentSection,
-  GenesisSection,
-  TimingSection,
-  ValidatorSetSection,
-  GseSection,
-  SlashingSection,
-  FeeSection,
-  GovernanceSection,
-  RewardSection,
-  StakingQueueSection,
   // Validator types (Operator is exported from deploy_l1_contracts.js)
   ValidatorJson,
   G2PointJson,
   // Legacy types (deprecated)
-  ForgeDeploymentConfig,
-  ForgeDeploymentJsonConfig,
 } from './forge_deploy_config.js';
 export { stringifyConfig } from './forge_deploy_config.js';
-
-// Minimal ABI for Rollup contract to get addresses
-const RollupAddressesAbi = [
-  {
-    inputs: [],
-    name: 'getInbox',
-    outputs: [{ type: 'address' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'getOutbox',
-    outputs: [{ type: 'address' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'getFeeAssetPortal',
-    outputs: [{ type: 'address' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'getVersion',
-    outputs: [{ type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-] as const;
 
 /**
  * Result of running a forge script.
@@ -90,14 +40,35 @@ export interface ForgeScriptResult {
   stdout: string;
   /** The stderr output */
   stderr: string;
-  /** Parsed deployment addresses if available */
-  deployments?: Record<string, string>;
+  /** Parsed deployment addresses if available (from stdout parsing, kept for backwards compatibility) */
+  deployments?: ParsedDeploymentAddresses;
   /** The exit code */
   exitCode: number;
 }
 
 /**
+ * Addresses parsed from forge script stdout logs (fallback parsing).
+ * Used by runForgeScript for backwards compatibility.
+ */
+interface ParsedDeploymentAddresses {
+  feeAssetAddress?: string;
+  stakingAssetAddress?: string;
+  gseAddress?: string;
+  registryAddress?: string;
+  rewardDistributorAddress?: string;
+  governanceProposerAddress?: string;
+  governanceAddress?: string;
+  coinIssuerAddress?: string;
+  verifierAddress?: string;
+  rollupAddress?: string;
+  feeAssetHandlerAddress?: string;
+  stakingAssetHandlerAddress?: string;
+  zkPassportVerifierAddress?: string;
+}
+
+/**
  * Deployed contract addresses from the L1 deployment.
+ * These are written by the Solidity script and read from the JSON output file.
  */
 export interface L1DeploymentAddresses {
   feeAssetAddress: string;
@@ -113,6 +84,11 @@ export interface L1DeploymentAddresses {
   feeAssetHandlerAddress: string;
   stakingAssetHandlerAddress: string;
   zkPassportVerifierAddress: string;
+  // Addresses queried from Rollup contract by Solidity
+  inboxAddress: string;
+  outboxAddress: string;
+  feeAssetPortalAddress: string;
+  rollupVersion: number;
 }
 
 /**
@@ -143,15 +119,16 @@ export function getL1ContractsPath(): string {
 
 /**
  * Parses deployed addresses from forge script output.
+ * This is a fallback mechanism - the primary method is reading from the JSON output file.
  *
  * @param stdout - The stdout output from the forge script
  * @returns Parsed addresses
  */
-function parseDeployedAddresses(stdout: string): Partial<L1DeploymentAddresses> {
-  const addresses: Partial<L1DeploymentAddresses> = {};
+function parseDeployedAddresses(stdout: string): ParsedDeploymentAddresses {
+  const addresses: ParsedDeploymentAddresses = {};
 
   // Match patterns like "FeeAsset: 0x..." from forge console output
-  const addressPatterns: { pattern: RegExp; key: keyof L1DeploymentAddresses }[] = [
+  const addressPatterns: { pattern: RegExp; key: keyof ParsedDeploymentAddresses }[] = [
     { pattern: /FeeAsset:\s*(0x[a-fA-F0-9]{40})/i, key: 'feeAssetAddress' },
     { pattern: /StakingAsset:\s*(0x[a-fA-F0-9]{40})/i, key: 'stakingAssetAddress' },
     { pattern: /GSE:\s*(0x[a-fA-F0-9]{40})/i, key: 'gseAddress' },
@@ -327,14 +304,15 @@ export async function setupL1ContractsViaForge(
   const logger = options.logger ?? createLogger('setup-l1-contracts-forge');
   const chain = options.chain ?? foundry;
 
-  // Build the config, computing G2 public keys for any initial validators
-  const config: L1ContractsJsonConfig = { ...options.config };
+  // Extract runtime-only options (not passed to Solidity)
+  const { logger: _, chain: __, initialValidators, stakingAssetHandler: ___, ...jsonConfig } = options;
 
   // If initial validators are provided, compute their G2 public keys
   // Solidity will derive G1 and proof of possession from the private key
-  if (options.initialValidators && options.initialValidators.length > 0) {
-    logger.info(`Computing validator data for ${options.initialValidators.length} initial validators`);
-    config.initialValidators = options.initialValidators.map(operator => {
+  let computedValidators: ValidatorJson[] | undefined;
+  if (initialValidators && initialValidators.length > 0) {
+    logger.info(`Computing validator data for ${initialValidators.length} initial validators`);
+    computedValidators = initialValidators.map(operator => {
       const data = computeValidatorData(operator);
       logger.verbose(`Computed validator data for ${data.attester}`);
       return data;
@@ -343,105 +321,96 @@ export async function setupL1ContractsViaForge(
 
   // Build JSON config string to pass as script parameter
   // DeploymentConfig.sol parses the JSON and applies defaults for missing values
-  const jsonConfigStr = stringifyConfig(config);
+  const jsonConfigStr = stringifyConfig({
+    ...jsonConfig,
+    ...(computedValidators && { initialValidators: computedValidators }),
+  });
 
-  const useMockVerifier = config.deployment?.useMockVerifier !== false;
-  logger.info(`Using ${useMockVerifier ? 'MockVerifier' : 'HonkVerifier'}`);
-  logger.verbose('Forge deployment config', jsonConfigStr);
+  // Create a temp file for the deployment output
+  const tempDir = mkdtempSync(join(tmpdir(), 'aztec-deploy-'));
+  const outputPath = join(tempDir, 'deployment.json');
 
-  const result = await runForgeScript(
-    [
-      'script',
-      'script/deploy/rollup/DeployL1Contracts.s.sol',
-      '--sig',
-      'run(string)',
-      jsonConfigStr,
-      '--rpc-url',
-      rpcUrl,
-      '--private-key',
-      privateKey,
-      '--broadcast',
-      '-vvv',
-    ],
-    {
-      logger,
-    },
-  );
+  try {
+    const result = await runForgeScript(
+      [
+        'script',
+        'script/deploy/rollup/DeployL1Contracts.s.sol',
+        '--sig',
+        'run(string,string)',
+        jsonConfigStr,
+        outputPath,
+        '--rpc-url',
+        rpcUrl,
+        '--private-key',
+        privateKey,
+        '--broadcast',
+        '-vvvv',
+        // Grant write access to the temp output file
+        `--fs-permissions=${outputPath}=read-write`,
+      ],
+      {
+        logger,
+      },
+    );
 
-  if (!result.success || !result.deployments) {
-    throw new Error(`Forge deployment failed: ${result.stderr}`);
+    if (!result.success) {
+      throw new Error(`Forge deployment failed: ${result.stderr}`);
+    }
+
+    // Read addresses from the JSON output file written by Solidity
+    if (!existsSync(outputPath)) {
+      throw new Error(`Deployment output file not found: ${outputPath}`);
+    }
+
+    const addresses: L1DeploymentAddresses = JSON.parse(readFileSync(outputPath, 'utf-8'));
+    logger.info('Read deployment addresses from output file', addresses);
+
+    // Verify we got the required addresses from forge output
+    if (!addresses.rollupAddress || !addresses.registryAddress) {
+      throw new Error(`Forge deployment did not return required addresses. Got: ${JSON.stringify(addresses)}`);
+    }
+
+    // Create the extended L1 client
+    const l1Client = createExtendedL1Client([rpcUrl], privateKey, chain);
+
+    // Build the full L1ContractAddresses from the JSON file (Solidity queries Rollup for inbox/outbox/portal)
+    const l1ContractAddresses: L1ContractAddresses = {
+      rollupAddress: EthAddress.fromString(addresses.rollupAddress),
+      registryAddress: EthAddress.fromString(addresses.registryAddress),
+      inboxAddress: EthAddress.fromString(addresses.inboxAddress),
+      outboxAddress: EthAddress.fromString(addresses.outboxAddress),
+      feeJuiceAddress: EthAddress.fromString(addresses.feeAssetAddress ?? addresses.stakingAssetAddress!),
+      feeJuicePortalAddress: EthAddress.fromString(addresses.feeAssetPortalAddress),
+      coinIssuerAddress: EthAddress.fromString(addresses.coinIssuerAddress!),
+      rewardDistributorAddress: EthAddress.fromString(addresses.rewardDistributorAddress!),
+      governanceProposerAddress: EthAddress.fromString(addresses.governanceProposerAddress!),
+      governanceAddress: EthAddress.fromString(addresses.governanceAddress!),
+      stakingAssetAddress: EthAddress.fromString(addresses.stakingAssetAddress!),
+      gseAddress: addresses.gseAddress ? EthAddress.fromString(addresses.gseAddress) : undefined,
+      feeAssetHandlerAddress: addresses.feeAssetHandlerAddress
+        ? EthAddress.fromString(addresses.feeAssetHandlerAddress)
+        : undefined,
+      stakingAssetHandlerAddress: addresses.stakingAssetHandlerAddress
+        ? EthAddress.fromString(addresses.stakingAssetHandlerAddress)
+        : undefined,
+      zkPassportVerifierAddress: addresses.zkPassportVerifierAddress
+        ? EthAddress.fromString(addresses.zkPassportVerifierAddress)
+        : undefined,
+    };
+
+    logger.info('Forge script completed successfully');
+
+    return {
+      l1Client,
+      l1ContractAddresses,
+      rollupVersion: addresses.rollupVersion,
+    };
+  } finally {
+    // Clean up temp directory
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
   }
-
-  const addresses = result.deployments;
-
-  // Verify we got the required addresses from forge output
-  if (!addresses.rollupAddress || !addresses.registryAddress) {
-    throw new Error(`Forge deployment did not return required addresses. Got: ${JSON.stringify(addresses)}`);
-  }
-
-  // Create a public client to query the Rollup contract for additional addresses
-  const publicClient = createPublicClient({
-    chain,
-    transport: http(rpcUrl),
-  });
-
-  // Query Rollup contract for inbox, outbox, feeJuicePortal addresses
-  const rollupContract = getContract({
-    address: addresses.rollupAddress as `0x${string}`,
-    abi: RollupAddressesAbi,
-    client: publicClient,
-  });
-
-  const [inboxAddress, outboxAddress, feeAssetPortalAddress, rollupVersion] = await Promise.all([
-    rollupContract.read.getInbox(),
-    rollupContract.read.getOutbox(),
-    rollupContract.read.getFeeAssetPortal(),
-    rollupContract.read.getVersion(),
-  ]);
-
-  logger.info('Retrieved addresses from Rollup contract', {
-    inboxAddress,
-    outboxAddress,
-    feeAssetPortalAddress,
-    rollupVersion: Number(rollupVersion),
-  });
-
-  // Deploy StakingAssetHandler (for testing validator staking infrastructure)
-  // This is a separate script because it's only needed for local testing
-  const stakingAssetHandlerAddress: string | undefined = addresses.stakingAssetHandlerAddress;
-  const zkPassportVerifierAddress: string | undefined = addresses.zkPassportVerifierAddress;
-
-  // Create the extended L1 client
-  const l1Client = createExtendedL1Client([rpcUrl], privateKey, chain);
-
-  // Build the full L1ContractAddresses
-  const l1ContractAddresses: L1ContractAddresses = {
-    rollupAddress: EthAddress.fromString(addresses.rollupAddress),
-    registryAddress: EthAddress.fromString(addresses.registryAddress),
-    inboxAddress: EthAddress.fromString(inboxAddress),
-    outboxAddress: EthAddress.fromString(outboxAddress),
-    feeJuiceAddress: EthAddress.fromString(addresses.feeAssetAddress ?? addresses.stakingAssetAddress!),
-    feeJuicePortalAddress: EthAddress.fromString(feeAssetPortalAddress),
-    coinIssuerAddress: EthAddress.fromString(addresses.coinIssuerAddress!),
-    rewardDistributorAddress: EthAddress.fromString(addresses.rewardDistributorAddress!),
-    governanceProposerAddress: EthAddress.fromString(addresses.governanceProposerAddress!),
-    governanceAddress: EthAddress.fromString(addresses.governanceAddress!),
-    stakingAssetAddress: EthAddress.fromString(addresses.stakingAssetAddress!),
-    gseAddress: addresses.gseAddress ? EthAddress.fromString(addresses.gseAddress) : undefined,
-    feeAssetHandlerAddress: addresses.feeAssetHandlerAddress
-      ? EthAddress.fromString(addresses.feeAssetHandlerAddress)
-      : undefined,
-    stakingAssetHandlerAddress: stakingAssetHandlerAddress
-      ? EthAddress.fromString(stakingAssetHandlerAddress)
-      : undefined,
-    zkPassportVerifierAddress: zkPassportVerifierAddress ? EthAddress.fromString(zkPassportVerifierAddress) : undefined,
-  };
-
-  logger.info('Forge script completed successfully');
-
-  return {
-    l1Client,
-    l1ContractAddresses,
-    rollupVersion: Number(rollupVersion),
-  };
 }

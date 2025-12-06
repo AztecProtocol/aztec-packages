@@ -17,99 +17,6 @@ export interface ForgeRuntimeOptions {
   logger?: Logger;
 }
 
-// ============ JSON Config Sections (match Solidity DeploymentConfig.sol) ============
-
-export interface DeploymentSection {
-  networkName?: string; // Network name: local, devnet, next-net, staging-public, testnet, staging-ignition, mainnet
-  useMockVerifier?: boolean;
-  fundRewardDistributor?: boolean;
-  rewardDistributorFunding?: string;
-  existingStakingAssetAddress?: string;
-  deployFeeAssetHandler?: boolean;
-  deployStakingAssetHandler?: boolean;
-}
-
-export interface GenesisSection {
-  vkTreeRoot?: string;
-  protocolContractsHash?: string;
-  genesisArchiveRoot?: string;
-}
-
-export interface TimingSection {
-  aztecSlotDuration?: number;
-  aztecEpochDuration?: number;
-  targetCommitteeSize?: number;
-}
-
-export interface ValidatorSetSection {
-  lagInEpochsForValidatorSet?: number;
-  lagInEpochsForRandao?: number;
-  aztecProofSubmissionEpochs?: number;
-}
-
-export interface GseSection {
-  activationThreshold?: string;
-  ejectionThreshold?: string;
-}
-
-export interface SlashingSection {
-  flavor?: 'none' | 'empire' | 'tally';
-  roundSizeInEpochs?: number;
-  roundSize?: number;
-  quorum?: number;
-  lifetimeInRounds?: number;
-  executionDelayInRounds?: number;
-  offsetInRounds?: number;
-  disableDuration?: number;
-  vetoer?: string;
-  amountSmall?: string;
-  amountMedium?: string;
-  amountLarge?: string;
-}
-
-export interface FeeSection {
-  manaTarget?: string;
-  exitDelaySeconds?: number;
-  provingCostPerMana?: string;
-  localEjectionThreshold?: string;
-}
-
-export interface GovernanceSection {
-  // Proposer configuration
-  proposerQuorum?: number;
-  proposerRoundSize?: number;
-  // Governance voting configuration
-  proposeLockDelay?: number;
-  proposeLockAmount?: string;
-  votingDelay?: number;
-  votingDuration?: number;
-  executionDelay?: number;
-  gracePeriod?: number;
-  quorum?: string;
-  requiredYeaMargin?: string;
-  minimumVotes?: string;
-}
-
-export interface RewardSection {
-  sequencerBps?: number;
-  checkpointReward?: string;
-  // Note: earliestRewardsClaimableTimestamp is hardcoded in Solidity to block.timestamp + 90 days
-  // It's not configurable via JSON in DeployL1Contracts.s.sol (see line 509)
-}
-
-export interface StakingQueueSection {
-  bootstrapValidatorSetSize?: number;
-  bootstrapFlushSize?: number;
-  normalFlushSizeMin?: number;
-  normalFlushSizeQuotient?: number;
-  maxQueueFlushSize?: number;
-}
-
-export interface ZkPassportSection {
-  domain?: string;
-  scope?: string;
-}
-
 // Validator types for initial validator setup
 export interface G2PointJson {
   x0: string;
@@ -134,26 +41,6 @@ export interface ValidatorJson {
 // ============ Script-specific JSON Configs ============
 
 /**
- * JSON config for DeployL1Contracts.s.sol
- * Structure matches DeploymentConfig.sol
- */
-export interface L1ContractsJsonConfig {
-  deployment?: DeploymentSection;
-  genesis?: GenesisSection;
-  timing?: TimingSection;
-  validatorSet?: ValidatorSetSection;
-  gse?: GseSection;
-  slashing?: SlashingSection;
-  fee?: FeeSection;
-  governance?: GovernanceSection;
-  reward?: RewardSection;
-  stakingQueue?: StakingQueueSection;
-  zkPassport?: ZkPassportSection;
-  /** Pre-computed initial validators to add during deployment */
-  initialValidators?: ValidatorJson[];
-}
-
-/**
  * JSON config for DeployStakingAssetHandler.s.sol
  * Flat structure passed directly to Solidity.
  */
@@ -168,11 +55,10 @@ export interface StakingAssetHandlerJsonConfig {
 
 /**
  * Full configuration for setupL1ContractsViaForge().
- * Includes runtime options and nested JSON configs.
+ * Includes runtime options and JSON config passed to Solidity.
+ * All values are JSON-serializable (strings for bigints/addresses).
  */
 export interface L1ContractsDeployConfig extends ForgeRuntimeOptions {
-  /** JSON config passed to DeployL1Contracts.s.sol */
-  config?: L1ContractsJsonConfig;
   /** Config for StakingAssetHandler deployment (passed to DeployStakingAssetHandler.s.sol) */
   stakingAssetHandler?: Partial<StakingAssetHandlerJsonConfig>;
   /**
@@ -180,7 +66,70 @@ export interface L1ContractsDeployConfig extends ForgeRuntimeOptions {
    * The registration tuples will be computed from the secret keys before passing to Solidity.
    */
   initialValidators?: Operator[];
+
+  // ============ JSON config passed to DeployL1Contracts.s.sol ============
+  // Uses flat keys matching L1ContractsConfig field names.
+
+  // Deployment options
+  networkName?: string;
+  useMockVerifier?: boolean;
+  fundRewardDistributor?: boolean;
+  rewardDistributorFunding?: string;
+  existingStakingAssetAddress?: string;
+
+  // Genesis config
+  vkTreeRoot?: string;
+  protocolContractsHash?: string;
+  genesisArchiveRoot?: string;
+
+  // Timing config (matching L1ContractsConfig field names)
+  ethereumSlotDuration?: number;
+  aztecSlotDuration?: number;
+  aztecEpochDuration?: number;
+  aztecTargetCommitteeSize?: number;
+
+  // Validator set config
+  lagInEpochsForValidatorSet?: number;
+  lagInEpochsForRandao?: number;
+  aztecProofSubmissionEpochs?: number;
+
+  // GSE config
+  activationThreshold?: string;
+  ejectionThreshold?: string;
+  localEjectionThreshold?: string;
+
+  // Slashing config
+  slasherFlavor?: 'none' | 'tally' | 'empire';
+  slashingQuorum?: number;
+  slashingRoundSizeInEpochs?: number;
+  slashingOffsetInRounds?: number;
+  slashingLifetimeInRounds?: number;
+  slashingExecutionDelayInRounds?: number;
+  slashingDisableDuration?: number;
+  slashingVetoer?: string;
+  slashAmountSmall?: string;
+  slashAmountMedium?: string;
+  slashAmountLarge?: string;
+
+  // Fee config
+  manaTarget?: string;
+  provingCostPerMana?: string;
+  exitDelaySeconds?: number;
+
+  // Governance config
+  governanceProposerQuorum?: number;
+  governanceProposerRoundSize?: number;
+
+  // ZK Passport config
+  zkPassportDomain?: string;
+  zkPassportScope?: string;
 }
+
+/** @deprecated Use L1ContractsDeployConfig directly */
+export type L1ContractsJsonConfig = Omit<
+  L1ContractsDeployConfig,
+  keyof ForgeRuntimeOptions | 'stakingAssetHandler' | 'initialValidators'
+>;
 
 /**
  * Configuration for deploying StakingAssetHandler standalone.
@@ -194,9 +143,8 @@ export interface StakingAssetHandlerDeployConfig extends ForgeRuntimeOptions {
 
 /**
  * Recursively removes undefined values and empty objects from a config.
- * This prevents undefined from becoming null in JSON, which Forge would interpret as address(0).
  */
-function filterConfig<T>(obj: T): T | undefined {
+function filterUndefined<T>(obj: T): T | undefined {
   if (obj === null || obj === undefined) {
     return undefined;
   }
@@ -205,7 +153,7 @@ function filterConfig<T>(obj: T): T | undefined {
   }
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
-    const filtered = filterConfig(value);
+    const filtered = filterUndefined(value);
     if (filtered !== undefined) {
       result[key] = filtered;
     }
@@ -217,181 +165,5 @@ function filterConfig<T>(obj: T): T | undefined {
  * Stringify config to JSON, filtering out undefined values and empty objects.
  */
 export function stringifyConfig(config: object): string {
-  return JSON.stringify(filterConfig(config) ?? {});
+  return JSON.stringify(filterUndefined(config) ?? {});
 }
-
-// ============ Legacy Compatibility ============
-// TODO: Remove after migrating all callers to new API
-
-/**
- * @deprecated Use L1ContractsDeployConfig instead
- */
-export interface ForgeDeploymentConfig extends ForgeRuntimeOptions {
-  // Genesis State
-  vkTreeRoot?: string;
-  protocolContractsHash?: string;
-  genesisArchiveRoot?: string;
-
-  // Deployment Options
-  realVerifier?: boolean;
-  fundRewardDistributor?: boolean;
-  rewardDistributorFunding?: bigint;
-
-  // Core Timing
-  aztecSlotDuration?: number;
-  aztecEpochDuration?: number;
-  targetCommitteeSize?: number;
-
-  // Validator Set
-  lagInEpochsForValidatorSet?: number;
-  lagInEpochsForRandao?: number;
-  aztecProofSubmissionEpochs?: number;
-
-  // GSE
-  activationThreshold?: bigint;
-  ejectionThreshold?: bigint;
-
-  // Slashing
-  slasherFlavor?: 'none' | 'empire' | 'tally';
-  slashingQuorum?: number;
-  slashingRoundSize?: number;
-  slashingRoundSizeInEpochs?: number;
-  slashingLifetimeInRounds?: number;
-  slashingExecutionDelayInRounds?: number;
-  slashingOffsetInRounds?: number;
-  slashingDisableDuration?: number;
-  slashingVetoer?: string;
-  slashAmountSmall?: bigint;
-  slashAmountMedium?: bigint;
-  slashAmountLarge?: bigint;
-
-  // Fee
-  manaTarget?: bigint;
-  exitDelaySeconds?: number;
-  provingCostPerMana?: bigint;
-  localEjectionThreshold?: bigint;
-
-  // Governance
-  governanceProposerQuorum?: number;
-  governanceProposerRoundSize?: number;
-  governanceVotingDelay?: number;
-  governanceVotingDuration?: number;
-  governanceExecutionDelay?: number;
-  governanceGracePeriod?: number;
-
-  // Reward
-  sequencerBps?: number;
-  checkpointReward?: bigint;
-
-  // Staking Queue
-  bootstrapValidatorSetSize?: number;
-  bootstrapFlushSize?: number;
-  normalFlushSizeMin?: number;
-  normalFlushSizeQuotient?: number;
-  maxQueueFlushSize?: number;
-
-  // ZKPassport (for StakingAssetHandler)
-  zkPassportDomain?: string;
-  zkPassportScope?: string;
-}
-
-/**
- * @deprecated Use L1ContractsJsonConfig instead
- */
-export type ForgeDeploymentJsonConfig = L1ContractsJsonConfig;
-
-/**
- * Converts legacy flat config to nested JSON config.
- * @deprecated Use buildL1ContractsJsonConfig instead
- */
-export function buildForgeJsonConfig(config: ForgeDeploymentConfig): L1ContractsJsonConfig {
-  const bigintToStr = (value: bigint | undefined): string | undefined => {
-    return value !== undefined ? value.toString() : undefined;
-  };
-
-  const hexToDecimalStr = (hex: string | undefined): string | undefined => {
-    if (!hex) {
-      return undefined;
-    }
-    try {
-      return BigInt(hex).toString();
-    } catch {
-      return hex;
-    }
-  };
-
-  return {
-    deployment: {
-      useMockVerifier: config.realVerifier !== undefined ? !config.realVerifier : undefined,
-      fundRewardDistributor: config.fundRewardDistributor,
-      rewardDistributorFunding: bigintToStr(config.rewardDistributorFunding),
-    },
-    genesis: {
-      vkTreeRoot: hexToDecimalStr(config.vkTreeRoot),
-      protocolContractsHash: hexToDecimalStr(config.protocolContractsHash),
-      genesisArchiveRoot: hexToDecimalStr(config.genesisArchiveRoot),
-    },
-    timing: {
-      aztecSlotDuration: config.aztecSlotDuration,
-      aztecEpochDuration: config.aztecEpochDuration,
-      targetCommitteeSize: config.targetCommitteeSize,
-    },
-    validatorSet: {
-      lagInEpochsForValidatorSet: config.lagInEpochsForValidatorSet,
-      lagInEpochsForRandao: config.lagInEpochsForRandao,
-      aztecProofSubmissionEpochs: config.aztecProofSubmissionEpochs,
-    },
-    gse: {
-      activationThreshold: bigintToStr(config.activationThreshold),
-      ejectionThreshold: bigintToStr(config.ejectionThreshold),
-    },
-    slashing: {
-      flavor: config.slasherFlavor,
-      roundSizeInEpochs: config.slashingRoundSizeInEpochs,
-      roundSize: config.slashingRoundSize,
-      quorum: config.slashingQuorum,
-      lifetimeInRounds: config.slashingLifetimeInRounds,
-      executionDelayInRounds: config.slashingExecutionDelayInRounds,
-      offsetInRounds: config.slashingOffsetInRounds,
-      disableDuration: config.slashingDisableDuration,
-      vetoer: config.slashingVetoer,
-      amountSmall: bigintToStr(config.slashAmountSmall),
-      amountMedium: bigintToStr(config.slashAmountMedium),
-      amountLarge: bigintToStr(config.slashAmountLarge),
-    },
-    fee: {
-      manaTarget: bigintToStr(config.manaTarget),
-      exitDelaySeconds: config.exitDelaySeconds,
-      provingCostPerMana: bigintToStr(config.provingCostPerMana),
-      localEjectionThreshold: bigintToStr(config.localEjectionThreshold),
-    },
-    governance: {
-      proposerQuorum: config.governanceProposerQuorum,
-      proposerRoundSize: config.governanceProposerRoundSize,
-      votingDelay: config.governanceVotingDelay,
-      votingDuration: config.governanceVotingDuration,
-      executionDelay: config.governanceExecutionDelay,
-      gracePeriod: config.governanceGracePeriod,
-      // Note: proposeLockDelay, proposeLockAmount, quorum, requiredYeaMargin, minimumVotes
-      // are not in legacy config - use new L1ContractsJsonConfig format instead
-    },
-    reward: {
-      sequencerBps: config.sequencerBps,
-      checkpointReward: bigintToStr(config.checkpointReward),
-    },
-    stakingQueue: {
-      bootstrapValidatorSetSize: config.bootstrapValidatorSetSize,
-      bootstrapFlushSize: config.bootstrapFlushSize,
-      normalFlushSizeMin: config.normalFlushSizeMin,
-      normalFlushSizeQuotient: config.normalFlushSizeQuotient,
-      maxQueueFlushSize: config.maxQueueFlushSize,
-    },
-  };
-}
-
-// Legacy exports for backwards compatibility
-export { buildForgeJsonConfig as buildForgeEnvVars };
-export function parseForgeDeploymentConfig(_json: Record<string, unknown>): ForgeDeploymentConfig {
-  throw new Error('parseForgeDeploymentConfig is deprecated - use nested config types directly');
-}
-export const DEFAULT_FORGE_DEPLOYMENT_CONFIG = {};

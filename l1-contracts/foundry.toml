@@ -90,6 +90,11 @@ exclude_lints = [
 mainnet_fork = "https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c"
 
 
+[profile.viaIr]
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+
 [profile.production]
 remappings = [
   "@oz/=lib/openzeppelin-contracts/contracts/",
