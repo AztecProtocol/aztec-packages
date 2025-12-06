@@ -864,6 +864,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
         searchEndBlock,
         this.l1Addresses,
+        this.instrumentation,
         this.log,
       );
 

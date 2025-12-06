@@ -100,6 +100,7 @@ async function main() {
       publicClient as unknown as ViemPublicClient,
       publicClient as unknown as ViemPublicDebugClient,
       targetCommitteeSize,
+      undefined,
       logger,
       {
         rollupAddress,

@@ -4,7 +4,8 @@ import type { Logger } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
-import type { Hex } from 'viem';
+import { type Hex, extractChain } from 'viem';
+import { anvil, mainnet, sepolia } from 'viem/chains';
 
 import { L1Deployer } from './deploy_l1_contracts.js';
 import type { ExtendedViemWalletClient } from './types.js';
@@ -78,17 +79,21 @@ export async function deployForwarderProxy(client: ExtendedViemWalletClient, log
  */
 async function main() {
   const args = process.argv.slice(2);
-  if (args.length < 2) {
-    console.error('Usage: node forwarder_proxy.js <private_key> <rpc_url>');
+  if (args.length < 3) {
+    console.error('Usage: node forwarder_proxy.js <private_key> <rpc_url> <chain_id>');
     process.exit(1);
   }
 
-  const [privateKey, rpcUrl] = args;
+  const [privateKey, rpcUrl, chainId] = args;
 
   // Dynamic import to avoid pulling in dependencies at module load time
   const { createExtendedL1Client } = await import('./client.js');
 
-  const client = createExtendedL1Client([rpcUrl], privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`);
+  const client = createExtendedL1Client(
+    [rpcUrl],
+    privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`,
+    extractChain({ chains: [mainnet, sepolia, anvil], id: parseInt(chainId) as any }),
+  );
   const address = await deployForwarderProxy(client);
 
   console.log(`Forwarder proxy deployed at: ${address.toString()}`);

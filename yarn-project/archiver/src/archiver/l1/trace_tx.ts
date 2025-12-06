@@ -14,14 +14,14 @@ const traceActionSchema = z.object({
   from: schemas.HexStringWith0x,
   to: schemas.HexStringWith0x.optional(),
   callType: z.string(),
-  gas: schemas.HexStringWith0x,
+  gas: schemas.HexStringWith0x.optional(),
   input: schemas.HexStringWith0x.optional(),
   value: schemas.HexStringWith0x.optional(),
 });
 
 /** Zod schema for trace result from trace_transaction */
 const traceResultSchema = z.object({
-  gasUsed: schemas.HexStringWith0x,
+  gasUsed: schemas.HexStringWith0x.optional(),
   output: schemas.HexStringWith0x.optional(),
 });
 
@@ -68,6 +68,10 @@ export async function getSuccessfulCallsFromTrace(
     params: [txHash],
   });
 
+  if (rawTrace === null || rawTrace === undefined) {
+    throw new Error(`Failed to retrieve trace_transaction for ${txHash}`);
+  }
+
   logger?.trace(`Retrieved trace_transaction for ${txHash}`, { trace: rawTrace });
 
   // Validate the response with zod
@@ -113,7 +117,7 @@ export async function getSuccessfulCallsFromTrace(
     ) {
       results.push({
         from: EthAddress.fromString(trace.action.from),
-        gasUsed: BigInt(trace.result.gasUsed),
+        gasUsed: trace.result.gasUsed === undefined ? undefined : BigInt(trace.result.gasUsed),
         input: trace.action.input,
         value: trace.action.value ? BigInt(trace.action.value) : 0n,
       });

@@ -23,6 +23,7 @@ import {
 } from 'viem';
 
 import { NoBlobBodiesFoundError } from '../errors.js';
+import type { ArchiverInstrumentation } from '../instrumentation.js';
 import type { DataRetrieval } from '../structs/data_retrieval.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import type { L1PublishedData } from '../structs/published.js';
@@ -105,6 +106,7 @@ export async function retrieveBlocksFromRollup(
     slashFactoryAddress?: EthAddress;
     slashingProposerAddress: EthAddress;
   },
+  instrumentation: ArchiverInstrumentation,
   logger: Logger = createLogger('archiver'),
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
@@ -155,6 +157,7 @@ export async function retrieveBlocksFromRollup(
       l2BlockProposedLogs,
       rollupConstants,
       contractAddresses,
+      instrumentation,
       logger,
     );
     retrievedBlocks.push(...newBlocks);
@@ -185,13 +188,18 @@ async function processL2BlockProposedLogs(
     slashFactoryAddress?: EthAddress;
     slashingProposerAddress: EthAddress;
   },
+  instrumentation: ArchiverInstrumentation,
   logger: Logger,
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
-  const calldataRetriever = new CalldataRetriever(publicClient, debugClient, targetCommitteeSize, logger, {
-    ...contractAddresses,
-    rollupAddress: EthAddress.fromString(rollup.address),
-  });
+  const calldataRetriever = new CalldataRetriever(
+    publicClient,
+    debugClient,
+    targetCommitteeSize,
+    instrumentation,
+    logger,
+    { ...contractAddresses, rollupAddress: EthAddress.fromString(rollup.address) },
+  );
 
   await asyncPool(10, logs, async log => {
     const l2BlockNumber = Number(log.args.blockNumber!);

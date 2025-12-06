@@ -48,7 +48,10 @@ proposer known address, and if so, we try decoding it as either a multicall3 or 
 rollup contract.
 
 Similar as with the multicall3 check, we check that there are no other calls in the Spire proposer, so
-we are absolutely sure that the only call is the successful one to the rollup.
+we are absolutely sure that the only call is the successful one to the rollup. Any extraneous call would
+imply an unexpected path to calling `propose` in the rollup contract, and since we cannot verify if the
+calldata arguments we extracted are the correct ones (see the section below), we cannot know for sure which
+one is the call that succeeded, so we don't know which calldata to process.
 
 Furthermore, since the Spire proposer is upgradeable, we check if the implementation has not changed in
 order to decode. As usual, any validation failure triggers fallback to the next step.

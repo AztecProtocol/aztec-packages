@@ -60,6 +60,8 @@ export const ARCHIVER_PRUNE_COUNT = 'aztec.archiver.prune_count';
 
 export const ARCHIVER_TOTAL_TXS = 'aztec.archiver.tx_count';
 
+export const ARCHIVER_BLOCK_PROPOSAL_TX_TARGET_COUNT = 'aztec.archiver.block_proposal_tx_target_count';
+
 export const NODE_RECEIVE_TX_DURATION = 'aztec.node.receive_tx.duration';
 export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';
 
