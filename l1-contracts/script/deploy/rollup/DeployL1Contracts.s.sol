@@ -98,29 +98,125 @@ contract DeployL1Contracts is Script, Test {
         string scope;
     }
 
+    struct RollupTimingConfiguration {
+        uint256 aztecSlotDuration;
+        uint256 aztecEpochDuration;
+        uint256 targetCommitteeSize;
+    }
+
+    struct ValidatorSetConfiguration {
+        uint256 lagInEpochsForValidatorSet;
+        uint256 lagInEpochsForRandao;
+        uint256 aztecProofSubmissionEpochs;
+    }
+
+    struct SlashingConfiguration {
+        SlasherFlavor flavor;
+        uint256 roundSize;
+        uint256 quorum;
+        uint256 lifetimeInRounds;
+        uint256 executionDelayInRounds;
+        uint256 offsetInRounds;
+        uint256 disableDuration;
+        address vetoer;
+        uint256[3] slashAmounts;
+    }
+
+    struct FeeConfiguration {
+        uint256 manaTarget;
+        uint256 exitDelaySeconds;
+        uint256 provingCostPerMana;
+        uint256 localEjectionThreshold;
+    }
+
+    struct RewardConfiguration {
+        uint256 sequencerBps;
+        uint256 checkpointReward;
+    }
+
+    struct StakingQueueConfiguration {
+        uint256 bootstrapValidatorSetSize;
+        uint256 bootstrapFlushSize;
+        uint256 normalFlushSizeMin;
+        uint256 normalFlushSizeQuotient;
+        uint256 maxQueueFlushSize;
+    }
+
+    // Comprehensive configuration struct that holds all parsed deployment configuration
+    struct DeploymentConfiguration {
+        string networkName;
+        DeploymentOptions deploymentOptions;
+        CoinIssuerConfiguration coinIssuerConfig;
+        GseConfiguration gseConfig;
+        GovernanceProposerConfiguration governanceProposerConfig;
+        GovernanceConfiguration governanceConfig;
+        GenesisConfiguration genesisConfig;
+        ZkPassportConfiguration zkPassportConfig;
+        RollupTimingConfiguration timingConfig;
+        ValidatorSetConfiguration validatorSetConfig;
+        SlashingConfiguration slashingConfig;
+        FeeConfiguration feeConfig;
+        RewardConfiguration rewardConfig;
+        StakingQueueConfiguration stakingQueueConfig;
+        uint256 rewardDistributorFunding;
+        uint256 earliestRewardsClaimableTimestamp;
+        // Note: initialValidators are loaded separately via loadInitialValidators() since dynamic arrays cannot be stored in config
+    }
+
+    // Struct holding all deployed contract addresses
+    struct DeployedContracts {
+        IERC20 feeAsset;
+        IERC20 stakingAsset;
+        GSE gse;
+        Registry registry;
+        RewardDistributor rewardDistributor;
+        CoinIssuer coinIssuer;
+        GovernanceProposer governanceProposer;
+        Governance governance;
+        IVerifier verifier;
+        Rollup rollup;
+        SlashFactory slashFactory;
+        DateGatedRelayer dateGatedRelayer;
+        address feeAssetHandler;
+        MockZKPassportVerifier mockZkPassportVerifier;
+        address stakingAssetHandler;
+    }
+
     address public deployer;
     string internal configJson;
-    string internal networkName;
-
-    // Configuration objects
-    DeploymentOptions internal deployOpts;
-    CoinIssuerConfiguration internal coinIssuerConfig;
-    GseConfiguration internal gseConfig;
-    GovernanceProposerConfiguration internal govProposerConfig;
-    GovernanceConfiguration internal governanceConfig;
-    GenesisConfiguration internal genesisConfig;
-    ZkPassportConfiguration internal zkPassportConfig;
-    uint256 internal rewardDistributorFunding;
+    DeploymentConfiguration internal config;
+    DeployedContracts public deployed;
 
     function setUp() public virtual {
         deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
     }
 
-    function run(string memory _configJson) public {
+    // Main entry point: Parse JSON config and deploy
+    function run(string memory _configJson) public returns (DeployedContracts memory) {
+        config = parseJsonConfig(_configJson);
+
+        vm.startBroadcast(deployer);
+        deploy();
+        vm.stopBroadcast();
+
+        return deployed;
+    }
+
+    function run() public {
+        run("");
+    }
+
+    // Parse JSON configuration and apply defaults
+    // This ONLY parses the JSON and returns the config - does NOT deploy
+    // Use this to inspect config before calling runParsed()
+    function parseJsonConfig(string memory _configJson) public returns (DeploymentConfiguration memory) {
         configJson = _configJson;
+
         // Read networkName from config, default to "local"
         // Valid values: local, devnet, next-net, staging-public, testnet, staging-ignition, mainnet
-        networkName = _readString(".deployment.networkName", "local");
+        config.networkName = _readString(".deployment.networkName", "local");
+
+        // Load all configuration sections
         loadDeploymentOptions();
         loadCoinIssuerConfig();
         loadGseConfig();
@@ -128,37 +224,76 @@ contract DeployL1Contracts is Script, Test {
         loadGovernanceConfig();
         loadGenesisConfig();
         loadZkPassportConfig();
+        loadTimingConfig();
+        loadValidatorSetConfig();
+        loadSlashingConfig();
+        loadFeeConfig();
+        loadRewardConfig();
+        loadStakingQueueConfig();
         loadRewardDistributorFunding();
+        config.earliestRewardsClaimableTimestamp = block.timestamp + 90 days;
+        // Note: initialValidators are loaded separately in deployRollupAndSetup() since dynamic arrays cannot be stored in config
 
-        vm.startBroadcast(deployer);
-        deployAztecContracts();
-        vm.stopBroadcast();
+        return config;
     }
 
-    function run() public {
-        run("");
+    // Get the current contract-level config
+    // This allows tests to inspect the parsed configuration before deployment
+    function getConfiguration() public view returns (DeploymentConfiguration memory) {
+        return config;
     }
 
-    function deployAztecContracts() public {
+    // Internal deployment function that uses the contract-level config
+    function deploy() internal {
         console.log("=== Deploying Aztec L1 Contracts ===");
         console.log("Deployer:", deployer);
+        console.log("Network:", config.networkName);
 
-        (address feeAsset, address stakingAsset) = maybeDeployAssets(deployOpts.existingStakingAssetAddress);
-        console.log("FeeAsset:", feeAsset);
-        console.log("StakingAsset:", stakingAsset);
-
-        address coinIssuer = deployCoinIssuer(feeAsset, coinIssuerConfig.coinIssuerRate);
-        console.log("CoinIssuer:", coinIssuer);
-
-        address feeAssetHandler = maybeDeployFeeAssetHandler(feeAsset, deployOpts.deployFeeAssetHandler);
-        if (feeAssetHandler != address(0)) {
-            console.log("FeeAssetHandler:", feeAssetHandler);
+        {
+            // Deploy assets and store in deployed struct
+            (address feeAsset, address stakingAsset) = maybeDeployAssets(config.deploymentOptions.existingStakingAssetAddress);
+            deployed.feeAsset = IERC20(feeAsset);
+            deployed.stakingAsset = IERC20(stakingAsset);
+            console.log("FeeAsset:", feeAsset);
+            console.log("StakingAsset:", stakingAsset);
         }
 
-        (address gse, address registry, address rewardDistributor) = deployGovernanceInfrastructure(feeAsset, stakingAsset);
-        (address governance) = deployGovernanceContracts(stakingAsset, registry, gse);
+        {
+            // Deploy coin issuer and store in deployed struct
+            address coinIssuer = deployCoinIssuer(feeAsset, config.coinIssuerConfig.coinIssuerRate);
+            deployed.coinIssuer = CoinIssuer(coinIssuer);
+            console.log("CoinIssuer:", coinIssuer);
+        }
+        {
+            // Deploy fee asset handler and store in deployed struct
+            address feeAssetHandler = maybeDeployFeeAssetHandler(feeAsset, config.deploymentOptions.deployFeeAssetHandler);
+            deployed.feeAssetHandler = feeAssetHandler;
+            if (feeAssetHandler != address(0)) {
+                console.log("FeeAssetHandler:", feeAssetHandler);
+            }
+        }
 
-        deployRollupAndSetup(feeAsset, stakingAsset, feeAssetHandler, gse, registry, rewardDistributor, coinIssuer, governance);
+        // Deploy governance infrastructure and store in deployed struct
+        (address gse, address registry, address rewardDistributor) = deployGovernanceInfrastructure(feeAsset, stakingAsset);
+        deployed.gse = GSE(gse);
+        deployed.registry = Registry(registry);
+        deployed.rewardDistributor = RewardDistributor(rewardDistributor);
+
+        // Deploy governance contracts and store in deployed struct
+        (address governance) = deployGovernanceContracts(stakingAsset, registry, gse);
+        deployed.governance = Governance(governance);
+
+        // Deploy rollup and periphery contracts
+        deployRollupAndSetup(
+            feeAsset,
+            stakingAsset,
+            feeAssetHandler,
+            gse,
+            registry,
+            rewardDistributor,
+            coinIssuer,
+            governance
+        );
         console.log("=== Deployment Complete ===");
     }
 
@@ -173,51 +308,58 @@ contract DeployL1Contracts is Script, Test {
         address coinIssuer,
         address governance
     ) internal {
+        // Deploy rollup and store in deployed struct
         address rollup = deployRollupInfrastructure(feeAsset, stakingAsset, gse, governance, rewardDistributor);
+        deployed.rollup = Rollup(rollup);
 
+        // Deploy date gated relayer and store in deployed struct
         address dateGatedRelayer = deployDateGatedRelayer(governance);
+        deployed.dateGatedRelayer = DateGatedRelayer(dateGatedRelayer);
         console.log("DateGatedRelayer:", dateGatedRelayer);
 
-        (address mockZKPassportVerifier, address stakingAssetHandler) = maybeDeployStakingAssetHandler(stakingAsset, registry, deployOpts.deployStakingAssetHandler, zkPassportConfig.domain, zkPassportConfig.scope);
+        // Deploy staking asset handler and store in deployed struct
+        (address mockZKPassportVerifier, address stakingAssetHandler) = maybeDeployStakingAssetHandler(
+            stakingAsset,
+            registry,
+            config.deploymentOptions.deployStakingAssetHandler,
+            config.zkPassportConfig.domain,
+            config.zkPassportConfig.scope
+        );
         if (stakingAssetHandler != address(0)) {
+            deployed.mockZkPassportVerifier = MockZKPassportVerifier(mockZKPassportVerifier);
+            deployed.stakingAssetHandler = stakingAssetHandler;
             console.log("MockZKPassportVerifier:", mockZKPassportVerifier);
             console.log("StakingAssetHandler:", stakingAssetHandler);
         }
 
         // Setup and finalize
-        wireContracts(feeAsset, stakingAsset, feeAssetHandler, stakingAssetHandler, gse, governance, deployOpts.existingStakingAssetAddress);
+        wireContracts(feeAsset, stakingAsset, feeAssetHandler, stakingAssetHandler, gse, governance, config.deploymentOptions.existingStakingAssetAddress);
         registerRollup(registry, gse, rollup);
 
         // Add initial validators if provided (mirrors TypeScript addMultipleValidators logic)
         // Validators are added AFTER registering rollup in GSE but BEFORE handover to governance
         // This allows us to add validators while deployer still owns the contracts
         CheatDepositArgs[] memory initialValidators = loadInitialValidators();
-        if (initialValidators.length > 0 && deployOpts.existingStakingAssetAddress == address(0)) {
+        if (initialValidators.length > 0 && config.deploymentOptions.existingStakingAssetAddress == address(0)) {
             // Only add validators if:
             // 1. We have validators to add
             // 2. We control the staking asset (can mint tokens)
             addValidators(rollup, stakingAsset, initialValidators);
         }
 
-        maybeFundRewardDistributor(feeAsset, rewardDistributor, deployOpts.fundRewardDistributor, deployOpts.existingStakingAssetAddress, rewardDistributorFunding);
-        handoverToGovernance(feeAsset, registry, gse, coinIssuer, governance, dateGatedRelayer, deployOpts.existingStakingAssetAddress);
-        assertAccessControl(feeAsset, gse, registry, rewardDistributor, coinIssuer, governance, dateGatedRelayer, deployOpts.existingStakingAssetAddress);
-    }
-
-    function deployAssetInfrastructure(address feeAsset) internal returns (address coinIssuer, address feeAssetHandler) {
-        coinIssuer = deployCoinIssuer(feeAsset, coinIssuerConfig.coinIssuerRate);
-        console.log("CoinIssuer:", coinIssuer);
-
-        feeAssetHandler = maybeDeployFeeAssetHandler(feeAsset, deployOpts.deployFeeAssetHandler);
-        if (feeAssetHandler != address(0)) {
-            console.log("FeeAssetHandler:", feeAssetHandler);
-        }
-
-        return (coinIssuer, feeAssetHandler);
+        maybeFundRewardDistributor(
+            feeAsset,
+            rewardDistributor,
+            config.deploymentOptions.fundRewardDistributor,
+            config.deploymentOptions.existingStakingAssetAddress,
+            config.rewardDistributorFunding
+        );
+        handoverToGovernance(feeAsset, registry, gse, coinIssuer, governance, dateGatedRelayer, config.deploymentOptions.existingStakingAssetAddress);
+        assertAccessControl(feeAsset, gse, registry, rewardDistributor, coinIssuer, governance, dateGatedRelayer, config.deploymentOptions.existingStakingAssetAddress);
     }
 
     function deployGovernanceInfrastructure(address feeAsset, address stakingAsset) internal returns (address gse, address registry, address rewardDistributor) {
-        gse = deployGSE(stakingAsset, gseConfig.activationThreshold, gseConfig.ejectionThreshold);
+        gse = deployGSE(stakingAsset, config.gseConfig.activationThreshold, config.gseConfig.ejectionThreshold);
         console.log("GSE:", gse);
 
         (registry, rewardDistributor) = deployRegistry(feeAsset);
@@ -227,24 +369,40 @@ contract DeployL1Contracts is Script, Test {
         return (gse, registry, rewardDistributor);
     }
 
-    function deployGovernanceContracts(address stakingAsset, address registry, address gse) internal returns (address governance) {
-        address governanceProposer = deployGovernanceProposer(registry, gse, govProposerConfig.quorum, govProposerConfig.roundSize);
+    function deployGovernanceContracts(
+        address stakingAsset,
+        address registry,
+        address gse
+    ) internal returns (address governance) {
+        // Deploy governance proposer and store in deployed struct
+        address governanceProposer = deployGovernanceProposer(registry, gse, config.governanceProposerConfig.quorum, config.governanceProposerConfig.roundSize);
+        deployed.governanceProposer = GovernanceProposer(governanceProposer);
         console.log("GovernanceProposer:", governanceProposer);
 
-        governance = deployGovernance(stakingAsset, governanceProposer, gse, governanceConfig);
+        governance = deployGovernance(stakingAsset, governanceProposer, gse, config.governanceConfig);
         console.log("Governance:", governance);
 
         return (governance);
     }
 
-    function deployRollupInfrastructure(address feeAsset, address stakingAsset, address gse, address governance, address rewardDistributor) internal returns (address rollup) {
-        address verifier = deployVerifier(deployOpts.useMockVerifier);
+    function deployRollupInfrastructure(
+        address feeAsset,
+        address stakingAsset,
+        address gse,
+        address governance,
+        address rewardDistributor
+    ) internal returns (address rollup) {
+        // Deploy verifier and store in deployed struct
+        address verifier = deployVerifier(config.deploymentOptions.useMockVerifier);
+        deployed.verifier = IVerifier(verifier);
         console.log("Verifier:", verifier);
 
         rollup = deployRollup(feeAsset, stakingAsset, gse, verifier, governance, rewardDistributor);
         console.log("Rollup:", rollup);
 
+        // Deploy slash factory and store in deployed struct
         address slashFactory = deploySlashFactory(rollup);
+        deployed.slashFactory = SlashFactory(slashFactory);
         console.log("SlashFactory:", slashFactory);
 
         return (rollup);
@@ -328,22 +486,22 @@ contract DeployL1Contracts is Script, Test {
         ));
     }
 
-    function deployGovernance(address stakingAsset, address govProposer, address gse, GovernanceConfiguration memory config) internal returns (address) {
+    function deployGovernance(address stakingAsset, address govProposer, address gse, GovernanceConfiguration memory govConfig) internal returns (address) {
         console.log("--- Governance constructor args ---");
         console.log("  stakingAsset:", stakingAsset);
         console.log("  govProposer:", govProposer);
         console.log("  gse:", gse);
-        console.log("  config.proposeConfig.lockDelay:", Timestamp.unwrap(config.proposeConfig.lockDelay));
-        console.log("  config.proposeConfig.lockAmount:", config.proposeConfig.lockAmount);
-        console.log("  config.votingDelay:", Timestamp.unwrap(config.votingDelay));
-        console.log("  config.votingDuration:", Timestamp.unwrap(config.votingDuration));
-        console.log("  config.executionDelay:", Timestamp.unwrap(config.executionDelay));
-        console.log("  config.gracePeriod:", Timestamp.unwrap(config.gracePeriod));
-        console.log("  config.quorum:", config.quorum);
-        console.log("  config.requiredYeaMargin:", config.requiredYeaMargin);
-        console.log("  config.minimumVotes:", config.minimumVotes);
+        console.log("  config.proposeConfig.lockDelay:", Timestamp.unwrap(govConfig.proposeConfig.lockDelay));
+        console.log("  config.proposeConfig.lockAmount:", govConfig.proposeConfig.lockAmount);
+        console.log("  config.votingDelay:", Timestamp.unwrap(govConfig.votingDelay));
+        console.log("  config.votingDuration:", Timestamp.unwrap(govConfig.votingDuration));
+        console.log("  config.executionDelay:", Timestamp.unwrap(govConfig.executionDelay));
+        console.log("  config.gracePeriod:", Timestamp.unwrap(govConfig.gracePeriod));
+        console.log("  config.quorum:", govConfig.quorum);
+        console.log("  config.requiredYeaMargin:", govConfig.requiredYeaMargin);
+        console.log("  config.minimumVotes:", govConfig.minimumVotes);
         return address(new Governance(
-            IERC20(stakingAsset), govProposer, gse, config
+            IERC20(stakingAsset), govProposer, gse, govConfig
         ));
     }
 
@@ -365,9 +523,9 @@ contract DeployL1Contracts is Script, Test {
         address rewardDistributor
     ) internal returns (address) {
         GenesisState memory genesisState = GenesisState({
-            vkTreeRoot: genesisConfig.vkTreeRoot,
-            protocolContractsHash: genesisConfig.protocolContractsHash,
-            genesisArchiveRoot: genesisConfig.genesisArchiveRoot
+            vkTreeRoot: config.genesisConfig.vkTreeRoot,
+            protocolContractsHash: config.genesisConfig.protocolContractsHash,
+            genesisArchiveRoot: config.genesisConfig.genesisArchiveRoot
         });
 
         RollupConfigInput memory rollupConfig = buildRollupConfiguration(IRewardDistributor(rewardDistributor));
@@ -659,9 +817,15 @@ contract DeployL1Contracts is Script, Test {
             return new CheatDepositArgs[](0);
         }
 
-        // Get the array length
-        string[] memory validatorKeys = vm.parseJsonKeys(configJson, ".initialValidators");
-        uint256 validatorCount = validatorKeys.length;
+        // Count array elements by checking if each index exists
+        uint256 validatorCount = 0;
+        while (true) {
+            string memory testPath = string.concat(".initialValidators[", vm.toString(validatorCount), "]");
+            if (!vm.keyExistsJson(configJson, testPath)) {
+                break;
+            }
+            validatorCount++;
+        }
 
         if (validatorCount == 0) {
             return new CheatDepositArgs[](0);
@@ -675,12 +839,12 @@ contract DeployL1Contracts is Script, Test {
         for (uint256 i = 0; i < validatorCount; i++) {
             string memory basePath = string.concat(".initialValidators[", vm.toString(i), "]");
 
-            // Read addresses and private key from JSON
+            // Parse individual fields from JSON
             address attester = vm.parseJsonAddress(configJson, string.concat(basePath, ".attester"));
             address withdrawer = vm.parseJsonAddress(configJson, string.concat(basePath, ".withdrawer"));
             uint256 privateKey = vm.parseJsonUint(configJson, string.concat(basePath, ".privateKey"));
 
-            // Read pre-computed G2 public key (cannot be computed in Solidity - no G2 scalar mul precompile)
+            // Parse G2 point fields
             G2Point memory publicKeyInG2 = G2Point({
                 x0: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.x0")),
                 x1: vm.parseJsonUint(configJson, string.concat(basePath, ".publicKeyInG2.x1")),
@@ -715,7 +879,7 @@ contract DeployL1Contracts is Script, Test {
         address existingAsset = _readAddress(".deployment.existingStakingAssetAddress", address(0));
         bool deployingNewAsset = existingAsset == address(0);
 
-        deployOpts = DeploymentOptions({
+        config.deploymentOptions = DeploymentOptions({
             useMockVerifier: _readBool(".deployment.useMockVerifier", true),
             fundRewardDistributor: _readBool(".deployment.fundRewardDistributor", true),
             existingStakingAssetAddress: existingAsset,
@@ -725,14 +889,14 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function loadCoinIssuerConfig() internal {
-        coinIssuerConfig = CoinIssuerConfiguration({
+        config.coinIssuerConfig = CoinIssuerConfiguration({
             coinIssuerRate: 0.2e18
         });
     }
 
     function loadGseConfig() internal {
         // Match TypeScript DefaultL1ContractsConfig (config.ts lines 85-86)
-        gseConfig = GseConfiguration({
+        config.gseConfig = GseConfiguration({
             activationThreshold: _readUint(".gse.activationThreshold", 100e18),  // Match TS: 100e18
             ejectionThreshold: _readUint(".gse.ejectionThreshold", 50e18)        // Match TS: 50e18
         });
@@ -743,7 +907,7 @@ contract DeployL1Contracts is Script, Test {
         uint256 roundSize = _readUint(".governance.proposerRoundSize", 300);  // Match TS: 300, not 10!
         uint256 defaultQuorum = roundSize / 2 + 1;
 
-        govProposerConfig = GovernanceProposerConfiguration({
+        config.governanceProposerConfig = GovernanceProposerConfiguration({
             quorum: _readUint(".governance.proposerQuorum", defaultQuorum),
             roundSize: roundSize
         });
@@ -763,7 +927,7 @@ contract DeployL1Contracts is Script, Test {
             uint256 minimumVotes
         ) = _getGovernanceConfigDefaults();
 
-        governanceConfig = GovernanceConfiguration({
+        config.governanceConfig = GovernanceConfiguration({
             proposeConfig: ProposeWithLockConfiguration({
                 lockDelay: Timestamp.wrap(_readUint(".governance.proposeLockDelay", lockDelay)),
                 lockAmount: _readUint(".governance.proposeLockAmount", lockAmount)
@@ -779,7 +943,7 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function loadGenesisConfig() internal {
-        genesisConfig = GenesisConfiguration({
+        config.genesisConfig = GenesisConfiguration({
             vkTreeRoot: bytes32(_readUint(".genesis.vkTreeRoot", 0)),
             protocolContractsHash: bytes32(_readUint(".genesis.protocolContractsHash", 0)),
             genesisArchiveRoot: bytes32(_readUint(".genesis.genesisArchiveRoot", 0))
@@ -787,77 +951,125 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function loadZkPassportConfig() internal {
-        zkPassportConfig = ZkPassportConfiguration({
+        config.zkPassportConfig = ZkPassportConfiguration({
             domain: _readString(".zkPassport.domain", "sequencer.alpha-testnet.aztec.network"),
             scope: _readString(".zkPassport.scope", "personhood")
+        });
+    }
+
+    function loadTimingConfig() internal {
+        config.timingConfig = RollupTimingConfiguration({
+            aztecSlotDuration: _readUint(".timing.aztecSlotDuration", 36),
+            aztecEpochDuration: _readUint(".timing.aztecEpochDuration", 32),
+            targetCommitteeSize: _readUint(".timing.targetCommitteeSize", 48)
+        });
+    }
+
+    function loadValidatorSetConfig() internal {
+        config.validatorSetConfig = ValidatorSetConfiguration({
+            lagInEpochsForValidatorSet: _readUint(".validatorSet.lagInEpochsForValidatorSet", 2),
+            lagInEpochsForRandao: _readUint(".validatorSet.lagInEpochsForRandao", 2),
+            aztecProofSubmissionEpochs: _readUint(".validatorSet.aztecProofSubmissionEpochs", 1)
+        });
+    }
+
+    function loadSlashingConfig() internal {
+        SlasherFlavor flavor = _parseSlasherFlavor(_readString(".slashing.flavor", "tally"));
+        uint256 roundSizeInEpochs = _readUint(".slashing.roundSizeInEpochs", 4);
+        uint256 defaultRoundSize = roundSizeInEpochs * config.timingConfig.aztecEpochDuration;
+        uint256 roundSize = _readUint(".slashing.roundSize", defaultRoundSize);
+        uint256 defaultQuorum = roundSize / 2 + 1;
+        uint256 defaultOffset = flavor == SlasherFlavor.TALLY ? 2 : 0;
+
+        config.slashingConfig = SlashingConfiguration({
+            flavor: flavor,
+            roundSize: roundSize,
+            quorum: _readUint(".slashing.quorum", defaultQuorum),
+            lifetimeInRounds: _readUint(".slashing.lifetimeInRounds", 5),
+            executionDelayInRounds: _readUint(".slashing.executionDelayInRounds", 0),
+            offsetInRounds: _readUint(".slashing.offsetInRounds", defaultOffset),
+            disableDuration: _readUint(".slashing.disableDuration", 5 days),
+            vetoer: _readAddress(".slashing.vetoer", address(0)),
+            slashAmounts: [
+                _readUint(".slashing.amountSmall", 10e18),
+                _readUint(".slashing.amountMedium", 20e18),
+                _readUint(".slashing.amountLarge", 50e18)
+            ]
+        });
+    }
+
+    function loadFeeConfig() internal {
+        config.feeConfig = FeeConfiguration({
+            manaTarget: _readUint(".fee.manaTarget", 100_000_000),
+            exitDelaySeconds: _readUint(".fee.exitDelaySeconds", 2 days),
+            provingCostPerMana: _readUint(".fee.provingCostPerMana", 100),
+            localEjectionThreshold: _readUint(".fee.localEjectionThreshold", 98e18)
+        });
+    }
+
+    function loadRewardConfig() internal {
+        (uint16 sequencerBps, uint96 checkpointReward) = _getRewardConfigDefaults();
+        config.rewardConfig = RewardConfiguration({
+            sequencerBps: _readUint(".reward.sequencerBps", sequencerBps),
+            checkpointReward: _readUint(".reward.checkpointReward", checkpointReward)
+        });
+    }
+
+    function loadStakingQueueConfig() internal {
+        (uint64 bootstrapValidatorSetSize, uint64 bootstrapFlushSize, uint64 normalFlushSizeMin, uint64 normalFlushSizeQuotient, uint64 maxQueueFlushSize) = _getEntryQueueConfigDefaults();
+        config.stakingQueueConfig = StakingQueueConfiguration({
+            bootstrapValidatorSetSize: _readUint(".stakingQueue.bootstrapValidatorSetSize", bootstrapValidatorSetSize),
+            bootstrapFlushSize: _readUint(".stakingQueue.bootstrapFlushSize", bootstrapFlushSize),
+            normalFlushSizeMin: _readUint(".stakingQueue.normalFlushSizeMin", normalFlushSizeMin),
+            normalFlushSizeQuotient: _readUint(".stakingQueue.normalFlushSizeQuotient", normalFlushSizeQuotient),
+            maxQueueFlushSize: _readUint(".stakingQueue.maxQueueFlushSize", maxQueueFlushSize)
         });
     }
 
     function loadRewardDistributorFunding() internal {
         // Funding calculation from deploy_l1_contracts.ts:493
         // const funding = checkpointReward * 200000n;
-        (,uint96 checkpointReward) = _getRewardConfigDefaults();
-        uint256 defaultFunding = uint256(checkpointReward) * 200_000;
-        rewardDistributorFunding = _readUint(".deployment.rewardDistributorFunding", defaultFunding);
+        uint256 defaultFunding = config.rewardConfig.checkpointReward * 200_000;
+        config.rewardDistributorFunding = _readUint(".deployment.rewardDistributorFunding", defaultFunding);
     }
 
-    function buildRollupConfiguration(IRewardDistributor rewardDistributor) internal view returns (RollupConfigInput memory config) {
-        // Match TypeScript DefaultL1ContractsConfig (config.ts lines 77-102)
-        config.aztecSlotDuration = _readUint(".timing.aztecSlotDuration", 36);
-        config.aztecEpochDuration = _readUint(".timing.aztecEpochDuration", 32);
-        config.targetCommitteeSize = _readUint(".timing.targetCommitteeSize", 48);  // Match TS DefaultL1ContractsConfig
+    function buildRollupConfiguration(IRewardDistributor rewardDistributor) internal view returns (RollupConfigInput memory rollupConfig) {
+        rollupConfig.aztecSlotDuration = config.timingConfig.aztecSlotDuration;
+        rollupConfig.aztecEpochDuration = config.timingConfig.aztecEpochDuration;
+        rollupConfig.targetCommitteeSize = config.timingConfig.targetCommitteeSize;
 
-        config.lagInEpochsForValidatorSet = _readUint(".validatorSet.lagInEpochsForValidatorSet", 2);  // Match TS: 2, not 3
-        config.lagInEpochsForRandao = _readUint(".validatorSet.lagInEpochsForRandao", 2);
-        config.aztecProofSubmissionEpochs = _readUint(".validatorSet.aztecProofSubmissionEpochs", 1);  // Match TS: 1, not 2
+        rollupConfig.lagInEpochsForValidatorSet = config.validatorSetConfig.lagInEpochsForValidatorSet;
+        rollupConfig.lagInEpochsForRandao = config.validatorSetConfig.lagInEpochsForRandao;
+        rollupConfig.aztecProofSubmissionEpochs = config.validatorSetConfig.aztecProofSubmissionEpochs;
 
-        config.slasherFlavor = _parseSlasherFlavor(_readString(".slashing.flavor", "tally"));  // Match TS: 'tally', not 'none'
+        rollupConfig.slasherFlavor = config.slashingConfig.flavor;
+        rollupConfig.slashingRoundSize = config.slashingConfig.roundSize;
+        rollupConfig.slashingQuorum = config.slashingConfig.quorum;
+        rollupConfig.slashingLifetimeInRounds = config.slashingConfig.lifetimeInRounds;
+        rollupConfig.slashingExecutionDelayInRounds = config.slashingConfig.executionDelayInRounds;
+        rollupConfig.slashingOffsetInRounds = config.slashingConfig.offsetInRounds;
+        rollupConfig.slashingDisableDuration = config.slashingConfig.disableDuration;
+        rollupConfig.slashingVetoer = config.slashingConfig.vetoer;
+        rollupConfig.slashAmounts = config.slashingConfig.slashAmounts;
 
-        uint256 roundSizeInEpochs = _readUint(".slashing.roundSizeInEpochs", 4);
-        uint256 defaultRoundSize = roundSizeInEpochs * config.aztecEpochDuration;
-        config.slashingRoundSize = _readUint(".slashing.roundSize", defaultRoundSize);
+        rollupConfig.manaTarget = config.feeConfig.manaTarget;
+        rollupConfig.exitDelaySeconds = config.feeConfig.exitDelaySeconds;
+        rollupConfig.provingCostPerMana = EthValue.wrap(config.feeConfig.provingCostPerMana);
+        rollupConfig.localEjectionThreshold = config.feeConfig.localEjectionThreshold;
 
-        uint256 defaultQuorum = config.slashingRoundSize / 2 + 1;
-        config.slashingQuorum = _readUint(".slashing.quorum", defaultQuorum);
-
-        config.slashingLifetimeInRounds = _readUint(".slashing.lifetimeInRounds", 5);
-        config.slashingExecutionDelayInRounds = _readUint(".slashing.executionDelayInRounds", 0);
-
-        // Match TS: slashingOffsetInRounds = 2 (config.ts line 100)
-        uint256 defaultOffset = config.slasherFlavor == SlasherFlavor.TALLY ? 2 : 0;
-        config.slashingOffsetInRounds = _readUint(".slashing.offsetInRounds", defaultOffset);
-
-        config.slashingDisableDuration = _readUint(".slashing.disableDuration", 5 days);
-        config.slashingVetoer = _readAddress(".slashing.vetoer", address(0));
-
-        // Match TS DefaultL1ContractsConfig (config.ts lines 88-90)
-        config.slashAmounts = [
-            _readUint(".slashing.amountSmall", 10e18),    // Match TS: 10e18
-            _readUint(".slashing.amountMedium", 20e18),   // Match TS: 20e18
-            _readUint(".slashing.amountLarge", 50e18)     // Match TS: 50e18
-        ];
-
-        config.manaTarget = _readUint(".fee.manaTarget", 100_000_000);  // Match TS: BigInt(100e6)
-        config.exitDelaySeconds = _readUint(".fee.exitDelaySeconds", 2 days);  // Match TS: 2 * 24 * 60 * 60
-        config.provingCostPerMana = EthValue.wrap(_readUint(".fee.provingCostPerMana", 100));  // Match TS: BigInt(100)
-        config.localEjectionThreshold = _readUint(".fee.localEjectionThreshold", 98e18);  // Match TS: 98e18
-
-        config.version = 0;
-        config.rewardConfig = _buildRewardConfig(rewardDistributor);
-        config.rewardBoostConfig = _buildRewardBoostConfig();
-        config.stakingQueueConfig = _buildStakingQueueConfig();
-        config.earliestRewardsClaimableTimestamp = Timestamp.wrap(block.timestamp + 90 days);
+        rollupConfig.version = 0;
+        rollupConfig.rewardConfig = _buildRewardConfig(rewardDistributor);
+        rollupConfig.rewardBoostConfig = _buildRewardBoostConfig();
+        rollupConfig.stakingQueueConfig = _buildStakingQueueConfig();
+        rollupConfig.earliestRewardsClaimableTimestamp = Timestamp.wrap(config.earliestRewardsClaimableTimestamp);
     }
 
     function _buildRewardConfig(IRewardDistributor rewardDistributor) private view returns (RewardConfig memory) {
-        // Get network-specific defaults, then allow JSON config to override
-        (uint16 sequencerBps, uint96 checkpointReward) = _getRewardConfigDefaults();
-
         return RewardConfig({
             rewardDistributor: rewardDistributor,
-            sequencerBps: Bps.wrap(uint16(_readUint(".reward.sequencerBps", sequencerBps))),
+            sequencerBps: Bps.wrap(uint16(config.rewardConfig.sequencerBps)),
             booster: IBoosterCore(address(0)),
-            checkpointReward: uint96(_readUint(".reward.checkpointReward", checkpointReward))
+            checkpointReward: uint96(config.rewardConfig.checkpointReward)
         });
     }
 
@@ -866,22 +1078,19 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function _buildStakingQueueConfig() private view returns (StakingQueueConfig memory) {
-        // Get network-specific defaults, then allow JSON config to override
-        (uint64 bootstrapValidatorSetSize, uint64 bootstrapFlushSize, uint64 normalFlushSizeMin, uint64 normalFlushSizeQuotient, uint64 maxQueueFlushSize) = _getEntryQueueConfigDefaults();
-
         return StakingQueueConfig({
-            bootstrapValidatorSetSize: uint64(_readUint(".stakingQueue.bootstrapValidatorSetSize", bootstrapValidatorSetSize)),
-            bootstrapFlushSize: uint64(_readUint(".stakingQueue.bootstrapFlushSize", bootstrapFlushSize)),
-            normalFlushSizeMin: uint64(_readUint(".stakingQueue.normalFlushSizeMin", normalFlushSizeMin)),
-            normalFlushSizeQuotient: uint64(_readUint(".stakingQueue.normalFlushSizeQuotient", normalFlushSizeQuotient)),
-            maxQueueFlushSize: uint64(_readUint(".stakingQueue.maxQueueFlushSize", maxQueueFlushSize))
+            bootstrapValidatorSetSize: uint64(config.stakingQueueConfig.bootstrapValidatorSetSize),
+            bootstrapFlushSize: uint64(config.stakingQueueConfig.bootstrapFlushSize),
+            normalFlushSizeMin: uint64(config.stakingQueueConfig.normalFlushSizeMin),
+            normalFlushSizeQuotient: uint64(config.stakingQueueConfig.normalFlushSizeQuotient),
+            maxQueueFlushSize: uint64(config.stakingQueueConfig.maxQueueFlushSize)
         });
     }
 
     // ============ Network-Specific Config Helpers ============
 
     function _getEntryQueueConfigDefaults() private view returns (uint64, uint64, uint64, uint64, uint64) {
-        bytes32 networkHash = keccak256(bytes(networkName));
+        bytes32 networkHash = keccak256(bytes(config.networkName));
 
         // local, devnet, next-net: LocalEntryQueueConfig
         if (networkHash == keccak256(bytes("local")) ||
@@ -915,7 +1124,7 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function _getRewardConfigDefaults() private view returns (uint16 sequencerBps, uint96 checkpointReward) {
-        bytes32 networkHash = keccak256(bytes(networkName));
+        bytes32 networkHash = keccak256(bytes(config.networkName));
 
         // mainnet: MainnetRewardConfig
         if (networkHash == keccak256(bytes("mainnet"))) {
@@ -937,7 +1146,7 @@ contract DeployL1Contracts is Script, Test {
         uint256 requiredYeaMargin,
         uint256 minimumVotes
     ) {
-        bytes32 networkHash = keccak256(bytes(networkName));
+        bytes32 networkHash = keccak256(bytes(config.networkName));
 
         // local, next-net, devnet: LocalGovernanceConfiguration
         if (networkHash == keccak256(bytes("local")) ||
