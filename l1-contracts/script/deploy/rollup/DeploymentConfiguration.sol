@@ -344,8 +344,6 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
         deploymentOptions = DeploymentOptions({
             useMockVerifier: _getBool(".useMockVerifier", true),
             fundRewardDistributor: _getBool(".fundRewardDistributor", true),
-            deployFeeAssetHandler: _getBool(".deployFeeAssetHandler", false),
-            deployStakingAssetHandler: _getBool(".deployStakingAssetHandler", false),
             existingStakingAssetAddress: existingAsset
         });
     }
