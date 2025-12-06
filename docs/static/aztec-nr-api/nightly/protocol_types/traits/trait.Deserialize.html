@@ -59,6 +59,7 @@
 <li><a href="#impl-Deserialize-for-FeeRecipient">FeeRecipient</a></li>
 <li><a href="#impl-Deserialize-for-Field">Field</a></li>
 <li><a href="#impl-Deserialize-for-FieldCompressedString">FieldCompressedString</a></li>
+<li><a href="#impl-Deserialize-for-FieldNote">FieldNote</a></li>
 <li><a href="#impl-Deserialize-for-FunctionData">FunctionData</a></li>
 <li><a href="#impl-Deserialize-for-FunctionSelector">FunctionSelector</a></li>
 <li><a href="#impl-Deserialize-for-Gas">Gas</a></li>
@@ -118,7 +119,6 @@
 <li><a href="#impl-Deserialize-for-TxContext">TxContext</a></li>
 <li><a href="#impl-Deserialize-for-TxRequest">TxRequest</a></li>
 <li><a href="#impl-Deserialize-for-UintNote">UintNote</a></li>
-<li><a href="#impl-Deserialize-for-ValueNote">ValueNote</a></li>
 <li><a href="#impl-Deserialize-for-[T; M]">[T; M]</a></li>
 <li><a href="#impl-Deserialize-for-bool">bool</a></li>
 <li><a href="#impl-Deserialize-for-i16">i16</a></li>
@@ -280,6 +280,8 @@ deserializing return values from function calls in Noir. Since the same function
 
 <h3 id="impl-Deserialize-for-FieldCompressedString"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
 
+<h3 id="impl-Deserialize-for-FieldNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../field_note/field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
+
 <h3 id="impl-Deserialize-for-FunctionData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/function_data/struct.FunctionData.html" class="struct">FunctionData</a></code></h3>
 
 <h3 id="impl-Deserialize-for-FunctionSelector"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a></code></h3>
@@ -405,8 +407,6 @@ deserializing return values from function calls in Noir. Since the same function
 <h3 id="impl-Deserialize-for-TxRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
 
 <h3 id="impl-Deserialize-for-UintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../uint_note/uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
-
-<h3 id="impl-Deserialize-for-ValueNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
 
 <h3 id="impl-Deserialize-for-[T; M]"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for [T; M]
 <div class="where-clause">where
