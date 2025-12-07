@@ -112,7 +112,13 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
     }
 
     function getEarliestRewardsClaimableTimestamp() public view returns (Timestamp) {
-        return Timestamp.wrap(block.timestamp + 90 days);
+        // We only set a delay on mainnet.
+        // Since we don't plan to redeploy on mainnet (knock on wood), this is mostly documentation in code form.
+        if (block.chainid == 1) {
+            return Timestamp.wrap(block.timestamp + 90 days);
+        } else {
+            return Timestamp.wrap(0);
+        }
     }
 
     function getCoinIssuerConfiguration() external pure returns (CoinIssuerConfiguration memory) {
