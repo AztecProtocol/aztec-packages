@@ -30,7 +30,11 @@ All issues being worked on are tracked on the [Aztec Github Project](https://git
 ## Debugging
 
 Logging goes through the [Logger](yarn-project/foundation/src/log/) module in Typescript. `LOG_LEVEL` controls the default log level, and one can set alternate levels for specific modules, such as `debug; warn: module1, module2; error: module3`.
+For example, to enable verbose logs only for PXE and Noir:
 
+```bash
+export LOG_LEVEL="info; debug: pxe,noir; error: barretenberg"
+```
 ## Releases
 
 Releases are driven by [release-please](https://github.com/googleapis/release-please), which maintains a 'Release PR' containing an updated CHANGELOG.md since the last release. Triggering a new release is simply a case of merging this PR to master. A [github workflow](./.github/workflows/release-please.yml) will create the tagged release triggering ./bootstrap.sh release to build and deploy the version at that tag.
