@@ -242,6 +242,12 @@ export class EthAddress {
   static get schema() {
     return hexSchemaFor(EthAddress, EthAddress.isAddress);
   }
+
+  static areEqual(a: EthAddress | string, b: EthAddress | string) {
+    const addrA = typeof a === 'string' ? EthAddress.fromString(a) : a;
+    const addrB = typeof b === 'string' ? EthAddress.fromString(b) : b;
+    return addrA.equals(addrB);
+  }
 }
 
 // For deserializing JSON.

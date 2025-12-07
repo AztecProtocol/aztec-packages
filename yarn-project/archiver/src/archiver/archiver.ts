@@ -4,8 +4,10 @@ import {
   BlockTagTooOldError,
   InboxContract,
   type L1BlockId,
+  type L1ContractAddresses,
   RollupContract,
   type ViemPublicClient,
+  type ViemPublicDebugClient,
   createEthereumChain,
 } from '@aztec/ethereum';
 import { maxBigint } from '@aztec/foundation/bigint';
@@ -77,14 +79,15 @@ import { type GetContractReturnType, type Hex, createPublicClient, fallback, htt
 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
 import type { ArchiverConfig } from './config.js';
+import { InitialBlockNumberNotSequentialError, NoBlobBodiesFoundError } from './errors.js';
+import { ArchiverInstrumentation } from './instrumentation.js';
 import {
   retrieveBlocksFromRollup,
   retrieveL1ToL2Message,
   retrieveL1ToL2Messages,
   retrievedBlockToPublishedL2Block,
-} from './data_retrieval.js';
-import { InitialBlockNumberNotSequentialError, NoBlobBodiesFoundError } from './errors.js';
-import { ArchiverInstrumentation } from './instrumentation.js';
+} from './l1/data_retrieval.js';
+import { validateAndLogTraceAvailability } from './l1/validate_trace.js';
 import type { InboxMessage } from './structs/inbox_message.js';
 import type { PublishedL2Block } from './structs/published.js';
 import { type ValidateBlockResult, validateBlockAttestations } from './validation.js';
@@ -107,6 +110,7 @@ function mapArchiverConfig(config: Partial<ArchiverConfig>) {
     batchSize: config.archiverBatchSize,
     skipValidateBlockAttestations: config.skipValidateBlockAttestations,
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
+    ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
   };
 }
 
@@ -144,6 +148,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
+   * @param debugClient - A client for interacting with the Ethereum node for debug/trace methods.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param inboxAddress - Ethereum address of the inbox contract.
    * @param registryAddress - Ethereum address of the registry contract.
@@ -153,13 +158,18 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    */
   constructor(
     private readonly publicClient: ViemPublicClient,
-    private readonly l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
+    private readonly debugClient: ViemPublicDebugClient,
+    private readonly l1Addresses: Pick<
+      L1ContractAddresses,
+      'rollupAddress' | 'inboxAddress' | 'registryAddress' | 'governanceProposerAddress' | 'slashFactoryAddress'
+    > & { slashingProposerAddress: EthAddress },
     readonly dataStore: ArchiverDataStore,
     private config: {
       pollingIntervalMs: number;
       batchSize: number;
       skipValidateBlockAttestations?: boolean;
       maxAllowedEthClientDriftSeconds: number;
+      ethereumAllowNoDebugHosts?: boolean;
     },
     private readonly blobSinkClient: BlobSinkClientInterface,
     private readonly epochCache: EpochCache,
@@ -207,14 +217,24 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       pollingInterval: config.viemPollingIntervalMS,
     });
 
+    // Create debug client using debug RPC URLs if available, otherwise fall back to regular RPC URLs
+    const debugRpcUrls = config.l1DebugRpcUrls.length > 0 ? config.l1DebugRpcUrls : config.l1RpcUrls;
+    const debugClient = createPublicClient({
+      chain: chain.chainInfo,
+      transport: fallback(debugRpcUrls.map(url => http(url))),
+      pollingInterval: config.viemPollingIntervalMS,
+    }) as ViemPublicDebugClient;
+
     const rollup = new RollupContract(publicClient, config.l1Contracts.rollupAddress);
 
-    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, genesisArchiveRoot] = await Promise.all([
-      rollup.getL1StartBlock(),
-      rollup.getL1GenesisTime(),
-      rollup.getProofSubmissionEpochs(),
-      rollup.getGenesisArchiveTreeRoot(),
-    ] as const);
+    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, genesisArchiveRoot, slashingProposerAddress] =
+      await Promise.all([
+        rollup.getL1StartBlock(),
+        rollup.getL1GenesisTime(),
+        rollup.getProofSubmissionEpochs(),
+        rollup.getGenesisArchiveTreeRoot(),
+        rollup.getSlashingProposerAddress(),
+      ] as const);
 
     const l1StartBlockHash = await publicClient
       .getBlock({ blockNumber: l1StartBlock, includeTransactions: false })
@@ -234,7 +254,12 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     };
 
     const opts = merge(
-      { pollingIntervalMs: 10_000, batchSize: 100, maxAllowedEthClientDriftSeconds: 300 },
+      {
+        pollingIntervalMs: 10_000,
+        batchSize: 100,
+        maxAllowedEthClientDriftSeconds: 300,
+        ethereumAllowNoDebugHosts: false,
+      },
       mapArchiverConfig(config),
     );
 
@@ -243,7 +268,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     const archiver = new Archiver(
       publicClient,
-      config.l1Contracts,
+      debugClient,
+      { ...config.l1Contracts, slashingProposerAddress },
       archiverStore,
       opts,
       deps.blobSinkClient,
@@ -272,6 +298,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     await this.blobSinkClient.testSources();
     await this.testEthereumNodeSynced();
+    await validateAndLogTraceAvailability(this.debugClient, this.config.ethereumAllowNoDebugHosts ?? false);
 
     // Log initial state for the archiver
     const { l1StartBlock } = this.l1constants;
@@ -832,9 +859,12 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       const retrievedBlocks = await retrieveBlocksFromRollup(
         this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
         this.publicClient,
+        this.debugClient,
         this.blobSinkClient,
         searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
         searchEndBlock,
+        this.l1Addresses,
+        this.instrumentation,
         this.log,
       );
 
