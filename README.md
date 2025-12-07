@@ -48,3 +48,9 @@ We use marker commits and [git-subrepo](https://github.com/ingydotnet/git-subrep
 For a broad overview of the CI system take a look at [CI.md](CI.md).
 
 For some deeper information on individual scripts etc (for developing CI itself), take a look at [ci3/README.md](ci3/README.md).
+
+## License
+
+This project is licensed under the Apache 2.0 License.  
+See the [LICENSE](LICENSE) file for full license text.
+
