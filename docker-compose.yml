@@ -8,7 +8,12 @@ services:
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       L1_CHAIN_ID: 31337
-      VERSION: 1
+      # Top-level docker-compose file for the Aztec monorepo.
+# This is primarily used for local development and CI workflows.
+# The services here are not meant to be used as a production deployment as-is.
+services:
+  # Add or keep existing services below; do not remove anything.
+VERSION: 1
       NODE_NO_WARNINGS: 1
       PROVER_REAL_PROOFS: ${PROVER_REAL_PROOFS:-1}
       DATA_DIRECTORY: /var/lib/aztec
