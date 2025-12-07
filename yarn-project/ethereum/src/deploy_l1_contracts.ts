@@ -246,277 +246,6 @@ export async function validateExistingErc20TokenAddress(
   logger.verbose(`Validated existing token at ${addressString} appears to be ERC20-compatible`);
 }
 
-export const deploySharedContracts = async (
-  l1Client: ExtendedViemWalletClient,
-  deployer: L1Deployer,
-  args: DeployL1ContractsArgs,
-  logger: Logger,
-) => {
-  const networkName = getActiveNetworkName();
-
-  logger.info(`Deploying shared contracts for network configuration: ${networkName}`);
-
-  const txHashes: Hex[] = [];
-
-  let feeAssetAddress: EthAddress;
-  let stakingAssetAddress: EthAddress;
-  if (args.existingTokenAddress) {
-    await validateExistingErc20TokenAddress(l1Client, args.existingTokenAddress, logger);
-    feeAssetAddress = args.existingTokenAddress;
-    stakingAssetAddress = args.existingTokenAddress;
-    logger.verbose(`Using existing token for fee and staking assets at ${args.existingTokenAddress}`);
-  } else {
-    const deployedFee = await deployer.deploy(FeeAssetArtifact, ['FeeJuice', 'FEE', l1Client.account.address]);
-    feeAssetAddress = deployedFee.address;
-    logger.verbose(`Deployed Fee Asset at ${feeAssetAddress}`);
-
-    // Mint a tiny bit of tokens to satisfy coin-issuer constraints
-    const { txHash } = await deployer.sendTransaction(
-      {
-        to: feeAssetAddress.toString(),
-        data: encodeFunctionData({
-          abi: FeeAssetArtifact.contractAbi,
-          functionName: 'mint',
-          args: [l1Client.account.address, 1n * 10n ** 18n],
-        }),
-      },
-      {
-        // contract may not have been deployed yet (CREATE2 returns address before mining),
-        // which causes gas estimation to fail. Hardcode to 100k which is plenty for ERC20 mint.
-        gasLimit: 100_000n,
-      },
-    );
-    await l1Client.waitForTransactionReceipt({ hash: txHash });
-    logger.verbose(`Minted tiny bit of tokens to satisfy coin-issuer constraints in ${txHash}`);
-
-    const deployedStaking = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
-    stakingAssetAddress = deployedStaking.address;
-    logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
-
-    await deployer.waitForDeployments();
-  }
-
-  const gseAddress = (
-    await deployer.deploy(GSEArtifact, [
-      l1Client.account.address,
-      stakingAssetAddress.toString(),
-      args.activationThreshold,
-      args.ejectionThreshold,
-    ])
-  ).address;
-  logger.verbose(`Deployed GSE at ${gseAddress}`);
-
-  const { address: registryAddress } = await deployer.deploy(RegistryArtifact, [
-    l1Client.account.address,
-    feeAssetAddress.toString(),
-  ]);
-  logger.verbose(`Deployed Registry at ${registryAddress}`);
-
-  const { address: governanceProposerAddress } = await deployer.deploy(GovernanceProposerArtifact, [
-    registryAddress.toString(),
-    gseAddress.toString(),
-    BigInt(args.governanceProposerQuorum ?? args.governanceProposerRoundSize / 2 + 1),
-    BigInt(args.governanceProposerRoundSize),
-  ]);
-  logger.verbose(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
-
-  // @note @LHerskind the assets are expected to be the same at some point, but for better
-  // configurability they are different for now.
-  const { address: governanceAddress } = await deployer.deploy(GovernanceArtifact, [
-    stakingAssetAddress.toString(),
-    governanceProposerAddress.toString(),
-    gseAddress.toString(),
-    getGovernanceConfiguration(networkName),
-  ]);
-  logger.verbose(`Deployed Governance at ${governanceAddress}`);
-
-  let needToSetGovernance = false;
-
-  const existingCode = await l1Client.getCode({ address: gseAddress.toString() });
-  if (!existingCode || existingCode === '0x') {
-    needToSetGovernance = true;
-  } else {
-    const gseContract = getContract({
-      address: getAddress(gseAddress.toString()),
-      abi: GSEArtifact.contractAbi,
-      client: l1Client,
-    });
-    const existingGovernance = await gseContract.read.getGovernance();
-    if (EthAddress.fromString(existingGovernance).equals(EthAddress.ZERO)) {
-      needToSetGovernance = true;
-    }
-  }
-
-  if (needToSetGovernance) {
-    const { txHash } = await deployer.sendTransaction(
-      {
-        to: gseAddress.toString(),
-        data: encodeFunctionData({
-          abi: GSEArtifact.contractAbi,
-          functionName: 'setGovernance',
-          args: [governanceAddress.toString()],
-        }),
-      },
-      { gasLimit: 100_000n },
-    );
-
-    logger.verbose(`Set governance on GSE in ${txHash}`);
-    txHashes.push(txHash);
-  }
-
-  logger.verbose(`Waiting for deployments to complete`);
-  await deployer.waitForDeployments();
-
-  const coinIssuerAddress = (
-    await deployer.deploy(
-      CoinIssuerArtifact,
-      [
-        feeAssetAddress.toString(),
-        2n * 10n ** 17n, // hard cap of 20% per year
-        l1Client.account.address,
-      ],
-      { gasLimit: 1_000_000n, noSimulation: true },
-    )
-  ).address;
-  logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
-
-  logger.verbose(`Waiting for deployments to complete`);
-  await deployer.waitForDeployments();
-
-  // Registry ownership will be transferred to governance later, after rollup is added
-
-  let feeAssetHandlerAddress: EthAddress | undefined = undefined;
-  let stakingAssetHandlerAddress: EthAddress | undefined = undefined;
-  let zkPassportVerifierAddress: EthAddress | undefined = undefined;
-
-  // Only if not on mainnet will we deploy the handlers, and only when we control the token
-  if (l1Client.chain.id !== 1 && !args.existingTokenAddress) {
-    /* -------------------------------------------------------------------------- */
-    /*                          CHEAT CODES START HERE                            */
-    /* -------------------------------------------------------------------------- */
-
-    const deployedFeeAssetHandler = await deployer.deploy(FeeAssetHandlerArtifact, [
-      l1Client.account.address,
-      feeAssetAddress.toString(),
-      BigInt(1000n * 10n ** 18n),
-    ]);
-    feeAssetHandlerAddress = deployedFeeAssetHandler.address;
-    logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
-
-    // Only add as minter if this is a new deployment (not reusing existing handler from failed previous run)
-    if (!deployedFeeAssetHandler.existed) {
-      const { txHash } = await deployer.sendTransaction({
-        to: feeAssetAddress.toString(),
-        data: encodeFunctionData({
-          abi: FeeAssetArtifact.contractAbi,
-          functionName: 'addMinter',
-          args: [feeAssetHandlerAddress.toString()],
-        }),
-      });
-      logger.verbose(`Added fee asset handler ${feeAssetHandlerAddress} as minter on fee asset in ${txHash}`);
-      txHashes.push(txHash);
-    }
-
-    // Only if on sepolia will we deploy the staking asset handler
-    // Should not be deployed to devnet since it would cause caos with sequencers there etc.
-    if ([11155111, foundry.id].includes(l1Client.chain.id)) {
-      const AMIN = EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637');
-      zkPassportVerifierAddress = await getZkPassportVerifierAddress(deployer, args);
-      const [domain, scope] = getZkPassportScopes(args);
-
-      const stakingAssetHandlerDeployArgs = {
-        owner: l1Client.account.address,
-        stakingAsset: stakingAssetAddress.toString(),
-        registry: registryAddress.toString(),
-        withdrawer: AMIN.toString(),
-        validatorsToFlush: 16n,
-        mintInterval: BigInt(60 * 60 * 24),
-        depositsPerMint: BigInt(10),
-        depositMerkleRoot: '0x0000000000000000000000000000000000000000000000000000000000000000',
-        zkPassportVerifier: zkPassportVerifierAddress.toString(),
-        unhinged: [AMIN.toString()], // isUnhinged,
-        // Scopes
-        domain: domain,
-        scope: scope,
-        // Skip checks
-        skipBindCheck: args.zkPassportArgs?.mockZkPassportVerifier ?? false,
-        skipMerkleCheck: true, // skip merkle check - needed for testing without generating proofs
-      } as const;
-
-      stakingAssetHandlerAddress = (await deployer.deploy(StakingAssetHandlerArtifact, [stakingAssetHandlerDeployArgs]))
-        .address;
-      logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
-
-      const { txHash: stakingMinterTxHash } = await deployer.sendTransaction({
-        to: stakingAssetAddress.toString(),
-        data: encodeFunctionData({
-          abi: StakingAssetArtifact.contractAbi,
-          functionName: 'addMinter',
-          args: [stakingAssetHandlerAddress.toString()],
-        }),
-      });
-      logger.verbose(
-        `Added staking asset handler ${stakingAssetHandlerAddress} as minter on staking asset in ${stakingMinterTxHash}`,
-      );
-      txHashes.push(stakingMinterTxHash);
-    }
-  }
-
-  /* -------------------------------------------------------------------------- */
-  /*                           CHEAT CODES END HERE                             */
-  /* -------------------------------------------------------------------------- */
-
-  logger.verbose(`Waiting for deployments to complete`);
-  await deployer.waitForDeployments();
-  await Promise.all(txHashes.map(txHash => l1Client.waitForTransactionReceipt({ hash: txHash })));
-
-  logger.verbose(`Deployed shared contracts`);
-
-  const registry = new RegistryContract(l1Client, registryAddress);
-
-  /* -------------------------------------------------------------------------- */
-  /*                      FUND REWARD DISTRIBUTOR START                         */
-  /* -------------------------------------------------------------------------- */
-
-  const rewardDistributorAddress = await registry.getRewardDistributor();
-
-  if (!args.existingTokenAddress) {
-    const checkpointReward = getRewardConfig(networkName).checkpointReward;
-
-    const funding = checkpointReward * 200000n;
-    const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
-      to: feeAssetAddress.toString(),
-      data: encodeFunctionData({
-        abi: FeeAssetArtifact.contractAbi,
-        functionName: 'mint',
-        args: [rewardDistributorAddress.toString(), funding],
-      }),
-    });
-
-    logger.verbose(`Funded reward distributor with ${funding} fee asset in ${fundRewardDistributorTxHash}`);
-  } else {
-    logger.verbose(`Skipping reward distributor funding as existing token is provided`);
-  }
-
-  /* -------------------------------------------------------------------------- */
-  /*                      FUND REWARD DISTRIBUTOR STOP                          */
-  /* -------------------------------------------------------------------------- */
-
-  return {
-    feeAssetAddress,
-    feeAssetHandlerAddress,
-    stakingAssetAddress,
-    stakingAssetHandlerAddress,
-    zkPassportVerifierAddress,
-    registryAddress,
-    gseAddress,
-    governanceAddress,
-    governanceProposerAddress,
-    coinIssuerAddress,
-    rewardDistributorAddress: await registry.getRewardDistributor(),
-  };
-};
-
 const getZkPassportVerifierAddress = async (deployer: L1Deployer, args: DeployL1ContractsArgs): Promise<EthAddress> => {
   if (args.zkPassportArgs?.mockZkPassportVerifier) {
     return (await deployer.deploy(mockVerifiers.mockZkPassportVerifier)).address;
@@ -829,366 +558,367 @@ export const deployRollup = async (
     | 'governanceAddress'
   >,
   logger: Logger,
-) => {
-  if (!addresses.gseAddress) {
-    throw new Error('GSE address is required when deploying');
-  }
-  const networkName = getActiveNetworkName();
+): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> => {
+  throw new Error('TODO CLAUDE WE WILL MOVE THIS TO SOLIDITY SEE OTHER TODOs');
+  //   if (!addresses.gseAddress) {
+  //     throw new Error('GSE address is required when deploying');
+  //   }
+  //   const networkName = getActiveNetworkName();
 
-  logger.info(`Deploying rollup using network configuration: ${networkName}`);
+  //   logger.info(`Deploying rollup using network configuration: ${networkName}`);
 
-  const txHashes: Hex[] = [];
+  //   const txHashes: Hex[] = [];
 
-  let epochProofVerifier = EthAddress.ZERO;
+  //   let epochProofVerifier = EthAddress.ZERO;
 
-  if (args.realVerifier) {
-    epochProofVerifier = (await deployer.deploy(l1ArtifactsVerifiers.honkVerifier)).address;
-    logger.verbose(`Rollup will use the real verifier at ${epochProofVerifier}`);
-  } else {
-    epochProofVerifier = (await deployer.deploy(mockVerifiers.mockVerifier)).address;
-    logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
-  }
+  //   if (args.realVerifier) {
+  //     epochProofVerifier = (await deployer.deploy(l1ArtifactsVerifiers.honkVerifier)).address;
+  //     logger.verbose(`Rollup will use the real verifier at ${epochProofVerifier}`);
+  //   } else {
+  //     epochProofVerifier = (await deployer.deploy(mockVerifiers.mockVerifier)).address;
+  //     logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
+  //   }
 
-  const rewardConfig = {
-    ...getRewardConfig(networkName),
-    rewardDistributor: addresses.rewardDistributorAddress.toString(),
-  };
+  //   const rewardConfig = {
+  //     ...getRewardConfig(networkName),
+  //     rewardDistributor: addresses.rewardDistributorAddress.toString(),
+  //   };
 
-  const rollupConfigArgs: ContractConstructorArgs<typeof RollupAbi>[6] = {
-    aztecSlotDuration: BigInt(args.aztecSlotDuration),
-    aztecEpochDuration: BigInt(args.aztecEpochDuration),
-    targetCommitteeSize: BigInt(args.aztecTargetCommitteeSize),
-    lagInEpochsForValidatorSet: BigInt(args.lagInEpochsForValidatorSet),
-    lagInEpochsForRandao: BigInt(args.lagInEpochsForRandao),
-    aztecProofSubmissionEpochs: BigInt(args.aztecProofSubmissionEpochs),
-    slashingQuorum: BigInt(args.slashingQuorum ?? (args.slashingRoundSizeInEpochs * args.aztecEpochDuration) / 2 + 1),
-    slashingRoundSize: BigInt(args.slashingRoundSizeInEpochs * args.aztecEpochDuration),
-    slashingLifetimeInRounds: BigInt(args.slashingLifetimeInRounds),
-    slashingExecutionDelayInRounds: BigInt(args.slashingExecutionDelayInRounds),
-    slashingVetoer: args.slashingVetoer.toString(),
-    manaTarget: args.manaTarget,
-    provingCostPerMana: args.provingCostPerMana,
-    rewardConfig: rewardConfig,
-    version: 0,
-    rewardBoostConfig: getRewardBoostConfig(),
-    stakingQueueConfig: getEntryQueueConfig(networkName),
-    exitDelaySeconds: BigInt(args.exitDelaySeconds),
-    slasherFlavor: slasherFlavorToSolidityEnum(args.slasherFlavor),
-    slashingOffsetInRounds: BigInt(args.slashingOffsetInRounds),
-    slashAmounts: [args.slashAmountSmall, args.slashAmountMedium, args.slashAmountLarge],
-    localEjectionThreshold: args.localEjectionThreshold,
-    slashingDisableDuration: BigInt(args.slashingDisableDuration ?? 0n),
-    earliestRewardsClaimableTimestamp: 0n,
-  };
+  //   const rollupConfigArgs: ContractConstructorArgs<typeof RollupAbi>[6] = {
+  //     aztecSlotDuration: BigInt(args.aztecSlotDuration),
+  //     aztecEpochDuration: BigInt(args.aztecEpochDuration),
+  //     targetCommitteeSize: BigInt(args.aztecTargetCommitteeSize),
+  //     lagInEpochsForValidatorSet: BigInt(args.lagInEpochsForValidatorSet),
+  //     lagInEpochsForRandao: BigInt(args.lagInEpochsForRandao),
+  //     aztecProofSubmissionEpochs: BigInt(args.aztecProofSubmissionEpochs),
+  //     slashingQuorum: BigInt(args.slashingQuorum ?? (args.slashingRoundSizeInEpochs * args.aztecEpochDuration) / 2 + 1),
+  //     slashingRoundSize: BigInt(args.slashingRoundSizeInEpochs * args.aztecEpochDuration),
+  //     slashingLifetimeInRounds: BigInt(args.slashingLifetimeInRounds),
+  //     slashingExecutionDelayInRounds: BigInt(args.slashingExecutionDelayInRounds),
+  //     slashingVetoer: args.slashingVetoer.toString(),
+  //     manaTarget: args.manaTarget,
+  //     provingCostPerMana: args.provingCostPerMana,
+  //     rewardConfig: rewardConfig,
+  //     version: 0,
+  //     rewardBoostConfig: getRewardBoostConfig(),
+  //     stakingQueueConfig: getEntryQueueConfig(networkName),
+  //     exitDelaySeconds: BigInt(args.exitDelaySeconds),
+  //     slasherFlavor: slasherFlavorToSolidityEnum(args.slasherFlavor),
+  //     slashingOffsetInRounds: BigInt(args.slashingOffsetInRounds),
+  //     slashAmounts: [args.slashAmountSmall, args.slashAmountMedium, args.slashAmountLarge],
+  //     localEjectionThreshold: args.localEjectionThreshold,
+  //     slashingDisableDuration: BigInt(args.slashingDisableDuration ?? 0n),
+  //     earliestRewardsClaimableTimestamp: 0n,
+  //   };
 
-  const genesisStateArgs = {
-    vkTreeRoot: args.vkTreeRoot.toString(),
-    protocolContractsHash: args.protocolContractsHash.toString(),
-    genesisArchiveRoot: args.genesisArchiveRoot.toString(),
-  };
+  //   const genesisStateArgs = {
+  //     vkTreeRoot: args.vkTreeRoot.toString(),
+  //     protocolContractsHash: args.protocolContractsHash.toString(),
+  //     genesisArchiveRoot: args.genesisArchiveRoot.toString(),
+  //   };
 
-  // Until there is an actual chain-id for the version, we will just draw a random value.
-  // TODO(https://linear.app/aztec-labs/issue/TMNT-139/version-at-deployment)
-  rollupConfigArgs.version = Buffer.from(
-    keccak256String(
-      jsonStringify({
-        rollupConfigArgs,
-        genesisStateArgs,
-      }),
-    ),
-  ).readUint32BE(0);
-  logger.verbose(`Rollup config args`, rollupConfigArgs);
+  //   // Until there is an actual chain-id for the version, we will just draw a random value.
+  //   // TODO(https://linear.app/aztec-labs/issue/TMNT-139/version-at-deployment)
+  //   rollupConfigArgs.version = Buffer.from(
+  //     keccak256String(
+  //       jsonStringify({
+  //         rollupConfigArgs,
+  //         genesisStateArgs,
+  //       }),
+  //     ),
+  //   ).readUint32BE(0);
+  //   logger.verbose(`Rollup config args`, rollupConfigArgs);
 
-  const rollupArgs = [
-    addresses.feeJuiceAddress.toString(),
-    addresses.stakingAssetAddress.toString(),
-    addresses.gseAddress.toString(),
-    epochProofVerifier.toString(),
-    extendedClient.account.address,
-    genesisStateArgs,
-    rollupConfigArgs,
-  ] as const;
+  //   const rollupArgs = [
+  //     addresses.feeJuiceAddress.toString(),
+  //     addresses.stakingAssetAddress.toString(),
+  //     addresses.gseAddress.toString(),
+  //     epochProofVerifier.toString(),
+  //     extendedClient.account.address,
+  //     genesisStateArgs,
+  //     rollupConfigArgs,
+  //   ] as const;
 
-  const { address: rollupAddress, existed: rollupExisted } = await deployer.deploy(RollupArtifact, rollupArgs, {
-    gasLimit: 15_000_000n,
-  });
-  logger.verbose(`Deployed Rollup at ${rollupAddress}, already existed: ${rollupExisted}`, rollupConfigArgs);
+  //   const { address: rollupAddress, existed: rollupExisted } = await deployer.deploy(RollupArtifact, rollupArgs, {
+  //     gasLimit: 15_000_000n,
+  //   });
+  //   logger.verbose(`Deployed Rollup at ${rollupAddress}, already existed: ${rollupExisted}`, rollupConfigArgs);
 
-  const rollupContract = new RollupContract(extendedClient, rollupAddress);
+  //   const rollupContract = new RollupContract(extendedClient, rollupAddress);
 
-  await deployer.waitForDeployments();
-  logger.verbose(`All core contracts have been deployed`);
+  //   await deployer.waitForDeployments();
+  //   logger.verbose(`All core contracts have been deployed`);
 
-  if (args.feeJuicePortalInitialBalance && args.feeJuicePortalInitialBalance > 0n) {
-    // Skip funding when using an external token, as we likely don't have mint permissions
-    if (!('existingTokenAddress' in args) || !args.existingTokenAddress) {
-      const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
+  //   if (args.feeJuicePortalInitialBalance && args.feeJuicePortalInitialBalance > 0n) {
+  //     // Skip funding when using an external token, as we likely don't have mint permissions
+  //     if (!('existingTokenAddress' in args) || !args.existingTokenAddress) {
+  //       const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
 
-      // In fast mode, use the L1TxUtils to send transactions with nonce management
-      const { txHash: mintTxHash } = await deployer.sendTransaction({
-        to: addresses.feeJuiceAddress.toString(),
-        data: encodeFunctionData({
-          abi: FeeAssetArtifact.contractAbi,
-          functionName: 'mint',
-          args: [feeJuicePortalAddress.toString(), args.feeJuicePortalInitialBalance],
-        }),
-      });
-      logger.verbose(
-        `Funding fee juice portal with ${args.feeJuicePortalInitialBalance} fee juice in ${mintTxHash} (accelerated test deployments)`,
-      );
-      txHashes.push(mintTxHash);
-    } else {
-      logger.verbose('Skipping fee juice portal funding due to external token usage');
-    }
-  }
+  //       // In fast mode, use the L1TxUtils to send transactions with nonce management
+  //       const { txHash: mintTxHash } = await deployer.sendTransaction({
+  //         to: addresses.feeJuiceAddress.toString(),
+  //         data: encodeFunctionData({
+  //           abi: FeeAssetArtifact.contractAbi,
+  //           functionName: 'mint',
+  //           args: [feeJuicePortalAddress.toString(), args.feeJuicePortalInitialBalance],
+  //         }),
+  //       });
+  //       logger.verbose(
+  //         `Funding fee juice portal with ${args.feeJuicePortalInitialBalance} fee juice in ${mintTxHash} (accelerated test deployments)`,
+  //       );
+  //       txHashes.push(mintTxHash);
+  //     } else {
+  //       logger.verbose('Skipping fee juice portal funding due to external token usage');
+  //     }
+  //   }
 
-  const slashFactoryAddress = (await deployer.deploy(SlashFactoryArtifact, [rollupAddress.toString()])).address;
-  logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
+  //   const slashFactoryAddress = (await deployer.deploy(SlashFactoryArtifact, [rollupAddress.toString()])).address;
+  //   logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
 
-  // We need to call a function on the registry to set the various contract addresses.
-  const registryContract = getContract({
-    address: getAddress(addresses.registryAddress.toString()),
-    abi: RegistryArtifact.contractAbi,
-    client: extendedClient,
-  });
+  //   // We need to call a function on the registry to set the various contract addresses.
+  //   const registryContract = getContract({
+  //     address: getAddress(addresses.registryAddress.toString()),
+  //     abi: RegistryArtifact.contractAbi,
+  //     client: extendedClient,
+  //   });
 
-  // Only if we are the owner will we be sending these transactions
-  if ((await registryContract.read.owner()) === getAddress(extendedClient.account.address)) {
-    const version = await rollupContract.getVersion();
-    try {
-      const retrievedRollupAddress = await registryContract.read.getRollup([version]);
-      logger.verbose(`Rollup ${retrievedRollupAddress} already exists in registry`);
-    } catch {
-      const { txHash: addRollupTxHash } = await deployer.sendTransaction({
-        to: addresses.registryAddress.toString(),
-        data: encodeFunctionData({
-          abi: RegistryArtifact.contractAbi,
-          functionName: 'addRollup',
-          args: [getAddress(rollupContract.address)],
-        }),
-      });
-      logger.verbose(
-        `Adding rollup ${rollupContract.address} to registry ${addresses.registryAddress} in tx ${addRollupTxHash}`,
-      );
+  //   // Only if we are the owner will we be sending these transactions
+  //   if ((await registryContract.read.owner()) === getAddress(extendedClient.account.address)) {
+  //     const version = await rollupContract.getVersion();
+  //     try {
+  //       const retrievedRollupAddress = await registryContract.read.getRollup([version]);
+  //       logger.verbose(`Rollup ${retrievedRollupAddress} already exists in registry`);
+  //     } catch {
+  //       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
+  //         to: addresses.registryAddress.toString(),
+  //         data: encodeFunctionData({
+  //           abi: RegistryArtifact.contractAbi,
+  //           functionName: 'addRollup',
+  //           args: [getAddress(rollupContract.address)],
+  //         }),
+  //       });
+  //       logger.verbose(
+  //         `Adding rollup ${rollupContract.address} to registry ${addresses.registryAddress} in tx ${addRollupTxHash}`,
+  //       );
 
-      txHashes.push(addRollupTxHash);
-    }
-  } else {
-    logger.verbose(`Not the owner of the registry, skipping rollup addition`);
-  }
+  //       txHashes.push(addRollupTxHash);
+  //     }
+  //   } else {
+  //     logger.verbose(`Not the owner of the registry, skipping rollup addition`);
+  //   }
 
-  // We need to call a function on the registry to set the various contract addresses.
-  const gseContract = getContract({
-    address: getAddress(addresses.gseAddress.toString()),
-    abi: GSEArtifact.contractAbi,
-    client: extendedClient,
-  });
-  if ((await gseContract.read.owner()) === getAddress(extendedClient.account.address)) {
-    if (!(await gseContract.read.isRollupRegistered([rollupContract.address]))) {
-      const { txHash: addRollupTxHash } = await deployer.sendTransaction({
-        to: addresses.gseAddress.toString(),
-        data: encodeFunctionData({
-          abi: GSEArtifact.contractAbi,
-          functionName: 'addRollup',
-          args: [getAddress(rollupContract.address)],
-        }),
-      });
-      logger.verbose(`Adding rollup ${rollupContract.address} to GSE ${addresses.gseAddress} in tx ${addRollupTxHash}`);
+  //   // We need to call a function on the registry to set the various contract addresses.
+  //   const gseContract = getContract({
+  //     address: getAddress(addresses.gseAddress.toString()),
+  //     abi: GSEArtifact.contractAbi,
+  //     client: extendedClient,
+  //   });
+  //   if ((await gseContract.read.owner()) === getAddress(extendedClient.account.address)) {
+  //     if (!(await gseContract.read.isRollupRegistered([rollupContract.address]))) {
+  //       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
+  //         to: addresses.gseAddress.toString(),
+  //         data: encodeFunctionData({
+  //           abi: GSEArtifact.contractAbi,
+  //           functionName: 'addRollup',
+  //           args: [getAddress(rollupContract.address)],
+  //         }),
+  //       });
+  //       logger.verbose(`Adding rollup ${rollupContract.address} to GSE ${addresses.gseAddress} in tx ${addRollupTxHash}`);
 
-      // wait for this tx to land in case we have to register initialValidators
-      await extendedClient.waitForTransactionReceipt({ hash: addRollupTxHash });
-    } else {
-      logger.verbose(`Rollup ${rollupContract.address} is already registered in GSE ${addresses.gseAddress}`);
-    }
-  } else {
-    logger.verbose(`Not the owner of the gse, skipping rollup addition`);
-  }
+  //       // wait for this tx to land in case we have to register initialValidators
+  //       await extendedClient.waitForTransactionReceipt({ hash: addRollupTxHash });
+  //     } else {
+  //       logger.verbose(`Rollup ${rollupContract.address} is already registered in GSE ${addresses.gseAddress}`);
+  //     }
+  //   } else {
+  //     logger.verbose(`Not the owner of the gse, skipping rollup addition`);
+  //   }
 
-  const activeAttestorCount = await rollupContract.getActiveAttesterCount();
-  const queuedAttestorCount = await rollupContract.getEntryQueueLength();
-  logger.info(`Rollup has ${activeAttestorCount} active attestors and ${queuedAttestorCount} queued attestors`);
+  //   const activeAttestorCount = await rollupContract.getActiveAttesterCount();
+  //   const queuedAttestorCount = await rollupContract.getEntryQueueLength();
+  //   logger.info(`Rollup has ${activeAttestorCount} active attestors and ${queuedAttestorCount} queued attestors`);
 
-  const shouldAddValidators = activeAttestorCount === 0n && queuedAttestorCount === 0n;
+  //   const shouldAddValidators = activeAttestorCount === 0n && queuedAttestorCount === 0n;
 
-  if (
-    args.initialValidators &&
-    shouldAddValidators &&
-    (await gseContract.read.isRollupRegistered([rollupContract.address]))
-  ) {
-    await addMultipleValidators(
-      extendedClient,
-      deployer,
-      addresses.gseAddress.toString(),
-      rollupAddress.toString(),
-      addresses.stakingAssetAddress.toString(),
-      args.initialValidators,
-      args.acceleratedTestDeployments,
-      logger,
-    );
-  }
+  //   if (
+  //     args.initialValidators &&
+  //     shouldAddValidators &&
+  //     (await gseContract.read.isRollupRegistered([rollupContract.address]))
+  //   ) {
+  //     await addMultipleValidators(
+  //       extendedClient,
+  //       deployer,
+  //       addresses.gseAddress.toString(),
+  //       rollupAddress.toString(),
+  //       addresses.stakingAssetAddress.toString(),
+  //       args.initialValidators,
+  //       args.acceleratedTestDeployments,
+  //       logger,
+  //     );
+  //   }
 
-  // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  logger.verbose(addresses.governanceAddress.toString());
-  if (getAddress(await rollupContract.getOwner()) !== getAddress(addresses.governanceAddress.toString())) {
-    // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
-    const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
-      to: rollupContract.address,
-      data: encodeFunctionData({
-        abi: RegistryArtifact.contractAbi,
-        functionName: 'transferOwnership',
-        args: [getAddress(addresses.governanceAddress.toString())],
-      }),
-    });
-    logger.verbose(
-      `Transferring the ownership of the rollup contract at ${rollupContract.address} to the Governance ${addresses.governanceAddress} in tx ${transferOwnershipTxHash}`,
-    );
-    txHashes.push(transferOwnershipTxHash);
-  }
+  //   // If the owner is not the Governance contract, transfer ownership to the Governance contract
+  //   logger.verbose(addresses.governanceAddress.toString());
+  //   if (getAddress(await rollupContract.getOwner()) !== getAddress(addresses.governanceAddress.toString())) {
+  //     // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
+  //     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
+  //       to: rollupContract.address,
+  //       data: encodeFunctionData({
+  //         abi: RegistryArtifact.contractAbi,
+  //         functionName: 'transferOwnership',
+  //         args: [getAddress(addresses.governanceAddress.toString())],
+  //       }),
+  //     });
+  //     logger.verbose(
+  //       `Transferring the ownership of the rollup contract at ${rollupContract.address} to the Governance ${addresses.governanceAddress} in tx ${transferOwnershipTxHash}`,
+  //     );
+  //     txHashes.push(transferOwnershipTxHash);
+  //   }
 
-  await deployer.waitForDeployments();
-  await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
-  logger.verbose(`Rollup deployed`);
+  //   await deployer.waitForDeployments();
+  //   await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
+  //   logger.verbose(`Rollup deployed`);
 
-  return { rollup: rollupContract, slashFactoryAddress };
-};
+  //   return { rollup: rollupContract, slashFactoryAddress };
+  // };
 
-export const handoverToGovernance = async (
-  extendedClient: ExtendedViemWalletClient,
-  deployer: L1Deployer,
-  registryAddress: EthAddress,
-  gseAddress: EthAddress,
-  coinIssuerAddress: EthAddress,
-  feeAssetAddress: EthAddress,
-  governanceAddress: EthAddress,
-  logger: Logger,
-  acceleratedTestDeployments: boolean | undefined,
-  useExternalToken: boolean = false,
-) => {
-  // We need to call a function on the registry to set the various contract addresses.
-  const registryContract = getContract({
-    address: getAddress(registryAddress.toString()),
-    abi: RegistryArtifact.contractAbi,
-    client: extendedClient,
-  });
+  // export const handoverToGovernance = async (
+  //   extendedClient: ExtendedViemWalletClient,
+  //   deployer: L1Deployer,
+  //   registryAddress: EthAddress,
+  //   gseAddress: EthAddress,
+  //   coinIssuerAddress: EthAddress,
+  //   feeAssetAddress: EthAddress,
+  //   governanceAddress: EthAddress,
+  //   logger: Logger,
+  //   acceleratedTestDeployments: boolean | undefined,
+  //   useExternalToken: boolean = false,
+  // ) => {
+  //   // We need to call a function on the registry to set the various contract addresses.
+  //   const registryContract = getContract({
+  //     address: getAddress(registryAddress.toString()),
+  //     abi: RegistryArtifact.contractAbi,
+  //     client: extendedClient,
+  //   });
 
-  const gseContract = getContract({
-    address: getAddress(gseAddress.toString()),
-    abi: GSEArtifact.contractAbi,
-    client: extendedClient,
-  });
+  //   const gseContract = getContract({
+  //     address: getAddress(gseAddress.toString()),
+  //     abi: GSEArtifact.contractAbi,
+  //     client: extendedClient,
+  //   });
 
-  const coinIssuerContract = getContract({
-    address: getAddress(coinIssuerAddress.toString()),
-    abi: CoinIssuerArtifact.contractAbi,
-    client: extendedClient,
-  });
+  //   const coinIssuerContract = getContract({
+  //     address: getAddress(coinIssuerAddress.toString()),
+  //     abi: CoinIssuerArtifact.contractAbi,
+  //     client: extendedClient,
+  //   });
 
-  const feeAsset = getContract({
-    address: getAddress(feeAssetAddress.toString()),
-    abi: FeeAssetArtifact.contractAbi,
-    client: extendedClient,
-  });
+  //   const feeAsset = getContract({
+  //     address: getAddress(feeAssetAddress.toString()),
+  //     abi: FeeAssetArtifact.contractAbi,
+  //     client: extendedClient,
+  //   });
 
-  const txHashes: Hex[] = [];
+  //   const txHashes: Hex[] = [];
 
-  // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  if (
-    acceleratedTestDeployments ||
-    (await registryContract.read.owner()) !== getAddress(governanceAddress.toString())
-  ) {
-    // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
-    const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
-      to: registryAddress.toString(),
-      data: encodeFunctionData({
-        abi: RegistryArtifact.contractAbi,
-        functionName: 'transferOwnership',
-        args: [getAddress(governanceAddress.toString())],
-      }),
-    });
-    logger.verbose(
-      `Transferring the ownership of the registry contract at ${registryAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
-    );
-    txHashes.push(transferOwnershipTxHash);
-  }
+  //   // If the owner is not the Governance contract, transfer ownership to the Governance contract
+  //   if (
+  //     acceleratedTestDeployments ||
+  //     (await registryContract.read.owner()) !== getAddress(governanceAddress.toString())
+  //   ) {
+  //     // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
+  //     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
+  //       to: registryAddress.toString(),
+  //       data: encodeFunctionData({
+  //         abi: RegistryArtifact.contractAbi,
+  //         functionName: 'transferOwnership',
+  //         args: [getAddress(governanceAddress.toString())],
+  //       }),
+  //     });
+  //     logger.verbose(
+  //       `Transferring the ownership of the registry contract at ${registryAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
+  //     );
+  //     txHashes.push(transferOwnershipTxHash);
+  //   }
 
-  // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  if (acceleratedTestDeployments || (await gseContract.read.owner()) !== getAddress(governanceAddress.toString())) {
-    // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
-    const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
-      to: gseContract.address,
-      data: encodeFunctionData({
-        abi: GSEArtifact.contractAbi,
-        functionName: 'transferOwnership',
-        args: [getAddress(governanceAddress.toString())],
-      }),
-    });
-    logger.verbose(
-      `Transferring the ownership of the gse contract at ${gseAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
-    );
-    txHashes.push(transferOwnershipTxHash);
-  }
+  //   // If the owner is not the Governance contract, transfer ownership to the Governance contract
+  //   if (acceleratedTestDeployments || (await gseContract.read.owner()) !== getAddress(governanceAddress.toString())) {
+  //     // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
+  //     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
+  //       to: gseContract.address,
+  //       data: encodeFunctionData({
+  //         abi: GSEArtifact.contractAbi,
+  //         functionName: 'transferOwnership',
+  //         args: [getAddress(governanceAddress.toString())],
+  //       }),
+  //     });
+  //     logger.verbose(
+  //       `Transferring the ownership of the gse contract at ${gseAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
+  //     );
+  //     txHashes.push(transferOwnershipTxHash);
+  //   }
 
-  if (
-    !useExternalToken &&
-    (acceleratedTestDeployments || (await feeAsset.read.owner()) !== coinIssuerAddress.toString())
-  ) {
-    const { txHash } = await deployer.sendTransaction(
-      {
-        to: feeAssetAddress.toString(),
-        data: encodeFunctionData({
-          abi: FeeAssetArtifact.contractAbi,
-          functionName: 'transferOwnership',
-          args: [coinIssuerAddress.toString()],
-        }),
-      },
-      { gasLimit: 500_000n },
-    );
-    logger.verbose(`Transfer ownership of fee asset to coin issuer ${coinIssuerAddress} in ${txHash}`);
-    txHashes.push(txHash);
+  //   if (
+  //     !useExternalToken &&
+  //     (acceleratedTestDeployments || (await feeAsset.read.owner()) !== coinIssuerAddress.toString())
+  //   ) {
+  //     const { txHash } = await deployer.sendTransaction(
+  //       {
+  //         to: feeAssetAddress.toString(),
+  //         data: encodeFunctionData({
+  //           abi: FeeAssetArtifact.contractAbi,
+  //           functionName: 'transferOwnership',
+  //           args: [coinIssuerAddress.toString()],
+  //         }),
+  //       },
+  //       { gasLimit: 500_000n },
+  //     );
+  //     logger.verbose(`Transfer ownership of fee asset to coin issuer ${coinIssuerAddress} in ${txHash}`);
+  //     txHashes.push(txHash);
 
-    const { txHash: acceptTokenOwnershipTxHash } = await deployer.sendTransaction(
-      {
-        to: coinIssuerAddress.toString(),
-        data: encodeFunctionData({
-          abi: CoinIssuerArtifact.contractAbi,
-          functionName: 'acceptTokenOwnership',
-        }),
-      },
-      { gasLimit: 500_000n },
-    );
-    logger.verbose(`Accept ownership of fee asset in ${acceptTokenOwnershipTxHash}`);
-    txHashes.push(acceptTokenOwnershipTxHash);
-  } else if (useExternalToken) {
-    logger.verbose('Skipping fee asset ownership transfer due to external token usage');
-  }
+  //     const { txHash: acceptTokenOwnershipTxHash } = await deployer.sendTransaction(
+  //       {
+  //         to: coinIssuerAddress.toString(),
+  //         data: encodeFunctionData({
+  //           abi: CoinIssuerArtifact.contractAbi,
+  //           functionName: 'acceptTokenOwnership',
+  //         }),
+  //       },
+  //       { gasLimit: 500_000n },
+  //     );
+  //     logger.verbose(`Accept ownership of fee asset in ${acceptTokenOwnershipTxHash}`);
+  //     txHashes.push(acceptTokenOwnershipTxHash);
+  //   } else if (useExternalToken) {
+  //     logger.verbose('Skipping fee asset ownership transfer due to external token usage');
+  //   }
 
-  // Either deploy or at least predict the address of the date gated relayer
-  const dateGatedRelayer = await deployer.deploy(DateGatedRelayerArtifact, [
-    governanceAddress.toString(),
-    1798761600n, // 2027-01-01 00:00:00 UTC
-  ]);
+  //   // Either deploy or at least predict the address of the date gated relayer
+  //   const dateGatedRelayer = await deployer.deploy(DateGatedRelayerArtifact, [
+  //     governanceAddress.toString(),
+  //     1798761600n, // 2027-01-01 00:00:00 UTC
+  //   ]);
 
-  // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  if (acceleratedTestDeployments || (await coinIssuerContract.read.owner()) === deployer.client.account.address) {
-    const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
-      to: coinIssuerContract.address,
-      data: encodeFunctionData({
-        abi: CoinIssuerArtifact.contractAbi,
-        functionName: 'transferOwnership',
-        args: [getAddress(dateGatedRelayer.address.toString())],
-      }),
-    });
-    logger.verbose(
-      `Transferring the ownership of the coin issuer contract at ${coinIssuerAddress} to the DateGatedRelayer ${dateGatedRelayer.address} in tx ${transferOwnershipTxHash}`,
-    );
-    txHashes.push(transferOwnershipTxHash);
-  }
+  //   // If the owner is not the Governance contract, transfer ownership to the Governance contract
+  //   if (acceleratedTestDeployments || (await coinIssuerContract.read.owner()) === deployer.client.account.address) {
+  //     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
+  //       to: coinIssuerContract.address,
+  //       data: encodeFunctionData({
+  //         abi: CoinIssuerArtifact.contractAbi,
+  //         functionName: 'transferOwnership',
+  //         args: [getAddress(dateGatedRelayer.address.toString())],
+  //       }),
+  //     });
+  //     logger.verbose(
+  //       `Transferring the ownership of the coin issuer contract at ${coinIssuerAddress} to the DateGatedRelayer ${dateGatedRelayer.address} in tx ${transferOwnershipTxHash}`,
+  //     );
+  //     txHashes.push(transferOwnershipTxHash);
+  //   }
 
-  // Wait for all actions to be mined
-  await deployer.waitForDeployments();
-  await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
+  //   // Wait for all actions to be mined
+  //   await deployer.waitForDeployments();
+  //   await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
 
-  return { dateGatedRelayerAddress: dateGatedRelayer.address };
+  //   return { dateGatedRelayerAddress: dateGatedRelayer.address };
 };
 
 /*
@@ -1402,148 +1132,149 @@ export const deployL1Contracts = async (
   txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
   createVerificationJson: string | false = false,
 ): Promise<DeployL1ContractsReturnType> => {
-  logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
-  validateConfig(args);
+  throw new Error('TODO CLAUDE THIS WILL BE REMOVED IT IS ALREADY IN SOLIDITY');
+  // logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
+  // validateConfig(args);
 
-  if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
-    throw new Error(
-      'Cannot deploy with both initialValidators and existingTokenAddress. ' +
-        'Initial validator funding requires minting tokens, which is not possible with an external token.',
-    );
-  }
+  // if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
+  //   throw new Error(
+  //     'Cannot deploy with both initialValidators and existingTokenAddress. ' +
+  //       'Initial validator funding requires minting tokens, which is not possible with an external token.',
+  //   );
+  // }
 
-  const l1Client = createExtendedL1Client(rpcUrls, account, chain);
+  // const l1Client = createExtendedL1Client(rpcUrls, account, chain);
 
-  // Deploy multicall3 if it does not exist in this network
-  await deployMulticall3(l1Client, logger);
+  // // Deploy multicall3 if it does not exist in this network
+  // await deployMulticall3(l1Client, logger);
 
-  // We are assuming that you are running this on a local anvil node which have 1s block times
-  // To align better with actual deployment, we update the block interval to 12s
+  // // We are assuming that you are running this on a local anvil node which have 1s block times
+  // // To align better with actual deployment, we update the block interval to 12s
 
-  const rpcCall = async (method: string, params: any[]) => {
-    logger.info(`Calling ${method} with params: ${JSON.stringify(params)}`);
-    return (await l1Client.transport.request({
-      method,
-      params,
-    })) as any;
-  };
+  // const rpcCall = async (method: string, params: any[]) => {
+  //   logger.info(`Calling ${method} with params: ${JSON.stringify(params)}`);
+  //   return (await l1Client.transport.request({
+  //     method,
+  //     params,
+  //   })) as any;
+  // };
 
-  if (isAnvilTestChain(chain.id)) {
-    try {
-      await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
-      logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
-    } catch (e) {
-      logger.error(`Error setting block interval: ${e}`);
-    }
-  }
+  // if (isAnvilTestChain(chain.id)) {
+  //   try {
+  //     await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
+  //     logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
+  //   } catch (e) {
+  //     logger.error(`Error setting block interval: ${e}`);
+  //   }
+  // }
 
-  logger.verbose(`Deploying contracts from ${account.address.toString()}`);
+  // logger.verbose(`Deploying contracts from ${account.address.toString()}`);
 
-  const dateProvider = new DateProvider();
-  const deployer = new L1Deployer(
-    l1Client,
-    args.salt,
-    dateProvider,
-    args.acceleratedTestDeployments,
-    logger,
-    txUtilsConfig,
-    !!createVerificationJson,
-  );
+  // const dateProvider = new DateProvider();
+  // const deployer = new L1Deployer(
+  //   l1Client,
+  //   args.salt,
+  //   dateProvider,
+  //   args.acceleratedTestDeployments,
+  //   logger,
+  //   txUtilsConfig,
+  //   !!createVerificationJson,
+  // );
 
-  const {
-    feeAssetAddress,
-    feeAssetHandlerAddress,
-    stakingAssetAddress,
-    stakingAssetHandlerAddress,
-    registryAddress,
-    gseAddress,
-    governanceAddress,
-    rewardDistributorAddress,
-    zkPassportVerifierAddress,
-    coinIssuerAddress,
-  } = await deploySharedContracts(l1Client, deployer, args, logger);
-  const { rollup, slashFactoryAddress } = await deployRollup(
-    l1Client,
-    deployer,
-    args,
-    {
-      feeJuiceAddress: feeAssetAddress,
-      registryAddress,
-      gseAddress,
-      rewardDistributorAddress,
-      stakingAssetAddress,
-      governanceAddress,
-    },
-    logger,
-  );
+  // const {
+  //   feeAssetAddress,
+  //   feeAssetHandlerAddress,
+  //   stakingAssetAddress,
+  //   stakingAssetHandlerAddress,
+  //   registryAddress,
+  //   gseAddress,
+  //   governanceAddress,
+  //   rewardDistributorAddress,
+  //   zkPassportVerifierAddress,
+  //   coinIssuerAddress,
+  // } = await deploySharedContracts(l1Client, deployer, args, logger);
+  // const { rollup, slashFactoryAddress } = await deployRollup(
+  //   l1Client,
+  //   deployer,
+  //   args,
+  //   {
+  //     feeJuiceAddress: feeAssetAddress,
+  //     registryAddress,
+  //     gseAddress,
+  //     rewardDistributorAddress,
+  //     stakingAssetAddress,
+  //     governanceAddress,
+  //   },
+  //   logger,
+  // );
 
-  logger.verbose('Waiting for rollup and slash factory to be deployed');
-  await deployer.waitForDeployments();
+  // logger.verbose('Waiting for rollup and slash factory to be deployed');
+  // await deployer.waitForDeployments();
 
-  // Now that the rollup has been deployed and added to the registry, transfer ownership to governance
-  const { dateGatedRelayerAddress } = await handoverToGovernance(
-    l1Client,
-    deployer,
-    registryAddress,
-    gseAddress,
-    coinIssuerAddress,
-    feeAssetAddress,
-    governanceAddress,
-    logger,
-    args.acceleratedTestDeployments,
-    !!args.existingTokenAddress,
-  );
+  // // Now that the rollup has been deployed and added to the registry, transfer ownership to governance
+  // const { dateGatedRelayerAddress } = await handoverToGovernance(
+  //   l1Client,
+  //   deployer,
+  //   registryAddress,
+  //   gseAddress,
+  //   coinIssuerAddress,
+  //   feeAssetAddress,
+  //   governanceAddress,
+  //   logger,
+  //   args.acceleratedTestDeployments,
+  //   !!args.existingTokenAddress,
+  // );
 
-  logger.info(`Handing over to governance complete`);
+  // logger.info(`Handing over to governance complete`);
 
-  logger.verbose(`All transactions for L1 deployment have been mined`);
-  const l1Contracts = await RegistryContract.collectAddresses(l1Client, registryAddress, 'canonical');
+  // logger.verbose(`All transactions for L1 deployment have been mined`);
+  // const l1Contracts = await RegistryContract.collectAddresses(l1Client, registryAddress, 'canonical');
 
-  logger.info(`Aztec L1 contracts initialized`, l1Contracts);
+  // logger.info(`Aztec L1 contracts initialized`, l1Contracts);
 
-  // Write verification data (constructor args + linked libraries) to file for later forge verify
-  if (createVerificationJson) {
-    await generateRollupVerificationRecords(rollup, deployer, args, l1Contracts, l1Client, logger);
-    await writeVerificationJson(deployer, createVerificationJson, chain.id, '', logger);
-  }
+  // // Write verification data (constructor args + linked libraries) to file for later forge verify
+  // if (createVerificationJson) {
+  //   await generateRollupVerificationRecords(rollup, deployer, args, l1Contracts, l1Client, logger);
+  //   await writeVerificationJson(deployer, createVerificationJson, chain.id, '', logger);
+  // }
 
-  if (isAnvilTestChain(chain.id)) {
-    // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
-    //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
-    //        This is critical to avoid HeaderLib__InvalidSlotNumber errors when the rollup processes new block headers.
-    try {
-      // Need to get the time
-      const currentSlot = await rollup.getSlotNumber();
+  // if (isAnvilTestChain(chain.id)) {
+  //   // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
+  //   //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
+  //   //        This is critical to avoid HeaderLib__InvalidSlotNumber errors when the rollup processes new block headers.
+  //   try {
+  //     // Need to get the time
+  //     const currentSlot = await rollup.getSlotNumber();
 
-      if (currentSlot === 0) {
-        const ts = Number(await rollup.getTimestampForSlot(SlotNumber(1)));
-        await rpcCall('evm_setNextBlockTimestamp', [ts]);
-        await rpcCall('hardhat_mine', [1]);
-        const newSlot = await rollup.getSlotNumber();
+  //     if (currentSlot === 0) {
+  //       const ts = Number(await rollup.getTimestampForSlot(SlotNumber(1)));
+  //       await rpcCall('evm_setNextBlockTimestamp', [ts]);
+  //       await rpcCall('hardhat_mine', [1]);
+  //       const newSlot = await rollup.getSlotNumber();
 
-        if (newSlot !== 1) {
-          throw new Error(`Error jumping time: current slot is ${newSlot}, expected 1`);
-        }
-        logger.info(`Jumped to slot 1 to ensure block headers validate correctly`);
-      }
-    } catch (e) {
-      throw new Error(`Error jumping time: ${e}`);
-    }
-  }
+  //       if (newSlot !== 1) {
+  //         throw new Error(`Error jumping time: current slot is ${newSlot}, expected 1`);
+  //       }
+  //       logger.info(`Jumped to slot 1 to ensure block headers validate correctly`);
+  //     }
+  //   } catch (e) {
+  //     throw new Error(`Error jumping time: ${e}`);
+  //   }
+  // }
 
-  return {
-    rollupVersion: Number(await rollup.getVersion()),
-    l1Client: l1Client,
-    l1ContractAddresses: {
-      ...l1Contracts,
-      slashFactoryAddress,
-      feeAssetHandlerAddress,
-      stakingAssetHandlerAddress,
-      zkPassportVerifierAddress,
-      coinIssuerAddress,
-      dateGatedRelayerAddress,
-    },
-  };
+  // return {
+  //   rollupVersion: Number(await rollup.getVersion()),
+  //   l1Client: l1Client,
+  //   l1ContractAddresses: {
+  //     ...l1Contracts,
+  //     slashFactoryAddress,
+  //     feeAssetHandlerAddress,
+  //     stakingAssetHandlerAddress,
+  //     zkPassportVerifierAddress,
+  //     coinIssuerAddress,
+  //     dateGatedRelayerAddress,
+  //   },
+  // };
 };
 
 export class L1Deployer {
