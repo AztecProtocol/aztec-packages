@@ -17,6 +17,14 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 - [End to end tests](./yarn-project/end-to-end/): Integration tests written in Typescript--a good reference for how to use the packages for specific tasks.
 - [Aztec Boxes](./boxes/): Example starter projects.
 
+## Getting started
+
+If you are new to the Aztec monorepo, these resources are a good place to start:
+
+- Docs home: https://docs.aztec.network/  
+- Getting started on sandbox: https://docs.aztec.network/developers/getting_started_on_sandbox  
+- Aztec starter repo: https://github.com/AztecProtocol/aztec-starter  
+
 ## DeepWiki
 
 In addition to the docs website, you can "talk" with this repo using [DeepWiki](https://deepwiki.com):
