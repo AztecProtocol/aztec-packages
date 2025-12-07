@@ -41,23 +41,26 @@ import {
 
 /**
  * @title DeployL1Contracts
- * @notice Deploy Aztec L1 contracts.
+ * @notice Deploy Aztec L1 contracts. Configuration is read from environment variables.
  *
  * Usage:
- *   # With JSON config (passed as parameter):
+ *   # Deploy with env var config, write addresses to output file:
+ *   NETWORK=devnet USE_MOCK_VERIFIER=true \
  *   forge script script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts \
- *     --sig "run(string)" '{"deployment":{"useMockVerifier":true}}' \
+ *     --sig "run(string)" "./deployment-output.json" \
  *     --rpc-url $RPC_URL \
  *     --private-key $PRIVATE_KEY \
  *     --broadcast \
  *     -vvv
  *
- *   # Without config (uses defaults):
+ *   # Deploy without output file (uses defaults from env):
  *   forge script script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts \
  *     --rpc-url $RPC_URL \
  *     --private-key $PRIVATE_KEY \
  *     --broadcast \
  *     -vvv
+ *
+ * See DeploymentConfiguration.sol for available environment variables.
  */
 contract DeployL1Contracts is Script, Test {
     // Deployed contracts, filled as we make progress in the deploy.
@@ -87,10 +90,10 @@ contract DeployL1Contracts is Script, Test {
         DEPLOYER = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
     }
 
-    // Main entry point: Parse JSON config and deploy, write addresses to output file
-    function run(string memory _configJson, string memory _outputPath) public {
+    // Main entry point: Deploy using env vars for config, write addresses to output file
+    function run(string memory _outputPath) public {
         CONFIG = new DeploymentConfiguration();
-        CONFIG.loadConfig(_configJson);
+        CONFIG.loadConfig();
 
         vm.startBroadcast(DEPLOYER);
         _deploy();
@@ -100,18 +103,14 @@ contract DeployL1Contracts is Script, Test {
         _writeDeploymentOutput(_outputPath);
     }
 
-    function run(string memory _configJson) public {
+    function run() public {
         // No output file - skip writing (for backwards compatibility)
         CONFIG = new DeploymentConfiguration();
-        CONFIG.loadConfig(_configJson);
+        CONFIG.loadConfig();
 
         vm.startBroadcast(DEPLOYER);
         _deploy();
         vm.stopBroadcast();
-    }
-
-    function run() public {
-        run("");
     }
 
     function _deploy() internal {
@@ -257,8 +256,6 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function maybeDeployStakingAssetHandler() internal {
-        DeploymentOptions memory opts = CONFIG.getContractOptions();
-
         // Only deploy on sepolia and anvil (not devnet etc.)
         bool isSepoliaTestChain = block.chainid == 11155111;
         bool isAnvilTestChain = block.chainid == 31337;
@@ -276,7 +273,8 @@ contract DeployL1Contracts is Script, Test {
             }
 
             ZkPassportConfiguration memory zkConfig = CONFIG.getZkPassportConfiguration();
-            address AMIN = 0x3b218d0F26d15B36C715cB06c949210a0d630637;
+            address[] memory unhinged = new address[](1);
+            unhinged[0] = 0x3b218d0F26d15B36C715cB06c949210a0d630637; // AMIN isUnhinged
 
             STAKING_ASSET_HANDLER = new StakingAssetHandler(StakingAssetHandler.StakingAssetHandlerArgs({
                 owner: DEPLOYER,
@@ -288,7 +286,7 @@ contract DeployL1Contracts is Script, Test {
                 depositsPerMint: 10,
                 depositMerkleRoot: bytes32(0),
                 zkPassportVerifier: ZKPassportVerifier(zkPassportVerifier),
-                unhinged: [AMIN], // isUnhinged
+                unhinged: unhinged,
                 // Scopes
                 domain: zkConfig.domain,
                 scope: zkConfig.scope,

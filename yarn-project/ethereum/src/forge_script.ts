@@ -3,8 +3,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { bn254 } from '@noble/curves/bn254';
 import { spawn } from 'child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
-import { tmpdir } from 'os';
+import { existsSync, readFileSync, rmSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { foundry } from 'viem/chains';
@@ -285,10 +284,95 @@ function computeValidatorData(operator: Operator): ValidatorJson {
 }
 
 /**
+ * Converts config options to environment variables for the forge script.
+ * @param options - The deployment options
+ * @param computedValidators - Computed validator data (if any)
+ * @returns Environment variables object
+ */
+function buildEnvVarsFromConfig(
+  options: L1ContractsDeployConfig,
+  computedValidators?: ValidatorJson[],
+): Record<string, string> {
+  const envVars: Record<string, string> = {};
+
+  // Network name
+  if (options.networkName) envVars.NETWORK = options.networkName;
+
+  // Deployment options
+  if (options.useMockVerifier !== undefined) envVars.USE_MOCK_VERIFIER = String(options.useMockVerifier);
+  if (options.fundRewardDistributor !== undefined)
+    envVars.FUND_REWARD_DISTRIBUTOR = String(options.fundRewardDistributor);
+  if (options.existingStakingAssetAddress) envVars.EXISTING_STAKING_ASSET_ADDRESS = options.existingStakingAssetAddress;
+  if (options.rewardDistributorFunding) envVars.REWARD_DISTRIBUTOR_FUNDING = options.rewardDistributorFunding;
+
+  // Genesis config
+  if (options.vkTreeRoot) envVars.VK_TREE_ROOT = options.vkTreeRoot;
+  if (options.protocolContractsHash) envVars.PROTOCOL_CONTRACTS_HASH = options.protocolContractsHash;
+  if (options.genesisArchiveRoot) envVars.GENESIS_ARCHIVE_ROOT = options.genesisArchiveRoot;
+
+  // Timing config
+  if (options.aztecSlotDuration !== undefined) envVars.AZTEC_SLOT_DURATION = String(options.aztecSlotDuration);
+  if (options.aztecEpochDuration !== undefined) envVars.AZTEC_EPOCH_DURATION = String(options.aztecEpochDuration);
+  if (options.aztecTargetCommitteeSize !== undefined)
+    envVars.AZTEC_TARGET_COMMITTEE_SIZE = String(options.aztecTargetCommitteeSize);
+  if (options.lagInEpochsForValidatorSet !== undefined)
+    envVars.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET = String(options.lagInEpochsForValidatorSet);
+  if (options.lagInEpochsForRandao !== undefined)
+    envVars.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO = String(options.lagInEpochsForRandao);
+  if (options.aztecProofSubmissionEpochs !== undefined)
+    envVars.AZTEC_PROOF_SUBMISSION_EPOCHS = String(options.aztecProofSubmissionEpochs);
+
+  // GSE config
+  if (options.activationThreshold) envVars.AZTEC_ACTIVATION_THRESHOLD = options.activationThreshold;
+  if (options.ejectionThreshold) envVars.AZTEC_EJECTION_THRESHOLD = options.ejectionThreshold;
+  if (options.localEjectionThreshold) envVars.AZTEC_LOCAL_EJECTION_THRESHOLD = options.localEjectionThreshold;
+
+  // Slashing config
+  if (options.slasherFlavor) envVars.AZTEC_SLASHER_FLAVOR = options.slasherFlavor;
+  if (options.slashingQuorum !== undefined) envVars.AZTEC_SLASHING_QUORUM = String(options.slashingQuorum);
+  if (options.slashingRoundSizeInEpochs !== undefined)
+    envVars.AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS = String(options.slashingRoundSizeInEpochs);
+  if (options.slashingOffsetInRounds !== undefined)
+    envVars.AZTEC_SLASHING_OFFSET_IN_ROUNDS = String(options.slashingOffsetInRounds);
+  if (options.slashingLifetimeInRounds !== undefined)
+    envVars.AZTEC_SLASHING_LIFETIME_IN_ROUNDS = String(options.slashingLifetimeInRounds);
+  if (options.slashingExecutionDelayInRounds !== undefined)
+    envVars.AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = String(options.slashingExecutionDelayInRounds);
+  if (options.slashingDisableDuration !== undefined)
+    envVars.AZTEC_SLASHING_DISABLE_DURATION = String(options.slashingDisableDuration);
+  if (options.slashingVetoer) envVars.AZTEC_SLASHING_VETOER = options.slashingVetoer;
+  if (options.slashAmountSmall) envVars.AZTEC_SLASH_AMOUNT_SMALL = options.slashAmountSmall;
+  if (options.slashAmountMedium) envVars.AZTEC_SLASH_AMOUNT_MEDIUM = options.slashAmountMedium;
+  if (options.slashAmountLarge) envVars.AZTEC_SLASH_AMOUNT_LARGE = options.slashAmountLarge;
+
+  // Fee config
+  if (options.manaTarget) envVars.AZTEC_MANA_TARGET = options.manaTarget;
+  if (options.provingCostPerMana) envVars.AZTEC_PROVING_COST_PER_MANA = options.provingCostPerMana;
+  if (options.exitDelaySeconds !== undefined) envVars.AZTEC_EXIT_DELAY_SECONDS = String(options.exitDelaySeconds);
+
+  // Governance config
+  if (options.governanceProposerQuorum !== undefined)
+    envVars.AZTEC_GOVERNANCE_PROPOSER_QUORUM = String(options.governanceProposerQuorum);
+  if (options.governanceProposerRoundSize !== undefined)
+    envVars.AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE = String(options.governanceProposerRoundSize);
+
+  // ZK Passport config
+  if (options.zkPassportDomain) envVars.ZKPASSPORT_DOMAIN = options.zkPassportDomain;
+  if (options.zkPassportScope) envVars.ZKPASSPORT_SCOPE = options.zkPassportScope;
+
+  // Initial validators (JSON array)
+  if (computedValidators && computedValidators.length > 0) {
+    envVars.INITIAL_VALIDATORS = JSON.stringify(computedValidators);
+  }
+
+  return envVars;
+}
+
+/**
  * Deploys L1 contracts using forge and returns a result compatible with the TypeScript deployL1Contracts function.
  * This queries the Rollup contract to get the inbox, outbox, and feeJuicePortal addresses.
  *
- * All configuration is passed via environment variables to the forge script. The E2EConfiguration.sol
+ * All configuration is passed via environment variables to the forge script. The DeploymentConfiguration.sol
  * contract reads these values and applies defaults for any unspecified parameters.
  *
  * @param rpcUrl - The RPC URL to use
@@ -305,7 +389,7 @@ export async function setupL1ContractsViaForge(
   const chain = options.chain ?? foundry;
 
   // Extract runtime-only options (not passed to Solidity)
-  const { logger: _, chain: __, initialValidators, stakingAssetHandler: ___, ...jsonConfig } = options;
+  const { logger: _, chain: __, initialValidators, stakingAssetHandler: ___, ...configOptions } = options;
 
   // If initial validators are provided, compute their G2 public keys
   // Solidity will derive G1 and proof of possession from the private key
@@ -319,16 +403,15 @@ export async function setupL1ContractsViaForge(
     });
   }
 
-  // Build JSON config string to pass as script parameter
-  // DeploymentConfig.sol parses the JSON and applies defaults for missing values
-  const jsonConfigStr = stringifyConfig({
-    ...jsonConfig,
-    ...(computedValidators && { initialValidators: computedValidators }),
-  });
+  // Build environment variables from config options
+  const configEnvVars = buildEnvVarsFromConfig(configOptions, computedValidators);
 
-  // Create a temp file for the deployment output
-  const tempDir = mkdtempSync(join(tmpdir(), 'aztec-deploy-'));
-  const outputPath = join(tempDir, 'deployment.json');
+  // Create unique output file in .deployments directory (relative to l1-contracts)
+  const l1ContractsPath = getL1ContractsPath();
+  const deploymentsDir = join(l1ContractsPath, '.deployments');
+  const timestamp = Date.now();
+  const randomId = Math.random().toString(36).substring(2, 8);
+  const outputPath = join(deploymentsDir, `deployment-${timestamp}-${randomId}.json`);
 
   try {
     const result = await runForgeScript(
@@ -336,8 +419,7 @@ export async function setupL1ContractsViaForge(
         'script',
         'script/deploy/rollup/DeployL1Contracts.s.sol',
         '--sig',
-        'run(string,string)',
-        jsonConfigStr,
+        'run(string)',
         outputPath,
         '--rpc-url',
         rpcUrl,
@@ -345,11 +427,10 @@ export async function setupL1ContractsViaForge(
         privateKey,
         '--broadcast',
         '-vvvv',
-        // Grant write access to the temp output file
-        `--fs-permissions=${outputPath}=read-write`,
       ],
       {
         logger,
+        env: configEnvVars,
       },
     );
 
@@ -406,9 +487,9 @@ export async function setupL1ContractsViaForge(
       rollupVersion: addresses.rollupVersion,
     };
   } finally {
-    // Clean up temp directory
+    // Clean up deployment output file
     try {
-      rmSync(tempDir, { recursive: true, force: true });
+      rmSync(outputPath, { force: true });
     } catch {
       // Ignore cleanup errors
     }

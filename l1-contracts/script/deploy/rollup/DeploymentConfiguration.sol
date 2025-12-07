@@ -32,22 +32,59 @@ import {
 
 /**
  * @title DeploymentConfiguration
- * @notice Implements IDeploymentConfiguration with values loaded from JSON or defaults.
+ * @notice Implements IDeploymentConfiguration with values loaded from environment variables.
  *         Uses individual getter functions to avoid stack too deep issues.
+ *
+ * Environment Variables:
+ *   NETWORK                              - Network name (local, devnet, testnet, mainnet, etc.)
+ *   USE_MOCK_VERIFIER                    - Use mock verifier (default: true)
+ *   FUND_REWARD_DISTRIBUTOR              - Fund reward distributor (default: true)
+ *   DEPLOY_FEE_ASSET_HANDLER             - Deploy fee asset handler (default: true)
+ *   DEPLOY_STAKING_ASSET_HANDLER         - Deploy staking asset handler (default: true)
+ *   EXISTING_STAKING_ASSET_ADDRESS       - Use existing ERC20 for staking (default: deploy new)
+ *   VK_TREE_ROOT                         - VK tree root for genesis
+ *   PROTOCOL_CONTRACTS_HASH              - Protocol contracts hash for genesis
+ *   GENESIS_ARCHIVE_ROOT                 - Genesis archive root
+ *   AZTEC_SLOT_DURATION                  - L2 slot duration in seconds (default: 36)
+ *   AZTEC_EPOCH_DURATION                 - L2 slots per epoch (default: 32)
+ *   AZTEC_TARGET_COMMITTEE_SIZE          - Target committee size (default: 48)
+ *   AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET - Lag for validator set (default: 2)
+ *   AZTEC_LAG_IN_EPOCHS_FOR_RANDAO       - Lag for randao (default: 2)
+ *   AZTEC_PROOF_SUBMISSION_EPOCHS        - Proof submission window (default: 1)
+ *   AZTEC_ACTIVATION_THRESHOLD           - Validator deposit amount (default: 100e18)
+ *   AZTEC_EJECTION_THRESHOLD             - Minimum validator stake (default: 50e18)
+ *   AZTEC_LOCAL_EJECTION_THRESHOLD       - Local ejection threshold (default: 98e18)
+ *   AZTEC_SLASHER_FLAVOR                 - Slasher type: none, tally, empire (default: tally)
+ *   AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS  - Slashing round size (default: 4)
+ *   AZTEC_SLASHING_OFFSET_IN_ROUNDS      - Slashing offset (default: 2 for tally)
+ *   AZTEC_SLASHING_LIFETIME_IN_ROUNDS    - Slashing lifetime (default: 5)
+ *   AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS - Execution delay (default: 0)
+ *   AZTEC_SLASHING_VETOER                - Slashing vetoer address (default: 0x0)
+ *   AZTEC_SLASHING_DISABLE_DURATION      - Disable duration in seconds (default: 5 days)
+ *   AZTEC_SLASH_AMOUNT_SMALL             - Small slash amount (default: 10e18)
+ *   AZTEC_SLASH_AMOUNT_MEDIUM            - Medium slash amount (default: 20e18)
+ *   AZTEC_SLASH_AMOUNT_LARGE             - Large slash amount (default: 50e18)
+ *   AZTEC_MANA_TARGET                    - Mana target (default: 100_000_000)
+ *   AZTEC_PROVING_COST_PER_MANA          - Proving cost per mana (default: 100)
+ *   AZTEC_EXIT_DELAY_SECONDS             - Exit delay (default: 2 days)
+ *   AZTEC_GOVERNANCE_PROPOSER_QUORUM     - Governance quorum (default: roundSize/2 + 1)
+ *   AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE - Governance round size (default: 300)
+ *   ZKPASSPORT_DOMAIN                    - ZKPassport domain
+ *   ZKPASSPORT_SCOPE                     - ZKPassport scope
+ *   INITIAL_VALIDATORS                   - JSON array of initial validators (default: [])
  */
 contract DeploymentConfiguration is IDeploymentConfiguration, Test {
     using stdJson for string;
-    // Deployment options (not part of IDeploymentConfiguration)
 
     // Storage for loaded config
-    string internal configJson;
     string public networkName;
+    string internal validatorsJson;
     DeploymentOptions public deploymentOptions;
     ZkPassportConfiguration public zkPassportConfig;
 
-    function loadConfig(string memory _configJson) external {
-        configJson = _configJson;
-        networkName = _getString(".networkName", "local");
+    function loadConfig() external {
+        networkName = vm.envOr("NETWORK", string("local"));
+        validatorsJson = vm.envOr("INITIAL_VALIDATORS", string("[]"));
         _loadDeploymentOptions();
         _loadZkPassportConfiguration();
     }
@@ -84,16 +121,16 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
 
     function getGseConfiguration() external view returns (GseConfiguration memory) {
         return GseConfiguration({
-            activationThreshold: _getUint(".activationThreshold", 100e18),
-            ejectionThreshold: _getUint(".ejectionThreshold", 50e18)
+            activationThreshold: vm.envOr("AZTEC_ACTIVATION_THRESHOLD", uint256(100e18)),
+            ejectionThreshold: vm.envOr("AZTEC_EJECTION_THRESHOLD", uint256(50e18))
         });
     }
 
     function getGovernanceProposerConfiguration() external view returns (GovernanceProposerConfiguration memory) {
-        uint256 roundSize = _getUint(".governanceProposerRoundSize", 300);
+        uint256 roundSize = vm.envOr("AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE", uint256(300));
         uint256 defaultQuorum = roundSize / 2 + 1;
         return GovernanceProposerConfiguration({
-            quorum: _getUint(".governanceProposerQuorum", defaultQuorum),
+            quorum: vm.envOr("AZTEC_GOVERNANCE_PROPOSER_QUORUM", defaultQuorum),
             roundSize: roundSize
         });
     }
@@ -181,9 +218,9 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
 
     function getGenesisState() external view returns (GenesisState memory) {
         return GenesisState({
-            vkTreeRoot: bytes32(_getUint(".vkTreeRoot", 0)),
-            protocolContractsHash: bytes32(_getUint(".protocolContractsHash", 0)),
-            genesisArchiveRoot: bytes32(_getUint(".genesisArchiveRoot", 0))
+            vkTreeRoot: bytes32(vm.envOr("VK_TREE_ROOT", uint256(0))),
+            protocolContractsHash: bytes32(vm.envOr("PROTOCOL_CONTRACTS_HASH", uint256(0))),
+            genesisArchiveRoot: bytes32(vm.envOr("GENESIS_ARCHIVE_ROOT", uint256(0)))
         });
     }
 
@@ -193,9 +230,9 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
         (uint16 sequencerBps, uint96 checkpointReward) = _getRewardDefaults();
         return RewardConfig({
             rewardDistributor: _rewardDistributor,
-            sequencerBps: Bps.wrap(uint16(_getUint(".reward.sequencerBps", sequencerBps))),
-            booster: IBoosterCore(_getAddress(".reward.booster", address(0))),
-            checkpointReward: uint96(_getUint(".reward.checkpointReward", checkpointReward))
+            sequencerBps: Bps.wrap(uint16(vm.envOr("REWARD_SEQUENCER_BPS", uint256(sequencerBps)))),
+            booster: IBoosterCore(vm.envOr("REWARD_BOOSTER", address(0))),
+            checkpointReward: uint96(vm.envOr("REWARD_CHECKPOINT_REWARD", uint256(checkpointReward)))
         });
     }
 
@@ -252,26 +289,26 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
 
     function getRollupConfiguration(IRewardDistributor _rewardDistributor) external view returns (RollupConfigInput memory) {
         return RollupConfigInput({
-            aztecSlotDuration: _getUint(".aztecSlotDuration", 36),
-            aztecEpochDuration: _getUint(".aztecEpochDuration", 32),
-            targetCommitteeSize: _getUint(".aztecTargetCommitteeSize", 48),
-            lagInEpochsForValidatorSet: _getUint(".lagInEpochsForValidatorSet", 2),
-            lagInEpochsForRandao: _getUint(".lagInEpochsForRandao", 2),
-            aztecProofSubmissionEpochs: _getUint(".aztecProofSubmissionEpochs", 1),
-            localEjectionThreshold: _getUint(".localEjectionThreshold", 98e18),
+            aztecSlotDuration: vm.envOr("AZTEC_SLOT_DURATION", uint256(36)),
+            aztecEpochDuration: vm.envOr("AZTEC_EPOCH_DURATION", uint256(32)),
+            targetCommitteeSize: vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48)),
+            lagInEpochsForValidatorSet: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET", uint256(2)),
+            lagInEpochsForRandao: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO", uint256(2)),
+            aztecProofSubmissionEpochs: vm.envOr("AZTEC_PROOF_SUBMISSION_EPOCHS", uint256(1)),
+            localEjectionThreshold: vm.envOr("AZTEC_LOCAL_EJECTION_THRESHOLD", uint256(98e18)),
             slashingQuorum: _getSlashingQuorum(),
             slashingRoundSize: _getSlashingRoundSize(),
-            slashingLifetimeInRounds: _getUint(".slashingLifetimeInRounds", 5),
-            slashingExecutionDelayInRounds: _getUint(".slashingExecutionDelayInRounds", 0),
+            slashingLifetimeInRounds: vm.envOr("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", uint256(5)),
+            slashingExecutionDelayInRounds: vm.envOr("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS", uint256(0)),
             slashAmounts: _getSlashAmounts(),
             slashingOffsetInRounds: _getSlashingOffset(),
             slasherFlavor: _getSlasherFlavor(),
-            slashingVetoer: _getAddress(".slashingVetoer", address(0)),
-            slashingDisableDuration: _getUint(".slashingDisableDuration", 5 days),
-            manaTarget: _getUint(".manaTarget", 100_000_000),
-            exitDelaySeconds: _getUint(".exitDelaySeconds", 2 days),
+            slashingVetoer: vm.envOr("AZTEC_SLASHING_VETOER", address(0)),
+            slashingDisableDuration: vm.envOr("AZTEC_SLASHING_DISABLE_DURATION", uint256(5 days)),
+            manaTarget: vm.envOr("AZTEC_MANA_TARGET", uint256(100_000_000)),
+            exitDelaySeconds: vm.envOr("AZTEC_EXIT_DELAY_SECONDS", uint256(2 days)),
             version: 0,
-            provingCostPerMana: EthValue.wrap(_getUint(".provingCostPerMana", 100)),
+            provingCostPerMana: EthValue.wrap(vm.envOr("AZTEC_PROVING_COST_PER_MANA", uint256(100))),
             rewardConfig: this.getRewardConfiguration(_rewardDistributor),
             rewardBoostConfig: this.getRewardBoostConfiguration(),
             stakingQueueConfig: this.getStakingQueueConfiguration(),
@@ -280,12 +317,12 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
     }
 
     function _getSlasherFlavor() private view returns (SlasherFlavor) {
-        return _parseSlasherFlavor(_getString(".slasherFlavor", "tally"));
+        return _parseSlasherFlavor(vm.envOr("AZTEC_SLASHER_FLAVOR", string("tally")));
     }
 
     function _getSlashingRoundSize() private view returns (uint256) {
-        uint256 roundSizeInEpochs = _getUint(".slashingRoundSizeInEpochs", 4);
-        uint256 aztecEpochDuration = _getUint(".aztecEpochDuration", 32);
+        uint256 roundSizeInEpochs = vm.envOr("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
+        uint256 aztecEpochDuration = vm.envOr("AZTEC_EPOCH_DURATION", uint256(32));
         uint256 defaultRoundSize = roundSizeInEpochs * aztecEpochDuration;
         return defaultRoundSize;
     }
@@ -293,26 +330,26 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
     function _getSlashingQuorum() private view returns (uint256) {
         uint256 roundSize = _getSlashingRoundSize();
         uint256 defaultQuorum = roundSize / 2 + 1;
-        return _getUint(".slashingQuorum", defaultQuorum);
+        return vm.envOr("AZTEC_SLASHING_QUORUM", defaultQuorum);
     }
 
     function _getSlashingOffset() private view returns (uint256) {
         SlasherFlavor flavor = _getSlasherFlavor();
-        return _getUint(".slashingOffsetInRounds", flavor == SlasherFlavor.TALLY ? 2 : 0);
+        return vm.envOr("AZTEC_SLASHING_OFFSET_IN_ROUNDS", flavor == SlasherFlavor.TALLY ? uint256(2) : uint256(0));
     }
 
     function _getSlashAmounts() private view returns (uint256[3] memory) {
         return [
-            _getUint(".slashAmountSmall", 10e18),
-            _getUint(".slashAmountMedium", 20e18),
-            _getUint(".slashAmountLarge", 50e18)
+            vm.envOr("AZTEC_SLASH_AMOUNT_SMALL", uint256(10e18)),
+            vm.envOr("AZTEC_SLASH_AMOUNT_MEDIUM", uint256(20e18)),
+            vm.envOr("AZTEC_SLASH_AMOUNT_LARGE", uint256(50e18))
         ];
     }
 
     function getRewardDistributorFunding() external view returns (uint256) {
         (, uint96 checkpointReward) = _getRewardDefaults();
         uint256 defaultFunding = uint256(checkpointReward) * 200_000;
-        return _getUint(".rewardDistributorFunding", defaultFunding);
+        return vm.envOr("REWARD_DISTRIBUTOR_FUNDING", defaultFunding);
     }
 
     function getZkPassportConfiguration() external view returns (ZkPassportConfiguration memory) {
@@ -320,10 +357,6 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
     }
 
     function parseValidators() external view returns (CheatDepositArgs[] memory) {
-        if (!configJson.keyExists(".initialValidators")) {
-            return new CheatDepositArgs[](0);
-        }
-
         uint256 count = _countValidators();
         if (count == 0) {
             return new CheatDepositArgs[](0);
@@ -339,19 +372,17 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
     // ============ Internal Loading Functions ============
 
     function _loadDeploymentOptions() private {
-        address existingAsset = _getAddress(".existingStakingAssetAddress", address(0));
-
         deploymentOptions = DeploymentOptions({
-            useMockVerifier: _getBool(".useMockVerifier", true),
-            fundRewardDistributor: _getBool(".fundRewardDistributor", true),
-            existingStakingAssetAddress: existingAsset
+            useMockVerifier: vm.envOr("USE_MOCK_VERIFIER", true),
+            fundRewardDistributor: vm.envOr("FUND_REWARD_DISTRIBUTOR", true),
+            existingStakingAssetAddress: vm.envOr("EXISTING_STAKING_ASSET_ADDRESS", address(0))
         });
     }
 
     function _loadZkPassportConfiguration() private {
         zkPassportConfig = ZkPassportConfiguration({
-            domain: _getString(".zkPassportDomain", "sequencer.alpha-testnet.aztec.network"),
-            scope: _getString(".zkPassportScope", "personhood")
+            domain: vm.envOr("ZKPASSPORT_DOMAIN", string("sequencer.alpha-testnet.aztec.network")),
+            scope: vm.envOr("ZKPASSPORT_SCOPE", string("personhood"))
         });
     }
 
@@ -362,22 +393,22 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
         return (8000, 500e18);
     }
 
-    // ============ Validator Parsing ============
+    // ============ Validator Parsing (from INITIAL_VALIDATORS env var JSON) ============
     // TODO(AD): Is there anything less clumsy possible here?
     // TODO(AD): but test-only code...
     function _countValidators() private view returns (uint256 count) {
-        while (configJson.keyExists(string.concat(".initialValidators[", vm.toString(count), "]"))) {
+        while (validatorsJson.keyExists(string.concat("[", vm.toString(count), "]"))) {
             count++;
         }
     }
 
     function _parseValidator(uint256 i) private view returns (CheatDepositArgs memory) {
-        string memory basePath = string.concat(".initialValidators[", vm.toString(i), "]");
+        string memory basePath = string.concat("[", vm.toString(i), "]");
         (G1Point memory pubKeyG1, G1Point memory pop) = _computeG1Points(basePath);
 
         return CheatDepositArgs({
-            attester: configJson.readAddress(string.concat(basePath, ".attester")),
-            withdrawer: configJson.readAddress(string.concat(basePath, ".withdrawer")),
+            attester: validatorsJson.readAddress(string.concat(basePath, ".attester")),
+            withdrawer: validatorsJson.readAddress(string.concat(basePath, ".withdrawer")),
             publicKeyInG2: _parseG2Point(basePath),
             publicKeyInG1: pubKeyG1,
             proofOfPossession: pop
@@ -385,7 +416,7 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
     }
 
     function _computeG1Points(string memory basePath) private view returns (G1Point memory, G1Point memory) {
-        uint256 privateKey = configJson.readUint(string.concat(basePath, ".privateKey"));
+        uint256 privateKey = validatorsJson.readUint(string.concat(basePath, ".privateKey"));
         G1Point memory pubKeyG1 = BN254Lib.g1Mul(BN254Lib.g1Generator(), privateKey);
         G1Point memory pop = BN254Lib.g1Mul(BN254Lib.g1ToDigestPoint(pubKeyG1), privateKey);
         return (pubKeyG1, pop);
@@ -393,29 +424,11 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
 
     function _parseG2Point(string memory basePath) private view returns (G2Point memory) {
         return G2Point({
-            x0: configJson.readUint(string.concat(basePath, ".publicKeyInG2.x0")),
-            x1: configJson.readUint(string.concat(basePath, ".publicKeyInG2.x1")),
-            y0: configJson.readUint(string.concat(basePath, ".publicKeyInG2.y0")),
-            y1: configJson.readUint(string.concat(basePath, ".publicKeyInG2.y1"))
+            x0: validatorsJson.readUint(string.concat(basePath, ".publicKeyInG2.x0")),
+            x1: validatorsJson.readUint(string.concat(basePath, ".publicKeyInG2.x1")),
+            y0: validatorsJson.readUint(string.concat(basePath, ".publicKeyInG2.y0")),
+            y1: validatorsJson.readUint(string.concat(basePath, ".publicKeyInG2.y1"))
         });
-    }
-
-    // ============ JSON Helpers ============
-
-    function _getUint(string memory path, uint256 defaultValue) private view returns (uint256) {
-        return configJson.readUintOr(path, defaultValue);
-    }
-
-    function _getBool(string memory path, bool defaultValue) private view returns (bool) {
-        return configJson.readBoolOr(path, defaultValue);
-    }
-
-    function _getAddress(string memory path, address defaultValue) private view returns (address) {
-        return configJson.readAddressOr(path, defaultValue);
-    }
-
-    function _getString(string memory path, string memory defaultValue) private view returns (string memory) {
-        return configJson.readStringOr(path, defaultValue);
     }
 
     function _parseSlasherFlavor(string memory flavor) private pure returns (SlasherFlavor) {

@@ -42,9 +42,9 @@ describe('forge_script', () => {
   // To test manually with anvil:
   // 1. Start anvil: anvil --port 8546 --hardfork prague
   // 2. Run forge: forge script script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts \
-  //    --sig "run()" --rpc-url http://127.0.0.1:8546 \
+  //    --sig "run(string)" "./deployment.json" --rpc-url http://127.0.0.1:8546 \
   //    --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --broadcast -vvv
-  it('setupL1ContractsViaForge deploys and returns complete L1ContractAddresses', async () => {
+  it('setupL1ContractsViaForge deploys with defaults and returns complete L1ContractAddresses', async () => {
     const result = await setupL1ContractsViaForge(rpcUrl, privateKeyHex, {
       logger,
     });
@@ -83,5 +83,28 @@ describe('forge_script', () => {
     // Verify addresses are not zero addresses
     expect(result.l1ContractAddresses.rollupAddress.toString()).not.toBe('0x0000000000000000000000000000000000000000');
     expect(result.l1ContractAddresses.inboxAddress.toString()).not.toBe('0x0000000000000000000000000000000000000000');
+  }, 300000); // 5 minutes
+
+  it('setupL1ContractsViaForge deploys with custom config via env vars', async () => {
+    const result = await setupL1ContractsViaForge(rpcUrl, privateKeyHex, {
+      logger,
+      networkName: 'devnet',
+      useMockVerifier: true,
+      aztecSlotDuration: 24,
+      aztecEpochDuration: 32,
+      aztecTargetCommitteeSize: 48,
+      activationThreshold: '200000000000000000000',
+      ejectionThreshold: '50000000000000000000',
+    });
+
+    logger.info('setupL1ContractsViaForge with custom config result:', {
+      rollupAddress: result.l1ContractAddresses.rollupAddress.toString(),
+      registryAddress: result.l1ContractAddresses.registryAddress.toString(),
+    });
+
+    // Verify deployment succeeded with custom config
+    expect(result.l1ContractAddresses.rollupAddress).toBeDefined();
+    expect(result.l1ContractAddresses.registryAddress).toBeDefined();
+    expect(result.l1ContractAddresses.rollupAddress.toString()).not.toBe('0x0000000000000000000000000000000000000000');
   }, 300000); // 5 minutes
 });
