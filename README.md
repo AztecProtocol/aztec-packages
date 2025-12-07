@@ -17,6 +17,18 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 - [End to end tests](./yarn-project/end-to-end/): Integration tests written in Typescript--a good reference for how to use the packages for specific tasks.
 - [Aztec Boxes](./boxes/): Example starter projects.
 
+### Monorepo layout at a glance
+
+At a very high level:
+
+- ZK proving and low-level cryptography live under `barretenberg/`.
+- L1 rollup contracts live in `l1-contracts/`.
+- Noir contracts and circuits live in `noir-projects/` and `noir/`.
+- Client and service code is under `yarn-project/`.
+- Documentation sources are maintained in `docs/`.
+
+This is not an exhaustive map, but it should help new contributors orient themselves in the repository structure.
+
 ## DeepWiki
 
 In addition to the docs website, you can "talk" with this repo using [DeepWiki](https://deepwiki.com):
