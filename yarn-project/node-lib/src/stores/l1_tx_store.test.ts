@@ -284,6 +284,36 @@ describe('L1TxStore', () => {
       const loaded = await store.loadState(account, saved.id);
       expect(loaded).toBeUndefined();
     });
+
+    it('should batch delete multiple states efficiently', async () => {
+      const account = '0xabc123';
+
+      // Create 10 states
+      const savedStates: L1TxState[] = [];
+      for (let i = 1; i <= 10; i++) {
+        savedStates.push(await store.saveState(account, createMockState(i)));
+      }
+
+      // Delete states 1, 3, 5, 7, 9 (every other one)
+      const idsToDelete = [1, 3, 5, 7, 9].map(i => savedStates[i - 1].id);
+      await store.deleteState(account, ...idsToDelete);
+
+      // Should have 5 states remaining (2, 4, 6, 8, 10)
+      const loaded = await store.loadStates(account);
+      expect(loaded).toHaveLength(5);
+      expect(loaded.map(s => s.nonce)).toEqual([2, 4, 6, 8, 10]);
+    });
+
+    it('should handle empty array gracefully', async () => {
+      const account = '0xabc123';
+      await store.saveState(account, createMockState(1));
+
+      // Should not throw and should not delete anything
+      await expect(store.deleteState(account)).resolves.not.toThrow();
+
+      const loaded = await store.loadStates(account);
+      expect(loaded).toHaveLength(1);
+    });
   });
 
   describe('clearStates', () => {
