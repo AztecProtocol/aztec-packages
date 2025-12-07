@@ -1,6 +1,6 @@
 import { UPDATES_VALUE_SIZE } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ScheduledDelayChange } from './scheduled_delay_change.js';

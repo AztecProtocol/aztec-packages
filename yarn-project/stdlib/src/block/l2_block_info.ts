@@ -1,5 +1,5 @@
 import { BlockNumber, BlockNumberSchema, SlotNumber, SlotNumberSchema } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 

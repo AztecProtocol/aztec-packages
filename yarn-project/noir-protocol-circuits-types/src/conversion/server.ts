@@ -15,9 +15,9 @@ import {
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { BLS12Fq, BLS12Fr } from '@aztec/foundation/fields/bls12';
-import { BLS12Point } from '@aztec/foundation/fields/bls12';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { BLS12Fq, BLS12Fr } from '@aztec/foundation/curves/bls12';
+import { BLS12Point } from '@aztec/foundation/curves/bls12';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Bufferable, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import {

@@ -1,7 +1,7 @@
 import { BLS12_FQ_LIMBS, BLS12_FR_LIMBS } from '@aztec/constants';
-import { BLS12Fq, BLS12Fr } from '@aztec/foundation/fields/bls12';
-import { BLS12Point } from '@aztec/foundation/fields/bls12';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { BLS12Fq, BLS12Fr } from '@aztec/foundation/curves/bls12';
+import { BLS12Point } from '@aztec/foundation/curves/bls12';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**

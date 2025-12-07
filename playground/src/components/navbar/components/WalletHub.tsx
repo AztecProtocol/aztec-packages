@@ -13,7 +13,7 @@ import { AztecContext } from '../../../aztecContext';
 import { CreateAccountDialog } from '../../../wallet/components/CreateAccountDialog';
 import { useTransaction } from '../../../hooks/useTransaction';
 import { type WalletProvider, WalletManager } from '@aztec/wallet-sdk/manager';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 // Extend WalletProvider locally for UI properties
 type ExtendedWalletProvider = WalletProvider & {

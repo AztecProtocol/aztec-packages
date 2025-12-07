@@ -1,8 +1,8 @@
 import type { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Buffer32 } from '@aztec/foundation/buffer';
+import type { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { Fq, Fr } from '@aztec/foundation/fields/bn254';
-import type { Point } from '@aztec/foundation/fields/grumpkin';
 import { type ZodFor, schemas as foundationSchemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';

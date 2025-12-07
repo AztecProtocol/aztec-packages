@@ -1,5 +1,5 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { decodeCheckpointBlobDataFromBlobs, getBlobsPerL1Block } from './blob_utils.js';
 import { encodeCheckpointBlobData } from './encoding/checkpoint_blob_data.js';

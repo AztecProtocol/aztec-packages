@@ -4,9 +4,9 @@ import { EpochNumber, EpochNumberSchema } from '../branded-types/epoch.js';
 import { SlotNumber, SlotNumberSchema } from '../branded-types/slot.js';
 import { Buffer32 } from '../buffer/buffer32.js';
 import { SecretValue } from '../config/secret_value.js';
+import { Fq, Fr } from '../curves/bn254/field.js';
+import { Point } from '../curves/grumpkin/point.js';
 import { EthAddress } from '../eth-address/index.js';
-import { Fq, Fr } from '../fields/bn254/field.js';
-import { Point } from '../fields/grumpkin/point.js';
 import { isHex, withoutHexPrefix } from '../string/index.js';
 import { bufferSchema, hexSchema } from './utils.js';
 

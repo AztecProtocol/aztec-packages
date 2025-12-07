@@ -1,6 +1,6 @@
 import { FUNCTION_TREE_HEIGHT, GeneratorIndex } from '@aztec/constants';
 import { pedersenHash, poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
 
 import type { PrivateFunction } from './interfaces/contract_class.js';

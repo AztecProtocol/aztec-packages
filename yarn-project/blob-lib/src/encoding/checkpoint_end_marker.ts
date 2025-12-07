@@ -1,5 +1,5 @@
 import { CHECKPOINT_END_PREFIX } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { BlobDeserializationError } from '../errors.js';
 

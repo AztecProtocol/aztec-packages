@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type LogLevel, LogLevels } from '@aztec/foundation/log';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 

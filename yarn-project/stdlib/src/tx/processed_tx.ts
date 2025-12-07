@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { AvmProvingRequest } from '../avm/avm_proving_request.js';
 import type { PublicDataWrite } from '../avm/public_data_write.js';

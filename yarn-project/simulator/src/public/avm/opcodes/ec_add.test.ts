@@ -1,6 +1,6 @@
 import { Grumpkin } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields/bn254';
-import { Point } from '@aztec/foundation/fields/grumpkin';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 
 import { beforeEach } from '@jest/globals';
 

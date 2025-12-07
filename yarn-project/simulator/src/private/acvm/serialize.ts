@@ -1,5 +1,5 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { ACVMField } from './acvm_types.js';

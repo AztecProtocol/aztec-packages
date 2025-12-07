@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields/bn254';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { Timer } from '@aztec/foundation/timer';
 import type { PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
 import type { Gas } from '@aztec/stdlib/gas';
