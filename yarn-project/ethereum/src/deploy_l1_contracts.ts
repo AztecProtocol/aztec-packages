@@ -32,14 +32,7 @@ import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
-import {
-  type L1ContractsConfig,
-  getEntryQueueConfig,
-  getGovernanceConfiguration,
-  getRewardBoostConfig,
-  getRewardConfig,
-  validateConfig,
-} from './config.js';
+import { type L1ContractsConfig } from './config.js';
 import { GSEContract } from './contracts/gse.js';
 import { deployMulticall3 } from './contracts/multicall.js';
 import { RegistryContract } from './contracts/registry.js';
@@ -767,6 +760,7 @@ export const deployRollupForUpgrade = async (
 
   const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical');
 
+  // TODO CLAUDE this should call the shell script we have developed for exposing DeployRollupForUpgrade.s.sol
   const { rollup, slashFactoryAddress } = await deployRollup(extendedClient, deployer, args, addresses, logger);
 
   await deployer.waitForDeployments();
