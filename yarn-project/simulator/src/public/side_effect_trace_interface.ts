@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields/bn254';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogLevel } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { DebugLog } from '@aztec/stdlib/logs';

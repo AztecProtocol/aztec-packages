@@ -3,7 +3,7 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   type NULLIFIER_TREE_HEIGHT,
 } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/fields/bn254';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
 import { siloNullifier } from '../../hash/hash.js';

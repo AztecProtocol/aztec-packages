@@ -1,5 +1,5 @@
-import { Fq, Fr } from '../../fields/bn254/field.js';
-import { Bn254G1Point } from '../../fields/bn254/point.js';
+import { Fq, Fr } from '../../curves/bn254/field.js';
+import { Bn254G1Point } from '../../curves/bn254/point.js';
 import { deriveBlsKeyFromMnemonic } from '../bls/index.js';
 import { computeBn254G1PublicKey, computeBn254G1PublicKeyCompressed, computeBn254G2PublicKey } from './index.js';
 

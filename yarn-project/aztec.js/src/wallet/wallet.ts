@@ -1,5 +1,5 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
-import type { Fr } from '@aztec/foundation/fields/bn254';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import {
   AbiTypeSchema,
   type ContractArtifact,

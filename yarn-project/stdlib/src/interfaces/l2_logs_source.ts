@@ -1,5 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/fields/bn254';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { LogFilter } from '../logs/log_filter.js';
 import type { PrivateLog } from '../logs/private_log.js';

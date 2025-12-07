@@ -1,7 +1,7 @@
 import { makeTuple } from '@aztec/foundation/array';
-import { BLS12Fq, BLS12Fr } from '@aztec/foundation/fields/bls12';
-import { BLS12Point, BLSPointNotOnCurveError } from '@aztec/foundation/fields/bls12';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { BLS12Fq, BLS12Fr } from '@aztec/foundation/curves/bls12';
+import { BLS12Point, BLSPointNotOnCurveError } from '@aztec/foundation/curves/bls12';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { Blob } from './blob.js';
 import { BlobAccumulator } from './circuit_types/blob_accumulator.js';

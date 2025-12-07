@@ -1,5 +1,5 @@
 import { AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 

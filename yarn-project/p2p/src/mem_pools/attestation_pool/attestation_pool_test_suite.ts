@@ -1,6 +1,6 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 import {
   BlockProposal as BlockProposalClass,

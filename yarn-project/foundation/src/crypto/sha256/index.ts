@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 import { default as hash } from 'hash.js';
 
-import { Fr } from '../../fields/bn254/field.js';
+import { Fr } from '../../curves/bn254/field.js';
 import { truncateAndPad } from '../../serialize/free_funcs.js';
 import { type Bufferable, serializeToBuffer } from '../../serialize/serialize.js';
 import type { Hasher } from '../../trees/hasher.js';

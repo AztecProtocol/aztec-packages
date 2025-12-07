@@ -7,7 +7,7 @@ import {
   PAIRING_POINTS_SIZE,
   ULTRA_KECCAK_PROOF_LENGTH,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import { ChonkProofWithPublicInputs, Proof, RecursiveProof } from '@aztec/stdlib/proofs';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';

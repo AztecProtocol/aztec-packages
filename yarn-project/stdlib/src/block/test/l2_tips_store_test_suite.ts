@@ -1,7 +1,7 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type L2Block, type L2BlockId, PublishedL2Block } from '@aztec/stdlib/block';
 
 import { jestExpect as expect } from '@jest/expect';

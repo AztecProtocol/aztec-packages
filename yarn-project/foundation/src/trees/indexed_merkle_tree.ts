@@ -1,4 +1,4 @@
-import { Fr } from '../fields/bn254/index.js';
+import { Fr } from '../curves/bn254/index.js';
 import { assertLength } from '../serialize/index.js';
 import type { IndexedTreeLeafPreimage } from './indexed_tree_leaf.js';
 import { MembershipWitness } from './membership_witness.js';

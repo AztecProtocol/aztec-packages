@@ -1,5 +1,5 @@
 import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { AztecAddress } from '../aztec-address/index.js';

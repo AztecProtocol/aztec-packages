@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import type { Fr } from '@aztec/foundation/fields/bn254';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 

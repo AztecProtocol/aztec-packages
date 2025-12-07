@@ -1,8 +1,8 @@
 import { GeneratorIndex } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields/bn254';
-import { GrumpkinScalar } from '@aztec/foundation/fields/grumpkin';
-import { Point } from '@aztec/foundation/fields/grumpkin';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';

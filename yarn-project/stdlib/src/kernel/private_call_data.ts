@@ -1,5 +1,5 @@
 import { FUNCTION_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, UPDATES_VALUE_SIZE } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { FieldsOf } from '@aztec/foundation/types';

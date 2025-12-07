@@ -1,9 +1,9 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256, tryRecoverAddress } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import type { L2BlockInfo } from '../block/l2_block_info.js';

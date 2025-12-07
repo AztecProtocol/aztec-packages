@@ -1,4 +1,4 @@
-import { Fq, Fr } from '../fields/bn254/field.js';
+import { Fq, Fr } from '../curves/bn254/field.js';
 import type { EnvVar } from './env_var.js';
 import { type NetworkNames, getActiveNetworkName } from './network_name.js';
 import { SecretValue } from './secret_value.js';

@@ -1,4 +1,4 @@
-import { Fr } from '../fields/bn254/index.js';
+import { Fr } from '../curves/bn254/index.js';
 import { jsonStringify } from '../json-rpc/index.js';
 import { type MerkleTree, MerkleTreeCalculator } from '../trees/index.js';
 import { SiblingPath, computeRootFromSiblingPath } from './sibling_path.js';

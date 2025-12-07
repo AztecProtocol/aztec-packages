@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields/bn254';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 
 /**
  * A type which along with public key forms a preimage of a contract address. See the link below for more details

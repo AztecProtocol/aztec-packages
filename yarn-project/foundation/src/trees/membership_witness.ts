@@ -1,6 +1,6 @@
 import { assertMemberLength } from '../array/array.js';
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
-import { Fr } from '../fields/bn254/field.js';
+import { Fr } from '../curves/bn254/field.js';
 import { schemas } from '../schemas/schemas.js';
 import { BufferReader, type Tuple, serializeToBuffer } from '../serialize/index.js';
 import type { SiblingPath } from './sibling_path.js';

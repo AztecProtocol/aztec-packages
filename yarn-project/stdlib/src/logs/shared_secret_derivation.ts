@@ -1,6 +1,6 @@
 import { Grumpkin } from '@aztec/foundation/crypto';
-import type { GrumpkinScalar } from '@aztec/foundation/fields/grumpkin';
-import type { Point } from '@aztec/foundation/fields/grumpkin';
+import type { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import type { Point } from '@aztec/foundation/curves/grumpkin';
 
 import type { PublicKey } from '../keys/public_key.js';
 

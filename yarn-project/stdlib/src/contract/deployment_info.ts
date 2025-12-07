@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields/bn254';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { CompleteAddress } from './complete_address.js';
 

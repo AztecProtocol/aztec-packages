@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveKeys, derivePublicKeyFromSecretKey } from '@aztec/stdlib/keys';

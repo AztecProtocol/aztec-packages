@@ -7,8 +7,8 @@ import {
   tryExtractEvent,
 } from '@aztec/ethereum';
 import { EthCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';

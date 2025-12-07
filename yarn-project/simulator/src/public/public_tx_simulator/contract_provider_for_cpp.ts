@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { ContractProvider } from '@aztec/native';
 import { FunctionSelector } from '@aztec/stdlib/abi';

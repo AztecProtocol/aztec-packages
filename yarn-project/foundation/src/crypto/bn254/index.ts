@@ -1,5 +1,5 @@
-import { Fr } from '../../fields/bn254/field.js';
-import { Bn254G1Point, Bn254G2Point } from '../../fields/bn254/point.js';
+import { Fr } from '../../curves/bn254/field.js';
+import { Bn254G1Point, Bn254G2Point } from '../../curves/bn254/point.js';
 
 /**
  * BN254 utility functions for point operations.
