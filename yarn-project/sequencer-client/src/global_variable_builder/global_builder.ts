@@ -5,7 +5,7 @@ import {
   type ViemPublicClient,
   createEthereumChain,
 } from '@aztec/ethereum';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -97,7 +97,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
    * @returns The global variables for the given block number.
    */
   public async buildGlobalVariables(
-    blockNumber: number,
+    blockNumber: BlockNumber,
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber?: SlotNumber,

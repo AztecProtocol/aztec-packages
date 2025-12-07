@@ -20,6 +20,7 @@ class MockContext : public ContextInterface {
 
     // Machine state.
     MOCK_METHOD(MemoryInterface&, get_memory, (), (override));
+    MOCK_METHOD(const MemoryInterface&, get_memory, (), (const, override));
     MOCK_METHOD(BytecodeManagerInterface&, get_bytecode_manager, (), (override));
     MOCK_METHOD(InternalCallStackManagerInterface&, get_internal_call_stack_manager, (), (override));
     MOCK_METHOD(uint32_t, get_pc, (), (const, override));
@@ -47,8 +48,9 @@ class MockContext : public ContextInterface {
 
     // Input / Output.
     MOCK_METHOD(std::vector<MemoryValue>, get_calldata, (uint32_t cd_offset, uint32_t cd_size), (const, override));
-    MOCK_METHOD(std::vector<MemoryValue>, get_returndata, (uint32_t rd_offset, uint32_t rd_size), (override));
+    MOCK_METHOD(std::vector<MemoryValue>, get_returndata, (uint32_t rd_offset, uint32_t rd_size), (const, override));
     MOCK_METHOD(ContextInterface&, get_child_context, (), (override));
+    MOCK_METHOD(const ContextInterface&, get_child_context, (), (const, override));
     MOCK_METHOD(void, set_child_context, (std::unique_ptr<ContextInterface> child_ctx), (override));
 
     MOCK_METHOD(MemoryAddress, get_parent_cd_addr, (), (const, override));

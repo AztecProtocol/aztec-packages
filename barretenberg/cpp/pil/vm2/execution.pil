@@ -52,6 +52,15 @@ include "opcodes/emit_nullifier.pil";
 include "opcodes/emit_unencrypted_log.pil";
 include "opcodes/send_l2_to_l1_msg.pil";
 
+/**
+*   Usage: Exactly two permutations from the tx trace to dispatch execution of an enqueued call.
+*          First one is to dispatch the start of an enqueued call to the execution trace and the
+*          second one is to retrieve the results from the end of an enqueued call to the execution trace.
+*          - #[DISPATCH_EXEC_START]: destination selector `enqueued_call_start`
+*          - #[DISPATCH_EXEC_END]: destination selector `enqueued_call_end`
+*   See details in tx.pil.
+*/
+
 namespace execution;
 
 // If `sel` is 0, then the Execution relation should pass.

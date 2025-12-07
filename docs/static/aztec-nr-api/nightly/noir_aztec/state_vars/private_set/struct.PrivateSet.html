@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct PrivateSet documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PrivateSet</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -148,7 +154,7 @@ given storage_slot.</li>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/private_set/struct.PrivateSet.html" class="struct">PrivateSet</a>&lt;Note, Context&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Initializes a new PrivateSet state variable.</p>
@@ -168,7 +174,7 @@ storage_slot automatically. A smart contract dev shouldn't
 have to worry about this, as it's managed behind the scenes.</li>
 </ul>
 </div>
-</div><code id="at" class="code-header">pub fn <span class="fn">at</span>(self, owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../noir_aztec/state_vars/private_set/struct.OwnedPrivateSet.html" class="struct">OwnedPrivateSet</a>&lt;Note, Context&gt;</code>
+</div><code id="at" class="code-header">pub fn <a href="#at"><span class="fn">at</span></a>(self, owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../noir_aztec/state_vars/private_set/struct.OwnedPrivateSet.html" class="struct">OwnedPrivateSet</a>&lt;Note, Context&gt;</code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns an OwnedPrivateSet scoped to the given <code>owner</code>'s notes.</p>
@@ -179,5 +185,6 @@ have to worry about this, as it's managed behind the scenes.</li>
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 </div></main>
+</span>
 </body>
 </html>

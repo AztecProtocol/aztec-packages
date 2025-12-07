@@ -7,6 +7,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
@@ -513,7 +514,7 @@ export async function randomPublishedL2Block(
   l2BlockNumber: number,
   opts: { signers?: Secp256k1Signer[] } = {},
 ): Promise<PublishedL2Block> {
-  const block = await L2Block.random(l2BlockNumber);
+  const block = await L2Block.random(BlockNumber(l2BlockNumber));
   const l1 = L1PublishedData.fromFields({
     blockNumber: BigInt(block.number),
     timestamp: block.header.globalVariables.timestamp,

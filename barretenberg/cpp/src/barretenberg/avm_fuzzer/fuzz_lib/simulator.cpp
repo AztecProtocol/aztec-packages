@@ -140,16 +140,9 @@ SimulatorResult CppSimulator::simulate(const std::vector<uint8_t>& bytecode, con
     TestSimulator simulator;
     TxSimulationResult result = simulator.simulate(bytecode, calldata);
     bool reverted = result.revert_code != RevertCode::OK;
-    vinfo("C++ Simulator result - reverted: ", reverted, ", output size: ", result.app_logic_return_values.size());
-    std::vector<FF> values;
-    for (const auto& metadata : result.app_logic_return_values) {
-        if (metadata.values.has_value()) {
-            for (const auto& value : *metadata.values) {
-                values.push_back(value);
-            }
-        }
-    }
-    return { .reverted = reverted, .output = values };
+    auto output = result.call_stack_metadata.back().output;
+    vinfo("C++ Simulator result - reverted: ", reverted, ", output size: ", output.size());
+    return { .reverted = reverted, .output = output };
 }
 
 JsSimulator* JsSimulator::instance = nullptr;

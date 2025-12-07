@@ -6,8 +6,10 @@
 
 #include "goblin.hpp"
 
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
@@ -34,7 +36,13 @@ void Goblin::prove_eccvm()
     BB_BENCH_NAME("Goblin::prove_eccvm");
     ECCVMBuilder eccvm_builder(op_queue);
     ECCVMProver eccvm_prover(eccvm_builder, transcript);
-    goblin_proof.eccvm_proof = eccvm_prover.construct_proof();
+    auto [eccvm_proof, opening_claim] = eccvm_prover.construct_proof();
+    goblin_proof.eccvm_proof = std::move(eccvm_proof);
+
+    // Compute IPA proof for the opening claim
+    auto ipa_transcript = std::make_shared<NativeTranscript>();
+    ECCVMFlavor::PCS::compute_opening_proof(eccvm_prover.key->commitment_key, opening_claim, ipa_transcript);
+    goblin_proof.ipa_proof = ipa_transcript->export_proof();
 
     translation_batching_challenge_v = eccvm_prover.batching_challenge_v;
     evaluation_challenge_x = eccvm_prover.evaluation_challenge_x;
@@ -100,30 +108,34 @@ bool Goblin::verify(const GoblinProof& proof,
         merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
     bool merge_verified = merge_pairing_points.check() && degree_check_passed && concatenation_check_passed;
 
-    ECCVMVerifier eccvm_verifier(transcript);
-    bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
+    ECCVMVerifier_<ECCVMFlavor> eccvm_verifier(transcript, proof.eccvm_proof);
+    auto opening_claim = eccvm_verifier.verify_proof();
+
+    // Verify IPA opening
+    auto ipa_transcript = std::make_shared<NativeTranscript>(proof.ipa_proof);
+    bool ipa_verified =
+        ECCVMFlavor::PCS::reduce_verify(eccvm_verifier.key->pcs_verification_key, opening_claim, ipa_transcript);
+
+    vinfo("eccvm ipa verified?: ", ipa_verified);
+    bool eccvm_verified = ipa_verified && eccvm_verifier.sumcheck_verified && eccvm_verifier.consistency_checked &&
+                          eccvm_verifier.translation_masking_consistency_checked;
 
     TranslatorVerifier translator_verifier(transcript);
 
-    bool accumulator_construction_verified = translator_verifier.verify_proof(
-        proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
-
-    bool translation_verified = translator_verifier.verify_translation(eccvm_verifier.translation_evaluations,
-                                                                       eccvm_verifier.translation_masking_term_eval);
-
-    // Verify the consistency between the commitments to polynomials representing the op queue received by translator
-    // and final merge verifier
-    bool op_queue_consistency_verified =
-        translator_verifier.verify_consistency_with_final_merge(merged_table_commitments);
+    // Get translation data from ECCVM verifier to pass to Translator verifier
+    TranslatorInputData translator_input = eccvm_verifier.get_translator_input_data();
+    // Pass merge commitments as op queue wire commitments (they represent the same data)
+    bool translator_verified = translator_verifier.verify_proof(proof.translator_proof,
+                                                                translator_input.evaluation_challenge_x,
+                                                                translator_input.batching_challenge_v,
+                                                                translator_input.accumulated_result,
+                                                                merged_table_commitments);
 
     vinfo("merge verified?: ", merge_verified);
     vinfo("eccvm verified?: ", eccvm_verified);
-    vinfo("accumulator construction_verified?: ", accumulator_construction_verified);
-    vinfo("translation verified?: ", translation_verified);
-    vinfo("consistency verified?: ", op_queue_consistency_verified);
+    vinfo("translator verified?: ", translator_verified);
 
-    return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
-           op_queue_consistency_verified;
+    return merge_verified && eccvm_verified && translator_verified;
 }
 
 void Goblin::ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const

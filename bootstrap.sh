@@ -558,12 +558,14 @@ case "$cmd" in
   "ci-network-deploy")
     export CI=1
     build
-    spartan/bootstrap.sh network_deploy $NETWORK_ENV_FILE
+    deploy_exit_code=0
+    spartan/bootstrap.sh network_deploy $NETWORK_ENV_FILE || deploy_exit_code=$?
     # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
     rm -rf bench-out
     mkdir -p bench-out
     bench_merge
     cache_upload deploy-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    exit $deploy_exit_code
     ;;
   "ci-network-tests")
     export CI=1

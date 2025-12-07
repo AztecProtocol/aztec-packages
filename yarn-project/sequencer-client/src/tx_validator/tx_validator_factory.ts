@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields/bn254';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import {
@@ -48,7 +49,7 @@ export function createValidatorForAcceptingTxs(
     gasFees: GasFees;
     skipFeeEnforcement?: boolean;
     timestamp: UInt64;
-    blockNumber: number;
+    blockNumber: BlockNumber;
     txsPermitted: boolean;
   },
 ): TxValidator<Tx> {

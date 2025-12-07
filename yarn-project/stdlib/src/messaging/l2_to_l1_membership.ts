@@ -1,8 +1,9 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields/bn254';
 import { SiblingPath, UnbalancedMerkleTreeCalculator, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
 
 export interface MessageRetrieval {
-  getL2ToL1Messages(l2BlockNumber: number): Promise<Fr[][] | undefined>;
+  getL2ToL1Messages(l2BlockNumber: BlockNumber): Promise<Fr[][] | undefined>;
 }
 
 export type L2ToL1MembershipWitness = {
@@ -13,7 +14,7 @@ export type L2ToL1MembershipWitness = {
 
 export async function computeL2ToL1MembershipWitness(
   messageRetriever: MessageRetrieval,
-  l2BlockNumber: number,
+  l2BlockNumber: BlockNumber,
   message: Fr,
 ): Promise<L2ToL1MembershipWitness | undefined> {
   const messagesForAllTxs = await messageRetriever.getL2ToL1Messages(l2BlockNumber);

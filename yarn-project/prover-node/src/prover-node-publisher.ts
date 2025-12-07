@@ -156,7 +156,7 @@ export class ProverNodePublisher {
     // Check that the checkpoint numbers match the expected epoch to be proven
     const { pending, proven } = await this.rollupContract.getTips();
     // Don't publish if proven is beyond our toCheckpoint, pointless to do so
-    if (proven > BigInt(toCheckpoint)) {
+    if (proven > toCheckpoint) {
       throw new Error(
         `Cannot submit epoch proof for ${fromCheckpoint}-${toCheckpoint} as proven checkpoint is ${proven}`,
       );

@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields/bn254';
 import type { ExecutionNoteCache } from '@aztec/pxe/simulator';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
@@ -6,7 +7,7 @@ import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 export async function makeTxEffect(
   noteCache: ExecutionNoteCache,
   protocolNullifier: Fr,
-  txBlockNumber: number,
+  txBlockNumber: BlockNumber,
 ): Promise<TxEffect> {
   const txEffect = TxEffect.empty();
 

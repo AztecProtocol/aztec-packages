@@ -1,4 +1,5 @@
 import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -162,7 +163,7 @@ export async function readCurrentClassId(
   contractAddress: AztecAddress,
   instance: ContractInstance,
   executionDataProvider: ExecutionDataProvider | AztecNode,
-  blockNumber: number,
+  blockNumber: BlockNumber,
   timestamp: UInt64,
 ) {
   const { delayedPublicMutableSlot } = await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(contractAddress);

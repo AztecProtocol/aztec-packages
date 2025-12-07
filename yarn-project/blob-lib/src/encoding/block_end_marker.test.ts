@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields/bn254';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
@@ -7,7 +8,7 @@ describe('block end marker', () => {
   it('encode and decode correctly', () => {
     const blockEndMarker = {
       timestamp: 456789n,
-      blockNumber: 123,
+      blockNumber: BlockNumber(123),
       numTxs: 99,
     };
 
@@ -28,7 +29,7 @@ describe('block end marker', () => {
   it('encode and decode large values correctly', () => {
     const blockEndMarker = {
       timestamp: (1n << 63n) + 567890n,
-      blockNumber: 0xabcd1234,
+      blockNumber: BlockNumber(0xabcd1234),
       numTxs: 0xfedc,
     };
 

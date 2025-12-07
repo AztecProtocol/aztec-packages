@@ -21,6 +21,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { BLS12Point } from '@aztec/foundation/fields/bls12';
 import { Fr } from '@aztec/foundation/fields/bn254';
@@ -282,7 +283,7 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
     const globalVariables = GlobalVariables.from({
       chainId: constants.chainId,
       version: constants.version,
-      blockNumber: blockRootRollupOutput.previousArchive.nextAvailableLeafIndex,
+      blockNumber: BlockNumber(blockRootRollupOutput.previousArchive.nextAvailableLeafIndex),
       timestamp: blockRootRollupOutput.endTimestamp,
       slotNumber: constants.slotNumber,
       coinbase: constants.coinbase,

@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { L2Block, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
@@ -75,7 +75,7 @@ describe('EpochPruneWatcher', () => {
     const epochNumber = EpochNumber(1);
 
     const block = await L2Block.random(
-      12, // block number
+      BlockNumber(12), // block number
       4, // txs per block
     );
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [], missingTxs: [block.body.txEffects[0].txHash] });
@@ -119,7 +119,7 @@ describe('EpochPruneWatcher', () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
 
     const block = await L2Block.random(
-      12, // block number
+      BlockNumber(12), // block number
       4, // txs per block
     );
     const tx = Tx.random();
@@ -171,11 +171,11 @@ describe('EpochPruneWatcher', () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
 
     const blockFromL1 = await L2Block.random(
-      12, // block number
+      BlockNumber(12), // block number
       1, // txs per block
     );
     const blockFromBuilder = await L2Block.random(
-      13, // block number
+      BlockNumber(13), // block number
       1, // txs per block
     );
     const tx = Tx.random();

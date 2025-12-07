@@ -5,7 +5,7 @@ import type {
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
@@ -126,13 +126,16 @@ export class EpochProvingState {
     return this.checkpoints[index];
   }
 
-  public getCheckpointProvingStateByBlockNumber(blockNumber: number) {
+  public getCheckpointProvingStateByBlockNumber(blockNumber: BlockNumber) {
     return this.checkpoints.find(
-      c => c && blockNumber >= c.firstBlockNumber && blockNumber < c.firstBlockNumber + c.totalNumBlocks,
+      c =>
+        c &&
+        Number(blockNumber) >= Number(c.firstBlockNumber) &&
+        Number(blockNumber) < Number(c.firstBlockNumber) + c.totalNumBlocks,
     );
   }
 
-  public getBlockProvingStateByBlockNumber(blockNumber: number) {
+  public getBlockProvingStateByBlockNumber(blockNumber: BlockNumber) {
     return this.getCheckpointProvingStateByBlockNumber(blockNumber)?.getBlockProvingStateByBlockNumber(blockNumber);
   }
 

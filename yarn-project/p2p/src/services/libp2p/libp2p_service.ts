@@ -1,5 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields/bn254';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
@@ -131,7 +131,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private protocolVersion = '';
   private topicStrings: Record<TopicType, string> = {} as Record<TopicType, string>;
 
-  private feesCache: { blockNumber: number; gasFees: GasFees } | undefined;
+  private feesCache: { blockNumber: BlockNumber; gasFees: GasFees } | undefined;
 
   /**
    * Callback for when a block is received from a peer.
@@ -1148,7 +1148,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         return false;
       }
 
-      const local = await this.archiver.getBlock(reqNum);
+      const local = await this.archiver.getBlock(BlockNumber(reqNum));
       if (!local) {
         // We are missing the local block; we cannot verify the hash yet. Reject without penalizing.
         // TODO: Consider extending this validator to accept an expected hash or
@@ -1223,7 +1223,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
       // Double spend validator has a special case handler
       if (name === 'doubleSpendValidator') {
-        const txBlockNumber = currentBlockNumber + 1; // tx is expected to be in the next block
+        const txBlockNumber = BlockNumber(currentBlockNumber + 1); // tx is expected to be in the next block
         severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);
       }
 
@@ -1233,7 +1233,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return true;
   }
 
-  private async getGasFees(blockNumber: number): Promise<GasFees> {
+  private async getGasFees(blockNumber: BlockNumber): Promise<GasFees> {
     if (blockNumber === this.feesCache?.blockNumber) {
       return this.feesCache.gasFees;
     }
@@ -1274,13 +1274,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns The message validators.
    */
   private async createMessageValidators(
-    currentBlockNumber: number,
+    currentBlockNumber: BlockNumber,
     nextSlotTimestamp: UInt64,
   ): Promise<Record<string, MessageValidator>[]> {
     const gasFees = await this.getGasFees(currentBlockNumber);
     const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
-    const blockNumberInWhichTheTxIsConsideredToBeIncluded = currentBlockNumber + 1;
+    const blockNumberInWhichTheTxIsConsideredToBeIncluded = BlockNumber(currentBlockNumber + 1);
 
     return createTxMessageValidators(
       nextSlotTimestamp,
@@ -1342,7 +1342,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param peerId - The peer ID of the peer that sent the tx.
    * @returns Severity
    */
-  private async handleDoubleSpendFailure(tx: Tx, blockNumber: number): Promise<PeerErrorSeverity> {
+  private async handleDoubleSpendFailure(tx: Tx, blockNumber: BlockNumber): Promise<PeerErrorSeverity> {
     if (blockNumber <= this.config.doubleSpendSeverePeerPenaltyWindow) {
       return PeerErrorSeverity.HighToleranceError;
     }
@@ -1350,7 +1350,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const snapshotValidator = new DoubleSpendTxValidator({
       nullifiersExist: async (nullifiers: Buffer[]) => {
         const merkleTree = this.worldStateSynchronizer.getSnapshot(
-          blockNumber - this.config.doubleSpendSeverePeerPenaltyWindow,
+          BlockNumber(blockNumber - this.config.doubleSpendSeverePeerPenaltyWindow),
         );
         const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
         return indices.map(index => index !== undefined);

@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields/bn254';
 import type { Hasher } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
@@ -59,7 +60,7 @@ describe('IndexedTreeSnapshotBuilder', () => {
         tree.getLatestLeafPreimageCopy(5n, false),
       ]);
 
-      await snapshotBuilder.snapshot(1);
+      await snapshotBuilder.snapshot(BlockNumber(1));
 
       tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
       await tree.commit();
@@ -72,9 +73,9 @@ describe('IndexedTreeSnapshotBuilder', () => {
         tree.getLatestLeafPreimageCopy(5n, false),
       ];
 
-      await snapshotBuilder.snapshot(2);
+      await snapshotBuilder.snapshot(BlockNumber(2));
 
-      const snapshot1 = await snapshotBuilder.getSnapshot(1);
+      const snapshot1 = await snapshotBuilder.getSnapshot(BlockNumber(1));
       const actualLeavesAtBlock1 = [
         snapshot1.getLatestLeafPreimageCopy(0n),
         snapshot1.getLatestLeafPreimageCopy(1n),
@@ -85,7 +86,7 @@ describe('IndexedTreeSnapshotBuilder', () => {
       ];
       expect(actualLeavesAtBlock1).toEqual(expectedLeavesAtBlock1);
 
-      const snapshot2 = await snapshotBuilder.getSnapshot(2);
+      const snapshot2 = await snapshotBuilder.getSnapshot(BlockNumber(2));
       const actualLeavesAtBlock2 = await Promise.all([
         snapshot2.getLatestLeafPreimageCopy(0n),
         snapshot2.getLatestLeafPreimageCopy(1n),
@@ -102,7 +103,7 @@ describe('IndexedTreeSnapshotBuilder', () => {
     it('returns the index of the leaf with the closest value to the given value', async () => {
       tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
       await tree.commit();
-      const snapshot = await snapshotBuilder.snapshot(1);
+      const snapshot = await snapshotBuilder.snapshot(BlockNumber(1));
       const historicalPrevValue = tree.findIndexOfPreviousKey(2n, false);
 
       tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);

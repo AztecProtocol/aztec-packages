@@ -8,7 +8,7 @@ import {
   type TestPrivateInsertions,
 } from '@aztec/simulator/public/fixtures';
 import type { PublicTxResult } from '@aztec/simulator/server';
-import { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
+import { AvmCircuitInputs, AvmCircuitPublicInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
@@ -88,6 +88,15 @@ class InterceptingLogger implements Logger {
   }
 }
 
+// Config with collectHints enabled for proving tests
+const provingConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
+  skipFeeEnforcement: false,
+  collectCallMetadata: true,
+  collectDebugLogs: false,
+  collectHints: true, // Required for proving!
+  collectStatistics: false,
+});
+
 export class AvmProvingTester extends PublicTxSimulationTester {
   private bbWorkingDirectory: string = '';
 
@@ -98,7 +107,8 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     globals?: GlobalVariables,
     metrics?: TestExecutorMetrics,
   ) {
-    super(merkleTrees, contractDataSource, globals, metrics);
+    // simulator factory is undefined because for proving, we use the default C++ simulator
+    super(merkleTrees, contractDataSource, globals, metrics, /*simulatorFactory=*/ undefined, provingConfig);
   }
 
   static async new(

@@ -29,7 +29,7 @@ import {
   getFunctionArtifactByName,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockNumber } from '@aztec/stdlib/block';
+import type { BlockParameter } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstance,
@@ -326,7 +326,7 @@ describe('Private Execution test suite', () => {
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     executionDataProvider.getPublicStorageAt.mockImplementation(
-      (_blockNumber: L2BlockNumber, _address: AztecAddress, _storageSlot: Fr) => {
+      (_blockNumber: BlockParameter, _address: AztecAddress, _storageSlot: Fr) => {
         return Promise.resolve(Fr.ZERO);
       },
     );

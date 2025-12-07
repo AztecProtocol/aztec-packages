@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields/bn254';
 import { sleep } from '@aztec/foundation/sleep';
@@ -373,7 +374,7 @@ describe('ReqResp', () => {
     it('should handle block requests', async () => {
       const blockNumber = 1;
       const blockNumberFr = Fr.ONE;
-      const block = await L2Block.random(blockNumber);
+      const block = await L2Block.random(BlockNumber(blockNumber));
 
       const l2BlockSource: MockProxy<L2BlockSource> = mock<L2BlockSource>();
       l2BlockSource.getBlock.mockImplementation((_blockNumber: number) => {

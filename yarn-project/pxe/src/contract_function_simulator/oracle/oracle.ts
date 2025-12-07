@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields/bn254';
 import { Point } from '@aztec/foundation/fields/grumpkin';
 import {
@@ -146,7 +147,7 @@ export class Oracle {
     const parsedLeafValue = Fr.fromString(leafValue);
 
     const witness = await this.handlerAsUtility().utilityGetMembershipWitness(
-      parsedBlockNumber,
+      BlockNumber(parsedBlockNumber),
       parsedTreeId,
       parsedLeafValue,
     );
@@ -166,7 +167,7 @@ export class Oracle {
     const parsedNullifier = Fr.fromString(nullifier);
 
     const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(
-      parsedBlockNumber,
+      BlockNumber(parsedBlockNumber),
       parsedNullifier,
     );
     if (!witness) {
@@ -183,7 +184,7 @@ export class Oracle {
     const parsedNullifier = Fr.fromString(nullifier);
 
     const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(
-      parsedBlockNumber,
+      BlockNumber(parsedBlockNumber),
       parsedNullifier,
     );
     if (!witness) {
@@ -201,7 +202,10 @@ export class Oracle {
     const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
     const parsedLeafSlot = Fr.fromString(leafSlot);
 
-    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(parsedBlockNumber, parsedLeafSlot);
+    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(
+      BlockNumber(parsedBlockNumber),
+      parsedLeafSlot,
+    );
     if (!witness) {
       throw new Error(`Public data witness not found for slot ${parsedLeafSlot} at block ${parsedBlockNumber}.`);
     }
@@ -211,7 +215,7 @@ export class Oracle {
   async utilityGetBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
     const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
 
-    const header = await this.handlerAsUtility().utilityGetBlockHeader(parsedBlockNumber);
+    const header = await this.handlerAsUtility().utilityGetBlockHeader(BlockNumber(parsedBlockNumber));
     if (!header) {
       throw new Error(`Block header not found for block ${parsedBlockNumber}.`);
     }
@@ -349,7 +353,7 @@ export class Oracle {
     const values = await this.handlerAsUtility().utilityStorageRead(
       new AztecAddress(Fr.fromString(contractAddress)),
       Fr.fromString(startStorageSlot),
-      +blockNumber,
+      BlockNumber(+blockNumber),
       +numberOfElements,
     );
     return [values.map(toACVMField)];

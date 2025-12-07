@@ -1,5 +1,6 @@
 import { MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 
@@ -131,7 +132,7 @@ describe('buildNullifierReadRequestHints', () => {
     readFutureNullifier(0);
     readSettledNullifier();
     readPendingNullifier({ nullifierIndex: 1 });
-    readFutureNullifier(1);
+    readFutureNullifier(BlockNumber(1));
     readPendingNullifier({ nullifierIndex: 1 });
     const hints = await buildHints();
     expect(hints).toEqual(expectedHints);

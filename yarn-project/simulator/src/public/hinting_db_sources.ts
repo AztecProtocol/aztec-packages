@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -596,7 +597,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   public async getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
     treeId: ID,
     leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]> {
+  ): Promise<(BlockNumber | undefined)[]> {
     return await this.db.getBlockNumbersForLeafIndices(treeId, leafIndices);
   }
 }

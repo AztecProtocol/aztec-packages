@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields/bn254';
 
@@ -19,11 +20,11 @@ describe('L2BlockStream', () => {
 
   const makeHash = (number: number) => new Fr(number).toString();
 
-  const makeBlock = (number: number) => ({ block: { number } as L2Block }) as PublishedL2Block;
+  const makeBlock = (number: number) => ({ block: { number: BlockNumber(number) } as L2Block }) as PublishedL2Block;
 
   const makeHeader = (number: number) => ({ hash: () => Promise.resolve(new Fr(number)) }) as BlockHeader;
 
-  const makeBlockId = (number: number): L2BlockId => ({ number, hash: makeHash(number) });
+  const makeBlockId = (number: number): L2BlockId => ({ number: BlockNumber(number), hash: makeHash(number) });
 
   const setRemoteTips = (latest_: number, proven?: number, finalized?: number) => {
     proven = proven ?? 0;
@@ -31,9 +32,9 @@ describe('L2BlockStream', () => {
     latest = latest_;
 
     blockSource.getL2Tips.mockResolvedValue({
-      latest: { number: latest, hash: makeHash(latest) },
-      proven: { number: proven, hash: makeHash(proven) },
-      finalized: { number: finalized, hash: makeHash(finalized) },
+      latest: { number: BlockNumber(latest), hash: makeHash(latest) },
+      proven: { number: BlockNumber(proven), hash: makeHash(proven) },
+      finalized: { number: BlockNumber(finalized), hash: makeHash(finalized) },
     });
   };
 
@@ -76,10 +77,10 @@ describe('L2BlockStream', () => {
 
     it('pulls new blocks from offset', async () => {
       setRemoteTips(15);
-      localData.latest.number = 10;
+      localData.latest.number = BlockNumber(10);
 
       await blockStream.work();
-      expect(blockSource.getPublishedBlocks).toHaveBeenCalledWith(11, 5, undefined);
+      expect(blockSource.getPublishedBlocks).toHaveBeenCalledWith(BlockNumber(11), 5, undefined);
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 11)) },
       ] satisfies L2BlockStreamEvent[]);
@@ -126,7 +127,7 @@ describe('L2BlockStream', () => {
 
     it('handles a reorg and requests blocks from new tip', async () => {
       setRemoteTips(45);
-      localData.latest.number = 40;
+      localData.latest.number = BlockNumber(40);
 
       for (const i of [37, 38, 39, 40]) {
         // Mess up the block hashes for a bunch of blocks
@@ -142,9 +143,9 @@ describe('L2BlockStream', () => {
 
     it('emits events for chain proven and finalized', async () => {
       setRemoteTips(45, 40, 35);
-      localData.latest.number = 40;
-      localData.proven.number = 10;
-      localData.finalized.number = 10;
+      localData.latest.number = BlockNumber(40);
+      localData.proven.number = BlockNumber(10);
+      localData.finalized.number = BlockNumber(10);
 
       await blockStream.work();
       expect(handler.events).toEqual([
@@ -207,9 +208,9 @@ describe('L2BlockStream', () => {
     it('skips ahead to the latest finalized block', async () => {
       setRemoteTips(40, 38, 35);
 
-      localData.latest.number = 5;
-      localData.proven.number = 2;
-      localData.finalized.number = 2;
+      localData.latest.number = BlockNumber(5);
+      localData.proven.number = BlockNumber(2);
+      localData.finalized.number = BlockNumber(2);
 
       await blockStream.work();
 
@@ -224,9 +225,9 @@ describe('L2BlockStream', () => {
     it('does not skip if already ahead of finalized', async () => {
       setRemoteTips(40, 38, 35);
 
-      localData.latest.number = 38;
-      localData.proven.number = 38;
-      localData.finalized.number = 35;
+      localData.latest.number = BlockNumber(38);
+      localData.proven.number = BlockNumber(38);
+      localData.finalized.number = BlockNumber(35);
 
       await blockStream.work();
 
@@ -263,9 +264,9 @@ class TestL2BlockStreamEventHandler implements L2BlockStreamEventHandler {
 class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvider {
   public readonly blockHashes: Record<number, string> = {};
 
-  public latest = { number: 0, hash: '' };
-  public proven = { number: 0, hash: '' };
-  public finalized = { number: 0, hash: '' };
+  public latest = { number: BlockNumber.ZERO, hash: '' };
+  public proven = { number: BlockNumber.ZERO, hash: '' };
+  public finalized = { number: BlockNumber.ZERO, hash: '' };
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
     return Promise.resolve(

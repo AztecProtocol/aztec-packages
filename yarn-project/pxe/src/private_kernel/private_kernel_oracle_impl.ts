@@ -9,7 +9,7 @@ import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-type
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockNumber } from '@aztec/stdlib/block';
+import type { BlockParameter } from '@aztec/stdlib/block';
 import { computeContractClassIdPreimage, computeSaltedInitializationHash } from '@aztec/stdlib/contract';
 import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
@@ -32,7 +32,7 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
     private contractDataProvider: ContractDataProvider,
     private keyStore: KeyStore,
     private node: AztecNode,
-    private blockNumber: L2BlockNumber = 'latest',
+    private blockNumber: BlockParameter = 'latest',
     private log = createLogger('pxe:kernel_oracle'),
   ) {}
 

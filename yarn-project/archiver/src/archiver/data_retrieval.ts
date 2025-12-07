@@ -14,7 +14,7 @@ import type {
   ViemPublicClient,
 } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
@@ -470,7 +470,7 @@ function mapLogsInboxMessage(logs: GetContractEventsReturnType<typeof InboxAbi, 
       leaf: Fr.fromHexString(hash!),
       l1BlockNumber: log.blockNumber,
       l1BlockHash: Buffer32.fromString(log.blockHash),
-      l2BlockNumber: Number(checkpointNumber!),
+      l2BlockNumber: BlockNumber(Number(checkpointNumber!)),
       rollingHash: Buffer16.fromString(rollingHash!),
     };
   });

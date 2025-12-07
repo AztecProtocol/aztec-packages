@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields/bn254';
 import type { Timer } from '@aztec/foundation/timer';
 
@@ -74,5 +75,5 @@ export interface IFullNodeBlockBuilder {
     fork?: MerkleTreeWriteOperations,
   ): Promise<BuildBlockResult>;
 
-  getFork(blockNumber: number): Promise<MerkleTreeWriteOperations>;
+  getFork(blockNumber: BlockNumber): Promise<MerkleTreeWriteOperations>;
 }

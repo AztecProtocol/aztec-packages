@@ -1,4 +1,4 @@
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields/bn254';
@@ -25,7 +25,7 @@ export function makeL2BlockHeader(
     overrides?.contentCommitment ?? makeContentCommitment(seed + 0x200, inHash),
     overrides?.state ?? makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
-      ...(blockNumber ? { blockNumber } : {}),
+      ...(blockNumber ? { blockNumber: BlockNumber(blockNumber) } : {}),
       ...(slotNumber ? { slotNumber: SlotNumber(slotNumber) } : {}),
     }),
     new Fr(seed + 0x300),
@@ -77,7 +77,7 @@ function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<GlobalVariabl
   return GlobalVariables.from({
     chainId: new Fr(seed),
     version: new Fr(seed + 1),
-    blockNumber: seed + 2,
+    blockNumber: BlockNumber(seed + 2),
     slotNumber: SlotNumber(seed + 3),
     timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),

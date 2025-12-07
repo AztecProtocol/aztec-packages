@@ -1,5 +1,5 @@
 import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields/bn254';
 import type { EthAddress } from '@aztec/stdlib/block';
 import type { EpochProver } from '@aztec/stdlib/interfaces/server';
@@ -44,7 +44,7 @@ export class ServerEpochProver implements EpochProver {
   startChonkVerifierCircuits(txs: Tx[]): Promise<void> {
     return this.orchestrator.startChonkVerifierCircuits(txs);
   }
-  setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<BlockHeader> {
+  setBlockCompleted(blockNumber: BlockNumber, expectedBlockHeader?: BlockHeader): Promise<BlockHeader> {
     return this.orchestrator.setBlockCompleted(blockNumber, expectedBlockHeader);
   }
   finalizeEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }> {
@@ -60,7 +60,7 @@ export class ServerEpochProver implements EpochProver {
     await this.facade.stop();
     await this.orchestrator.stop();
   }
-  startNewBlock(blockNumber: number, timestamp: UInt64, totalNumTxs: number): Promise<void> {
+  startNewBlock(blockNumber: BlockNumber, timestamp: UInt64, totalNumTxs: number): Promise<void> {
     return this.orchestrator.startNewBlock(blockNumber, timestamp, totalNumTxs);
   }
   addTxs(txs: ProcessedTx[]): Promise<void> {

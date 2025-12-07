@@ -17,7 +17,7 @@ hookRequire(
   },
 );
 var { DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT } = require('@aztec/constants');
-var { Fr } = require('@aztec/foundation/fields');
+var { Fr } = require('@aztec/foundation/fields/bn254');
 var { AztecAddress } = require('@aztec/stdlib/aztec-address');
 var { GlobalVariables } = require('@aztec/stdlib/tx');
 var { UInt64 } = require('@aztec/stdlib/types');

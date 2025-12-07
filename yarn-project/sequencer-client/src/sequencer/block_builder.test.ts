@@ -1,5 +1,5 @@
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields/bn254';
@@ -40,8 +40,8 @@ describe('BlockBuilder', () => {
   const chainId: number = 12345;
   const version: number = 1;
   let hash: string;
-  let lastBlockNumber: number;
-  let newBlockNumber: number;
+  let lastBlockNumber: BlockNumber;
+  let newBlockNumber: BlockNumber;
   let globalVariables: GlobalVariables;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let fork: MockProxy<MerkleTreeWriteOperations>;
@@ -81,8 +81,8 @@ describe('BlockBuilder', () => {
     feeRecipient = await AztecAddress.random();
     hash = Fr.ZERO.toString();
     initialBlockHeader = BlockHeader.empty();
-    lastBlockNumber = 0;
-    newBlockNumber = lastBlockNumber + 1;
+    lastBlockNumber = BlockNumber.ZERO;
+    newBlockNumber = BlockNumber(lastBlockNumber + 1);
     newSlotNumber = newBlockNumber + 1;
     globalVariables = new GlobalVariables(
       new Fr(chainId),
@@ -121,8 +121,8 @@ describe('BlockBuilder', () => {
         syncSummary: {
           latestBlockNumber: lastBlockNumber,
           latestBlockHash: hash,
-          finalizedBlockNumber: 0,
-          oldestHistoricBlockNumber: 0,
+          finalizedBlockNumber: BlockNumber.ZERO,
+          oldestHistoricBlockNumber: BlockNumber.ZERO,
           treesAreSynched: true,
         },
       } satisfies WorldStateSynchronizerStatus),

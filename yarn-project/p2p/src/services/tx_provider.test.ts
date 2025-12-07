@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields/bn254';
@@ -75,7 +76,7 @@ describe('TxProvider', () => {
       .map(({ value }) => value);
   };
 
-  const blockNumber = 1;
+  const blockNumber = BlockNumber(1);
 
   beforeEach(() => {
     txPools.clear();
