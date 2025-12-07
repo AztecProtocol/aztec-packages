@@ -1162,7 +1162,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    const { publisher } = await this.publisherFactory.create(undefined);
     const invalidBlockNumber = pendingChainValidationStatus.block.blockNumber;
     const invalidBlockTimestamp = pendingChainValidationStatus.block.timestamp;
     const timeSinceChainInvalid = this.dateProvider.nowInSeconds() - Number(invalidBlockTimestamp);
@@ -1201,6 +1200,24 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.log.debug(`Not invalidating pending chain`, logData);
       return;
     }
+
+    let validatorToUse: EthAddress;
+    if (invalidateAsCommitteeMember) {
+      // When invalidating as a committee member, use first validator that's actually in the committee
+      const { committee } = await this.epochCache.getCommittee(currentSlot);
+      if (committee) {
+        const committeeSet = new Set(committee.map(addr => addr.toString()));
+        validatorToUse =
+          ourValidatorAddresses.find(addr => committeeSet.has(addr.toString())) ?? ourValidatorAddresses[0];
+      } else {
+        validatorToUse = ourValidatorAddresses[0];
+      }
+    } else {
+      // When invalidating as a non-committee member, use the first validator
+      validatorToUse = ourValidatorAddresses[0];
+    }
+
+    const { publisher } = await this.publisherFactory.create(validatorToUse);
 
     const invalidateBlock = await publisher.simulateInvalidateBlock(pendingChainValidationStatus);
     if (!invalidateBlock) {

@@ -752,6 +752,157 @@ describe('sequencer', () => {
       expect(publisher.sendRequests).not.toHaveBeenCalled();
     });
   });
+
+  describe('considerInvalidatingBlock', () => {
+    const validator1 = EthAddress.random();
+    const validator2 = EthAddress.random();
+    const validator3 = EthAddress.random();
+
+    let invalidValidationResult: {
+      valid: false;
+      block: {
+        blockNumber: number;
+        timestamp: bigint;
+        archive: Fr;
+        lastArchive: Fr;
+        slotNumber: number;
+        txCount: number;
+      };
+      committee: EthAddress[];
+      epoch: bigint;
+      seed: bigint;
+      attestors: EthAddress[];
+      attestations: any[];
+      reason: 'insufficient-attestations';
+    };
+
+    beforeEach(() => {
+      invalidValidationResult = {
+        valid: false,
+        block: {
+          blockNumber: lastBlockNumber,
+          timestamp: 1000n,
+          archive: Fr.random(),
+          lastArchive: Fr.random(),
+          slotNumber: newSlotNumber,
+          txCount: 0,
+        },
+        committee: [validator2],
+        epoch: 1n,
+        seed: 123n,
+        attestors: [],
+        attestations: [],
+        reason: 'insufficient-attestations',
+      };
+
+      l2BlockSource.getPendingChainValidationStatus.mockResolvedValue(invalidValidationResult);
+
+      // Mock committee to include validator2
+      epochCache.getCommittee.mockResolvedValue({
+        committee: [validator2],
+        seed: 123n,
+        epoch: 1n,
+      });
+
+      // Setup validator client
+      validatorClient.getValidatorAddresses.mockReturnValue([validator1, validator2, validator3]);
+
+      // Make sure we're NOT the proposer so considerInvalidatingBlock is called
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(EthAddress.random());
+
+      // Setup publisher factory
+      publisherFactory.create.mockImplementation((validatorAddress?: EthAddress) => {
+        return Promise.resolve({
+          attestorAddress: validatorAddress ?? validator1,
+          publisher,
+        });
+      });
+
+      publisher.simulateInvalidateBlock.mockResolvedValue({
+        forcePendingBlockNumber: lastBlockNumber,
+      } as any);
+    });
+
+    it('should use committee member when invalidating as committee member', async () => {
+      // Set time past the committee member threshold
+      const timePastThreshold = 2; // seconds
+      dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
+
+      sequencer.updateConfig({
+        secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: 3,
+      });
+
+      await sequencer.work();
+
+      // Should create publisher with the committee member validator
+      expect(publisherFactory.create).toHaveBeenCalledWith(validator2);
+      expect(publisher.enqueueInvalidateBlock).toHaveBeenCalled();
+      expect(publisher.sendRequests).toHaveBeenCalled();
+    });
+
+    it('should use first validator when invalidating as non-committee member', async () => {
+      // Mock committee without any of our validators
+      epochCache.getCommittee.mockResolvedValue({
+        committee: [EthAddress.random()],
+        seed: 123n,
+        epoch: 1n,
+      });
+
+      // Set time past the non-committee member threshold
+      const timePastThreshold = 5; // seconds
+      dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
+
+      sequencer.updateConfig({
+        secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: 3,
+      });
+
+      await sequencer.work();
+
+      // Should create publisher with the first validator
+      expect(publisherFactory.create).toHaveBeenCalledWith(validator1);
+      expect(publisher.enqueueInvalidateBlock).toHaveBeenCalled();
+      expect(publisher.sendRequests).toHaveBeenCalled();
+    });
+
+    it('should not invalidate when time thresholds not met', async () => {
+      // Set time before any threshold
+      const timePastThreshold = 1;
+      dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
+
+      sequencer.updateConfig({
+        secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: 3,
+      });
+
+      await sequencer.work();
+
+      // Should not create publisher or invalidate
+      expect(publisherFactory.create).not.toHaveBeenCalled();
+      expect(publisher.enqueueInvalidateBlock).not.toHaveBeenCalled();
+    });
+
+    it('should not invalidate when pending chain is valid', async () => {
+      // Mock valid chain
+      l2BlockSource.getPendingChainValidationStatus.mockResolvedValue({ valid: true });
+
+      // Set time past threshold
+      const timePastThreshold = 5; // seconds
+      dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
+
+      sequencer.updateConfig({
+        secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: 3,
+      });
+
+      await sequencer.work();
+
+      // Should not create publisher or invalidate
+      expect(publisherFactory.create).not.toHaveBeenCalled();
+      expect(publisher.enqueueInvalidateBlock).not.toHaveBeenCalled();
+    });
+  });
 });
 
 class TestSubject extends Sequencer {
