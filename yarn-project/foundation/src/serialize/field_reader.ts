@@ -1,5 +1,6 @@
 import { Fq, type Fr } from '../fields/fields.js';
-import type { Tuple } from './types.js';
+import type { Tuple, U32, U64, U128 } from './types.js';
+import { toU32, toU64, toU128 } from './types.js';
 
 /**
  * The FieldReader class provides a utility for reading various data types from a field array.
@@ -118,15 +119,15 @@ export class FieldReader {
    * Updates the index position by 1 after reading the number.
    * Throw if the value is greater than 2 ** 32.
    *
-   * @returns The read 32-bit unsigned integer value.
+   * @returns The read 32-bit unsigned integer value as a branded U32 type.
    */
-  public readU32(): number {
+  public readU32(): U32 {
     const field = this.readField();
     const value = field.toBigInt();
     if (value >= 1n << 32n) {
       throw new Error('Field is not a u32.');
     }
-    return Number(value);
+    return toU32(Number(value));
   }
 
   /**
@@ -134,15 +135,31 @@ export class FieldReader {
    * Updates the index position by 1 after reading the number.
    * Throw if the value is greater than 2 ** 64.
    *
-   * @returns The read 64-bit unsigned integer value as a bigint.
+   * @returns The read 64-bit unsigned integer value as a branded U64 type.
    */
-  public readU64(): bigint {
+  public readU64(): U64 {
     const field = this.readField();
     const value = field.toBigInt();
     if (value >= 1n << 64n) {
       throw new Error('Field is not a u64.');
     }
-    return value;
+    return toU64(value);
+  }
+
+  /**
+   * Reads a 128-bit unsigned integer from the field array at the current index position.
+   * Updates the index position by 1 after reading the number.
+   * Throw if the value is greater than 2 ** 128.
+   *
+   * @returns The read 128-bit unsigned integer value as a branded U128 type.
+   */
+  public readU128(): U128 {
+    const field = this.readField();
+    const value = field.toBigInt();
+    if (value >= 1n << 128n) {
+      throw new Error('Field is not a u128.');
+    }
+    return toU128(value);
   }
 
   /**

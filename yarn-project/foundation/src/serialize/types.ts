@@ -1,4 +1,64 @@
 /**
+ * Branded type for Noir's u32 (32-bit unsigned integer).
+ * This ensures type safety at compile time and prevents mixing u32 with other integer types.
+ */
+export type U32 = number & { readonly __brand: 'U32' };
+
+/**
+ * Branded type for Noir's u64 (64-bit unsigned integer).
+ * This ensures type safety at compile time and prevents mixing u64 with other integer types.
+ */
+export type U64 = bigint & { readonly __brand: 'U64' };
+
+/**
+ * Branded type for Noir's u128 (128-bit unsigned integer).
+ * This ensures type safety at compile time and prevents mixing u128 with other integer types.
+ */
+export type U128 = bigint & { readonly __brand: 'U128' };
+
+/**
+ * Creates a U32 branded type from a number.
+ * Validates that the value is within the u32 range (0 to 2^32 - 1).
+ * @param value - The number value to convert to U32.
+ * @returns The value as U32.
+ * @throws Error if the value is out of range.
+ */
+export function toU32(value: number): U32 {
+  if (value < 0 || value >= 2 ** 32 || !Number.isInteger(value)) {
+    throw new Error(`Value ${value} is not a valid u32.`);
+  }
+  return value as U32;
+}
+
+/**
+ * Creates a U64 branded type from a bigint.
+ * Validates that the value is within the u64 range (0 to 2^64 - 1).
+ * @param value - The bigint value to convert to U64.
+ * @returns The value as U64.
+ * @throws Error if the value is out of range.
+ */
+export function toU64(value: bigint): U64 {
+  if (value < 0n || value >= 1n << 64n) {
+    throw new Error(`Value ${value} is not a valid u64.`);
+  }
+  return value as U64;
+}
+
+/**
+ * Creates a U128 branded type from a bigint.
+ * Validates that the value is within the u128 range (0 to 2^128 - 1).
+ * @param value - The bigint value to convert to U128.
+ * @returns The value as U128.
+ * @throws Error if the value is out of range.
+ */
+export function toU128(value: bigint): U128 {
+  if (value < 0n || value >= 1n << 128n) {
+    throw new Error(`Value ${value} is not a valid u128.`);
+  }
+  return value as U128;
+}
+
+/**
  * Represents a fixed-length array.
  */
 export type Tuple<T, N extends number> = N extends N ? (number extends N ? T[] : _Tuple<T, N, []>) : never;

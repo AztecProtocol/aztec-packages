@@ -1,4 +1,6 @@
 import { Fq, Fr } from '../fields/fields.js';
+import type { U32, U64, U128 } from './types.js';
+import { toU32 } from './types.js';
 import { FieldReader } from './field_reader.js';
 
 const FIELDS = [new Fr(0), new Fr(1), new Fr(23), new Fr(45), new Fr(6789)];
@@ -6,7 +8,7 @@ const FIELDS = [new Fr(0), new Fr(1), new Fr(23), new Fr(45), new Fr(6789)];
 class Something {
   constructor(
     public id: Fr,
-    public value: number,
+    public value: U32,
   ) {}
 
   static fromFields(reader: FieldReader): Something {
@@ -90,17 +92,45 @@ describe('field reader', () => {
   });
 
   describe('readU32', () => {
-    it('should return number', () => {
-      expect(reader.readU32()).toBe(0);
-      expect(reader.readU32()).toBe(1);
-      expect(reader.readU32()).toBe(23);
-      expect(reader.readU32()).toBe(45);
-      expect(reader.readU32()).toBe(6789);
+    it('should return U32 branded type', () => {
+      expect(Number(reader.readU32())).toBe(0);
+      expect(Number(reader.readU32())).toBe(1);
+      expect(Number(reader.readU32())).toBe(23);
+      expect(Number(reader.readU32())).toBe(45);
+      expect(Number(reader.readU32())).toBe(6789);
     });
 
     it('should throw if reading a value larger than u32', () => {
       const reader = new FieldReader([new Fr(2n ** 32n)]);
       expect(() => reader.readU32()).toThrow('Field is not a u32.');
+    });
+  });
+
+  describe('readU64', () => {
+    it('should return U64 branded type', () => {
+      const reader = new FieldReader([new Fr(0n), new Fr(1n), new Fr(1234567890123456789n)]);
+      expect(Number(reader.readU64())).toBe(0);
+      expect(Number(reader.readU64())).toBe(1);
+      expect(reader.readU64()).toBe(1234567890123456789n);
+    });
+
+    it('should throw if reading a value larger than u64', () => {
+      const reader = new FieldReader([new Fr(2n ** 64n)]);
+      expect(() => reader.readU64()).toThrow('Field is not a u64.');
+    });
+  });
+
+  describe('readU128', () => {
+    it('should return U128 branded type', () => {
+      const reader = new FieldReader([new Fr(0n), new Fr(1n), new Fr(123456789012345678901234567890n)]);
+      expect(Number(reader.readU128())).toBe(0);
+      expect(Number(reader.readU128())).toBe(1);
+      expect(reader.readU128()).toBe(123456789012345678901234567890n);
+    });
+
+    it('should throw if reading a value larger than u128', () => {
+      const reader = new FieldReader([new Fr(2n ** 128n)]);
+      expect(() => reader.readU128()).toThrow('Field is not a u128.');
     });
   });
 
@@ -117,7 +147,7 @@ describe('field reader', () => {
   describe('readArray', () => {
     it('should read array of custom type', () => {
       const things = reader.readArray(2, Something);
-      expect(things).toEqual([new Something(new Fr(0), 1), new Something(new Fr(23), 45)]);
+      expect(things).toEqual([new Something(new Fr(0), toU32(1)), new Something(new Fr(23), toU32(45))]);
     });
 
     it('should throw if reading more fields than in the reader', () => {
@@ -127,8 +157,8 @@ describe('field reader', () => {
 
   describe('readObject', () => {
     it('should read object from buffer', () => {
-      expect(reader.readObject(Something)).toEqual(new Something(new Fr(0), 1));
-      expect(reader.readObject(Something)).toEqual(new Something(new Fr(23), 45));
+      expect(reader.readObject(Something)).toEqual(new Something(new Fr(0), toU32(1)));
+      expect(reader.readObject(Something)).toEqual(new Something(new Fr(23), toU32(45)));
 
       expect(() => reader.readObject(Something)).toThrow('Not enough fields to be consumed.');
     });
