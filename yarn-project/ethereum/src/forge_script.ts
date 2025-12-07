@@ -407,11 +407,13 @@ export async function setupL1ContractsViaForge(
   const configEnvVars = buildEnvVarsFromConfig(configOptions, computedValidators);
 
   // Create unique output file in .deployments directory (relative to l1-contracts)
+  // Use process.pid + hrtime for uniqueness across concurrent processes
   const l1ContractsPath = getL1ContractsPath();
   const deploymentsDir = join(l1ContractsPath, '.deployments');
-  const timestamp = Date.now();
+  const hrtime = process.hrtime.bigint();
+  const pid = process.pid;
   const randomId = Math.random().toString(36).substring(2, 8);
-  const outputPath = join(deploymentsDir, `deployment-${timestamp}-${randomId}.json`);
+  const outputPath = join(deploymentsDir, `deployment-${pid}-${hrtime}-${randomId}.json`);
 
   try {
     const result = await runForgeScript(
