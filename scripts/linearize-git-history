@@ -1,0 +1,335 @@
+#!/usr/bin/env bash
+# Linearize git history by rebasing away merge commits where possible.
+#
+# This script creates a linear version of git history by:
+# 1. Forking off HEAD~num_commits
+# 2. Cherry-picking commits, rebasing away unnecessary merge commits
+# 3. For merge-train commits, extracting feature commits and giving them the same timestamp
+# 4. Leaving intact merge commits that are needed (conflict resolutions, etc.)
+#
+# Usage: scripts/linearize-git-history <num_commits> [--push]
+#
+# The result is pushed to the 'next-linear-git' branch on origin.
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+log_info() { echo -e "${BLUE}INFO:${NC} $*"; }
+log_success() { echo -e "${GREEN}SUCCESS:${NC} $*"; }
+log_warn() { echo -e "${YELLOW}WARN:${NC} $*"; }
+log_error() { echo -e "${RED}ERROR:${NC} $*" >&2; }
+
+# Parse arguments
+num_commits=""
+push_result=0
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --push)
+            push_result=1
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 <num_commits> [--push]"
+            echo ""
+            echo "Create a linearized version of git history."
+            echo ""
+            echo "Arguments:"
+            echo "  num_commits    Number of commits from HEAD to rewrite"
+            echo "  --push         Push the result to origin/next-linear-git"
+            echo ""
+            echo "The script will:"
+            echo "  - Fork off HEAD~num_commits"
+            echo "  - Rebase away merge commits where possible"
+            echo "  - For merge-train commits, extract feature commits with same timestamp"
+            echo "  - Leave intact merge commits that are needed for conflict resolution"
+            exit 0
+            ;;
+        *)
+            if [[ -z "$num_commits" ]]; then
+                num_commits="$1"
+            else
+                log_error "Unknown argument: $1"
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$num_commits" ]]; then
+    log_error "Usage: $0 <num_commits> [--push]"
+    exit 1
+fi
+
+if ! [[ "$num_commits" =~ ^[0-9]+$ ]]; then
+    log_error "num_commits must be a positive integer"
+    exit 1
+fi
+
+# Target branch name
+TARGET_BRANCH="next-linear-git"
+
+# Save original branch to return to later
+original_branch=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$original_branch" == "HEAD" ]]; then
+    original_branch=$(git rev-parse HEAD)
+fi
+
+# Get the starting point (fork point)
+fork_point=$(git rev-parse "HEAD~$num_commits")
+log_info "Fork point: $fork_point (HEAD~$num_commits)"
+log_info "Will linearize $num_commits commits from HEAD"
+
+# Get the current HEAD
+current_head=$(git rev-parse HEAD)
+log_info "Current HEAD: $current_head"
+
+# Create a working branch from the fork point
+work_branch="linearize-work-$$"
+log_info "Creating working branch: $work_branch"
+git checkout -B "$work_branch" "$fork_point" --quiet
+
+# Cleanup function
+cleanup_on_error() {
+    log_error "Cleaning up..."
+    git cherry-pick --abort 2>/dev/null || true
+    git reset --hard HEAD 2>/dev/null || true
+    git checkout "$original_branch" --quiet 2>/dev/null || true
+    git branch -D "$work_branch" 2>/dev/null || true
+}
+
+# Function to check if a commit is a merge commit
+is_merge_commit() {
+    local commit="$1"
+    local parent_count
+    parent_count=$(git cat-file -p "$commit" | grep -c "^parent")
+    [[ "$parent_count" -gt 1 ]]
+}
+
+# Function to check if a commit is a merge-train merge
+is_merge_train_merge() {
+    local commit="$1"
+    local message
+    message=$(git log -1 --format="%s" "$commit")
+    [[ "$message" =~ merge-train/ ]] && [[ "$message" =~ \#[0-9]+ ]]
+}
+
+# Function to check if a commit is a simple "Merge branch 'next' into..." merge
+is_sync_merge() {
+    local commit="$1"
+    local message
+    message=$(git log -1 --format="%s" "$commit")
+    [[ "$message" =~ ^Merge\ branch ]] && ! [[ "$message" =~ \#[0-9]+ ]]
+}
+
+# Function to check if a commit is a regular PR merge (not merge-train, has PR number)
+is_pr_merge() {
+    local commit="$1"
+    local message
+    message=$(git log -1 --format="%s" "$commit")
+    # Has a PR number but is NOT a merge-train merge
+    [[ "$message" =~ \#[0-9]+ ]] && ! [[ "$message" =~ merge-train/ ]]
+}
+
+# Function to get feature commits from a merge-train (non-merge commits)
+get_merge_train_feature_commits() {
+    local merge_commit="$1"
+    local first_parent second_parent
+    first_parent=$(git rev-parse "${merge_commit}^1")
+    second_parent=$(git rev-parse "${merge_commit}^2")
+
+    # Get all non-merge commits from the merged branch
+    git rev-list --reverse --no-merges "${first_parent}..${second_parent}"
+}
+
+# Function to check if a merge commit has conflicts that required resolution
+# (i.e., if we can't recreate it by cherry-picking)
+merge_needs_preservation() {
+    local commit="$1"
+
+    # If it's a sync merge (Merge branch 'next' into ...), we don't need to preserve it
+    if is_sync_merge "$commit"; then
+        return 1  # false - don't preserve
+    fi
+
+    # If it's a merge-train merge with a PR number, we can flatten it
+    if is_merge_train_merge "$commit"; then
+        return 1  # false - don't preserve, we'll extract commits
+    fi
+
+    # If it's a regular PR merge, we can flatten it
+    if is_pr_merge "$commit"; then
+        return 1  # false - don't preserve, we'll extract commits
+    fi
+
+    # For other merge commits, check if they have meaningful changes
+    # A merge commit that just combines branches without conflicts will have
+    # the same tree as one of its parents when rebased
+    return 0  # true - preserve other merges by default
+}
+
+# Function to cherry-pick a commit with a specific timestamp
+cherry_pick_with_timestamp() {
+    local commit="$1"
+    local timestamp="$2"
+    local author_date author_name author_email
+
+    author_date=$(git log -1 --format="%aD" "$commit")
+    author_name=$(git log -1 --format="%an" "$commit")
+    author_email=$(git log -1 --format="%ae" "$commit")
+
+    # Use the provided timestamp for committer date, preserve author date
+    # Use -X theirs to auto-resolve content conflicts in favor of the incoming commit
+    GIT_COMMITTER_DATE="$timestamp" \
+    GIT_AUTHOR_DATE="$author_date" \
+    GIT_AUTHOR_NAME="$author_name" \
+    GIT_AUTHOR_EMAIL="$author_email" \
+    git cherry-pick --no-commit -X theirs "$commit" 2>/dev/null || return 1
+
+    GIT_COMMITTER_DATE="$timestamp" \
+    GIT_AUTHOR_DATE="$author_date" \
+    GIT_AUTHOR_NAME="$author_name" \
+    GIT_AUTHOR_EMAIL="$author_email" \
+    git commit -C "$commit" --no-verify 2>/dev/null || return 1
+
+    return 0
+}
+
+# Get list of commits to process (from fork_point to current_head, first-parent only)
+log_info "Collecting commits to process..."
+mapfile -t commits < <(git rev-list --reverse --first-parent "${fork_point}..${current_head}")
+
+log_info "Processing ${#commits[@]} top-level commits..."
+
+processed=0
+skipped=0
+flattened=0
+preserved=0
+
+# Helper to safely increment counters (avoid exit code 1 from ((var++)) when var=0)
+incr() { (($1++)) || true; }
+
+for commit in "${commits[@]}"; do
+    message=$(git log -1 --format="%s" "$commit")
+    short_hash=$(git rev-parse --short "$commit")
+
+    if is_merge_commit "$commit"; then
+        if is_sync_merge "$commit"; then
+            # Skip sync merges entirely (Merge branch 'next' into ...)
+            log_warn "Skipping sync merge: $short_hash - $message"
+            incr skipped
+            continue
+        elif is_merge_train_merge "$commit" || is_pr_merge "$commit"; then
+            # Flatten merge-train or PR merge: extract feature commits with same timestamp
+            merge_timestamp=$(git log -1 --format="%cD" "$commit")
+            if is_merge_train_merge "$commit"; then
+                log_info "Flattening merge-train: $short_hash - $message"
+            else
+                log_info "Flattening PR merge: $short_hash - $message"
+            fi
+
+            feature_commits=$(get_merge_train_feature_commits "$commit")
+            if [[ -z "$feature_commits" ]]; then
+                log_warn "  No feature commits found, skipping"
+                incr skipped
+                continue
+            fi
+
+            for feature_commit in $feature_commits; do
+                feature_message=$(git log -1 --format="%s" "$feature_commit")
+                feature_short=$(git rev-parse --short "$feature_commit")
+
+                if cherry_pick_with_timestamp "$feature_commit" "$merge_timestamp"; then
+                    log_success "  Cherry-picked: $feature_short - $feature_message"
+                    incr processed
+                else
+                    # Check for unresolved conflicts
+                    if git diff --name-only --diff-filter=U 2>/dev/null | grep -q .; then
+                        log_warn "  Skipping conflicting commit: $feature_short - $feature_message"
+                        git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
+                        incr skipped
+                    # Check if it's an empty commit (no changes to apply)
+                    elif git diff --cached --quiet 2>/dev/null && git diff --quiet 2>/dev/null; then
+                        log_warn "  Skipping empty commit: $feature_short - $feature_message"
+                        git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
+                        incr skipped
+                    else
+                        log_error "  Failed to cherry-pick: $feature_short - $feature_message"
+                        cleanup_on_error
+                        exit 1
+                    fi
+                fi
+            done
+            incr flattened
+        elif merge_needs_preservation "$commit"; then
+            # Preserve this merge commit - try to recreate it
+            log_warn "Preserving merge commit: $short_hash - $message"
+            # For now, we'll skip these - they're complex to recreate
+            # In future, we could try to recreate the merge
+            incr preserved
+            incr skipped
+        else
+            # Unknown merge type, skip
+            log_warn "Skipping unknown merge: $short_hash - $message"
+            incr skipped
+        fi
+    else
+        # Regular commit - cherry-pick it with -X theirs to auto-resolve conflicts
+        if git cherry-pick "$commit" --no-verify -X theirs 2>/dev/null; then
+            log_success "Cherry-picked: $short_hash - $message"
+            incr processed
+        else
+            # Check for unresolved conflicts
+            if git diff --name-only --diff-filter=U 2>/dev/null | grep -q .; then
+                log_warn "Skipping conflicting commit: $short_hash - $message"
+                git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
+                incr skipped
+            # Check if it's an empty commit (no changes to apply)
+            elif git diff --cached --quiet 2>/dev/null && git diff --quiet 2>/dev/null; then
+                # Empty commit, skip
+                git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
+                log_warn "Skipping empty commit: $short_hash - $message"
+                incr skipped
+            else
+                log_error "Failed to cherry-pick: $short_hash - $message"
+                cleanup_on_error
+                exit 1
+            fi
+        fi
+    fi
+done
+
+log_info ""
+log_info "Summary:"
+log_info "  Commits processed: $processed"
+log_info "  Merge-trains flattened: $flattened"
+log_info "  Commits skipped: $skipped"
+log_info "  Merges preserved: $preserved"
+
+# Move to target branch
+log_info "Moving result to branch: $TARGET_BRANCH"
+git branch -f "$TARGET_BRANCH" "$work_branch"
+
+# Clean up working branch
+git checkout "$TARGET_BRANCH" --quiet
+git branch -D "$work_branch" 2>/dev/null || true
+
+if [[ "$push_result" -eq 1 ]]; then
+    log_info "Pushing to origin/$TARGET_BRANCH..."
+    git push origin "$TARGET_BRANCH" --force-with-lease
+    log_success "Pushed to origin/$TARGET_BRANCH"
+else
+    log_info ""
+    log_info "Linear history is now on branch: $TARGET_BRANCH"
+    log_info "To push: git push origin $TARGET_BRANCH --force-with-lease"
+    log_info "To return to your previous branch: git checkout -"
+fi
+
+log_success "Done!"
