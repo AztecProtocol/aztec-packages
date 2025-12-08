@@ -357,10 +357,6 @@ void ExecutionTraceBuilder::process(
                   ex_event.after_context_event.written_public_data_slots_tree_snapshot.root },
                 { C::execution_written_public_data_slots_tree_size,
                   ex_event.after_context_event.written_public_data_slots_tree_snapshot.next_available_leaf_index },
-                { C::execution_prev_public_data_tree_root,
-                  ex_event.before_context_event.tree_states.public_data_tree.tree.root },
-                { C::execution_prev_public_data_tree_size,
-                  ex_event.before_context_event.tree_states.public_data_tree.tree.next_available_leaf_index },
                 // Context - tree states - Nullifier tree
                 { C::execution_prev_nullifier_tree_root,
                   ex_event.before_context_event.tree_states.nullifier_tree.tree.root },
@@ -374,6 +370,10 @@ void ExecutionTraceBuilder::process(
                 { C::execution_num_nullifiers_emitted,
                   ex_event.after_context_event.tree_states.nullifier_tree.counter },
                 // Context - tree states - Public data tree
+                { C::execution_prev_public_data_tree_root,
+                  ex_event.before_context_event.tree_states.public_data_tree.tree.root },
+                { C::execution_prev_public_data_tree_size,
+                  ex_event.before_context_event.tree_states.public_data_tree.tree.next_available_leaf_index },
                 { C::execution_public_data_tree_root,
                   ex_event.after_context_event.tree_states.public_data_tree.tree.root },
                 { C::execution_public_data_tree_size,
@@ -569,11 +569,11 @@ void ExecutionTraceBuilder::process(
                 // rop[1] is the envvar enum
                 Operand envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
                 process_get_env_var_opcode(envvar_enum, ex_event.output, trace, row);
-            } else if (exec_opcode == ExecutionOpCode::INTERNALRETURN) {
+            } else if (*exec_opcode == ExecutionOpCode::INTERNALRETURN) {
                 trace.set(C::execution_internal_call_return_id_inv,
                           row,
                           ex_event.before_context_event.internal_call_return_id); // Will be inverted in batch later.
-            } else if (exec_opcode == ExecutionOpCode::SSTORE) {
+            } else if (*exec_opcode == ExecutionOpCode::SSTORE) {
                 uint32_t remaining_data_writes = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX -
                                                  ex_event.before_context_event.tree_states.public_data_tree.counter;
 
@@ -584,7 +584,7 @@ void ExecutionTraceBuilder::process(
                                 remaining_data_writes }, // Will be inverted in batch later.
                               { C::execution_sel_write_public_data, !opcode_execution_failed },
                           } });
-            } else if (exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
+            } else if (*exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
                 uint64_t leaf_index = registers[1].as<uint64_t>();
                 uint64_t note_hash_tree_leaf_count = NOTE_HASH_TREE_LEAF_COUNT;
                 bool note_hash_leaf_in_range = leaf_index < note_hash_tree_leaf_count;
@@ -594,7 +594,7 @@ void ExecutionTraceBuilder::process(
                               { C::execution_note_hash_leaf_in_range, note_hash_leaf_in_range },
                               { C::execution_note_hash_tree_leaf_count, FF(note_hash_tree_leaf_count) },
                           } });
-            } else if (exec_opcode == ExecutionOpCode::EMITNOTEHASH) {
+            } else if (*exec_opcode == ExecutionOpCode::EMITNOTEHASH) {
                 uint32_t remaining_note_hashes =
                     MAX_NOTE_HASHES_PER_TX - ex_event.before_context_event.tree_states.note_hash_tree.counter;
 
@@ -605,7 +605,7 @@ void ExecutionTraceBuilder::process(
                                 remaining_note_hashes }, // Will be inverted in batch later.
                               { C::execution_sel_write_note_hash, !opcode_execution_failed },
                           } });
-            } else if (exec_opcode == ExecutionOpCode::L1TOL2MSGEXISTS) {
+            } else if (*exec_opcode == ExecutionOpCode::L1TOL2MSGEXISTS) {
                 uint64_t leaf_index = registers[1].as<uint64_t>();
                 uint64_t l1_to_l2_msg_tree_leaf_count = L1_TO_L2_MSG_TREE_LEAF_COUNT;
                 bool l1_to_l2_msg_leaf_in_range = leaf_index < l1_to_l2_msg_tree_leaf_count;
@@ -617,7 +617,7 @@ void ExecutionTraceBuilder::process(
                           } });
                 //} else if (exec_opcode == ExecutionOpCode::NULLIFIEREXISTS) {
                 // no custom columns!
-            } else if (exec_opcode == ExecutionOpCode::EMITNULLIFIER) {
+            } else if (*exec_opcode == ExecutionOpCode::EMITNULLIFIER) {
                 uint32_t remaining_nullifiers =
                     MAX_NULLIFIERS_PER_TX - ex_event.before_context_event.tree_states.nullifier_tree.counter;
 
@@ -629,7 +629,7 @@ void ExecutionTraceBuilder::process(
                               { C::execution_sel_write_nullifier,
                                 remaining_nullifiers != 0 && !ex_event.before_context_event.is_static },
                           } });
-            } else if (exec_opcode == ExecutionOpCode::SENDL2TOL1MSG) {
+            } else if (*exec_opcode == ExecutionOpCode::SENDL2TOL1MSG) {
                 uint32_t remaining_l2_to_l1_msgs =
                     MAX_L2_TO_L1_MSGS_PER_TX - ex_event.before_context_event.numL2ToL1Messages;
 
@@ -721,7 +721,7 @@ void ExecutionTraceBuilder::process(
 
         // If an enqueued call just exited, next event (if any) is the first in an enqueued call.
         // Update flag for next iteration.
-        is_first_event_in_enqueued_call = ex_event.after_context_event.parent_id == 0 && sel_exit_call;
+        is_first_event_in_enqueued_call = !has_parent && sel_exit_call;
 
         // Track this bool for use determining whether the next row is the first in a context
         prev_row_was_enter_call = sel_enter_call;

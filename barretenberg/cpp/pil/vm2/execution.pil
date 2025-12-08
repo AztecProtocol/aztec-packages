@@ -172,6 +172,8 @@ sel_first_row_in_context {
 // If `sel_bytecode_retrieval_failure == 1`, we get `sel_error == 1` and we exit the call.
 // Therefore, we do not need to propagate `sel_bytecode_retrieval_failure` but can enforce
 // it to be 0 for all subsequent rows in the context.
+// Note also that propagating inside of a context is not trivial as
+// it is not contiguous (due to nested calls).
 #[BYTECODE_RETRIEVAL_NO_FAILURE]
 (1 - sel_first_row_in_context) * sel_bytecode_retrieval_failure = 0;
 
