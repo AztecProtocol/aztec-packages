@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
+// solhint-disable imports-order, max-states-count, gas-small-strings, comprehensive-interface
 pragma solidity >=0.8.27;
 
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {GenesisState} from "@aztec/core/interfaces/IRollup.sol";
 import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
-import {
-    Configuration as GovernanceConfiguration,
-    ProposeWithLockConfiguration
-} from "@aztec/governance/interfaces/IGovernance.sol";
+import {Configuration as GovernanceConfiguration } from "@aztec/governance/interfaces/IGovernance.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
