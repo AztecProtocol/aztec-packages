@@ -103,7 +103,6 @@ contract DeployRollupForUpgradeTest is Test {
 
         // Deploy upgrade
         upgradeScript = new DeployRollupForUpgrade();
-        upgradeScript.setUp();
         upgradeScript.run(upgradeOutputPath);
 
         // Read upgrade deployment addresses
@@ -158,7 +157,6 @@ contract DeployRollupForUpgradeTest is Test {
 
         // Deploy upgrade
         upgradeScript = new DeployRollupForUpgrade();
-        upgradeScript.setUp();
         upgradeScript.run(upgradeOutputPath);
 
         // Read new rollup address
@@ -198,7 +196,6 @@ contract DeployRollupForUpgradeTest is Test {
 
         // Deploy upgrade
         upgradeScript = new DeployRollupForUpgrade();
-        upgradeScript.setUp();
         upgradeScript.run(upgradeOutputPath);
 
         // Read addresses
@@ -236,7 +233,6 @@ contract DeployRollupForUpgradeTest is Test {
 
         // Deploy upgrade
         upgradeScript = new DeployRollupForUpgrade();
-        upgradeScript.setUp();
         upgradeScript.run(upgradeOutputPath);
 
         // Read and verify all fields exist (will revert if missing)

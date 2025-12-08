@@ -68,7 +68,7 @@ contract DeployRollup is Script, Test {
     // ============ External Interface ============
 
     /// @notice Initialize with existing infrastructure
-    function setEnv(RollupDeploymentInput memory _input) external {
+    function setEnv(RollupAddressInput memory _input) external {
         input = _input;
     }
 
