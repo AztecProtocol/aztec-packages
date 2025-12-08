@@ -905,7 +905,7 @@ void Execution::internal_return(ContextInterface& context)
     try {
         auto next_pc = internal_call_stack_manager.pop();
         context.set_next_pc(next_pc);
-    } catch (const std::exception& e) {
+    } catch (const InternalCallStackException& e) {
         // Re-throw
         throw OpcodeExecutionException("Internal return failed: " + std::string(e.what()));
     }
