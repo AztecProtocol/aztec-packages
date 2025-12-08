@@ -79,17 +79,32 @@
 - [ ] `check_degree_identity`: Thakur degree bound
 - [ ] PREPEND vs APPEND mode handling
 
-### 4. Databus (`relations/databus_lookup_relation.hpp`) ✅ PARTIALLY VERIFIED
+### 4. Databus (`relations/databus_lookup_relation.hpp`) ✅ VERIFIED
 
-**Unit tests added**: `databus_lookup_relation_consistency.test.cpp`
+**Unit tests**: `databus_lookup_relation_consistency.test.cpp`, `biggroup.test.cpp`
 
+*Relation arithmetic*:
 - [x] Lookup relation arithmetic matches reference implementation
 - [x] `read_tags` boolean constraint enforced (tag² - tag = 0)
 - [x] Inverse correctness: I × read_term × write_term - inverse_exists = 0
 - [x] Mismatched read/write terms detected by lookup subrelation
 - [x] Inactive gates (selectors = 0) produce zero subrelations
-- [ ] Dynamic indexing security (higher-level integration)
-- [ ] Commitment propagation between circuits
+
+*Point comparison* (`incomplete_assert_equal` and native `==`):
+- [x] Handles identical points, both-at-infinity, infinity flag mismatch
+- [x] Native `==` correctly returns true for both-at-infinity (regardless of x,y)
+- [x] Known limitation: `incomplete_assert_equal` fails if both at infinity with different coords (completeness, not soundness)
+
+*Commitment propagation* (`DataBusDepot`):
+- [x] K_{i-1}.return_data → K_i.calldata verified via `incomplete_assert_equal`
+- [x] A_i.return_data → K_i.secondary_calldata verified via `incomplete_assert_equal`
+- [x] Default commitment used when no genuine commitment exists
+
+*Dynamic indexing security*:
+- [x] Prover-side bounds check: `BB_ASSERT_LT(read_idx, bus_vector.size())` at `mega_circuit_builder.cpp:269`
+- [x] Cryptographic enforcement: log-derivative lookup ensures read_term matches a write_term
+- [x] Out-of-bounds reads fail: no write_term exists for invalid index, sum doesn't balance
+- [x] Fiat-Shamir binding: β,γ derived after commitments, preventing collision pre-computation
 
 ### 5. Chonk Orchestration (`chonk/`)
 
