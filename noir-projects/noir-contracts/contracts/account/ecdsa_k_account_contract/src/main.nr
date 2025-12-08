@@ -42,7 +42,7 @@ pub contract EcdsaKAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(self.address) };
-        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).emit(
+        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).deliver(
             self.address,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

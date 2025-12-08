@@ -13,7 +13,7 @@ pub contract PendingNoteHashes {
     use aztec::{
         macros::{functions::{external, internal}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        note::{note_emission::NoteEmission, note_getter_options::NoteGetterOptions},
+        note::note_getter_options::NoteGetterOptions,
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress,
@@ -46,7 +46,7 @@ pub contract PendingNoteHashes {
         let note = FieldNote::new(amount);
 
         // Insert note
-        owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        owner_balance.insert(note).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -72,7 +72,8 @@ pub contract PendingNoteHashes {
 
         // Insert note
         let note = FieldNote::new(amount);
-        owner_balance.insert(note).discard();
+        // Discard the message
+        let _ = owner_balance.insert(note);
 
         0
     }
@@ -89,7 +90,7 @@ pub contract PendingNoteHashes {
         let note = FieldNote::new(amount);
 
         // Insert note
-        owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        owner_balance.insert(note).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Nested/inner function to create and insert a note
@@ -104,7 +105,7 @@ pub contract PendingNoteHashes {
         let note = FieldNote::unpack([amount.to_field()]);
 
         // Insert note
-        owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        owner_balance.insert(note).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Nested/inner function to create and insert a note
@@ -116,12 +117,12 @@ pub contract PendingNoteHashes {
         let note = FieldNote::new(amount);
 
         // Insert note
-        let emission = owner_balance.insert(note);
+        let message = owner_balance.insert(note);
 
-        emission.emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        message.deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
 
-        // Emit note again
-        emission.emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        // Deliver note message again
+        message.deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -322,40 +323,13 @@ pub contract PendingNoteHashes {
         }
     }
 
-    // TESTING: Forces the private context to accept a note log for a non-existent note
-    // by using an existing note's counter via its header. This is used to check that
-    // the pxe rejects the note log later.
-    #[external("private")]
-    fn test_emit_bad_note_log(owner: AztecAddress, sender: AztecAddress) {
-        let owner_balance = self.storage.balances.at(owner);
-
-        let good_note = FieldNote::new(10);
-        // Insert good note with real log
-        let good_note_emission = owner_balance.insert(good_note);
-        good_note_emission.emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
-
-        // We will emit a note log with an incorrect preimage to ensure the pxe throws
-        // This note has not been inserted...
-        // ...but we need a 'good' note's storage slot and note hash counter to get the context to add the note log
-        let bad_note_emission = NoteEmission::new(
-            FieldNote::new(5),
-            owner,
-            good_note_emission.content.storage_slot,
-            good_note_emission.content.randomness,
-            good_note_emission.content.note_hash_counter,
-            self.context,
-        );
-
-        bad_note_emission.emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
-    }
-
     #[internal("private")]
     fn create_max_notes(owner: AztecAddress) {
         let owner_balance = self.storage.balances.at(owner);
 
         for i in 0..self.internal.max_notes_per_call() {
             let note = FieldNote::new(i as Field);
-            owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+            owner_balance.insert(note).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }
 
