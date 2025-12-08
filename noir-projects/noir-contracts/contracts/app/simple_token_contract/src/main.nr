@@ -1,5 +1,3 @@
-mod types;
-
 use aztec::macros::aztec;
 
 // Minimal token contract. Do not use
@@ -22,12 +20,12 @@ pub contract SimpleToken {
         },
         messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
-        state_vars::{Map, PublicImmutable, PublicMutable},
+        state_vars::{Map, Owned, PublicImmutable, PublicMutable, state_variable::StateVariable},
     };
 
     use uint_note::uint_note::{PartialUintNote, UintNote};
 
-    use crate::types::balance_set::BalanceSet;
+    use balance_set::BalanceSet;
 
     global INITIAL_TRANSFER_CALL_MAX_NOTES: u32 = 2;
     global RECURSIVE_TRANSFER_CALL_MAX_NOTES: u32 = 8;
@@ -41,7 +39,7 @@ pub contract SimpleToken {
 
     #[storage]
     struct Storage<Context> {
-        balances: BalanceSet<Context>,
+        balances: Owned<BalanceSet<Context>, Context>,
         total_supply: PublicMutable<u128, Context>,
         public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
         symbol: PublicImmutable<FieldCompressedString, Context>,
@@ -165,7 +163,7 @@ pub contract SimpleToken {
     fn _prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
         let partial_note = UintNote::partial(
             to,
-            self.storage.balances.set.storage_slot,
+            self.storage.balances.get_storage_slot(),
             self.context,
             to,
             self.context.msg_sender().unwrap(),

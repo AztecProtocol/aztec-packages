@@ -24,14 +24,17 @@ use dep::aztec::{
 // macro support is expanded.
 
 /// A private note representing a numeric value associated to an account (e.g. a token balance).
+// docs:start:uint_note_def
 #[derive(Deserialize, Eq, Serialize, Packable)]
 #[custom_note]
 pub struct UintNote {
     /// The number stored in the note.
     value: u128,
 }
+// docs:end:uint_note_def
 
 impl NoteHash for UintNote {
+    // docs:start:compute_note_hash
     fn compute_note_hash(
         self,
         owner: AztecAddress,
@@ -55,6 +58,7 @@ impl NoteHash for UintNote {
         // Then compute the completion note hash. In a real partial note this step would be performed in public.
         partial_note.compute_complete_note_hash(self.value)
     }
+    // docs:end:compute_note_hash
 
     // The nullifiers are nothing special - this is just the canonical implementation that would be injected by the
     // #[note] macro.
@@ -161,6 +165,7 @@ impl UintNote {
 
 /// Computes a commitment to the private content of a partial UintNote, i.e. the fields that will remain private. All
 /// other note fields will be made public.
+// docs:start:compute_partial_commitment
 fn compute_partial_commitment(
     owner: AztecAddress,
     storage_slot: Field,
@@ -171,6 +176,7 @@ fn compute_partial_commitment(
         GENERATOR_INDEX__NOTE_HASH,
     )
 }
+// docs:end:compute_partial_commitment
 
 #[derive(Packable)]
 struct UintPartialNotePrivateLogContent {
@@ -187,10 +193,12 @@ impl NoteType for UintPartialNotePrivateLogContent {
 /// slot, but the value field has not yet been set. A partial note can be completed in public with the `complete`
 /// function (revealing the value to the public), resulting in a UintNote that can be used like any other one (except
 /// of course that its value is known).
+// docs:start:partial_uint_note_def
 #[derive(Packable, Serialize, Deserialize, Eq)]
 pub struct PartialUintNote {
     commitment: Field,
 }
+// docs:end:partial_uint_note_def
 
 global NOTE_COMPLETION_LOG_LENGTH: u32 = 2;
 
@@ -281,6 +289,7 @@ impl PartialUintNote {
         note_completion_log.concat(padding)
     }
 
+    // docs:start:compute_complete_note_hash
     fn compute_complete_note_hash(self, value: u128) -> Field {
         // Here we finalize the note hash by including the (public) value into the partial note commitment. Note that we
         // use the same generator index as we used for the first round of poseidon - this is not an issue.
@@ -289,6 +298,7 @@ impl PartialUintNote {
             GENERATOR_INDEX__NOTE_HASH,
         )
     }
+    // docs:end:compute_complete_note_hash
 }
 
 impl ToField for PartialUintNote {

@@ -8,6 +8,7 @@ impl PrivateCallDataValidatorBuilder {
 
     pub fn split_calls(&mut self, counter: u32) {
         self.private_call.min_revertible_side_effect_counter = counter;
+        self.private_call.counter = std::cmp::max(counter + 1, self.private_call.counter);
     }
 
     pub fn add_private_call_request(&mut self, counter_start: u32, counter_end: u32) {
@@ -74,7 +75,7 @@ fn validate_private_call_requests_split_private_calls_succeeds() {
 
     builder.add_private_call_request(20, 30);
     builder.add_private_call_request(40, 50);
-    builder.split_calls(60);
+    builder.split_calls(55);
     builder.add_private_call_request(60, 70);
 
     builder.validate();
@@ -95,7 +96,7 @@ fn validate_private_call_requests_split_private_calls_empty_revertible_succeeds(
 fn validate_private_call_requests_split_private_calls_empty_non_revertible_succeeds() {
     let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
 
-    builder.split_calls(20);
+    builder.split_calls(19);
     builder.add_private_call_request(20, 30);
     builder.add_private_call_request(40, 50);
 
@@ -131,31 +132,6 @@ fn validate_private_call_requests_split_private_calls_less_than_first_revertible
     // Tweak the counter to be less than the start counter of the first revertible call.
     builder.split_calls(59);
     builder.add_private_call_request(60, 70);
-
-    builder.validate();
-}
-
-#[test(should_fail_with = "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
-fn validate_private_call_requests_split_private_calls_less_than_last_non_revertible_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
-
-    builder.add_private_call_request(20, 30);
-    builder.add_private_call_request(40, 50);
-    // Tweak the counter to be less than the end counter of the last non-revertible call.
-    builder.split_calls(49);
-    builder.add_private_call_request(60, 70);
-
-    builder.validate();
-}
-
-#[test(should_fail_with = "expected min_revertible_side_effect_counter to be greater than the counters of all calls")]
-fn validate_private_call_requests_split_private_calls_equal_last_non_revertible_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
-
-    builder.add_private_call_request(20, 30);
-    builder.add_private_call_request(40, 50);
-    // Tweak the counter to equal the end counter of the last non-revertible call.
-    builder.split_calls(50);
 
     builder.validate();
 }

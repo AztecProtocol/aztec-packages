@@ -1,18 +1,11 @@
 use crate::{
     abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
     address::SaltedInitializationHash,
-    constants::{
-        FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
-        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
-        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, PROOF_TYPE_HN,
-        PROOF_TYPE_OINK, PUBLIC_DATA_TREE_HEIGHT, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
-    },
+    constants::{FUNCTION_TREE_HEIGHT, PROOF_TYPE_HN, PROOF_TYPE_OINK, PUBLIC_DATA_TREE_HEIGHT},
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     merkle_tree::MembershipWitness,
     proof::verification_key::ChonkVerificationKey,
     public_keys::PublicKeys,
-    traits::Empty,
 };
 
 pub struct PrivateCallData {

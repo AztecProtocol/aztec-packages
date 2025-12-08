@@ -7,9 +7,9 @@ pub contract TestLog {
         messages::message_delivery::MessageDelivery,
         oracle::random::random,
         protocol_types::{address::AztecAddress, traits::FromField},
-        state_vars::PrivateSet,
+        state_vars::{Owned, PrivateSet},
     };
-    use value_note::value_note::ValueNote;
+    use field_note::field_note::FieldNote;
 
     #[event]
     struct ExampleEvent0 {
@@ -25,7 +25,7 @@ pub contract TestLog {
 
     #[storage]
     struct Storage<Context> {
-        example_set: PrivateSet<ValueNote, Context>,
+        example_set: Owned<PrivateSet<FieldNote, Context>, Context>,
     }
 
     #[external("private")]

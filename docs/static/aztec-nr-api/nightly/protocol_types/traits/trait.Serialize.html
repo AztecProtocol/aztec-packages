@@ -60,6 +60,7 @@
 <li><a href="#impl-Serialize-for-FeeRecipient">FeeRecipient</a></li>
 <li><a href="#impl-Serialize-for-Field">Field</a></li>
 <li><a href="#impl-Serialize-for-FieldCompressedString">FieldCompressedString</a></li>
+<li><a href="#impl-Serialize-for-FieldNote">FieldNote</a></li>
 <li><a href="#impl-Serialize-for-FunctionCall">FunctionCall</a></li>
 <li><a href="#impl-Serialize-for-FunctionData">FunctionData</a></li>
 <li><a href="#impl-Serialize-for-FunctionSelector">FunctionSelector</a></li>
@@ -119,7 +120,6 @@
 <li><a href="#impl-Serialize-for-TxContext">TxContext</a></li>
 <li><a href="#impl-Serialize-for-TxRequest">TxRequest</a></li>
 <li><a href="#impl-Serialize-for-UintNote">UintNote</a></li>
-<li><a href="#impl-Serialize-for-ValueNote">ValueNote</a></li>
 <li><a href="#impl-Serialize-for-[T; M]">[T; M]</a></li>
 <li><a href="#impl-Serialize-for-bool">bool</a></li>
 <li><a href="#impl-Serialize-for-i16">i16</a></li>
@@ -293,6 +293,8 @@ fail with an arguments hash mismatch error message.</p>
 
 <h3 id="impl-Serialize-for-FieldCompressedString"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
 
+<h3 id="impl-Serialize-for-FieldNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../field_note/field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
+
 <h3 id="impl-Serialize-for-FunctionCall"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/authwit/entrypoint/function_call/struct.FunctionCall.html" class="struct">FunctionCall</a></code></h3>
 
 <h3 id="impl-Serialize-for-FunctionData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/function_data/struct.FunctionData.html" class="struct">FunctionData</a></code></h3>
@@ -418,8 +420,6 @@ fail with an arguments hash mismatch error message.</p>
 <h3 id="impl-Serialize-for-TxRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
 
 <h3 id="impl-Serialize-for-UintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../uint_note/uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
-
-<h3 id="impl-Serialize-for-ValueNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
 
 <h3 id="impl-Serialize-for-[T; M]"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for [T; M]
 <div class="where-clause">where

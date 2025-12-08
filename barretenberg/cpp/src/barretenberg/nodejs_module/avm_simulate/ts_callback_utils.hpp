@@ -27,31 +27,32 @@ std::string extract_error_from_napi_value(const Napi::CallbackInfo& cb_info);
 
 /**
  * @brief Creates a resolve handler for promises that return Buffer | undefined
+ * @note Takes shared_ptr to ensure CallbackResults outlives the Promise handler
  */
-Napi::Function create_buffer_resolve_handler(Napi::Env env, CallbackResults* cb_results);
+Napi::Function create_buffer_resolve_handler(Napi::Env env, std::shared_ptr<CallbackResults> cb_results);
 
 /**
  * @brief Creates a resolve handler for promises that return string | undefined
+ * @note Takes shared_ptr to ensure CallbackResults outlives the Promise handler
  */
-Napi::Function create_string_resolve_handler(Napi::Env env, CallbackResults* cb_results);
+Napi::Function create_string_resolve_handler(Napi::Env env, std::shared_ptr<CallbackResults> cb_results);
 
 /**
  * @brief Creates a resolve handler for promises that return void
+ * @note Takes shared_ptr to ensure CallbackResults outlives the Promise handler
  */
-Napi::Function create_void_resolve_handler(Napi::Env env, CallbackResults* cb_results);
+Napi::Function create_void_resolve_handler(Napi::Env env, std::shared_ptr<CallbackResults> cb_results);
 
 /**
  * @brief Creates a reject handler for promises
+ * @note Takes shared_ptr to ensure CallbackResults outlives the Promise handler
  */
-Napi::Function create_reject_handler(Napi::Env env, CallbackResults* cb_results);
+Napi::Function create_reject_handler(Napi::Env env, std::shared_ptr<CallbackResults> cb_results);
 
 /**
  * @brief Attaches resolve and reject handlers to a promise
  */
-void attach_promise_handlers(Napi::Promise promise,
-                             Napi::Function resolve_handler,
-                             Napi::Function reject_handler,
-                             CallbackResults* data);
+void attach_promise_handlers(Napi::Promise promise, Napi::Function resolve_handler, Napi::Function reject_handler);
 
 /**
  * @brief Serializes data to msgpack format
@@ -72,11 +73,15 @@ template <typename T> T deserialize_from_msgpack(const std::vector<uint8_t>& dat
  * 3. Handles promise resolution/rejection
  * 4. Waits with timeout
  * 5. Returns optional result
+ *
+ * @note The call_js_function receives a shared_ptr to CallbackResults. The shared_ptr MUST be
+ *       captured by the Promise handlers to ensure the CallbackResults outlives the Promise.
+ *       This prevents use-after-free when timeouts occur before the Promise resolves.
  */
 std::optional<std::vector<uint8_t>> invoke_ts_callback_with_promise(
     const Napi::ThreadSafeFunction& callback,
     const std::string& operation_name,
-    std::function<void(Napi::Env, Napi::Function, CallbackResults*)> call_js_function,
+    std::function<void(Napi::Env, Napi::Function, std::shared_ptr<CallbackResults>)> call_js_function,
     std::chrono::seconds timeout = std::chrono::seconds(30));
 
 /**

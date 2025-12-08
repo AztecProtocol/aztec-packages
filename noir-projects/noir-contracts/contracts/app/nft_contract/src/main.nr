@@ -21,7 +21,7 @@ pub contract NFT {
             note_interface::NoteProperties, note_viewer_options::NoteViewerOptions,
         },
         protocol_types::{address::AztecAddress, traits::ToField},
-        state_vars::{Map, PrivateSet, PublicImmutable, PublicMutable},
+        state_vars::{Map, Owned, PrivateSet, PublicImmutable, PublicMutable},
         utils::comparison::Comparator,
     };
     use compressed_string::FieldCompressedString;
@@ -49,7 +49,7 @@ pub contract NFT {
         // Addresses that can mint
         minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
         // Contains the NFTs owned by each address in private.
-        private_nfts: PrivateSet<NFTNote, Context>,
+        private_nfts: Owned<PrivateSet<NFTNote, Context>, Context>,
         // A map from token ID to a boolean indicating if the NFT exists.
         nft_exists: Map<Field, PublicMutable<bool, Context>, Context>,
         // A map from token ID to the public owner of the NFT.
