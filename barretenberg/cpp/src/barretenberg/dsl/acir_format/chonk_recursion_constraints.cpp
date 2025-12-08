@@ -88,8 +88,7 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
     BB_ASSERT_EQ(input.proof_type, PROOF_TYPE::CHONK);
 
     // Reconstruct proof indices from proof and public inputs
-    std::vector<uint32_t> proof_indices =
-        ProofSurgeon<uint32_t>::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
+    std::vector<uint32_t> proof_indices = add_public_inputs_to_proof(input.proof, input.public_inputs);
 
     // Construct field elements from witness indices
     std::vector<field_ct> key_fields = RecursionConstraint::fields_from_witnesses(builder, input.key);

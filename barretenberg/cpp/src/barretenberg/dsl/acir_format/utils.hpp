@@ -126,4 +126,28 @@ void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fiel
     }
 };
 
+/**
+ * @brief Reconstruct a barretenberg style proof from an ACIR style proof + public inputs
+ *
+ * @details In barretenberg, proofs start with the public inputs. ACIR represents proofs in the format
+ * (public_inputs, proof_without_public_inputs). This function stitches together the indices for the public inputs
+ * with those for the proof to transform ACIR-style proofs into barretenberg-style proofs.
+ *
+ * @param proof_in A proof stripped of its public inputs
+ * @param public_inputs The public inputs to be reinserted into the proof
+ * @return std::vector<uint32_t> The witness indices of the complete proof
+ */
+inline std::vector<uint32_t> add_public_inputs_to_proof(const std::vector<uint32_t>& proof_in,
+                                                        const std::vector<uint32_t>& public_inputs)
+{
+    std::vector<uint32_t> proof;
+    proof.reserve(proof_in.size() + public_inputs.size());
+
+    // Construct the complete proof as the concatenation {public_inputs | proof_in}
+    proof.insert(proof.end(), public_inputs.begin(), public_inputs.end());
+    proof.insert(proof.end(), proof_in.begin(), proof_in.end());
+
+    return proof;
+}
+
 } // namespace acir_format

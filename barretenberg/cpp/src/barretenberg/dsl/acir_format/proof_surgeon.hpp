@@ -22,29 +22,6 @@ namespace acir_format {
 template <typename FF> class ProofSurgeon {
   public:
     /**
-     * @brief Reconstruct a bberg style proof from a acir style proof + public inputs
-     * @details Insert the public inputs in the middle the proof fields after 'inner_public_input_offset' because this
-     * is how the core barretenberg library processes proofs (with the public inputs starting at the third element and
-     * not separate from the rest of the proof)
-     *
-     * @param proof_in A proof stripped of its public inputs
-     * @param public_inputs The public inputs to be reinserted into the proof
-     * @return std::vector<uint32_t> The witness indices of the complete proof
-     */
-    static std::vector<uint32_t> create_indices_for_reconstructed_proof(const std::vector<uint32_t>& proof_in,
-                                                                        const std::vector<uint32_t>& public_inputs)
-    {
-        std::vector<uint32_t> proof;
-        proof.reserve(proof_in.size() + public_inputs.size());
-
-        // Construct the complete proof as the concatenation {"initial data" | public_inputs | proof_in}
-        proof.insert(proof.end(), public_inputs.begin(), public_inputs.end());
-        proof.insert(proof.end(), proof_in.begin(), proof_in.end());
-
-        return proof;
-    }
-
-    /**
      * @brief Extract then remove a given number of public inputs from a proof
      *
      * @param proof_witnesses Witness values of a bberg style proof containing public inputs

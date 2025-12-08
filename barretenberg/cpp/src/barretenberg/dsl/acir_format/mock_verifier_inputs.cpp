@@ -21,13 +21,7 @@ namespace acir_format {
 
 using namespace bb;
 
-/**
- * @brief Helper to populate a field buffer with fields corresponding to some number of mock commitment values
- *
- * @param fields field buffer to append mock commitment values to
- * @param num_commitments number of mock commitments to append
- */
-template <class Curve = curve::BN254>
+template <class Curve>
 void populate_field_elements_for_mock_commitments(std::vector<fr>& fields, const size_t& num_commitments)
 {
     auto mock_commitment = Curve::AffineElement::one();
@@ -39,17 +33,8 @@ void populate_field_elements_for_mock_commitments(std::vector<fr>& fields, const
     }
 }
 
-/**
- * @brief Helper to populate a field buffer with some number of field elements
- *
- * @param fields field buffer to append field elements to
- * @param num_elements number of mock field elements to append
- * @param value optional mock value appended
- */
-template <class FF = curve::BN254::ScalarField>
-void populate_field_elements(std::vector<fr>& fields,
-                             const size_t& num_elements,
-                             std::optional<FF> value = std::nullopt)
+template <class FF>
+void populate_field_elements(std::vector<fr>& fields, const size_t& num_elements, std::optional<FF> value)
 {
     for (size_t i = 0; i < num_elements; ++i) {
         std::vector<fr> field_elements = value.has_value() ? FrCodec::serialize_to_fields(value.value())
@@ -58,12 +43,7 @@ void populate_field_elements(std::vector<fr>& fields,
     }
 }
 
-/**
- * @brief Create a mock oink proof that has the correct structure but is not in general valid
- *
- * @param inner_public_inputs_size Number of public inputs coming from the ACIR constraints
- */
-template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(const size_t inner_public_inputs_size)
+template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(const size_t acir_public_inputs_size)
 {
     HonkProof proof;
 
@@ -72,7 +52,7 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(
     PublicInputs::add_default(builder);
 
     // Populate the proof with as many public inputs as required from the ACIR constraints
-    populate_field_elements<fr>(proof, inner_public_inputs_size);
+    populate_field_elements<fr>(proof, acir_public_inputs_size);
 
     // Populate the proof with the public inputs added from barretenberg
     for (const auto& pub : builder.public_inputs()) {
@@ -125,7 +105,7 @@ HonkProof create_mock_multilinear_batch_proof()
 
 template <typename Flavor, class PublicInputs> HonkProof create_mock_hyper_nova_proof(bool include_fold)
 {
-    HonkProof oink_proof = create_mock_oink_proof<Flavor, PublicInputs>(/*inner_public_inputs_size=*/0);
+    HonkProof oink_proof = create_mock_oink_proof<Flavor, PublicInputs>(/*acir_public_inputs_size=*/0);
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
     HonkProof multilinear_batch_proof;
     if (include_fold) {
@@ -176,10 +156,6 @@ template <typename Flavor> HonkProof create_mock_pcs_proof()
     return proof;
 }
 
-/**
- * @brief Create a mock decider proof that has the correct structure but is not in general valid
- *
- */
 template <typename Flavor> HonkProof create_mock_decider_proof()
 {
     using FF = Flavor::FF;
@@ -243,15 +219,10 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
     return proof;
 }
 
-/**
- * @brief Create a mock honk proof that has the correct structure but is not in general valid
- *
- * @param inner_public_inputs_size Number of public inputs coming from the ACIR constraints
- */
-template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(const size_t inner_public_inputs_size)
+template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(const size_t acir_public_inputs_size)
 {
     // Construct a Honk proof as the concatenation of an Oink proof and a Decider proof
-    HonkProof oink_proof = create_mock_oink_proof<Flavor, PublicInputs>(inner_public_inputs_size);
+    HonkProof oink_proof = create_mock_oink_proof<Flavor, PublicInputs>(acir_public_inputs_size);
     HonkProof decider_proof = create_mock_decider_proof<Flavor>();
     HonkProof proof;
     proof.reserve(oink_proof.size() + decider_proof.size());
@@ -265,31 +236,24 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
     return proof;
 }
 
-/**
- * @brief Create a verifiable honk proof for a circuit with a single big add gate. Adds random public inputs to match
- * num_public_inputs provided
- *
- * @param inner_public_inputs_size Number of public inputs coming from the ACIR constraints
- */
 template <typename Flavor>
 std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_honk_proof_for_simple_circuit(
-    size_t num_inner_public_inputs)
+    const size_t acir_public_inputs_size)
 {
     using ProverInstance = ProverInstance_<Flavor>;
     using InnerProver = bb::UltraProver_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using Builder = typename Flavor::CircuitBuilder;
 
-    // constuct a circuit with a single gate
+    // Construct a circuit with a single gate
     Builder builder;
 
-    fr a = fr::random_element();
-    uint32_t a_idx = builder.add_variable(a);
-
-    // have a big add gate added
-    fr b = fr::random_element();
-    fr c = fr::random_element();
+    fr a = fr::one();
+    fr b = fr::one();
+    fr c = fr::one();
     fr d = a + b + c;
+
+    uint32_t a_idx = builder.add_variable(a);
     uint32_t b_idx = builder.add_variable(b);
     uint32_t c_idx = builder.add_variable(c);
     uint32_t d_idx = builder.add_variable(d);
@@ -297,8 +261,8 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
     builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
 
     // Add the public inputs
-    for (size_t i = 0; i < num_inner_public_inputs; ++i) {
-        builder.add_public_variable(fr::random_element());
+    for (size_t i = 0; i < acir_public_inputs_size; ++i) {
+        builder.add_public_variable(fr::one());
     }
 
     // Add the default pairing points and IPA claim
@@ -319,11 +283,6 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
     return std::pair(honk_proof, vk);
 }
 
-/**
- * @brief Create a mock merge proof which has the correct structure but is not necessarily valid
- *
- * @return Goblin::MergeProof
- */
 Goblin::MergeProof create_mock_merge_proof()
 {
     Goblin::MergeProof proof;
@@ -351,30 +310,6 @@ Goblin::MergeProof create_mock_merge_proof()
     return proof;
 }
 
-template <typename Builder> HonkProof create_mock_chonk_proof(const size_t inner_public_inputs_size)
-{
-    HonkProof proof;
-
-    HonkProof mega_proof = create_mock_honk_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(
-        inner_public_inputs_size);
-    Goblin::MergeProof merge_proof = create_mock_merge_proof();
-    HonkProof eccvm_proof{ create_mock_eccvm_proof() };
-    HonkProof ipa_proof = create_mock_ipa_proof();
-    HonkProof translator_proof = create_mock_translator_proof();
-
-    Chonk::Proof chonk_proof{ mega_proof, { merge_proof, eccvm_proof, ipa_proof, translator_proof } };
-    proof = chonk_proof.to_field_elements();
-
-    return proof;
-}
-
-/**
- * @brief Create a mock pre-ipa proof which has the correct structure but is not necessarily valid
- *
- * @details An ECCVM proof is made of a pre-ipa proof and an ipa-proof. Here we mock the pre-ipa part.
- *
- * @return HonkProof
- */
 HonkProof create_mock_eccvm_proof()
 {
     using FF = ECCVMFlavor::FF;
@@ -467,13 +402,6 @@ HonkProof create_mock_eccvm_proof()
     return proof;
 }
 
-/**
- * @brief Create a mock ipa proof which has the correct structure but is not necessarily valid
- *
- * @details An ECCVM proof is made of a pre-ipa proof and an ipa-proof. Here we mock the ipa part.
- *
- * @return HonkProof
- */
 HonkProof create_mock_ipa_proof()
 {
     HonkProof proof;
@@ -493,11 +421,6 @@ HonkProof create_mock_ipa_proof()
     return proof;
 }
 
-/**
- * @brief Create a mock translator proof which has the correct structure but is not necessarily valid
- *
- * @return HonkProof
- */
 HonkProof create_mock_translator_proof()
 {
     using Curve = TranslatorFlavor::Curve;
@@ -519,22 +442,32 @@ HonkProof create_mock_translator_proof()
     return proof;
 }
 
-/**
- * @brief Create a mock MegaHonk VK that has the correct structure
- *
- * @param dyadic_size Dyadic size of the circuit for which we generate a vk
- * @param pub_inputs_offest Indicating whether the circuit has a first zero row
- * @param inner_public_inputs_size Number of public inputs coming from the ACIR constraints
- */
+template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_public_inputs_size)
+{
+    HonkProof proof;
+
+    HonkProof mega_proof =
+        create_mock_honk_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(acir_public_inputs_size);
+    Goblin::MergeProof merge_proof = create_mock_merge_proof();
+    HonkProof eccvm_proof{ create_mock_eccvm_proof() };
+    HonkProof ipa_proof = create_mock_ipa_proof();
+    HonkProof translator_proof = create_mock_translator_proof();
+
+    Chonk::Proof chonk_proof{ mega_proof, { merge_proof, eccvm_proof, ipa_proof, translator_proof } };
+    proof = chonk_proof.to_field_elements();
+
+    return proof;
+}
+
 template <typename Flavor, class PublicInputs>
 std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size_t dyadic_size,
                                                                       const size_t pub_inputs_offset,
-                                                                      const size_t inner_public_inputs_size)
+                                                                      const size_t acir_public_inputs_size)
 {
     // Set relevant VK metadata and commitments
     auto honk_verification_key = std::make_shared<typename Flavor::VerificationKey>();
     honk_verification_key->log_circuit_size = bb::numeric::get_msb(dyadic_size);
-    honk_verification_key->num_public_inputs = inner_public_inputs_size + PublicInputs::PUBLIC_INPUTS_SIZE;
+    honk_verification_key->num_public_inputs = acir_public_inputs_size + PublicInputs::PUBLIC_INPUTS_SIZE;
     honk_verification_key->pub_inputs_offset = pub_inputs_offset; // must be set correctly
 
     for (auto& commitment : honk_verification_key->get_all()) {
@@ -542,31 +475,6 @@ std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size
     }
 
     return honk_verification_key;
-}
-
-/**
- * @brief Create  a mock instance for initilization of a mock verifier accumulator
- *
- */
-template <typename Flavor> std::shared_ptr<VerifierInstance_<Flavor>> create_mock_verifier_instance()
-{
-    using FF = typename Flavor::FF;
-
-    // Set relevant VK metadata and commitments
-    auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>();
-    std::shared_ptr<typename Flavor::VerificationKey> vk =
-        create_mock_honk_vk<Flavor, stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>>(
-            0, 0); // metadata does not need to be accurate
-    verifier_instance->vk = vk;
-    verifier_instance->is_complete = true;
-    verifier_instance->gate_challenges =
-        std::vector<FF>(static_cast<size_t>(CONST_FOLDING_LOG_N), FF::random_element());
-
-    for (auto& commitment : verifier_instance->witness_commitments.get_all()) {
-        commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment
-    }
-
-    return verifier_instance;
 }
 
 // Explicitly instantiate template functions
@@ -609,18 +517,13 @@ template HonkProof create_mock_honk_proof<UltraZKFlavor, stdlib::recursion::honk
 template HonkProof create_mock_honk_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
 template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>> construct_honk_proof_for_simple_circuit<
-    UltraFlavor>(size_t num_public_inputs);
+    UltraFlavor>(const size_t);
 template std::pair<HonkProof, std::shared_ptr<UltraZKFlavor::VerificationKey>> construct_honk_proof_for_simple_circuit<
-    UltraZKFlavor>(size_t num_public_inputs);
+    UltraZKFlavor>(const size_t);
 template std::pair<HonkProof, std::shared_ptr<UltraRollupFlavor::VerificationKey>>
-construct_honk_proof_for_simple_circuit<UltraRollupFlavor>(size_t num_public_inputs);
+construct_honk_proof_for_simple_circuit<UltraRollupFlavor>(const size_t);
 
-// template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
-// template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
-// template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
-
-template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
-    bool);
+template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(bool);
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(bool);
 
 template HonkProof create_mock_chonk_proof<UltraCircuitBuilder>(const size_t);
@@ -653,7 +556,5 @@ template std::shared_ptr<UltraZKFlavor::VerificationKey> create_mock_honk_vk<
 template std::shared_ptr<UltraRollupFlavor::VerificationKey> create_mock_honk_vk<UltraRollupFlavor,
                                                                                  stdlib::recursion::honk::RollupIO>(
     const size_t, const size_t, const size_t);
-
-template std::shared_ptr<VerifierInstance_<MegaFlavor>> create_mock_verifier_instance<MegaFlavor>();
 
 } // namespace acir_format
