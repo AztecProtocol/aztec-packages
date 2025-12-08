@@ -122,7 +122,7 @@ describe('AVM Integration', () => {
   it('Should generate and verify an ultra honk proof from an AVM verification of the bulk test', async () => {
     const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
     expect(avmSimulationResult.revertCode.isOK()).toBe(true);
-    const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs);
+    const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs!);
 
     await proveMockPublicBaseRollup(avmCircuitInputs, bbWorkingDirectory, bbBinaryPath, chonkPublicInputs, chonkProof);
   }, 240_000);
@@ -132,7 +132,7 @@ describe('AVM Integration', () => {
     expect(result.revertCode.isOK()).toBe(true);
 
     await proveMockPublicBaseRollup(
-      new AvmCircuitInputs(result.hints!, result.publicInputs),
+      new AvmCircuitInputs(result.hints!, result.publicInputs!),
       bbWorkingDirectory,
       bbBinaryPath,
       chonkPublicInputs,

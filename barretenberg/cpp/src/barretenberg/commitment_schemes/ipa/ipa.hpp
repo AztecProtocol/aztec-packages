@@ -703,7 +703,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         if constexpr (Curve::is_stdlib_type) {
             shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);
         } else {
-            shplonk_output_commitment = batch_mul_native(commitments, scalars);
+            shplonk_output_commitment = batch_mul_native<Curve>(commitments, scalars);
         }
         // Output an opening claim, which in practice will be verified by the IPA opening protocol
         return { { shplonk_eval_challenge, Fr(0) }, shplonk_output_commitment };

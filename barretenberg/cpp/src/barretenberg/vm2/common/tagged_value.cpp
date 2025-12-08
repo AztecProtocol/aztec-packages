@@ -277,7 +277,9 @@ TaggedValue TaggedValue::from_tag_truncating(ValueTag tag, FF value)
     case ValueTag::FF:
         return TaggedValue(value);
     default:
-        throw std::runtime_error("Invalid tag");
+        const auto msg =
+            format("Tag check failed: Tag value: " + std::to_string(static_cast<uint8_t>(tag)), " is invalid.");
+        throw std::runtime_error(msg);
     }
 }
 
@@ -414,7 +416,7 @@ std::string std::to_string(bb::avm2::ValueTag tag)
     case ValueTag::U128:
         return "U128";
     case ValueTag::FF:
-        return "FF";
+        return "FIELD";
     default:
         return "Unknown";
     }

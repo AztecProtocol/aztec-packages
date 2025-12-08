@@ -41,6 +41,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_eq(bool in_finalize = true);
     ecc_op_tuple queue_ecc_no_op();
     void queue_ecc_random_op();
+    void queue_ecc_hiding_op(const curve::BN254::BaseField& Px, const curve::BN254::BaseField& Py);
 
   private:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op, bool in_finalize = false);

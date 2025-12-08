@@ -18,7 +18,7 @@ global PRIVATE_NOTE_OWNER_INDEX: u32 = 0;
 global PRIVATE_NOTE_STORAGE_SLOT_INDEX: u32 = 1;
 global PRIVATE_NOTE_RANDOMNESS_INDEX: u32 = 2;
 
-// TODO(#16881): once partial notes support emission via an offchain message we will most likely want to remove this.
+// TODO(#16881): once partial notes support delivery via an offchain message we will most likely want to remove this.
 pub fn compute_partial_note_private_content_log<PartialNotePrivateContent>(
     partial_note_private_content: PartialNotePrivateContent,
     owner: AztecAddress,

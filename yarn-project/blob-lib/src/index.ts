@@ -7,3 +7,4 @@ export * from './encoding/index.js';
 export * from './hash.js';
 export * from './interface.js';
 export * from './sponge_blob.js';
+export * from './kzg_context.js';

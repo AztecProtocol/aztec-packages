@@ -227,7 +227,7 @@ void ECCVMVerifier_<Flavor>::compute_translation_opening_claims(const std::vecto
     if constexpr (IsRecursive) {
         batched_commitment = Commitment::batch_mul(translation_commitments, batching_challenges);
     } else {
-        batched_commitment = batch_mul_native(translation_commitments, batching_challenges);
+        batched_commitment = batch_mul_native<Curve>(translation_commitments, batching_challenges);
     }
 
     // Place the claim to the array containing the SmallSubgroupIPA opening claims

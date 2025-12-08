@@ -8,8 +8,11 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 
+#include "barretenberg/vm2/simulation/gadgets/data_copy.hpp"
+#include "barretenberg/vm2/simulation/gadgets/emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/lib/call_stack_metadata_collector.hpp"
 #include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/hinting_dbs.hpp"
@@ -153,8 +156,17 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
         poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
-    NoteHashTreeCheck note_hash_tree_check(
-        hints.tx.non_revertible_accumulated_data.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
+
+    // The protocol requires at least one non-revertible nullifier in the transaction (used for uniqueness of note
+    // hashes).
+    if (hints.tx.non_revertible_accumulated_data.nullifiers.empty()) {
+        throw std::runtime_error("Non-revertible nullifiers are empty in the transaction.");
+    }
+
+    NoteHashTreeCheck note_hash_tree_check(hints.tx.non_revertible_accumulated_data.nullifiers.at(0),
+                                           poseidon2,
+                                           merkle_check,
+                                           note_hash_tree_check_emitter);
     L1ToL2MessageTreeCheck l1_to_l2_msg_tree_check(merkle_check, l1_to_l2_msg_tree_check_emitter);
     EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
@@ -184,8 +196,9 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 
     // Side effect tracking is only strictly needed for logs and L2-to-L1 messages.
     SideEffectTracker side_effect_tracker;
+
     SideEffectTrackingDB merkle_db(
-        hints.tx.non_revertible_accumulated_data.nullifiers[0], base_merkle_db, side_effect_tracker);
+        hints.tx.non_revertible_accumulated_data.nullifiers.at(0), base_merkle_db, side_effect_tracker);
 
     UpdateCheck update_check(
         poseidon2, range_check, greater_than, merkle_db, update_check_emitter, hints.global_variables);
@@ -227,6 +240,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
         execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
 
     NoopDebugLogger debug_log_component;
+    NoopCallStackMetadataCollector call_stack_metadata_collector;
 
     Execution execution(alu,
                         bitwise,
@@ -246,7 +260,8 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
                         get_contract_instance,
                         emit_unencrypted_log_component,
                         debug_log_component,
-                        merkle_db);
+                        merkle_db,
+                        call_stack_metadata_collector);
 
     TxExecution tx_execution(execution,
                              context_provider,
@@ -257,6 +272,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
                              side_effect_tracker,
                              field_gt,
                              poseidon2,
+                             call_stack_metadata_collector,
                              tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
@@ -358,10 +374,17 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     SideEffectTracker side_effect_tracker;
     PureContractDB contract_db(raw_contract_db);
 
+    // The protocol requires at least one non-revertible nullifier in the transaction (used for uniqueness of note
+    // hashes).
+    if (tx.non_revertible_accumulated_data.nullifiers.empty()) {
+        throw std::runtime_error("Non-revertible nullifiers are empty in the transaction.");
+    }
+
     PureMerkleDB base_merkle_db(
-        tx.non_revertible_accumulated_data.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
+        tx.non_revertible_accumulated_data.nullifiers.at(0), raw_merkle_db, written_public_data_slots_tree_check);
     SideEffectTrackingDB merkle_db(
-        tx.non_revertible_accumulated_data.nullifiers[0], base_merkle_db, side_effect_tracker);
+
+        tx.non_revertible_accumulated_data.nullifiers.at(0), base_merkle_db, side_effect_tracker);
 
     // NoopUpdateCheck update_check;
     // TODO(#18161): Note that if we need to gather hints here, we can't use the NoopUpdateCheck as it will skip
@@ -395,15 +418,22 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     GetContractInstance get_contract_instance(
         execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
 
-    std::unique_ptr<DebugLoggerInterface> debug_log_component;
-    if (config.collect_debug_logs) {
-        // TODO(fcarreiro): add debug log level?
-        const DebugLogLevel debug_log_level = DebugLogLevel::INFO;
-        debug_log_component = std::make_unique<DebugLogger>(
-            debug_log_level, config.max_debug_log_memory_reads, [](const std::string& message) { info(message); });
-    } else {
-        debug_log_component = std::make_unique<NoopDebugLogger>();
-    }
+    std::unique_ptr<DebugLoggerInterface> debug_log_component = [&config]() -> std::unique_ptr<DebugLoggerInterface> {
+        if (config.collect_debug_logs) {
+            // TODO(fcarreiro): add debug log level?
+            const DebugLogLevel debug_log_level = DebugLogLevel::INFO;
+            return std::make_unique<DebugLogger>(debug_log_level,
+                                                 config.collection_limits.max_debug_log_memory_reads,
+                                                 [](const std::string& message) { info(message); });
+        } else {
+            return std::make_unique<NoopDebugLogger>();
+        }
+    }();
+    auto call_stack_metadata_collector =
+        config.collect_call_metadata ? static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
+                                           std::make_unique<CallStackMetadataCollector>(config.collection_limits))
+                                     : static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
+                                           std::make_unique<NoopCallStackMetadataCollector>());
 
     HybridExecution execution(alu,
                               bitwise,
@@ -423,7 +453,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                               get_contract_instance,
                               emit_unencrypted_log_component,
                               *debug_log_component,
-                              merkle_db);
+                              merkle_db,
+                              *call_stack_metadata_collector);
     TxExecution tx_execution(execution,
                              context_provider,
                              contract_db,
@@ -433,9 +464,9 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                              side_effect_tracker,
                              field_gt,
                              poseidon2,
+                             *call_stack_metadata_collector,
                              tx_event_emitter,
-                             config.skip_fee_enforcement,
-                             config.collect_call_metadata);
+                             config.skip_fee_enforcement);
 
     PublicInputsBuilder public_inputs_builder;
     public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, config.prover_id, raw_merkle_db);
@@ -451,14 +482,30 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                                           tx_execution_result.revert_code != RevertCode::OK,
                                           side_effect_tracker.get_side_effects());
 
+    PublicTxEffect public_tx_effect;
+    const auto& side_effects = side_effect_tracker.get_side_effects();
+    public_tx_effect.transaction_fee = tx_execution_result.transaction_fee;
+    public_tx_effect.note_hashes = side_effects.note_hashes;
+    public_tx_effect.nullifiers = side_effects.nullifiers;
+    public_tx_effect.l2_to_l1_msgs = side_effects.l2_to_l1_messages;
+    public_tx_effect.public_logs = side_effects.public_logs.to_logs();
+    // We need to copy the storage writes slot to value in the order of the slots by insertion.
+    for (uint32_t i = 0; i < side_effects.storage_writes_slots_by_insertion.size(); i++) {
+        const auto& slot = side_effects.storage_writes_slots_by_insertion.at(i);
+        const auto& value = side_effects.storage_writes_slot_to_value.at(slot);
+        public_tx_effect.public_data_writes.push_back(PublicDataWrite{ .leaf_slot = slot, .value = value });
+    }
+
     return {
         // Simulation.
         .gas_used = tx_execution_result.gas_used,
         .revert_code = tx_execution_result.revert_code,
-        .app_logic_return_values = std::move(tx_execution_result.app_logic_return_values),
+        .public_tx_effect = public_tx_effect,
+        .call_stack_metadata = call_stack_metadata_collector->dump_call_stack_metadata(),
         .logs = debug_log_component->dump_logs(),
         // Proving request data.
-        .public_inputs = public_inputs_builder.build(),
+        .public_inputs =
+            config.collect_public_inputs ? std::make_optional(public_inputs_builder.build()) : std::nullopt,
         .hints = std::nullopt, // NOTE: hints are injected by the caller.
     };
 }

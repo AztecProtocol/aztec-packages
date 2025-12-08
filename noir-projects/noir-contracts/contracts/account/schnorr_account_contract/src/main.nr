@@ -25,7 +25,7 @@ pub contract SchnorrAccount {
             notes::{get_sender_for_tags, set_sender_for_tags},
         },
         protocol_types::address::AztecAddress,
-        state_vars::PrivateImmutable,
+        state_vars::{Owned, PrivateImmutable},
     };
 
     use crate::public_key_note::PublicKeyNote;
@@ -33,7 +33,7 @@ pub contract SchnorrAccount {
     #[storage]
     struct Storage<Context> {
         // docs:start:public_key
-        signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
+        signing_public_key: Owned<PrivateImmutable<PublicKeyNote, Context>, Context>,
         // docs:end:public_key
     }
 
@@ -56,7 +56,7 @@ pub contract SchnorrAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(self.address) };
-        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).emit(
+        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).deliver(
             self.address,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

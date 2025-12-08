@@ -36,8 +36,8 @@ inline std::string to_string(AddressingEventError e)
 }
 
 struct AddressingException : public std::runtime_error {
-    explicit AddressingException()
-        : std::runtime_error("Error resolving operands.")
+    explicit AddressingException(const std::string& message = "Error resolving operands.")
+        : std::runtime_error(message)
     {}
 };
 

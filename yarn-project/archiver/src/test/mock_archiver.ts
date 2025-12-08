@@ -1,6 +1,7 @@
 import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields';
-import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
+import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 
 import { MockL1ToL2MessageSource } from './mock_l1_to_l2_message_source.js';
@@ -34,30 +35,34 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
  * A mocked implementation of the archiver with a set of precomputed blocks and messages.
  */
 export class MockPrefilledArchiver extends MockArchiver {
-  private precomputed: L2Block[];
+  private prefilled: Checkpoint[] = [];
 
-  constructor(precomputed: L2Block[], messages: Fr[][]) {
+  constructor(prefilled: { checkpoint: Checkpoint; messages: Fr[] }[]) {
     super();
-    this.precomputed = precomputed.slice();
-    messages.forEach((msgs, i) => this.setL1ToL2Messages(i + 1, msgs));
+    this.setPrefilled(prefilled);
   }
 
-  public setPrefilledBlocks(blocks: L2Block[], messages: Fr[][]) {
-    for (const block of blocks) {
-      this.precomputed[block.number - 1] = block;
+  public setPrefilled(prefilled: { checkpoint: Checkpoint; messages: Fr[] }[]) {
+    for (const { checkpoint, messages } of prefilled) {
+      this.prefilled[checkpoint.number - 1] = checkpoint;
+      if (checkpoint.blocks.length !== 1) {
+        throw new Error('Prefilled checkpoint must only have 1 block at the moment.');
+      }
+      this.setL1ToL2Messages(checkpoint.blocks[0].number, messages);
     }
-    messages.forEach((msgs, i) => this.setL1ToL2Messages(blocks[i].number, msgs));
   }
 
   public override createBlocks(numBlocks: number) {
-    if (this.l2Blocks.length + numBlocks > this.precomputed.length) {
+    const flattenedBlocks = this.prefilled.flatMap(c => c.blocks);
+    if (this.l2Blocks.length + numBlocks > flattenedBlocks.length) {
       throw new Error(
         `Not enough precomputed blocks to create ${numBlocks} more blocks (already at ${this.l2Blocks.length})`,
       );
     }
 
     const fromBlock = this.l2Blocks.length;
-    this.addBlocks(this.precomputed.slice(fromBlock, fromBlock + numBlocks));
+    // TODO: Add L2 blocks and checkpoints separately once archiver has the apis for that.
+    this.addBlocks(this.prefilled.slice(fromBlock, fromBlock + numBlocks).map(c => L2Block.fromCheckpoint(c)));
     return Promise.resolve();
   }
 }

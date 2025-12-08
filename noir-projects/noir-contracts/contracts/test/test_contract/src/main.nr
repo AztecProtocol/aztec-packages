@@ -23,7 +23,7 @@ pub contract Test {
         },
         // State variable types
         state_vars::{
-            DelayedPublicMutable, Map, PrivateImmutable, PrivateMutable, PrivateSet,
+            DelayedPublicMutable, Map, Owned, PrivateImmutable, PrivateMutable, PrivateSet,
             PublicImmutable,
         },
         // Protocol types and constants
@@ -83,17 +83,17 @@ pub contract Test {
     // test function must also be updated accordingly.
     #[storage]
     struct Storage<Context> {
-        note_in_private_immutable: PrivateImmutable<TestNote, Context>,
-        struct_in_private_immutable: PrivateImmutable<ExampleStruct, Context>,
-        note_in_private_mutable: PrivateMutable<TestNote, Context>,
-        struct_in_private_mutable: PrivateMutable<ExampleStruct, Context>,
-        note_in_private_set: PrivateSet<AddressNote, Context>,
-        struct_in_private_set: PrivateSet<ExampleStruct, Context>,
+        note_in_private_immutable: Owned<PrivateImmutable<TestNote, Context>, Context>,
+        struct_in_private_immutable: Owned<PrivateImmutable<ExampleStruct, Context>, Context>,
+        note_in_private_mutable: Owned<PrivateMutable<TestNote, Context>, Context>,
+        struct_in_private_mutable: Owned<PrivateMutable<ExampleStruct, Context>, Context>,
+        note_in_private_set: Owned<PrivateSet<AddressNote, Context>, Context>,
+        struct_in_private_set: Owned<PrivateSet<ExampleStruct, Context>, Context>,
         note_in_public_immutable: PublicImmutable<TestNote, Context>,
         struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
-        struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
+        struct_in_map: Map<AztecAddress, PublicImmutable<ExampleStruct, Context>, Context>,
         struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY, Context>,
-        dummy_variable: PrivateImmutable<TestNote, Context>,
+        dummy_variable: Owned<PrivateImmutable<TestNote, Context>, Context>,
     }
 
     #[initializer]
@@ -140,7 +140,7 @@ pub contract Test {
         make_tx_hybrid: bool,
     ) {
         let note = UintNote::new(value);
-        create_note(self.context, owner, storage_slot, note).emit(
+        create_note(self.context, owner, storage_slot, note).deliver(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

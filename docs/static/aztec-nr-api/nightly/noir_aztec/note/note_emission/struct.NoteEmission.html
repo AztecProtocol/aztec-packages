@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct NoteEmission documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">NoteEmission</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -46,7 +52,7 @@ The exact <code>emit</code> logic is passed in by the application code</p>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(
     note: Note,
     owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
@@ -58,7 +64,7 @@ The exact <code>emit</code> logic is passed in by the application code</p>
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
-<code id="emit" class="code-header">pub fn <span class="fn">emit</span>(self, recipient: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, delivery_mode: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>)
+<code id="emit" class="code-header">pub fn <a href="#emit"><span class="fn">emit</span></a>(self, recipient: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, delivery_mode: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>)
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
@@ -74,11 +80,12 @@ tagging constraints.</p>
 See <code>MessageDeliveryEnum</code> for details on the available modes.</li>
 </ul>
 </div>
-</div><code id="discard" class="code-header">pub fn <span class="fn">discard</span>(_self: Self)
+</div><code id="discard" class="code-header">pub fn <a href="#discard"><span class="fn">discard</span></a>(_self: Self)
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 </div></main>
+</span>
 </body>
 </html>

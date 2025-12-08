@@ -1210,8 +1210,8 @@ impl FixtureBuilder {
     }
 
     pub fn end_setup(&mut self) {
-        self.min_revertible_side_effect_counter = self.counter;
-        self.claimed_revertible_counter = self.counter;
+        self.min_revertible_side_effect_counter = self.next_counter();
+        self.claimed_revertible_counter = self.min_revertible_side_effect_counter;
     }
 
     fn get_split_side_effects<T, let N: u32>(

@@ -1,7 +1,7 @@
 ---
-id: running_delegated_stake
+id: become_a_staking_provider
 sidebar_position: 2
-title: Running Delegated Stake
+title: Become a Staking Provider
 description: Learn how to run a sequencer with delegated stake on the Aztec network, including provider registration and sequencer identity management.
 ---
 
@@ -10,10 +10,6 @@ description: Learn how to run a sequencer with delegated stake on the Aztec netw
 This guide covers running a sequencer with delegated stake on the Aztec network. Unlike conventional setups where you must have your own stake, delegated stake lets you (the "provider") operate sequencers backed by tokens from delegators.
 
 **This is a non-custodial system**: Delegators retain full control and ownership of their tokens at all times. You never take custody of the delegated tokens—they remain in the delegator's control while providing economic backing for your sequencer operations.
-
-:::tip Alternative: Self-Staking
-If you prefer to provide your own stake instead of receiving delegated stake, see [Registering a Sequencer (Self-Staking)](./registering_sequencer.md).
-:::
 
 ## Prerequisites
 
@@ -478,8 +474,8 @@ cast send [STAKING_REGISTRY_ADDRESS] \
   --private-key [ADMIN_PRIVATE_KEY]
 ```
 
-:::note
-Rate changes only apply to new delegations. Existing delegations retain the original commission rate they agreed to.
+:::warning Commission Changes Only Apply to New Delegations
+When you update your commission rate, only **new delegations** will use the updated rate. **Existing delegations cannot be changed**—they permanently retain the original commission rate that was agreed upon when the delegation was created.
 :::
 
 ## Verification

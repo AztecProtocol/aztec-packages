@@ -7,16 +7,18 @@ pub contract Counter {
     // docs:start:imports
     use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         oracle::debug_log::debug_log_format,
         protocol_types::{address::AztecAddress, traits::ToField},
+        state_vars::Owned,
     };
-    use easy_private_state::EasyPrivateUint;
+    use balance_set::BalanceSet;
     // docs:end:imports
 
     // docs:start:storage_struct
     #[storage]
     struct Storage<Context> {
-        counters: EasyPrivateUint<Context>,
+        counters: Owned<BalanceSet<Context>, Context>,
     }
     // docs:end:storage_struct
 
@@ -25,7 +27,10 @@ pub contract Counter {
     #[external("private")]
     // We can name our initializer anything we want as long as it's marked as aztec(initializer)
     fn initialize(headstart: u64, owner: AztecAddress) {
-        self.storage.counters.add(headstart, owner);
+        self.storage.counters.at(owner).add(headstart as u128).deliver(
+            owner,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
     // docs:end:constructor
 
@@ -33,7 +38,7 @@ pub contract Counter {
     #[external("private")]
     fn increment(owner: AztecAddress) {
         debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
-        self.storage.counters.add(1, owner);
+        self.storage.counters.at(owner).add(1).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
     // docs:end:increment
 
@@ -43,8 +48,8 @@ pub contract Counter {
             "Incrementing counter twice for owner {0}",
             [owner.to_field()],
         );
-        self.storage.counters.add(1, owner);
-        self.storage.counters.add(1, owner);
+        self.storage.counters.at(owner).add(1).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.counters.at(owner).add(1).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("private")]
@@ -53,20 +58,20 @@ pub contract Counter {
             "Incrementing and decrementing counter for owner {0}",
             [owner.to_field()],
         );
-        self.storage.counters.add(1, owner);
-        self.storage.counters.sub(1, owner);
+        self.storage.counters.at(owner).add(1).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.counters.at(owner).sub(1).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("private")]
     fn decrement(owner: AztecAddress) {
         debug_log_format("Decrementing counter for owner {0}", [owner.to_field()]);
-        self.storage.counters.sub(1, owner);
+        self.storage.counters.at(owner).sub(1).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // docs:start:get_counter
     #[external("utility")]
-    unconstrained fn get_counter(owner: AztecAddress) -> Field {
-        self.storage.counters.get_value(owner)
+    unconstrained fn get_counter(owner: AztecAddress) -> u128 {
+        self.storage.counters.at(owner).balance_of()
     }
     // docs:end:get_counter
 
@@ -74,7 +79,7 @@ pub contract Counter {
     fn increment_self_and_other(other_counter: AztecAddress, owner: AztecAddress) {
         debug_log_format("Incrementing counter for other {0}", [owner.to_field()]);
 
-        self.storage.counters.add(1, owner);
+        self.storage.counters.at(owner).add(1).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         self.call(Counter::at(other_counter).increment(owner));
     }
@@ -86,7 +91,7 @@ pub contract Counter {
         };
 
         pub unconstrained fn setup(
-            initial_value: Field,
+            initial_value: u128,
         ) -> (TestEnvironment, AztecAddress, AztecAddress) {
             // Setup env, generate keys
             let mut env = TestEnvironment::new();
