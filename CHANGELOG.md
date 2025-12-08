@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.1.9](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.8...v2.1.9) (2025-12-07)
+
+
+### Miscellaneous
+
+* Accumulated backports to v2 ([#18660](https://github.com/AztecProtocol/aztec-packages/issues/18660)) ([dd97b78](https://github.com/AztecProtocol/aztec-packages/commit/dd97b789b3a7b0768287e95efc026a74f7861805))
+* configure git in auto-tag ([#18602](https://github.com/AztecProtocol/aztec-packages/issues/18602)) ([90c2810](https://github.com/AztecProtocol/aztec-packages/commit/90c28108a8966204985bf8b24fb9bf59412ebb11))
+* fix unbound var ([#18607](https://github.com/AztecProtocol/aztec-packages/issues/18607)) ([6e5a9fc](https://github.com/AztecProtocol/aztec-packages/commit/6e5a9fcdf0deaf2e074c5ea8661c235349af4fe2))
+* run fusaka test ([0517a88](https://github.com/AztecProtocol/aztec-packages/commit/0517a884299a0c9737297b98faf509d80b0d77c8))
+
 ## [2.1.8](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.7...v2.1.8) (2025-11-25)
 
 
