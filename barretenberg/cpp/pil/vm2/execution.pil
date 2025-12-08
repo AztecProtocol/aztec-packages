@@ -67,7 +67,11 @@ namespace execution;
 #[skippable_if]
 sel = 0;
 
-pol commit sel; // subtrace selector
+/**************************************************************************************************
+ *  Setup (some general constraints)
+ **************************************************************************************************/
+
+pol commit sel; // Subtrace selector @boolean
 sel * (1 - sel) = 0;
 
 /**
@@ -88,8 +92,10 @@ sel * (1 - sel) = 0;
 
 // Selector indicating enqueued call boundaries.
 // Used by TX trace for lookups to dispatch and retrieve results/reverted.
-pol commit enqueued_call_start;
-pol commit enqueued_call_end;
+pol commit enqueued_call_start; // @boolean
+pol commit enqueued_call_end; // @boolean
+// Both `enqueued_call_XXX` selectors are boolean on active rows by definition.
+// On non-active rows, they are 0 (explanations below).
 
 // (enqueued_call_start == 1) <==> (is first active execution row)
 //                               or (is first active row after an enqueued call ends)
@@ -104,8 +110,12 @@ enqueued_call_end = sel_exit_call * (1 - has_parent_ctx);
 
 // First row after *CALL, or first row of enqueued call
 // This is the only row where bytecode retrieval is active.
-pol commit sel_first_row_in_context;
+pol commit sel_first_row_in_context; // @boolean
 sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
+// This selector is boolean because when sel_enter_call == 1, this row cannot
+// error per #[INFALLIBLE_OPCODES_SUCCESS] and therefore next row cannot
+// have `enqueued_call_start == 1`.
+
 
 /**
 * DEACTIVATION FOR ENQUEUED_CALL_START/END/SEL_FIRST_ROW_IN_CONTEXT
@@ -120,10 +130,6 @@ sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
 * Finally, it follows that enqueued_call_end == 0 if `sel == 0`.
 */
 
-/**************************************************************************************************
- *  Setup (some general constraints)
- **************************************************************************************************/
-
 // If sel = 0, and it's not the first row, then all following rows should have sel = 0.
 #[TRACE_CONTINUITY]
 (1 - sel) * (1 - precomputed.first_row) * sel' = 0;
@@ -132,7 +138,9 @@ sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
  *  Temporality group 1: Bytecode retrieval (unconditional)
  **************************************************************************************************/
 
-pol commit sel_bytecode_retrieval_failure;
+pol commit sel_bytecode_retrieval_failure; // @Boolean
+// When `sel_first_row_in_context == 1`, sel_bytecode_retrieval_failure is boolean
+// thanks to #[BYTECODE_RETRIEVAL_RESULT]. Otherwise, it is 0 from #[BYTECODE_RETRIEVAL_NO_FAILURE].
 
 // We perform this lookup "only" on the first row of the context and therefore,
 // we need to propagate `bytecode_id`, etc. down to the subsequent rows in the context.
@@ -170,7 +178,7 @@ sel_first_row_in_context {
 // Since `sel == 0` ==> `sel_first_row_in_context == 0`, we have:
 // `sel == 0` ==> `sel_bytecode_retrieval_failure == 0`
 
-pol commit sel_bytecode_retrieval_success;
+pol commit sel_bytecode_retrieval_success; // @boolean (by definition)
 // If sel = 0, we enforce sel_bytecode_retrieval_success = 0.
 sel_bytecode_retrieval_success = sel * (1 - sel_bytecode_retrieval_failure);
 
@@ -179,7 +187,7 @@ sel_bytecode_retrieval_success = sel * (1 - sel_bytecode_retrieval_failure);
  **************************************************************************************************/
 
 pol commit instr_length; // Need this for shift col on next_pc
-pol commit sel_instruction_fetching_failure;
+pol commit sel_instruction_fetching_failure; // @boolean (by definition below)
 
 pol commit ex_opcode;
 pol commit indirect;
@@ -203,7 +211,7 @@ sel_bytecode_retrieval_success {
     instr_fetching.pc, instr_fetching.bytecode_id, instr_fetching.sel_parsing_err
 };
 
-pol commit sel_instruction_fetching_success;
+pol commit sel_instruction_fetching_success; // @boolean (by definition)
 // If sel = 0, note that sel_instruction_fetching_success = 0 by transitive reasoning.
 sel_instruction_fetching_success = sel_bytecode_retrieval_success * (1 - sel_instruction_fetching_failure);
 
@@ -360,20 +368,20 @@ pol commit rop[7];
  *  Temporality group 3: Register read.
  **************************************************************************************************/
 
-pol commit sel_should_read_registers;
+pol commit sel_should_read_registers; // @boolean (by definition)
 // Note that sel == 0 ==> sel_should_read_registers = 0 by transitive reasoning.
 sel_should_read_registers = SEL_SHOULD_RESOLVE_ADDRESS * (1 - sel_addressing_error);
 
 // Registers
 pol commit register[6];
 // Memory Acccesses
-pol commit sel_mem_op_reg[6];
+pol commit sel_mem_op_reg[6]; // @boolean (when `sel_instruction_fetching_success == 1`)
 // Read / Write selectors
-pol commit rw_reg[6];
+pol commit rw_reg[6]; // @boolean (when `sel_instruction_fetching_success == 1`)
 // Memory Tag
 pol commit mem_tag_reg[6];
 // Whether we should perform a tag check on the register
-pol commit sel_tag_check_reg[6];
+pol commit sel_tag_check_reg[6]; // @boolean (when `sel_instruction_fetching_success == 1`)
 // Expected tag
 pol commit expected_tag_reg[6];
 
@@ -384,9 +392,10 @@ pol commit expected_tag_reg[6];
  *  Temporality group 4: Gas.
  **************************************************************************************************/
 
-pol commit sel_should_check_gas;
+pol commit sel_should_check_gas; // @boolean (by definition)
 // Note that sel == 0 ==> sel_should_check_gas = 0 by transitive reasoning.
 sel_should_check_gas = sel_should_read_registers * (1 - sel_register_read_error);
+
 // NOTE: Gas is constrained in gas.pil but we set here the following dynamic gas factors
 // declared in gas.pil:
 // - dynamic_l2_gas_factor
@@ -398,18 +407,22 @@ sel_should_check_gas = sel_should_read_registers * (1 - sel_register_read_error)
 // Dynamic Gas Selectors Dispatching
 //////////////////////////////////////////
 
+// Unique identifier for the dynamic gas mapping exactly one of
+// the dynamic gas selectors below through a bit decomposition.
 pol commit dyn_gas_id; // from precomputed.pil (#[EXEC_SPEC_READ])
 
 // Dynamic gas opcode selectors.
 // Each of these selectors takes into account both which opcode we are considering executing
 // and whether there was any error before the actual gas step. Therefore, the
 // selector can be used to gate the execution of the (dynamic) gas logic.
-pol commit sel_gas_calldata_copy;
-pol commit sel_gas_returndata_copy;
-pol commit sel_gas_to_radix;
-pol commit sel_gas_bitwise;
-pol commit sel_gas_emit_unencrypted_log;
-pol commit sel_gas_sstore;
+pol commit sel_gas_calldata_copy; // @boolean
+pol commit sel_gas_returndata_copy; // @boolean
+pol commit sel_gas_to_radix; // @boolean
+pol commit sel_gas_bitwise; // @boolean
+pol commit sel_gas_emit_unencrypted_log; // @boolean
+pol commit sel_gas_sstore; // @boolean
+
+// Bolean constraints
 sel_gas_calldata_copy * (1 - sel_gas_calldata_copy) = 0;
 sel_gas_returndata_copy * (1 - sel_gas_returndata_copy) = 0;
 sel_gas_to_radix * (1 - sel_gas_to_radix) = 0;
@@ -424,8 +437,8 @@ sel_gas_to_radix * constants.AVM_DYN_GAS_ID_TORADIX +
 sel_gas_bitwise * constants.AVM_DYN_GAS_ID_BITWISE +
 sel_gas_emit_unencrypted_log * constants.AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG +
 sel_gas_sstore * constants.AVM_DYN_GAS_ID_SSTORE
-// We force the selectors to be 0 if we failed before gas checks
-// or when we are not in the execution subtrace.
+   // We force the selectors to be 0 if we failed before gas checks
+   // or when we are not in the execution subtrace.
 = sel_should_check_gas * dyn_gas_id;
 
 //////////////////////////////////////////
@@ -455,14 +468,15 @@ sel_gas_to_radix * (two_five_six - 256) = 0; // While we don't support constants
 // for simplicify reason we do not want to pass selector `sel_radix_gt_256` through the
 // dispatching permutation (#[DISPATCH_TO_TO_RADIX]) to the to_radix subtrace. This would
 // make simulator code less readable (to_radix would not be self-contained).
-pol commit sel_radix_gt_256; // sel_radix_gt_256 = 1 iff radix > 256
+// sel_radix_gt_256 = 1 iff radix > 256
+pol commit sel_radix_gt_256; // @boolean (when `sel_gas_to_radix == 1` according to gt.pil)
 #[CHECK_RADIX_GT_256]
 sel_gas_to_radix { /*radix=*/register[1], two_five_six, sel_radix_gt_256 }
 in
 gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
 // Boolean for if we should look up the num_p_limbs value
-pol commit sel_lookup_num_p_limbs;
+pol commit sel_lookup_num_p_limbs; // @boolean (by definition)
 sel_lookup_num_p_limbs = sel_gas_to_radix * (1 - sel_radix_gt_256);
 
 // If radix > 256, num_p_limbs has to equal 32 - otherwise we rely on the lookup
@@ -480,7 +494,7 @@ precomputed.sel_to_radix_p_limb_counts
 // The easiest way to do this is to check if `num_limbs > num_p_limbs`.
 // If so then dynamic_l2_gas_factor = num_limbs
 // Otherwise dynamic_l2_gas_factor = num_p_limbs
-pol commit sel_use_num_limbs;
+pol commit sel_use_num_limbs; // @boolean (when `sel_gas_to_radix == 1` by gt.pil)
 #[GET_MAX_LIMBS]
 sel_gas_to_radix { /*num_limbs=*/register[2], num_p_limbs, sel_use_num_limbs }
 in
@@ -535,11 +549,12 @@ sel_gas_emit_unencrypted_log * (/*log_size=*/ register[0] - dynamic_da_gas_facto
  *  Temporality group 5: Opcode execution
  **************************************************************************************************/
 
-pol commit sel_should_execute_opcode;
+pol commit sel_should_execute_opcode; // @boolean (by definition)
 // Note that sel == 0 ==> sel_should_check_gas = 0 by transitive reasoning.
 sel_should_execute_opcode = sel_should_check_gas * (1 - sel_out_of_gas);
 
-// Decomposed selectors (from precomputed.pil see #[EXEC_SPEC_READ])
+// Unique identifiers mapping exactly one of selectors below through
+// a bit decomposition (from precomputed.pil see #[EXEC_SPEC_READ]).
 pol commit subtrace_id;
 pol commit subtrace_operation_id;
 
@@ -548,20 +563,22 @@ pol commit subtrace_operation_id;
 // and whether there was any error before the actual execution step. Therefore, the
 // selector can be used to gate the execution of the opcode/dispatching logic (which comes after gas, etc).
 // These dispatching lookups are placed at the end of this file.
-pol commit sel_exec_dispatch_execution;
-pol commit sel_exec_dispatch_alu;
-pol commit sel_exec_dispatch_bitwise;
-pol commit sel_exec_dispatch_cast;
-pol commit sel_exec_dispatch_calldata_copy;
-pol commit sel_exec_dispatch_returndata_copy;
-pol commit sel_exec_dispatch_set;
-pol commit sel_exec_dispatch_get_contract_instance;
-pol commit sel_exec_dispatch_emit_unencrypted_log;
-pol commit sel_exec_dispatch_poseidon2_perm;
-pol commit sel_exec_dispatch_sha256_compression;
-pol commit sel_exec_dispatch_keccakf1600;
-pol commit sel_exec_dispatch_ecc_add;
-pol commit sel_exec_dispatch_to_radix;
+pol commit sel_exec_dispatch_execution; // @boolean
+pol commit sel_exec_dispatch_alu; // @boolean
+pol commit sel_exec_dispatch_bitwise; // @boolean
+pol commit sel_exec_dispatch_cast; // @boolean
+pol commit sel_exec_dispatch_calldata_copy; // @boolean
+pol commit sel_exec_dispatch_returndata_copy; // @boolean
+pol commit sel_exec_dispatch_set; // @boolean
+pol commit sel_exec_dispatch_get_contract_instance; // @boolean
+pol commit sel_exec_dispatch_emit_unencrypted_log; // @boolean
+pol commit sel_exec_dispatch_poseidon2_perm; // @boolean
+pol commit sel_exec_dispatch_sha256_compression; // @boolean
+pol commit sel_exec_dispatch_keccakf1600; // @boolean
+pol commit sel_exec_dispatch_ecc_add; // @boolean
+pol commit sel_exec_dispatch_to_radix; // @boolean
+
+// Boolean constraints
 sel_exec_dispatch_execution * (1 - sel_exec_dispatch_execution) = 0;
 sel_exec_dispatch_alu * (1 - sel_exec_dispatch_alu) = 0;
 sel_exec_dispatch_bitwise * (1 - sel_exec_dispatch_bitwise) = 0;
@@ -593,34 +610,36 @@ sel_exec_dispatch_sha256_compression * constants.AVM_SUBTRACE_ID_SHA256_COMPRESS
 sel_exec_dispatch_keccakf1600 * constants.AVM_SUBTRACE_ID_KECCAKF1600 +
 sel_exec_dispatch_ecc_add * constants.AVM_SUBTRACE_ID_ECC +
 sel_exec_dispatch_to_radix * constants.AVM_SUBTRACE_ID_TO_RADIX
-// We force the selectors to be 0 if we are not executing an opcode.
+  // We force the selectors to be 0 if we are not executing an opcode.
 = sel_should_execute_opcode * subtrace_id;
 
 // Embedded execution opcode selectors.
 // Each of these selectors takes into account both which opcode we are considering executing
 // and whether there was any error before the actual execution step. Therefore, the
 // selector can be used to gate the execution of the opcode logic (which comes after gas, etc).
-pol commit sel_execute_get_env_var;
-pol commit sel_execute_mov;
-pol commit sel_execute_jump;
-pol commit sel_execute_jumpi;
-pol commit sel_execute_call;
-pol commit sel_execute_static_call;
-pol commit sel_execute_internal_call;
-pol commit sel_execute_internal_return;
-pol commit sel_execute_return;
-pol commit sel_execute_revert;
-pol commit sel_execute_success_copy;
-pol commit sel_execute_returndata_size;
-pol commit sel_execute_debug_log; // unused but we are forced to have it
-pol commit sel_execute_sload;
-pol commit sel_execute_sstore;
-pol commit sel_execute_notehash_exists;
-pol commit sel_execute_emit_notehash;
-pol commit sel_execute_l1_to_l2_message_exists;
-pol commit sel_execute_nullifier_exists;
-pol commit sel_execute_emit_nullifier;
-pol commit sel_execute_send_l2_to_l1_msg;
+pol commit sel_execute_get_env_var; // @boolean
+pol commit sel_execute_mov; // @boolean
+pol commit sel_execute_jump; // @boolean
+pol commit sel_execute_jumpi; // @boolean
+pol commit sel_execute_call; // @boolean
+pol commit sel_execute_static_call; // @boolean
+pol commit sel_execute_internal_call; // @boolean
+pol commit sel_execute_internal_return; // @boolean
+pol commit sel_execute_return; // @boolean
+pol commit sel_execute_revert; // @boolean
+pol commit sel_execute_success_copy; // @boolean
+pol commit sel_execute_returndata_size; // @boolean
+pol commit sel_execute_debug_log; // @boolean (unused but need it to enforce a no-op)
+pol commit sel_execute_sload; // @boolean
+pol commit sel_execute_sstore; // @boolean
+pol commit sel_execute_notehash_exists; // @boolean
+pol commit sel_execute_emit_notehash; // @boolean
+pol commit sel_execute_l1_to_l2_message_exists; // @boolean
+pol commit sel_execute_nullifier_exists; // @boolean
+pol commit sel_execute_emit_nullifier; // @boolean
+pol commit sel_execute_send_l2_to_l1_msg; // @boolean
+
+// Boolean constraints
 sel_execute_get_env_var * (1 - sel_execute_get_env_var) = 0;
 sel_execute_mov * (1 - sel_execute_mov) = 0;
 sel_execute_jump * (1 - sel_execute_jump) = 0;
@@ -666,9 +685,9 @@ sel_execute_l1_to_l2_message_exists * constants.AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_
 sel_execute_nullifier_exists * constants.AVM_EXEC_OP_ID_NULLIFIER_EXISTS +
 sel_execute_emit_nullifier * constants.AVM_EXEC_OP_ID_EMIT_NULLIFIER +
 sel_execute_send_l2_to_l1_msg * constants.AVM_EXEC_OP_ID_SENDL2TOL1MSG
-// We force the selectors to be 0 if we are not executing an opcode
-// of execution subtrace. Note that sel_should_execute_opcode == 0
-// implies sel_exec_dispatch_execution == 0. (#[SUBTRACE_ID_DECOMPOSITION])
+  // We force the selectors to be 0 if we are not executing an opcode
+  // of the execution subtrace. Note that sel_should_execute_opcode == 0
+  // implies sel_exec_dispatch_execution == 0. (#[SUBTRACE_ID_DECOMPOSITION])
 = sel_exec_dispatch_execution * subtrace_operation_id;
 
 /**************************************************************************************************
@@ -693,11 +712,11 @@ sel_execute_send_l2_to_l1_msg * constants.AVM_EXEC_OP_ID_SENDL2TOL1MSG
  // Note that DEBUGLOG is trivially handled as a "no op".
 
 #[PC_NEXT_ROW_INT_CALL_JUMP]
-NOT_LAST_EXEC * (sel_execute_internal_call + sel_execute_jump) * (pc' - rop[0]) = 0;
+sel' * (sel_execute_internal_call + sel_execute_jump) * (pc' - rop[0]) = 0;
 
 // For JUMPI opcode, the conditional value is U1 and stored in register[0].
 #[PC_NEXT_ROW_JUMPI]
-NOT_LAST_EXEC * sel_execute_jumpi * (register[0] * (rop[1] - next_pc) + next_pc - pc') = 0;
+sel' * sel_execute_jumpi * (register[0] * (rop[1] - next_pc) + next_pc - pc') = 0;
 
 #[MOV_SAME_VALUE]
 sel_execute_mov * (register[0] - register[1]) = 0;
@@ -746,7 +765,7 @@ sel_execute_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // W
 (1 - sel_first_row_in_context) * (prev_retrieved_bytecodes_tree_size - retrieved_bytecodes_tree_size) = 0;
 
 // Whether the opcode logic failed.
-pol commit sel_opcode_error;
+pol commit sel_opcode_error; // @boolean
 sel_opcode_error * (1 - sel_opcode_error) = 0;
 
 // Some opcodes cannot fail during opcode execution. They should not be able to set sel_opcode_error.
@@ -792,7 +811,7 @@ sel_opcode_error * (1 - sel_opcode_error) = 0;
  *  Temporality group 6: Register write.
  **************************************************************************************************/
 
-pol commit sel_should_write_registers;
+pol commit sel_should_write_registers; // @boolean (by definition)
 sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
 
 // NOTE: Constraints on the registers are in execution/registers.pil.
@@ -803,7 +822,7 @@ sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
  **************************************************************************************************/
 
 // sel_error is 1 iff any kind of error happens at the execution level.
-pol commit sel_error;
+pol commit sel_error; // @boolean
 // Observe that the errors are mutually exclusive:
 // Namely, we enforced a cascade of selectors to ensure that only one error can be set at a time.
 // If sel == 0, sel_bytecode_retrieval_failure == 0 (remark after #[BYTECODE_RETRIEVAL_NO_FAILURE])
