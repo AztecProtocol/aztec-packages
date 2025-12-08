@@ -12,23 +12,10 @@ import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {EthValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {GenesisState, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {
-    Configuration as GovernanceConfiguration,
-    ProposeWithLockConfiguration
-} from "@aztec/governance/interfaces/IGovernance.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {
-    IDeploymentConfiguration,
-    ProtocolTreasuryConfiguration,
-    CoinIssuerConfiguration,
-    GseConfiguration,
-    GovernanceProposerConfiguration,
-    FlushRewardConfiguration,
-    DeploymentOptions,
-    ZkPassportConfiguration
-} from "./IDeploymentConfiguration.sol";
+import {DeploymentOptions} from "./IDeploymentConfiguration.sol";
 
 contract RollupConfiguration is Test {
     using stdJson for string;
@@ -37,33 +24,15 @@ contract RollupConfiguration is Test {
     string public networkName;
     string internal validatorsJson;
     DeploymentOptions public deploymentOptions;
-    ZkPassportConfiguration public zkPassportConfig;
 
     function loadConfig() external {
         networkName = vm.envOr("NETWORK", string("local"));
         validatorsJson = vm.envOr("INITIAL_VALIDATORS", string("[]"));
         _loadDeploymentOptions();
-        _loadZkPassportConfiguration();
-    }
-
-    function realVerifier() external view returns (bool) {
-        return deploymentOptions.realVerifier;
-    }
-
-    function shouldFundRewardDistributor() external view returns (bool) {
-        return deploymentOptions.fundRewardDistributor;
-    }
-
-    function getAssetAddress() external view returns (address) {
-        return deploymentOptions.existingStakingAssetAddress;
     }
 
     function getContractOptions() external view returns (DeploymentOptions memory) {
         return deploymentOptions;
-    }
-
-    function getProtocolTreasuryConfiguration() external view returns (ProtocolTreasuryConfiguration memory) {
-        return ProtocolTreasuryConfiguration({gatedUntil: block.timestamp + 90 minutes});
     }
 
     function getEarliestRewardsClaimableTimestamp() public view returns (Timestamp) {
@@ -74,107 +43,6 @@ contract RollupConfiguration is Test {
         } else {
             return Timestamp.wrap(0);
         }
-    }
-
-    function getCoinIssuerConfiguration() external pure returns (CoinIssuerConfiguration memory) {
-        return CoinIssuerConfiguration({coinIssuerRate: 0.2e18});
-    }
-
-    function getGseConfiguration() external view returns (GseConfiguration memory) {
-        return GseConfiguration({
-            activationThreshold: vm.envOr("AZTEC_ACTIVATION_THRESHOLD", uint256(100e18)),
-            ejectionThreshold: vm.envOr("AZTEC_EJECTION_THRESHOLD", uint256(50e18))
-        });
-    }
-
-    function getGovernanceProposerConfiguration() external view returns (GovernanceProposerConfiguration memory) {
-        uint256 roundSize = vm.envOr("AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE", uint256(300));
-        uint256 defaultQuorum = roundSize / 2 + 1;
-        return GovernanceProposerConfiguration({
-            quorum: vm.envOr("AZTEC_GOVERNANCE_PROPOSER_QUORUM", defaultQuorum),
-            roundSize: roundSize
-        });
-    }
-
-    function getGovernanceConfiguration() external view returns (GovernanceConfiguration memory) {
-        bytes32 h = keccak256(bytes(networkName));
-
-        if (h == keccak256("staging-public")) {
-            return GovernanceConfiguration({
-                proposeConfig: ProposeWithLockConfiguration({
-                    lockDelay: Timestamp.wrap(60 * 60 * 24 * 30),
-                    lockAmount: 100e18 * 100
-                }),
-                votingDelay: Timestamp.wrap(60),
-                votingDuration: Timestamp.wrap(60 * 60),
-                executionDelay: Timestamp.wrap(60),
-                gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
-                quorum: 0.3e18,
-                requiredYeaMargin: 0.04e18,
-                minimumVotes: 50_000e18 * 200
-            });
-        } else if (h == keccak256("testnet")) {
-            return GovernanceConfiguration({
-                proposeConfig: ProposeWithLockConfiguration({
-                    lockDelay: Timestamp.wrap(10 * 365 * 24 * 60 * 60),
-                    lockAmount: 1250 * 200_000e18
-                }),
-                votingDelay: Timestamp.wrap(12 * 60 * 60),
-                votingDuration: Timestamp.wrap(1 * 24 * 60 * 60),
-                executionDelay: Timestamp.wrap(12 * 60 * 60),
-                gracePeriod: Timestamp.wrap(1 * 24 * 60 * 60),
-                quorum: 0.2e18,
-                requiredYeaMargin: 0.1e18,
-                minimumVotes: 100 * 200_000e18
-            });
-        } else if (h == keccak256("staging-ignition")) {
-            return GovernanceConfiguration({
-                proposeConfig: ProposeWithLockConfiguration({
-                    lockDelay: Timestamp.wrap(10 * 365 * 24 * 60 * 60),
-                    lockAmount: 1250 * 200_000e18
-                }),
-                votingDelay: Timestamp.wrap(7 * 24 * 60 * 60),
-                votingDuration: Timestamp.wrap(7 * 24 * 60 * 60),
-                executionDelay: Timestamp.wrap(30 * 24 * 60 * 60),
-                gracePeriod: Timestamp.wrap(7 * 24 * 60 * 60),
-                quorum: 0.2e18,
-                requiredYeaMargin: 0.1e18,
-                minimumVotes: 1250 * 200_000e18
-            });
-        } else if (h == keccak256("mainnet")) {
-            return GovernanceConfiguration({
-                proposeConfig: ProposeWithLockConfiguration({
-                    lockDelay: Timestamp.wrap(90 * 24 * 60 * 60),
-                    lockAmount: 258_750_000e18
-                }),
-                votingDelay: Timestamp.wrap(3 * 24 * 60 * 60),
-                votingDuration: Timestamp.wrap(7 * 24 * 60 * 60),
-                executionDelay: Timestamp.wrap(7 * 24 * 60 * 60),
-                gracePeriod: Timestamp.wrap(7 * 24 * 60 * 60),
-                quorum: 0.2e18,
-                requiredYeaMargin: 0.33e18,
-                minimumVotes: 1000 * 200_000e18
-            });
-        } else {
-            // local, devnet, next-net
-            return GovernanceConfiguration({
-                proposeConfig: ProposeWithLockConfiguration({
-                    lockDelay: Timestamp.wrap(60 * 60 * 24 * 30),
-                    lockAmount: 1e24
-                }),
-                votingDelay: Timestamp.wrap(60),
-                votingDuration: Timestamp.wrap(60 * 60),
-                executionDelay: Timestamp.wrap(60),
-                gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
-                quorum: 0.1e18,
-                requiredYeaMargin: 0.04e18,
-                minimumVotes: 400e18
-            });
-        }
-    }
-
-    function getFlushRewardConfiguration() external pure returns (FlushRewardConfiguration memory) {
-        return FlushRewardConfiguration({rewardPerInsertion: 100e18, initialFundingAmount: 1_000_000e18});
     }
 
     function getGenesisState() external view returns (GenesisState memory) {
@@ -335,10 +203,6 @@ contract RollupConfiguration is Test {
         return vm.envOr("REWARD_DISTRIBUTOR_FUNDING", defaultFunding);
     }
 
-    function getZkPassportConfiguration() external view returns (ZkPassportConfiguration memory) {
-        return zkPassportConfig;
-    }
-
     function parseValidators() external view returns (CheatDepositArgs[] memory) {
         uint256 count = _countValidators();
         if (count == 0) {
@@ -359,13 +223,6 @@ contract RollupConfiguration is Test {
             realVerifier: vm.envOr("REAL_VERIFIER", true),
             fundRewardDistributor: vm.envOr("FUND_REWARD_DISTRIBUTOR", true),
             existingStakingAssetAddress: vm.envOr("EXISTING_STAKING_ASSET_ADDRESS", address(0))
-        });
-    }
-
-    function _loadZkPassportConfiguration() private {
-        zkPassportConfig = ZkPassportConfiguration({
-            domain: vm.envOr("ZKPASSPORT_DOMAIN", string("sequencer.alpha-testnet.aztec.network")),
-            scope: vm.envOr("ZKPASSPORT_SCOPE", string("personhood"))
         });
     }
 
@@ -429,11 +286,10 @@ contract RollupConfiguration is Test {
      *      Call this function before deploying to catch configuration errors early.
      */
     function validateConfig() external view {
-        // Get configuration values
+        // Get rollup configuration values
         StakingQueueConfig memory stakingQueueConfig = this.getStakingQueueConfiguration();
-        GovernanceProposerConfiguration memory govPropConfig = this.getGovernanceProposerConfiguration();
-        GseConfiguration memory gseConfig = this.getGseConfiguration();
 
+        uint256 aztecSlotDuration = vm.envOr("AZTEC_SLOT_DURATION", uint256(36));
         uint256 aztecEpochDuration = vm.envOr("AZTEC_EPOCH_DURATION", uint256(32));
         uint256 aztecTargetCommitteeSize = vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48));
         uint256 slashingRoundSizeInEpochs = vm.envOr("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
@@ -451,18 +307,9 @@ contract RollupConfiguration is Test {
             "validateConfig: normalFlushSizeMin must be greater than 0"
         );
 
-        // EmpireBase constructor validations for governance proposers
-        // require(QUORUM_SIZE > ROUND_SIZE / 2)
-        require(
-            govPropConfig.quorum > govPropConfig.roundSize / 2,
-            "validateConfig: governanceProposerQuorum must be greater than half of roundSize"
-        );
-
-        // require(QUORUM_SIZE <= ROUND_SIZE)
-        require(
-            govPropConfig.quorum <= govPropConfig.roundSize,
-            "validateConfig: governanceProposerQuorum cannot be larger than roundSize"
-        );
+        // Basic positive checks
+        require(aztecSlotDuration > 0, "validateConfig: aztecSlotDuration must be greater than 0");
+        require(aztecEpochDuration > 0, "validateConfig: aztecEpochDuration must be greater than 0");
 
         // Slashing quorum validations
         require(
@@ -475,16 +322,10 @@ contract RollupConfiguration is Test {
             "validateConfig: slashingQuorum cannot be larger than slashingRoundSize"
         );
 
-        // EmpireBase and TallySlashingProposer lifetime and execution delay validation
+        // Slashing lifetime and execution delay validation
         require(
             slashingLifetimeInRounds > slashingExecutionDelayInRounds,
             "validateConfig: slashingLifetimeInRounds must be greater than slashingExecutionDelayInRounds"
-        );
-
-        // Staking asset validation: activationThreshold >= ejectionThreshold
-        require(
-            gseConfig.activationThreshold >= gseConfig.ejectionThreshold,
-            "validateConfig: activationThreshold must be >= ejectionThreshold"
         );
 
         // Tally-specific validations
