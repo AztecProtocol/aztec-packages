@@ -1,3 +1,6 @@
+# =============================================================================
+# BUILD CONFIGURATION
+# =============================================================================
 [build]
   # Only build if changes are made in the docs directory
   ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF"
@@ -11,6 +14,9 @@
 [context.branch-deploy]
   command = "./scripts/netlify-preview-build.sh"
 
+# =============================================================================
+# ACTIVE REDIRECTS: Core Navigation
+# =============================================================================
 [[redirects]]
     from = "/try_testnet"
     to = "/ignition_info"
@@ -55,6 +61,10 @@
     from = "/tutorials/contract_tutorials/token_contract"
     to = "/developers/docs/tutorials/contract_tutorials/token_contract"
 
+# =============================================================================
+# ACTIVE REDIRECTS: Legacy & Sunset Content
+# These redirect old/deprecated paths to homepage or sunset pages
+# =============================================================================
 [[redirects]]
     from = "/noir"
     to = "/"
@@ -99,6 +109,10 @@
     from = "/guides/developer_guides/*"
     to = "/developers/getting_started_on_local_network"
 
+# =============================================================================
+# ACTIVE REDIRECTS: Concept Path Restructures
+# Redirects from old /aztec/concepts/* paths to new structure
+# =============================================================================
 [[redirects]]
     from = "/aztec/concepts/accounts/authwit"
     to = "/developers/docs/concepts/advanced/authwit"
@@ -127,6 +141,10 @@
     from = "/reference/developer_references/limitations"
     to = "/developers/docs/reference/considerations/limitations"
 
+# =============================================================================
+# ACTIVE REDIRECTS: Network Paths
+# Redirects for node operation and network documentation
+# =============================================================================
 [[redirects]]
     from = "/run_node/*"
     to = "/the_aztec_network/guides/run_nodes"
@@ -140,40 +158,10 @@
     to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
 
 
-# Redirects for renamed JS app guide pages
-[[redirects]]
-    from = "/developers/guides/js_apps/connect_to_sandbox"
-    to = "/developers/docs/guides/js_apps/how_to_connect_to_local_network"
-
-[[redirects]]
-    from = "/developers/guides/js_apps/create_account"
-    to = "/developers/docs/guides/js_apps/how_to_create_account"
-
-[[redirects]]
-    from = "/developers/guides/js_apps/deploy_contract"
-    to = "/developers/docs/guides/js_apps/how_to_deploy_contract"
-
-[[redirects]]
-    from = "/developers/guides/js_apps/send_transaction"
-    to = "/developers/docs/guides/js_apps/how_to_send_transaction"
-
-[[redirects]]
-    from = "/developers/guides/js_apps/call_view_function"
-    to = "/developers/docs/guides/js_apps/how_to_simulate_function"
-
-[[redirects]]
-    from = "/developers/guides/js_apps/authwit"
-    to = "/developers/docs/guides/js_apps/how_to_use_authwit"
-
-[[redirects]]
-    from = "/developers/guides/js_apps/pay_fees"
-    to = "/developers/docs/guides/js_apps/how_to_pay_fees"
-
-[[redirects]]
-    from = "/developers/guides/js_apps/test"
-    to = "/developers/docs/guides/js_apps/how_to_test"
-
-# Redirects for renamed smart contract guide pages
+# =============================================================================
+# ACTIVE REDIRECTS: Smart Contract Guide Restructures
+# Redirects from old guide paths to new how_to_* naming convention
+# =============================================================================
 [[redirects]]
     from = "/developers/guides/smart_contracts/compile_contract"
     to = "/developers/docs/guides/smart_contracts/how_to_compile_contract"
@@ -236,7 +224,11 @@
     from = "/developers/getting_started/getting_started.md"
     to = "/developers/getting_started_on_local_network"
 
-# Redirects for Refactor (granular)
+# =============================================================================
+# DISABLED: Future Migration Paths (Granular Refactor)
+# These redirects are prepared for a future docs restructure but not yet active.
+# Do not enable until the target paths exist in the default version.
+# =============================================================================
 
 # [[redirects]]
 #     from = "/glossary"
@@ -266,13 +258,16 @@
 #     from = "/reference/environment_reference/cli_reference"
 #     to = "/aztec-cli/cli_reference"
 
-# Redirect guides that moved to aztec-js
-# The follow section should be uncommented when v2.0.2 is no longer the default version
-# v2.0.2 still uses the /developers/guides/js_apps/ path
+# =============================================================================
+# DISABLED: Future aztec-js Migration
+# Enable these redirects when the default docs version uses /developers/guides/aztec-js/
+# paths instead of /developers/guides/js_apps/. Currently v2.1.5-ignition still uses
+# the js_apps/ path structure.
+# =============================================================================
 
 # [[redirects]]
 #     from = "/developers/guides/js_apps/connect_to_sandbox"
-#     to = "/developers/docs/guides/aztec-js/how_to_connect_to_local_network"  # Updated: sandbox renamed to local-network
+#     to = "/developers/docs/guides/aztec-js/how_to_connect_to_local_network"
 
 # [[redirects]]
 #     from = "/developers/guides/js_apps/create_account"
@@ -390,7 +385,12 @@
     from = "/the_aztec_network/reference/useful_commands"
     to = "/the_aztec_network/operation/sequencer_management/useful_commands"
 
-# Refactor redirects
+# =============================================================================
+# DISABLED: Future Refactor Redirects
+# These redirects are prepared for when the docs structure changes to use
+# foundational-topics, aztec-nr, aztec-js, and wallet-cli top-level paths.
+# Do not enable until the target paths exist in the default version.
+# =============================================================================
 
 # [[redirects]]
 #     from = "/developers/docs/concepts/*"
@@ -420,6 +420,10 @@
 #     from = "/reference/considerations/*"
 #     to = "/resources/considerations/:splat"
 
+# =============================================================================
+# ACTIVE REDIRECTS: Catch-All Path Migrations
+# These handle broad path changes and legacy paths
+# =============================================================================
 [[redirects]]
     from = "/tutorials/*"
     to = "/developers/docs/tutorials/*"
@@ -440,9 +444,6 @@
     from = "/sdk/*"
     to = "/"
 
-[[redirects]]
-    from = "/developers/*"
-    to = "/"
 
 [[redirects]]
     from = "/spec/*"
