@@ -29,14 +29,14 @@ HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>
                                 .shifted = ClaimBatch{ RefVector(accumulator.shifted_commitment),
                                                        RefVector(accumulator.shifted_evaluation) } };
     std::vector<FF> padding_indicator_array(Flavor::VIRTUAL_LOG_N, 1);
-    const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
+    auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
         padding_indicator_array, claim_batcher, accumulator.challenge, generator, transcript);
 
     if constexpr (IsRecursiveFlavor<Flavor>) {
-        PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
+        PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript));
         return pairing_points;
     } else {
-        auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+        auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
         // Native pairing points contain affine elements
         return { typename Curve::AffineElement(pairing_points[0]), typename Curve::AffineElement(pairing_points[1]) };
     }
