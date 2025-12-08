@@ -9,6 +9,68 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] `ValueNote` renamed to `FieldNote` and `value-note` crate renamed to `field-note`
+
+The `ValueNote` struct has been renamed to `FieldNote` to better reflect that it stores a `Field` value. The crate has also been renamed from `value-note` to `field-note`.
+
+**Migration:**
+
+- Update your `Nargo.toml` dependencies: `value_note = { path = "..." }` → `field_note = { path = "..." }`
+- Update imports: `use value_note::value_note::ValueNote` → `use field_note::field_note::FieldNote`
+- Update type references: `ValueNote` → `FieldNote`
+- Update generic parameters: `PrivateSet<ValueNote, ...>` → `PrivateSet<FieldNote, ...>`
+
+### [Aztec.nr] New `balance-set` library for managing token balances
+
+A new `balance-set` library has been created that provides `BalanceSet<Context>` for managing u128 token balances with `UintNote`. This consolidates balance management functionality that was previously duplicated across contracts.
+
+**Features:**
+
+- `add(amount: u128)` - Add to balance
+- `sub(amount: u128)` - Subtract from balance (with change note)
+- `try_sub(amount: u128, max_notes: u32)` - Attempt to subtract with configurable note limit
+- `balance_of()` - Get total balance (unconstrained)
+
+**Usage:**
+
+```rust
+use balance_set::BalanceSet;
+
+#[storage]
+struct Storage<Context> {
+    balances: Owned<BalanceSet<Context>, Context>,
+}
+
+// In a private function:
+self.storage.balances.at(owner).add(amount).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+self.storage.balances.at(owner).sub(amount).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+
+// In an unconstrained function:
+let balance = self.storage.balances.at(owner).balance_of();
+```
+
+### [Aztec.nr] `EasyPrivateUint` deprecated and removed
+
+The `EasyPrivateUint` type and `easy-private-state` crate have been deprecated and removed. Use `BalanceSet` from the `balance-set` crate instead.
+
+**Migration:**
+
+- Remove `easy_private_state` dependency from `Nargo.toml`
+- Add `balance_set = { path = "../../../../aztec-nr/balance-set" }` to `Nargo.toml`
+- Update storage: `EasyPrivateUint<Context>` → `Owned<BalanceSet<Context>, Context>`
+- Update method calls:
+  - `add(amount, owner)` → `at(owner).add(amount).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN)`
+  - `sub(amount, owner)` → `at(owner).sub(amount).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN)`
+  - `get_value(owner)` → `at(owner).balance_of()` (returns `u128` instead of `Field`)
+
+### [Aztec.nr] `balance_utils` removed from `value-note` (now `field-note`)
+
+The `balance_utils` module has been removed from the `field-note` crate (formerly `value-note`). If you need similar functionality, implement it locally in your contract or use `BalanceSet` for u128 balances.
+
+### [Aztec.nr] `filter_notes_min_sum` removed from `value-note` (now `field-note`)
+
+The `filter_notes_min_sum` function has been removed from the `field-note` crate (formerly in `value-note`). If you need this functionality, copy it to your contract locally. This function was only used in specific test contracts and doesn't belong in the general-purpose note library.
+
 ### [Aztec.nr] `derive_ecdh_shared_secret_using_aztec_address` removed
 
 This function made it annoying to deal with invalid addresses in circuits. If you were using it, replace it with `derive_ecdh_shared_secret` instead:

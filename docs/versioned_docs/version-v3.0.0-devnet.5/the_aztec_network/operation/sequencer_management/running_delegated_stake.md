@@ -1,7 +1,7 @@
 ---
-id: running_delegated_stake
+id: become_a_staking_provider
 sidebar_position: 2
-title: Running Delegated Stake
+title: Become a Staking Provider
 description: Learn how to run a sequencer with delegated stake on the Aztec network, including provider registration and sequencer identity management.
 ---
 

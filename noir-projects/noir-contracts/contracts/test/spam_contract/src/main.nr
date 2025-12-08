@@ -1,5 +1,3 @@
-mod types;
-
 use aztec::macros::aztec;
 
 #[aztec]
@@ -18,7 +16,7 @@ pub contract Spam {
         state_vars::{Map, Owned, PublicMutable},
     };
 
-    use crate::types::balance_set::BalanceSet;
+    use balance_set::BalanceSet;
 
     #[storage]
     struct Storage<Context> {

@@ -12,11 +12,11 @@ contract Updated {
         state_vars::{Owned, PrivateMutable, PublicMutable},
     };
     use contract_instance_registry::ContractInstanceRegistry;
-    use value_note::value_note::ValueNote;
+    use field_note::field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {
-        private_value: Owned<PrivateMutable<ValueNote, Context>, Context>,
+        private_value: Owned<PrivateMutable<FieldNote, Context>, Context>,
         public_value: PublicMutable<Field, Context>,
     }
 
@@ -29,7 +29,7 @@ contract Updated {
     fn set_private_value() {
         let owner = self.msg_sender().unwrap();
 
-        self.storage.private_value.at(owner).replace(|_old| ValueNote::new(27)).emit(
+        self.storage.private_value.at(owner).replace(|_old| FieldNote::new(27)).emit(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
