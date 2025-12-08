@@ -4,7 +4,6 @@ import { createLogger } from '@aztec/foundation/log';
 import type { ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { getFunctionSelector } from '../avm/fixtures/utils.js';
 

@@ -7,8 +7,12 @@ import {
   serializeWithMessagePack,
 } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { PublicKeys } from '@aztec/stdlib/keys';
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  contractClassPublicFromPlainObject,
+  contractInstanceWithAddressFromPlainObject,
+} from '@aztec/stdlib/contract';
 import { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
@@ -19,43 +23,6 @@ import { SimpleContractDataSource } from '../fixtures/simple_contract_data_sourc
 import { PublicContractsDB } from '../public_db_sources.js';
 import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { createFuzzerTx, registerContract } from './helpers.js';
-
-/**
- * Converts a raw C++ ContractClass (deserialized from msgpack) to ContractClassPublic.
- * C++ sends: { id, artifactHash, privateFunctionsRoot, packedBytecode }
- * TS needs: { id, version, artifactHash, privateFunctionsRoot, privateFunctions, utilityFunctions, packedBytecode }
- */
-function contractClassFromCpp(rawClass: any): ContractClassPublic {
-  return {
-    id: Fr.fromPlainObject(rawClass.id),
-    version: 1 as const,
-    artifactHash: Fr.fromPlainObject(rawClass.artifactHash),
-    privateFunctionsRoot: Fr.fromPlainObject(rawClass.privateFunctionsRoot),
-    privateFunctions: [],
-    utilityFunctions: [],
-    packedBytecode:
-      rawClass.packedBytecode instanceof Buffer ? rawClass.packedBytecode : Buffer.from(rawClass.packedBytecode),
-  };
-}
-
-/**
- * Converts a raw C++ ContractInstance (deserialized from msgpack) to ContractInstanceWithAddress.
- * C++ sends: { salt, deployer, currentContractClassId, originalContractClassId, initializationHash, publicKeys }
- * TS needs: { address, version, salt, deployer, currentContractClassId, originalContractClassId, initializationHash, publicKeys }
- * The address comes from the map key.
- */
-function contractInstanceFromCpp(address: AztecAddress, rawInstance: any): ContractInstanceWithAddress {
-  return {
-    address,
-    version: 1 as const,
-    salt: Fr.fromPlainObject(rawInstance.salt),
-    deployer: AztecAddress.fromPlainObject(rawInstance.deployer),
-    currentContractClassId: Fr.fromPlainObject(rawInstance.currentContractClassId),
-    originalContractClassId: Fr.fromPlainObject(rawInstance.originalContractClassId),
-    initializationHash: Fr.fromPlainObject(rawInstance.initializationHash),
-    publicKeys: PublicKeys.fromPlainObject(rawInstance.publicKeys),
-  };
-}
 
 // This cache holds opened world states to avoid reopening them for each invocation.
 // It's a map so that in the future we could support multiple world states (if we had multiple fuzzers).
@@ -152,19 +119,14 @@ async function executeFromJson(jsonLine: string): Promise<void> {
     // Parse contract classes from C++ (bytecode is inside packedBytecode field)
     // C++ sends a vector<ContractClass> - id is already inside each class
     const rawClassesArray: any[] = deserializeFromMessagePack(Buffer.from(input.contractClasses, 'base64'));
-    const contractClasses: ContractClassPublic[] = [];
-    for (const rawClass of rawClassesArray) {
-      contractClasses.push(contractClassFromCpp(rawClass));
-    }
+    const contractClasses: ContractClassPublic[] = rawClassesArray.map(contractClassPublicFromPlainObject);
 
     // Parse contract instances from C++
     // C++ sends a vector<pair<AztecAddress, ContractInstance>>
     const rawInstancesArray: [any, any][] = deserializeFromMessagePack(Buffer.from(input.contractInstances, 'base64'));
-    const contractInstances: ContractInstanceWithAddress[] = [];
-    for (const [rawAddress, rawInstance] of rawInstancesArray) {
-      const address = AztecAddress.fromPlainObject(rawAddress);
-      contractInstances.push(contractInstanceFromCpp(address, rawInstance));
-    }
+    const contractInstances: ContractInstanceWithAddress[] = rawInstancesArray.map(([rawAddress, rawInstance]) =>
+      contractInstanceWithAddressFromPlainObject(AztecAddress.fromPlainObject(rawAddress), rawInstance),
+    );
 
     const result = await simulateWithPublicTxSimulator(
       input.ws_data_dir,
