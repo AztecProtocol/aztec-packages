@@ -1,7 +1,7 @@
 ---
 id: registering_sequencer
 sidebar_position: 3
-title: Registering a Sequencer (Self-Staking)
+title: Registering a Sequencer
 description: Learn how to register your sequencer on the Aztec network using the staking dashboard for self-staking.
 ---
 
@@ -18,86 +18,20 @@ Before proceeding, ensure you have completed the [Sequencer Setup Guide](../../s
 
 - Completed sequencer node setup with keystore generated
 - Access to your **public keystore** file (`keyN_staker_output.json`)
-- Sufficient stake tokens for registration
-- Funded Ethereum account for gas fees (optional, for CLI registration)
+- Sufficient ATP/ATV tokens for staking
+- Wallet with ETH for gas fees
+- Web browser for accessing the staking dashboard
 
-## Registration Methods
+## Understanding Your Keystore
 
-You have two options for registering your sequencer:
+When you generated your sequencer keys, two files were automatically created:
 
-### Option 1: Staking Dashboard (Recommended)
+1. **Private keystore** (`~/.aztec/keystore/keyN.json`) - Contains private keys, used by your sequencer node. Keep this secure and never share it.
+2. **Public keystore** (`~/.aztec/keystore/keyN_staker_output.json`) - Contains only public information, used for registration via the staking dashboard.
 
-The staking dashboard provides a user-friendly interface for sequencer registration.
+### Public Keystore Structure
 
-**Steps:**
-
-1. Navigate to the Aztec staking dashboard
-2. Connect your wallet
-3. Upload your **public keystore** file (`keyN_staker_output.json`)
-4. Follow the dashboard prompts to complete registration and staking
-
-The public keystore contains all the information needed for the staking dashboard. It was automatically generated when you created your keys (see [Generating Keys](../../setup/sequencer_management.md#generating-keys)).
-
-### Option 2: CLI Registration (Advanced)
-
-For advanced users or automated setups, you can register via the Aztec CLI.
-
-**What you need:**
-
-- Your attester address (from your private keystore at `validators[0].attester.eth`)
-- A withdrawer address (typically the same as your attester address)
-- Your BLS private key (from your private keystore at `validators[0].attester.bls`)
-- An L1 RPC endpoint
-- A funded Ethereum account to pay for the registration transaction
-- The rollup contract address for your network
-
-**Register your sequencer:**
-
-```bash
-aztec add-l1-validator \
-  --l1-rpc-urls [YOUR_L1_RPC_URL] \
-  --network [NETWORK_NAME] \
-  --private-key [FUNDING_PRIVATE_KEY] \
-  --attester [YOUR_ATTESTER_ADDRESS] \
-  --withdrawer [YOUR_WITHDRAWER_ADDRESS] \
-  --bls-secret-key [YOUR_BLS_PRIVATE_KEY] \
-  --rollup [ROLLUP_CONTRACT_ADDRESS]
-```
-
-**Parameter descriptions:**
-
-- `--l1-rpc-urls`: Your Ethereum L1 RPC endpoint
-- `--network`: Network identifier (e.g., `testnet`, `staging-public`)
-- `--private-key`: Private key of an Ethereum account with ETH to pay for gas (this is NOT your sequencer key)
-- `--attester`: Your sequencer's attester address from the private keystore
-- `--withdrawer`: Ethereum address that can withdraw your stake (typically same as attester)
-- `--bls-secret-key`: Your BLS private key from the private keystore (`validators[0].attester.bls`)
-- `--rollup`: The rollup contract address for your network
-
-**Extract values from your private keystore:**
-
-```bash
-# Get your attester address
-jq -r '.validators[0].attester.eth' aztec-sequencer/keys/keystore.json
-
-# Get your BLS private key (this will be used for --bls-secret-key)
-jq -r '.validators[0].attester.bls' aztec-sequencer/keys/keystore.json
-```
-
-:::warning Funding Account vs Sequencer Keys
-The `--private-key` parameter is for a **funding account** that pays for the registration transaction gas fees. This should NOT be your sequencer's attester or publisher key. Use a separate account with ETH specifically for funding this transaction.
-:::
-
-Your sequencer will be added to the validator set once the transaction is confirmed onchain.
-
-## Understanding the Public Keystore
-
-When you generated your keys, the command automatically created two files:
-
-1. **Private keystore** (`~/.aztec/keystore/keyN.json`) - Contains private keys, used by your sequencer node
-2. **Public keystore** (`~/.aztec/keystore/keyN_staker_output.json`) - Contains only public information, used for the staking dashboard
-
-The public keystore contains all the information needed for the staking dashboard:
+The public keystore contains the following information needed for registration:
 
 ```json
 [
@@ -121,7 +55,7 @@ The public keystore contains all the information needed for the staking dashboar
 ]
 ```
 
-The public keystore can be safely shared and uploaded to the staking dashboard for sequencer registration. It contains only public information:
+**Fields explained:**
 - **`attester`**: Your Ethereum attester address (sequencer identifier)
 - **`publicKeyG1`**: BLS public key on the G1 curve (x, y coordinates)
 - **`publicKeyG2`**: BLS public key on the G2 curve (x0, x1, y0, y1 coordinates)
@@ -131,20 +65,123 @@ The public keystore can be safely shared and uploaded to the staking dashboard f
 The public keystore contains no private keys and is safe to share with the staking dashboard or other parties.
 :::
 
+## Preparing Your Keystore File
+
+### Single Sequencer
+
+If you're registering one sequencer, simply use the `keyN_staker_output.json` file that was generated when you created your keys.
+
+### Multiple Sequencers
+
+If you're registering multiple sequencers in a single transaction, combine the individual keystore files into a single JSON array. Each object in the array represents one sequencer.
+
+**Example for two sequencers:**
+
+```json
+[
+  {
+    "attester": "0xATTESTER_ADDRESS_1",
+    "publicKeyG1": {
+      "x": "0x...",
+      "y": "0x..."
+    },
+    "publicKeyG2": {
+      "x0": "0x...",
+      "x1": "0x...",
+      "y0": "0x...",
+      "y1": "0x..."
+    },
+    "proofOfPossession": {
+      "x": "0x...",
+      "y": "0x..."
+    }
+  },
+  {
+    "attester": "0xATTESTER_ADDRESS_2",
+    "publicKeyG1": {
+      "x": "0x...",
+      "y": "0x..."
+    },
+    "publicKeyG2": {
+      "x0": "0x...",
+      "x1": "0x...",
+      "y0": "0x...",
+      "y1": "0x..."
+    },
+    "proofOfPossession": {
+      "x": "0x...",
+      "y": "0x..."
+    }
+  }
+]
+```
+
+Simply copy the contents of each `keyN_staker_output.json` file and combine them into a single array.
+
+## Registration Steps
+
+Follow these steps to register your sequencer(s) through the staking dashboard:
+
+1. **Navigate to the staking dashboard** at https://stake.aztec.network
+
+2. **Connect your wallet** with the account that holds your ATP/ATV tokens
+
+3. **Click "Stake"**
+
+   ![Staking dashboard home](/img/staking_dashboard_1.png)
+
+4. **Select "Run your own Sequencer"**
+
+   ![Select sequencer option](/img/staking_dashboard_2.png)
+
+5. **Click through "Start Registration"** after reviewing the requirements
+
+6. **Select the ATP/ATV tokens you want to stake**
+
+7. **Upload your keystore JSON file** (either single or combined multi-sequencer file)
+
+   ![Upload keystore file](/img/staking_dashboard_3.png)
+
+8. **Confirm your attester/sequencer addresses**
+
+   ![Confirm addresses](/img/staking_dashboard_4.png)
+
+9. **Approve token spend** in your wallet
+
+   ![Approve tokens](/img/staking_dashboard_5.png)
+
+10. **Add staking for all sequencers to the queue**
+
+    ![Add to queue](/img/staking_dashboard_6.png)
+
+11. **Execute transactions** in the dashboard
+
+    ![Execute transactions](/img/staking_dashboard_7.png)
+
+12. **Confirm each transaction** in your wallet
+
+13. **Click "Complete"** when all transactions are confirmed
+
+14. **Verification**: Your sequencers have entered the queue. You can verify this at https://dashtec.xyz/queue
+
 ## Verification
 
 After registration, verify your sequencer is properly registered:
 
-### Check Registration Status
+### Via Staking Dashboard
 
 Use the staking dashboard to:
 - View your sequencer's registration status
 - Monitor your stake amount
 - Track sequencer performance metrics
 
-### Query Onchain Status
+### Via Blockchain Explorer
 
-You can also query the status using the Rollup contract. See [Monitoring Sequencer Status](../../setup/sequencer_management.md#monitoring-sequencer-status) for detailed instructions.
+You can verify your sequencers are in the queue at https://dashtec.xyz/queue
+
+### Via Smart Contract
+
+You can also query the status directly using the Rollup contract. See [Monitoring Sequencer Status](../../setup/sequencer_management.md#monitoring-sequencer-status) for detailed instructions.
 
 ## Next Steps
 
