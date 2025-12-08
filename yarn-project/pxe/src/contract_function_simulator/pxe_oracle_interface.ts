@@ -793,7 +793,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     content: Fr[],
     eventCommitment: Fr,
     txHash: TxHash,
-    recipient: AztecAddress,
+    scope: AztecAddress,
   ): Promise<void> {
     // While using 'latest' block number would be fine for private events since they cannot be accessed from Aztec.nr
     // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
@@ -831,14 +831,16 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
 
     return this.privateEventDataProvider.storePrivateEventLog(
-      contractAddress,
-      recipient,
       selector,
       content,
-      txHash,
       Number(nullifierIndex.data), // Index of the event commitment in the nullifier tree
-      nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
-      nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
+      {
+        contractAddress,
+        scope,
+        txHash,
+        l2BlockNumber: nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
+        l2BlockHash: nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
+      },
     );
   }
 
