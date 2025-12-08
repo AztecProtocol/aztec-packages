@@ -1,35 +1,30 @@
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/ultra_honk/ultra_honk.test.hpp"
 
 #include <array>
 #include <gtest/gtest.h>
 
 using namespace bb;
 
-class ComposerLibTests : public ::testing::Test {
+class ComposerLibTests : public UltraHonkTests<UltraFlavor> {
   public:
     using Flavor = UltraFlavor;
-    using FF = typename Flavor::FF;
-
-  protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+    using FF = Flavor::FF;
+    using Builder = UltraCircuitBuilder;
+    using Polynomial = Flavor::Polynomial;
 };
-
 /**
- * @brief A test to demonstrate that lookup read counts/tags are computed correctly for a simple 'hand-computable' case
- * using the uint32 XOR table
+ * @brief A test to demonstrate that lookup read counts/tags are computed correctly for a
+ * simple 'hand-computable' case using the uint32 XOR table
  *
  */
 TEST_F(ComposerLibTests, LookupReadCounts)
 {
-    using Builder = UltraCircuitBuilder;
-    using Flavor = UltraFlavor;
-    using FF = typename Flavor::FF;
-    using Polynomial = typename Flavor::Polynomial;
     auto UINT32_XOR = plookup::MultiTableId::UINT32_XOR;
-
     Builder builder;
 
     // define some very simply inputs to XOR
@@ -75,5 +70,43 @@ TEST_F(ComposerLibTests, LookupReadCounts)
             EXPECT_EQ(tag, 0);
         }
         idx++;
+    }
+}
+
+/**
+ * @brief Test that that if two distinct elements are given tags that are related by a transposition in tau, then the
+ * circuit fails.
+ *
+ */
+TEST_F(ComposerLibTests, TagCollisionFailure)
+{
+    {
+        Builder builder;
+
+        FF val_a = FF::random_element();
+        FF val_b = FF::random_element(); // Different value
+        ASSERT_FALSE(val_a == val_b);
+
+        auto a_idx = builder.add_variable(val_a);
+        auto b_idx = builder.add_variable(val_b);
+
+        auto first_tag = builder.get_new_tag();
+        auto second_tag = builder.get_new_tag();
+        builder.set_tau_transposition(first_tag, second_tag);
+        // Assign the same tag to both variables (which have different values)
+        // As we only have two witnesses, this forces a multiset-equality check `{val_a} == {val_b}`, which should fail.
+        builder.assign_tag(a_idx, first_tag);
+        builder.assign_tag(b_idx, second_tag);
+
+        // Use the variables in gates so they appear in the trace
+        builder.create_add_gate(
+            { a_idx, builder.zero_idx(), builder.zero_idx(), FF::one(), FF::zero(), FF::zero(), -val_a });
+        builder.create_add_gate(
+            { b_idx, builder.zero_idx(), builder.zero_idx(), FF::one(), FF::zero(), FF::zero(), -val_b });
+
+        // Add required pairing points for Ultra circuits
+        set_default_pairing_points_and_ipa_claim_and_proof(builder);
+        // prove and verify
+        prove_and_verify(builder, /*expected_result=*/false);
     }
 }
