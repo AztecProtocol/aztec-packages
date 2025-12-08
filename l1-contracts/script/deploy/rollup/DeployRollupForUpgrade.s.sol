@@ -44,7 +44,7 @@ contract DeployRollupForUpgrade is Script {
         rollupOutput = DeployRollupLib.deployRollup(input, rollupConfig);
         vm.stopBroadcast();
 
-        string memory finalJson = DeployRollupLib.writeRollupAddressesToJson("rollup", rollupOutput);
+        string memory finalJson = DeployRollupLib.writeRollupAddressesToJson(vm, "rollup", rollupOutput);
         vm.writeJson(finalJson, outputPath);
     }
 

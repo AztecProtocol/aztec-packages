@@ -49,8 +49,6 @@ struct RollupAddressOutput {
 /// @author Aztec Labs
 /// @notice Library for deploying rollup contracts. Used by DeployL1Contracts and DeployRollupForUpgrade.
 library DeployRollupLib {
-    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-
     function deployRollup(RollupAddressInput memory input, RollupConfiguration config)
         internal
         returns (RollupAddressOutput memory output)
@@ -65,7 +63,7 @@ library DeployRollupLib {
         _transferOwnership(input, output.rollup);
     }
 
-    function writeRollupAddressesToJson(string memory jsonKey, RollupAddressOutput memory output)
+    function writeRollupAddressesToJson(Vm vm, string memory jsonKey, RollupAddressOutput memory output)
         internal
         returns (string memory)
     {

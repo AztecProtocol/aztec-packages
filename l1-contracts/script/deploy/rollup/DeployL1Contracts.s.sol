@@ -334,7 +334,7 @@ contract DeployL1Contracts is Script, Test {
         vm.serializeAddress(json, "stakingAssetHandlerAddress", address(stakingAssetHandler));
         vm.serializeAddress(json, "zkPassportVerifierAddress", address(mockZkPassportVerifier));
         // Rollup-related addresses
-        string memory finalJson = DeployRollupLib.writeRollupAddressesToJson(json, rollupOutput);
+        string memory finalJson = DeployRollupLib.writeRollupAddressesToJson(vm, json, rollupOutput);
         vm.writeJson(finalJson, _outputPath);
     }
 
