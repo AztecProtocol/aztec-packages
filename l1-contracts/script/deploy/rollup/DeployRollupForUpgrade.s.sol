@@ -12,7 +12,7 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
-import {DeployRollup, RollupDeploymentInput} from "./DeployRollup.s.sol";
+import {DeployRollup, RollupAddressInput} from "./DeployRollup.s.sol";
 import {RollupConfiguration} from "./RollupConfiguration.sol";
 
 /// @title DeployRollupForUpgrade
@@ -30,59 +30,34 @@ import {RollupConfiguration} from "./RollupConfiguration.sol";
 /// - GOVERNANCE_ADDRESS: Existing Governance contract address
 /// - FEE_ASSET_ADDRESS: Existing fee asset ERC20 address
 /// - STAKING_ASSET_ADDRESS: Existing staking asset ERC20 address
-/// - DEPLOYER_ADDRESS: (optional) Address performing the deployment
 contract DeployRollupForUpgrade is Script {
-    /// @notice Input: L1 infrastructure addresses (loaded from env)
-    RollupDeploymentInput public input;
-
-    /// @notice Rollup deployer helper
+    /// @notice Rollup deployer script instance.
     DeployRollup public rollupDeployer;
-
-    function setUp() public virtual {
-        input.deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
-    }
 
     /// @notice Deploy rollup and write output to file
     function run(string memory outputPath) public {
-        _parseInputAddresses();
         RollupConfiguration rollupConfig = new RollupConfiguration();
         rollupConfig.loadConfig();
-
-        _deployRollupViaHelper(rollupConfig);
-
-        _writeDeploymentOutput(outputPath);
-    }
-
-    /// @notice Deploy rollup without writing output
-    function run() public {
-        _parseInputAddresses();
-        RollupConfiguration rollupConfig = new RollupConfiguration();
-        rollupConfig.loadConfig();
-
-        _deployRollupViaHelper(rollupConfig);
+        rollupDeployer = new DeployRollup();
+        rollupDeployer.setEnv(_getRollupAddressInput());
+        rollupDeployer.deployRollup(rollupConfig);
+        string memory finalJson = rollupDeployer.writeRollupAddressesToJson("rollup");
+        vm.writeJson(finalJson, outputPath);
     }
 
     /// @notice Parse existing L1 infrastructure from environment variables
-    function _parseInputAddresses() internal {
-        input.registry = Registry(vm.envAddress("REGISTRY_ADDRESS"));
-        input.gse = GSE(vm.envAddress("GSE_ADDRESS"));
-        input.governance = Governance(vm.envAddress("GOVERNANCE_ADDRESS"));
-        input.feeAsset = IERC20(vm.envAddress("FEE_ASSET_ADDRESS"));
-        input.stakingAsset = IERC20(vm.envAddress("STAKING_ASSET_ADDRESS"));
-        input.rewardDistributor = RewardDistributor(address(input.registry.getRewardDistributor()));
-    }
-
-    /// @notice Deploy rollup via DeployRollup helper
-    function _deployRollupViaHelper(RollupConfiguration rollupConfig) internal {
-        rollupDeployer = new DeployRollup();
-        rollupDeployer.setEnv(input);
-        rollupDeployer.deployRollupWithConfig(rollupConfig);
-    }
-
-    /// @notice Write deployment output to JSON file
-    function _writeDeploymentOutput(string memory outputPath) internal {
-        string memory json = "rollup";
-        string memory finalJson = rollupDeployer.writeRollupAddressesToJson(json);
-        vm.writeJson(finalJson, outputPath);
+    function _getRollupAddressInput() internal returns (RollupAddressInput memory) {
+        return RollupAddressInput({
+            // the --private-key passed to forge script:
+            deployer: msg.sender,
+            registry: Registry(vm.envAddress("REGISTRY_ADDRESS")),
+            gse: GSE(vm.envAddress("GSE_ADDRESS")),
+            governance: Governance(vm.envAddress("GOVERNANCE_ADDRESS")),
+            feeAsset: IERC20(vm.envAddress("FEE_ASSET_ADDRESS")),
+            stakingAsset: IERC20(vm.envAddress("STAKING_ASSET_ADDRESS")),
+            rewardDistributor: RewardDistributor(
+                address(Registry(vm.envAddress("REGISTRY_ADDRESS")).getRewardDistributor())
+            )
+        });
     }
 }

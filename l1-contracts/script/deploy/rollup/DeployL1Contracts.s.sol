@@ -240,16 +240,7 @@ contract DeployL1Contracts is Script, Test {
             stakingAsset: stakingAsset,
             rewardDistributor: rewardDistributor
         }));
-        // Deploy rollup contracts without registration or ownership transfer
-        // We handle those steps here since we're in the broadcast context
-        rollupDeployer.deployRollupWithConfigNoRegister(config.rollupConfig());
-
-        // Register the rollup (deployer currently owns registry/GSE)
-        registry.addRollup(rollupDeployer.rollup());
-        gseContract.addRollup(address(rollupDeployer.rollup()));
-
-        // Transfer rollup ownership to governance
-        rollupDeployer.rollup().transferOwnership(address(governance));
+        rollupDeployer.deployRollup(config.rollupConfig());
     }
 
     /// @notice Deploy date gated relayer contract

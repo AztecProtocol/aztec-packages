@@ -30,7 +30,7 @@ import {HonkVerifier} from "../../../generated/HonkVerifier.sol";
 import {RollupConfiguration} from "./RollupConfiguration.sol";
 
 /// @notice Input addresses required for rollup deployment (existing L1 infrastructure)
-struct RollupDeploymentInput {
+struct RollupAddressInput {
     address deployer;
     Registry registry;
     GSE gse;
@@ -52,9 +52,11 @@ struct RollupDeploymentOutput {
 /// @notice Core rollup deployment logic used by DeployL1Contracts and DeployRollupForUpgrade.
 /// This contract handles the actual deployment of rollup contracts but does not provide
 /// standalone entrypoints. Use DeployRollupForUpgrade.s.sol for standalone upgrades.
+/// To use, first must call setEnv() with governance etc contracts and then
+/// deployRollup() with a RollupConfiguration instance.
 contract DeployRollup is Script, Test {
-    /// @notice Input: existing L1 infrastructure
-    RollupDeploymentInput public input;
+    /// @notice Input: existing L1 infrastructure, deployer
+    RollupAddressInput public input;
 
     /// @notice Output: newly deployed rollup contracts
     RollupDeploymentOutput public output;
@@ -72,26 +74,18 @@ contract DeployRollup is Script, Test {
 
     /// @notice Deploy rollup using provided configuration (callable after initialization)
     /// @dev Manages its own broadcast context using the deployer address
-    function deployRollupWithConfig(RollupConfiguration config) external {
-        rollupConfig = config;
-        vm.startBroadcast(input.deployer);
-        _deployRollup();
-        vm.stopBroadcast();
-    }
-
-    /// @notice Deploy rollup using provided configuration without registration or ownership transfer
-    /// @dev Used when called from DeployL1Contracts, which handles registration and ownership itself
-    function deployRollupWithConfigNoRegister(RollupConfiguration config) external {
+    function deployRollup(RollupConfiguration config) external {
         rollupConfig = config;
         rollupConfig.validateConfig();
-
+        vm.startBroadcast(input.deployer);
         _deployVerifier();
         _deployRollupContract();
         _maybeMintInitialFeeAsset();
         _deploySlashFactory();
+        _maybeRegisterRollup();
         _maybeAddInitialValidators();
-
-        // Skip registration and ownership transfer - caller handles these
+        _transferOwnership();
+        vm.stopBroadcast();
     }
 
     /// @notice Write rollup-specific addresses to an existing JSON string
@@ -108,20 +102,6 @@ contract DeployRollup is Script, Test {
     /// @notice Get the deployed rollup contract
     function rollup() external view returns (Rollup) {
         return output.rollup;
-    }
-
-    // ============ Internal Deployment Steps ============
-
-    function _deployRollup() internal {
-        rollupConfig.validateConfig();
-
-        _deployVerifier();
-        _deployRollupContract();
-        _maybeMintInitialFeeAsset();
-        _deploySlashFactory();
-        _maybeRegisterRollup();
-        _maybeAddInitialValidators();
-        _transferOwnership();
     }
 
     function _deployVerifier() internal {
