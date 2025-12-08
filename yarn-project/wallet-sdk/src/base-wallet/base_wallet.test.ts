@@ -1,9 +1,10 @@
 import type { Account } from '@aztec/aztec.js/account';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import type { Aliased } from '@aztec/aztec.js/wallet';
+import type { Aliased, PrivateEvent } from '@aztec/aztec.js/wallet';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
-import { PXE, type PrivateEvent } from '@aztec/pxe/server';
+import { PXE, type PackedPrivateEvent } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
@@ -51,12 +52,11 @@ describe('BaseWallet', () => {
   }
 
   // eslint-disable-next-line jsdoc/require-jsdoc
-  async function privateEventFor(serial: Fr[]): Promise<PrivateEvent> {
+  function privateEventFor(serial: Fr[]): PackedPrivateEvent {
     return {
       packedEvent: serial,
-      recipient: await AztecAddress.random(),
-      blockHash: L2BlockHash.random(),
-      blockNumber: 42,
+      l2BlockHash: L2BlockHash.random(),
+      l2BlockNumber: BlockNumber(42),
       txHash: TxHash.random(),
       eventSelector: TokenContract.events.Transfer.eventSelector,
     };
@@ -72,21 +72,38 @@ describe('BaseWallet', () => {
     const transfer1Serialized: Fr[] = encodeTransfer(transfer1);
     const transfer2Serialized: Fr[] = encodeTransfer(transfer2);
 
-    pxe.getPrivateEvents.mockResolvedValue([
-      await privateEventFor(transfer1Serialized),
-      await privateEventFor(transfer2Serialized),
-    ]);
+    const packedPrivateEventTransfer1: PackedPrivateEvent = privateEventFor(transfer1Serialized);
+    const packedPrivateEventTransfer2: PackedPrivateEvent = privateEventFor(transfer2Serialized);
+
+    const privateEventTransfer1: PrivateEvent<Transfer> = {
+      event: transfer1,
+      metadata: {
+        l2BlockNumber: packedPrivateEventTransfer1.l2BlockNumber,
+        l2BlockHash: packedPrivateEventTransfer1.l2BlockHash,
+        txHash: packedPrivateEventTransfer1.txHash,
+      },
+    };
+
+    const privateEventTransfer2: PrivateEvent<Transfer> = {
+      event: transfer2,
+      metadata: {
+        l2BlockNumber: packedPrivateEventTransfer2.l2BlockNumber,
+        l2BlockHash: packedPrivateEventTransfer2.l2BlockHash,
+        txHash: packedPrivateEventTransfer2.txHash,
+      },
+    };
+
+    pxe.getPrivateEvents.mockResolvedValue([packedPrivateEventTransfer1, packedPrivateEventTransfer2]);
 
     const basicWallet = new BasicWallet(pxe, node);
 
-    const events = await basicWallet.getPrivateEvents<Transfer>(
-      await AztecAddress.random(),
-      TokenContract.events.Transfer,
-      42,
-      1,
-      [await AztecAddress.random()],
-    );
+    const events = await basicWallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {
+      contractAddress: await AztecAddress.random(),
+      fromBlock: BlockNumber(42),
+      toBlock: BlockNumber(43),
+      scopes: [await AztecAddress.random()],
+    });
 
-    expect(events).toEqual([transfer1, transfer2]);
+    expect(events).toEqual([privateEventTransfer1, privateEventTransfer2]);
   });
 });
