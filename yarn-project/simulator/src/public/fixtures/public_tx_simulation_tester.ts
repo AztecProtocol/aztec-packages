@@ -42,6 +42,7 @@ const defaultConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
   collectCallMetadata: true,
   collectDebugLogs: true,
   collectHints: false,
+  collectPublicInputs: false,
   collectStatistics: false,
 });
 

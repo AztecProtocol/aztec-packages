@@ -445,6 +445,7 @@ struct PublicSimulatorConfig {
     bool skip_fee_enforcement = false;
     bool collect_call_metadata = false;
     bool collect_hints = false;
+    bool collect_public_inputs = false;
     bool collect_debug_logs = false;
     bool collect_statistics = false;
     CollectionLimitsConfig collection_limits;
@@ -455,6 +456,7 @@ struct PublicSimulatorConfig {
                               skip_fee_enforcement,
                               collect_call_metadata,
                               collect_hints,
+                              collect_public_inputs,
                               collect_debug_logs,
                               collect_statistics,
                               collection_limits);
@@ -530,20 +532,34 @@ struct CallStackMetadata {
                               num_nested_calls);
 };
 
+struct PublicTxEffect {
+    FF transaction_fee;
+    std::vector<FF> note_hashes;
+    std::vector<FF> nullifiers;
+    std::vector<ScopedL2ToL1Message> l2_to_l1_msgs;
+    std::vector<PublicLog> public_logs;
+    std::vector<PublicDataWrite> public_data_writes;
+
+    bool operator==(const PublicTxEffect& other) const = default;
+
+    MSGPACK_CAMEL_CASE_FIELDS(transaction_fee, note_hashes, nullifiers, l2_to_l1_msgs, public_logs, public_data_writes);
+};
+
 struct TxSimulationResult {
     // Simulation.
     GasUsed gas_used;
     RevertCode revert_code;
+    PublicTxEffect public_tx_effect;
     // The following fields are only guaranteed to be present if the simulator is configured to collect them.
     std::vector<CallStackMetadata> call_stack_metadata; // One per enqueued call. All phases.
     std::optional<std::vector<DebugLog>> logs;
     // Proving request data.
-    PublicInputs public_inputs;
+    std::optional<PublicInputs> public_inputs;
     std::optional<ExecutionHints> hints;
 
     bool operator==(const TxSimulationResult& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(gas_used, revert_code, call_stack_metadata, logs, public_inputs, hints);
+    MSGPACK_CAMEL_CASE_FIELDS(gas_used, revert_code, public_tx_effect, call_stack_metadata, logs, public_inputs, hints);
 };
 
 } // namespace bb::avm2

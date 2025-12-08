@@ -523,7 +523,7 @@ export class PublicProcessor implements Traceable {
 
     const result = await this.publicTxSimulator.simulate(tx);
     // TODO: use the callStackMetadata here to extract more data about public execution
-    const { hints, publicInputs, gasUsed, revertCode /*callStackMetadata*/ } = result;
+    const { hints, publicInputs, publicTxEffect, gasUsed, revertCode /*callStackMetadata*/ } = result;
 
     const contractClassLogs = revertCode.isOK()
       ? tx.getContractClassLogs()
@@ -542,10 +542,15 @@ export class PublicProcessor implements Traceable {
     const appLogicReturnValues: NestedProcessReturnValues[] = result.getAppLogicReturnValues();
     // Extract the revert reason from the call stack metadata.
     const revertReason = result.findRevertReason();
+    // Create proving request if we have hints and public inputs.
+    const avmProvingRequest =
+      hints && publicInputs ? PublicProcessor.generateProvingRequest(publicInputs, hints) : undefined;
 
     const processedTx = makeProcessedTxFromTxWithPublicCalls(
       tx,
-      PublicProcessor.generateProvingRequest(publicInputs, hints),
+      this.globalVariables,
+      avmProvingRequest,
+      publicTxEffect,
       gasUsed,
       revertCode,
       revertReason,

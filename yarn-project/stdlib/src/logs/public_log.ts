@@ -172,6 +172,13 @@ export class PublicLog {
     return new PublicLog(reader.readObject(AztecAddress), reader.readArray(fieldsLength, Fr));
   }
 
+  static fromPlainObject(obj: any): PublicLog {
+    return new PublicLog(
+      AztecAddress.fromPlainObject(obj.contractAddress),
+      obj.fields.map((f: any) => Fr.fromPlainObject(f)),
+    );
+  }
+
   static async random() {
     return new PublicLog(
       await AztecAddress.random(),
