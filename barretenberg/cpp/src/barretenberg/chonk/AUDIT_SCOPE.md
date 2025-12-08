@@ -79,11 +79,17 @@
 - [ ] `check_degree_identity`: Thakur degree bound
 - [ ] PREPEND vs APPEND mode handling
 
-### 4. Databus (`relations/databus_lookup_relation.hpp`)
+### 4. Databus (`relations/databus_lookup_relation.hpp`) ✅ PARTIALLY VERIFIED
 
-- [ ] Lookup relation: $\sum \frac{a_i}{b_i + i\beta + \gamma} - \frac{q_{busread,i}}{w_{1,i} + w_{2,i}\beta + \gamma} = 0$
-- [ ] `read_tags` / `read_counts` handling
-- [ ] Dynamic indexing security
+**Unit tests added**: `databus_lookup_relation_consistency.test.cpp`
+
+- [x] Lookup relation arithmetic matches reference implementation
+- [x] `read_tags` boolean constraint enforced (tag² - tag = 0)
+- [x] Inverse correctness: I × read_term × write_term - inverse_exists = 0
+- [x] Mismatched read/write terms detected by lookup subrelation
+- [x] Inactive gates (selectors = 0) produce zero subrelations
+- [ ] Dynamic indexing security (higher-level integration)
+- [ ] Commitment propagation between circuits
 
 ### 5. Chonk Orchestration (`chonk/`)
 
@@ -207,7 +213,7 @@ Issues identified during code review that need addressing:
 | Accumulator structure concept | `hypernova_prover.hpp` | ✓ Done |
 | Tuple return `(bool, bool, Accumulator)` unclear | `hypernova_verifier.hpp:verify_folding_proof` | ✓ Done |
 | Multilinear batching relation purpose | `multilinear_batching_relation.hpp` | ✓ Done |
-| Databus lookup relation | `databus_lookup_relation.hpp` | ✓ Well documented |
+| Databus lookup relation | `databus_lookup_relation.hpp` | ✓ Well documented + unit tests |
 
 ### Medium Priority (Function Docs)
 

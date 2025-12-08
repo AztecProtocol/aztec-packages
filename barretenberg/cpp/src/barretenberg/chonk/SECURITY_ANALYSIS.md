@@ -28,6 +28,19 @@ The following tests pin transcript structure to detect accidental changes:
 | `chonk_transcript_manifest.test.cpp` | `TranscriptCountDuringAccumulationPinned` | Exact transcript count during 2-app IVC (14 total) |
 | `chonk_transcript_manifest.test.cpp` | `ChonkRecursiveVerifierTranscriptCountPinned` | Exact transcript count during recursive verification (4 total) |
 
+### Databus Lookup Relation Tests ✅
+
+Unit tests verifying `DatabusLookupRelation` arithmetic correctness:
+
+| Test Location | Test Name | What's Verified |
+|--------------|-----------|-----------------|
+| `databus_lookup_relation_consistency.test.cpp` | `RandomInputs` | Optimized implementation matches reference implementation |
+| `databus_lookup_relation_consistency.test.cpp` | `BooleanReadTagsPass` | read_tag ∈ {0,1} satisfies boolean constraint |
+| `databus_lookup_relation_consistency.test.cpp` | `NonBooleanReadTagsFail` | Non-boolean read_tags produce non-zero subrelation |
+| `databus_lookup_relation_consistency.test.cpp` | `InactiveGates` | All subrelations zero when selectors inactive |
+| `databus_lookup_relation_consistency.test.cpp` | `ValidInverseComputation` | Correct inverse I = 1/(read_term × write_term) satisfies relation |
+| `databus_lookup_relation_consistency.test.cpp` | `MismatchedReadWriteTerms` | Lookup subrelation catches value/index mismatches |
+
 ### Transcript Count Breakdown
 
 **IVC Accumulation (2 apps, 7 circuits)**: `[0, 3, 0, 3, 3, 3, 2]` = 14 transcripts
@@ -88,15 +101,25 @@ kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
 
 ---
 
-### 3. Databus Consistency Checks (MEDIUM RISK)
+### 3. Databus Consistency Checks ✅ PARTIALLY VERIFIED
 
-**Location**: `chonk.cpp:173-175, 540-541`
+**Status**: Relation arithmetic verified via unit tests
+
+**Location**: `chonk.cpp:173-175, 540-541`, `relations/databus_lookup_relation.hpp`
 
 **Mechanism**:
 - Kernels verify that `kernel_return_data` from previous kernel matches `calldata` commitment of current circuit
 - Uses `incomplete_assert_equal()` for point comparison
+- `DatabusLookupRelation` enforces log-derivative lookup with 9 subrelations (3 per bus column)
 
-**Review Points**:
+**What's Tested** (via `databus_lookup_relation_consistency.test.cpp`):
+- [x] Relation arithmetic matches simple reference implementation
+- [x] Boolean constraint on read_tags enforced (tag² - tag = 0)
+- [x] Inverse correctness: I × read_term × write_term - inverse_exists = 0
+- [x] Lookup subrelation detects value/index mismatches
+- [x] Inactive gates produce zero subrelations
+
+**Remaining Review Points**:
 - [ ] Verify `incomplete_assert_equal` is complete for all cases
 - [ ] Check native `==` operator handles edge cases (infinity, different representations)
 - [ ] Ensure commitments cannot be manipulated to pass checks with wrong data
@@ -189,7 +212,7 @@ bool translator_verified = translator_verifier.verify_proof(
 |-----------|------------|--------|-------------|
 | Transcript Binding | Medium-High | ✅ VERIFIED | Structure pinned, count pinned |
 | Accumulator Hash | Medium-High | ⚠️ NEEDS REVIEW | Hash completeness, collision resistance |
-| Databus Consistency | Medium | ⚠️ NEEDS REVIEW | Infinity point handling |
+| Databus Consistency | Medium | ✅ PARTIALLY | Relation arithmetic verified, commitment checks need review |
 | Merge Table Linking | High | ⚠️ NEEDS REVIEW | Initial state, public input forgery |
 | Decider PCS | Medium | ✅ PARTIALLY | Manifest pinned |
 | ZK Hiding | Low-Medium | ⚠️ NEEDS REVIEW | Randomness quality |
@@ -291,8 +314,11 @@ the accumulator and instance claims.
 - `goblin/merge_verifier.hpp` - Merge protocol
 - `multilinear_batching/multilinear_batching_claims.hpp` - Accumulator claim structure
 - `stdlib/special_public_inputs/special_public_inputs.hpp` - KernelIO structure
+- `relations/databus_lookup_relation.hpp` - Databus lookup relation implementation
+- `relations/databus_lookup_relation_consistency.test.cpp` - Databus relation unit tests
 
 ---
 
 *Analysis conducted: 2025-12-04*
 *Transcript pinning tests added: 2025-12-05*
+*Databus relation unit tests added: 2025-12-08*
