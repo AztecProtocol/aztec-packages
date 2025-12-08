@@ -15,9 +15,24 @@ import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {DeploymentOptions} from "./IDeploymentConfiguration.sol";
 
-contract RollupConfiguration is Test {
+interface IRollupConfiguration {
+    function loadConfig() external;
+    function useRealVerifier() external view returns (bool);
+    function shouldFundRewardDistributor() external view returns (bool);
+    function getFeeJuicePortalInitialBalance() external view returns (uint256);
+    function getEarliestRewardsClaimableTimestamp() external view returns (Timestamp);
+    function getGenesisState() external view returns (GenesisState memory);
+    function getRewardConfiguration(IRewardDistributor rewardDistributor) external view returns (RewardConfig memory);
+    function getRewardBoostConfiguration() external pure returns (RewardBoostConfig memory);
+    function getStakingQueueConfiguration() external view returns (StakingQueueConfig memory);
+    function getRollupConfiguration(IRewardDistributor rewardDistributor) external view returns (RollupConfigInput memory);
+    function getRewardDistributorFunding() external view returns (uint256);
+    function parseValidators() external view returns (CheatDepositArgs[] memory);
+    function validateConfig() external view;
+}
+
+contract RollupConfiguration is IRollupConfiguration, Test {
     using stdJson for string;
 
     // Storage for loaded config
@@ -37,7 +52,7 @@ contract RollupConfiguration is Test {
         return vm.envOr("FUND_REWARD_DISTRIBUTOR", false);
     }
 
-    uint256 getFeeJuicePortalInitialBalance() external view returns (uint256) {
+    function getFeeJuicePortalInitialBalance() external view returns (uint256) {
         return vm.envOr("FEE_JUICE_PORTAL_INITIAL_BALANCE", uint256(0));
     }
 
@@ -48,7 +63,7 @@ contract RollupConfiguration is Test {
             return Timestamp.wrap(block.timestamp + 90 days);
         } else {
             return Timestamp.wrap(0);
-        }A
+        }
     }
 
     function getGenesisState() external view returns (GenesisState memory) {
@@ -275,44 +290,27 @@ contract RollupConfiguration is Test {
     // ============ Configuration Validation ============
 
     /**
-     * @notice Validates invariants about the deployment. Reverts if any are violated.
+     * @notice Validates rollup-specific configuration invariants. Reverts if any are violated.
      */
-    function validateConfig(IRewardDistributor _rewardDistributor) external view {
-        // Get configuration values
+    function validateConfig() external view {
         StakingQueueConfig memory stakingQueueConfig = this.getStakingQueueConfiguration();
-        GovernanceProposerConfiguration memory govPropConfig = this.getGovernanceProposerConfiguration();
-        GseConfiguration memory gseConfig = this.getGseConfiguration();
-        RollupConfigInput memory rollupConfig = this.getRollupConfiguration(_rewardDistributor);
-
-        uint256 aztecSlotDuration = rollupConfig.aztecSlotDuration;
-        uint256 aztecEpochDuration = rollupConfig.aztecEpochDuration;
-        uint256 aztecTargetCommitteeSize = rollupConfig.aztecTargetCommitteeSize;
-        uint256 slashingRoundSizeInEpochs = rollupConfig.slashingRoundSizeInEpochs;
-        uint256 slashingLifetimeInRounds = rollupConfig.slashingLifetimeInRounds;
-        uint256 slashingExecutionDelayInRounds = rollupConfig.slashingExecutionDelayInRounds;
         uint256 slashingQuorum = _getSlashingQuorum();
         uint256 slashingRoundSize = _getSlashingRoundSize();
         uint256[3] memory slashAmounts = _getSlashAmounts();
         SlasherFlavor slasherFlavor = _getSlasherFlavor();
         uint256 slashingOffsetInRounds = _getSlashingOffset();
 
+        uint256 aztecSlotDuration = vm.envOr("AZTEC_SLOT_DURATION", uint256(36));
+        uint256 aztecEpochDuration = vm.envOr("AZTEC_EPOCH_DURATION", uint256(32));
+        uint256 aztecTargetCommitteeSize = vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48));
+        uint256 slashingRoundSizeInEpochs = vm.envOr("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
+        uint256 slashingLifetimeInRounds = vm.envOr("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", uint256(5));
+        uint256 slashingExecutionDelayInRounds = vm.envOr("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS", uint256(0));
+
         // RollupCore constructor validation: normalFlushSizeMin > 0
         require(
             stakingQueueConfig.normalFlushSizeMin > 0,
             "validateConfig: normalFlushSizeMin must be greater than 0"
-        );
-
-        // EmpireBase constructor validations for governance proposers
-        // require(QUORUM_SIZE > ROUND_SIZE / 2)
-        require(
-            govPropConfig.quorum > govPropConfig.roundSize / 2,
-            "validateConfig: governanceProposerQuorum must be greater than half of roundSize"
-        );
-
-        // require(QUORUM_SIZE <= ROUND_SIZE)
-        require(
-            govPropConfig.quorum <= govPropConfig.roundSize,
-            "validateConfig: governanceProposerQuorum cannot be larger than roundSize"
         );
 
         // Slashing quorum validations
@@ -330,12 +328,6 @@ contract RollupConfiguration is Test {
         require(
             slashingLifetimeInRounds > slashingExecutionDelayInRounds,
             "validateConfig: slashingLifetimeInRounds must be greater than slashingExecutionDelayInRounds"
-        );
-
-        // Staking asset validation: activationThreshold >= ejectionThreshold
-        require(
-            gseConfig.activationThreshold >= gseConfig.ejectionThreshold,
-            "validateConfig: activationThreshold must be >= ejectionThreshold"
         );
 
         // Basic positive checks

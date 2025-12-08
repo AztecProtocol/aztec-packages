@@ -87,8 +87,8 @@ contract DeployL1ContractsScriptTest is Test {
         assertTrue(inboxAddress != address(0), "Inbox should be deployed");
         assertTrue(outboxAddress != address(0), "Outbox should be deployed");
         assertTrue(feeAssetPortalAddress != address(0), "FeeAssetPortal should be deployed");
-        // Note: rollupVersion starts at 0 for genesis, increments with upgrades
-        assertTrue(rollupVersion == 0, "Rollup version should be 0 at genesis");
+        // Note: rollupVersion is computed as a hash of config + genesis state
+        assertTrue(rollupVersion != 0, "Rollup version should be set");
 
         // Verify contract relationships
         Rollup rollup = Rollup(rollupAddress);
