@@ -456,24 +456,23 @@ template <typename Flavor> class SumcheckProver {
                     index_1_challenge[i] = multivariate_challenge[i];
                 }
                 index_1_challenge[k] = FF(1);
-                if (partially_evaluated_polynomials.w_evaluations_accumulator.size() == 1) {
+                if (partially_evaluated_polynomials.eq_accumulator.size() == 1) {
 
                     // We need to reallocate the polynomials
                     auto new_polynomial =
-                        Polynomial<FF>(2, partially_evaluated_polynomials.w_evaluations_accumulator.virtual_size());
-                    new_polynomial.at(0) = partially_evaluated_polynomials.w_evaluations_accumulator.at(0);
-                    partially_evaluated_polynomials.w_evaluations_accumulator = new_polynomial;
+                        Polynomial<FF>(2, partially_evaluated_polynomials.eq_accumulator.virtual_size());
+                    new_polynomial.at(0) = partially_evaluated_polynomials.eq_accumulator.at(0);
+                    partially_evaluated_polynomials.eq_accumulator = new_polynomial;
                 }
-                if (partially_evaluated_polynomials.w_evaluations_instance.size() == 1) {
+                if (partially_evaluated_polynomials.eq_instance.size() == 1) {
                     // We need to reallocate the polynomials
-                    auto new_polynomial =
-                        Polynomial<FF>(2, partially_evaluated_polynomials.w_evaluations_instance.virtual_size());
-                    new_polynomial.at(0) = partially_evaluated_polynomials.w_evaluations_instance.at(0);
-                    partially_evaluated_polynomials.w_evaluations_instance = new_polynomial;
+                    auto new_polynomial = Polynomial<FF>(2, partially_evaluated_polynomials.eq_instance.virtual_size());
+                    new_polynomial.at(0) = partially_evaluated_polynomials.eq_instance.at(0);
+                    partially_evaluated_polynomials.eq_instance = new_polynomial;
                 }
-                partially_evaluated_polynomials.w_evaluations_accumulator.at(1) =
+                partially_evaluated_polynomials.eq_accumulator.at(1) =
                     VerifierEqPolynomial<FF>::eval(accumulator_challenge, index_1_challenge);
-                partially_evaluated_polynomials.w_evaluations_instance.at(1) =
+                partially_evaluated_polynomials.eq_instance.at(1) =
                     VerifierEqPolynomial<FF>::eval(instance_challenge, index_1_challenge);
                 index_1_challenge[k] = FF(0);
             }
