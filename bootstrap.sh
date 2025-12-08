@@ -19,16 +19,19 @@ export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
 function cleanup {
   set +e
   if [ -n "${test_engine_pid:-}" ]; then
+    echo "Sending SIGTERM to test engine process group..."
     kill -SIGTERM -- -$test_engine_pgid &>/dev/null
     wait $test_engine_pid
     test_engine_pid=
   fi
   if [ -n "${make_pid:-}" ]; then
+    echo "Sending SIGTERM to make process..."
     kill -SIGTERM $make_pid &>/dev/null
     wait $make_pid
     make_pid=
   fi
   if [ -n "${txe_pids:-}" ]; then
+    echo "Sending SIGTERM to TXE processes..."
     kill -SIGTERM $txe_pids &>/dev/null
     wait $txe_pids
     txe_pids=
@@ -230,7 +233,7 @@ function test_engine_start {
   # parallel will only process the result of job N when it receives a new job *after* job N has completed.
   # This can prevent a "fail fast" situation, or prevent the results from the first batch of commands from showing up.
   # Empty commands fed to run_test_cmd are no-ops, so we keep parallel processing results in timely fashion with this.
-  while ! grep -E '^STOP$' $test_cmds_file; do sleep 5; echo >> $test_cmds_file; done &
+  while ! grep -E '^STOP$' $test_cmds_file; do sleep 5; echo | atomic_append $test_cmds_file; done &
   # Continuously stream the test cmds into parallelize.
   DENOISE=0 parallelize < <(tail -n+0 -f $test_cmds_file)
 }
