@@ -145,19 +145,29 @@ A_i.return_data     → K_i.secondary_calldata  (verified via incomplete_assert_
 
 ---
 
-### 4. Merge Protocol and Table Commitment Linking (HIGH RISK)
+### 4. Merge Protocol and Table Commitment Linking ✅ PARTIALLY VERIFIED
 
-**Location**: `chonk.cpp:204, 276-277, 544-548`
+**Location**: `chonk.cpp:204, 276-277, 527-534`, `goblin/MERGE_PROTOCOL.md`
 
 **Mechanism**:
 - ECC op table commitments (`t_commitments`) extracted from witness commitments
 - `T_prev_commitments` passed between kernels via public inputs
-- Merge verifier checks concatenation: T_new = T_prev || t (or t || T_prev for APPEND)
+- Merge verifier checks concatenation: T_new = T_prev || t (PREPEND) or T_prev || t (APPEND)
+- APPEND mode used for hiding kernel to place random ops at table boundaries
+
+**Constant shift_size for ZK** (verified via assertion in `chonk.cpp:531-534`):
+- [x] Hiding kernel must have constant ultra ops count (`CONST_HIDING_KERNEL_ULTRA_OPS = 124` in `constants.hpp`)
+- [x] `shift_size = (OP_QUEUE_SIZE - hiding_subtable_size) * NUM_ROWS_PER_OP` is constant
+- [x] Assertion added: `BB_ASSERT_EQ(hiding_kernel_ultra_ops, CONST_HIDING_KERNEL_ULTRA_OPS, ...)`
+- [x] Degree check ensures L polynomial is zero-padded up to shift_size
+
+**Padding enforced to be zero**:
+- [x] Merge degree check: `deg(L) < shift_size` via Thakur degree bound protocol
+- [x] Translator zero constraints: `TranslatorZeroConstraintsRelation` enforces zeros outside minicircuit
 
 **Review Points**:
 - [ ] Verify initial T_prev cannot be manipulated
 - [ ] Check that T_prev from public inputs cannot be forged
-- [ ] Ensure Merge verifier checks are complete (degree check, concatenation identity)
 
 ---
 
@@ -177,14 +187,21 @@ A_i.return_data     → K_i.secondary_calldata  (verified via incomplete_assert_
 
 ---
 
-### 6. ZK Hiding Operations (LOW-MEDIUM RISK)
+### 6. ZK Hiding Operations ✅ PARTIALLY VERIFIED
 
-**Location**: `chonk.cpp:461-490`
+**Location**: `chonk.cpp:461-490`, `goblin/MERGE_PROTOCOL.md` (ZK Considerations)
 
 **Mechanism**:
 - `hide_op_queue_accumulation_result()`: Random mul+eq to hide translator accumulated_result
 - `hide_op_queue_content_in_tail()`: 3 random ops at beginning of op queue
 - `hide_op_queue_content_in_hiding()`: 2 random ops at end of op queue
+
+**ZK Analysis** (from MERGE_PROTOCOL.md):
+- [x] 6 random ops total: 3 at start (tail), 2 at end (hiding), 1 valid ECC op (accumulator)
+- [x] Each UltraOp = 2 rows × 4 wires → 10 random coefficients per Mⱼ polynomial
+- [x] Total: 40 random coefficients across 4 wire polynomials
+- [x] Observables: ≤28 values (commitments + evaluations), rank 32 matrix → simulator exists
+- [x] Constant shift_size in APPEND mode (verified via assertion) prevents size leakage
 
 **Review Points**:
 - [ ] Verify randomness source for hiding ops
@@ -232,9 +249,9 @@ bool translator_verified = translator_verifier.verify_proof(
 | Transcript Binding | Medium-High | ✅ VERIFIED | Structure pinned, count pinned |
 | Accumulator Hash | Medium-High | ⚠️ NEEDS REVIEW | Hash completeness, collision resistance |
 | Databus Consistency | Medium | ✅ VERIFIED | Relation + point comparison tested |
-| Merge Table Linking | High | ⚠️ NEEDS REVIEW | Initial state, public input forgery |
+| Merge Table Linking | High | ✅ PARTIALLY | Constant ℓ asserted, T_prev forgery needs review |
 | Decider PCS | Medium | ✅ PARTIALLY | Manifest pinned |
-| ZK Hiding | Low-Medium | ⚠️ NEEDS REVIEW | Randomness quality |
+| ZK Hiding | Low-Medium | ✅ PARTIALLY | Constant ℓ verified, randomness source needs review |
 | Goblin Chain | High | ⚠️ NEEDS REVIEW | Cross-component data integrity |
 
 ---
@@ -321,7 +338,7 @@ the accumulator and instance claims.
 
 ## Files Reviewed
 
-- `chonk/chonk.cpp` - Main Chonk implementation
+- `chonk/chonk.cpp` - Main Chonk implementation (constant ℓ assertion added)
 - `chonk/chonk.hpp` - Chonk types and declarations
 - `chonk/chonk_transcript_manifest.test.cpp` - Transcript count pinning tests
 - `hypernova/hypernova_verifier.cpp` - Folding verification
@@ -331,13 +348,20 @@ the accumulator and instance claims.
 - `translator_vm/translator.test.cpp` - Translator manifest pinning
 - `goblin/goblin.cpp` - Goblin orchestration
 - `goblin/merge_verifier.hpp` - Merge protocol
+- `goblin/merge_prover.cpp` - Merge prover (APPEND mode fixed offset)
+- `goblin/MERGE_PROTOCOL.md` - Merge protocol documentation (ZK analysis)
 - `multilinear_batching/multilinear_batching_claims.hpp` - Accumulator claim structure
 - `stdlib/special_public_inputs/special_public_inputs.hpp` - KernelIO structure
 - `relations/databus_lookup_relation.hpp` - Databus lookup relation implementation
 - `relations/databus_lookup_relation_consistency.test.cpp` - Databus relation unit tests
+- `relations/translator_vm/translator_extra_relations_impl.hpp` - Translator zero constraints
+- `op_queue/ecc_ops_table.hpp` - Ultra ops table (fixed append offset)
+- `constants.hpp` - CONST_HIDING_KERNEL_ULTRA_OPS (source of truth for hiding kernel ultra ops)
+- `dsl/acir_format/gate_count_constants.hpp` - Re-exports CONST_HIDING_KERNEL_ULTRA_OPS for DSL
 
 ---
 
 *Analysis conducted: 2025-12-04*
 *Transcript pinning tests added: 2025-12-05*
 *Databus relation unit tests added: 2025-12-08*
+*CONST_HIDING_KERNEL_ULTRA_OPS global constant added: 2025-12-08*

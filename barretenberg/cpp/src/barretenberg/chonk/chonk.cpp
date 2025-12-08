@@ -7,6 +7,7 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
@@ -522,6 +523,16 @@ Chonk::Proof Chonk::prove()
     // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
     // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
     // evaluations of both the previous table and the incoming subtable.
+
+    // ZK CRITICAL: The hiding kernel must have a constant number of ultra ops to ensure the merge proof's
+    // shift_size (ℓ) is constant. Variable ℓ would leak information about the accumulated op queue size.
+    // shift_size = (OP_QUEUE_SIZE - hiding_subtable_size) * NUM_ROWS_PER_OP, so constant hiding_subtable_size
+    // guarantees constant shift_size. The degree check ensures L is zero-padded up to shift_size.
+    const size_t hiding_kernel_ultra_ops = goblin.op_queue->get_current_subtable_size();
+    BB_ASSERT_EQ(hiding_kernel_ultra_ops,
+                 CONST_HIDING_KERNEL_ULTRA_OPS,
+                 "Hiding kernel ultra ops count must match expected constant for ZK");
+
     return { mega_proof, goblin.prove(MergeSettings::APPEND) };
 };
 
