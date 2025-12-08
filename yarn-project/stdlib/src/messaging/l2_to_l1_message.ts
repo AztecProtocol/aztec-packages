@@ -160,6 +160,10 @@ export class ScopedL2ToL1Message {
     return new ScopedL2ToL1Message(L2ToL1Message.empty(), AztecAddress.ZERO);
   }
 
+  equals(other: ScopedL2ToL1Message): boolean {
+    return this.message.equals(other.message) && this.contractAddress.equals(other.contractAddress);
+  }
+
   /**
    * Creates a ScopedL2ToL1Message instance from a plain object without Zod validation.
    * This method is optimized for performance and skips validation, making it suitable

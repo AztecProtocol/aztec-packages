@@ -21,6 +21,7 @@ describe.each([
     collectCallMetadata: true,
     collectDebugLogs: false,
     collectHints: true,
+    collectPublicInputs: true,
     collectStatistics: false,
   });
 
@@ -42,7 +43,7 @@ describe.each([
   it('Minimal Tx avm inputs snapshot stored in Json file', async () => {
     const result = await executeAvmMinimalPublicTx(tester);
     expect(result.revertCode.isOK()).toBe(true);
-    const inputs = new AvmCircuitInputs(result.hints!, result.publicInputs);
+    const inputs = new AvmCircuitInputs(result.hints!, result.publicInputs!);
     const json = jsonStringify(inputs);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update test data
@@ -58,7 +59,7 @@ describe.each([
     // If the test data needs to be updated, run the above ^ test case
     // with AZTEC_GENERATE_TEST_DATA=1, and _then_ rerun this test and it should pass.
     const result = await executeAvmMinimalPublicTx(tester);
-    const inputs = new AvmCircuitInputs(result.hints!, result.publicInputs);
+    const inputs = new AvmCircuitInputs(result.hints!, result.publicInputs!);
     const avmInputsFromFile = readAvmMinimalPublicTxInputsFromFile();
     expect(inputs).toStrictEqual(avmInputsFromFile);
   });
@@ -67,7 +68,7 @@ describe.each([
   // which is used by the C++ tests.
   it('Minimal TX avm inputs serialized for cpp tests', async () => {
     const result = await executeAvmMinimalPublicTx(tester);
-    const buffer = new AvmCircuitInputs(result.hints!, result.publicInputs).serializeWithMessagePack();
+    const buffer = new AvmCircuitInputs(result.hints!, result.publicInputs!).serializeWithMessagePack();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update test data
     const path = 'barretenberg/cpp/src/barretenberg/vm2/testing/minimal_tx.testdata.bin';
