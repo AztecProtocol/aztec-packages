@@ -3,33 +3,12 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-//
-// Recursive Chonk verifier for in-circuit verification of Chonk IVC proofs.
-// See: chonk/README.md
-//
+
 #pragma once
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
-
-/**
- * @brief Recursive verifier for Chonk IVC proofs.
- * @details Creates circuit constraints that verify a Chonk proof, which consists of:
- *   1. MegaZK proof of the hiding kernel
- *   2. Goblin proof (Merge + ECCVM + Translator) - note: IPA is NOT verified here
- *
- * The hiding kernel proof is verified first to extract ECC op queue commitments,
- * which are then used as inputs to Goblin verification. Databus consistency is
- * checked between the kernel's return data and calldata commitments.
- *
- * Returns an Output containing deferred verification data: pairing points (BN254) and
- * an IPA claim (Grumpkin). Pairing points are aggregated at each rollup level and verified on L1.
- * IPA claims are carried in RollupIO through rollup levels, accumulated via IPA::accumulate,
- * and verified in-circuit at root rollup via IPA::full_verify_recursive.
- *
- * Uses Ultra arithmetization (the Chonk verifier circuit itself doesn't need Goblin).
- */
 class ChonkRecursiveVerifier {
     using Builder = UltraCircuitBuilder;                     // The circuit will be an Ultra circuit
     using RecursiveFlavor = MegaZKRecursiveFlavor_<Builder>; // The Hiding kernel verifier algorithm is MegaZK
@@ -47,11 +26,6 @@ class ChonkRecursiveVerifier {
     using RecursiveVKAndHash = RecursiveVerifierInstance::VKAndHash;
     using RecursiveVK = RecursiveFlavor::VerificationKey;
 
-    /**
-     * @brief Stdlib representation of a Chonk proof for recursive verification.
-     * @details Contains the proof as circuit witness elements (field_t) rather than native values.
-     * Can be constructed from a native Chonk::Proof or from a vector of field indices.
-     */
     struct StdlibProof {
         using StdlibHonkProof = bb::stdlib::Proof<Builder>;
 
@@ -65,8 +39,8 @@ class ChonkRecursiveVerifier {
             return bb::Chonk::Proof::PROOF_LENGTH(virtual_log_n);
         }
 
-        StdlibHonkProof mega_proof;     // MegaZK proof of the hiding kernel circuit
-        GoblinStdlibProof goblin_proof; // Goblin proof (Merge + ECCVM + IPA + Translator)
+        StdlibHonkProof mega_proof; // proof of the hiding circuit
+        GoblinStdlibProof goblin_proof;
 
         StdlibProof(Builder& builder, const Chonk::Proof& proof)
             : mega_proof(builder, proof.mega_proof)
