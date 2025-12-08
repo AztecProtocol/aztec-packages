@@ -123,22 +123,40 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
     return w_extended;
 }
 
+/**
+ * @brief Convert a field element to sparse form for use in the Choose function
+ *
+ * Performs a lookup to convert a normal 32-bit value to its base-28 sparse representation optimized for the
+ * Choose function's rotation requirements.
+ *
+ * @param input The field element to convert (expected to be a 32-bit value)
+ * @return sparse_value containing both normal and sparse representations
+ */
 template <typename Builder>
-SHA256<Builder>::sparse_value SHA256<Builder>::map_into_choose_sparse_form(const field_t<Builder>& e)
+SHA256<Builder>::sparse_value SHA256<Builder>::map_into_choose_sparse_form(const field_t<Builder>& input)
 {
     sparse_value result;
-    result.normal = e;
-    result.sparse = plookup_read<Builder>::read_from_1_to_2_table(SHA256_CH_INPUT, e);
+    result.normal = input;
+    result.sparse = plookup_read<Builder>::read_from_1_to_2_table(SHA256_CH_INPUT, input);
 
     return result;
 }
 
+/**
+ * @brief Convert a field element to sparse form for use in the Majority function
+ *
+ * Performs a lookup to convert a normal 32-bit value to its base-16 sparse representation optimized for the
+ * Majority function's rotation requirements.
+ *
+ * @param input The field element to convert (expected to be a 32-bit value)
+ * @return sparse_value containing both normal and sparse representations
+ */
 template <typename Builder>
-SHA256<Builder>::sparse_value SHA256<Builder>::map_into_maj_sparse_form(const field_t<Builder>& e)
+SHA256<Builder>::sparse_value SHA256<Builder>::map_into_maj_sparse_form(const field_t<Builder>& input)
 {
     sparse_value result;
-    result.normal = e;
-    result.sparse = plookup_read<Builder>::read_from_1_to_2_table(SHA256_MAJ_INPUT, e);
+    result.normal = input;
+    result.sparse = plookup_read<Builder>::read_from_1_to_2_table(SHA256_MAJ_INPUT, input);
 
     return result;
 }
@@ -235,19 +253,17 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
                                                               const std::array<field_t<Builder>, 16>& input)
 {
     typedef field_t<Builder> field_pt;
+
     /**
-     * Initialize round variables with previous block output
-     **/
-    /**
-     * We can initialize round variables a and c and put value h_init[0] and
-     * h_init[4] in .normal, and don't do lookup for maj_output, because majority and choose
-     * functions will do that in the next step
-     **/
-    sparse_value a = sparse_value(h_init[0]);
+     * Initialize round variables with previous block output.
+     * Note: We avoid doing lookups here to convert `a` and `e` into their respective sparse forms because it's done as
+     * part of the majority and choose functions in the first round.
+     */
+    sparse_value a = sparse_value(h_init[0]); // delay conversion to maj sparse form
     auto b = map_into_maj_sparse_form(h_init[1]);
     auto c = map_into_maj_sparse_form(h_init[2]);
     sparse_value d = sparse_value(h_init[3]);
-    sparse_value e = sparse_value(h_init[4]);
+    sparse_value e = sparse_value(h_init[4]); // delay conversion to choose sparse form
     auto f = map_into_choose_sparse_form(h_init[5]);
     auto g = map_into_choose_sparse_form(h_init[6]);
     sparse_value h = sparse_value(h_init[7]);

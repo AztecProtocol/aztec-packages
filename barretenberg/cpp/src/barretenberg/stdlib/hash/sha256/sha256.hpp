@@ -93,8 +93,8 @@ template <typename Builder> class SHA256 {
     static field_ct choose(sparse_value& e, const sparse_value& f, const sparse_value& g);
 
     static field_ct majority(sparse_value& a, const sparse_value& b, const sparse_value& c);
-    static sparse_value map_into_choose_sparse_form(const field_ct& e);
-    static sparse_value map_into_maj_sparse_form(const field_ct& e);
+    static sparse_value map_into_choose_sparse_form(const field_ct& input);
+    static sparse_value map_into_maj_sparse_form(const field_ct& input);
 
     static field_ct add_normalize(const field_ct& a, const field_ct& b);
 
