@@ -300,7 +300,7 @@ The key insight: circuit $K_{i+1}$ verifies the data transfer between $K_{i-1}$ 
 - Produces $R_i$ as a function of $C_i$, $C'_i$, and accumulated side effects
 - **Checks**:
   - $\pi_{i-1}.[C_{i-1}] = \pi_{i-1}.\text{PI}.[R_{i-2}]$ (kernel chain)
-  - $\pi_{i-1}.[C'_{i-1}] = \pi_{i-1}.\text{PI}.[R'_{i-1}]$ (app input)
+  - $\pi_{i-1}.[C^{\prime}_{i-1}] = \pi_{i-1}.\text{PI} . [R^{\prime}_{i-1}]$ (app input)
 - Extracts $\pi_{i-1}.[R_{i-1}]$ and $\pi'_i.[R'_i]$, adds to $\pi_i.\text{PI}$
 - $\pi_i$ contains: $[C_i]$, $[C'_i]$, $[R_i]$
 
