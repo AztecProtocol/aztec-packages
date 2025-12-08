@@ -6,12 +6,12 @@ import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
-import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
+import { Tx } from '@aztec/stdlib/tx';
 import { ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
-import { createHistogram } from 'perf_hooks';
+import { mkdir, writeFile } from 'fs/promises';
+import { dirname } from 'path';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import {
@@ -19,13 +19,14 @@ import {
   createWalletAndAztecNodeClient,
   deploySponsoredTestAccounts,
 } from './setup_test_wallets.js';
+import { TxInclusionMetrics } from './tx_metrics.js';
 import {
-  cleanHelm,
   getChartDir,
   getExternalIP,
   getGitProjectRoot,
   installChaosMeshChart,
   setupEnvironment,
+  uninstallChaosMesh,
 } from './utils.js';
 
 const config = { ...setupEnvironment(process.env) };
@@ -35,22 +36,32 @@ type BenchmarkWallet = {
   cleanup: undefined | (() => Promise<void>);
 };
 
+const tpsTargets = (process.env.TPS_TARGET ?? '')
+  .split(',')
+  .map(tpsStr => parseFloat(tpsStr))
+  .filter(tps => Number.isFinite(tps));
+
+if (tpsTargets.length === 0) {
+  throw new Error(`Environment variable TPS_TARGET is required`);
+}
+
+const maxTps = Math.max(...tpsTargets);
+
+const CHAOS_MESH_NAME = 'network-shaping';
+
 describe('sustained N TPS test', () => {
   jest.setTimeout(60 * 60 * 1000 * 3); // 3 hours
 
-  const logger = createLogger(`e2e:spartan-test:sustained-10tps`);
+  const logger = createLogger(`e2e:spartan-test:sustained-tps`);
   const TEST_DURATION_SECONDS = parseInt(process.env.TEST_DURATION_SECONDS || '600', 10);
-  const TARGET_TPS = parseInt(process.env.TARGET_TPS || '10', 10);
-  const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
-  const NUM_WALLETS = TARGET_TPS;
-  const NUM_AVAILABLE_RPCS = parseInt(process.env.RPC_REPLICAS || '1', 10);
+  const NUM_WALLETS = Math.max(1, Math.trunc(maxTps));
 
   const testAccounts: BenchmarkWallet[] = [];
   let aztecNode: AztecNode;
   let benchmarkContracts: BenchmarkingContract[] = [];
   const workers: SerialQueue = new SerialQueue();
 
-  const forwardProcesses: ChildProcess[] = [];
+  let metrics: TxInclusionMetrics;
 
   afterAll(async () => {
     for (const account of testAccounts) {
@@ -59,18 +70,26 @@ describe('sustained N TPS test', () => {
       }
       await account?.cleanup();
     }
-    forwardProcesses.forEach(p => p.kill());
     await workers.end();
+
+    if (process.env.BENCH_OUTPUT) {
+      await mkdir(dirname(process.env.BENCH_OUTPUT), { recursive: true });
+      await writeFile(process.env.BENCH_OUTPUT, JSON.stringify(metrics.toGithubActionBenchmarkJSON()));
+    }
+  });
+
+  afterAll(async () => {
+    await uninstallChaosMesh(CHAOS_MESH_NAME, config.NAMESPACE, logger);
   });
 
   beforeAll(async () => {
-    logger.info(`Starting test setup for sustained ${TARGET_TPS} TPS over ${TEST_DURATION_SECONDS} seconds...`);
+    logger.info(`Starting test setup for sustained TPS tests over ${TEST_DURATION_SECONDS} seconds...`);
 
     const spartanDir = `${getGitProjectRoot()}/spartan`;
     const chaosMeshInstallation = installChaosMeshChart({
       logger,
       targetNamespace: config.NAMESPACE,
-      instanceName: 'network-shaping',
+      instanceName: CHAOS_MESH_NAME,
       valuesFile: 'network-requirements.yaml',
       helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
     });
@@ -81,12 +100,9 @@ describe('sustained N TPS test', () => {
     const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
     const rpcUrl = `http://${rpcIP}:8080`;
     aztecNode = createAztecNodeClient(rpcUrl);
+    metrics = new TxInclusionMetrics(aztecNode);
 
     for (let i = 0; i < NUM_WALLETS; i++) {
-      logger.info(
-        `Starting port forward for PXE for wallet ${i + 1}/${NUM_WALLETS} to RPC index ${i % NUM_AVAILABLE_RPCS}`,
-      );
-
       logger.info(`Creating wallet and pxe for wallet ${i + 1}/${NUM_WALLETS}`);
       const { wallet, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
       localWallets.push(wallet);
@@ -128,19 +144,18 @@ describe('sustained N TPS test', () => {
 
     benchmarkContracts = [firstContract, ...remainingContracts];
 
-    logger.info(
-      `Test setup complete. Planning ${TOTAL_TXS} transactions over ${TEST_DURATION_SECONDS} seconds at ${TARGET_TPS} TPS`,
-    );
+    logger.info(`Test setup complete`);
 
     await chaosMeshInstallation;
-    cleanupFunctions.push(() => cleanHelm('network-shaping', config.NAMESPACE, logger));
+    cleanupFunctions.push(() => uninstallChaosMesh('network-shaping', config.NAMESPACE, logger));
   });
 
-  const submitProven = async (): Promise<[txs: SentTx[], txSendTimes: Map<string, number>]> => {
+  const submitProven = async (duration: number, tps: number): Promise<SentTx[]> => {
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
     const txs: ProvenTx[] = [];
     const txPromises = [];
-    for (let i = 0; i < TOTAL_TXS; i++) {
+    const totalTxs = duration * tps;
+    for (let i = 0; i < totalTxs; i++) {
       const workerIndex = i % NUM_WALLETS;
       const from = testAccounts[workerIndex].testAccounts.accounts[0];
       const wallet = testAccounts[workerIndex].testAccounts.wallet;
@@ -160,13 +175,12 @@ describe('sustained N TPS test', () => {
 
     const allSentTxs: SentTx[] = [];
     let sentSoFar = 0;
-    const txSendTimes = new Map<string, number>();
-    for (let sec = 0; sec < TEST_DURATION_SECONDS; sec++) {
+    for (let sec = 0; sec < duration; sec++) {
       const secondStart = Date.now();
-      const chunk = txs.splice(0, TARGET_TPS);
+      const chunk = txs.splice(0, tps);
       chunk.forEach((tx, idx) => {
         const sentTx = tx.send();
-        txSendTimes.set(tx.txHash.toString(), Date.now());
+        metrics.recordSentTx(tx, `proven_${tps}tps`);
         allSentTxs.push(sentTx);
         logger.info(`sec ${sec + 1}: sent tx ${sentSoFar + idx + 1}`);
       });
@@ -178,13 +192,14 @@ describe('sustained N TPS test', () => {
       }
     }
 
-    return [allSentTxs, txSendTimes];
+    return allSentTxs;
   };
 
-  const submitUnproven = async (): Promise<[txs: SentTx[], txSendTime: Map<string, number>]> => {
+  const submitUnproven = async (duration: number, tps: number): Promise<SentTx[]> => {
     logger.info(`Creating base tx for wallets to clone...`);
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
     const baseTxPromises = [];
+    const totalTxs = duration * tps;
     for (let i = 0; i < NUM_WALLETS; i++) {
       const wallet = testAccounts[i].testAccounts.wallet;
       const from = testAccounts[i].testAccounts.accounts[0];
@@ -203,7 +218,7 @@ describe('sustained N TPS test', () => {
 
     logger.info(`Cloning and sending benchmark transactions...`);
 
-    const cloneAndSend = async (tx: ProvenTx, _index: number): Promise<[TxHash, SentTx]> => {
+    const cloneTx = async (tx: ProvenTx, _index: number): Promise<ProvenTx> => {
       // Clone the transaction
       const clonedTxData = Tx.clone(tx, false);
 
@@ -223,32 +238,34 @@ describe('sustained N TPS test', () => {
         }
       }
       const clonedTx = new ProvenTx(aztecNode, clonedTxData, tx.offchainEffects, tx.stats);
-      const txHash = await clonedTx.recomputeHash();
-      return [txHash, clonedTx.send()];
+      await clonedTx.recomputeHash();
+      return clonedTx;
     };
-    const interval = 1000 / TARGET_TPS;
+    const interval = 1000 / tps;
     const sentTxPromises: Promise<SentTx>[] = [];
-    const txSendTimes = new Map<string, number>();
-    for (let i = 0; i < TOTAL_TXS; i++) {
+    for (let i = 0; i < totalTxs; i++) {
       const workerIndex = i % NUM_WALLETS;
       const baseTx = baseTxs[workerIndex];
       const prom = workers.put(async () => {
-        const [txHash, sentTx] = await cloneAndSend(baseTx, workerIndex);
+        const tx = await cloneTx(baseTx, workerIndex);
+        const sentTx = tx.send();
         logger.info(`sent tx ${i + 1}`);
-        txSendTimes.set(txHash.toString(), Date.now());
+        metrics.recordSentTx(tx, `unproven_${tps}tps`);
         return sentTx;
       });
       sentTxPromises.push(prom);
       await sleep(interval);
     }
-    return [await Promise.all(sentTxPromises), txSendTimes];
+    return Promise.all(sentTxPromises);
   };
 
-  it('can send n_tps', async () => {
-    const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
+  it.each(tpsTargets)('can send %d_tps', async tps => {
+    const TOTAL_TXS = TEST_DURATION_SECONDS * tps;
     logger.info(`Proving benchmark transactions...`);
 
-    const [sentTxs, txSendTimes] = await (config.REAL_VERIFIER ? submitProven() : submitUnproven());
+    const sentTxs = await (config.REAL_VERIFIER
+      ? submitProven(TEST_DURATION_SECONDS, tps)
+      : submitUnproven(TEST_DURATION_SECONDS, tps));
 
     logger.info(`Sending benchmark transactions at target TPS...`);
 
@@ -257,8 +274,6 @@ describe('sustained N TPS test', () => {
 
     const results: { success: boolean; tx: SentTx; error?: any }[] = [];
 
-    const blockHeaders = new Map<number, Promise<BlockHeader>>();
-    const txMinedInBlock = new Map<string, number>();
     const waitForTx = async (sentTx: SentTx, index: number) => {
       try {
         const receipt = await sentTx.wait({
@@ -267,15 +282,8 @@ describe('sustained N TPS test', () => {
           ignoreDroppedReceiptsFor: 2,
         });
         if (receipt.blockNumber) {
-          if (!blockHeaders.has(receipt.blockNumber)) {
-            blockHeaders.set(
-              receipt.blockNumber,
-              aztecNode.getBlockHeader(receipt.blockNumber) as Promise<BlockHeader>,
-            );
-          }
-
-          txMinedInBlock.set(receipt.txHash.toString(), receipt.blockNumber);
           logger.info(`tx ${index + 1} included in block ${receipt.blockNumber}`);
+          await metrics.recordMinedTx(receipt);
         } else {
           throw new Error('Invalid txReceipt: ' + JSON.stringify(receipt));
         }
@@ -298,19 +306,6 @@ describe('sustained N TPS test', () => {
     const failureCount = results.filter(r => !r.success).length;
 
     expect(results.length).toBe(TOTAL_TXS);
-
-    const histogram = createHistogram({
-      figures: 2,
-      min: 1,
-      max: 10 * 72 * 1000,
-    });
-
-    for (const [txHash, sendEpoch] of txSendTimes.entries()) {
-      const blockNumber = txMinedInBlock.get(txHash);
-      expect(blockNumber).toBeGreaterThan(0);
-      const blockMineTimestamp = (await blockHeaders.get(blockNumber!)!).globalVariables.timestamp * 1000n;
-      histogram.record(Number(blockMineTimestamp) - sendEpoch);
-    }
 
     // Log failed transactions for debugging
     results
