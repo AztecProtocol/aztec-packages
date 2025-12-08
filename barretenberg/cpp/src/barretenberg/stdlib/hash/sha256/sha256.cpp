@@ -232,6 +232,18 @@ field_t<Builder> SHA256<Builder>::add_normalize(const field_t<Builder>& a, const
     return result;
 }
 
+/**
+ * @brief Apply the SHA-256 compression function to a single 512-bit message block.
+ *
+ * This is the only public entry point for the stdlib SHA-256 implementation. We implement only the compression function
+ * (rather than a full hash) because this is all that is required in DSL.
+ *
+ * @param h_init The 8-word (256-bit) initial hash state. For the first block of a message,
+ *               this should be the standard SHA-256 IV. For subsequent blocks, this is the
+ *               output of the previous compression.
+ * @param input  The 16-word (512-bit) message block to compress.
+ * @return       The updated 8-word hash state after compression.
+ */
 template <typename Builder>
 std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<field_t<Builder>, 8>& h_init,
                                                               const std::array<field_t<Builder>, 16>& input)
