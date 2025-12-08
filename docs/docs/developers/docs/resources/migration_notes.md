@@ -9,6 +9,15 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] `emit` renamed to `deliver`
+
+Private state variable functions that created notes and returned their messages no longer return a `NoteEmission` but instead a `NoteMessage`. These messages are delivered to their recipient via `deliver` instead of `emit`. The verb 'emit' remains for things like emitting events.
+
+```diff
+- self.storage.balances.at(owner).add(5).emit(owner);
++ self.storage.balances.at(owner).add(5).deliver(owner);
+```
+
 ### [Aztec.nr] `ValueNote` renamed to `FieldNote` and `value-note` crate renamed to `field-note`
 
 The `ValueNote` struct has been renamed to `FieldNote` to better reflect that it stores a `Field` value. The crate has also been renamed from `value-note` to `field-note`.
@@ -42,8 +51,8 @@ struct Storage<Context> {
 }
 
 // In a private function:
-self.storage.balances.at(owner).add(amount).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
-self.storage.balances.at(owner).sub(amount).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+self.storage.balances.at(owner).add(amount).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+self.storage.balances.at(owner).sub(amount).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
 
 // In an unconstrained function:
 let balance = self.storage.balances.at(owner).balance_of();
@@ -59,8 +68,8 @@ The `EasyPrivateUint` type and `easy-private-state` crate have been deprecated a
 - Add `balance_set = { path = "../../../../aztec-nr/balance-set" }` to `Nargo.toml`
 - Update storage: `EasyPrivateUint<Context>` → `Owned<BalanceSet<Context>, Context>`
 - Update method calls:
-  - `add(amount, owner)` → `at(owner).add(amount).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN)`
-  - `sub(amount, owner)` → `at(owner).sub(amount).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN)`
+  - `add(amount, owner)` → `at(owner).add(amount).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN)`
+  - `sub(amount, owner)` → `at(owner).sub(amount).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN)`
   - `get_value(owner)` → `at(owner).balance_of()` (returns `u128` instead of `Field`)
 
 ### [Aztec.nr] `balance_utils` removed from `value-note` (now `field-note`)

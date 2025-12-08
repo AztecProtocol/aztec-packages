@@ -26,7 +26,7 @@ pub contract NoteGetter {
         let owner = self.msg_sender().unwrap();
         let note = FieldNote::new(value);
 
-        self.storage.set.at(owner).insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.set.at(owner).insert(note).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("utility")]

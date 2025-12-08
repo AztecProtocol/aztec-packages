@@ -1,9 +1,7 @@
-use crate::oracle::offchain_effect::emit_offchain_effect;
-use protocol_types::{
-    address::AztecAddress,
-    hash::poseidon2_hash_bytes,
-    traits::{Serialize, ToField},
+use crate::{
+    messages::encoding::MESSAGE_CIPHERTEXT_LEN, oracle::offchain_effect::emit_offchain_effect,
 };
+use protocol_types::{address::AztecAddress, hash::poseidon2_hash_bytes, traits::ToField};
 
 // The following identifier was copied over to `yarn-project/stdlib/src/tx/offchain_effect.ts`. If you modify it don't
 // forget to update it there as well.
@@ -36,14 +34,15 @@ pub global OFFCHAIN_MESSAGE_IDENTIFIER: Field =
 ///
 /// * `message` - The message to emit.
 /// * `recipient` - The address of the recipient.
-pub fn emit_offchain_message<T>(message: T, recipient: AztecAddress)
-where
-    T: Serialize,
-{
+pub fn deliver_offchain_message(
+    ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN],
+    recipient: AztecAddress,
+) {
     // Safety: Offchain effects are by definition unconstrained. They are emitted via an oracle which we don't use for
     // anything besides its side effects, therefore this is safe to call.
     unsafe {
-        emit_offchain_effect([OFFCHAIN_MESSAGE_IDENTIFIER, recipient.to_field()].concat(message
-            .serialize()))
+        emit_offchain_effect(
+            [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.to_field()].concat(ciphertext),
+        )
     };
 }

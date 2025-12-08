@@ -61,7 +61,7 @@ contract OffchainEffect {
     fn emit_note_as_offchain_message(value: u128, owner: AztecAddress) {
         let note = UintNote::new(value);
 
-        self.storage.balances.at(owner).insert(note).emit(
+        self.storage.balances.at(owner).insert(note).deliver(
             self.msg_sender().unwrap(),
             MessageDelivery.UNCONSTRAINED_OFFCHAIN,
         );
