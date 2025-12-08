@@ -38,10 +38,14 @@ class MemoryManager {
     std::optional<uint8_t> get_memory_offset_8_bit(bb::avm2::MemoryTag tag, uint16_t address_index);
     bool is_memory_address_set(uint16_t address);
 
-    std::optional<bb::avm2::testing::OperandBuilder> get_memory_address_operand_8(AddressRef address);
-    std::optional<bb::avm2::testing::OperandBuilder> get_memory_address_operand_8(ResultAddressRef address);
-    std::optional<bb::avm2::testing::OperandBuilder> get_memory_address_operand_16(AddressRef address);
-    std::optional<bb::avm2::testing::OperandBuilder> get_memory_address_operand_16(ResultAddressRef address);
+    std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> get_memory_address_and_operand_8(
+        AddressRef address);
+    std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> get_memory_address_and_operand_8(
+        ResultAddressRef address);
+    std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> get_memory_address_and_operand_16(
+        AddressRef address);
+    std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> get_memory_address_and_operand_16(
+        ResultAddressRef address);
 
     // Append used slot to storage_addresses
     void append_slot(bb::avm2::FF slot);

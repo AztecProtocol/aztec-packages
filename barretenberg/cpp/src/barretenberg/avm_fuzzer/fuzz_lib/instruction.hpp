@@ -69,9 +69,7 @@ struct AddressRef {
 
     /// @brief Index of the pointer in the memory_manager.stored_variables map
     /// Used for Indirect/IndirectRelative modes only
-    /// Sets M[pointer_index] = pointer_value
     uint16_t pointer_address = 0;
-    uint32_t pointer_value = 0;
 
     /// @brief Base offset
     /// Used for Relative/IndirectRelative modes only
@@ -87,7 +85,6 @@ struct ResultAddressRef {
 
     /// @brief Pointer address used for Indirect/IndirectRelative modes only
     uint16_t pointer_address = 0;
-    uint32_t pointer_value = 0;
 
     /// @brief Base offset used for Relative/IndirectRelative modes only
     uint32_t base_offset = 0;

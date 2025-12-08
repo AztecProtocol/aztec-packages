@@ -44,13 +44,13 @@ std::optional<uint32_t> MemoryManager::get_memory_address_to_resolve(AddressRef 
     auto absolute_address = memory_address.value();
     switch (address.mode) {
     case AddressingMode::Indirect:
-        absolute_address -= address.pointer_value;
+        absolute_address = address.pointer_address;
         break;
     case AddressingMode::Relative:
         absolute_address -= address.base_offset;
         break;
     case AddressingMode::IndirectRelative:
-        absolute_address -= address.pointer_value;
+        absolute_address = address.pointer_address;
         absolute_address -= address.base_offset;
         break;
     case AddressingMode::Direct:
@@ -64,13 +64,13 @@ std::optional<uint32_t> MemoryManager::get_memory_address_to_resolve(ResultAddre
     auto absolute_address = address.address;
     switch (address.mode) {
     case AddressingMode::Indirect:
-        absolute_address -= address.pointer_value;
+        absolute_address = address.pointer_address;
         break;
     case AddressingMode::Relative:
         absolute_address -= address.base_offset;
         break;
     case AddressingMode::IndirectRelative:
-        absolute_address -= address.pointer_value;
+        absolute_address = address.pointer_address;
         absolute_address -= address.base_offset;
         break;
     case AddressingMode::Direct:
@@ -98,7 +98,26 @@ OperandBuilder MemoryManager::get_memory_address_operand(OperandBuilder operand,
     return operand;
 }
 
-std::optional<bb::avm2::testing::OperandBuilder> MemoryManager::get_memory_address_operand_8(AddressRef address)
+std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> MemoryManager::get_memory_address_and_operand_8(
+    AddressRef address)
+{
+    auto absolute_address = get_memory_address_to_resolve(address);
+    if (!absolute_address.has_value()) {
+        return std::nullopt;
+    }
+    if (absolute_address.value() > 255) {
+        std::cout << "Absolute address is greater than 255 " << absolute_address.value() << std::endl;
+        return std::nullopt;
+    }
+    auto operand = OperandBuilder::from<uint8_t>(static_cast<uint8_t>(absolute_address.value()));
+
+    auto actual_address = get_memory_offset(address.tag, address.index);
+
+    return std::make_pair(actual_address.value(), get_memory_address_operand(operand, address.mode));
+}
+
+std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> MemoryManager::get_memory_address_and_operand_8(
+    ResultAddressRef address)
 {
     auto absolute_address = get_memory_address_to_resolve(address);
     if (!absolute_address.has_value()) {
@@ -108,24 +127,11 @@ std::optional<bb::avm2::testing::OperandBuilder> MemoryManager::get_memory_addre
         return std::nullopt;
     }
     auto operand = OperandBuilder::from<uint8_t>(static_cast<uint8_t>(absolute_address.value()));
-
-    return get_memory_address_operand(operand, address.mode);
+    return std::make_pair(address.address, get_memory_address_operand(operand, address.mode));
 }
 
-std::optional<bb::avm2::testing::OperandBuilder> MemoryManager::get_memory_address_operand_8(ResultAddressRef address)
-{
-    auto absolute_address = get_memory_address_to_resolve(address);
-    if (!absolute_address.has_value()) {
-        return std::nullopt;
-    }
-    if (absolute_address.value() > 255) {
-        return std::nullopt;
-    }
-    auto operand = OperandBuilder::from<uint8_t>(static_cast<uint8_t>(absolute_address.value()));
-    return get_memory_address_operand(operand, address.mode);
-}
-
-std::optional<bb::avm2::testing::OperandBuilder> MemoryManager::get_memory_address_operand_16(AddressRef address)
+std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> MemoryManager::get_memory_address_and_operand_16(
+    AddressRef address)
 {
     auto absolute_address = get_memory_address_to_resolve(address);
     if (!absolute_address.has_value()) {
@@ -135,10 +141,12 @@ std::optional<bb::avm2::testing::OperandBuilder> MemoryManager::get_memory_addre
         return std::nullopt;
     }
     auto operand = OperandBuilder::from<uint16_t>(static_cast<uint16_t>(absolute_address.value()));
-    return get_memory_address_operand(operand, address.mode);
+    auto actual_address = get_memory_offset(address.tag, address.index);
+    return std::make_pair(actual_address.value(), get_memory_address_operand(operand, address.mode));
 }
 
-std::optional<bb::avm2::testing::OperandBuilder> MemoryManager::get_memory_address_operand_16(ResultAddressRef address)
+std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> MemoryManager::get_memory_address_and_operand_16(
+    ResultAddressRef address)
 {
     auto absolute_address = get_memory_address_to_resolve(address);
     if (!absolute_address.has_value()) {
@@ -148,7 +156,7 @@ std::optional<bb::avm2::testing::OperandBuilder> MemoryManager::get_memory_addre
         return std::nullopt;
     }
     auto operand = OperandBuilder::from<uint16_t>(static_cast<uint16_t>(absolute_address.value()));
-    return get_memory_address_operand(operand, address.mode);
+    return std::make_pair(address.address, get_memory_address_operand(operand, address.mode));
 }
 
 std::optional<uint32_t> MemoryManager::get_memory_offset(bb::avm2::MemoryTag tag, uint32_t index)

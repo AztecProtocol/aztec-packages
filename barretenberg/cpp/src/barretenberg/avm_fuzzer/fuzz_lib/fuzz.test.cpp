@@ -1340,3 +1340,125 @@ TEST(fuzz, Reentrancy)
     EXPECT_EQ(result.output.at(0), 313373);
 }
 } // namespace internal_calls
+
+namespace avm_addressing {
+TEST(fuzz, DirectWithIndirect)
+{
+    auto set_field_instruction =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = ResultAddressRef{ .address = 150, .mode = AddressingMode::Direct },
+                            .value = 10 };
+    auto set_field_instruction2 =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = ResultAddressRef{ .address = 3000, .mode = AddressingMode::Direct },
+                            .value = 20 };
+    auto add_instruction = ADD_8_Instruction{
+        .argument_tag = bb::avm2::MemoryTag::FF,
+        .a_address =
+            AddressRef{
+                .tag = bb::avm2::MemoryTag::FF, .index = 1, .pointer_address = 100, .mode = AddressingMode::Indirect },
+        .b_address = AddressRef{ .tag = bb::avm2::MemoryTag::FF, .index = 0, .mode = AddressingMode::Direct },
+        .result_address = ResultAddressRef{ .address = 130, .mode = AddressingMode::Direct }
+    };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ { set_field_instruction, set_field_instruction2, add_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 2 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 30);
+}
+
+TEST(fuzz, DirectWithIndirectRelative)
+{
+    auto set_field_instruction =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = ResultAddressRef{ .address = 150, .mode = AddressingMode::Direct },
+                            .value = 10 };
+    auto set_field_instruction2 =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = ResultAddressRef{ .address = 3000, .mode = AddressingMode::Direct },
+                            .value = 20 };
+    auto add_instruction =
+        ADD_8_Instruction{ .argument_tag = bb::avm2::MemoryTag::FF,
+                           .a_address = AddressRef{ .tag = bb::avm2::MemoryTag::FF,
+                                                    .index = 1,
+                                                    .pointer_address = 100,
+                                                    .base_offset = 100,
+                                                    .mode = AddressingMode::IndirectRelative },
+                           .b_address =
+                               AddressRef{ .tag = bb::avm2::MemoryTag::FF, .index = 0, .mode = AddressingMode::Direct },
+                           .result_address = ResultAddressRef{ .address = 130, .mode = AddressingMode::Direct } };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ { set_field_instruction, set_field_instruction2, add_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 2 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 30);
+}
+
+TEST(fuzz, IndirectResultCanBeUsedInNextInstruction)
+{
+    auto set_field_instruction =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = ResultAddressRef{ .address = 150, .mode = AddressingMode::Direct },
+                            .value = 10 };
+    auto add_instruction = ADD_8_Instruction{
+        .argument_tag = bb::avm2::MemoryTag::FF,
+        .a_address = AddressRef{ .tag = bb::avm2::MemoryTag::FF, .index = 0, .mode = AddressingMode::Direct },
+        .b_address = AddressRef{ .tag = bb::avm2::MemoryTag::FF, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = ResultAddressRef{ .address = 130, .pointer_address = 100, .mode = AddressingMode::Indirect }
+    };
+    auto mul_instruction = MUL_8_Instruction{
+        .argument_tag = bb::avm2::MemoryTag::FF,
+        .a_address = AddressRef{ .tag = bb::avm2::MemoryTag::FF, .index = 1, .mode = AddressingMode::Direct },
+        .b_address = AddressRef{ .tag = bb::avm2::MemoryTag::FF, .index = 1, .mode = AddressingMode::Direct },
+        .result_address = ResultAddressRef{ .address = 150, .mode = AddressingMode::Direct }
+    };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ { set_field_instruction, add_instruction, mul_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 2 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 400);
+}
+
+TEST(fuzz, Memoryaddressing32BitWidth)
+{
+    auto set_field_instruction =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = ResultAddressRef{ .address = 150, .mode = AddressingMode::Direct },
+                            .value = 10 };
+    auto set_field_instruction2 = SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF,
+        .result_address =
+            ResultAddressRef{ .address = 4294967295, .pointer_address = 100, .mode = AddressingMode::Indirect },
+        .value = 20
+    };
+    auto add_instruction = MUL_8_Instruction{
+        .argument_tag = bb::avm2::MemoryTag::FF,
+        .a_address = AddressRef{ .tag = bb::avm2::MemoryTag::FF, .index = 0, .mode = AddressingMode::Direct },
+        .b_address =
+            AddressRef{
+                .tag = bb::avm2::MemoryTag::FF, .index = 1, .pointer_address = 200, .mode = AddressingMode::Indirect },
+        .result_address = ResultAddressRef{ .address = 150, .mode = AddressingMode::Direct }
+    };
+    auto instruction_blocks =
+        std::vector<std::vector<FuzzInstruction>>{ { set_field_instruction, set_field_instruction2, add_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 2 });
+    auto cpp_simulator = CppSimulator();
+    auto result = cpp_simulator.simulate(bytecode, {});
+    EXPECT_EQ(result.output.at(0), 200);
+}
+} // namespace avm_addressing

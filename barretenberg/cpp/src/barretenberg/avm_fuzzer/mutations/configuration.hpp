@@ -105,26 +105,25 @@ constexpr MemoryTagMutationConfig BASIC_MEMORY_TAG_MUTATION_CONFIGURATION = Memo
     { MemoryTagOptions::FF, 1 },
 });
 
-enum class AddressRefMutationOptions { tag, index, pointer_address, pointer_value, base_offset, mode };
-using AddressRefMutationConfig = WeightedSelectionConfig<AddressRefMutationOptions, 6>;
+enum class AddressRefMutationOptions { tag, index, pointer_address, base_offset, mode };
+using AddressRefMutationConfig = WeightedSelectionConfig<AddressRefMutationOptions, 5>;
 constexpr AddressRefMutationConfig BASIC_ADDRESS_REF_MUTATION_CONFIGURATION = AddressRefMutationConfig({
     { AddressRefMutationOptions::tag, 3 },
     { AddressRefMutationOptions::index, 4 },
     { AddressRefMutationOptions::pointer_address, 1 },
-    { AddressRefMutationOptions::pointer_value, 1 },
     { AddressRefMutationOptions::base_offset, 1 },
     { AddressRefMutationOptions::mode, 2 },
 });
 
-enum class ResultAddressRefMutationOptions { address, pointer_address, pointer_value, base_offset, mode };
+enum class ResultAddressRefMutationOptions { address, pointer_address, base_offset, mode };
 using ResultAddressRefMutationConfig = WeightedSelectionConfig<ResultAddressRefMutationOptions, 5>;
-constexpr ResultAddressRefMutationConfig BASIC_RESULT_ADDRESS_REF_MUTATION_CONFIGURATION = ResultAddressRefMutationConfig({
-    { ResultAddressRefMutationOptions::address, 1 },
-    { ResultAddressRefMutationOptions::pointer_address, 1 },
-    { ResultAddressRefMutationOptions::pointer_value, 1 },
-    { ResultAddressRefMutationOptions::base_offset, 1 },
-    { ResultAddressRefMutationOptions::mode, 1 },
-});
+constexpr ResultAddressRefMutationConfig BASIC_RESULT_ADDRESS_REF_MUTATION_CONFIGURATION =
+    ResultAddressRefMutationConfig({
+        { ResultAddressRefMutationOptions::address, 1 },
+        { ResultAddressRefMutationOptions::pointer_address, 1 },
+        { ResultAddressRefMutationOptions::base_offset, 1 },
+        { ResultAddressRefMutationOptions::mode, 1 },
+    });
 
 enum class UnaryInstruction8MutationOptions { memory_tag, offset, result_offset };
 

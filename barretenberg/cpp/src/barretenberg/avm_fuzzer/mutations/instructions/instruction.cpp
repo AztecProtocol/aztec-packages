@@ -18,29 +18,22 @@ AddressRef generate_address_ref(std::mt19937_64& rng)
     auto tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION);
     auto index = generate_random_uint32(rng);
     auto pointer_address = generate_random_uint16(rng);
-    auto pointer_value = generate_random_uint32(rng);
     auto base_offset = generate_random_uint32(rng);
     auto mode = generate_addressing_mode(rng);
-    return AddressRef{ .tag = tag,
-                       .index = index,
-                       .pointer_address = pointer_address,
-                       .pointer_value = pointer_value,
-                       .base_offset = base_offset,
-                       .mode = mode };
+    return AddressRef{
+        .tag = tag, .index = index, .pointer_address = pointer_address, .base_offset = base_offset, .mode = mode
+    };
 }
 
 ResultAddressRef generate_result_address_ref(std::mt19937_64& rng)
 {
     auto address = generate_random_uint32(rng);
     auto pointer_address = generate_random_uint16(rng);
-    auto pointer_value = generate_random_uint32(rng);
     auto base_offset = generate_random_uint32(rng);
     auto mode = generate_addressing_mode(rng);
-    return ResultAddressRef{ .address = address,
-                             .pointer_address = pointer_address,
-                             .pointer_value = pointer_value,
-                             .base_offset = base_offset,
-                             .mode = mode };
+    return ResultAddressRef{
+        .address = address, .pointer_address = pointer_address, .base_offset = base_offset, .mode = mode
+    };
 }
 
 FuzzInstruction generate_instruction(std::mt19937_64& rng)
@@ -260,9 +253,6 @@ void mutate_address_ref(AddressRef& address, std::mt19937_64& rng)
     case AddressRefMutationOptions::pointer_address:
         mutate_uint16_t(address.pointer_address, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
         break;
-    case AddressRefMutationOptions::pointer_value:
-        mutate_uint32_t(address.pointer_value, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
-        break;
     case AddressRefMutationOptions::base_offset:
         mutate_uint32_t(address.base_offset, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
         break;
@@ -281,9 +271,6 @@ void mutate_result_address_ref(ResultAddressRef& address, std::mt19937_64& rng)
         break;
     case ResultAddressRefMutationOptions::pointer_address:
         mutate_uint16_t(address.pointer_address, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
-        break;
-    case ResultAddressRefMutationOptions::pointer_value:
-        mutate_uint32_t(address.pointer_value, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
         break;
     case ResultAddressRefMutationOptions::base_offset:
         mutate_uint32_t(address.base_offset, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
