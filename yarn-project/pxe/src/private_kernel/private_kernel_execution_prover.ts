@@ -290,8 +290,8 @@ export class PrivateKernelExecutionProver {
       },
     });
 
-    // Hiding circuit is only executed if we are generating witnesses.
-    // For simulation, we can end with the tail, since the hiding circuit will simply return the same tail output.
+    // Hiding kernel is only executed if we are generating witnesses.
+    // For simulation, we can end with the tail, since the Hiding kernel will simply return the same tail output.
     if (generateWitnesses) {
       const previousKernelVkData = await this.getVkData(tailOutput.verificationKey);
 
