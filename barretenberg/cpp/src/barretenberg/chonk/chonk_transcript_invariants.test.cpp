@@ -1,27 +1,26 @@
 /**
- * @file chonk_transcript_manifest.test.cpp
- * @brief Transcript manifest pinning and atomic index invariant tests for Chonk IVC
+ * @file chonk_transcript_invariants.test.cpp
+ * @brief Transcript isolation and counting invariants for Chonk IVC
  *
- * @details These tests ensure transcript structure stability and proper isolation
- * of transcript instances across the Chonk IVC flow. They verify:
+ * @details These tests verify critical transcript invariants that ensure security:
  *
- * 1. Component Transcript Manifest Pinning - Pins the transcript structure for key
- *    Chonk components (Merge, ECCVM, Translator, etc.) to detect accidental changes
- *    that could break backwards compatibility or introduce security vulnerabilities.
+ * 1. **Transcript Counting Invariants** - Pins the exact number of transcripts created
+ *    during IVC accumulation and recursive verification. This detects structural changes
+ *    in transcript management that could affect:
+ *    - Transcript isolation between components
+ *    - Fiat-Shamir challenge derivation
+ *    - Public input propagation between kernels
  *
- * 2. Transcript Atomic Index Invariants - Verifies that the unique_transcript_index
- *    is correctly incremented through app-kernel transitions and trailing kernels,
- *    ensuring proper isolation between transcript instances.
+ * 2. **Atomic Index Progression** - Verifies that unique_transcript_index increments
+ *    correctly through the IVC flow, ensuring:
+ *    - Each transcript gets a unique identifier
+ *    - Values from different transcripts cannot be mixed (OriginTag enforcement)
+ *    - Parallel IVC instances have non-overlapping index ranges
  *
- * The transcript manifest captures:
- * - Round structure (what data is sent/received in each round)
- * - Challenge labels (what challenges are derived in each round)
- * - Element labels and sizes (what commitments/evaluations are sent)
- *
- * The atomic index ensures:
- * - Each transcript instance gets a unique index
- * - Values from different transcripts cannot be mixed (OriginTag enforcement)
- * - Parallel IVC instances have non-overlapping index ranges
+ * Why these invariants matter:
+ * - Transcript isolation prevents cross-contamination of Fiat-Shamir challenges
+ * - Counting stability catches unintended structural changes in recursive verification
+ * - Index progression ensures OriginTag security guarantees hold
  */
 
 #include "barretenberg/chonk/chonk.hpp"
@@ -46,15 +45,15 @@
 using namespace bb;
 
 /**
- * @brief Test fixture for transcript index invariant tests
+ * @brief Test fixture for Chonk transcript invariant tests
  */
-class ChonkTranscriptIndexTests : public ::testing::Test {
+class ChonkTranscriptInvariantTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 /**
- * @brief Pin the exact number of transcripts created during IVC accumulation of 2 app circuits
+ * @brief Pin the exact number of transcripts created during IVC accumulation
  * @details This test ensures the transcript creation count during accumulation is a fixed constant.
  * Any change to this count indicates a structural change in how transcripts are managed, which
  * could have security implications (e.g., unexpected transcript isolation or sharing).
@@ -73,7 +72,7 @@ class ChonkTranscriptIndexTests : public ::testing::Test {
  *
  * Total: 0 + 3 + 0 + 3 + 3 + 3 + 2 = 14 transcripts
  */
-TEST_F(ChonkTranscriptIndexTests, TranscriptCountDuringAccumulationPinned)
+TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 {
     // Pinned expected transcript count for 2 app circuits
     constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 14;
@@ -124,63 +123,8 @@ TEST_F(ChonkTranscriptIndexTests, TranscriptCountDuringAccumulationPinned)
     EXPECT_TRUE(Chonk::verify(proof, vk)) << "IVC proof should verify";
 }
 
-// ============================================================================
-// COMPREHENSIVE CHONK RECURSIVE VERIFIER TRANSCRIPT PINNING
-// ============================================================================
-// This section contains comprehensive tests that pin the ENTIRE transcript
-// structure for the Chonk recursive verification flow. The transcript is
-// shared across multiple sub-protocols within a kernel circuit:
-//
-// For each circuit in the verification queue:
-// 1. Oink Verifier - vk_hash, public inputs, witness commitments, challenges
-// 2. Sumcheck Verifier - gate challenges, univariates, evaluations
-// 3. MultilinearBatching Verifier (for folding) - accumulator data, batching sumcheck
-// 4. Merge Verifier - shift_size, table commitments, evaluations, KZG proof
-//
-// For HN_FINAL only:
-// 5. Decider/Shplemini Verifier - opening proof
-//
-// The approach is to test each sub-protocol's native transcript manifest
-// separately, which mirrors what the recursive verifier does in-circuit.
-// ============================================================================
-
 /**
- * @brief Test class for comprehensive Chonk recursive verifier transcript pinning
- * @details Tests the native transcript structure of all sub-protocols that comprise
- * the Chonk recursive verification flow. These tests pin the exact transcript structure
- * that would be replicated in-circuit by the recursive verifiers.
- */
-class ChonkRecursiveTranscriptPinningTests : public ::testing::Test {
-  protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
-
-    using Flavor = MegaFlavor;
-    using FF = typename Flavor::FF;
-    using Builder = MegaCircuitBuilder;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-
-    // Element size constants
-    static constexpr size_t frs_per_Fr = 1;
-    static constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
-    static constexpr size_t frs_per_uint32 = 1;
-    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
-
-    /**
-     * @brief Helper to create a simple MegaCircuitBuilder with some gates
-     */
-    static Builder create_simple_circuit()
-    {
-        Builder builder;
-        bb::MockCircuits::add_arithmetic_gates(builder, 4);
-        bb::MockCircuits::add_arithmetic_gates_with_public_inputs(builder);
-        bb::MockCircuits::add_lookup_gates(builder);
-        return builder;
-    }
-};
-
-/**
- * @brief Pin the exact number of transcripts created during ChonkRecursiveVerifier::verify
+ * @brief Pin the exact number of transcripts created during recursive Chonk verification
  * @details The recursive Chonk verifier creates transcripts that are tracked via unique_transcript_index
  * (which is incremented for each in-circuit transcript creation). This test pins the exact count
  * to detect any changes in transcript management that could affect security.
@@ -190,7 +134,7 @@ class ChonkRecursiveTranscriptPinningTests : public ::testing::Test {
  * - 3 additional transcripts: created by PairingPoints::aggregate() for Fiat-Shamir recursion separators
  *   (one for MegaVerifier result aggregation, two for Goblin sub-verifier result aggregations)
  */
-TEST_F(ChonkRecursiveTranscriptPinningTests, ChonkRecursiveVerifierTranscriptCountPinned)
+TEST_F(ChonkTranscriptInvariantTests, RecursiveVerificationTranscriptCount)
 {
     using RecursiveVerifier = bb::stdlib::recursion::honk::ChonkRecursiveVerifier;
 
