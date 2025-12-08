@@ -101,9 +101,14 @@ template <typename Params> class Poseidon2Permutation {
         matrix_multiplication_4x4(input);
     }
 
+    /**
+     * @brief S-box: x -> x^5
+     *
+     * @details For a given field, `d` is the smallest element of `p` such that gdc(d, p - 1) = 1 (excluding 1) For
+     * bn254/grumpkin, d = 5
+     */
     static constexpr void apply_single_sbox(FF& input)
     {
-        // S-box: x -> x^5 (the degree d=5 is optimal for BN254/Grumpkin)
         auto xx = input.sqr();
         auto xxxx = xx.sqr();
         input *= xxxx;
