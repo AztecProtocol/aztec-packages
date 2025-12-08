@@ -3,9 +3,9 @@ use crate::{
     keys::getters::{get_nsk_app, get_public_keys},
     note::{
         lifecycle::{create_note, destroy_note_unsafe},
-        note_emission::NoteEmission,
         note_getter::{get_note, view_note},
         note_interface::{NoteHash, NoteType},
+        note_message::NoteMessage,
     },
     oracle::notes::check_nullifier_exists,
     state_vars::owned_state_variable::OwnedStateVariable,
@@ -108,13 +108,40 @@ where
         self.compute_initialization_nullifier(secret)
     }
 
-    /// Initializes a PrivateMutable state variable instance with its first `note` and returns a [NoteEmission] that
-    /// allows you to decide whether to encrypt and send the note to someone.
+    /// Initializes a PrivateMutable state variable instance with its first `note`.
     ///
-    /// This function can only be called once per PrivateMutable. Subsequent calls will fail because the initialization
-    /// nullifier will already exist.
+    /// This function creates the very first note for this state variable. It can
+    /// only be called once per PrivateMutable. Subsequent calls will fail because
+    /// the initialization nullifier will already exist.
     ///
-    pub fn initialize(self, note: Note) -> NoteEmission<Note>
+    /// This is conceptually similar to setting an initial value for a variable in
+    /// Ethereum smart contracts under a user's address in a mapping, except that in Aztec
+    /// the "value" is represented as a private note.
+    ///
+    /// ## Arguments
+    ///
+    /// * `note` - The initial note to store in this PrivateMutable. This note
+    ///            becomes the "current value" of the state variable.
+    ///
+    /// ## Returns
+    ///
+    /// * `NoteMessage<Note>` - A type-safe wrapper that requires you to decide
+    ///                          whether to encrypt and send the note to someone.
+    ///   You can call `.deliver()` on it to encrypt and deliver the note. See NoteMessage for more details.
+    ///
+    /// ## Advanced
+    ///
+    /// This function performs the following operations:
+    /// - Creates and emits an initialization nullifier to mark this storage slot
+    ///   as initialized. This prevents double-initialization.
+    /// - Inserts the provided note into the protocol's Note Hash Tree.
+    /// - Returns a NoteMessage type that allows the caller to decide how to encrypt
+    ///   and deliver the note to its intended recipient.
+    ///
+    /// The initialization nullifier is deterministically computed from the storage
+    /// slot and can leak privacy information (see `compute_initialization_nullifier`
+    /// documentation).
+    pub fn initialize(self, note: Note) -> NoteMessage<Note>
     where
         Note: Packable,
     {
@@ -144,11 +171,11 @@ where
     ///
     /// ## Returns
     ///
-    /// * `NoteEmission<Note>` - A type-safe wrapper that requires you to decide
+    /// * `NoteMessage<Note>` - A type-safe wrapper that requires you to decide
     ///                          whether to encrypt and send the note to someone.
-    ///                          You can call `.emit()` on it to encrypt and log
-    ///                          the note, or `.discard()` to skip emission.
-    ///                          See NoteEmission documentation for more details.
+    ///                          You can call `.deliver()` on it to encrypt and log
+    ///                          the note.
+    ///                          See NoteMessage documentation for more details.
     ///
     /// ## Advanced
     ///
@@ -158,13 +185,13 @@ where
     /// - Computes the nullifier for the current note and pushes it to the context
     /// - Calls the user-provided function `f` to produce a new note
     /// - Inserts the resulting `new_note` into the Note Hash Tree using 'create_note'
-    /// - Returns a NoteEmission type for the `new_note`, that allows the caller to
+    /// - Returns a NoteMessage type for the `new_note`, that allows the caller to
     ///   decide how to encrypt and deliver this note to its intended recipient.
     ///
     /// The nullification of the previous note ensures that it cannot be used again,
     /// maintaining the invariant that a PrivateMutable has exactly one current note.
     ///
-    pub fn replace<Env>(self, f: fn[Env](Note) -> Note) -> NoteEmission<Note>
+    pub fn replace<Env>(self, f: fn[Env](Note) -> Note) -> NoteMessage<Note>
     where
         Note: Packable,
     {
@@ -200,13 +227,13 @@ where
     ///
     /// ## Returns
     ///
-    /// * `NoteEmission<Note>` - A type-safe wrapper that requires you to decide
+    /// * `NoteMessage<Note>` - A type-safe wrapper that requires you to decide
     ///                          whether to encrypt and send the note to someone.
-    ///                          You can call `.emit()` on it to encrypt and log
-    ///                          the note, or `.discard()` to skip emission.
-    ///                          See NoteEmission documentation for more details.
+    ///                          You can call `.deliver()` on it to encrypt and log
+    ///                          the note.
+    ///                          See NoteMessage documentation for more details.
     ///
-    pub fn initialize_or_replace<Env>(self, f: fn[Env](Option<Note>) -> Note) -> NoteEmission<Note>
+    pub fn initialize_or_replace<Env>(self, f: fn[Env](Option<Note>) -> Note) -> NoteMessage<Note>
     where
         Note: Packable,
     {
@@ -223,20 +250,18 @@ where
         // a proof.
         let is_initialized = unsafe { check_nullifier_exists(self.get_initialization_nullifier()) };
 
-        let emission_content = if !is_initialized {
-            self.initialize(f(Option::none())).content
+        // We call `initialize` or `replace` depending on initialization. However, these functions return a
+        // `NewNoteMessage`, which we cannot return from if-else branches as it contains a mutable reference to the
+        // context (which are forbidden to have in ifs).
+        // We therefore return the `NewNote`s inside the `NewNoteMessage`s and create a `NewNoteMessage` outside the
+        // if-else.
+        let new_note = if !is_initialized {
+            self.initialize(f(Option::none())).new_note
         } else {
-            self.replace(|note| f(Option::some(note))).content
+            self.replace(|note| f(Option::some(note))).new_note
         };
 
-        NoteEmission::new(
-            emission_content.note,
-            emission_content.owner,
-            emission_content.storage_slot,
-            emission_content.randomness,
-            emission_content.note_hash_counter,
-            self.context,
-        )
+        NoteMessage::new(new_note, self.context)
     }
 
     /// Reads the current note of a PrivateMutable state variable instance.
@@ -258,11 +283,11 @@ where
     ///
     /// ## Returns
     ///
-    /// * `NoteEmission<Note>` - A type-safe wrapper containing the newly-created note.
+    /// * `NoteMessage<Note>` - A type-safe wrapper containing the newly-created note.
     ///                          You still need to decide whether to encrypt and send
-    ///                          the note to someone. You can call `.emit()` on it to
-    ///                          encrypt and log the note, or `.discard()` to skip
-    ///                          emission. See NoteEmission documentation for more details.
+    ///                          the note to someone. You can call `.deliver()` on it to
+    ///                          encrypt and log the note. See NoteMessage
+    ///                          documentation for more details.
     ///
     /// ## Advanced
     ///
@@ -272,7 +297,7 @@ where
     ///   storage slot
     /// - Nullifies the current note to ensure that it is indeed current
     /// - Creates a new note with identical content but with fresh randomness
-    /// - Returns a NoteEmission for the new note
+    /// - Returns a NoteMessage for the new note
     ///
     /// This pattern ensures that:
     /// - You're always reading the most up-to-date note
@@ -284,7 +309,7 @@ where
     /// the future.
     ///
     /// docs:start:get_note
-    pub fn get_note(self) -> NoteEmission<Note>
+    pub fn get_note(self) -> NoteMessage<Note>
     where
         Note: Packable,
     {

@@ -45,8 +45,8 @@ fn execute_private_action(
     value: u128,
     authwit_nonce: Field,
 ) {
-    storage.values.at(from).sub(from, value).emit(encode_and_encrypt_note(&mut context, from));
-    storage.values.at(to).add(to, value).emit(encode_and_encrypt_note(&mut context, to));
+    storage.values.at(from).sub(from, value).deliver(encode_and_encrypt_note(&mut context, from));
+    storage.values.at(to).add(to, value).deliver(encode_and_encrypt_note(&mut context, to));
 }
 ```
 
