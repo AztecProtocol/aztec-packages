@@ -71,6 +71,23 @@ The `balance_utils` module has been removed from the `field-note` crate (formerl
 
 The `filter_notes_min_sum` function has been removed from the `field-note` crate (formerly in `value-note`). If you need this functionality, copy it to your contract locally. This function was only used in specific test contracts and doesn't belong in the general-purpose note library.
 
+### [Aztec.nr] `emit()` no longer requires `&mut context` parameter
+
+The `emit()` method on note emissions no longer requires passing `&mut context` as the first parameter. The context is now stored in the emission struct when it's created.
+
+**Migration:**
+
+```diff
+- storage.balances.at(owner).insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
++ storage.balances.at(owner).insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+
+- storage.balances.at(from).sub(amount).emit(&mut context, from, MessageDelivery.CONSTRAINED_ONCHAIN);
++ storage.balances.at(from).sub(amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
+
+- storage.balances.at(to).add(amount).emit(&mut context, to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
++ storage.balances.at(to).add(amount).emit(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+```
+
 ### [Aztec.nr] `derive_ecdh_shared_secret_using_aztec_address` removed
 
 This function made it annoying to deal with invalid addresses in circuits. If you were using it, replace it with `derive_ecdh_shared_secret` instead:
@@ -781,6 +798,40 @@ that handles phase change (you call `context.end_setup()` or call a function tha
   aztec compile
   ```
   (Transpiles your contracts and generates verification keys.)
+
+### [Protocol] L1-L2 Message Tree Per Checkpoint
+
+The L1-L2 message tree now advances per checkpoint instead of per block. This change aligns with the checkpoint-based architecture and allows for more efficient message processing.
+
+If you have code that depends on message tree root timing relative to blocks, you may need to update it to account for checkpoint boundaries instead.
+
+### [Aztec.nr] Uniqueness Hints Computation
+
+Uniqueness hints are now computed in Noir instead of being provided externally. This is an internal change that should not require migration for most users, but may affect custom proving setups.
+
+### [Aztec.nr] Cross-Contract Note/Nullifier Access
+
+New capability to read note hashes and nullifiers from other contracts. This enables new patterns for cross-contract private state verification.
+
+```rust
+// Read note hashes from another contract
+let note_hash = context.note_hashes.at(other_contract_address).get(index);
+
+// Read nullifiers from another contract
+let nullifier = context.nullifiers.at(other_contract_address).get(index);
+```
+
+### [Protocol] C++ to TypeScript Serialization Changes
+
+Internal serialization format changes between C++ and TypeScript layers. If you have custom types that cross this boundary, you may need to update serialization handling.
+
+### [Protocol] AVM Virtual Key Tree Integration
+
+AVM verification keys are now integrated into the VK tree. This is an internal change that improves proving efficiency and should not require migration for most users.
+
+### [Protocol] Protocol Constants Updates
+
+Various protocol constant values have been updated. If you have hardcoded protocol constants in your code, verify they match the current values.
 
 ## 3.0.0-devnet.4
 

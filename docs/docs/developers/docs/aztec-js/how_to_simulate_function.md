@@ -20,7 +20,7 @@ Let's say you've connected to a contract, for example:
 ```typescript
 import { Contract } from "@aztec/aztec.js";
 
-const contract = await Contract.at(contractAddress, artifact, wallet);
+const contract = Contract.at(contractAddress, artifact, wallet);
 ```
 
 or
@@ -28,7 +28,7 @@ or
 ```typescript
 import { MyContract } from "./artifacts/MyContract";
 
-const contract = await MyContract.at(contractAddress, wallet);
+const contract = MyContract.at(contractAddress, wallet);
 ```
 
 ## Simulate public functions

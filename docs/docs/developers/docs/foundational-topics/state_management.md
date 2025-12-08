@@ -171,15 +171,15 @@ We also see a function to create a note hash from the public context, a way of c
 
 ### Note Interface functions
 
-To see a [note_interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implementation, we will look at a simple [ValueNote GitHub link](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr).
+To see a [note_interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implementation, we will look at a simple [FieldNote (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/field-note/src/field_note.nr).
 
-The interface is required to work within an Aztec contract's storage, and a ValueNote is a specific type of note to hold a number (as a `Field`).
+The interface is required to work within an Aztec contract's storage, and a FieldNote is a specific type of note to hold a number (as a `Field`).
 
 #### Computing hashes and nullifiers
 
 A few key functions in the note interface are around computing the note hash and nullifier, with logic to get/use secret keys from the private context.
 
-In the ValueNote implementation you'll notice that it uses the `pedersen_hash` function. This is currently required by the protocol, but may be updated to another hashing function, like poseidon.
+In note implementations you'll notice that they use hashing functions like `poseidon2_hash_with_separator`. The protocol uses Poseidon2 for note hashing.
 
 As a convenience, the outer [note/utils.nr (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/utils.nr) contains implementations of functions that may be needed in Aztec contracts, for example computing note hashes.
 
@@ -188,23 +188,23 @@ As a convenience, the outer [note/utils.nr (GitHub link)](https://github.com/Azt
 Serialization/deserialization of content is used to convert between the Note's variables and a generic array of Field elements. The Field type is understood and used by lower level crypographic libraries.
 This is analogous to the encoding/decoding between variables and bytes in solidity.
 
-For example in ValueNote, the `serialize_content` function simply returns: the value, nullifying public key hash (as a field) and the note randomness; as an array of Field elements.
+For example in FieldNote, the `pack` function (from the `Packable` trait) returns the note's fields as an array of Field elements.
 
 ### Value as a sum of Notes
 
-We recall that multiple notes are associated with a "slot" (or ID), and so the value of a numerical note (like ValueNote) is the sum of each note's value.
-The helper function in [balance_utils (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_/noir-projects/aztec-nr/value-note/src/balance_utils.nr) implements this logic taking a `PrivateSet` of `ValueNotes`.
+We recall that multiple notes are associated with a "slot" (or ID), and so the value of a numerical note (like `UintNote`) is the sum of each note's value.
+The `BalanceSet` abstraction in [balance_set (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/balance_set.nr) implements this logic, managing a `PrivateSet` of `UintNotes` and handling coin selection automatically.
 
 A couple of things worth clarifying:
 
-- A `PrivateSet` takes a Generic type, specified here as `ValueNote`, but can be any `Note` type (for all notes in the set)
+- A `PrivateSet` takes a Generic type, specified here as `UintNote`, but can be any `Note` type (for all notes in the set)
 - A `PrivateSet` of notes also specifies _the_ slot of all Notes that it holds
 
 ### Example - Notes in action
 
-The Aztec.nr framework includes examples of high-level states [easy_private_uint (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr) for use in contracts.
+The Aztec.nr framework includes high-level abstractions like `BalanceSet` in [balance_set (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/balance_set.nr) for use in contracts.
 
-The struct (`EasyPrivateUint`) contains a Context, Set of ValueNotes, and storage_slot (used when setting the Set).
+The `BalanceSet` abstraction wraps a `PrivateSet` of `UintNotes` and provides convenient methods for managing balances.
 
 Notice how the `add` function shows the simplicity of appending a new note to all existing ones. On the other hand, `sub` (subtraction), needs to first add up all existing values (consuming them in the process), and then insert a single new value of the difference between the sum and parameter.
 

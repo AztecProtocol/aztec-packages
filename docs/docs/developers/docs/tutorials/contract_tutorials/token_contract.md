@@ -247,22 +247,17 @@ In this case, all that the network sees (including Giggle) is just "something ha
 
 ### Updating Storage for Privacy
 
-For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's just import the library in `Nargo.toml`:
+For something like balances, we use `BalanceSet` which abstracts away private Notes and handles coin selection automatically. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). The `balance_set` library is included in the Aztec framework.
 
-```toml
-[dependencies]
-easy_private_state = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/aztec-nr/easy-private-state" }
-```
-
-Then import `EasyPrivateUint` in our contract:
+Import `BalanceSet` and `Owned` in our contract:
 
 ```rust
 use aztec::macros::aztec;
 
 #[aztec]
 pub contract BobToken {
-    // ... other imports
-    use easy_private_state::EasyPrivateUint;
+    use aztec::state_vars::Owned;
+    use balance_set::BalanceSet;
     // ...
 }
 ```
@@ -271,7 +266,7 @@ We need to update the contract storage to have private balances as well:
 
 #include_code storage /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
-The `private_balances` use `EasyPrivateUint` which manages encrypted notes automatically.
+The `private_balances` use `Owned<BalanceSet>` which manages encrypted notes automatically and allows accessing balances by owner address with `.at(owner)`.
 
 ### Moving Tokens to Privateland
 

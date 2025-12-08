@@ -54,12 +54,18 @@ use dep::aztec::state_vars::Map;
 - Values: Any type, including other maps
 - Multiple maps: Supported in the same contract
 
-### Declare private maps
+### Declare owned private storage
 
-Specify the note type for private storage maps:
+For private state that belongs to specific owners, use the `Owned<>` wrapper:
 
 ```rust
-private_items: Map<AztecAddress, PrivateSet<MyNote, Context>, Context>,
+private_items: Owned<PrivateSet<MyNote, Context>, Context>,
+```
+
+Access owner-specific storage with `.at(owner)`:
+
+```rust
+storage.private_items.at(owner).insert(note);
 ```
 
 ### Declare public maps
@@ -88,11 +94,17 @@ This is equivalent to Solidity's `authorized_users[msg.sender]` pattern.
 
 Aztec.nr provides three private state variable types:
 
-- `PrivateMutable<NoteType>`: Single mutable private value
-- `PrivateImmutable<NoteType>`: Single immutable private value
-- `PrivateSet<NoteType>`: Collection of private notes
+- `PrivateMutable<NoteType, Context>`: Single mutable private value
+- `PrivateImmutable<NoteType, Context>`: Single immutable private value
+- `PrivateSet<NoteType, Context>`: Collection of private notes
 
-All private storage operates on note types rather than arbitrary data types. Learn how to implement custom notes and use them with Maps [here](./how_to_implement_custom_notes.md)
+For owner-based private storage, wrap these types with `Owned<>`:
+
+- `Owned<PrivateMutable<NoteType, Context>, Context>`: Owner-keyed single mutable value
+- `Owned<PrivateImmutable<NoteType, Context>, Context>`: Owner-keyed single immutable value
+- `Owned<PrivateSet<NoteType, Context>, Context>`: Owner-keyed collection of notes
+
+All private storage operates on note types rather than arbitrary data types. Learn how to implement custom notes and use them with Owned storage [here](./how_to_implement_custom_notes.md)
 
 ### PrivateMutable
 
@@ -105,7 +117,13 @@ An example of `PrivateMutable` usage in contracts is keeping track of important 
 ```rust
 // #[storage]
 // ...etc
-my_value: PrivateMutable<MyNote, Context>,
+my_value: Owned<PrivateMutable<MyNote, Context>, Context>,
+```
+
+Access with `.at(owner)`:
+
+```rust
+storage.my_value.at(owner).get_note()
 ```
 
 #### `initialize`
@@ -135,13 +153,13 @@ When called, the method will:
 An example of this is seen in an example card game, where an update function is passed in to transform the current note into a new one (in this example, updating a `CardNote` data):
 
 ```rust
-let new_note = MyNote::new(new_value, owner);
-storage.my_value.replace(&mut new_note).emit(encode_and_encrypt_note(&mut context, owner));
+let new_note = MyNote::new(new_value);
+storage.my_value.at(owner).replace(|_old| new_note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
 ```
 
 :::info
 
-Calling `emit(encode_and_encrypt_note())` on the `replace` method will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
+Calling `emit(recipient, delivery_mode)` on the `replace` method will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
 
 :::
 
@@ -180,18 +198,16 @@ Set the value of an PrivateImmutable by calling the `initialize` method:
 ```rust
 #[external("private")]
 fn initialize_private_immutable(my_value: u8) {
-    let new_note = MyNote::new(my_value, context.msg_sender().unwrap());
+    let owner = context.msg_sender().unwrap();
+    let new_note = MyNote::new(my_value);
 
-    storage.my_private_immutable.initialize(new_note).emit(encode_and_encrypt_note(
-        &mut context,
-        context.msg_sender(),
-    ));
+    storage.my_private_immutable.at(owner).initialize(new_note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
 }
 ```
 
 :::info
 
-Calling `emit(encode_and_encrypt_note())` on `initialize` will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
+Calling `emit(recipient, delivery_mode)` on `initialize` will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
 
 :::
 
@@ -226,10 +242,16 @@ Functionally similar to `get_note`, but executed unconstrained and can be used b
 
 `PrivateSet` is used for managing a collection of notes. All notes in a `PrivateSet` are of the same `NoteType`. But whether these notes all belong to one entity, or are accessible and editable by different entities, is up to the developer.
 
-For example, adding a mapping of private items to storage, indexed by `AztecAddress`:
+For example, adding owner-based private items to storage:
 
 ```rust
-private_items: Map<AztecAddress, PrivateSet<MyNote, Context>, Context>,
+private_items: Owned<PrivateSet<MyNote, Context>, Context>,
+```
+
+Access with `.at(owner)`:
+
+```rust
+storage.private_items.at(aztec_address).insert(new_note);
 ```
 
 #### `insert`
@@ -239,12 +261,12 @@ Allows us to modify the storage by inserting a note into the `PrivateSet`.
 A hash of the note will be generated, and inserted into the note hash tree, allowing us to later use in contract interactions. Recall that the content of the note should be shared with the owner to allow them to use it, as mentioned this can be done via an encrypted log or offchain via web2, or completely offline.
 
 ```rust
-storage.set.at(aztec_address).insert(new_note).emit(encode_and_encrypt_note(&mut context, aztec_address));
+storage.set.at(aztec_address).insert(new_note).emit(aztec_address, MessageDelivery.CONSTRAINED_ONCHAIN);
 ```
 
 :::info
 
-Calling `emit(encode_and_encrypt_note())` on `insert` will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
+Calling `emit(recipient, delivery_mode)` on `insert` will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
 
 :::
 
@@ -256,15 +278,16 @@ The kernel circuits are constrained to a maximum number of notes this function c
 
 Because of this limit, we should always consider using the second argument `NoteGetterOptions` to limit the number of notes we need to read and constrain in our programs. This is quite important as every extra call increases the time used to prove the program and we don't want to spend more time than necessary.
 
-An example of such options is using the filter functions from the value note library (like `filter_notes_min_sum`) to get "enough" notes to cover a given value. Essentially, this function will return just enough notes to cover the amount specified such that we don't need to read all our notes. For users with a lot of notes, this becomes increasingly important.
+An example of such options is using custom filter functions to get "enough" notes to cover a given value. Essentially, a filter function can return just enough notes to cover the amount specified such that we don't need to read all our notes. For users with a lot of notes, this becomes increasingly important.
 
 ```rust
-use value_note::filter::filter_notes_min_sum;
-
-// etc...
-let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
-let notes = self.set.pop_notes(options);
+// Custom filter function example
+let options = NoteGetterOptions::new()
+    .set_limit(10);
+let notes = storage.private_items.at(owner).pop_notes(options);
 ```
+
+For balance-based note selection, consider using `BalanceSet` which handles coin selection automatically.
 
 #### `get_notes`
 

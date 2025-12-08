@@ -249,7 +249,7 @@ If a contract was deployed by another account:
 import { loadContractArtifact } from "@aztec/stdlib/abi";
 
 const artifact = loadContractArtifact(MyContract.artifact);
-const contract = await MyContract.at(contractAddress, wallet);
+const contract = MyContract.at(contractAddress, wallet);
 
 // To register an existing contract instance, you need to know
 // its exact deployment parameters. The registerContract method

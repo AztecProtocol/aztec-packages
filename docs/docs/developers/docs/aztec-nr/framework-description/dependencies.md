@@ -23,13 +23,13 @@ address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#i
 
 This is a library for utilizing notes that hold addresses. Find it on [GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr/address-note/src).
 
-## Easy private state
+## Balance Set
 
 ```toml
-easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/easy-private-state" }
+balance_set = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/balance-set" }
 ```
 
-This is an abstraction library for using private variables like [`EasyPrivateUint` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/6c20b45993ee9cbd319ab8351e2722e0c912f427/noir-projects/aztec-nr/easy-private-state/src/easy_private_state.nr#L17).
+This is an abstraction library for managing private balances using `BalanceSet`, which handles note creation and coin selection automatically. Find it on [GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr/balance-set/src).
 
 ## Protocol Types
 
@@ -39,8 +39,18 @@ protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="
 
 This library contains types that are used in the Aztec protocol. Find it on [GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-protocol-circuits/crates/types/src).
 
-## Value note
+## Field Note
 
 ```toml
-value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note" }
+field_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/field-note" }
 ```
+
+This is a library for notes that store a single `Field` value. Find it on [GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr/field-note/src).
+
+## Uint Note
+
+```toml
+uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/uint-note" }
+```
+
+This is a library for notes that store unsigned integer values (`u128`). Find it on [GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr/uint-note/src).
