@@ -28,7 +28,7 @@ import {DateGatedRelayer} from "@aztec/periphery/DateGatedRelayer.sol";
 
 import {ZKPassportVerifier} from "@zkpassport/ZKPassportVerifier.sol";
 
-import {DeployRollup} from "./DeployRollup.s.sol";
+import {DeployRollup, RollupDeploymentInput} from "./DeployRollup.s.sol";
 import {
     CoinIssuerConfiguration,
     DeploymentOptions,
@@ -231,16 +231,15 @@ contract DeployL1Contracts is Script, Test {
     /// @notice Deploy rollup and related contracts via DeployRollup helper
     function _deployRollup() internal {
         rollupDeployer = new DeployRollup();
-        rollupDeployer.setUp();
-        rollupDeployer.setEnv(
-            deployer,
-            registry,
-            gseContract,
-            governance,
-            feeAsset,
-            stakingAsset,
-            rewardDistributor
-        );
+        rollupDeployer.setEnv(RollupDeploymentInput({
+            deployer: deployer,
+            registry: registry,
+            gse: gseContract,
+            governance: governance,
+            feeAsset: feeAsset,
+            stakingAsset: stakingAsset,
+            rewardDistributor: rewardDistributor
+        }));
         // Deploy rollup contracts without registration or ownership transfer
         // We handle those steps here since we're in the broadcast context
         rollupDeployer.deployRollupWithConfigNoRegister(config.rollupConfig());
