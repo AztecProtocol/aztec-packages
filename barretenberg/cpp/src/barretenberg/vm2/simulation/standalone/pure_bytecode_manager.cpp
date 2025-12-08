@@ -61,14 +61,6 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     retrieved_class_ids.insert(current_class_id);
 
-    // Contract class retrieval and class ID validation
-    std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
-    // Note: we don't need to silo and check the class id because the deployer contract guarantees
-    // that if a contract instance exists, the class has been registered.
-    assert(maybe_klass.has_value());
-    auto& klass = maybe_klass.value();
-    debug("Bytecode for ", address, " successfully retrieved!");
-
     // For fast simulation, we use the class_id as the bytecode_id instead of computing the
     // expensive bytecode commitment hash. This is safe because class_id uniquely identifies
     // the bytecode. The actual commitment is only needed for trace generation / witgen.
@@ -80,6 +72,14 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     if (bytecodes.contains(bytecode_id)) {
         return bytecode_id;
     }
+
+    // Contract class retrieval and class ID validation
+    std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
+    // Note: we don't need to silo and check the class id because the deployer contract guarantees
+    // that if a contract instance exists, the class has been registered.
+    assert(maybe_klass.has_value());
+    auto& klass = maybe_klass.value();
+    debug("Bytecode for ", address, " successfully retrieved!");
 
     // We now save the bytecode so that we don't repeat this process.
     bytecodes[bytecode_id] = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
