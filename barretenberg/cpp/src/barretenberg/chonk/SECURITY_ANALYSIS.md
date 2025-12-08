@@ -161,10 +161,8 @@ A_i.return_data     → K_i.secondary_calldata  (verified via incomplete_assert_
 - [x] Assertion added: `BB_ASSERT_EQ(hiding_kernel_ultra_ops, CONST_HIDING_KERNEL_ULTRA_OPS, ...)`
 - [x] Degree check ensures L polynomial is zero-padded up to shift_size
 
-**Padding enforced to be zero**:
-- [x] Merge degree check: `deg(L) < shift_size` via Thakur degree bound protocol
-- [x] Translator zero constraints: `TranslatorZeroConstraintsRelation` enforces zeros outside minicircuit
-
+**Padding enforced to be zero** (verifier checks):
+- [x] Degree checks + Public inputs mechanism
 **Initial T_prev constrained to point at infinity** (verified via code analysis):
 - [x] For OINK (first app): `T_prev_commitments = empty_ecc_op_tables(circuit)` (`chonk.cpp:133`)
 - [x] `empty_ecc_op_tables()` creates points at infinity using `ctx->zero_idx()` (`special_public_inputs.hpp:36-44`)
@@ -176,7 +174,97 @@ A_i.return_data     → K_i.secondary_calldata  (verified via incomplete_assert_
 **T_prev propagation between kernels**:
 - [x] After first merge, `T_prev` comes from previous kernel's public inputs (`kernel_input.ecc_op_tables` at `chonk.cpp:179`)
 - [x] Each kernel outputs merged commitments as public inputs for next kernel to consume
-- [ ] Public input binding to transcript needs verification
+
+**Padding is zero**:
+
+**Detailed M_tail lifecycle:**
+
+**Step 1: Tail kernel performs final PREPEND merge**
+- **Location**: Tail kernel circuit (K_tail), during `complete_kernel_circuit_logic()`
+- **What happens**:
+  - Recursive merge verifier runs in K_tail (`chonk.cpp:208`)
+  - Verifies: `M_tail(κ) = t_tail(κ) + κ^ℓ_tail · T_prev(κ)` where `ℓ_tail = |t_tail| × 2`
+  - Verifies: `deg(t_tail) < ℓ_tail` (Thakur degree check)
+  - Outputs: `merged_table_commitments` = `[M_tail,1], [M_tail,2], [M_tail,3], [M_tail,4]`
+- **Commitment storage** (`chonk.cpp:280`):
+  - `T_prev_commitments = merged_table_commitments` (stores `[M_tail]`)
+- **Public output** (`chonk.cpp:310`):
+  - `kernel_output.ecc_op_tables = T_prev_commitments` (= `[M_tail]`)
+  - K_tail's public inputs now contain `[M_tail,1], [M_tail,2], [M_tail,3], [M_tail,4]`
+
+**Step 2: K_tail → Hiding kernel via HyperNova**
+- **What the hiding kernel verifies**:
+  - HyperNova folding verification of K_tail's proof (`chonk.cpp:148-149`)
+  - This includes verifying K_tail's public inputs are bound to the proof
+  - Specifically: `kernel_output.ecc_op_tables` (containing `[M_tail]`) is part of K_tail's public inputs
+
+**Step 3: Hiding kernel extracts [M_tail] from K_tail's public inputs**
+- **Location**: `chonk.cpp:169-179`
+- **What happens**:
+  ```cpp
+  KernelIO kernel_input;
+  kernel_input.reconstruct_from_public(public_inputs); // Line 170
+  merge_commitments.T_prev_commitments = std::move(kernel_input.ecc_op_tables); // Line 179
+  ```
+- **Verifier guarantee**: HyperNova verification in step 2 ensures `public_inputs` matches K_tail's proven computation
+- **Result**: `merge_commitments.T_prev_commitments` now contains `[M_tail]` (verified to match K_tail's output)
+
+**Step 4: Hiding kernel recursively verifies K_tail**
+- **Location**: Hiding kernel circuit, `chonk.cpp:269-280`
+- **What happens**:
+  - Hiding kernel's verification queue contains exactly one entry: K_tail (type `HN_FINAL`)
+  - `perform_recursive_verification_and_databus_consistency_checks()` is called:
+    - Verifies K_tail's HyperNova folding proof (`chonk.cpp:148-149`)
+    - Verifies K_tail's decider proof (`chonk.cpp:151-153`)
+    - Recursively verifies K_tail's merge proof (`chonk.cpp:207-208`)
+  - Returns `merged_table_commitments` from K_tail's merge = `[M_tail]`
+  - Updates: `T_prev_commitments = merged_table_commitments` (`chonk.cpp:280`)
+- **Public output** (`chonk.cpp:297-299`):
+  - `HidingKernelIO hiding_output{ ..., T_prev_commitments }`
+  - **CRITICAL**: This is `[M_tail]` (accumulated ops up to and including K_tail)
+  - **Hiding kernel's own ops are NOT merged here** - they will be merged by Chonk Verifier
+
+**Step 5: Native Chonk verifier extracts [M_tail] from hiding kernel**
+- **Location**: `Chonk::verify()`, `chonk.cpp:546-547`
+  ```cpp
+  auto [mega_verified, kernel_return_data, T_prev_commitments] =
+      verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
+  ```
+- **What this does**:
+  - Verifies hiding kernel's MegaZK proof (including its public inputs)
+  - Extracts `T_prev_commitments` from `HidingKernelIO` public inputs
+  - This `T_prev_commitments` = `[M_tail]` (ops accumulated up to and including K_tail)
+- **Verifier guarantee**: MegaZK verification ensures `T_prev_commitments` is bound to hiding kernel's proof
+
+**Step 6: Final merge (APPEND mode) - merges hiding kernel's ops**
+- **Location**: `chonk.cpp:553-557`
+  ```cpp
+  TableCommitments t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
+  bool goblin_verified = Goblin::verify(
+      proof.goblin_proof, { t_commitments, T_prev_commitments }, chonk_verifier_transcript, MergeSettings::APPEND);
+  ```
+- **Inputs to final merge verifier**:
+  - `t_commitments` = hiding kernel's `ecc_op_wires` (hiding kernel's ops, committed during Oink)
+  - `T_prev_commitments` = `[M_tail]` from step 5
+- **What the native merge verifier checks** (`merge_verifier.cpp:138-143`):
+  - In APPEND mode: `L = T_prev_commitments` (= `[M_tail]`), `R = t_commitments` (hiding kernel's ops)
+  - Receives `shift_size` from merge proof (prover claims this is `(OP_QUEUE_SIZE - |t_hiding|) × 2`)
+  - Verifies: `M_final(κ) = L(κ) + κ^shift_size · R(κ)` at random κ
+  - Verifies: `deg(L) < shift_size` (Thakur degree check)
+  - **Critical for ZK**: If `shift_size` is constant (enforced by assertion on `|t_hiding|`), then padding size is constant
+
+**Key verifier guarantees:**
+1. **Step 1**: K_tail outputs `[M_tail]` via verified merge protocol
+2. **Step 2-3**: HyperNova ensures `[M_tail]` from K_tail's public inputs matches proven computation
+3. **Step 4**: Hiding kernel uses `[M_tail]` (verified in step 3) for its merge
+4. **Step 5**: MegaZK verification ensures hiding kernel's public outputs are bound to its proof
+5. **Step 6**: Final merge uses `[T_prev]` from step 5, with constant `shift_size` enforced by assertion
+
+**Conclusion**: Zero padding is enforced by:
+1. **Degree bound check**: Ensures no coefficients at positions `≥ ℓ`
+2. **Commitment binding**: Fixes the polynomial underlying each commitment
+3. **Concatenation identity**: Relates `[M]`, `[L]`, `[R]` via polynomial equation
+4. **Public input verification**: HyperNova ensures commitments propagate correctly between kernels
 
 ---
 
@@ -374,7 +462,9 @@ the accumulator and instance claims.
 - `relations/databus_lookup_relation.hpp` - Databus lookup relation implementation
 - `relations/databus_lookup_relation_consistency.test.cpp` - Databus relation unit tests
 - `relations/translator_vm/translator_extra_relations_impl.hpp` - Translator zero constraints
-- `op_queue/ecc_ops_table.hpp` - Ultra ops table (fixed append offset)
+- `op_queue/ecc_ops_table.hpp` - Ultra ops table (fixed append offset), `construct_current_ultra_ops_subtable_columns()` (subtable polynomial construction)
+- `stdlib_circuit_builders/mega_circuit_builder.cpp` - `populate_ecc_op_wires()` (circuit ecc_op_wire construction)
+- `ultra_honk/oink_prover.cpp` - Witness commitment during Oink (ecc_op_wire commitment)
 - `constants.hpp` - CONST_HIDING_KERNEL_ULTRA_OPS (source of truth for hiding kernel ultra ops)
 - `dsl/acir_format/gate_count_constants.hpp` - Re-exports CONST_HIDING_KERNEL_ULTRA_OPS for DSL
 
@@ -385,3 +475,4 @@ the accumulator and instance claims.
 *Databus relation unit tests added: 2025-12-08*
 *CONST_HIDING_KERNEL_ULTRA_OPS global constant added: 2025-12-08*
 *T_prev initialization constraint analysis added: 2025-12-08*
+*Zero padding commitment binding analysis added: 2025-12-08*
