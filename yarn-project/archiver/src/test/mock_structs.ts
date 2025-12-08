@@ -1,6 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
-import { randomBigInt, randomInt } from '@aztec/foundation/crypto';
+import { randomBigInt, randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 

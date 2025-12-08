@@ -6,7 +6,7 @@ import { deriveKeys } from '@aztec/aztec.js/keys';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, DeployAccountMethod } from '@aztec/aztec.js/wallet';
-import { Schnorr } from '@aztec/foundation/crypto';
+import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fq } from '@aztec/foundation/curves/bn254';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SchnorrAccountContract as SchnorrAccountContractInterface } from '@aztec/noir-contracts.js/SchnorrAccount';

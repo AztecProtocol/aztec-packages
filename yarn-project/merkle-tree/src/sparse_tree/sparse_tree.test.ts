@@ -1,4 +1,4 @@
-import { randomBigInt } from '@aztec/foundation/crypto';
+import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { SiblingPath } from '@aztec/foundation/trees';

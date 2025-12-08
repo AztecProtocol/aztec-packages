@@ -16,6 +16,7 @@ All note struct fields are now public, and the `new()` constructor methods and g
 The motivation for this change has been enshrining of randomness which lead to the `new` method being unnecessary boilerplate.
 
 **Affected notes:**
+
 - `UintNote` - `value` is now public, `new()` and `get_value()` removed
 - `AddressNote` - `address` is now public, `new()` and `get_address()` removed
 - `FieldNote` - `value` is now public, `new()` and `value()` removed
@@ -571,6 +572,7 @@ Having the recipient in the return value has been redundant as the same outcome 
 #### Changes to `getPrivateEvents`
 
 The signature of `getPrivateEvents` has changed for two reasons:
+
 1. To align it with how other query methods that include filtering by block range work (for example, `AztecNode#getPublicLogs`)
 2. To enrich the returned private events with metadata.
 
@@ -626,7 +628,6 @@ Also note we're replacing _recipient_ terminology with _scope_. While underlying
 ```
 
 Please refer to the wallet interface js-docs for further details.
-
 
 ### [CLI] Command refactor
 
