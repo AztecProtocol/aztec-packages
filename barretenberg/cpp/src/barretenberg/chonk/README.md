@@ -360,10 +360,6 @@ The hiding kernel:
 - Masks sensitive `op_queue` data
 - Is then proven using MegaZK to produce the final Chonk proof
 
-### Known Limitation
-
-The `accumulated_result` (Translator's accumulated EC operation result) is masked but currently uses only 128 bits of randomness. This provides computational hiding but not statistical hiding. A future improvement may increase this to full field element randomness.
-
 ---
 
 ## Usage
