@@ -1,13 +1,9 @@
-#include "barretenberg/crypto/sha256/sha256.hpp"
+#include "sha256.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "sha256.hpp"
-
-#include "barretenberg/numeric/bitop/rotate.hpp"
-#include "barretenberg/numeric/bitop/sparse_form.hpp"
+#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 using namespace bb;
 using namespace bb::stdlib;
@@ -15,458 +11,205 @@ using namespace bb::stdlib;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
-using Builder = UltraCircuitBuilder;
 
-using byte_array_ct = byte_array<Builder>;
+using Builder = UltraCircuitBuilder;
 using field_ct = field_t<Builder>;
 using witness_ct = witness_t<Builder>;
 
 /**
- * @brief Given a `byte_array` object, slice it into chunks of size `num_bytes_in_chunk` and compute field elements
- * reconstructed from these chunks.
+ * @brief Test sha256_block against NIST vector one ("abc")
+ *
+ * This tests the compression function directly by manually padding the message
+ * and comparing against the known NIST hash output.
+ *
+ * For "abc" (3 bytes):
+ * - Padded block: "abc" + 0x80 + zeros + 64-bit length (24 bits)
+ * - Single block since message fits in 55 bytes
  */
-
-std::vector<field_ct> pack_bytes_into_field_elements(const byte_array_ct& input, size_t num_bytes_in_chunk = 4)
-{
-    std::vector<field_t<Builder>> result;
-    const size_t byte_len = input.size();
-
-    for (size_t i = 0; i < byte_len; i += num_bytes_in_chunk) {
-        byte_array_ct chunk = input.slice(i, std::min(num_bytes_in_chunk, byte_len - i));
-        result.emplace_back(static_cast<field_ct>(chunk));
-    }
-
-    return result;
-}
-constexpr uint64_t ror(uint64_t val, uint64_t shift)
-{
-    return (val >> (shift & 31U)) | (val << (32U - (shift & 31U)));
-}
-
-std::array<uint64_t, 64> extend_witness(std::array<uint64_t, 16>& in)
-{
-    std::array<uint64_t, 64> w;
-
-    for (size_t i = 0; i < 16; ++i) {
-        w[i] = in[i];
-    }
-
-    for (size_t i = 16; i < 64; ++i) {
-        uint64_t left = w[i - 15];
-        uint64_t right = w[i - 2];
-
-        uint64_t left_rot7 = numeric::rotate32((uint32_t)left, 7);
-        uint64_t left_rot18 = numeric::rotate32((uint32_t)left, 18);
-        uint64_t left_sh3 = left >> 3;
-
-        uint64_t right_rot17 = numeric::rotate32((uint32_t)right, 17);
-        uint64_t right_rot19 = numeric::rotate32((uint32_t)right, 19);
-        uint64_t right_sh10 = right >> 10;
-
-        uint64_t s0 = left_rot7 ^ left_rot18 ^ left_sh3;
-        uint64_t s1 = right_rot17 ^ right_rot19 ^ right_sh10;
-
-        w[i] = w[i - 16] + w[i - 7] + s0 + s1;
-    }
-    return w;
-}
-std::array<uint64_t, 8> inner_block(std::array<uint64_t, 64>& w)
-{
-    constexpr uint32_t init_constants[8]{ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-                                          0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
-
-    constexpr uint32_t round_constants[64]{
-        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-    };
-    uint32_t a = init_constants[0];
-    uint32_t b = init_constants[1];
-    uint32_t c = init_constants[2];
-    uint32_t d = init_constants[3];
-    uint32_t e = init_constants[4];
-    uint32_t f = init_constants[5];
-    uint32_t g = init_constants[6];
-    uint32_t h = init_constants[7];
-    for (size_t i = 0; i < 64; ++i) {
-        uint32_t S1 = numeric::rotate32((uint32_t)e, 6U) ^ numeric::rotate32((uint32_t)e, 11U) ^
-                      numeric::rotate32((uint32_t)e, 25U);
-        uint32_t ch = (e & f) ^ (~e & g); // === (e & f) ^ (~e & g), `+` op is cheaper
-        uint32_t temp1 = h + S1 + ch + round_constants[i] + (uint32_t)w[i];
-        uint32_t S0 = numeric::rotate32((uint32_t)a, 2U) ^ numeric::rotate32((uint32_t)a, 13U) ^
-                      numeric::rotate32((uint32_t)a, 22U);
-        uint32_t maj = (a & b) ^ (a & c) ^ (b & c); // (a & (b + c - (T0 * 2))) + T0; // === (a & b) ^ (a & c) ^ (b & c)
-        uint32_t temp2 = S0 + maj;
-
-        h = g;
-        g = f;
-        f = e;
-        e = d + temp1;
-        d = c;
-        c = b;
-        b = a;
-        a = temp1 + temp2;
-    }
-
-    /**
-     * Add into previous block output and return
-     **/
-    std::array<uint64_t, 8> output;
-    output[0] = (uint32_t)(a + init_constants[0]);
-    output[1] = (uint32_t)(b + init_constants[1]);
-    output[2] = (uint32_t)(c + init_constants[2]);
-    output[3] = (uint32_t)(d + init_constants[3]);
-    output[4] = (uint32_t)(e + init_constants[4]);
-    output[5] = (uint32_t)(f + init_constants[5]);
-    output[6] = (uint32_t)(g + init_constants[6]);
-    output[7] = (uint32_t)(h + init_constants[7]);
-    return output;
-}
-
-// TEST(stdlib_sha256_plookup, test_round)
-// {
-
-//     auto builder = UltraPlonkBuilder();
-
-//     std::array<uint64_t, 64> w_inputs;
-//     std::array<stdlib::field_t<UltraCircuitBuilder>, 64> w_elements;
-
-//     for (size_t i = 0; i < 64; ++i) {
-//         w_inputs[i] = engine.get_random_uint32();
-//         w_elements[i] = stdlib::witness_t<bb::UltraCircuitBuilder>(&builder,
-//         fr(w_inputs[i]));
-//     }
-
-//     const auto expected = inner_block(w_inputs);
-
-//     const std::array<bb::stdlib::field_t<bb::UltraCircuitBuilder>, 8> result =
-//         stdlib::sha256_inner_block(w_elements);
-//     for (size_t i = 0; i < 8; ++i) {
-//         EXPECT_EQ(uint256_t(result[i].get_value()).data[0] & 0xffffffffUL,
-//                   uint256_t(expected[i]).data[0] & 0xffffffffUL);
-//     }
-//     info("num gates = %zu\n", builder.get_num_finalized_gates_inefficient());
-
-//     auto prover = composer.create_prover();
-
-//     auto verifier = composer.create_verifier();
-//     plonk::proof proof = prover.construct_proof();
-//     bool proof_result = CircuitChecker::check(builder);
-//     EXPECT_EQ(proof_result, true);
-// }
-
-TEST(stdlib_sha256, test_plookup_55_bytes)
-{
-
-    // 55 bytes is the largest number of bytes that can be hashed in a single block,
-    // accounting for the single padding bit, and the 64 size bits required by the SHA-256 standard.
-    auto builder = UltraCircuitBuilder();
-    byte_array_ct input(&builder, "An 8 character password? Snow White and the 7 Dwarves..");
-
-    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
-
-    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
-
-    EXPECT_EQ(uint256_t(output[0].get_value()), 0x51b2529fU);
-    EXPECT_EQ(uint256_t(output[1].get_value()), 0x872e839aU);
-    EXPECT_EQ(uint256_t(output[2].get_value()), 0xb686c3c2U);
-    EXPECT_EQ(uint256_t(output[3].get_value()), 0x483c872eU);
-    EXPECT_EQ(uint256_t(output[4].get_value()), 0x975bd672U);
-    EXPECT_EQ(uint256_t(output[5].get_value()), 0xbde22ab0U);
-    EXPECT_EQ(uint256_t(output[6].get_value()), 0x54a8fac7U);
-    EXPECT_EQ(uint256_t(output[7].get_value()), 0x93791fc7U);
-    info("num gates = ", builder.get_num_finalized_gates_inefficient());
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-TEST(stdlib_sha256, test_55_bytes)
-{
-    // 55 bytes is the largest number of bytes that can be hashed in a single block,
-    // accounting for the single padding bit, and the 64 size bits required by the SHA-256 standard.
-    auto builder = Builder();
-    byte_array_ct input(&builder, "An 8 character password? Snow White and the 7 Dwarves..");
-
-    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
-
-    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
-
-    EXPECT_EQ(output[0].get_value(), fr(0x51b2529fULL));
-    EXPECT_EQ(output[1].get_value(), fr(0x872e839aULL));
-    EXPECT_EQ(output[2].get_value(), fr(0xb686c3c2ULL));
-    EXPECT_EQ(output[3].get_value(), fr(0x483c872eULL));
-    EXPECT_EQ(output[4].get_value(), fr(0x975bd672ULL));
-    EXPECT_EQ(output[5].get_value(), fr(0xbde22ab0ULL));
-    EXPECT_EQ(output[6].get_value(), fr(0x54a8fac7ULL));
-    EXPECT_EQ(output[7].get_value(), fr(0x93791fc7ULL));
-    info("num gates = ", builder.get_num_finalized_gates_inefficient());
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-TEST(stdlib_sha256, test_NIST_vector_one_byte_array)
-{
-
-    auto builder = UltraCircuitBuilder();
-
-    byte_array_ct input(&builder, "abc");
-    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
-    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
-    EXPECT_EQ(uint256_t(output[0].get_value()).data[0], (uint64_t)0xBA7816BFU);
-    EXPECT_EQ(uint256_t(output[1].get_value()).data[0], (uint64_t)0x8F01CFEAU);
-    EXPECT_EQ(uint256_t(output[2].get_value()).data[0], (uint64_t)0x414140DEU);
-    EXPECT_EQ(uint256_t(output[3].get_value()).data[0], (uint64_t)0x5DAE2223U);
-    EXPECT_EQ(uint256_t(output[4].get_value()).data[0], (uint64_t)0xB00361A3U);
-    EXPECT_EQ(uint256_t(output[5].get_value()).data[0], (uint64_t)0x96177A9CU);
-    EXPECT_EQ(uint256_t(output[6].get_value()).data[0], (uint64_t)0xB410FF61U);
-    EXPECT_EQ(uint256_t(output[7].get_value()).data[0], (uint64_t)0xF20015ADU);
-    info("num gates = ", builder.get_num_finalized_gates_inefficient());
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-TEST(stdlib_sha256, test_NIST_vector_one)
-{
-
-    auto builder = UltraCircuitBuilder();
-
-    byte_array_ct input(&builder, "abc");
-
-    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
-
-    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
-
-    EXPECT_EQ(output[0].get_value(), fr(0xBA7816BFULL));
-    EXPECT_EQ(output[1].get_value(), fr(0x8F01CFEAULL));
-    EXPECT_EQ(output[2].get_value(), fr(0x414140DEULL));
-    EXPECT_EQ(output[3].get_value(), fr(0x5DAE2223ULL));
-    EXPECT_EQ(output[4].get_value(), fr(0xB00361A3ULL));
-    EXPECT_EQ(output[5].get_value(), fr(0x96177A9CULL));
-    EXPECT_EQ(output[6].get_value(), fr(0xB410FF61ULL));
-    EXPECT_EQ(output[7].get_value(), fr(0xF20015ADULL));
-    info("num gates = ", builder.get_num_finalized_gates_inefficient());
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-TEST(stdlib_sha256, test_NIST_vector_two)
+TEST(stdlib_sha256, test_sha256_block_NIST_vector_one)
 {
     auto builder = Builder();
 
-    byte_array_ct input(&builder, "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq");
+    // SHA-256 initial hash values (FIPS 180-4 section 5.3.3)
+    constexpr std::array<uint32_t, 8> H_INIT = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                                                 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
 
-    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
-
-    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
-
-    EXPECT_EQ(output[0].get_value(), 0x248D6A61ULL);
-    EXPECT_EQ(output[1].get_value(), 0xD20638B8ULL);
-    EXPECT_EQ(output[2].get_value(), 0xE5C02693ULL);
-    EXPECT_EQ(output[3].get_value(), 0x0C3E6039ULL);
-    EXPECT_EQ(output[4].get_value(), 0xA33CE459ULL);
-    EXPECT_EQ(output[5].get_value(), 0x64FF2167ULL);
-    EXPECT_EQ(output[6].get_value(), 0xF6ECEDD4ULL);
-    EXPECT_EQ(output[7].get_value(), 0x19DB06C1ULL);
-    info("num gates = ", builder.get_num_finalized_gates_inefficient());
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-TEST(stdlib_sha256, test_NIST_vector_three)
-{
-    auto builder = Builder();
-
-    // one byte, 0xbd
-    byte_array_ct input(&builder, std::vector<uint8_t>{ 0xbd });
-
-    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
-
-    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
-
-    EXPECT_EQ(output[0].get_value(), 0x68325720ULL);
-    EXPECT_EQ(output[1].get_value(), 0xaabd7c82ULL);
-    EXPECT_EQ(output[2].get_value(), 0xf30f554bULL);
-    EXPECT_EQ(output[3].get_value(), 0x313d0570ULL);
-    EXPECT_EQ(output[4].get_value(), 0xc95accbbULL);
-    EXPECT_EQ(output[5].get_value(), 0x7dc4b5aaULL);
-    EXPECT_EQ(output[6].get_value(), 0xe11204c0ULL);
-    EXPECT_EQ(output[7].get_value(), 0x8ffe732bULL);
-    info("num gates = ", builder.get_num_finalized_gates_inefficient());
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-TEST(stdlib_sha256, test_NIST_vector_four)
-{
-    auto builder = Builder();
-
-    // 4 bytes, 0xc98c8e55
-    byte_array_ct input(&builder, std::vector<uint8_t>{ 0xc9, 0x8c, 0x8e, 0x55 });
-
-    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
-
-    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
-
-    EXPECT_EQ(output[0].get_value(), 0x7abc22c0ULL);
-    EXPECT_EQ(output[1].get_value(), 0xae5af26cULL);
-    EXPECT_EQ(output[2].get_value(), 0xe93dbb94ULL);
-    EXPECT_EQ(output[3].get_value(), 0x433a0e0bULL);
-    EXPECT_EQ(output[4].get_value(), 0x2e119d01ULL);
-    EXPECT_EQ(output[5].get_value(), 0x4f8e7f65ULL);
-    EXPECT_EQ(output[6].get_value(), 0xbd56c61cULL);
-    EXPECT_EQ(output[7].get_value(), 0xcccd9504ULL);
-
-    info("num gates = ", builder.get_num_finalized_gates_inefficient());
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-HEAVY_TEST(stdlib_sha256, test_NIST_vector_five)
-{
-
-    auto builder = UltraCircuitBuilder();
-
-    byte_array_ct input(
-        &builder,
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        "AAAAAAAAAA");
-
-    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
-
-    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
-
-    EXPECT_EQ(output[0].get_value(), 0xc2e68682ULL);
-    EXPECT_EQ(output[1].get_value(), 0x3489ced2ULL);
-    EXPECT_EQ(output[2].get_value(), 0x017f6059ULL);
-    EXPECT_EQ(output[3].get_value(), 0xb8b23931ULL);
-    EXPECT_EQ(output[4].get_value(), 0x8b6364f6ULL);
-    EXPECT_EQ(output[5].get_value(), 0xdcd835d0ULL);
-    EXPECT_EQ(output[6].get_value(), 0xa519105aULL);
-    EXPECT_EQ(output[7].get_value(), 0x1eadd6e4ULL);
-
-    info("num gates = ", builder.get_num_finalized_gates_inefficient());
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-TEST(stdlib_sha256, test_input_len_multiple)
-{
-    auto builder = Builder();
-
-    std::vector<uint32_t> input_sizes = { 1, 7, 15, 16, 30, 32, 55, 64, 90, 128, 512, 700 };
-
-    for (auto& inp : input_sizes) {
-        auto input_buf = std::vector<uint8_t>(inp, 1);
-
-        byte_array_ct input(&builder, input_buf);
-        byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
-
-        auto circuit_output = output_bytes.get_value();
-
-        auto expected = crypto::sha256(input_buf);
-
-        EXPECT_EQ(circuit_output, expected);
-    }
-}
-
-TEST(stdlib_sha256, test_input_str_len_multiple)
-{
-    auto builder = Builder();
-
-    std::vector<std::string> input_strings = {
-        "y",                                                                                          // 1
-        "rjvrbuh",                                                                                    // 7
-        "mrrozctemyvkntd",                                                                            // 15
-        "wzazugetudtuezxa",                                                                           // 16
-        "dbxldszbrgdmyvncpeifhnelmlulqo",                                                             // 30
-        "qdnsbdlamrivgzbktsyyijethtvuzzrk",                                                           // 32
-        "qhpqepdogwsiuyfwqgbqcikeywbgyjznoswitwddhytzkrkdjykvflg",                                    // 55
-        "fmsityhwkevuctwwsosjyrznibbpfcawmkoatqaaojeahnldcnrwijqpwiuvdeyp",                           // 64
-        "utszdtjhsqjeakhczzusnntdrtxbljvhqdndaybosjgaufvnjxmnidcvvedgszbspaycosgwauyttmbdvqogakiktp", // 90
-        "enbgynwxnnymvqeqbojewmzwowfbpetrerntwtkgwnvtdopjssnddzxjnkqwicthufgpbwrmmhiwpyxlpskxgarmrtvketlvkmdvnsqgdftfhw"
-        "dvgmlfjrqoviqrhuon", // 128
-        "nngsypjgwnazpjdxovbqnevgrqxwzuljdqqiahpgwvvmgjdzfwjsjwwxcadhluzqxezlrznuoiuobpmkhqibphwvfjicmpxkshiizlgpyloxyx"
-        "fljwgwlazfidiylowazmguxxxjzimizxrzllescpactcpzeaeuyhjxgkmktkqslxripwwgragpvwknphwifojuqatlraacymbwfaohhhzstnil"
-        "tqvukrienivisigkoefkqejdagylahffwvloqtqjkmtgxenxviqutsjjgffmolrwqbwgigyrhbpqsnyyzmvvyehcsyzxxskkyxiuqvagakutcu"
-        "lqowtykszgnpmeebrksyaqezflhdbrgswpwnrknjnfhnfqfwquooxazubnccawwvldpihkhjkwmwceuvorfeuwvzjzzceywuimfzunordhixpo"
-        "rqveoywjgdbnmgiywcwwcybhoqvhentbwxfvouauviyqbnphtfotgwtitxutdfxjforuyaau", // 512
-        "lbfeywyqvybssdvmorkyltmgxvjezwltijsqfnpaexqyzfppmnpsxlhqwdojjqsqlfybpxskexswevngctedgvhbdwszxqxqoqbhmshmpmdrpy"
-        "akejsoevkfrtvgfzcvockujdynvxfaxsdavmwlpxfwftczoduqdfxrkksnqygdsarhaszezxndalitvvsziyeklymrytdkunnxpvwvkzldrrzw"
-        "ccxghwdnufkxsvpumhhszzjpmwuxvfjxfccltjqlwkyleyoydzpqqfnkkuvdgbvuqqsnpexuoqupakvhvqfucbkzoyzehocvkzsngtwkyqklhk"
-        "qdtszsbtyzxzdeipjsbmzrpqlkhlkqimoiiblhrrymyafvtdbrmbixuzwhvnkcroanyvxvbaaznpgoadhmltgcweqajbnnkzuxihlcqurjzkxb"
-        "pxqjyvutmgqquavwpkdgkppctvybdikwvqxgifgfbgzywijqtcyvfqdsbbxsknqejhrwuhlnqjgdcpipxxwbguzgsjygbdgqczmqxcnzieoyok"
-        "oraykfcqzctnjgjcdyhnxnuorvaxhsdbeosqhvqebccfxiefubecprupofnkkpafpmlzcqbcnojbelemuqlxoiqqwhtrddqqwurvgyretfvhuh"
-        "fzkbvfywmrqpjqxdrvlrmvlbmmfeldmwvxmpohle" // 700
+    // Manually padded block for "abc" (FIPS 180-4 section 5.1.1)
+    // Message "abc" = 0x616263
+    // Pad: append 1 bit, then zeros, then 64-bit length
+    // Block: 0x61626380 00000000 ... 00000000 00000018
+    constexpr std::array<uint32_t, 16> PADDED_BLOCK = {
+        0x61626380, // "abc" + padding bit
+        0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+        0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+        0x00000018 // length in bits (24)
     };
 
-    for (auto& input_str : input_strings) {
-        auto input_buf = std::vector<uint8_t>(input_str.begin(), input_str.end());
+    // Expected output: SHA-256("abc") from NIST
+    constexpr std::array<uint32_t, 8> EXPECTED = { 0xba7816bf, 0x8f01cfea, 0x414140de, 0x5dae2223,
+                                                   0xb00361a3, 0x96177a9c, 0xb410ff61, 0xf20015ad };
 
-        byte_array_ct input(&builder, input_buf);
-        byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
-
-        auto circuit_output = output_bytes.get_value();
-
-        auto expected = crypto::sha256(input_buf);
-
-        EXPECT_EQ(circuit_output, expected);
+    // Verify native implementation first
+    auto native_output = crypto::sha256_block(H_INIT, PADDED_BLOCK);
+    for (size_t i = 0; i < 8; i++) {
+        EXPECT_EQ(native_output[i], EXPECTED[i]) << "Native mismatch at index " << i;
     }
+
+    // Create circuit witnesses
+    std::array<field_ct, 8> h_init;
+    for (size_t i = 0; i < 8; i++) {
+        h_init[i] = witness_ct(&builder, H_INIT[i]);
+    }
+
+    std::array<field_ct, 16> block;
+    for (size_t i = 0; i < 16; i++) {
+        block[i] = witness_ct(&builder, PADDED_BLOCK[i]);
+    }
+
+    // Run circuit compression
+    auto circuit_output = SHA256<Builder>::sha256_block(h_init, block);
+
+    // Verify circuit correctness
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    // Compare outputs
+    for (size_t i = 0; i < 8; i++) {
+        uint32_t circuit_val = static_cast<uint32_t>(uint256_t(circuit_output[i].get_value()));
+        EXPECT_EQ(circuit_val, EXPECTED[i]) << "Circuit mismatch at index " << i;
+    }
+
+    info("sha256_block num gates = ", builder.get_num_finalized_gates_inefficient());
 }
 
-TEST(stdlib_sha256, test_boomerang_value_regression)
+/**
+ * @brief Test sha256_block against NIST vector two (56-byte message)
+ *
+ * This tests chained compression by manually padding a two-block message
+ * and comparing against the known NIST hash output.
+ *
+ * For "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq" (56 bytes):
+ * - Block 1: message bytes + padding bit (0x80)
+ * - Block 2: zeros + 64-bit length (448 bits = 0x1c0)
+ */
+TEST(stdlib_sha256, test_sha256_block_NIST_vector_two)
 {
-    BB_DISABLE_ASSERTS(); // Disable assert to allow set_variable
+    auto builder = Builder();
+
+    // SHA-256 initial hash values
+    constexpr std::array<uint32_t, 8> H_INIT = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                                                 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+
+    // First block: first 64 bytes of padded message
+    // "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq" = 56 bytes
+    // After padding bit, need second block for length
+    constexpr std::array<uint32_t, 16> BLOCK_1 = {
+        0x61626364, 0x62636465, 0x63646566, 0x64656667, // "abcd" "bcde" "cdef" "defg"
+        0x65666768, 0x66676869, 0x6768696a, 0x68696a6b, // "efgh" "fghi" "ghij" "hijk"
+        0x696a6b6c, 0x6a6b6c6d, 0x6b6c6d6e, 0x6c6d6e6f, // "ijkl" "jklm" "klmn" "lmno"
+        0x6d6e6f70, 0x6e6f7071, 0x80000000, 0x00000000  // "mnop" "nopq" + padding bit
+    };
+
+    // Second block: zeros + 64-bit length (448 bits = 0x1c0)
+    constexpr std::array<uint32_t, 16> BLOCK_2 = { 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                                                   0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                                                   0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                                                   0x00000000, 0x00000000, 0x00000000, 0x000001c0 };
+
+    // Expected output from NIST
+    constexpr std::array<uint32_t, 8> EXPECTED = { 0x248d6a61, 0xd20638b8, 0xe5c02693, 0x0c3e6039,
+                                                   0xa33ce459, 0x64ff2167, 0xf6ecedd4, 0x19db06c1 };
+
+    // Verify native implementation
+    auto h_after_block1 = crypto::sha256_block(H_INIT, BLOCK_1);
+    auto native_output = crypto::sha256_block(h_after_block1, BLOCK_2);
+    for (size_t i = 0; i < 8; i++) {
+        EXPECT_EQ(native_output[i], EXPECTED[i]) << "Native mismatch at index " << i;
+    }
+
+    // Circuit: first block
+    std::array<field_ct, 8> h_init;
+    for (size_t i = 0; i < 8; i++) {
+        h_init[i] = witness_ct(&builder, H_INIT[i]);
+    }
+
+    std::array<field_ct, 16> block1;
+    for (size_t i = 0; i < 16; i++) {
+        block1[i] = witness_ct(&builder, BLOCK_1[i]);
+    }
+
+    auto h_mid = SHA256<Builder>::sha256_block(h_init, block1);
+
+    // Circuit: second block
+    std::array<field_ct, 16> block2;
+    for (size_t i = 0; i < 16; i++) {
+        block2[i] = witness_ct(&builder, BLOCK_2[i]);
+    }
+
+    auto circuit_output = SHA256<Builder>::sha256_block(h_mid, block2);
+
+    // Verify circuit correctness
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    // Compare outputs
+    for (size_t i = 0; i < 8; i++) {
+        uint32_t circuit_val = static_cast<uint32_t>(uint256_t(circuit_output[i].get_value()));
+        EXPECT_EQ(circuit_val, EXPECTED[i]) << "Circuit mismatch at index " << i;
+    }
+
+    info("sha256_block (2 blocks) num gates = ", builder.get_num_finalized_gates_inefficient());
+}
+
+/**
+ * @brief Test extend_witness constraints (boomerang attack regression)
+ *
+ * This security test verifies that SHA256::extend_witness() properly constrains
+ * all 64 extended message schedule words. Modifying any word should cause
+ * circuit failure.
+ *
+ */
+TEST(stdlib_sha256, test_extend_witness_constraints)
+{
+    BB_DISABLE_ASSERTS();
 
     auto builder = Builder();
-    std::array<field_t<Builder>, 16> input;
+    std::array<field_ct, 16> input;
 
-    // Create random input witnesses and ensure that the witnesses are constrained to constants
+    // Create random input witnesses and ensure they are constrained
     for (size_t i = 0; i < 16; i++) {
         auto random32bits = engine.get_random_uint32();
         field_ct elt(witness_ct(&builder, fr(random32bits)));
         elt.fix_witness();
         input[i] = elt;
     }
-    // Check correctness
-    std::array<field_t<Builder>, 64> w_ext = SHA256<Builder>::extend_witness(input);
-    bool result1 = CircuitChecker::check(builder);
-    EXPECT_EQ(result1, true);
-    bool result2 = false;
-    for (auto& single_extended_witness : w_ext) {
 
+    // Extend the witness
+    std::array<field_ct, 64> w_ext = SHA256<Builder>::extend_witness(input);
+
+    // Verify circuit is initially valid
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    // Try modifying each extended witness and verify circuit fails
+    bool any_modification_passed = false;
+    for (auto& single_extended_witness : w_ext) {
         auto random32bits = engine.get_random_uint32();
         uint32_t variable_index = single_extended_witness.get_witness_index();
-        // Ensure our random value is different
+
+        // Ensure our random value is different from current
         while (builder.get_variable(variable_index) == fr(random32bits)) {
             random32bits = engine.get_random_uint32();
         }
+
         auto backup = builder.get_variable(variable_index);
         builder.set_variable(variable_index, fr(random32bits));
-        // Check that the circuit fails
-        result2 = result2 || CircuitChecker::check(builder);
+
+        // Circuit should fail with modified witness
+        if (CircuitChecker::check(builder)) {
+            any_modification_passed = true;
+        }
+
         builder.set_variable(variable_index, backup);
     }
-    // If at least one of the updated witnesses hasn't caused the circuit to fail, we're in trouble
-    EXPECT_EQ(result2, false);
+
+    // If any modification didn't cause failure, we have a problem
+    EXPECT_FALSE(any_modification_passed);
 }
