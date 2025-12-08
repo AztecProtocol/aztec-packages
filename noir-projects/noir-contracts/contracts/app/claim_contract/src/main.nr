@@ -68,7 +68,7 @@ pub contract Claim {
         // 4) Finally we mint the reward token to the sender of the transaction
         self.enqueue(Token::at(self.storage.reward_token.read()).mint_to_public(
             recipient,
-            proof_retrieved_note.note.get_value(),
+            proof_retrieved_note.note.value,
         ));
     }
 }
