@@ -1,4 +1,5 @@
-import type { RollupContract, ViemPublicClient } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';

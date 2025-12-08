@@ -1,10 +1,5 @@
-import {
-  MULTI_CALL_3_ADDRESS,
-  type ViemCommitteeAttestations,
-  type ViemHeader,
-  type ViemPublicClient,
-  type ViemPublicDebugClient,
-} from '@aztec/ethereum';
+import { MULTI_CALL_3_ADDRESS, type ViemCommitteeAttestations, type ViemHeader } from '@aztec/ethereum/contracts';
+import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';

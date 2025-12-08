@@ -1,4 +1,4 @@
-import type { ViemPublicDebugClient } from '@aztec/ethereum';
+import type { ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { createLogger } from '@aztec/foundation/log';
 
 import type { Hex } from 'viem';

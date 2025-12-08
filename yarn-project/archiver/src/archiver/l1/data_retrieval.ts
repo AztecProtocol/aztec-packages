@@ -6,7 +6,8 @@ import {
   encodeBlockBlobData,
 } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import type { EpochProofPublicInputArgs, ViemClient, ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum';
+import type { EpochProofPublicInputArgs } from '@aztec/ethereum/contracts';
+import type { ViemClient, ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';

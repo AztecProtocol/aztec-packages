@@ -1,5 +1,5 @@
-import type { L1BlockId } from '@aztec/ethereum';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import type { L1BlockId } from '@aztec/ethereum/l1-types';
+import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';

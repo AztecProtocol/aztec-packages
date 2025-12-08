@@ -1,6 +1,6 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import type { ExtendedViemWalletClient } from '@aztec/ethereum';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { proveInteraction } from '@aztec/test-wallet/server';

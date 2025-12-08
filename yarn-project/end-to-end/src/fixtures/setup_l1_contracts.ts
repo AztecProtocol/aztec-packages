@@ -1,5 +1,6 @@
 import type { Logger } from '@aztec/aztec.js/log';
-import { type DeployL1ContractsArgs, type L1ContractsConfig, deployL1Contracts } from '@aztec/ethereum';
+import type { L1ContractsConfig } from '@aztec/ethereum/config';
+import { type DeployL1ContractsArgs, deployL1Contracts } from '@aztec/ethereum/deploy-l1-contracts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 

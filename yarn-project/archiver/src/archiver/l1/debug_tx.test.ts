@@ -1,4 +1,4 @@
-import type { DebugCallTrace, ViemPublicClient } from '@aztec/ethereum';
+import type { DebugCallTrace, ViemPublicClient } from '@aztec/ethereum/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { type MockProxy, mock } from 'jest-mock-extended';

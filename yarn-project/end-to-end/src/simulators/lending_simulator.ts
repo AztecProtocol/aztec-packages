@@ -2,7 +2,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { CheatCodes } from '@aztec/aztec/testing';
-import type { RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { pedersenHash } from '@aztec/foundation/crypto/pedersen';
 import type { TestDateProvider } from '@aztec/foundation/timer';

@@ -1,5 +1,6 @@
 import { retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
-import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
