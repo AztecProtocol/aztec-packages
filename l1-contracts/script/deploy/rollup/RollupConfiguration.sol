@@ -41,10 +41,6 @@ contract RollupConfiguration is Test {
         return vm.envOr("FEE_JUICE_PORTAL_INITIAL_BALANCE", uint256(0));
     }
 
-    function getContractOptions() external view returns (DeploymentOptions memory) {
-        return deploymentOptions;
-    }
-
     function getEarliestRewardsClaimableTimestamp() public view returns (Timestamp) {
         // We only set a delay on mainnet.
         // Since we don't plan to redeploy on mainnet (knock on wood), this is mostly documentation in code form.

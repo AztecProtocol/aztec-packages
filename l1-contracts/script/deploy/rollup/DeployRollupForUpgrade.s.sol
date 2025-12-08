@@ -30,41 +30,6 @@ import {HonkVerifier} from "../../../generated/HonkVerifier.sol";
 import {RollupConfiguration} from "./RollupConfiguration.sol";
 import {DeploymentOptions} from "./IDeploymentConfiguration.sol";
 
-/**
- * @title DeployRollupForUpgrade
- * @author Aztec Labs
- * @notice Deploy a new Rollup contract for upgrading an existing Aztec deployment.
- *
- * This script deploys rollup-specific contracts:
- *   1. Verifier (Mock or Real HonkVerifier)
- *   2. Rollup contract
- *   3. SlashFactory
- *   4. Optionally mints initial fee assets to portal
- *   5. Optionally adds initial validators
- *
- * It requires existing L1 infrastructure contracts passed as inputs:
- *   - Registry (with RewardDistributor)
- *   - GSE
- *   - Governance
- *   - Fee Asset (IERC20)
- *   - Staking Asset (IERC20)
- *
- * After deployment, it:
- *   - Registers the new Rollup in Registry/GSE (if deployer is owner)
- *   - Transfers rollup ownership to Governance (if not already owned)
- *
- * Usage:
- *   REGISTRY_ADDRESS=0x... \
- *   GSE_ADDRESS=0x... \
- *   GOVERNANCE_ADDRESS=0x... \
- *   FEE_ASSET_ADDRESS=0x... \
- *   STAKING_ASSET_ADDRESS=0x... \
- *   forge script script/deploy/rollup/DeployRollupForUpgrade.s.sol:DeployRollupForUpgrade \
- *     --sig "run(string)" "./upgrade-output.json" \
- *     --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast -vvv
- *
- * See RollupConfiguration.sol for rollup configuration variables (genesis, timing, slashing, etc.)
- */
 contract DeployRollupForUpgrade is Script, Test {
     // ============ Input L1 Infrastructure (loaded from env) ============
 
@@ -92,13 +57,10 @@ contract DeployRollupForUpgrade is Script, Test {
     /// @notice Rollup configuration component (for rollup-specific settings)
     RollupConfiguration public rollupConfig;
 
-    /// @notice Initialize deployer address from environment variable or msg.sender
     function setUp() public virtual {
         deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
     }
 
-    /// @notice Deploy rollup with existing L1 infrastructure, write output to file
-    /// @param _outputPath Path to write deployment output JSON
     function run(string memory _outputPath) public {
         _parseInputAddresses();
         rollupConfig = new RollupConfiguration();
@@ -111,7 +73,6 @@ contract DeployRollupForUpgrade is Script, Test {
         _writeDeploymentOutput(_outputPath);
     }
 
-    /// @notice Deploy rollup without output file (for backwards compatibility)
     function run() public {
         _parseInputAddresses();
         rollupConfig = new RollupConfiguration();
@@ -154,7 +115,7 @@ contract DeployRollupForUpgrade is Script, Test {
         // 4. Deploy slash factory
         _deploySlashFactory();
 
-        // 5. Register rollup (if caller is owner)
+        // 5. Register rollup in registry
         _registerRollup();
 
         // 6. Add initial validators (if any)
@@ -192,46 +153,27 @@ contract DeployRollupForUpgrade is Script, Test {
         );
     }
 
-    /// @notice Deploy slash factory contract
     function _deploySlashFactory() internal {
         slashFactory = new SlashFactory(rollup);
     }
 
-    /// @notice Optionally mint initial fee assets to the fee asset portal
-    /// @dev Only mints on test networks where we control the fee asset
     function _maybeMintInitialFeeAsset() internal {
-        DeploymentOptions memory opts = rollupConfig.getContractOptions();
-        // Only mint on test chains (when we control the fee asset)
-        if (opts.existingStakingAssetAddress == address(0)) {
-            // Default: mint 100 FeeJuice tokens to portal, can be overridden via env var
-            uint256 initialFeeAssetAmount = vm.envOr("INITIAL_FEE_ASSET_AMOUNT", uint256(100e18));
-            if (initialFeeAssetAmount > 0) {
-                address feeAssetPortal = address(rollup.getFeeAssetPortal());
-                TestERC20(address(feeAsset)).mint(feeAssetPortal, initialFeeAssetAmount);
-            }
+        // We can only mint on test chains (when we control the fee asset).
+        // This will revert if we ask for a balance > 0 and the fee asset is not a TestERC20.
+        uint256 initialFeeAssetAmount = rollupConfig.getFeeJuicePortalInitialBalance();
+        if (initialFeeAssetAmount > 0) {
+            address feeAssetPortal = address(rollup.getFeeAssetPortal());
+            TestERC20(address(feeAsset)).mint(feeAssetPortal, initialFeeAssetAmount);
         }
     }
 
-    /// @notice Register rollup with registry and GSE (if caller is owner)
     function _registerRollup() internal {
-        // Only register if caller is the owner of registry/GSE
-        if (registry.owner() == deployer) {
-            registry.addRollup(rollup);
-        }
-        if (gseContract.owner() == deployer) {
-            gseContract.addRollup(address(rollup));
-        }
+        registry.addRollup(rollup);
+        gseContract.addRollup(address(rollup));
     }
 
-    /// @notice Add initial validators to the rollup
     function _maybeAddInitialValidators() internal {
         CheatDepositArgs[] memory initialValidators = rollupConfig.parseValidators();
-        DeploymentOptions memory opts = rollupConfig.getContractOptions();
-        // Testnets only.
-        if (initialValidators.length == 0 || opts.existingStakingAssetAddress != address(0)) {
-            return;
-        }
-
         MultiAdder multiAdder = new MultiAdder(address(rollup), deployer);
 
         uint256 activationThreshold = rollup.getActivationThreshold();
@@ -263,17 +205,12 @@ contract DeployRollupForUpgrade is Script, Test {
         }
     }
 
-    /// @notice Transfer rollup ownership to governance (if not already owned)
     function _transferOwnership() internal {
-        if (rollup.owner() != address(governance)) {
-            rollup.transferOwnership(address(governance));
-        }
+        rollup.transferOwnership(address(governance));
     }
 
-    /// @notice Write deployed contract addresses to JSON output file
-    /// @param _outputPath Path where to write the output JSON
     function _writeDeploymentOutput(string memory _outputPath) internal {
-        string memory json = "deployment";
+        string memory json = "rollup";
         vm.serializeAddress(json, "rollupAddress", address(rollup));
         vm.serializeAddress(json, "registryAddress", address(registry));
         vm.serializeAddress(json, "feeAssetAddress", address(feeAsset));
