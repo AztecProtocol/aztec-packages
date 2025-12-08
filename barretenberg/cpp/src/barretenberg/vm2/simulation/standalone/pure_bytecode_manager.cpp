@@ -74,7 +74,9 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     // the bytecode. The actual commitment is only needed for trace generation / witgen.
     BytecodeId bytecode_id = current_class_id;
 
-    // Check if we've already processed this bytecode (different class can have same bytecode).
+    // Check if we've already processed this class id.
+    // NOTE: If two different classes have the same bytecode, we cannot deduplicate them.
+    // This is the downside of using the class id as the bytecode id.
     if (bytecodes.contains(bytecode_id)) {
         return bytecode_id;
     }
