@@ -83,7 +83,7 @@ describe('Rollup IVC Integration', () => {
     await worldStateService.close();
     expect(avmSimulationResult.revertCode.isOK()).toBe(true);
 
-    const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs);
+    const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs!);
     ({
       vk: avmVK,
       proof: avmProof,

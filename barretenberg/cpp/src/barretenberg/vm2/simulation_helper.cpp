@@ -482,14 +482,30 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                                           tx_execution_result.revert_code != RevertCode::OK,
                                           side_effect_tracker.get_side_effects());
 
+    PublicTxEffect public_tx_effect;
+    const auto& side_effects = side_effect_tracker.get_side_effects();
+    public_tx_effect.transaction_fee = tx_execution_result.transaction_fee;
+    public_tx_effect.note_hashes = side_effects.note_hashes;
+    public_tx_effect.nullifiers = side_effects.nullifiers;
+    public_tx_effect.l2_to_l1_msgs = side_effects.l2_to_l1_messages;
+    public_tx_effect.public_logs = side_effects.public_logs.to_logs();
+    // We need to copy the storage writes slot to value in the order of the slots by insertion.
+    for (uint32_t i = 0; i < side_effects.storage_writes_slots_by_insertion.size(); i++) {
+        const auto& slot = side_effects.storage_writes_slots_by_insertion.at(i);
+        const auto& value = side_effects.storage_writes_slot_to_value.at(slot);
+        public_tx_effect.public_data_writes.push_back(PublicDataWrite{ .leaf_slot = slot, .value = value });
+    }
+
     return {
         // Simulation.
         .gas_used = tx_execution_result.gas_used,
         .revert_code = tx_execution_result.revert_code,
+        .public_tx_effect = public_tx_effect,
         .call_stack_metadata = call_stack_metadata_collector->dump_call_stack_metadata(),
         .logs = debug_log_component->dump_logs(),
         // Proving request data.
-        .public_inputs = public_inputs_builder.build(),
+        .public_inputs =
+            config.collect_public_inputs ? std::make_optional(public_inputs_builder.build()) : std::nullopt,
         .hints = std::nullopt, // NOTE: hints are injected by the caller.
     };
 }
