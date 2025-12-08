@@ -467,8 +467,8 @@ cast send [STAKING_REGISTRY_ADDRESS] \
   --private-key [ADMIN_PRIVATE_KEY]
 ```
 
-:::note
-Rate changes only apply to new delegations. Existing delegations retain the original commission rate they agreed to.
+:::warning Commission Changes Only Apply to New Delegations
+When you update your commission rate, only **new delegations** will use the updated rate. **Existing delegations cannot be changed**—they permanently retain the original commission rate that was agreed upon when the delegation was created.
 :::
 
 ## Verification
