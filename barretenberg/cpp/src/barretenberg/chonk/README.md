@@ -291,8 +291,8 @@ The key insight: circuit $K_{i+1}$ verifies the data transfer between $K_{i-1}$ 
 **Kernel $K_1$**:
 - Sets $C_1 = R_0$ and $C'_1 = R'_1$ (private inputs)
 - Produces $R_1$ as a function of $C_1$, $C'_1$, and accumulated side effects (note hashes, nullifiers, logs, etc.)
-- **Checks**: $\pi_0.[C'_0] = \pi_0.\text{PI}.[R'_0]$
-- Extracts $\pi_0.[R_0]$ and $\pi'_1.[R'_1]$, adds to $\pi_1.\text{PI}$
+- **Checks**: $\pi_0.[C'_0] = \pi_0.\text{PI} . [R^{\prime}_0]$
+- Extracts $\pi_0.[R_0]$ and $\pi^{\prime}_1 . [R^{\prime}_1]$, adds to $\pi_1.\text{PI}$
 - $\pi_1$ contains: $[C_1]$, $[C'_1]$, $[R_1]$
 
 **Kernel $K_i$** (general case, $i \geq 2$):
