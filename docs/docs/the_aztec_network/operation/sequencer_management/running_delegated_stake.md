@@ -11,10 +11,6 @@ This guide covers running a sequencer with delegated stake on the Aztec network.
 
 **This is a non-custodial system**: Delegators retain full control and ownership of their tokens at all times. You never take custody of the delegated tokens—they remain in the delegator's control while providing economic backing for your sequencer operations.
 
-:::tip Alternative: Self-Staking
-If you prefer to provide your own stake instead of receiving delegated stake, see [Registering a Sequencer](./registering_sequencer.md).
-:::
-
 ## Prerequisites
 
 Before proceeding, ensure you have:

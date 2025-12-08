@@ -216,7 +216,7 @@ Sequencers with insufficient funds in their publisher account risk being slashed
 
 #### Version-Specific Updates:
 
-To update to a specific version , update your `docker-compose.yml`:
+To update to a specific version:
 
 ```yaml
 # Change the image tag from:
