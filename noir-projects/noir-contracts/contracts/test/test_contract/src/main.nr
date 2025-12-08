@@ -140,7 +140,7 @@ pub contract Test {
         make_tx_hybrid: bool,
     ) {
         let note = UintNote::new(value);
-        create_note(self.context, owner, storage_slot, note).emit(
+        create_note(self.context, owner, storage_slot, note).deliver(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

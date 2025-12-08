@@ -118,7 +118,7 @@ impl Deck<&mut PrivateContext> {
         let mut inserted_cards = &[];
         for card in cards {
             let card_note = CardNote::from_card(card);
-            self.owned_set.at(owner).insert(card_note.note).emit(
+            self.owned_set.at(owner).insert(card_note.note).deliver(
                 owner,
                 MessageDelivery.CONSTRAINED_ONCHAIN,
             );

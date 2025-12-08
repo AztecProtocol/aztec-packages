@@ -31,7 +31,7 @@ pub contract NoConstructor {
         let owner = self.msg_sender().unwrap();
         let note = FieldNote::new(value);
 
-        self.storage.private_mutable.at(owner).initialize(note).emit(
+        self.storage.private_mutable.at(owner).initialize(note).deliver(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
