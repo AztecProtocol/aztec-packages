@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Trait NoteHash documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">NoteHash</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -21,9 +27,9 @@
 <h3>Implementors</h3>
 <ul class="sidebar-list">
 <li><a href="#impl-NoteHash-for-AddressNote">AddressNote</a></li>
+<li><a href="#impl-NoteHash-for-FieldNote">FieldNote</a></li>
 <li><a href="#impl-NoteHash-for-MockNote">MockNote</a></li>
 <li><a href="#impl-NoteHash-for-UintNote">UintNote</a></li>
-<li><a href="#impl-NoteHash-for-ValueNote">ValueNote</a></li>
 </ul>
 <h2>In module note_interface</h2>
 <h3>Traits</h3><ul class="item-list">
@@ -58,7 +64,7 @@
 }</code></pre>
 
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="compute_note_hash" class="code-header">pub fn <span class="fn">compute_note_hash</span>(
+<div class="padded-methods"><code id="compute_note_hash" class="code-header">pub fn <a href="#compute_note_hash"><span class="fn">compute_note_hash</span></a>(
     self,
     owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
@@ -72,7 +78,7 @@ the state tree.</p>
 <p>This should be a commitment to the packed note, including the storage slot (for indexing) and some random
 value (to prevent brute force trial-hashing attacks).</p>
 </div>
-</div><code id="compute_nullifier" class="code-header">pub fn <span class="fn">compute_nullifier</span>(
+</div><code id="compute_nullifier" class="code-header">pub fn <a href="#compute_nullifier"><span class="fn">compute_nullifier</span></a>(
     self,
     context: &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
     owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
@@ -90,7 +96,7 @@ to reduce the total gate count of the circuit.</p>
 we require the kernel's assistance to do this in order to prevent having to reveal private keys to application
 circuits.</p>
 </div>
-</div><code id="compute_nullifier_unconstrained" class="code-header">pub unconstrained fn <span class="fn">compute_nullifier_unconstrained</span>(
+</div><code id="compute_nullifier_unconstrained" class="code-header">pub unconstrained fn <a href="#compute_nullifier_unconstrained"><span class="fn">compute_nullifier_unconstrained</span></a>(
     self,
     owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     note_hash_for_nullification: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
@@ -104,12 +110,13 @@ validation requests).</p>
 </div></div><h2>Implementors</h2>
 <h3 id="impl-NoteHash-for-AddressNote"><code class="code-header">impl <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a> for <a href="../../../address_note/address_note/struct.AddressNote.html" class="struct">AddressNote</a></code></h3>
 
+<h3 id="impl-NoteHash-for-FieldNote"><code class="code-header">impl <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a> for <a href="../../../field_note/field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
+
 <h3 id="impl-NoteHash-for-MockNote"><code class="code-header">impl <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a> for MockNote</code></h3>
 
 <h3 id="impl-NoteHash-for-UintNote"><code class="code-header">impl <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a> for <a href="../../../uint_note/uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
 
-<h3 id="impl-NoteHash-for-ValueNote"><code class="code-header">impl <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a> for <a href="../../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
-
 </main>
+</span>
 </body>
 </html>

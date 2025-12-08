@@ -74,7 +74,7 @@ export class Checkpoint {
       numBlocks = 1,
       startBlockNumber = 1,
       ...options
-    }: { numBlocks?: number; startBlockNumber?: number } & Partial<FieldsOf<CheckpointHeader>> &
+    }: { numBlocks?: number; startBlockNumber?: number } & Partial<Parameters<typeof CheckpointHeader.random>[0]> &
       Partial<Parameters<typeof L2BlockNew.random>[1]> = {},
   ) {
     const header = CheckpointHeader.random(options);

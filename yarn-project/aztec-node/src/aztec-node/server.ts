@@ -46,7 +46,7 @@ import {
   type Watcher,
   createSlasher,
 } from '@aztec/slasher';
-import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
+import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockParameter,
@@ -1163,8 +1163,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         collectDebugLogs: true,
         collectHints: false,
         collectCallMetadata: true,
-        maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
         collectStatistics: false,
+        collectionLimits: CollectionLimitsConfig.from({
+          maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
+        }),
       });
       const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config);
 

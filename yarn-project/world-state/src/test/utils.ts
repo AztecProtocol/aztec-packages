@@ -4,15 +4,17 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, type CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { L2Block } from '@aztec/stdlib/block';
+import { L2BlockNew } from '@aztec/stdlib/block';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type {
   IndexedTreeId,
   MerkleTreeReadOperations,
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
+import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { NativeWorldStateService } from '../native/native_world_state.js';
@@ -22,17 +24,11 @@ export async function mockBlock(
   size: number,
   fork: MerkleTreeWriteOperations,
   maxEffects: number | undefined = 1000, // Defaults to the maximum tx effects.
+  numL1ToL2Messages: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  isFirstBlock: boolean = true,
 ) {
-  const l2Block = await L2Block.random(
-    BlockNumber(Number(blockNum)),
-    size,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    maxEffects,
-  );
-  const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.random);
+  const l2Block = await L2BlockNew.random(blockNum, { txsPerBlock: size, txOptions: { maxEffects } });
+  const l1ToL2Messages = mockL1ToL2Messages(numL1ToL2Messages);
 
   {
     const insertData = async (
@@ -64,7 +60,9 @@ export async function mockBlock(
       padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
     );
 
-    const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    const l1ToL2MessagesPadded = isFirstBlock
+      ? padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
+      : l1ToL2Messages;
 
     const noteHashInsert = fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
     const messageInsert = fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
@@ -73,7 +71,7 @@ export async function mockBlock(
 
   const state = await fork.getStateReference();
   l2Block.header.state = state;
-  await fork.updateArchive(l2Block.getBlockHeader());
+  await fork.updateArchive(l2Block.header);
 
   const archiveState = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
@@ -86,7 +84,7 @@ export async function mockBlock(
 }
 
 export async function mockEmptyBlock(blockNum: BlockNumber, fork: MerkleTreeWriteOperations) {
-  const l2Block = L2Block.empty();
+  const l2Block = L2BlockNew.empty();
   const l1ToL2Messages = Array(16).fill(0).map(Fr.zero);
 
   l2Block.header.globalVariables.blockNumber = blockNum;
@@ -124,7 +122,7 @@ export async function mockEmptyBlock(blockNum: BlockNumber, fork: MerkleTreeWrit
 
   const state = await fork.getStateReference();
   l2Block.header.state = state;
-  await fork.updateArchive(l2Block.getBlockHeader());
+  await fork.updateArchive(l2Block.header);
 
   const archiveState = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
@@ -155,6 +153,47 @@ export async function mockBlocks(
   await tempFork.close();
 
   return { blocks, messages: messagesArray };
+}
+
+export function mockL1ToL2Messages(numL1ToL2Messages: number) {
+  return Array(numL1ToL2Messages).fill(0).map(Fr.random);
+}
+
+export async function mockCheckpoint(
+  checkpointNumber: CheckpointNumber,
+  {
+    startBlockNumber = BlockNumber(1),
+    numBlocks = 1,
+    numTxsPerBlock = 1,
+    numL1ToL2Messages = 1,
+    fork,
+  }: {
+    startBlockNumber?: BlockNumber;
+    numBlocks?: number;
+    numTxsPerBlock?: number;
+    numL1ToL2Messages?: number;
+    fork?: MerkleTreeWriteOperations;
+  } = {},
+) {
+  const slotNumber = SlotNumber(checkpointNumber * 10);
+  const blocksAndMessages = [];
+  for (let i = 0; i < numBlocks; i++) {
+    const blockNumber = BlockNumber(startBlockNumber + i);
+    const { block, messages } = fork
+      ? await mockBlock(blockNumber, numTxsPerBlock, fork, blockNumber === startBlockNumber ? numL1ToL2Messages : 0)
+      : {
+          block: await L2BlockNew.random(blockNumber, { txsPerBlock: numTxsPerBlock, slotNumber }),
+          messages: mockL1ToL2Messages(numL1ToL2Messages),
+        };
+    blocksAndMessages.push({ block, messages });
+  }
+
+  const messages = blocksAndMessages[0].messages;
+  const inHash = computeInHashFromL1ToL2Messages(messages);
+  const checkpoint = await Checkpoint.random(checkpointNumber, { numBlocks: 0, slotNumber, inHash });
+  checkpoint.blocks = blocksAndMessages.map(({ block }) => block);
+
+  return { checkpoint, messages };
 }
 
 export async function assertSameState(forkA: MerkleTreeReadOperations, forkB: MerkleTreeReadOperations) {

@@ -28,6 +28,10 @@ export class ContentCommitment {
     return [fields.blobsHash, fields.inHash, fields.outHash] as const;
   }
 
+  static from(fields: FieldsOf<ContentCommitment>) {
+    return new ContentCommitment(...ContentCommitment.getFields(fields));
+  }
+
   getSize() {
     return this.toBuffer().length;
   }
@@ -75,8 +79,13 @@ export class ContentCommitment {
     return new ContentCommitment(reader.readField(), reader.readField(), reader.readField());
   }
 
-  static random(): ContentCommitment {
-    return new ContentCommitment(Fr.random(), Fr.random(), Fr.random());
+  static random(overrides: Partial<FieldsOf<ContentCommitment>> = {}): ContentCommitment {
+    return ContentCommitment.from({
+      blobsHash: Fr.random(),
+      inHash: Fr.random(),
+      outHash: Fr.random(),
+      ...overrides,
+    });
   }
 
   static empty(): ContentCommitment {

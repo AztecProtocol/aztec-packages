@@ -9,6 +9,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
@@ -147,10 +148,15 @@ bool Goblin::verify(const GoblinProof& proof,
 void Goblin::ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const
 {
     BB_ASSERT_EQ(avm_mode, true, "ensure_well_formed_op_queue should only be called for avm");
+    // Add Ultra ops for the Translator (no-op + 3 random ops as prefix for translator accumulation)
     builder.queue_ecc_no_op();
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();
+    // In the AVM Recursive Verifier case, we don't need ZK; so we place a deterministic non-op as a "hiding_op", it
+    // does not contribute to the actual MSM circuit.
+    using Fq = curve::Grumpkin::ScalarField;
+    builder.queue_ecc_hiding_op(Fq(0), Fq(0));
 }
 
 } // namespace bb

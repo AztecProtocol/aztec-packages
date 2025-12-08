@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
 <title>Trait MessageEncryption documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">MessageEncryption</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../../all.html">All items</a></div>
@@ -56,7 +62,7 @@ logs) or offchain, as well as decrypting those messages back into their original
 indistinguishable onchain. Implementations of this trait must handle padding the encrypted log to match this
 standardized length.</p></div>
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="encrypt" class="code-header">pub fn <span class="fn">encrypt</span>&lt;let PlaintextLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+<div class="padded-methods"><code id="encrypt" class="code-header">pub fn <a href="#encrypt"><span class="fn">encrypt</span></a>&lt;let PlaintextLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     plaintext: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; PlaintextLen],
     recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
 ) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 17]</code>
@@ -71,7 +77,7 @@ standardized length.</p></div>
 padding in order to always produce equal length message ciphertexts regardless of the input, hiding its length.</p>
 <p>These properties make it secure to distribute the ciphertext publicly, e.g. on blockchain logs (assuming the
 encryption function is itself secure).</p></div>
-</div><code id="decrypt" class="code-header">pub unconstrained fn <span class="fn">decrypt</span>(
+</div><code id="decrypt" class="code-header">pub unconstrained fn <a href="#decrypt"><span class="fn">decrypt</span></a>(
     ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 17&gt;,
     recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
 ) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 14&gt;&gt;</code>
@@ -87,5 +93,6 @@ to a point on the curve. In all such cases, <a href="../../../../std/option/stru
 <h3 id="impl-MessageEncryption-for-AES128"><code class="code-header">impl <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html" class="trait">MessageEncryption</a> for <a href="../../../../noir_aztec/messages/encryption/aes128/struct.AES128.html" class="struct">AES128</a></code></h3>
 
 </main>
+</span>
 </body>
 </html>

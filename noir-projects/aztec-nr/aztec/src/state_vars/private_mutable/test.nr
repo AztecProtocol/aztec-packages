@@ -1,20 +1,25 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
-    state_vars::private_mutable::PrivateMutable,
+    state_vars::{owned_state_variable::OwnedStateVariable, private_mutable::PrivateMutable},
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
 };
+use protocol_types::address::AztecAddress;
 
 global STORAGE_SLOT: Field = 17;
 global VALUE: Field = 23;
 
 unconstrained fn in_private(
     context: &mut PrivateContext,
+    owner: AztecAddress,
 ) -> PrivateMutable<MockNote, &mut PrivateContext> {
-    PrivateMutable::new(context, STORAGE_SLOT)
+    PrivateMutable::new(context, STORAGE_SLOT, owner)
 }
 
-unconstrained fn in_utility(context: UtilityContext) -> PrivateMutable<MockNote, UtilityContext> {
-    PrivateMutable::new(context, STORAGE_SLOT)
+unconstrained fn in_utility(
+    context: UtilityContext,
+    owner: AztecAddress,
+) -> PrivateMutable<MockNote, UtilityContext> {
+    PrivateMutable::new(context, STORAGE_SLOT, owner)
 }
 
 #[test(should_fail_with = "Failed to get a note")]
@@ -23,7 +28,7 @@ unconstrained fn get_uninitialized() {
     let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
         let _ = state_var.get_note();
     });
 }
@@ -34,7 +39,7 @@ unconstrained fn view_uninitialized() {
     let owner = env.create_light_account();
 
     env.utility_context(|context| {
-        let state_var = in_utility(context).at(owner);
+        let state_var = in_utility(context, owner);
         let _ = state_var.view_note();
     });
 }
@@ -45,7 +50,7 @@ unconstrained fn replace_uninitialized() {
     let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         let _ = state_var.replace(|_old_note| {
             let note = MockNote::new(VALUE).build_note();
@@ -60,7 +65,7 @@ unconstrained fn initialize() {
     let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         let note = MockNote::new(VALUE).build_note();
 
@@ -82,7 +87,7 @@ unconstrained fn initialize_and_get_pending() {
     let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         let note = MockNote::new(VALUE).build_note();
 
@@ -115,7 +120,7 @@ unconstrained fn initialize_and_get_settled() {
     let note = MockNote::new(VALUE).build_note();
 
     let init_emission = env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         state_var.initialize(note)
     });
@@ -123,7 +128,7 @@ unconstrained fn initialize_and_get_settled() {
     env.discover_note(init_emission);
 
     env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         let get_emission = state_var.get_note();
 
@@ -148,7 +153,7 @@ unconstrained fn initialize_and_view_settled() {
     let note = MockNote::new(VALUE).build_note();
 
     let init_emission = env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         state_var.initialize(note)
     });
@@ -156,7 +161,7 @@ unconstrained fn initialize_and_view_settled() {
     env.discover_note(init_emission);
 
     env.utility_context(|context| {
-        let state_var = in_utility(context).at(owner);
+        let state_var = in_utility(context, owner);
 
         assert_eq(state_var.view_note(), note);
     });
@@ -168,7 +173,7 @@ unconstrained fn initialize_and_replace_pending() {
     let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         let note = MockNote::new(VALUE).build_note();
 
@@ -207,7 +212,7 @@ unconstrained fn initialize_and_replace_settled() {
     let note = MockNote::new(VALUE).build_note();
 
     let init_emission = env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         state_var.initialize(note)
     });
@@ -215,7 +220,7 @@ unconstrained fn initialize_and_replace_settled() {
     env.discover_note(init_emission);
 
     env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         let replacement_value = VALUE + 1;
         let replacement_note = MockNote::new(replacement_value).build_note();
@@ -243,7 +248,7 @@ unconstrained fn initialize_or_replace_uninitialized() {
     let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         let init_note = MockNote::new(VALUE).build_note();
 
@@ -269,7 +274,7 @@ unconstrained fn initialize_or_replace_initialized_pending() {
     let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         let note = MockNote::new(VALUE).build_note();
         let _ = state_var.initialize(note);
@@ -302,7 +307,7 @@ unconstrained fn initialize_or_replace_initialized_settled() {
     let note = MockNote::new(VALUE).build_note();
 
     let init_emission = env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         state_var.initialize(note)
     });
@@ -310,7 +315,7 @@ unconstrained fn initialize_or_replace_initialized_settled() {
     env.discover_note(init_emission);
 
     env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
         let nullifiers_pre_replace = context.nullifiers.len();
@@ -345,7 +350,7 @@ unconstrained fn get_replacement_note_has_unique_randomness() {
     let note = MockNote::new(VALUE).build_note();
 
     let init_emission = env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         state_var.initialize(note)
     });
@@ -353,7 +358,7 @@ unconstrained fn get_replacement_note_has_unique_randomness() {
     env.discover_note(init_emission);
 
     env.private_context(|context| {
-        let state_var = in_private(context).at(owner);
+        let state_var = in_private(context, owner);
 
         let get_emission = state_var.get_note();
 
