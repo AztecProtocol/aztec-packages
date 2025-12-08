@@ -438,15 +438,15 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const events = await wallet.getPrivateEvents(
-        testContract.address,
-        TestContract.events.ExampleEvent,
-        rct.blockNumber!,
-        1,
-        [ownerAddress],
-      );
-      expect(events[0]).toEqual(values);
-      expect(events[1]).toEqual(nestedValues);
+      const events = await wallet.getPrivateEvents(TestContract.events.ExampleEvent, {
+        contractAddress: testContract.address,
+        fromBlock: BlockNumber(rct.blockNumber!),
+        toBlock: BlockNumber(rct.blockNumber! + 1),
+        scopes: [ownerAddress],
+      });
+
+      expect(events[0].event).toEqual(values);
+      expect(events[1].event).toEqual(nestedValues);
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.
