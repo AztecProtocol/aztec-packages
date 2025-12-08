@@ -43,9 +43,9 @@ echo ""
 echo "Files updated:"
 for cli in "${CLIS[@]}"; do
   if [[ "$cli" == "aztec" ]]; then
-    echo "  - Aztec CLI reference (cli_reference_autogen.md)"
+    echo "  - Aztec CLI reference (cli_reference.md)"
   else
-    echo "  - Aztec Wallet CLI reference (cli_wallet_reference_autogen.md)"
+    echo "  - Aztec Wallet CLI reference (cli_wallet_reference.md)"
   fi
 done
 echo ""
