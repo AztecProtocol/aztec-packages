@@ -1,8 +1,8 @@
 use crate::{
     context::{note_hash_read::NoteHashRead, PrivateContext},
     note::{
-        note_emission::NoteEmission,
         note_interface::{NoteHash, NoteType},
+        note_message::NoteMessage,
         retrieved_note::RetrievedNote,
         utils::{compute_note_hash_for_nullification_from_note_hash_read, compute_note_hash_read},
     },
@@ -10,12 +10,36 @@ use crate::{
 };
 use protocol_types::{address::AztecAddress, traits::Packable};
 
+/// A note that was created in the current contract call.
+pub struct NewNote<Note> {
+    pub(crate) note: Note,
+    pub(crate) owner: AztecAddress,
+    pub(crate) storage_slot: Field,
+    pub(crate) randomness: Field,
+    /// The [PrivateContext] side-effect counter associated with the creation of this note.
+    pub(crate) note_hash_counter: u32,
+}
+
+impl<Note> NewNote<Note> {
+    fn new(
+        note: Note,
+        owner: AztecAddress,
+        storage_slot: Field,
+        randomness: Field,
+        note_hash_counter: u32,
+    ) -> Self {
+        // A counter of value zero indicates a settled note, which a NewNote by definition cannot be.
+        assert(note_hash_counter != 0, "A NewNote cannot have a zero note hash counter");
+        Self { note, owner, storage_slot, randomness, note_hash_counter }
+    }
+}
+
 pub fn create_note<Note>(
     context: &mut PrivateContext,
     owner: AztecAddress,
     storage_slot: Field,
     note: Note,
-) -> NoteEmission<Note>
+) -> NoteMessage<Note>
 where
     Note: NoteType + NoteHash + Packable,
 {
@@ -29,25 +53,20 @@ where
 
     let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
 
-    let packed_note = Note::pack(note);
     notify_created_note(
         owner,
         storage_slot,
         randomness,
         Note::get_id(),
-        packed_note,
+        note.pack(),
         note_hash,
         note_hash_counter,
     );
 
     context.push_note_hash(note_hash);
 
-    NoteEmission::new(
-        note,
-        owner,
-        storage_slot,
-        randomness,
-        note_hash_counter,
+    NoteMessage::new(
+        NewNote::new(note, owner, storage_slot, randomness, note_hash_counter),
         context,
     )
 }

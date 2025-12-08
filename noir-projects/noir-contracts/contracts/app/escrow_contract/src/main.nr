@@ -23,7 +23,7 @@ pub contract Escrow {
     #[initializer]
     fn constructor(owner: AztecAddress) {
         let note = AddressNote::new(owner);
-        self.storage.owner.at(owner).initialize(note).emit(
+        self.storage.owner.at(owner).initialize(note).deliver(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

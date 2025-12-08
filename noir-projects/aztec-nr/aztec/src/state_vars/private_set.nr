@@ -3,10 +3,10 @@ use crate::{
     note::{
         constants::MAX_NOTES_PER_PAGE,
         lifecycle::{create_note, destroy_note_unsafe},
-        note_emission::NoteEmission,
         note_getter::{get_notes, view_notes},
         note_getter_options::NoteGetterOptions,
         note_interface::{NoteHash, NoteType},
+        note_message::NoteMessage,
         note_viewer_options::NoteViewerOptions,
         retrieved_note::RetrievedNote,
         utils::compute_note_hash_read,
@@ -137,7 +137,7 @@ where
     ///
     /// # Returns
     ///
-    /// - NoteEmission<Note> - A type-safe wrapper which makes it clear to the
+    /// - NoteMessage<Note> - A type-safe wrapper which makes it clear to the
     ///                        smart contract dev that they now have a choice: they
     ///   need to decide whether they would like to send the contents of the newly-
     ///   created note to someone, or not. If they would like to, they have some
@@ -146,9 +146,8 @@ where
     ///   - What kind of encryption scheme to use? (Currently only AES128 is supported)
     ///   - Whether to _constrain_ delivery of the note, or not.
     ///   At the moment, aztec-nr provides limited options.
-    ///   You can call `.emit()` on the returned type to encrypt and log the note, or
-    ///   `.discard()` to skip emission.
-    ///   See NoteEmission for more details.
+    ///   You can call `.deliver()` on the returned type to encrypt and log the note.
+    ///   See NoteMessage for more details.
     ///   > Note: We're planning a _significant_ refactor of this syntax, to make the
     ///     syntax of how to encrypt and deliver notes much clearer, and to make the
     ///     default options much clearer to developers. We will also be enabling
@@ -185,7 +184,7 @@ where
     ///       attacks, by hashing the `siloed_note_hash` with a unique value, to
     ///       yield a `unique_siloed_note_hash` (see the protocol spec for more).
     ///
-    pub fn insert(self, note: Note) -> NoteEmission<Note>
+    pub fn insert(self, note: Note) -> NoteMessage<Note>
     where
         Note: Packable,
     {
@@ -311,7 +310,7 @@ where
     ///
     /// # Returns
     ///
-    /// - NoteEmission<Note> - A type-safe wrapper which makes it clear to the
+    /// - NoteMessage<Note> - A type-safe wrapper which makes it clear to the
     ///                        smart contract dev that they now have a choice: they
     ///   need to decide whether they would like to send the contents of the newly-
     ///   created note to someone, or not. If they would like to, they have some
@@ -320,7 +319,7 @@ where
     ///   - What kind of encryption scheme to use? (Currently only AES128 is supported)
     ///   - Whether to _constrain_ delivery of the note, or not.
     ///   At the moment, aztec-nr provides limited options.
-    ///   See NoteEmission for further details.
+    ///   See NoteMessage for further details.
     ///   > Note: We're planning a _significant_ refactor of this syntax, to make the
     ///     syntax of how to encrypt and deliver notes much clearer, and to make the
     ///     default options much clearer to developers. We will also be enabling
