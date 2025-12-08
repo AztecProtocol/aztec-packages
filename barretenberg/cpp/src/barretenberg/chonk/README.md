@@ -278,42 +278,42 @@ App₁ ──return_data [R'₁]──┐
 
 #### Inter-Circuit Consistency Protocol
 
-**Notation**: $\pi_i$ denotes the proof of folding the $i$-th kernel, $\pi'_i$ denotes the proof of folding the $i$-th app, and $\text{PI}$ denotes public inputs.
+**Notation**: πᵢ denotes the proof of folding the i-th kernel, π'ᵢ denotes the proof of folding the i-th app, and PI denotes public inputs.
 
-The key insight: circuit $K_{i+1}$ verifies the data transfer between $K_{i-1}$ and $K_i$. It has access to $[R_{i-1}]$ through public inputs and $[C_i]$ through the proof $\pi_i$.
+The key insight: circuit Kᵢ₊₁ verifies the data transfer between Kᵢ₋₁ and Kᵢ. It has access to [Rᵢ₋₁] through public inputs and [Cᵢ] through the proof πᵢ.
 
-**Kernel $K_0$** (first kernel):
-- Initializes $C'_0 = R'_0$ (from App₀)
-- Produces return data $R_0$
-- Extracts $\pi'_0.[R'_0]$, adds to $\pi_0.\text{PI}$
-- $\pi_0$ contains: $[R_0]$, $[C'_0]$
+**Kernel K₀** (first kernel):
+- Initializes C'₀ = R'₀ (from App₀)
+- Produces return data R₀
+- Extracts π'₀.[R'₀], adds to π₀.PI
+- π₀ contains: [R₀], [C'₀]
 
-**Kernel $K_1$**:
-- Sets $C_1 = R_0$ and $C'_1 = R'_1$ (private inputs)
-- Produces $R_1$ as a function of $C_1$, $C'_1$, and accumulated side effects (note hashes, nullifiers, logs, etc.)
-- **Checks**: $\pi_0.[C'_0] = \pi_0.\text{PI} . [R^{\prime}_0]$
-- Extracts $\pi_0.[R_0]$ and $\pi^{\prime}_1 . [R^{\prime}_1]$, adds to $\pi_1.\text{PI}$
-- $\pi_1$ contains: $[C_1]$, $[C'_1]$, $[R_1]$
+**Kernel K₁**:
+- Sets C₁ = R₀ and C'₁ = R'₁ (private inputs)
+- Produces R₁ as a function of C₁, C'₁, and accumulated side effects (note hashes, nullifiers, logs, etc.)
+- **Checks**: π₀.[C'₀] = π₀.PI.[R'₀]
+- Extracts π₀.[R₀] and π'₁.[R'₁], adds to π₁.PI
+- π₁ contains: [C₁], [C'₁], [R₁]
 
-**Kernel $K_i$** (general case, $i \geq 2$):
-- Sets $C_i = R_{i-1}$ and $C'_i = R'_i$ (private inputs)
-- Produces $R_i$ as a function of $C_i$, $C'_i$, and accumulated side effects
+**Kernel Kᵢ** (general case, i ≥ 2):
+- Sets Cᵢ = Rᵢ₋₁ and C'ᵢ = R'ᵢ (private inputs)
+- Produces Rᵢ as a function of Cᵢ, C'ᵢ, and accumulated side effects
 - **Checks**:
-  - $\pi_{i-1}.[C_{i-1}] = \pi_{i-1}.\text{PI}.[R_{i-2}]$ (kernel chain)
-  - $\pi_{i-1}.[C^{\prime}_{i-1}] = \pi_{i-1}.\text{PI} . [R^{\prime}_{i-1}]$ (app input)
-- Extracts $\pi_{i-1}.[R_{i-1}]$ and $\pi'_i.[R'_i]$, adds to $\pi_i.\text{PI}$
-- $\pi_i$ contains: $[C_i]$, $[C'_i]$, $[R_i]$
+  - πᵢ₋₁.[Cᵢ₋₁] = πᵢ₋₁.PI.[Rᵢ₋₂] (kernel chain)
+  - πᵢ₋₁.[C'ᵢ₋₁] = πᵢ₋₁.PI.[R'ᵢ₋₁] (app input)
+- Extracts πᵢ₋₁.[Rᵢ₋₁] and π'ᵢ.[R'ᵢ], adds to πᵢ.PI
+- πᵢ contains: [Cᵢ], [C'ᵢ], [Rᵢ]
 
-**Tail Kernel $K_{n-1}$**:
+**Tail Kernel Kₙ₋₁**:
 - Produces `PrivateToRollupKernelCircuitPublicInputs` containing final accumulated data
 - **Checks**: Consistency checks for previous kernel
 
-**Hiding Kernel $K_n$**:
+**Hiding Kernel Kₙ**:
 - Receives tail kernel's public inputs via databus (`call_data`)
 - Verifies the tail kernel proof (type `HN_FINAL`)
 - Passes through `PrivateToRollupKernelCircuitPublicInputs` as its public output
 
-This protocol ensures that data passed between circuits is consistent without requiring the verifier to see or hash the actual data—only commitment equality checks on $O(1)$-sized commitments.
+This protocol ensures that data passed between circuits is consistent without requiring the verifier to see or hash the actual data—only commitment equality checks on O(1)-sized commitments.
 
 **Chonk Proof Verification**:
 
