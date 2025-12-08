@@ -23,12 +23,22 @@ contract RollupConfiguration is Test {
     // Storage for loaded config
     string public networkName;
     string internal validatorsJson;
-    DeploymentOptions public deploymentOptions;
 
     function loadConfig() external {
         networkName = vm.envOr("NETWORK", string("local"));
         validatorsJson = vm.envOr("INITIAL_VALIDATORS", string("[]"));
-        _loadDeploymentOptions();
+    }
+
+    function useRealVerifier() external view returns (bool) {
+        return vm.envOr("REAL_VERIFIER", false);
+    }
+
+    function shouldFundRewardDistributor() external view returns (bool) {
+        return vm.envOr("FUND_REWARD_DISTRIBUTOR", false);
+    }
+
+    uint256 getFeeJuicePortalInitialBalance() external view returns (uint256) {
+        return vm.envOr("FEE_JUICE_PORTAL_INITIAL_BALANCE", uint256(0));
     }
 
     function getContractOptions() external view returns (DeploymentOptions memory) {
@@ -42,7 +52,7 @@ contract RollupConfiguration is Test {
             return Timestamp.wrap(block.timestamp + 90 days);
         } else {
             return Timestamp.wrap(0);
-        }
+        }A
     }
 
     function getGenesisState() external view returns (GenesisState memory) {
@@ -118,7 +128,6 @@ contract RollupConfiguration is Test {
         }
     }
 
-    // keep
     function getRollupConfiguration(IRewardDistributor _rewardDistributor) external view returns (RollupConfigInput memory) {
         // Build config without version first
         RollupConfigInput memory config = RollupConfigInput({
@@ -216,16 +225,6 @@ contract RollupConfiguration is Test {
         return validators;
     }
 
-    // ============ Internal Loading Functions ============
-
-    function _loadDeploymentOptions() private {
-        deploymentOptions = DeploymentOptions({
-            realVerifier: vm.envOr("REAL_VERIFIER", true),
-            fundRewardDistributor: vm.envOr("FUND_REWARD_DISTRIBUTOR", true),
-            existingStakingAssetAddress: vm.envOr("EXISTING_STAKING_ASSET_ADDRESS", address(0))
-        });
-    }
-
     function _getRewardDefaults() private view returns (uint16 sequencerBps, uint96 checkpointReward) {
         if (keccak256(bytes(networkName)) == keccak256("mainnet")) {
             return (7000, 400e18);
@@ -280,21 +279,21 @@ contract RollupConfiguration is Test {
     // ============ Configuration Validation ============
 
     /**
-     * @notice Validates the deployment configuration to ensure all requirements enforced by L1 contracts
-     *         during construction are satisfied before deployment.
-     * @dev Reverts with descriptive error messages if any validation fails.
-     *      Call this function before deploying to catch configuration errors early.
+     * @notice Validates invariants about the deployment. Reverts if any are violated.
      */
-    function validateConfig() external view {
-        // Get rollup configuration values
+    function validateConfig(IRewardDistributor _rewardDistributor) external view {
+        // Get configuration values
         StakingQueueConfig memory stakingQueueConfig = this.getStakingQueueConfiguration();
+        GovernanceProposerConfiguration memory govPropConfig = this.getGovernanceProposerConfiguration();
+        GseConfiguration memory gseConfig = this.getGseConfiguration();
+        RollupConfigInput memory rollupConfig = this.getRollupConfiguration(_rewardDistributor);
 
-        uint256 aztecSlotDuration = vm.envOr("AZTEC_SLOT_DURATION", uint256(36));
-        uint256 aztecEpochDuration = vm.envOr("AZTEC_EPOCH_DURATION", uint256(32));
-        uint256 aztecTargetCommitteeSize = vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48));
-        uint256 slashingRoundSizeInEpochs = vm.envOr("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
-        uint256 slashingLifetimeInRounds = vm.envOr("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", uint256(5));
-        uint256 slashingExecutionDelayInRounds = vm.envOr("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS", uint256(0));
+        uint256 aztecSlotDuration = rollupConfig.aztecSlotDuration;
+        uint256 aztecEpochDuration = rollupConfig.aztecEpochDuration;
+        uint256 aztecTargetCommitteeSize = rollupConfig.aztecTargetCommitteeSize;
+        uint256 slashingRoundSizeInEpochs = rollupConfig.slashingRoundSizeInEpochs;
+        uint256 slashingLifetimeInRounds = rollupConfig.slashingLifetimeInRounds;
+        uint256 slashingExecutionDelayInRounds = rollupConfig.slashingExecutionDelayInRounds;
         uint256 slashingQuorum = _getSlashingQuorum();
         uint256 slashingRoundSize = _getSlashingRoundSize();
         uint256[3] memory slashAmounts = _getSlashAmounts();
@@ -307,9 +306,18 @@ contract RollupConfiguration is Test {
             "validateConfig: normalFlushSizeMin must be greater than 0"
         );
 
-        // Basic positive checks
-        require(aztecSlotDuration > 0, "validateConfig: aztecSlotDuration must be greater than 0");
-        require(aztecEpochDuration > 0, "validateConfig: aztecEpochDuration must be greater than 0");
+        // EmpireBase constructor validations for governance proposers
+        // require(QUORUM_SIZE > ROUND_SIZE / 2)
+        require(
+            govPropConfig.quorum > govPropConfig.roundSize / 2,
+            "validateConfig: governanceProposerQuorum must be greater than half of roundSize"
+        );
+
+        // require(QUORUM_SIZE <= ROUND_SIZE)
+        require(
+            govPropConfig.quorum <= govPropConfig.roundSize,
+            "validateConfig: governanceProposerQuorum cannot be larger than roundSize"
+        );
 
         // Slashing quorum validations
         require(
@@ -322,11 +330,21 @@ contract RollupConfiguration is Test {
             "validateConfig: slashingQuorum cannot be larger than slashingRoundSize"
         );
 
-        // Slashing lifetime and execution delay validation
+        // EmpireBase and TallySlashingProposer lifetime and execution delay validation
         require(
             slashingLifetimeInRounds > slashingExecutionDelayInRounds,
             "validateConfig: slashingLifetimeInRounds must be greater than slashingExecutionDelayInRounds"
         );
+
+        // Staking asset validation: activationThreshold >= ejectionThreshold
+        require(
+            gseConfig.activationThreshold >= gseConfig.ejectionThreshold,
+            "validateConfig: activationThreshold must be >= ejectionThreshold"
+        );
+
+        // Basic positive checks
+        require(aztecSlotDuration > 0, "validateConfig: aztecSlotDuration must be greater than 0");
+        require(aztecEpochDuration > 0, "validateConfig: aztecEpochDuration must be greater than 0");
 
         // Tally-specific validations
         if (slasherFlavor == SlasherFlavor.TALLY) {
@@ -362,54 +380,65 @@ contract RollupConfiguration is Test {
             "validateConfig: slashingOffsetInRounds must be greater than 0 for tally slasher"
         );
 
+        // From: require(QUORUM > 0)
         require(
             slashingQuorum > 0,
             "validateConfig: slashingQuorum must be greater than 0"
         );
 
+        // From: require(ROUND_SIZE > 1)
         require(
             roundSizeInSlots > 1,
             "validateConfig: slashing round size in slots must be greater than 1"
         );
 
+        // From: require(_slashAmounts[0] <= _slashAmounts[1])
         require(
             slashAmounts[0] <= slashAmounts[1],
             "validateConfig: slashAmountSmall must be <= slashAmountMedium"
         );
 
+        // From: require(_slashAmounts[1] <= _slashAmounts[2])
         require(
             slashAmounts[1] <= slashAmounts[2],
             "validateConfig: slashAmountMedium must be <= slashAmountLarge"
         );
 
+        // From: require(LIFETIME_IN_ROUNDS < ROUNDABOUT_SIZE)
         uint256 ROUNDABOUT_SIZE = 128;
         require(
             slashingLifetimeInRounds < ROUNDABOUT_SIZE,
             "validateConfig: slashingLifetimeInRounds must be less than 128"
         );
 
+        // From: require(ROUND_SIZE_IN_EPOCHS > 0)
         require(
             slashingRoundSizeInEpochs > 0,
             "validateConfig: slashingRoundSizeInEpochs must be greater than 0"
         );
 
+        // From: require(ROUND_SIZE < MAX_ROUND_SIZE)
         uint256 MAX_ROUND_SIZE = 1024;
         require(
             roundSizeInSlots < MAX_ROUND_SIZE,
             "validateConfig: slashing round size in slots must be less than 1024"
         );
 
+        // From: require(COMMITTEE_SIZE > 0)
         require(
             aztecTargetCommitteeSize > 0,
             "validateConfig: aztecTargetCommitteeSize must be greater than 0"
         );
 
+        // From: require(voteSize <= 128)
+        // voteSize = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4
         uint256 voteSize = (aztecTargetCommitteeSize * slashingRoundSizeInEpochs) / 4;
         require(
             voteSize <= 128,
             "validateConfig: vote size must be <= 128"
         );
 
+        // From: require(COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS % 4 == 0)
         require(
             (aztecTargetCommitteeSize * slashingRoundSizeInEpochs) % 4 == 0,
             "validateConfig: committee size * round size in epochs must be divisible by 4"

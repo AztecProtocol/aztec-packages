@@ -35,14 +35,14 @@ import {ZKPassportVerifier} from "@zkpassport/ZKPassportVerifier.sol";
 
 import {HonkVerifier} from "../../../generated/HonkVerifier.sol";
 
-import {DeploymentConfiguration} from "./DeploymentConfiguration.sol";
 import {
     CoinIssuerConfiguration,
     DeploymentOptions,
+    DeploymentConfiguration,
     GovernanceProposerConfiguration,
     GseConfiguration,
     ZkPassportConfiguration
-} from "./IDeploymentConfiguration.sol";
+} from "./DeploymentConfiguration.sol";
 
 /**
  * @title DeployL1Contracts

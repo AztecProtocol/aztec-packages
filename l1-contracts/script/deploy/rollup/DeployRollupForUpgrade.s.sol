@@ -35,7 +35,7 @@ import {DeploymentOptions} from "./IDeploymentConfiguration.sol";
  * @author Aztec Labs
  * @notice Deploy a new Rollup contract for upgrading an existing Aztec deployment.
  *
- * This script deploys ONLY rollup-specific contracts:
+ * This script deploys rollup-specific contracts:
  *   1. Verifier (Mock or Real HonkVerifier)
  *   2. Rollup contract
  *   3. SlashFactory
