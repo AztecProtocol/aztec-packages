@@ -9,6 +9,39 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Note fields are now public
+
+All note struct fields are now public, and the `new()` constructor methods and getter methods have been removed. Notes should be instantiated using struct literal syntax, and fields should be accessed directly.
+
+The motivation for this change has been enshrining of randomness which lead to the `new` method being unnecessary boilerplate.
+
+**Affected notes:**
+- `UintNote` - `value` is now public, `new()` and `get_value()` removed
+- `AddressNote` - `address` is now public, `new()` and `get_address()` removed
+- `FieldNote` - `value` is now public, `new()` and `value()` removed
+
+**Migration:**
+
+```diff
+- let note = UintNote::new(100);
++ let note = UintNote { value: 100 };
+
+- let value = note.get_value();
++ let value = note.value;
+
+- let address_note = AddressNote::new(owner);
++ let address_note = AddressNote { address: owner };
+
+- let address = address_note.get_address();
++ let address = address_note.address;
+
+- let field_note = FieldNote::new(42);
++ let field_note = FieldNote { value: 42 };
+
+- let value = field_note.value();
++ let value = field_note.value;
+```
+
 ### [Aztec.nr] `emit` renamed to `deliver`
 
 Private state variable functions that created notes and returned their messages no longer return a `NoteEmission` but instead a `NoteMessage`. These messages are delivered to their recipient via `deliver` instead of `emit`. The verb 'emit' remains for things like emitting events.
