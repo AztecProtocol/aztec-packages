@@ -8,6 +8,7 @@
   "exports": {
     ".": "./dest/index.js",
     "./bench": "./dest/bench.js",
+    "./start": "./dest/start.js",
     "./otel-pino-stream": "./dest/vendor/otel-pino-stream.js"
   },
   "scripts": {

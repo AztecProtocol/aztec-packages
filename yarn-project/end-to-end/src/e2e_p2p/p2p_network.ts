@@ -200,7 +200,7 @@ export class P2PNetworkTest {
 
   async addBootstrapNode() {
     await this.snapshotManager.snapshot('add-bootstrap-node', async ({ aztecNodeConfig }) => {
-      const telemetry = getEndToEndTestTelemetryClient(this.metricsPort);
+      const telemetry = await getEndToEndTestTelemetryClient(this.metricsPort);
       this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
         BOOTSTRAP_NODE_PRIVATE_KEY,
         this.bootNodePort,
