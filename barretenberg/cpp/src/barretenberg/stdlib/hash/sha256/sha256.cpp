@@ -16,20 +16,6 @@ using namespace bb;
 namespace bb::stdlib {
 using namespace bb::plookup;
 
-constexpr size_t get_num_blocks(const size_t num_bits)
-{
-    constexpr size_t extra_bits = 65UL;
-
-    return ((num_bits + extra_bits) / 512UL) + ((num_bits + extra_bits) % 512UL > 0);
-}
-
-template <typename Builder> void SHA256<Builder>::prepare_constants(std::array<field_t<Builder>, 8>& input)
-{
-    for (size_t i = 0; i < 8; i++) {
-        input[i] = init_constants[i];
-    }
-}
-
 template <typename Builder>
 SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const field_t<Builder>& w)
 {

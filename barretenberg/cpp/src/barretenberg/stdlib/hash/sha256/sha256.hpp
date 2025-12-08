@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include <array>
 
@@ -19,21 +18,6 @@ namespace bb::stdlib {
 template <typename Builder> class SHA256 {
 
     using field_ct = field_t<Builder>;
-    using byte_array_ct = byte_array<Builder>;
-    struct sparse_ch_value {
-        field_ct normal;
-        field_ct sparse;
-        field_ct rot6;
-        field_ct rot11;
-        field_ct rot25;
-    };
-    struct sparse_maj_value {
-        field_ct normal;
-        field_ct sparse;
-        field_ct rot2;
-        field_ct rot13;
-        field_ct rot22;
-    };
 
     static constexpr uint64_t init_constants[8]{ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                                                  0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
@@ -104,7 +88,6 @@ template <typename Builder> class SHA256 {
         field_ct sparse;
     };
 
-    static void prepare_constants(std::array<field_ct, 8>& input);
     static sparse_witness_limbs convert_witness(const field_ct& w);
 
     static field_ct choose(sparse_value& e, const sparse_value& f, const sparse_value& g);
