@@ -31,6 +31,8 @@ node:
       # Derivation for publisher addresses when using web3signer
       PUBLISHERS_PER_PROVER: "1"
       PUBLISHER_KEY_INDEX_START: "8000"
+      # Set BB memory limit to 16GB for prover node
+      BB_MAX_MEMORY: "17179869184"
     web3signerUrl: ""
 
     preStartScript: |
@@ -93,6 +95,8 @@ agent:
   node:
     env:
       OTEL_SERVICE_NAME: "prover-agent"
+      # Set BB memory limit to 16GB for prover agents
+      BB_MAX_MEMORY: "17179869184"
     configMap:
       envEnabled: true
     startCmd:

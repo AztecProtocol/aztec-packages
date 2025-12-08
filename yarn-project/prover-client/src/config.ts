@@ -52,6 +52,11 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
     description: 'Number of threads to use for IVC verification',
     ...numberConfigHelper(1),
   },
+  bbMaxMemory: {
+    env: 'BB_MAX_MEMORY',
+    description: 'Maximum memory limit for BB in bytes (default: 4GB)',
+    ...numberConfigHelper(4 * 1024 * 1024 * 1024),
+  },
 };
 
 export const proverClientConfigMappings: ConfigMappingsType<ProverClientUserConfig> = {
