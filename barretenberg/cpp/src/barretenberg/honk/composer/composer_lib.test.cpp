@@ -106,7 +106,7 @@ TEST_F(ComposerLibTests, TagCollisionFailure)
 
         // Add required pairing points for Ultra circuits
         set_default_pairing_points_and_ipa_claim_and_proof(builder);
-
+        // prove and verify
         prove_and_verify(builder, /*expected_result=*/false);
     }
 }
