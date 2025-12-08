@@ -105,6 +105,11 @@ export class Shl extends ThreeOperandArithmeticInstruction {
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.shl(b);
   }
+
+  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    memory.checkTagsAreSame(aOffset, bOffset);
+    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset)); // Follows that bOffset tag is also of integral type
+  }
 }
 
 export class Shr extends ThreeOperandArithmeticInstruction {
@@ -113,5 +118,10 @@ export class Shr extends ThreeOperandArithmeticInstruction {
 
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.shr(b);
+  }
+
+  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    memory.checkTagsAreSame(aOffset, bOffset);
+    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset)); // Follows that bOffset tag is also of integral type
   }
 }
