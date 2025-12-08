@@ -11,6 +11,7 @@ namespace bb {
 /**
  * @brief Expression for the computation of Translator accumulator in integers through 68-bit limbs and
  * native field (prime) limb
+ *
  * @details This relation is a part of system of relations that enforce a formula in non-native field (base field of
  * bn254 curve Fp (p - modulus of Fp)). We are trying to compute:
  *
@@ -98,34 +99,42 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
         -FF(curve::BN254::BaseField::modulus)
     };
 
+    // Limbs of evaluation challenge x
     const auto& evaluation_input_x_0 = params.evaluation_input_x[0];
     const auto& evaluation_input_x_1 = params.evaluation_input_x[1];
     const auto& evaluation_input_x_2 = params.evaluation_input_x[2];
     const auto& evaluation_input_x_3 = params.evaluation_input_x[3];
     const auto& evaluation_input_x_4 = params.evaluation_input_x[4];
-    // for j < 4,  v_i_j is the j-th limb of v^{1+i}
-    // v_i_4 is v^{1+i} in the native field
+
+    // Limbs of batching challenge v
     const auto& v_0_0 = params.batching_challenge_v[0][0];
     const auto& v_0_1 = params.batching_challenge_v[0][1];
     const auto& v_0_2 = params.batching_challenge_v[0][2];
     const auto& v_0_3 = params.batching_challenge_v[0][3];
     const auto& v_0_4 = params.batching_challenge_v[0][4];
+
+    // Limbs of batching challenge v²
     const auto& v_1_0 = params.batching_challenge_v[1][0];
     const auto& v_1_1 = params.batching_challenge_v[1][1];
     const auto& v_1_2 = params.batching_challenge_v[1][2];
     const auto& v_1_3 = params.batching_challenge_v[1][3];
     const auto& v_1_4 = params.batching_challenge_v[1][4];
+
+    // Limbs of batching challenge v³
     const auto& v_2_0 = params.batching_challenge_v[2][0];
     const auto& v_2_1 = params.batching_challenge_v[2][1];
     const auto& v_2_2 = params.batching_challenge_v[2][2];
     const auto& v_2_3 = params.batching_challenge_v[2][3];
     const auto& v_2_4 = params.batching_challenge_v[2][4];
+
+    // Limbs of batching challenge v⁴
     const auto& v_3_0 = params.batching_challenge_v[3][0];
     const auto& v_3_1 = params.batching_challenge_v[3][1];
     const auto& v_3_2 = params.batching_challenge_v[3][2];
     const auto& v_3_3 = params.batching_challenge_v[3][3];
     const auto& v_3_4 = params.batching_challenge_v[3][4];
 
+    // Fetch witness values
     const auto& op = View(in.op);
     const auto& p_x_low_limbs = View(in.p_x_low_limbs);
     const auto& p_y_low_limbs = View(in.p_y_low_limbs);
@@ -155,9 +164,16 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     const auto& relation_wide_limbs_shift = View(in.relation_wide_limbs_shift);
     const auto& lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
 
-    // Contribution (1) Computing the mod 2²⁷² relation over lower 136 bits
+    /**
+     * Contribution (1): Subrelation 1 - Lower Mod 2¹³⁶ Check
+     *
+     * Proves that the accumulation formula holds for the lower 136 bits (limbs 0 and 1).
+     * Computes: T₀ + 2⁶⁸·T₁ - 2¹³⁶·c_lo = 0
+     * where T₀ and T₁ are linear combinations of limb-0 and limb-1 products respectively,
+     * and c_lo is the carry to the higher 136 bits.
+     */
     // clang-format off
-        // the index-0 limb
+        // T₀: Limb 0 contribution (all products contributing at weight 2⁰)
         auto tmp = accumulators_binary_limbs_0_shift * evaluation_input_x_0
                    + op
                    + p_x_low_limbs     * v_0_0
@@ -167,7 +183,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                    + quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[0]
                    - accumulators_binary_limbs_0;
 
-        // the index-1 limb
+        // T₁: Limb 1 contribution (all cross-products contributing at weight 2⁶⁸)
         tmp += (accumulators_binary_limbs_1_shift   * evaluation_input_x_0
                    + accumulators_binary_limbs_0_shift * evaluation_input_x_1
                    + p_x_low_limbs       * v_0_1
@@ -183,16 +199,23 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                    - accumulators_binary_limbs_1)
                 * shift ;
     // clang-format on
-    // subtract large value; vanishing shows the desired relation holds on low 136-bit limb
+    // Subtract 2¹³⁶·c_lo: if the result is zero, lower 136 bits are correct
     tmp -= relation_wide_limbs * shiftx2;
     tmp *= lagrange_even_in_minicircuit * op;
     tmp *= scaling_factor;
     std::get<0>(accumulators) += tmp;
 
-    // Contribution (2) Computing the 2²⁷² relation over higher 136 bits
-    // why declare another temporary?
+    /**
+     * Contribution (2): Subrelation 2 - Higher Mod 2¹³⁶ Check
+     *
+     * Proves that the accumulation formula holds for the higher 136 bits (limbs 2 and 3).
+     * Computes: T₂ + 2⁶⁸·T₃ - 2¹³⁶·c_hi = 0
+     * where T₂ includes the carry c_lo from subrelation 1, T₃ contains limb-3 products,
+     * and c_hi is the overflow carry (should be range-constrained to ensure soundness).
+     * Together with Subrelation 1, this proves the relation holds mod 2²⁷².
+     */
     // clang-format off
-        // the index-2 limb, with a carry from the previous calculation
+        // T₂: Limb 2 contribution (with carry from lower 136 bits)
         tmp = relation_wide_limbs
               + accumulators_binary_limbs_2_shift * evaluation_input_x_0
               + accumulators_binary_limbs_1_shift * evaluation_input_x_1
@@ -212,7 +235,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
               + quotient_low_binary_limbs       * NEGATIVE_MODULUS_LIMBS[2]
               - accumulators_binary_limbs_2;
 
-        // the index-2 limb
+        // T₃: Limb 3 contribution (all cross-products contributing at weight 2²⁰⁴)
         tmp += (accumulators_binary_limbs_3_shift   * evaluation_input_x_0
                    + accumulators_binary_limbs_2_shift   * evaluation_input_x_1
                    + accumulators_binary_limbs_1_shift * evaluation_input_x_2
@@ -236,19 +259,20 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                    - accumulators_binary_limbs_3)
                 * shift;
     // clang-format on
-    // subtract large value; vanishing shows the desired relation holds on high 136-bit limb
+    // Subtract 2¹³⁶·c_hi: if the result is zero, higher 136 bits are correct
     tmp -= relation_wide_limbs_shift * shiftx2;
     tmp *= lagrange_even_in_minicircuit * op;
     tmp *= scaling_factor;
     std::get<1>(accumulators) += tmp;
 
+    // Helper functions to reconstruct field elements from limbs
     const auto reconstruct_from_two = [](const auto& l0, const auto& l1) { return l0 + l1 * shift; };
 
     const auto reconstruct_from_four = [](const auto& l0, const auto& l1, const auto& l2, const auto& l3) {
         return l0 + l1 * shift + l2 * shiftx2 + l3 * shiftx3;
     };
 
-    // Reconstructing native versions of values
+    // Reconstruct native 𝔽ᵣ representations from binary limbs
     auto reconstructed_p_x =
         reconstruct_from_four(p_x_low_limbs, p_x_low_limbs_shift, p_x_high_limbs, p_x_high_limbs_shift);
     auto reconstructed_p_y =
@@ -268,9 +292,16 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                                                         quotient_high_binary_limbs,
                                                         quotient_high_binary_limbs_shift);
 
-    // Contribution (3). Evaluating integer relation over native field
+    /**
+     * Contribution (3): Subrelation 3 - Native Field Check
+     *
+     * Proves the accumulation formula holds when computed directly in 𝔽ᵣ.
+     * Uses reconstructed native field representations (tilde notation in docs).
+     * Combined with mod 2²⁷² checks (Subrelations 1 & 2), this proves the relation
+     * holds in integers via Chinese Remainder Theorem, which implies it holds mod q.
+     */
     // clang-format off
-        // the native limb index is 4
+        // Compute accumulation formula using native 𝔽ᵣ arithmetic (limb index 4)
         tmp = reconstructed_previous_accumulator * evaluation_input_x_4
                      + op
                      + reconstructed_p_x * v_0_4
