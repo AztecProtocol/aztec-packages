@@ -73,8 +73,6 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     // expensive bytecode commitment hash. This is safe because class_id uniquely identifies
     // the bytecode. The actual commitment is only needed for trace generation / witgen.
     BytecodeId bytecode_id = current_class_id;
-    // Cache the mapping from class_id to bytecode_id (different class can have same bytecode).
-    class_id_to_bytecode_id[current_class_id] = bytecode_id;
 
     // We now save the bytecode so that we don't repeat this process.
     bytecodes[bytecode_id] = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
