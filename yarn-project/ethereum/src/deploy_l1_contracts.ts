@@ -10,7 +10,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import type { Abi, Narrow } from 'abitype';
-import { mkdir, writeFile } from 'fs/promises';
+import fs from 'fs';
 import chunk from 'lodash.chunk';
 import {
   type Chain,
@@ -719,7 +719,7 @@ async function writeVerificationJson(
     const date = new Date();
     const formattedDate = date.toISOString().slice(2, 19).replace(/[-T:]/g, '');
     // Ensure the verification output directory exists
-    await mkdir(outputDirectory, { recursive: true });
+    await fs.promises.mkdir(outputDirectory, { recursive: true });
     const suffix = filenameSuffix ? `-${filenameSuffix}` : '';
     const verificationOutputPath = `${outputDirectory}/l1-verify${suffix}-${chainId}-${formattedDate.slice(0, 6)}-${formattedDate.slice(6)}.json`;
     const networkName = getActiveNetworkName();
@@ -728,7 +728,7 @@ async function writeVerificationJson(
       network: networkName,
       records: deployer.verificationRecords,
     };
-    await writeFile(verificationOutputPath, JSON.stringify(verificationData, null, 2));
+    await fs.promises.writeFile(verificationOutputPath, JSON.stringify(verificationData, null, 2));
     logger.info(`Wrote L1 verification data to ${verificationOutputPath}`);
   } catch (e) {
     logger.warn(`Failed to write L1 verification data file: ${String(e)}`);

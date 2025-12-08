@@ -121,12 +121,12 @@ TYPED_TEST(ShplonkTest, ExportBatchClaimAndVerify)
     auto verifier = ShplonkVerifier::reduce_verification_no_finalize(verifier_opening_claims, verifier_transcript);
 
     // Export batch opening claim
-    const auto batched_verifier_claim = verifier.export_batch_opening_claim(this->vk().get_g1_identity());
+    auto batched_verifier_claim = verifier.export_batch_opening_claim(this->vk().get_g1_identity());
 
     if constexpr (std::is_same_v<TypeParam, curve::BN254>) {
         // KZG verifier
-        auto final_proof_points =
-            KZG<curve::BN254>::reduce_verify_batch_opening_claim(batched_verifier_claim, verifier_transcript);
+        auto final_proof_points = KZG<curve::BN254>::reduce_verify_batch_opening_claim(
+            std::move(batched_verifier_claim), verifier_transcript);
         ASSERT_TRUE(this->vk().pairing_check(final_proof_points[0], final_proof_points[1]));
     } else {
         // Verify IPA proof

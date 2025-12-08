@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/simulation/gadgets/emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/update_check.hpp"
 #include "barretenberg/vm2/simulation/lib/call_stack_metadata_collector.hpp"
 #include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
@@ -386,24 +387,57 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
 
         tx.non_revertible_accumulated_data.nullifiers.at(0), base_merkle_db, side_effect_tracker);
 
-    // NoopUpdateCheck update_check;
-    // TODO(#18161): Note that if we need to gather hints here, we can't use the NoopUpdateCheck as it will skip
-    // collecting a required hint for a storage_read. Optionally use Noop if we don't need hints:
-
-    UpdateCheck update_check(poseidon2, range_check, greater_than, merkle_db, update_check_emitter, global_variables);
+    std::unique_ptr<UpdateCheckInterface> update_check = [&]() -> std::unique_ptr<UpdateCheckInterface> {
+        if (config.collect_hints) {
+            // When collecting hints, we need to use UpdateCheck to collect required hints for storage_read.
+            return std::make_unique<UpdateCheck>(
+                poseidon2, range_check, greater_than, merkle_db, update_check_emitter, global_variables);
+        } else {
+            return std::make_unique<NoopUpdateCheck>();
+        }
+    }();
 
     InstructionInfoDB instruction_info_db;
 
     ContractInstanceManager contract_instance_manager(
-        contract_db, merkle_db, update_check, field_gt, protocol_contracts, contract_instance_retrieval_emitter);
+        contract_db, merkle_db, *update_check, field_gt, protocol_contracts, contract_instance_retrieval_emitter);
 
-    PureTxBytecodeManager bytecode_manager(contract_db, contract_instance_manager);
+    // These are needed for the TxBytecodeManager, but not for the PureTxBytecodeManager.
+    std::unique_ptr<NoopEventEmitter<BytecodeHashingEvent>> bytecode_hashing_emitter;
+    std::unique_ptr<BytecodeHasher> bytecode_hasher;
+    std::unique_ptr<NoopEventEmitter<BytecodeRetrievalEvent>> bytecode_retrieval_emitter;
+    std::unique_ptr<NoopEventEmitter<BytecodeDecompositionEvent>> bytecode_decomposition_emitter;
+    std::unique_ptr<NoopEventEmitter<InstructionFetchingEvent>> instruction_fetching_emitter;
+    std::unique_ptr<TxBytecodeManagerInterface> tx_bytecode_manager =
+        [&]() -> std::unique_ptr<TxBytecodeManagerInterface> {
+        if (config.collect_hints) {
+            // When collecting hints, we need to call the contract DB to get the bytecode commitment.
+            // The pure bytecode manager doesn't do this, so we use the gadget version.
+            bytecode_hashing_emitter = std::make_unique<NoopEventEmitter<BytecodeHashingEvent>>();
+            bytecode_hasher = std::make_unique<BytecodeHasher>(poseidon2, *bytecode_hashing_emitter);
+            bytecode_retrieval_emitter = std::make_unique<NoopEventEmitter<BytecodeRetrievalEvent>>();
+            bytecode_decomposition_emitter = std::make_unique<NoopEventEmitter<BytecodeDecompositionEvent>>();
+            instruction_fetching_emitter = std::make_unique<NoopEventEmitter<InstructionFetchingEvent>>();
+            return std::make_unique<TxBytecodeManager>(contract_db,
+                                                       merkle_db,
+                                                       *bytecode_hasher,
+                                                       range_check,
+                                                       contract_instance_manager,
+                                                       retrieved_bytecodes_tree_check,
+                                                       *bytecode_retrieval_emitter,
+                                                       *bytecode_decomposition_emitter,
+                                                       *instruction_fetching_emitter);
+        } else {
+            return std::make_unique<PureTxBytecodeManager>(contract_db, contract_instance_manager);
+        }
+    }();
+
     PureExecutionComponentsProvider execution_components(greater_than, instruction_info_db);
 
     PureMemoryProvider memory_provider;
     CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
     InternalCallStackManagerProvider internal_call_stack_manager_provider(internal_call_stack_emitter);
-    ContextProvider context_provider(bytecode_manager,
+    ContextProvider context_provider(*tx_bytecode_manager,
                                      memory_provider,
                                      calldata_hashing_provider,
                                      internal_call_stack_manager_provider,
