@@ -28,7 +28,7 @@ import {DateGatedRelayer} from "@aztec/periphery/DateGatedRelayer.sol";
 
 import {ZKPassportVerifier} from "@zkpassport/ZKPassportVerifier.sol";
 
-import {DeployRollup, RollupDeploymentInput} from "./DeployRollup.s.sol";
+import {DeployRollup, RollupAddressInput} from "./DeployRollup.s.sol";
 import {
     CoinIssuerConfiguration,
     DeploymentOptions,
@@ -231,7 +231,7 @@ contract DeployL1Contracts is Script, Test {
     /// @notice Deploy rollup and related contracts via DeployRollup helper
     function _deployRollup() internal {
         rollupDeployer = new DeployRollup();
-        rollupDeployer.setEnv(RollupDeploymentInput({
+        rollupDeployer.setEnv(RollupAddressInput({
             deployer: deployer,
             registry: registry,
             gse: gseContract,
