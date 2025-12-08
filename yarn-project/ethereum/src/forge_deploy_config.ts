@@ -72,7 +72,7 @@ export interface L1ContractsDeployConfig extends ForgeRuntimeOptions {
 
   // Deployment options
   networkName?: string;
-  useMockVerifier?: boolean;
+  realVerifier?: boolean;
   fundRewardDistributor?: boolean;
   rewardDistributorFunding?: string;
   existingStakingAssetAddress?: string;

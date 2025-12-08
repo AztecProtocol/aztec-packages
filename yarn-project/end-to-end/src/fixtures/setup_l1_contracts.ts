@@ -105,7 +105,7 @@ export const setupL1ContractsWithForge = async (
     protocolContractsHash: protocolContractsHash.toString(),
     genesisArchiveRoot: options.genesisArchiveRoot,
     // Deployment options
-    useMockVerifier: !(options.realVerifier ?? false),
+    realVerifier: !(options.realVerifier ?? false),
     fundRewardDistributor: options.fundRewardDistributor,
     // Timing config (ethereumSlotDuration not passed - derived from L1 block time)
     aztecSlotDuration: options.aztecSlotDuration,

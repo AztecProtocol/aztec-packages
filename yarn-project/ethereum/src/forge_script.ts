@@ -294,71 +294,128 @@ function buildEnvVarsFromConfig(
   computedValidators?: ValidatorJson[],
 ): Record<string, string> {
   const envVars: Record<string, string> = {};
-
   // Network name
-  if (options.networkName) envVars.NETWORK = options.networkName;
+  if (options.networkName) {
+    envVars.NETWORK = options.networkName;
+  }
 
   // Deployment options
-  if (options.useMockVerifier !== undefined) envVars.USE_MOCK_VERIFIER = String(options.useMockVerifier);
-  if (options.fundRewardDistributor !== undefined)
+  if (options.realVerifier !== undefined) {
+    envVars.REAL_VERIFIER = String(options.realVerifier);
+  }
+  if (options.fundRewardDistributor !== undefined) {
     envVars.FUND_REWARD_DISTRIBUTOR = String(options.fundRewardDistributor);
-  if (options.existingStakingAssetAddress) envVars.EXISTING_STAKING_ASSET_ADDRESS = options.existingStakingAssetAddress;
-  if (options.rewardDistributorFunding) envVars.REWARD_DISTRIBUTOR_FUNDING = options.rewardDistributorFunding;
+  }
+  if (options.existingStakingAssetAddress) {
+    envVars.EXISTING_STAKING_ASSET_ADDRESS = options.existingStakingAssetAddress;
+  }
+  if (options.rewardDistributorFunding) {
+    envVars.REWARD_DISTRIBUTOR_FUNDING = options.rewardDistributorFunding;
+  }
 
   // Genesis config
-  if (options.vkTreeRoot) envVars.VK_TREE_ROOT = options.vkTreeRoot;
-  if (options.protocolContractsHash) envVars.PROTOCOL_CONTRACTS_HASH = options.protocolContractsHash;
-  if (options.genesisArchiveRoot) envVars.GENESIS_ARCHIVE_ROOT = options.genesisArchiveRoot;
+  if (options.vkTreeRoot) {
+    envVars.VK_TREE_ROOT = options.vkTreeRoot;
+  }
+  if (options.protocolContractsHash) {
+    envVars.PROTOCOL_CONTRACTS_HASH = options.protocolContractsHash;
+  }
+  if (options.genesisArchiveRoot) {
+    envVars.GENESIS_ARCHIVE_ROOT = options.genesisArchiveRoot;
+  }
 
   // Timing config
-  if (options.aztecSlotDuration !== undefined) envVars.AZTEC_SLOT_DURATION = String(options.aztecSlotDuration);
-  if (options.aztecEpochDuration !== undefined) envVars.AZTEC_EPOCH_DURATION = String(options.aztecEpochDuration);
-  if (options.aztecTargetCommitteeSize !== undefined)
+  if (options.aztecSlotDuration !== undefined) {
+    envVars.AZTEC_SLOT_DURATION = String(options.aztecSlotDuration);
+  }
+  if (options.aztecEpochDuration !== undefined) {
+    envVars.AZTEC_EPOCH_DURATION = String(options.aztecEpochDuration);
+  }
+  if (options.aztecTargetCommitteeSize !== undefined) {
     envVars.AZTEC_TARGET_COMMITTEE_SIZE = String(options.aztecTargetCommitteeSize);
-  if (options.lagInEpochsForValidatorSet !== undefined)
+  }
+  if (options.lagInEpochsForValidatorSet !== undefined) {
     envVars.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET = String(options.lagInEpochsForValidatorSet);
-  if (options.lagInEpochsForRandao !== undefined)
+  }
+  if (options.lagInEpochsForRandao !== undefined) {
     envVars.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO = String(options.lagInEpochsForRandao);
-  if (options.aztecProofSubmissionEpochs !== undefined)
+  }
+  if (options.aztecProofSubmissionEpochs !== undefined) {
     envVars.AZTEC_PROOF_SUBMISSION_EPOCHS = String(options.aztecProofSubmissionEpochs);
+  }
 
   // GSE config
-  if (options.activationThreshold) envVars.AZTEC_ACTIVATION_THRESHOLD = options.activationThreshold;
-  if (options.ejectionThreshold) envVars.AZTEC_EJECTION_THRESHOLD = options.ejectionThreshold;
-  if (options.localEjectionThreshold) envVars.AZTEC_LOCAL_EJECTION_THRESHOLD = options.localEjectionThreshold;
+  if (options.activationThreshold) {
+    envVars.AZTEC_ACTIVATION_THRESHOLD = options.activationThreshold;
+  }
+  if (options.ejectionThreshold) {
+    envVars.AZTEC_EJECTION_THRESHOLD = options.ejectionThreshold;
+  }
+  if (options.localEjectionThreshold) {
+    envVars.AZTEC_LOCAL_EJECTION_THRESHOLD = options.localEjectionThreshold;
+  }
 
   // Slashing config
-  if (options.slasherFlavor) envVars.AZTEC_SLASHER_FLAVOR = options.slasherFlavor;
-  if (options.slashingQuorum !== undefined) envVars.AZTEC_SLASHING_QUORUM = String(options.slashingQuorum);
-  if (options.slashingRoundSizeInEpochs !== undefined)
+  if (options.slasherFlavor) {
+    envVars.AZTEC_SLASHER_FLAVOR = options.slasherFlavor;
+  }
+  if (options.slashingQuorum !== undefined) {
+    envVars.AZTEC_SLASHING_QUORUM = String(options.slashingQuorum);
+  }
+  if (options.slashingRoundSizeInEpochs !== undefined) {
     envVars.AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS = String(options.slashingRoundSizeInEpochs);
-  if (options.slashingOffsetInRounds !== undefined)
+  }
+  if (options.slashingOffsetInRounds !== undefined) {
     envVars.AZTEC_SLASHING_OFFSET_IN_ROUNDS = String(options.slashingOffsetInRounds);
-  if (options.slashingLifetimeInRounds !== undefined)
+  }
+  if (options.slashingLifetimeInRounds !== undefined) {
     envVars.AZTEC_SLASHING_LIFETIME_IN_ROUNDS = String(options.slashingLifetimeInRounds);
-  if (options.slashingExecutionDelayInRounds !== undefined)
+  }
+  if (options.slashingExecutionDelayInRounds !== undefined) {
     envVars.AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = String(options.slashingExecutionDelayInRounds);
-  if (options.slashingDisableDuration !== undefined)
+  }
+  if (options.slashingDisableDuration !== undefined) {
     envVars.AZTEC_SLASHING_DISABLE_DURATION = String(options.slashingDisableDuration);
-  if (options.slashingVetoer) envVars.AZTEC_SLASHING_VETOER = options.slashingVetoer;
-  if (options.slashAmountSmall) envVars.AZTEC_SLASH_AMOUNT_SMALL = options.slashAmountSmall;
-  if (options.slashAmountMedium) envVars.AZTEC_SLASH_AMOUNT_MEDIUM = options.slashAmountMedium;
-  if (options.slashAmountLarge) envVars.AZTEC_SLASH_AMOUNT_LARGE = options.slashAmountLarge;
+  }
+  if (options.slashingVetoer) {
+    envVars.AZTEC_SLASHING_VETOER = options.slashingVetoer;
+  }
+  if (options.slashAmountSmall) {
+    envVars.AZTEC_SLASH_AMOUNT_SMALL = options.slashAmountSmall;
+  }
+  if (options.slashAmountMedium) {
+    envVars.AZTEC_SLASH_AMOUNT_MEDIUM = options.slashAmountMedium;
+  }
+  if (options.slashAmountLarge) {
+    envVars.AZTEC_SLASH_AMOUNT_LARGE = options.slashAmountLarge;
+  }
 
   // Fee config
-  if (options.manaTarget) envVars.AZTEC_MANA_TARGET = options.manaTarget;
-  if (options.provingCostPerMana) envVars.AZTEC_PROVING_COST_PER_MANA = options.provingCostPerMana;
-  if (options.exitDelaySeconds !== undefined) envVars.AZTEC_EXIT_DELAY_SECONDS = String(options.exitDelaySeconds);
+  if (options.manaTarget) {
+    envVars.AZTEC_MANA_TARGET = options.manaTarget;
+  }
+  if (options.provingCostPerMana) {
+    envVars.AZTEC_PROVING_COST_PER_MANA = options.provingCostPerMana;
+  }
+  if (options.exitDelaySeconds !== undefined) {
+    envVars.AZTEC_EXIT_DELAY_SECONDS = String(options.exitDelaySeconds);
+  }
 
   // Governance config
-  if (options.governanceProposerQuorum !== undefined)
+  if (options.governanceProposerQuorum !== undefined) {
     envVars.AZTEC_GOVERNANCE_PROPOSER_QUORUM = String(options.governanceProposerQuorum);
-  if (options.governanceProposerRoundSize !== undefined)
+  }
+  if (options.governanceProposerRoundSize !== undefined) {
     envVars.AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE = String(options.governanceProposerRoundSize);
+  }
 
   // ZK Passport config
-  if (options.zkPassportDomain) envVars.ZKPASSPORT_DOMAIN = options.zkPassportDomain;
-  if (options.zkPassportScope) envVars.ZKPASSPORT_SCOPE = options.zkPassportScope;
+  if (options.zkPassportDomain) {
+    envVars.ZKPASSPORT_DOMAIN = options.zkPassportDomain;
+  }
+  if (options.zkPassportScope) {
+    envVars.ZKPASSPORT_SCOPE = options.zkPassportScope;
+  }
 
   // Initial validators (JSON array)
   if (computedValidators && computedValidators.length > 0) {
@@ -490,6 +547,159 @@ export async function setupL1ContractsViaForge(
     };
   } finally {
     // Clean up deployment output file
+    try {
+      rmSync(outputPath, { force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
+
+/**
+ * Deployed addresses from the rollup upgrade deployment.
+ */
+export interface RollupUpgradeAddresses {
+  rollupAddress: string;
+  verifierAddress: string;
+  slashFactoryAddress: string;
+  inboxAddress: string;
+  outboxAddress: string;
+  feeAssetPortalAddress: string;
+  rollupVersion: number;
+}
+
+/**
+ * Options for deploying a rollup upgrade via forge.
+ */
+export interface RollupUpgradeOptions
+  extends Omit<L1ContractsDeployConfig, 'initialValidators' | 'stakingAssetHandler'> {
+  /** Existing Registry contract address */
+  registryAddress: string;
+  /** Existing GSE contract address */
+  gseAddress: string;
+  /** Existing Governance contract address */
+  governanceAddress: string;
+  /** Existing FeeAsset (FeeJuice) token address */
+  feeAssetAddress: string;
+  /** Existing StakingAsset token address */
+  stakingAssetAddress: string;
+  /** Whether to fund the FeeJuicePortal (only works with test tokens) */
+  fundFeeJuicePortal?: boolean;
+  /** Amount to fund the FeeJuicePortal */
+  feeJuicePortalBalance?: string;
+}
+
+/**
+ * Return type for rollup upgrade via forge.
+ */
+export interface RollupUpgradeReturnType {
+  rollupAddress: EthAddress;
+  verifierAddress: EthAddress;
+  slashFactoryAddress: EthAddress;
+  inboxAddress: EthAddress;
+  outboxAddress: EthAddress;
+  feeJuicePortalAddress: EthAddress;
+  rollupVersion: number;
+}
+
+/**
+ * Deploys a new Rollup contract for upgrading an existing Aztec deployment.
+ * This deploys only the Rollup, Verifier, and SlashFactory contracts.
+ *
+ * @param rpcUrl - The RPC URL to use
+ * @param privateKey - The private key for the deployer (with 0x prefix)
+ * @param options - Upgrade options including existing contract addresses
+ * @returns The upgrade deployment result with new contract addresses
+ */
+export async function deployRollupUpgradeViaForge(
+  rpcUrl: string,
+  privateKey: `0x${string}`,
+  options: RollupUpgradeOptions,
+): Promise<RollupUpgradeReturnType> {
+  const logger = options.logger ?? createLogger('deploy-rollup-upgrade-forge');
+
+  // Build environment variables for existing contracts
+  const envVars: Record<string, string> = {
+    REGISTRY_ADDRESS: options.registryAddress,
+    GSE_ADDRESS: options.gseAddress,
+    GOVERNANCE_ADDRESS: options.governanceAddress,
+    FEE_ASSET_ADDRESS: options.feeAssetAddress,
+    STAKING_ASSET_ADDRESS: options.stakingAssetAddress,
+  };
+
+  // Optional funding
+  if (options.fundFeeJuicePortal !== undefined) {
+    envVars.FUND_FEE_JUICE_PORTAL = String(options.fundFeeJuicePortal);
+  }
+  if (options.feeJuicePortalBalance) {
+    envVars.FEE_JUICE_PORTAL_BALANCE = options.feeJuicePortalBalance;
+  }
+
+  // Extract runtime-only options and build config env vars
+  const { logger: _, chain: __, ...configOptions } = options;
+  const configEnvVars = buildEnvVarsFromConfig(configOptions);
+
+  // Merge all env vars
+  Object.assign(envVars, configEnvVars);
+
+  // Create unique output file
+  const l1ContractsPath = getL1ContractsPath();
+  const deploymentsDir = join(l1ContractsPath, '.deployments');
+  const hrtime = process.hrtime.bigint();
+  const pid = process.pid;
+  const randomId = Math.random().toString(36).substring(2, 8);
+  const outputPath = join(deploymentsDir, `upgrade-${pid}-${hrtime}-${randomId}.json`);
+
+  try {
+    const result = await runForgeScript(
+      [
+        'script',
+        'script/deploy/rollup/DeployRollupForUpgrade.s.sol:DeployRollupForUpgrade',
+        '--sig',
+        'run(string)',
+        outputPath,
+        '--rpc-url',
+        rpcUrl,
+        '--private-key',
+        privateKey,
+        '--broadcast',
+        '-vvvv',
+      ],
+      {
+        logger,
+        env: envVars,
+      },
+    );
+
+    if (!result.success) {
+      throw new Error(`Forge upgrade deployment failed: ${result.stderr}`);
+    }
+
+    // Read addresses from output file
+    if (!existsSync(outputPath)) {
+      throw new Error(`Upgrade output file not found: ${outputPath}`);
+    }
+
+    const addresses: RollupUpgradeAddresses = JSON.parse(readFileSync(outputPath, 'utf-8'));
+    logger.info('Read upgrade addresses from output file', addresses);
+
+    if (!addresses.rollupAddress) {
+      throw new Error(`Forge upgrade did not return rollup address. Got: ${JSON.stringify(addresses)}`);
+    }
+
+    logger.info('Forge upgrade script completed successfully');
+
+    return {
+      rollupAddress: EthAddress.fromString(addresses.rollupAddress),
+      verifierAddress: EthAddress.fromString(addresses.verifierAddress),
+      slashFactoryAddress: EthAddress.fromString(addresses.slashFactoryAddress),
+      inboxAddress: EthAddress.fromString(addresses.inboxAddress),
+      outboxAddress: EthAddress.fromString(addresses.outboxAddress),
+      feeJuicePortalAddress: EthAddress.fromString(addresses.feeAssetPortalAddress),
+      rollupVersion: addresses.rollupVersion,
+    };
+  } finally {
+    // Clean up output file
     try {
       rmSync(outputPath, { force: true });
     } catch {

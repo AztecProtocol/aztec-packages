@@ -1,4 +1,5 @@
-// TODO CLAUDE this should be ported as a test for DeployRollupForUpgrade.s.sol
+// Rollup upgrade test - uses DeployRollupForUpgrade.s.sol via deployRollupForUpgrade().
+// This test is currently disabled. See l1-contracts/test/script/DeployRollupForUpgrade.t.sol for Solidity tests.
 // import { getInitialTestAccounts } from '@aztec/accounts/testing';
 // import { type PXE, createCompatibleClient } from '@aztec/aztec.js/wallet';
 // import { EthAddress } from '@aztec/aztec.js/addresses';

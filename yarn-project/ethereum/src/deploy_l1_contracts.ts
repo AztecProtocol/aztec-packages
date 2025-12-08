@@ -273,7 +273,7 @@ const getZkPassportScopes = (args: DeployL1ContractsArgs): [string, string] => {
  * @param extendedClient - The extended viem wallet client.
  * @param logger - The logger.
  */
-async function generateRollupVerificationRecords(
+async function _generateRollupVerificationRecords(
   rollup: RollupContract,
   deployer: L1Deployer,
   args: {
@@ -430,7 +430,7 @@ async function generateRollupVerificationRecords(
  * @param filenameSuffix - Optional suffix for the filename (e.g., 'upgrade').
  * @param logger - The logger.
  */
-async function writeVerificationJson(
+async function _writeVerificationJson(
   deployer: L1Deployer,
   outputDirectory: string,
   chainId: number,
@@ -459,12 +459,13 @@ async function writeVerificationJson(
 
 /**
  * Deploys a new rollup, using the existing canonical version to derive certain values (addresses of assets etc).
- * @param clients - The L1 clients.
+ * This function now uses the Forge deployment script (DeployRollupForUpgrade.s.sol).
+ *
+ * @param extendedClient - The L1 client.
  * @param args - The deployment arguments.
  * @param registryAddress - The address of the registry.
  * @param logger - The logger.
- * @param txUtilsConfig - The L1 tx utils config.
- * @param createVerificationJson - Optional path to write verification data for forge verify.
+ * @returns The deployed rollup contract and slash factory address.
  */
 export const deployRollupForUpgrade = async (
   extendedClient: ExtendedViemWalletClient,
@@ -474,33 +475,72 @@ export const deployRollupForUpgrade = async (
   >,
   registryAddress: EthAddress,
   logger: Logger,
-  txUtilsConfig: L1TxUtilsConfig,
-  createVerificationJson: string | false = false,
 ) => {
-  const deployer = new L1Deployer(
-    extendedClient,
-    args.salt,
-    undefined,
-    args.acceleratedTestDeployments,
-    logger,
-    txUtilsConfig,
-    !!createVerificationJson,
-  );
-
+  // Collect existing addresses from the registry
   const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical');
 
-  // TODO CLAUDE this should call the shell script we have developed for exposing DeployRollupForUpgrade.s.sol
-  const { rollup, slashFactoryAddress } = await deployRollup(extendedClient, deployer, args, addresses, logger);
+  // Import and use the forge deployment function
+  const { deployRollupUpgradeViaForge } = await import('./forge_script.js');
 
-  await deployer.waitForDeployments();
-
-  // Write verification data (constructor args + linked libraries) to file for later forge verify
-  if (createVerificationJson) {
-    await generateRollupVerificationRecords(rollup, deployer, args, addresses, extendedClient, logger);
-    await writeVerificationJson(deployer, createVerificationJson, extendedClient.chain.id, 'upgrade', logger);
+  // Get RPC URL from the client's transports
+  const transport = extendedClient.transport as unknown as { transports?: Array<{ value?: { url?: string } }> };
+  const rpcUrl = transport.transports?.[0]?.value?.url ?? extendedClient.chain?.rpcUrls.default.http[0];
+  if (!rpcUrl) {
+    throw new Error('Could not determine RPC URL from client');
   }
 
-  return { rollup, slashFactoryAddress };
+  // Note: We need to get the private key from the account
+  // This assumes the account has a source with the private key
+  const account = extendedClient.account;
+  if (!account || !('source' in account) || (account as { source?: string }).source !== 'privateKey') {
+    throw new Error('deployRollupForUpgrade requires a private key account');
+  }
+  const privateKey = (account as { privateKey?: `0x${string}` }).privateKey;
+  if (!privateKey) {
+    throw new Error('Could not get private key from account');
+  }
+
+  const result = await deployRollupUpgradeViaForge(rpcUrl, privateKey, {
+    // Existing contract addresses
+    registryAddress: addresses.registryAddress.toString(),
+    gseAddress: addresses.gseAddress?.toString() ?? '',
+    governanceAddress: addresses.governanceAddress.toString(),
+    feeAssetAddress: addresses.feeJuiceAddress.toString(),
+    stakingAssetAddress: addresses.stakingAssetAddress.toString(),
+    // Rollup config from args
+    vkTreeRoot: args.vkTreeRoot.toString(),
+    protocolContractsHash: args.protocolContractsHash.toString(),
+    genesisArchiveRoot: args.genesisArchiveRoot.toString(),
+    realVerifier: !args.realVerifier,
+    aztecSlotDuration: args.aztecSlotDuration,
+    aztecEpochDuration: args.aztecEpochDuration,
+    aztecTargetCommitteeSize: args.aztecTargetCommitteeSize,
+    aztecProofSubmissionEpochs: args.aztecProofSubmissionEpochs,
+    slasherFlavor: args.slasherFlavor,
+    slashingRoundSizeInEpochs: args.slashingRoundSizeInEpochs,
+    slashingLifetimeInRounds: args.slashingLifetimeInRounds,
+    slashingExecutionDelayInRounds: args.slashingExecutionDelayInRounds,
+    slashingVetoer: args.slashingVetoer.toString(),
+    manaTarget: args.manaTarget.toString(),
+    provingCostPerMana: args.provingCostPerMana.toString(),
+    exitDelaySeconds: args.exitDelaySeconds,
+    slashAmountSmall: args.slashAmountSmall.toString(),
+    slashAmountMedium: args.slashAmountMedium.toString(),
+    slashAmountLarge: args.slashAmountLarge.toString(),
+    // Funding (for fee juice portal initial balance)
+    fundFeeJuicePortal: (args.feeJuicePortalInitialBalance ?? 0n) > 0n,
+    feeJuicePortalBalance: (args.feeJuicePortalInitialBalance ?? 0n).toString(),
+    // Logger
+    logger,
+  });
+
+  // Create RollupContract wrapper for the deployed rollup
+  const rollup = new RollupContract(extendedClient, result.rollupAddress.toString());
+
+  return {
+    rollup,
+    slashFactoryAddress: result.slashFactoryAddress,
+  };
 };
 
 export const deploySlashFactory = async (deployer: L1Deployer, rollupAddress: Hex, logger: Logger) => {
@@ -523,32 +563,18 @@ export const deployUpgradePayload = async (
   return payloadAddress;
 };
 
-function slasherFlavorToSolidityEnum(flavor: DeployL1ContractsArgs['slasherFlavor']): number {
-  switch (flavor) {
-    case 'none':
-      return SlashingProposerType.None.valueOf();
-    case 'tally':
-      return SlashingProposerType.Tally.valueOf();
-    case 'empire':
-      return SlashingProposerType.Empire.valueOf();
-    default: {
-      const _: never = flavor;
-      throw new Error(`Unexpected slasher flavor ${flavor}`);
-    }
-  }
-}
-
 /**
- * Deploys a new rollup contract, funds and initializes the fee juice portal, and initializes the validator set.
+ * @deprecated This function has been moved to Solidity. Use `deployRollupForUpgrade` instead,
+ * which calls the Forge script `DeployRollupForUpgrade.s.sol`.
  */
 export const deployRollup = async (
-  extendedClient: ExtendedViemWalletClient,
-  deployer: L1Deployer,
-  args: Omit<
+  _extendedClient: ExtendedViemWalletClient,
+  _deployer: L1Deployer,
+  _args: Omit<
     DeployL1ContractsArgs,
     'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'ejectionThreshold' | 'activationThreshold'
   >,
-  addresses: Pick<
+  _addresses: Pick<
     L1ContractAddresses,
     | 'feeJuiceAddress'
     | 'registryAddress'
@@ -557,9 +583,12 @@ export const deployRollup = async (
     | 'gseAddress'
     | 'governanceAddress'
   >,
-  logger: Logger,
+  _logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> => {
-  throw new Error('TODO CLAUDE WE WILL MOVE THIS TO SOLIDITY SEE OTHER TODOs');
+  throw new Error(
+    'deployRollup has been moved to Solidity. Use deployRollupForUpgrade instead, ' +
+      'which calls the Forge script DeployRollupForUpgrade.s.sol',
+  );
   //   if (!addresses.gseAddress) {
   //     throw new Error('GSE address is required when deploying');
   //   }
@@ -1115,7 +1144,9 @@ export const cheat_initializeFeeAssetHandler = async (
 };
 
 /**
- * Deploys the aztec L1 contracts; Rollup & (optionally) Decoder Helper.
+ * @deprecated This function has been moved to Solidity. Use `setupL1ContractsViaForge` instead,
+ * which calls the Forge script `DeployL1Contracts.s.sol`.
+ *
  * @param rpcUrls - List of URLs of the ETH RPC to use for deployment.
  * @param account - Private Key or HD Account that will deploy the contracts.
  * @param chain - The chain instance to deploy to.
@@ -1124,15 +1155,18 @@ export const cheat_initializeFeeAssetHandler = async (
  * @returns A list of ETH addresses of the deployed contracts.
  */
 export const deployL1Contracts = async (
-  rpcUrls: string[],
-  account: HDAccount | PrivateKeyAccount,
-  chain: Chain,
-  logger: Logger,
-  args: DeployL1ContractsArgs,
-  txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
-  createVerificationJson: string | false = false,
+  _rpcUrls: string[],
+  _account: HDAccount | PrivateKeyAccount,
+  _chain: Chain,
+  _logger: Logger,
+  _args: DeployL1ContractsArgs,
+  _txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
+  _createVerificationJson: string | false = false,
 ): Promise<DeployL1ContractsReturnType> => {
-  throw new Error('TODO CLAUDE THIS WILL BE REMOVED IT IS ALREADY IN SOLIDITY');
+  throw new Error(
+    'deployL1Contracts has been moved to Solidity. Use setupL1ContractsViaForge instead, ' +
+      'which calls the Forge script DeployL1Contracts.s.sol. See yarn-project/ethereum/src/forge_script.ts',
+  );
   // logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   // validateConfig(args);
 

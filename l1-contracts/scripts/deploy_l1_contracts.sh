@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# TODO CLAUDE we need a version of this script that can deploy only the rollup contract for upgrade purposes
-
 # Script to deploy L1 contracts via Forge with environment variable configuration
+# For rollup-only deployments (upgrades), see deploy_rollup_for_upgrade.sh
 # This script wraps the Forge deployment and provides --help documentation
 
 show_help() {
@@ -28,7 +27,7 @@ Environment Variables:
                                         Default: local
 
   Deployment Options:
-  USE_MOCK_VERIFIER=<bool>              Use mock verifier instead of real verifier
+  REAL_VERIFIER=<bool>              Use mock verifier instead of real verifier
                                         Default: true
   FUND_REWARD_DISTRIBUTOR=<bool>        Fund reward distributor with initial tokens
                                         Default: true

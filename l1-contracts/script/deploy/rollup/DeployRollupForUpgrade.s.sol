@@ -1,279 +1,217 @@
-// TODO CLAUDE NUMBER 4
-// Note the following TS function we want to port
-// /**
-//  * Deploys a new rollup contract, funds and initializes the fee juice portal, and initializes the validator set.
-//  */
-// export const deployRollup = async (
-//   extendedClient: ExtendedViemWalletClient,
-//   deployer: L1Deployer,
-//   args: Omit<
-//     DeployL1ContractsArgs,
-//     'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'ejectionThreshold' | 'activationThreshold'
-//   >,
-//   addresses: Pick<
-//     L1ContractAddresses,
-//     | 'feeJuiceAddress'
-//     | 'registryAddress'
-//     | 'rewardDistributorAddress'
-//     | 'stakingAssetAddress'
-//     | 'gseAddress'
-//     | 'governanceAddress'
-//   >,
-//   logger: Logger,
-// ) => {
-//   if (!addresses.gseAddress) {
-//     throw new Error('GSE address is required when deploying');
-//   }
-//   const networkName = getActiveNetworkName();
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
-//   logger.info(`Deploying rollup using network configuration: ${networkName}`);
+import {Script, console} from "forge-std/Script.sol";
+import {Test} from "forge-std/Test.sol";
 
-//   const txHashes: Hex[] = [];
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
+import {GenesisState, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
+import {HonkVerifier} from "../../../generated/HonkVerifier.sol";
+import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 
-//   let epochProofVerifier = EthAddress.ZERO;
+import {DeploymentConfiguration} from "./DeploymentConfiguration.sol";
+import {DeploymentOptions} from "./IDeploymentConfiguration.sol";
 
-//   if (args.realVerifier) {
-//     epochProofVerifier = (await deployer.deploy(l1ArtifactsVerifiers.honkVerifier)).address;
-//     logger.verbose(`Rollup will use the real verifier at ${epochProofVerifier}`);
-//   } else {
-//     epochProofVerifier = (await deployer.deploy(mockVerifiers.mockVerifier)).address;
-//     logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
-//   }
+/**
+ * @title DeployRollupForUpgrade
+ * @notice Deploy a new Rollup contract for upgrading an existing Aztec deployment.
+ *
+ * This script deploys only:
+ *   - Verifier (Mock or Real HonkVerifier)
+ *   - Rollup contract
+ *   - SlashFactory
+ *
+ * It uses existing infrastructure contracts passed via environment variables:
+ *   - REGISTRY_ADDRESS
+ *   - GSE_ADDRESS
+ *   - GOVERNANCE_ADDRESS
+ *   - FEE_ASSET_ADDRESS
+ *   - STAKING_ASSET_ADDRESS
+ *
+ * After deployment, it optionally:
+ *   - Registers the new Rollup in Registry/GSE (if deployer is owner)
+ *   - Funds the FeeJuicePortal (if FUND_FEE_JUICE_PORTAL=true)
+ *
+ * Usage:
+ *   REGISTRY_ADDRESS=0x... \
+ *   GSE_ADDRESS=0x... \
+ *   GOVERNANCE_ADDRESS=0x... \
+ *   FEE_ASSET_ADDRESS=0x... \
+ *   STAKING_ASSET_ADDRESS=0x... \
+ *   forge script script/deploy/rollup/DeployRollupForUpgrade.s.sol:DeployRollupForUpgrade \
+ *     --sig "run(string)" "./upgrade-output.json" \
+ *     --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast -vvv
+ *
+ * See DeploymentConfiguration.sol for rollup configuration variables (genesis, timing, slashing, etc.)
+ */
+contract DeployRollupForUpgrade is Script, Test {
+    // Existing infrastructure (loaded from env)
+    struct L1ContractsConfiguration {
+        Registry registry;
+        GSE gseContract;
+        address governance;
+        IERC20 feeAsset;
+        IERC20 stakingAsset;
+        RewardDistributor rewardDistributor;
+    }
 
-//   const rewardConfig = {
-//     ...getRewardConfig(networkName),
-//     rewardDistributor: addresses.rewardDistributorAddress.toString(),
-//   };
+    struct NewlyDeployedContracts {
+        IVerifier verifier;
+        Rollup rollup;
+        SlashFactory slashFactory;
+    }
 
-//   const rollupConfigArgs: ContractConstructorArgs<typeof RollupAbi>[6] = {
-//     aztecSlotDuration: BigInt(args.aztecSlotDuration),
-//     aztecEpochDuration: BigInt(args.aztecEpochDuration),
-//     targetCommitteeSize: BigInt(args.aztecTargetCommitteeSize),
-//     lagInEpochsForValidatorSet: BigInt(args.lagInEpochsForValidatorSet),
-//     lagInEpochsForRandao: BigInt(args.lagInEpochsForRandao),
-//     aztecProofSubmissionEpochs: BigInt(args.aztecProofSubmissionEpochs),
-//     slashingQuorum: BigInt(args.slashingQuorum ?? (args.slashingRoundSizeInEpochs * args.aztecEpochDuration) / 2 + 1),
-//     slashingRoundSize: BigInt(args.slashingRoundSizeInEpochs * args.aztecEpochDuration),
-//     slashingLifetimeInRounds: BigInt(args.slashingLifetimeInRounds),
-//     slashingExecutionDelayInRounds: BigInt(args.slashingExecutionDelayInRounds),
-//     slashingVetoer: args.slashingVetoer.toString(),
-//     manaTarget: args.manaTarget,
-//     provingCostPerMana: args.provingCostPerMana,
-//     rewardConfig: rewardConfig,
-//     version: 0,
-//     rewardBoostConfig: getRewardBoostConfig(),
-//     stakingQueueConfig: getEntryQueueConfig(networkName),
-//     exitDelaySeconds: BigInt(args.exitDelaySeconds),
-//     slasherFlavor: slasherFlavorToSolidityEnum(args.slasherFlavor),
-//     slashingOffsetInRounds: BigInt(args.slashingOffsetInRounds),
-//     slashAmounts: [args.slashAmountSmall, args.slashAmountMedium, args.slashAmountLarge],
-//     localEjectionThreshold: args.localEjectionThreshold,
-//     slashingDisableDuration: BigInt(args.slashingDisableDuration ?? 0n),
-//     earliestRewardsClaimableTimestamp: 0n,
-//   };
+    L1ContractsConfiguration public L1_CONTRACTS;
+    NewlyDeployedContracts public deployed;
 
-//   const genesisStateArgs = {
-//     vkTreeRoot: args.vkTreeRoot.toString(),
-//     protocolContractsHash: args.protocolContractsHash.toString(),
-//     genesisArchiveRoot: args.genesisArchiveRoot.toString(),
-//   };
+    address public DEPLOYER;
+    DeploymentConfiguration public CONFIG;
 
-//   // Until there is an actual chain-id for the version, we will just draw a random value.
-//   // TODO(https://linear.app/aztec-labs/issue/TMNT-139/version-at-deployment)
-//   rollupConfigArgs.version = Buffer.from(
-//     keccak256String(
-//       jsonStringify({
-//         rollupConfigArgs,
-//         genesisStateArgs,
-//       }),
-//     ),
-//   ).readUint32BE(0);
-//   logger.verbose(`Rollup config args`, rollupConfigArgs);
+    function setUp() public virtual {
+        // i.e. the private key passed to the deploy script
+        DEPLOYER = msg.sender;
+    }
 
-//   const rollupArgs = [
-//     addresses.feeJuiceAddress.toString(),
-//     addresses.stakingAssetAddress.toString(),
-//     addresses.gseAddress.toString(),
-//     epochProofVerifier.toString(),
-//     extendedClient.account.address,
-//     genesisStateArgs,
-//     rollupConfigArgs,
-//   ] as const;
+    function deployRollup() internal {
+        GenesisState memory genesisState = CONFIG.getGenesisState();
+        RollupConfigInput memory rollupConfig = CONFIG.getRollupConfiguration(
+            IRewardDistributor(address(REWARD_DISTRIBUTOR))
+        );
 
-//   const { address: rollupAddress, existed: rollupExisted } = await deployer.deploy(RollupArtifact, rollupArgs, {
-//     gasLimit: 15_000_000n,
-//   });
-//   logger.verbose(`Deployed Rollup at ${rollupAddress}, already existed: ${rollupExisted}`, rollupConfigArgs);
+        ROLLUP = new Rollup(
+            L1_CONTRACTS.feeAsset,
+            L1_CONTRACTS.stakingAsset,
+            L1_CONTRACTS.gseContract,
+            VERIFIER,
+            L1_CONTRACTS.governance,
+            genesisState,
+            rollupConfig
+        );
+    }
 
-//   const rollupContract = new RollupContract(extendedClient, rollupAddress);
+    function run(string memory _outputPath) public {
+        _loadExistingContracts();
 
-//   await deployer.waitForDeployments();
-//   logger.verbose(`All core contracts have been deployed`);
+        CONFIG = new DeploymentConfiguration();
+        CONFIG.loadConfig();
+        CONFIG.validateConfig();
 
-//   if (args.feeJuicePortalInitialBalance && args.feeJuicePortalInitialBalance > 0n) {
-//     // Skip funding when using an external token, as we likely don't have mint permissions
-//     if (!('existingTokenAddress' in args) || !args.existingTokenAddress) {
-//       const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
+        vm.startBroadcast(DEPLOYER);
+        _deployRollupContracts();
+        _postDeploySetup();
+        vm.stopBroadcast();
 
-//       // In fast mode, use the L1TxUtils to send transactions with nonce management
-//       const { txHash: mintTxHash } = await deployer.sendTransaction({
-//         to: addresses.feeJuiceAddress.toString(),
-//         data: encodeFunctionData({
-//           abi: FeeAssetArtifact.contractAbi,
-//           functionName: 'mint',
-//           args: [feeJuicePortalAddress.toString(), args.feeJuicePortalInitialBalance],
-//         }),
-//       });
-//       logger.verbose(
-//         `Funding fee juice portal with ${args.feeJuicePortalInitialBalance} fee juice in ${mintTxHash} (accelerated test deployments)`,
-//       );
-//       txHashes.push(mintTxHash);
-//     } else {
-//       logger.verbose('Skipping fee juice portal funding due to external token usage');
-//     }
-//   }
+        _writeDeploymentOutput(_outputPath);
+    }
 
-//   const slashFactoryAddress = (await deployer.deploy(SlashFactoryArtifact, [rollupAddress.toString()])).address;
-//   logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
+    function run() public {
+        _loadExistingContracts();
 
-//   // We need to call a function on the registry to set the various contract addresses.
-//   const registryContract = getContract({
-//     address: getAddress(addresses.registryAddress.toString()),
-//     abi: RegistryArtifact.contractAbi,
-//     client: extendedClient,
-//   });
+        CONFIG = new DeploymentConfiguration();
+        CONFIG.loadConfig();
+        CONFIG.validateConfig();
 
-//   // Only if we are the owner will we be sending these transactions
-//   if ((await registryContract.read.owner()) === getAddress(extendedClient.account.address)) {
-//     const version = await rollupContract.getVersion();
-//     try {
-//       const retrievedRollupAddress = await registryContract.read.getRollup([version]);
-//       logger.verbose(`Rollup ${retrievedRollupAddress} already exists in registry`);
-//     } catch {
-//       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
-//         to: addresses.registryAddress.toString(),
-//         data: encodeFunctionData({
-//           abi: RegistryArtifact.contractAbi,
-//           functionName: 'addRollup',
-//           args: [getAddress(rollupContract.address)],
-//         }),
-//       });
-//       logger.verbose(
-//         `Adding rollup ${rollupContract.address} to registry ${addresses.registryAddress} in tx ${addRollupTxHash}`,
-//       );
+        vm.startBroadcast(DEPLOYER);
+        _deployRollupContracts();
+        _postDeploySetup();
+        vm.stopBroadcast();
+    }
 
-//       txHashes.push(addRollupTxHash);
-//     }
-//   } else {
-//     logger.verbose(`Not the owner of the registry, skipping rollup addition`);
-//   }
+    function _loadExistingContracts() internal {
+        address registryAddr = vm.envAddress("REGISTRY_ADDRESS");
+        address gseAddr = vm.envAddress("GSE_ADDRESS");
+        address governanceAddr = vm.envAddress("GOVERNANCE_ADDRESS");
+        address feeAssetAddr = vm.envAddress("FEE_ASSET_ADDRESS");
+        address stakingAssetAddr = vm.envAddress("STAKING_ASSET_ADDRESS");
 
-//   // We need to call a function on the registry to set the various contract addresses.
-//   const gseContract = getContract({
-//     address: getAddress(addresses.gseAddress.toString()),
-//     abi: GSEArtifact.contractAbi,
-//     client: extendedClient,
-//   });
-//   if ((await gseContract.read.owner()) === getAddress(extendedClient.account.address)) {
-//     if (!(await gseContract.read.isRollupRegistered([rollupContract.address]))) {
-//       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
-//         to: addresses.gseAddress.toString(),
-//         data: encodeFunctionData({
-//           abi: GSEArtifact.contractAbi,
-//           functionName: 'addRollup',
-//           args: [getAddress(rollupContract.address)],
-//         }),
-//       });
-//       logger.verbose(`Adding rollup ${rollupContract.address} to GSE ${addresses.gseAddress} in tx ${addRollupTxHash}`);
+        require(registryAddr != address(0), "REGISTRY_ADDRESS required");
+        require(gseAddr != address(0), "GSE_ADDRESS required");
+        require(governanceAddr != address(0), "GOVERNANCE_ADDRESS required");
+        require(feeAssetAddr != address(0), "FEE_ASSET_ADDRESS required");
+        require(stakingAssetAddr != address(0), "STAKING_ASSET_ADDRESS required");
 
-//       // wait for this tx to land in case we have to register initialValidators
-//       await extendedClient.waitForTransactionReceipt({ hash: addRollupTxHash });
-//     } else {
-//       logger.verbose(`Rollup ${rollupContract.address} is already registered in GSE ${addresses.gseAddress}`);
-//     }
-//   } else {
-//     logger.verbose(`Not the owner of the gse, skipping rollup addition`);
-//   }
+        REGISTRY = Registry(registryAddr);
+        GSE_CONTRACT = GSE(gseAddr);
+        GOVERNANCE = governanceAddr;
+        FEE_ASSET = IERC20(feeAssetAddr);
+        STAKING_ASSET = IERC20(stakingAssetAddr);
+        REWARD_DISTRIBUTOR = RewardDistributor(address(REGISTRY.getRewardDistributor()));
+    }
 
-//   const activeAttestorCount = await rollupContract.getActiveAttesterCount();
-//   const queuedAttestorCount = await rollupContract.getEntryQueueLength();
-//   logger.info(`Rollup has ${activeAttestorCount} active attestors and ${queuedAttestorCount} queued attestors`);
+    function _deployRollupContracts() internal {
+        // Deploy verifier
+        DeploymentOptions memory opts = CONFIG.getContractOptions();
+        if (!opts.realVerifier) {
+            VERIFIER = new MockVerifier();
+        } else {
+            VERIFIER = IVerifier(address(new HonkVerifier()));
+        }
 
-//   const shouldAddValidators = activeAttestorCount === 0n && queuedAttestorCount === 0n;
+        // Deploy rollup
+        GenesisState memory genesisState = CONFIG.getGenesisState();
+        RollupConfigInput memory rollupConfig = CONFIG.getRollupConfiguration(
+            IRewardDistributor(address(REWARD_DISTRIBUTOR))
+        );
 
-//   if (
-//     args.initialValidators &&
-//     shouldAddValidators &&
-//     (await gseContract.read.isRollupRegistered([rollupContract.address]))
-//   ) {
-//     await addMultipleValidators(
-//       extendedClient,
-//       deployer,
-//       addresses.gseAddress.toString(),
-//       rollupAddress.toString(),
-//       addresses.stakingAssetAddress.toString(),
-//       args.initialValidators,
-//       args.acceleratedTestDeployments,
-//       logger,
-//     );
-//   }
+        // For upgrades, version = number of existing versions in Registry
+        // This ensures each rollup has a unique, incrementing version
+        uint256 nextVersion = REGISTRY.numberOfVersions();
+        rollupConfig.version = uint32(nextVersion);
 
-//   // If the owner is not the Governance contract, transfer ownership to the Governance contract
-//   logger.verbose(addresses.governanceAddress.toString());
-//   if (getAddress(await rollupContract.getOwner()) !== getAddress(addresses.governanceAddress.toString())) {
-//     // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
-//     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
-//       to: rollupContract.address,
-//       data: encodeFunctionData({
-//         abi: RegistryArtifact.contractAbi,
-//         functionName: 'transferOwnership',
-//         args: [getAddress(addresses.governanceAddress.toString())],
-//       }),
-//     });
-//     logger.verbose(
-//       `Transferring the ownership of the rollup contract at ${rollupContract.address} to the Governance ${addresses.governanceAddress} in tx ${transferOwnershipTxHash}`,
-//     );
-//     txHashes.push(transferOwnershipTxHash);
-//   }
+        ROLLUP = new Rollup(
+            FEE_ASSET,
+            STAKING_ASSET,
+            GSE_CONTRACT,
+            VERIFIER,
+            GOVERNANCE,
+            genesisState,
+            rollupConfig
+        );
 
-//   await deployer.waitForDeployments();
-//   await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
-//   logger.verbose(`Rollup deployed`);
+        // Deploy slash factory
+        SLASH_FACTORY = new SlashFactory(ROLLUP);
+    }
 
-//   return { rollup: rollupContract, slashFactoryAddress };
-// };
+    function _postDeploySetup() internal {
+        // Register in Registry if we're the owner
+        if (Ownable(address(REGISTRY)).owner() == DEPLOYER) {
+            REGISTRY.addRollup(ROLLUP);
+        }
 
-// TODO CLAUDE this is currently exactly captured in DeployL1Contracts.s.sol
-// BUT we need this to be an alternate entrypoint to that logic for ONLY the rollup.
-// We want to expose the below, used in DeploymntConfiguration.sol, from here
-// function getRollupConfiguration(IRewardDistributor _rewardDistributor) external view returns (RollupConfigInput memory) {
-//     return RollupConfigInput({
-//         aztecSlotDuration: vm.envOr("AZTEC_SLOT_DURATION", uint256(36)),
-//         aztecEpochDuration: vm.envOr("AZTEC_EPOCH_DURATION", uint256(32)),
-//         targetCommitteeSize: vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48)),
-//         lagInEpochsForValidatorSet: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET", uint256(2)),
-//         lagInEpochsForRandao: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO", uint256(2)),
-//         aztecProofSubmissionEpochs: vm.envOr("AZTEC_PROOF_SUBMISSION_EPOCHS", uint256(1)),
-//         localEjectionThreshold: vm.envOr("AZTEC_LOCAL_EJECTION_THRESHOLD", uint256(98e18)),
-//         slashingQuorum: _getSlashingQuorum(),
-//         slashingRoundSize: _getSlashingRoundSize(),
-//         slashingLifetimeInRounds: vm.envOr("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", uint256(5)),
-//         slashingExecutionDelayInRounds: vm.envOr("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS", uint256(0)),
-//         slashAmounts: _getSlashAmounts(),
-//         slashingOffsetInRounds: _getSlashingOffset(),
-//         slasherFlavor: _getSlasherFlavor(),
-//         slashingVetoer: vm.envOr("AZTEC_SLASHING_VETOER", address(0)),
-//         slashingDisableDuration: vm.envOr("AZTEC_SLASHING_DISABLE_DURATION", uint256(5 days)),
-//         manaTarget: vm.envOr("AZTEC_MANA_TARGET", uint256(100_000_000)),
-//         exitDelaySeconds: vm.envOr("AZTEC_EXIT_DELAY_SECONDS", uint256(2 days)),
-//         version: 0,
-//         provingCostPerMana: EthValue.wrap(vm.envOr("AZTEC_PROVING_COST_PER_MANA", uint256(100))),
-//         rewardConfig: this.getRewardConfiguration(_rewardDistributor),
-//         rewardBoostConfig: this.getRewardBoostConfiguration(),
-//         stakingQueueConfig: this.getStakingQueueConfiguration(),
-//         earliestRewardsClaimableTimestamp: getEarliestRewardsClaimableTimestamp()
-//     });
-// }
-// We want to handle all the pieces from DeployL1Contracts.s.sol that are represented by the above TS code
-// the code is complete there, just needs to be refactored out.
-// Thus, we will support the rollup upgrade case specifically here.
+        // Register in GSE if we're the owner
+        if (Ownable(address(GSE_CONTRACT)).owner() == DEPLOYER) {
+            GSE_CONTRACT.addRollup(address(ROLLUP));
+        }
+
+        // Fund FeeJuicePortal if requested
+        bool shouldFund = vm.envOr("FUND_FEE_JUICE_PORTAL", false);
+        uint256 fundingAmount = vm.envOr("FEE_JUICE_PORTAL_BALANCE", uint256(0));
+        DeploymentOptions memory opts = CONFIG.getContractOptions();
+
+        if (shouldFund && fundingAmount > 0 && opts.existingStakingAssetAddress == address(0)) {
+            TestERC20(address(FEE_ASSET)).mint(address(ROLLUP.getFeeAssetPortal()), fundingAmount);
+        }
+    }
+
+    function _writeDeploymentOutput(string memory _outputPath) internal {
+        string memory json = "upgrade";
+        vm.serializeAddress(json, "rollupAddress", address(ROLLUP));
+        vm.serializeAddress(json, "verifierAddress", address(VERIFIER));
+        vm.serializeAddress(json, "slashFactoryAddress", address(SLASH_FACTORY));
+        vm.serializeAddress(json, "inboxAddress", address(ROLLUP.getInbox()));
+        vm.serializeAddress(json, "outboxAddress", address(ROLLUP.getOutbox()));
+        vm.serializeAddress(json, "feeAssetPortalAddress", address(ROLLUP.getFeeAssetPortal()));
+        string memory finalJson = vm.serializeUint(json, "rollupVersion", ROLLUP.getVersion());
+        vm.writeJson(finalJson, _outputPath);
+    }
+}

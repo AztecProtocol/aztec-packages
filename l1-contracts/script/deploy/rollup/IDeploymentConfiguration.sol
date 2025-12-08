@@ -44,14 +44,14 @@ struct FlushRewardConfiguration {
 }
 
 struct DeploymentOptions {
-    bool useMockVerifier;
+    bool realVerifier;
     bool fundRewardDistributor;
     address existingStakingAssetAddress;
 }
 
 // Configuration for the various contracts we deploy for the rollup.
 interface IDeploymentConfiguration {
-    function useMockVerifier() external view returns (bool);
+    function realVerifier() external view returns (bool);
     function shouldFundRewardDistributor() external view returns (bool);
     function getAssetAddress() external view returns (address);
     function getZkPassportConfiguration() external view returns (ZkPassportConfiguration memory);

@@ -89,7 +89,7 @@ describe('forge_script', () => {
     const result = await setupL1ContractsViaForge(rpcUrl, privateKeyHex, {
       logger,
       networkName: 'devnet',
-      useMockVerifier: true,
+      realVerifier: true,
       aztecSlotDuration: 24,
       aztecEpochDuration: 32,
       aztecTargetCommitteeSize: 48,

@@ -183,7 +183,6 @@ describe('e2e_p2p_add_rollup', () => {
       },
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       t.logger,
-      defaultL1TxUtilsConfig,
     );
 
     const { address: newPayloadAddress } = await deployL1Contract(

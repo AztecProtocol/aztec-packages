@@ -127,7 +127,7 @@ contract DeployL1ContractsScriptTest is Test {
         DeployL1Contracts deployScript = _createDeployScript();
         string memory outputPath = _getOutputPath();
         // Arrange: explicitly request mock verifier
-        vm.setEnv("USE_MOCK_VERIFIER", "true");
+        vm.setEnv("REAL_VERIFIER", "true");
 
         // Act
         deployScript.run(outputPath);
@@ -276,6 +276,9 @@ contract DeployL1ContractsScriptTest is Test {
         // SlashFactory uses VALIDATOR_SELECTION (which is the Rollup contract implementing IValidatorSelection)
         assertEq(address(slashFactory.VALIDATOR_SELECTION()), rollupAddress, "SlashFactory should reference Rollup");
     }
+
+    // Note: Validation tests are in DeploymentValidation.t.sol to avoid env var pollution
+    // (vm.setEnv() persists across tests within the same file in Forge)
 
     /**
      * @notice Test that all JSON output fields are present

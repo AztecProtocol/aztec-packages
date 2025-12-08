@@ -53,7 +53,9 @@ export async function deployL1Contracts(
   if (privateKey) {
     deployerPrivateKey = addLeadingHex(privateKey);
   } else {
-    // Derive private key from mnemonic
+    // Derive private key from mnemonic like viem's mnemonicToAccount.
+    // We need access to the private key here, so we do it manually.
+    // We lazy-load these modules to avoid increasing startup time.
     const { HDKey } = await import('@scure/bip32');
     const { mnemonicToSeedSync } = await import('@scure/bip39');
     const seed = mnemonicToSeedSync(mnemonic!);
@@ -100,7 +102,7 @@ export async function deployL1Contracts(
       protocolContractsHash: protocolContractsHash.toString(),
       genesisArchiveRoot: genesisArchiveRoot.toString(),
       // Deployment options
-      useMockVerifier: !realVerifier,
+      realVerifier,
       // Timing config
       aztecSlotDuration: config.aztecSlotDuration,
       aztecEpochDuration: config.aztecEpochDuration,

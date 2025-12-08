@@ -151,8 +151,6 @@ export async function deployNewRollupContracts(
     },
     registryAddress,
     logger,
-    config,
-    createVerificationJson,
   );
 
   return { rollup, slashFactoryAddress };

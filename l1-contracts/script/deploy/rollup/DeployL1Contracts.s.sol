@@ -45,7 +45,7 @@ import {
  *
  * Usage:
  *   # Deploy with env var config, write addresses to output file:
- *   NETWORK=devnet USE_MOCK_VERIFIER=true \
+ *   NETWORK=devnet REAL_VERIFIER=true \
  *   forge script script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts \
  *     --sig "run(string)" "./deployment-output.json" \
  *     --rpc-url $RPC_URL \
@@ -114,6 +114,9 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function _deploy() internal {
+        // Validate configuration before deployment
+        CONFIG.validateConfig();
+
         // On a test network, we deploy assets.
         maybeDeployAssets();
         // CORE CONTRACTS
@@ -206,7 +209,7 @@ contract DeployL1Contracts is Script, Test {
 
     function deployVerifier() internal {
         DeploymentOptions memory opts = CONFIG.getContractOptions();
-        if (opts.useMockVerifier) {
+        if (!opts.realVerifier) {
             VERIFIER = new MockVerifier();
         } else {
             VERIFIER = IVerifier(address(new HonkVerifier()));
@@ -363,20 +366,20 @@ contract DeployL1Contracts is Script, Test {
     }
 
     function assertAccessControl() internal view {
-        assertEq(Ownable(address(GSE_CONTRACT)).owner(), address(GOVERNANCE), "invalid gse owner");
+        assertEq(GSE_CONTRACT.owner(), address(GOVERNANCE), "invalid gse owner");
         assertEq(address(GSE_CONTRACT.getGovernance()), address(GOVERNANCE), "invalid gse governance");
-        assertEq(Ownable(address(REGISTRY)).owner(), address(GOVERNANCE), "invalid registry owner");
+        assertEq(REGISTRY.owner(), address(GOVERNANCE), "invalid registry owner");
         assertEq(
             address(REWARD_DISTRIBUTOR.REGISTRY()),
             address(REGISTRY),
             "invalid reward distributor registry"
         );
-        assertEq(Ownable(address(DATE_GATED_RELAYER)).owner(), address(GOVERNANCE), "invalid date gated relayer owner");
+        assertEq(DATE_GATED_RELAYER.owner(), address(GOVERNANCE), "invalid date gated relayer owner");
 
         DeploymentOptions memory opts = CONFIG.getContractOptions();
         if (opts.existingStakingAssetAddress == address(0)) {
-            assertEq(Ownable(address(FEE_ASSET)).owner(), address(COIN_ISSUER), "invalid fee asset owner");
-            assertEq(Ownable(address(COIN_ISSUER)).owner(), address(DATE_GATED_RELAYER), "invalid coin issuer owner");
+            assertEq(TestERC20(address(FEE_ASSET)).owner(), address(COIN_ISSUER), "invalid fee asset owner");
+            assertEq(COIN_ISSUER.owner(), address(DATE_GATED_RELAYER), "invalid coin issuer owner");
         }
     }
 
@@ -403,8 +406,8 @@ contract DeployL1Contracts is Script, Test {
         string memory finalJson = vm.serializeUint(json, "rollupVersion", ROLLUP.getVersion());
         vm.writeJson(finalJson, _outputPath);
     }
-    // TODO CLAUDE NUMBER 3
-    // PORT THIS INTO A SOLIDITY TEST FILE
+    // Legacy TypeScript test reference preserved for documentation.
+    // Tests have been ported to test/script/DeployL1ContractsScript.t.sol
 //     import { times } from '@aztec/foundation/collection';
 // import { SecretValue, getActiveNetworkName } from '@aztec/foundation/config';
 // import { EthAddress } from '@aztec/foundation/eth-address';
