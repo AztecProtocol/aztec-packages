@@ -156,9 +156,7 @@ function test_and_collect_avm_inputs {
   # Run tests in parallel (like regular test command)
   test_cmds | filter_test_cmds | parallelize
 
-  # Use AVM_INPUTS_HASH if set (computed before build), otherwise fall back to $hash
-  local avm_hash=${AVM_INPUTS_HASH:-$hash}
-  local tarball_name="e2e-avm-circuit-inputs-$avm_hash.tar.gz"
+  local tarball_name="e2e-avm-circuit-inputs-$hash.tar.gz"
 
   if [ -d "$default_avm_inputs_dump_dir" ] && [ "$(ls -A $default_avm_inputs_dump_dir 2>/dev/null)" ]; then
     echo_header "Packaging and uploading AVM circuit inputs"
@@ -177,10 +175,10 @@ function avm_check_circuit_cmds {
   local dump_dir_from_top="yarn-project/end-to-end/$default_avm_inputs_dump_dir"
 
   # Specify timeout and resources
-  # WARNING: theoretically, transactions could need more CPU and MEM than we allocate here.
+  # WARNING: theoretically, transactions could need more CPU and MEM than we allocate by default.
   # In that case, they might start timing out. For now, all of the e2e test txs seem to be relatively
   # small and the AVM can run check-circuit with limited resources.
-  local prefix="$hash:ISOLATE=1:TIMEOUT=20s:CPUS=8:MEM=8g"
+  local prefix="$hash:ISOLATE=1:TIMEOUT=30s"
 
   # Find all .bin files in the dump directory (handles nested dirs)
   for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin; do
@@ -211,11 +209,7 @@ function avm_check_circuit_cmds {
 function avm_check_circuit {
   echo_header "AVM check-circuit on dumped inputs"
 
-  # Use AVM_INPUTS_HASH if set (computed before build), otherwise fall back to $hash
-  # NOTE: if I just use $hash, CI gets disabled-cache. I think because of:
-  # WARNING: Noticed changes to rebuild patterns: barretenberg/sol/src/honk/optimised/blake-opt.sol barretenberg/sol/src/honk/optimised/blake-opt.sol.bak
-  local avm_hash=${AVM_INPUTS_HASH:-$hash}
-  local tarball_name="e2e-avm-circuit-inputs-$avm_hash.tar.gz"
+  local tarball_name="e2e-avm-circuit-inputs-$hash.tar.gz"
 
   # Download the cached tarball
   if ! cache_download "$tarball_name"; then

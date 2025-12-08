@@ -22,13 +22,19 @@ export function createPublicTxSimulatorForBlockBuilding(
     skipFeeEnforcement: false,
     collectDebugLogs: false,
     collectHints: false,
+    collectPublicInputs: false,
     collectStatistics: false,
     collectCallMetadata: false,
   });
 
   const dumpDir = process.env.DUMP_AVM_INPUTS_TO_DIR;
   if (dumpDir) {
-    const dumpingConfig = { ...config, collectHints: true }; // must collect hints for dumping
+    // must collect hints and PIs for dumping
+    const dumpingConfig = {
+      ...config,
+      collectHints: true,
+      collectPublicInputs: true,
+    };
     return new DumpingCppPublicTxSimulator(merkleTree, contractsDB, globalVariables, dumpingConfig, dumpDir);
   }
   return new TelemetryCppPublicTxSimulator(merkleTree, contractsDB, globalVariables, telemetryClient, config);

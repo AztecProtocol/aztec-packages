@@ -1,5 +1,6 @@
 import {
   AvmCircuitInputs,
+  AvmCircuitPublicInputs,
   AvmExecutionHints,
   type PublicSimulatorConfig,
   PublicTxResult,
@@ -31,6 +32,7 @@ export class DumpingCppPublicTxSimulator extends CppPublicTxSimulator {
   ) {
     super(merkleTree, contractsDB, globalVariables, config);
     assert(config.collectHints === true, 'collectHints must be enabled to dump AVM circuit inputs');
+    assert(config.collectPublicInputs === true, 'collectPublicInputs must be enabled to dump AVM circuit inputs');
     this.outputDir = outputDir;
   }
 
@@ -61,7 +63,8 @@ export class DumpingCppPublicTxSimulator extends CppPublicTxSimulator {
 
       // Create circuit inputs from the result
       const hints = result.hints ?? AvmExecutionHints.empty();
-      const avmCircuitInputs = new AvmCircuitInputs(hints, result.publicInputs);
+      const publicInputs = result.publicInputs ?? AvmCircuitPublicInputs.empty();
+      const avmCircuitInputs = new AvmCircuitInputs(hints, publicInputs);
 
       // Serialize the circuit inputs using MessagePack
       const serialized = serializeWithMessagePack(avmCircuitInputs);

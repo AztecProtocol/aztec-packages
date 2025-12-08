@@ -585,16 +585,12 @@ case "$cmd" in
   "ci-avm-inputs-collection")
     # Nightly job: Run e2e tests with AVM circuit inputs dumping, upload to cache
     export CI=1
-    # Compute hash before build to avoid "disabled-cache" from build artifacts
-    export AVM_INPUTS_HASH=$(yarn-project/bootstrap.sh hash)
     build
     yarn-project/end-to-end/bootstrap.sh test_and_collect_avm_inputs
     ;;
   "ci-avm-check-circuit")
     # Nightly job: Download cached AVM inputs and run check-circuit on each
     export CI=1
-    # Compute hash before build to match collection job
-    export AVM_INPUTS_HASH=$(yarn-project/bootstrap.sh hash)
     build
     yarn-project/end-to-end/bootstrap.sh avm_check_circuit
     ;;
