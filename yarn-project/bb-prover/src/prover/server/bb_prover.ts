@@ -507,6 +507,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       outputWitnessFile,
       getUltraHonkFlavorForCircuit(circuitType),
       logger,
+      this.config.bbMaxMemory,
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
@@ -523,7 +524,14 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
     logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
 
-    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
+    const provingResult = await generateAvmProof(
+      this.config.bbBinaryPath,
+      workingDirectory,
+      input,
+      logger,
+      false,
+      this.config.bbMaxMemory,
+    );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
