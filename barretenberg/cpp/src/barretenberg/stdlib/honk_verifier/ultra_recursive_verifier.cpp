@@ -114,19 +114,18 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
-    const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                               claim_batcher,
-                                               sumcheck_output.challenge,
-                                               Commitment::one(builder),
-                                               transcript,
-                                               Flavor::REPEATED_COMMITMENTS,
-                                               Flavor::HasZK,
-                                               &consistency_checked,
-                                               libra_commitments,
-                                               sumcheck_output.claimed_libra_evaluation);
+    auto opening_claim = Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                                                claim_batcher,
+                                                                sumcheck_output.challenge,
+                                                                Commitment::one(builder),
+                                                                transcript,
+                                                                Flavor::REPEATED_COMMITMENTS,
+                                                                Flavor::HasZK,
+                                                                &consistency_checked,
+                                                                libra_commitments,
+                                                                sumcheck_output.claimed_libra_evaluation);
 
-    PairingPoints<Curve> pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    PairingPoints<Curve> pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 
     // Reconstruct the public inputs
     IO inputs;

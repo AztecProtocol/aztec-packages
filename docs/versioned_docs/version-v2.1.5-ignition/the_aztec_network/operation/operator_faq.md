@@ -42,7 +42,11 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
    rm -rf ~/.aztec/v2.1.5/data/archiver
    ```
 
-3. Restart your node with your normal startup command
+3. Restart your node:
+
+   ```bash
+   docker compose up -d
+   ```
 
 :::warning Data Loss and Resync
 This process removes local state and requires full resynchronization. Consider using snapshot sync mode (`SYNC_MODE=snapshot`) to speed up recovery. See the [syncing best practices guide](../setup/syncing_best_practices.md) for more information.
@@ -213,10 +217,6 @@ Sequencers with insufficient funds in their publisher account risk being slashed
 #### Version-Specific Updates:
 
 To update to a specific version:
-
-```bash
-# CLI method
-aztec-up -v 2.1.5
 
 ```yaml
 # Change the image tag from:

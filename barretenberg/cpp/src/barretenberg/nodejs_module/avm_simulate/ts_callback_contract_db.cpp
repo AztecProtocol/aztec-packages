@@ -156,24 +156,23 @@ void TsCallbackContractDB::create_checkpoint()
 
     try {
         // Call the TypeScript callback with no arguments
-        auto result =
-            invoke_ts_callback_with_promise(create_checkpoint_callback_,
-                                            "create_checkpoint",
-                                            [](Napi::Env env, Napi::Function js_callback, CallbackResults* data) {
-                                                auto js_result = js_callback.Call({});
+        auto result = invoke_ts_callback_with_promise(
+            create_checkpoint_callback_,
+            "create_checkpoint",
+            [](Napi::Env env, Napi::Function js_callback, std::shared_ptr<CallbackResults> data) {
+                auto js_result = js_callback.Call({});
 
-                                                if (!js_result.IsPromise()) {
-                                                    data->error_message =
-                                                        "TypeScript callback did not return a Promise";
-                                                    data->result_promise.set_value(std::nullopt);
-                                                    return;
-                                                }
+                if (!js_result.IsPromise()) {
+                    data->error_message = "TypeScript callback did not return a Promise";
+                    data->result_promise.set_value(std::nullopt);
+                    return;
+                }
 
-                                                auto promise = js_result.As<Napi::Promise>();
-                                                auto resolve_handler = create_void_resolve_handler(env, data);
-                                                auto reject_handler = create_reject_handler(env, data);
-                                                attach_promise_handlers(promise, resolve_handler, reject_handler, data);
-                                            });
+                auto promise = js_result.As<Napi::Promise>();
+                auto resolve_handler = create_void_resolve_handler(env, data);
+                auto reject_handler = create_reject_handler(env, data);
+                attach_promise_handlers(promise, resolve_handler, reject_handler);
+            });
     } catch (const std::exception& e) {
         throw std::runtime_error(std::string("Failed to create checkpoint: ") + e.what());
     }
@@ -189,24 +188,23 @@ void TsCallbackContractDB::commit_checkpoint()
 
     try {
         // Call the TypeScript callback with no arguments
-        auto result =
-            invoke_ts_callback_with_promise(commit_checkpoint_callback_,
-                                            "commit_checkpoint",
-                                            [](Napi::Env env, Napi::Function js_callback, CallbackResults* data) {
-                                                auto js_result = js_callback.Call({});
+        auto result = invoke_ts_callback_with_promise(
+            commit_checkpoint_callback_,
+            "commit_checkpoint",
+            [](Napi::Env env, Napi::Function js_callback, std::shared_ptr<CallbackResults> data) {
+                auto js_result = js_callback.Call({});
 
-                                                if (!js_result.IsPromise()) {
-                                                    data->error_message =
-                                                        "TypeScript callback did not return a Promise";
-                                                    data->result_promise.set_value(std::nullopt);
-                                                    return;
-                                                }
+                if (!js_result.IsPromise()) {
+                    data->error_message = "TypeScript callback did not return a Promise";
+                    data->result_promise.set_value(std::nullopt);
+                    return;
+                }
 
-                                                auto promise = js_result.As<Napi::Promise>();
-                                                auto resolve_handler = create_void_resolve_handler(env, data);
-                                                auto reject_handler = create_reject_handler(env, data);
-                                                attach_promise_handlers(promise, resolve_handler, reject_handler, data);
-                                            });
+                auto promise = js_result.As<Napi::Promise>();
+                auto resolve_handler = create_void_resolve_handler(env, data);
+                auto reject_handler = create_reject_handler(env, data);
+                attach_promise_handlers(promise, resolve_handler, reject_handler);
+            });
     } catch (const std::exception& e) {
         throw std::runtime_error(std::string("Failed to commit checkpoint: ") + e.what());
     }
@@ -222,24 +220,23 @@ void TsCallbackContractDB::revert_checkpoint()
 
     try {
         // Call the TypeScript callback with no arguments
-        auto result =
-            invoke_ts_callback_with_promise(revert_checkpoint_callback_,
-                                            "revert_checkpoint",
-                                            [](Napi::Env env, Napi::Function js_callback, CallbackResults* data) {
-                                                auto js_result = js_callback.Call({});
+        auto result = invoke_ts_callback_with_promise(
+            revert_checkpoint_callback_,
+            "revert_checkpoint",
+            [](Napi::Env env, Napi::Function js_callback, std::shared_ptr<CallbackResults> data) {
+                auto js_result = js_callback.Call({});
 
-                                                if (!js_result.IsPromise()) {
-                                                    data->error_message =
-                                                        "TypeScript callback did not return a Promise";
-                                                    data->result_promise.set_value(std::nullopt);
-                                                    return;
-                                                }
+                if (!js_result.IsPromise()) {
+                    data->error_message = "TypeScript callback did not return a Promise";
+                    data->result_promise.set_value(std::nullopt);
+                    return;
+                }
 
-                                                auto promise = js_result.As<Napi::Promise>();
-                                                auto resolve_handler = create_void_resolve_handler(env, data);
-                                                auto reject_handler = create_reject_handler(env, data);
-                                                attach_promise_handlers(promise, resolve_handler, reject_handler, data);
-                                            });
+                auto promise = js_result.As<Napi::Promise>();
+                auto resolve_handler = create_void_resolve_handler(env, data);
+                auto reject_handler = create_reject_handler(env, data);
+                attach_promise_handlers(promise, resolve_handler, reject_handler);
+            });
     } catch (const std::exception& e) {
         throw std::runtime_error(std::string("Failed to revert checkpoint: ") + e.what());
     }

@@ -8,7 +8,7 @@ use crate::{
         note_interface::{NoteHash, NoteType},
     },
     oracle::notes::check_nullifier_exists,
-    state_vars::storage::HasStorageSlot,
+    state_vars::owned_state_variable::OwnedStateVariable,
 };
 
 use protocol_types::{
@@ -20,137 +20,69 @@ use protocol_types::{
 
 mod test;
 
-/// # PrivateMutable
-///
-/// PrivateMutable is a private state variable type, which enables you to read, mutate,
-/// and write private state within the #[external("private")] functions of your smart contract.
-///
-/// You can declare a state variable of type PrivateMutable within your contract's
-/// #[storage] struct:
+/// PrivateMutable is an owned state variable type that represents a private value that can be changed. Because it is
+/// "owned," you must wrap a PrivateMutable inside an Owned state variable when storing it:
 ///
 /// E.g.:
-/// `your_variable: PrivateMutable<YourNote, Context>`
+/// ```noir
+/// #[storage]
+/// struct Storage<Context> {
+///     your_variable: Owned<PrivateMutable<YourNote, Context>, Context>,
+/// }
+/// ```
 ///
-/// This is conceptually similar to how a regular variable works in Ethereum:
-/// the state variable has exactly one value at any point in time. However, the
-/// underlying implementation differs significantly because of Aztec's private
-/// state model.
+/// For more details on what "owned" means, see the documentation for the [OwnedStateVariable] trait.
 ///
-/// Private state is represented as notes, with each note having a distinct "owner."
-/// While any number of notes can be created within a PrivateMutable, at any moment,
-/// only one note exists per "owner."
-/// To interact with a specific owner's note, call `PrivateMutable::at(owner)`, which
-/// returns an OwnedPrivateMutable handle for that owner.
-///
-/// An OwnedPrivateMutable state variable is initialized by inserting a very first note.
-/// Subsequently, the OwnedPrivateMutable can make changes to the state variable's value by
-/// nullifying the current note and inserting a replacement note.
-///
-/// The methods of OwnedPrivateMutable are:
-/// - `initialize`
-/// - `replace`
-/// - `initialize_or_replace`
-/// - `get_note`
-/// (see the methods' own doc comments for more info).
+/// A PrivateMutable state variable is initialized by inserting a very first note. Subsequently, the PrivateMutable can
+/// make changes to the state variable's value by nullifying the current note and inserting a replacement note.
 ///
 /// ## Example
 ///
-/// A users' account nonce can be represented as a PrivateMutable<NonceNote>.
-/// The "current value" of the user's nonce is the value contained within the
-/// single not-yet-nullified note in the user's view of the PrivateMutable.
+/// A user's account nonce can be represented as a PrivateMutable<NonceNote>. The "current value" of the user's nonce is
+/// the value contained within the single not-yet-nullified note in the user's view of the PrivateMutable.
 ///
-/// When the nonce needs to be incremented, the current note gets nullified
-/// and a new note with the incremented nonce gets inserted. The new note then
-/// becomes the "current value" of the OwnedPrivateMutable state variable.
+/// When the nonce needs to be incremented, the current note gets nullified and a new note with the incremented nonce
+/// gets inserted. The new note then becomes the "current value" of the PrivateMutable state variable.
 ///
-/// This is similar to how `uint256 nonce` would work in Solidity: there's always
-/// exactly one current value, and updating it overwrites the previous value.
+/// This is similar to how `uint256 nonce` would work in Solidity: there's always exactly one current value, and
+/// updating it overwrites the previous value.
 ///
 /// ## When to choose PrivateMutable vs PrivateSet:
 ///
-/// - Use PrivateMutable when you want exactly one note to represent the state
-///   variable's current value, similar to regular variables in Ethereum.
-/// - Use PrivateMutable when you want only the 'owner' of the private state to
-///   be able to make changes to it.
-/// - Use PrivateSet when you want multiple notes to collectively represent the
-///   state variable's current value (like a collection of token balance notes).
-/// - Use PrivateSet when you want to allow "other people" (beyond the owner) to
-///   insert notes into the state variable.
+/// - Use PrivateMutable when you want exactly one note to represent the state variable's current value, similar to
+///   regular variables in Solidity.
+/// - Use PrivateMutable when you want only the 'owner' of the private state to be able to make changes to it.
+/// - Use PrivateSet when you want multiple notes to collectively represent the state variable's current value (like a
+///   collection of token balance notes).
+/// - Use PrivateSet when you want to allow "other people" (beyond the owner) to insert notes into the state variable.
 ///
-/// Only the 'owner' of the given OwnedPrivateMutable state variable can mutate it,
-/// because every mutation requires nullifying the current note, and only the owner
-/// knows the note's content and the secret necessary to compute its nullifier.
+/// Only the 'owner' of the given PrivateMutable state variable can mutate it, because every mutation requires
+/// nullifying the current note, and only the owner knows both the note's content and the secret necessary to compute
+/// its nullifier.
 ///
 /// ## Privacy
 ///
-/// The methods of a PrivateMutable are only executable in a PrivateContext, and are
-/// designed to not leak anything about _which_ state variable was read/modified/
-/// initialized, to the outside world.
+/// The methods of a PrivateMutable are only executable in a PrivateContext, and are designed to not leak anything about
+/// _which_ state variable was read/modified/initialized, to the outside world.
 ///
 /// # Generic Parameters:
 ///
-/// * `Note` - A single note of this type will represent the PrivateMutable's
-///            current value at the given storage_slot.
+/// * `Note` - A single note of this type will represent the PrivateMutable's current value at the given storage_slot.
 /// * `Context` - The execution context (PrivateContext or UtilityContext).
 ///
 pub struct PrivateMutable<Note, Context> {
     context: Context,
     storage_slot: Field,
+    owner: AztecAddress,
 }
 
-// Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
-// value spilling over multiple slots. For this reason PrivateMutable (and all other private state variables) needs just
-// one slot to be reserved, regardless of what it stores.
-impl<T, Context> HasStorageSlot<1> for PrivateMutable<T, Context> {
-    fn get_storage_slot(self) -> Field {
-        self.storage_slot
+impl<Note, Context> OwnedStateVariable<Context> for PrivateMutable<Note, Context> {
+    fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
+        Self { context, storage_slot, owner }
     }
 }
 
 impl<Note, Context> PrivateMutable<Note, Context> {
-    /// Initializes a new PrivateMutable state variable.
-    ///
-    /// This function is usually automatically called within the #[storage] macro.
-    /// You typically don't need to call this directly when writing smart contracts.
-    ///
-    /// # Arguments
-    ///
-    /// * `context` - One of `PrivateContext`/`PublicContext`/`UtilityContext`. The
-    ///               Context determines which methods of this struct will be made
-    ///               available to the calling smart contract function.
-    /// * `storage_slot` - A unique identifier for this state variable within the
-    ///                    contract. Every replacement note for this PrivateMutable
-    ///                    state variable will have the same `storage_slot`.
-    ///                    Usually, the #[storage] macro will determine an
-    ///                    appropriate storage_slot automatically. A smart contract
-    ///                    dev shouldn't have to worry about this, as it's managed
-    ///                    behind the scenes.
-    ///
-    /// docs:start:new
-    pub fn new(context: Context, storage_slot: Field) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        Self { context, storage_slot }
-    }
-
-    /// Returns an OwnedPrivateMutable scoped to the given `owner`'s note.
-    pub fn at(self, owner: AztecAddress) -> OwnedPrivateMutable<Note, Context> {
-        OwnedPrivateMutable::new(self.context, owner, self.storage_slot)
-    }
-}
-
-/// A view of notes in a PrivateMutable belonging to a specific `owner`.
-/// Obtained by calling `PrivateMutable::at(owner)`.
-pub struct OwnedPrivateMutable<Note, Context> {
-    context: Context,
-    owner: AztecAddress,
-    storage_slot: Field,
-}
-
-impl<Note, Context> OwnedPrivateMutable<Note, Context> {
-    fn new(context: Context, owner: AztecAddress, storage_slot: Field) -> Self {
-        Self { context, owner, storage_slot }
-    }
-
     /// Computes the initialization nullifier using the provided secret.
     fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
@@ -160,7 +92,7 @@ impl<Note, Context> OwnedPrivateMutable<Note, Context> {
     }
 }
 
-impl<Note> OwnedPrivateMutable<Note, &mut PrivateContext>
+impl<Note> PrivateMutable<Note, &mut PrivateContext>
 where
     Note: NoteType + NoteHash,
 {
@@ -176,40 +108,11 @@ where
         self.compute_initialization_nullifier(secret)
     }
 
-    /// Initializes an OwnedPrivateMutable state variable instance with its first note.
+    /// Initializes a PrivateMutable state variable instance with its first `note` and returns a [NoteEmission] that
+    /// allows you to decide whether to encrypt and send the note to someone.
     ///
-    /// This function creates the very first note for this state variable. It can
-    /// only be called once per OwnedPrivateMutable. Subsequent calls will fail because
-    /// the initialization nullifier will already exist.
-    ///
-    /// This is conceptually similar to setting an initial value for a variable in
-    /// Ethereum smart contracts under a user's address in a mapping, except that in Aztec
-    /// the "value" is represented as a private note.
-    ///
-    /// ## Arguments
-    ///
-    /// * `note` - The initial note to store in this PrivateMutable. This note
-    ///            becomes the "current value" of the state variable.
-    ///
-    /// ## Returns
-    ///
-    /// * `NoteEmission<Note>` - A type-safe wrapper that requires you to decide
-    ///                          whether to encrypt and send the note to someone.
-    ///   You can call `.emit()` on it to encrypt and log the note, or `.discard()`
-    ///   to skip emission. See NoteEmission for more details.
-    ///
-    /// ## Advanced
-    ///
-    /// This function performs the following operations:
-    /// - Creates and emits an initialization nullifier to mark this storage slot
-    ///   as initialized. This prevents double-initialization.
-    /// - Inserts the provided note into the protocol's Note Hash Tree.
-    /// - Returns a NoteEmission type that allows the caller to decide how to encrypt
-    ///   and deliver the note to its intended recipient.
-    ///
-    /// The initialization nullifier is deterministically computed from the storage
-    /// slot and can leak privacy information (see `compute_initialization_nullifier`
-    /// documentation).
+    /// This function can only be called once per PrivateMutable. Subsequent calls will fail because the initialization
+    /// nullifier will already exist.
     ///
     pub fn initialize(self, note: Note) -> NoteEmission<Note>
     where
@@ -228,10 +131,6 @@ where
     /// This function implements a "read-and-replace" pattern for updating private state
     /// in Aztec. It first retrieves the current note, then nullifies it (marking it as spent),
     /// and finally inserts a `new_note` produced by the user-provided function `f`.
-    ///
-    /// This is conceptually similar to updating a variable in Ethereum smart contracts,
-    /// except that in Aztec we achieve this by consuming the old note and creating a
-    /// new one.
     ///
     /// This function can only be called after the PrivateMutable has been initialized.
     /// If called on an uninitialized PrivateMutable, it will fail because there is
@@ -406,7 +305,7 @@ where
     }
 }
 
-impl<Note> OwnedPrivateMutable<Note, UtilityContext>
+impl<Note> PrivateMutable<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + Eq,
 {
@@ -441,9 +340,6 @@ where
     /// Unlike `get_note()`, this function does NOT nullify and recreate the note.
     /// It simply reads the current note from the PXE's database without modifying
     /// the state. This makes it suitable for read-only operations.
-    ///
-    /// This is conceptually similar to view functions in Ethereum that don't modify
-    /// state.
     ///
     /// ## Returns
     ///

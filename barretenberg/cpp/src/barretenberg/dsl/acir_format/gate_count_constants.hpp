@@ -81,7 +81,7 @@ inline constexpr std::tuple<size_t, size_t, size_t> HONK_RECURSION_CONSTANTS = [
 // ========================================
 
 // Gate count for Chonk recursive verification (UltraRollup builder)
-inline constexpr size_t CHONK_RECURSION_GATES = 2494057;
+inline constexpr size_t CHONK_RECURSION_GATES = 2495208;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -103,11 +103,11 @@ inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 179;
 // Tail kernel gate counts (verifies HN_TAIL proof)
 inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 33968;
 inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 914 + MSM_ROWS_OFFSET;
-inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 95;
+inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 96;
 
 // Hiding kernel gate counts (verifies HN_FINAL proof)
 inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 37212;
-inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 1405 + MSM_ROWS_OFFSET;
-inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 126;
+inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 1341 + MSM_ROWS_OFFSET;
+inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 124;
 
 } // namespace acir_format
