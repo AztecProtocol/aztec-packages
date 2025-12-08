@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import { AvmExecutionHints, AvmTxHint, PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
+import { AvmExecutionHints, AvmTxHint, PublicSimulatorConfig, PublicTxEffect, PublicTxResult } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
@@ -209,6 +209,16 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       (appLogicReturnValues as any).revertReason = context.revertReason;
     }
 
+    // Create PublicTxEffect from PublicInputs.
+    const publicTxEffect = new PublicTxEffect(
+      publicInputs.transactionFee,
+      publicInputs.accumulatedData.noteHashes.filter(h => !h.isEmpty()),
+      publicInputs.accumulatedData.nullifiers.filter(n => !n.isEmpty()),
+      publicInputs.accumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty()),
+      publicInputs.accumulatedData.publicLogs.toLogs(),
+      publicInputs.accumulatedData.publicDataWrites.filter(w => !w.isEmpty()),
+    );
+
     return new PublicTxResult(
       /*gasUsed=*/ {
         totalGas: context.getActualGasUsed(),
@@ -217,6 +227,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
         billedGas: context.getTotalGasUsed(),
       },
       /*revertCode=*/ revertCode,
+      /*publicTxEffect=*/ publicTxEffect,
       /*callStackMetadata=*/ appLogicReturnValues,
       /*logs=*/ context.state.getActiveStateManager().getLogs(),
       /*hints=*/ hints,
@@ -303,7 +314,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     );
 
     if (result.reverted) {
-      const culprit = `${contractAddress}:${callRequest.functionSelector}`;
+      const culprit = `${contractAddress}:${fnName}`;
       context.revert(phase, result.revertReason, culprit);
     }
 

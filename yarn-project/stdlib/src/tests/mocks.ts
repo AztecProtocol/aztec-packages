@@ -14,6 +14,7 @@ import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { ContractArtifact } from '../abi/abi.js';
+import { PublicTxEffect } from '../avm/avm.js';
 import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
@@ -320,12 +321,24 @@ export async function mockProcessedTx({
     } satisfies GasUsed;
 
     await tx.recomputeHash();
+
+    const publicTxEffect = new PublicTxEffect(
+      avmOutput.transactionFee,
+      avmOutput.accumulatedData.noteHashes.filter(h => !h.isZero()),
+      avmOutput.accumulatedData.nullifiers.filter(h => !h.isZero()),
+      avmOutput.accumulatedData.l2ToL1Msgs.filter(h => !h.isEmpty()),
+      avmOutput.accumulatedData.publicLogs.toLogs(),
+      avmOutput.accumulatedData.publicDataWrites.filter(h => !h.isEmpty()),
+    );
+
     return makeProcessedTxFromTxWithPublicCalls(
       tx,
+      globalVariables,
       {
         type: ProvingRequestType.PUBLIC_VM,
         inputs: avmCircuitInputs,
       },
+      publicTxEffect,
       gasUsed,
       RevertCode.OK,
       undefined /* revertReason */,

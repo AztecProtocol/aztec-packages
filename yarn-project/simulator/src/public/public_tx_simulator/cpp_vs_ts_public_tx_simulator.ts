@@ -140,7 +140,10 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     assert(cppResult.gasUsed.publicGas.equals(tsResult.gasUsed.publicGas));
     assert(cppResult.gasUsed.teardownGas.equals(tsResult.gasUsed.teardownGas));
     assert(cppResult.gasUsed.billedGas.equals(tsResult.gasUsed.billedGas));
-    assert(cppResult.publicInputs.toBuffer().equals(tsResult.publicInputs.toBuffer()));
+    assert(cppResult.publicTxEffect.equals(tsResult.publicTxEffect));
+    if (cppResult.publicInputs !== undefined) {
+      assert(cppResult.publicInputs!.toBuffer().equals(tsResult.publicInputs!.toBuffer()));
+    }
 
     // TODO(fcarreiro): complete this.
     // Check that C++ hints are a strict subset of TS hints.
