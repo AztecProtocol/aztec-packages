@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
 <title>Struct UintNote documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">UintNote</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../index.html">aztec-nr</a></h1>
 <div><a href="../../all.html">All items</a></div>
@@ -47,11 +53,11 @@
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../uint_note/uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(value: <a href="../../std/primitive.u128.html" class="primitive">u128</a>) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(value: <a href="../../std/primitive.u128.html" class="primitive">u128</a>) -> Self</code>
 
-<code id="get_value" class="code-header">pub fn <span class="fn">get_value</span>(self) -> <a href="../../std/primitive.u128.html" class="primitive">u128</a></code>
+<code id="get_value" class="code-header">pub fn <a href="#get_value"><span class="fn">get_value</span></a>(self) -> <a href="../../std/primitive.u128.html" class="primitive">u128</a></code>
 
-<code id="partial" class="code-header">pub fn <span class="fn">partial</span>(
+<code id="partial" class="code-header">pub fn <a href="#partial"><span class="fn">partial</span></a>(
     owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     context: &mut <a href="../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
@@ -121,5 +127,6 @@ note. <code>recipient</code> will typically be the same as <code>owner</code>.</
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 1]</code>
 
 </div></main>
+</span>
 </body>
 </html>

@@ -213,7 +213,7 @@ export class EpochProvingJob implements Traceable {
             skipFeeEnforcement: false,
             collectDebugLogs: false,
             collectHints: true,
-            maxDebugLogMemoryReads: 0,
+            collectPublicInputs: true,
             collectStatistics: false,
           });
           const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, config);

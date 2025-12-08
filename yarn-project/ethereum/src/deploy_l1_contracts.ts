@@ -1,59 +1,37 @@
-import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
-import { SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue, getActiveNetworkName } from '@aztec/foundation/config';
-import { keccak256String } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
-import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
-import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import { fileURLToPath } from '@aztec/foundation/url';
 
 import type { Abi, Narrow } from 'abitype';
-import { mkdir, writeFile } from 'fs/promises';
-import chunk from 'lodash.chunk';
+import { spawn } from 'child_process';
+import { mkdtemp, readFile, rm } from 'fs/promises';
+import { dirname, join, resolve } from 'path';
+import { addAbortSignal } from 'stream';
 import {
-  type Chain,
   type ContractConstructorArgs,
-  type HDAccount,
   type Hex,
-  type PrivateKeyAccount,
   concatHex,
   encodeAbiParameters,
   encodeDeployData,
   encodeFunctionData,
-  getAddress,
-  getContract,
   getContractAddress,
   numberToHex,
   padHex,
 } from 'viem';
-import { foundry } from 'viem/chains';
 
-import { isAnvilTestChain } from './chain.js';
-import { createExtendedL1Client } from './client.js';
-import { type L1ContractsConfig } from './config.js';
-import { GSEContract } from './contracts/gse.js';
-import { deployMulticall3 } from './contracts/multicall.js';
+import type { L1ContractsConfig } from './config.js';
 import { RegistryContract } from './contracts/registry.js';
-import { RollupContract, SlashingProposerType } from './contracts/rollup.js';
+import { RollupContract } from './contracts/rollup.js';
+import { type RollupUpgradeReturnType, computeValidatorData, getL1ContractsPath } from './forge_script.js';
 import {
-  CoinIssuerArtifact,
-  DateGatedRelayerArtifact,
   FeeAssetArtifact,
   FeeAssetHandlerArtifact,
-  GSEArtifact,
-  GovernanceArtifact,
-  GovernanceProposerArtifact,
-  MultiAdderArtifact,
   RegisterNewRollupVersionPayloadArtifact,
-  RegistryArtifact,
-  RollupArtifact,
   SlashFactoryArtifact,
-  StakingAssetArtifact,
-  StakingAssetHandlerArtifact,
-  l1ArtifactsVerifiers,
-  mockVerifiers,
 } from './l1_artifacts.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import {
@@ -67,7 +45,6 @@ import {
 } from './l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from './types.js';
 import { formatViemError } from './utils.js';
-import { ZK_PASSPORT_DOMAIN, ZK_PASSPORT_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
@@ -189,11 +166,10 @@ export const deployRollupForUpgrade = async (
   registryAddress: EthAddress,
   logger: Logger,
 ) => {
-  // Collect existing addresses from the registry
-  const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical');
+  //   const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical');
 
-  // Import and use the forge deployment function
-  const { deployRollupUpgradeViaForge } = await import('./forge_script.js');
+  //   // Import and use the forge deployment function
+  //   const { deployRollupUpgradeViaForge } = await import('./forge_script.js');
 
   // Get RPC URL from the client's transports
   const transport = extendedClient.transport as unknown as { transports?: Array<{ value?: { url?: string } }> };
@@ -213,13 +189,150 @@ export const deployRollupForUpgrade = async (
     throw new Error('Could not get private key from account');
   }
 
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+
+  // Relative location of l1-contracts in monorepo or docker image.
+  const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
+
+  const deployWithForge = (outputPath: string): Promise<RollupUpgradeReturnType> => {
+    const { promise, resolve, reject } = promiseWithResolvers<RollupUpgradeReturnType>();
+    const proc = spawn(
+      'forge',
+      [
+        'script',
+        'script/deploy/rollup/DeployRollupForUpgrade.s.sol',
+        '--sig',
+        'run(string)',
+        outputPath,
+        '--rpc-url',
+        rpcUrl,
+        '--private-key',
+        privateKey,
+        '--broadcast',
+        // We don't show stdout on success. On failure, -vvvv shows detailed reverts.
+        '-vvvv',
+      ],
+      {
+        cwd: l1ContractsPath,
+        env: {
+          REGISTRY_ADDRESS: registryAddress.toString(),
+          // Below values match l1-contracts/script/deploy/rollup/RollupConfiguration.sol
+          // TODO DEFINE THESE
+          //           networkName = vm.envOr("NETWORK", string("local"));
+          // validatorsJson = vm.envOr("INITIAL_VALIDATORS", string("[]"));
+          // return vm.envOr("REAL_VERIFIER", false);
+          // return vm.envOr("FUND_REWARD_DISTRIBUTOR", false);
+          // return vm.envOr("FEE_JUICE_PORTAL_INITIAL_BALANCE", uint256(0));
+          //     vkTreeRoot: bytes32(vm.envOr("VK_TREE_ROOT", uint256(0))),
+          //     protocolContractsHash: bytes32(vm.envOr("PROTOCOL_CONTRACTS_HASH", uint256(0))),
+          //     genesisArchiveRoot: bytes32(vm.envOr("GENESIS_ARCHIVE_ROOT", uint256(0)))
+          //     sequencerBps: Bps.wrap(uint16(vm.envOr("REWARD_SEQUENCER_BPS", uint256(sequencerBps)))),
+          //     booster: IBoosterCore(vm.envOr("REWARD_BOOSTER", address(0))),
+          //     checkpointReward: uint96(vm.envOr("REWARD_CHECKPOINT_REWARD", uint256(checkpointReward)))
+          //     aztecSlotDuration: vm.envOr("AZTEC_SLOT_DURATION", uint256(36)),
+          //     aztecEpochDuration: vm.envOr("AZTEC_EPOCH_DURATION", uint256(32)),
+          //     targetCommitteeSize: vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48)),
+          //     lagInEpochsForValidatorSet: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET", uint256(2)),
+          //     lagInEpochsForRandao: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO", uint256(2)),
+          //     aztecProofSubmissionEpochs: vm.envOr("AZTEC_PROOF_SUBMISSION_EPOCHS", uint256(1)),
+          //     localEjectionThreshold: vm.envOr("AZTEC_LOCAL_EJECTION_THRESHOLD", uint256(98e18)),
+          //     slashingLifetimeInRounds: vm.envOr("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", uint256(5)),
+          //     slashingExecutionDelayInRounds: vm.envOr("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS", uint256(0)),
+          //     slashingVetoer: vm.envOr("AZTEC_SLASHING_VETOER", address(0)),
+          //     slashingDisableDuration: vm.envOr("AZTEC_SLASHING_DISABLE_DURATION", uint256(5 days)),
+          //     manaTarget: vm.envOr("AZTEC_MANA_TARGET", uint256(100_000_000)),
+          //     exitDelaySeconds: vm.envOr("AZTEC_EXIT_DELAY_SECONDS", uint256(2 days)),
+          //     provingCostPerMana: EthValue.wrap(vm.envOr("AZTEC_PROVING_COST_PER_MANA", uint256(100))),
+          // return _parseSlasherFlavor(vm.envOr("AZTEC_SLASHER_FLAVOR", string("tally")));
+          // uint256 roundSizeInEpochs = vm.envOr("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
+          // uint256 aztecEpochDuration = vm.envOr("AZTEC_EPOCH_DURATION", uint256(32));
+          // return vm.envOr("AZTEC_SLASHING_QUORUM", defaultQuorum);
+          // return vm.envOr("AZTEC_SLASHING_OFFSET_IN_ROUNDS", flavor == SlasherFlavor.TALLY ? uint256(2) : uint256(0));
+          //     vm.envOr("AZTEC_SLASH_AMOUNT_SMALL", uint256(10e18)),
+          //     vm.envOr("AZTEC_SLASH_AMOUNT_MEDIUM", uint256(20e18)),
+          //     vm.envOr("AZTEC_SLASH_AMOUNT_LARGE", uint256(50e18))
+          // return vm.envOr("REWARD_DISTRIBUTOR_FUNDING", defaultFunding);
+          // uint256 aztecSlotDuration = vm.envOr("AZTEC_SLOT_DURATION", uint256(36));
+          // uint256 aztecEpochDuration = vm.envOr("AZTEC_EPOCH_DURATION", uint256(32));
+          // uint256 aztecTargetCommitteeSize = vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48));
+          // uint256 slashingRoundSizeInEpochs = vm.envOr("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
+          // uint256 slashingLifetimeInRounds = vm.envOr("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", uint256(5));
+          // uint256 slashingExecutionDelayInRounds = vm.envOr("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS", uint256(0));
+          NETWORK: getActiveNetworkName(),
+          INITIAL_VALIDATORS: JSON.stringify((args.initialValidators ?? []).map(computeValidatorData)),
+          REAL_VERIFIER: args.realVerifier ? '1' : '0',
+          FUND_REWARD_DISTRIBUTOR: args.fundRewardDistributor ? '1' : '0',
+          VK_TREE_ROOT: args.vkTreeRoot.toString(),
+          PROTOCOL_CONTRACTS_HASH: args.protocolContractsHash.toString(),
+          GENESIS_ARCHIVE_ROOT: args.genesisArchiveRoot.toString(),
+          AZTEC_SLOT_DURATION: args.aztecSlotDuration.toString(),
+          AZTEC_EPOCH_DURATION: args.aztecEpochDuration.toString(),
+          AZTEC_TARGET_COMMITTEE_SIZE: args.aztecTargetCommitteeSize.toString(),
+          AZTEC_PROOF_SUBMISSION_EPOCHS: args.aztecProofSubmissionEpochs.toString(),
+          SLASHER_FLAVOR: args.slasherFlavor,
+          SLASHING_ROUND_SIZE_IN_EPOCHS: args.slashingRoundSizeInEpochs.toString(),
+          SLASHING_LIFETIME_IN_ROUNDS: args.slashingLifetimeInRounds.toString(),
+          SLASHING_EXECUTION_DELAY_IN_ROUNDS: args.slashingExecutionDelayInRounds.toString(),
+          SLASHING_VETOER: args.slashingVetoer.toString(),
+          MANA_TARGET: args.manaTarget.toString(),
+          PROVING_COST_PER_MANA: args.provingCostPerMana.toString(),
+          EXIT_DELAY_SECONDS: args.exitDelaySeconds.toString(),
+          SLASH_AMOUNT_SMALL: args.slashAmountSmall.toString(),
+          SLASH_AMOUNT_MEDIUM: args.slashAmountMedium.toString(),
+          SLASH_AMOUNT_LARGE: args.slashAmountLarge.toString(),
+          FEE_JUICE_PORTAL_BALANCE: (args.feeJuicePortalInitialBalance ?? 0n).toString(),
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', data => {
+      stdout += data.toString();
+    });
+
+    proc.stderr.on('data', data => {
+      stderr += data.toString();
+    });
+
+    proc.on('error', error => {
+      reject(new Error(`Failed to spawn forge: ${error.message}`));
+    });
+
+    proc.on('close', code => {
+      if (code !== 0) {
+        reject(
+          new Error(`Forge script exited with code ${code}\nStandard output:\n${stdout}\nStandard error:\n${stderr}`),
+        );
+      } else {
+        (async () => {
+          // Try to parse the output file
+          const result: RollupUpgradeReturnType = JSON.parse(await readFile(outputPath, 'utf-8'));
+          if (!result.rollupAddress) {
+            throw new Error('Missing rollup address in output!');
+          }
+          resolve(result);
+        })().catch(reject);
+      }
+    });
+    return promise;
+  };
+
+  const deploymentsDir = join(l1ContractsPath, '.deployments');
+  // Use mkdtemp to ensure unique a directory.
+  const tmpDir = await mkdtemp(join(deploymentsDir, 'rollup-upgrade-'));
+  try {
+    const outputPath = join(tmpDir, 'rollup-upgrade.json');
+    await deployWithForge(outputPath);
+  } finally {
+    await rm(tmpDir, { recursive: true, force: true });
+  }
+
   const result = await deployRollupUpgradeViaForge(rpcUrl, privateKey, {
     // Existing contract addresses
-    registryAddress: addresses.registryAddress.toString(),
-    gseAddress: addresses.gseAddress?.toString() ?? '',
-    governanceAddress: addresses.governanceAddress.toString(),
-    feeAssetAddress: addresses.feeJuiceAddress.toString(),
-    stakingAssetAddress: addresses.stakingAssetAddress.toString(),
+    registryAddress: registryAddress.toString(),
     // Rollup config from args
     vkTreeRoot: args.vkTreeRoot.toString(),
     protocolContractsHash: args.protocolContractsHash.toString(),
@@ -277,546 +390,6 @@ export const deployUpgradePayload = async (
 };
 
 /**
- * @deprecated This function has been moved to Solidity. Use `deployRollupForUpgrade` instead,
- * which calls the Forge script `DeployRollupForUpgrade.s.sol`.
- */
-export const deployRollup = async (
-  _extendedClient: ExtendedViemWalletClient,
-  _deployer: L1Deployer,
-  _args: Omit<
-    DeployL1ContractsArgs,
-    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'ejectionThreshold' | 'activationThreshold'
-  >,
-  _addresses: Pick<
-    L1ContractAddresses,
-    | 'feeJuiceAddress'
-    | 'registryAddress'
-    | 'rewardDistributorAddress'
-    | 'stakingAssetAddress'
-    | 'gseAddress'
-    | 'governanceAddress'
-  >,
-  _logger: Logger,
-): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> => {
-  throw new Error(
-    'deployRollup has been moved to Solidity. Use deployRollupForUpgrade instead, ' +
-      'which calls the Forge script DeployRollupForUpgrade.s.sol',
-  );
-  //   if (!addresses.gseAddress) {
-  //     throw new Error('GSE address is required when deploying');
-  //   }
-  //   const networkName = getActiveNetworkName();
-
-  //   logger.info(`Deploying rollup using network configuration: ${networkName}`);
-
-  //   const txHashes: Hex[] = [];
-
-  //   let epochProofVerifier = EthAddress.ZERO;
-
-  //   if (args.realVerifier) {
-  //     epochProofVerifier = (await deployer.deploy(l1ArtifactsVerifiers.honkVerifier)).address;
-  //     logger.verbose(`Rollup will use the real verifier at ${epochProofVerifier}`);
-  //   } else {
-  //     epochProofVerifier = (await deployer.deploy(mockVerifiers.mockVerifier)).address;
-  //     logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
-  //   }
-
-  //   const rewardConfig = {
-  //     ...getRewardConfig(networkName),
-  //     rewardDistributor: addresses.rewardDistributorAddress.toString(),
-  //   };
-
-  //   const rollupConfigArgs: ContractConstructorArgs<typeof RollupAbi>[6] = {
-  //     aztecSlotDuration: BigInt(args.aztecSlotDuration),
-  //     aztecEpochDuration: BigInt(args.aztecEpochDuration),
-  //     targetCommitteeSize: BigInt(args.aztecTargetCommitteeSize),
-  //     lagInEpochsForValidatorSet: BigInt(args.lagInEpochsForValidatorSet),
-  //     lagInEpochsForRandao: BigInt(args.lagInEpochsForRandao),
-  //     aztecProofSubmissionEpochs: BigInt(args.aztecProofSubmissionEpochs),
-  //     slashingQuorum: BigInt(args.slashingQuorum ?? (args.slashingRoundSizeInEpochs * args.aztecEpochDuration) / 2 + 1),
-  //     slashingRoundSize: BigInt(args.slashingRoundSizeInEpochs * args.aztecEpochDuration),
-  //     slashingLifetimeInRounds: BigInt(args.slashingLifetimeInRounds),
-  //     slashingExecutionDelayInRounds: BigInt(args.slashingExecutionDelayInRounds),
-  //     slashingVetoer: args.slashingVetoer.toString(),
-  //     manaTarget: args.manaTarget,
-  //     provingCostPerMana: args.provingCostPerMana,
-  //     rewardConfig: rewardConfig,
-  //     version: 0,
-  //     rewardBoostConfig: getRewardBoostConfig(),
-  //     stakingQueueConfig: getEntryQueueConfig(networkName),
-  //     exitDelaySeconds: BigInt(args.exitDelaySeconds),
-  //     slasherFlavor: slasherFlavorToSolidityEnum(args.slasherFlavor),
-  //     slashingOffsetInRounds: BigInt(args.slashingOffsetInRounds),
-  //     slashAmounts: [args.slashAmountSmall, args.slashAmountMedium, args.slashAmountLarge],
-  //     localEjectionThreshold: args.localEjectionThreshold,
-  //     slashingDisableDuration: BigInt(args.slashingDisableDuration ?? 0n),
-  //     earliestRewardsClaimableTimestamp: 0n,
-  //   };
-
-  //   const genesisStateArgs = {
-  //     vkTreeRoot: args.vkTreeRoot.toString(),
-  //     protocolContractsHash: args.protocolContractsHash.toString(),
-  //     genesisArchiveRoot: args.genesisArchiveRoot.toString(),
-  //   };
-
-  //   // Until there is an actual chain-id for the version, we will just draw a random value.
-  //   // TODO(https://linear.app/aztec-labs/issue/TMNT-139/version-at-deployment)
-  //   rollupConfigArgs.version = Buffer.from(
-  //     keccak256String(
-  //       jsonStringify({
-  //         rollupConfigArgs,
-  //         genesisStateArgs,
-  //       }),
-  //     ),
-  //   ).readUint32BE(0);
-  //   logger.verbose(`Rollup config args`, rollupConfigArgs);
-
-  //   const rollupArgs = [
-  //     addresses.feeJuiceAddress.toString(),
-  //     addresses.stakingAssetAddress.toString(),
-  //     addresses.gseAddress.toString(),
-  //     epochProofVerifier.toString(),
-  //     extendedClient.account.address,
-  //     genesisStateArgs,
-  //     rollupConfigArgs,
-  //   ] as const;
-
-  //   const { address: rollupAddress, existed: rollupExisted } = await deployer.deploy(RollupArtifact, rollupArgs, {
-  //     gasLimit: 15_000_000n,
-  //   });
-  //   logger.verbose(`Deployed Rollup at ${rollupAddress}, already existed: ${rollupExisted}`, rollupConfigArgs);
-
-  //   const rollupContract = new RollupContract(extendedClient, rollupAddress);
-
-  //   await deployer.waitForDeployments();
-  //   logger.verbose(`All core contracts have been deployed`);
-
-  //   if (args.feeJuicePortalInitialBalance && args.feeJuicePortalInitialBalance > 0n) {
-  //     // Skip funding when using an external token, as we likely don't have mint permissions
-  //     if (!('existingTokenAddress' in args) || !args.existingTokenAddress) {
-  //       const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
-
-  //       // In fast mode, use the L1TxUtils to send transactions with nonce management
-  //       const { txHash: mintTxHash } = await deployer.sendTransaction({
-  //         to: addresses.feeJuiceAddress.toString(),
-  //         data: encodeFunctionData({
-  //           abi: FeeAssetArtifact.contractAbi,
-  //           functionName: 'mint',
-  //           args: [feeJuicePortalAddress.toString(), args.feeJuicePortalInitialBalance],
-  //         }),
-  //       });
-  //       logger.verbose(
-  //         `Funding fee juice portal with ${args.feeJuicePortalInitialBalance} fee juice in ${mintTxHash} (accelerated test deployments)`,
-  //       );
-  //       txHashes.push(mintTxHash);
-  //     } else {
-  //       logger.verbose('Skipping fee juice portal funding due to external token usage');
-  //     }
-  //   }
-
-  //   const slashFactoryAddress = (await deployer.deploy(SlashFactoryArtifact, [rollupAddress.toString()])).address;
-  //   logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
-
-  //   // We need to call a function on the registry to set the various contract addresses.
-  //   const registryContract = getContract({
-  //     address: getAddress(addresses.registryAddress.toString()),
-  //     abi: RegistryArtifact.contractAbi,
-  //     client: extendedClient,
-  //   });
-
-  //   // Only if we are the owner will we be sending these transactions
-  //   if ((await registryContract.read.owner()) === getAddress(extendedClient.account.address)) {
-  //     const version = await rollupContract.getVersion();
-  //     try {
-  //       const retrievedRollupAddress = await registryContract.read.getRollup([version]);
-  //       logger.verbose(`Rollup ${retrievedRollupAddress} already exists in registry`);
-  //     } catch {
-  //       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
-  //         to: addresses.registryAddress.toString(),
-  //         data: encodeFunctionData({
-  //           abi: RegistryArtifact.contractAbi,
-  //           functionName: 'addRollup',
-  //           args: [getAddress(rollupContract.address)],
-  //         }),
-  //       });
-  //       logger.verbose(
-  //         `Adding rollup ${rollupContract.address} to registry ${addresses.registryAddress} in tx ${addRollupTxHash}`,
-  //       );
-
-  //       txHashes.push(addRollupTxHash);
-  //     }
-  //   } else {
-  //     logger.verbose(`Not the owner of the registry, skipping rollup addition`);
-  //   }
-
-  //   // We need to call a function on the registry to set the various contract addresses.
-  //   const gseContract = getContract({
-  //     address: getAddress(addresses.gseAddress.toString()),
-  //     abi: GSEArtifact.contractAbi,
-  //     client: extendedClient,
-  //   });
-  //   if ((await gseContract.read.owner()) === getAddress(extendedClient.account.address)) {
-  //     if (!(await gseContract.read.isRollupRegistered([rollupContract.address]))) {
-  //       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
-  //         to: addresses.gseAddress.toString(),
-  //         data: encodeFunctionData({
-  //           abi: GSEArtifact.contractAbi,
-  //           functionName: 'addRollup',
-  //           args: [getAddress(rollupContract.address)],
-  //         }),
-  //       });
-  //       logger.verbose(`Adding rollup ${rollupContract.address} to GSE ${addresses.gseAddress} in tx ${addRollupTxHash}`);
-
-  //       // wait for this tx to land in case we have to register initialValidators
-  //       await extendedClient.waitForTransactionReceipt({ hash: addRollupTxHash });
-  //     } else {
-  //       logger.verbose(`Rollup ${rollupContract.address} is already registered in GSE ${addresses.gseAddress}`);
-  //     }
-  //   } else {
-  //     logger.verbose(`Not the owner of the gse, skipping rollup addition`);
-  //   }
-
-  //   const activeAttestorCount = await rollupContract.getActiveAttesterCount();
-  //   const queuedAttestorCount = await rollupContract.getEntryQueueLength();
-  //   logger.info(`Rollup has ${activeAttestorCount} active attestors and ${queuedAttestorCount} queued attestors`);
-
-  //   const shouldAddValidators = activeAttestorCount === 0n && queuedAttestorCount === 0n;
-
-  //   if (
-  //     args.initialValidators &&
-  //     shouldAddValidators &&
-  //     (await gseContract.read.isRollupRegistered([rollupContract.address]))
-  //   ) {
-  //     await addMultipleValidators(
-  //       extendedClient,
-  //       deployer,
-  //       addresses.gseAddress.toString(),
-  //       rollupAddress.toString(),
-  //       addresses.stakingAssetAddress.toString(),
-  //       args.initialValidators,
-  //       args.acceleratedTestDeployments,
-  //       logger,
-  //     );
-  //   }
-
-  //   // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  //   logger.verbose(addresses.governanceAddress.toString());
-  //   if (getAddress(await rollupContract.getOwner()) !== getAddress(addresses.governanceAddress.toString())) {
-  //     // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
-  //     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
-  //       to: rollupContract.address,
-  //       data: encodeFunctionData({
-  //         abi: RegistryArtifact.contractAbi,
-  //         functionName: 'transferOwnership',
-  //         args: [getAddress(addresses.governanceAddress.toString())],
-  //       }),
-  //     });
-  //     logger.verbose(
-  //       `Transferring the ownership of the rollup contract at ${rollupContract.address} to the Governance ${addresses.governanceAddress} in tx ${transferOwnershipTxHash}`,
-  //     );
-  //     txHashes.push(transferOwnershipTxHash);
-  //   }
-
-  //   await deployer.waitForDeployments();
-  //   await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
-  //   logger.verbose(`Rollup deployed`);
-
-  //   return { rollup: rollupContract, slashFactoryAddress };
-  // };
-
-  // export const handoverToGovernance = async (
-  //   extendedClient: ExtendedViemWalletClient,
-  //   deployer: L1Deployer,
-  //   registryAddress: EthAddress,
-  //   gseAddress: EthAddress,
-  //   coinIssuerAddress: EthAddress,
-  //   feeAssetAddress: EthAddress,
-  //   governanceAddress: EthAddress,
-  //   logger: Logger,
-  //   acceleratedTestDeployments: boolean | undefined,
-  //   useExternalToken: boolean = false,
-  // ) => {
-  //   // We need to call a function on the registry to set the various contract addresses.
-  //   const registryContract = getContract({
-  //     address: getAddress(registryAddress.toString()),
-  //     abi: RegistryArtifact.contractAbi,
-  //     client: extendedClient,
-  //   });
-
-  //   const gseContract = getContract({
-  //     address: getAddress(gseAddress.toString()),
-  //     abi: GSEArtifact.contractAbi,
-  //     client: extendedClient,
-  //   });
-
-  //   const coinIssuerContract = getContract({
-  //     address: getAddress(coinIssuerAddress.toString()),
-  //     abi: CoinIssuerArtifact.contractAbi,
-  //     client: extendedClient,
-  //   });
-
-  //   const feeAsset = getContract({
-  //     address: getAddress(feeAssetAddress.toString()),
-  //     abi: FeeAssetArtifact.contractAbi,
-  //     client: extendedClient,
-  //   });
-
-  //   const txHashes: Hex[] = [];
-
-  //   // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  //   if (
-  //     acceleratedTestDeployments ||
-  //     (await registryContract.read.owner()) !== getAddress(governanceAddress.toString())
-  //   ) {
-  //     // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
-  //     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
-  //       to: registryAddress.toString(),
-  //       data: encodeFunctionData({
-  //         abi: RegistryArtifact.contractAbi,
-  //         functionName: 'transferOwnership',
-  //         args: [getAddress(governanceAddress.toString())],
-  //       }),
-  //     });
-  //     logger.verbose(
-  //       `Transferring the ownership of the registry contract at ${registryAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
-  //     );
-  //     txHashes.push(transferOwnershipTxHash);
-  //   }
-
-  //   // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  //   if (acceleratedTestDeployments || (await gseContract.read.owner()) !== getAddress(governanceAddress.toString())) {
-  //     // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
-  //     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
-  //       to: gseContract.address,
-  //       data: encodeFunctionData({
-  //         abi: GSEArtifact.contractAbi,
-  //         functionName: 'transferOwnership',
-  //         args: [getAddress(governanceAddress.toString())],
-  //       }),
-  //     });
-  //     logger.verbose(
-  //       `Transferring the ownership of the gse contract at ${gseAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
-  //     );
-  //     txHashes.push(transferOwnershipTxHash);
-  //   }
-
-  //   if (
-  //     !useExternalToken &&
-  //     (acceleratedTestDeployments || (await feeAsset.read.owner()) !== coinIssuerAddress.toString())
-  //   ) {
-  //     const { txHash } = await deployer.sendTransaction(
-  //       {
-  //         to: feeAssetAddress.toString(),
-  //         data: encodeFunctionData({
-  //           abi: FeeAssetArtifact.contractAbi,
-  //           functionName: 'transferOwnership',
-  //           args: [coinIssuerAddress.toString()],
-  //         }),
-  //       },
-  //       { gasLimit: 500_000n },
-  //     );
-  //     logger.verbose(`Transfer ownership of fee asset to coin issuer ${coinIssuerAddress} in ${txHash}`);
-  //     txHashes.push(txHash);
-
-  //     const { txHash: acceptTokenOwnershipTxHash } = await deployer.sendTransaction(
-  //       {
-  //         to: coinIssuerAddress.toString(),
-  //         data: encodeFunctionData({
-  //           abi: CoinIssuerArtifact.contractAbi,
-  //           functionName: 'acceptTokenOwnership',
-  //         }),
-  //       },
-  //       { gasLimit: 500_000n },
-  //     );
-  //     logger.verbose(`Accept ownership of fee asset in ${acceptTokenOwnershipTxHash}`);
-  //     txHashes.push(acceptTokenOwnershipTxHash);
-  //   } else if (useExternalToken) {
-  //     logger.verbose('Skipping fee asset ownership transfer due to external token usage');
-  //   }
-
-  //   // Either deploy or at least predict the address of the date gated relayer
-  //   const dateGatedRelayer = await deployer.deploy(DateGatedRelayerArtifact, [
-  //     governanceAddress.toString(),
-  //     1798761600n, // 2027-01-01 00:00:00 UTC
-  //   ]);
-
-  //   // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  //   if (acceleratedTestDeployments || (await coinIssuerContract.read.owner()) === deployer.client.account.address) {
-  //     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
-  //       to: coinIssuerContract.address,
-  //       data: encodeFunctionData({
-  //         abi: CoinIssuerArtifact.contractAbi,
-  //         functionName: 'transferOwnership',
-  //         args: [getAddress(dateGatedRelayer.address.toString())],
-  //       }),
-  //     });
-  //     logger.verbose(
-  //       `Transferring the ownership of the coin issuer contract at ${coinIssuerAddress} to the DateGatedRelayer ${dateGatedRelayer.address} in tx ${transferOwnershipTxHash}`,
-  //     );
-  //     txHashes.push(transferOwnershipTxHash);
-  //   }
-
-  //   // Wait for all actions to be mined
-  //   await deployer.waitForDeployments();
-  //   await Promise.all(txHashes.map(txHash => extendedClient.waitForTransactionReceipt({ hash: txHash })));
-
-  //   return { dateGatedRelayerAddress: dateGatedRelayer.address };
-};
-
-/*
- * Adds multiple validators to the rollup
- *
- * @param extendedClient - The L1 clients.
- * @param deployer - The L1 deployer.
- * @param rollupAddress - The address of the rollup.
- * @param stakingAssetAddress - The address of the staking asset.
- * @param validators - The validators to initialize.
- * @param acceleratedTestDeployments - Whether to use accelerated test deployments.
- * @param logger - The logger.
- */
-export const addMultipleValidators = async (
-  extendedClient: ExtendedViemWalletClient,
-  deployer: L1Deployer,
-  gseAddress: Hex,
-  rollupAddress: Hex,
-  stakingAssetAddress: Hex,
-  validators: Operator[],
-  acceleratedTestDeployments: boolean | undefined,
-  logger: Logger,
-) => {
-  const rollup = new RollupContract(extendedClient, rollupAddress);
-  const activationThreshold = await rollup.getActivationThreshold();
-  if (validators && validators.length > 0) {
-    // Check if some of the initial validators are already registered, so we support idempotent deployments
-    if (!acceleratedTestDeployments) {
-      const enrichedValidators = await Promise.all(
-        validators.map(async operator => ({
-          operator,
-          status: await rollup.getStatus(operator.attester),
-        })),
-      );
-      const existingValidators = enrichedValidators.filter(v => v.status !== 0);
-      if (existingValidators.length > 0) {
-        logger.warn(
-          `Validators ${existingValidators
-            .map(v => v.operator.attester)
-            .join(', ')} already exist. Skipping from initialization.`,
-        );
-      }
-
-      validators = enrichedValidators.filter(v => v.status === 0).map(v => v.operator);
-    }
-
-    if (validators.length === 0) {
-      logger.warn('No validators to add. Skipping.');
-      return;
-    }
-
-    const gseContract = new GSEContract(extendedClient, gseAddress);
-    const multiAdder = (await deployer.deploy(MultiAdderArtifact, [rollupAddress, deployer.client.account.address]))
-      .address;
-
-    const makeValidatorTuples = async (validator: Operator) => {
-      const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
-      return {
-        attester: getAddress(validator.attester.toString()),
-        withdrawer: getAddress(validator.withdrawer.toString()),
-        ...registrationTuple,
-      };
-    };
-
-    const validatorsTuples = await Promise.all(validators.map(makeValidatorTuples));
-
-    // Mint tokens, approve them, use cheat code to initialize validator set without setting up the epoch.
-    const stakeNeeded = activationThreshold * BigInt(validators.length);
-
-    await deployer.l1TxUtils.sendAndMonitorTransaction({
-      to: stakingAssetAddress,
-      data: encodeFunctionData({
-        abi: StakingAssetArtifact.contractAbi,
-        functionName: 'mint',
-        args: [multiAdder.toString(), stakeNeeded],
-      }),
-    });
-
-    const entryQueueLengthBefore = await rollup.getEntryQueueLength();
-    const validatorCountBefore = await rollup.getActiveAttesterCount();
-
-    logger.info(`Adding ${validators.length} validators to the rollup`);
-
-    const chunkSize = 16;
-
-    // We will add `chunkSize` validators to the queue until we have covered all of our validators.
-    // The `chunkSize` needs to be small enough to fit inside a single tx, therefore 16.
-    for (const c of chunk(validatorsTuples, chunkSize)) {
-      await deployer.l1TxUtils.sendAndMonitorTransaction(
-        {
-          to: multiAdder.toString(),
-          data: encodeFunctionData({
-            abi: MultiAdderArtifact.contractAbi,
-            functionName: 'addValidators',
-            args: [c, BigInt(0)],
-          }),
-        },
-        {
-          gasLimit: 16_000_000n,
-        },
-      );
-    }
-
-    // After adding to the queue, we will now try to flush from it.
-    // We are explicitly doing this as a second step instead of as part of adding to benefit
-    // from the accounting used to speed the process up.
-    // As the queue computes the amount of possible flushes in an epoch when told to flush,
-    // waiting until we have added all we want allows us to benefit in the case were we added
-    // enough to pass the bootstrap set size without needing to wait another epoch.
-    // This is useful when we are testing as it speeds up the tests slightly.
-    while (true) {
-      // If the queue is empty, we can break
-      if ((await rollup.getEntryQueueLength()) == 0n) {
-        break;
-      }
-
-      // If there are no available validator flushes, no need to even try
-      if ((await rollup.getAvailableValidatorFlushes()) == 0n) {
-        break;
-      }
-
-      // Note that we are flushing at most `chunkSize` at each call
-      await deployer.l1TxUtils.sendAndMonitorTransaction(
-        {
-          to: rollup.address,
-          data: encodeFunctionData({
-            abi: RollupArtifact.contractAbi,
-            functionName: 'flushEntryQueue',
-            args: [BigInt(chunkSize)],
-          }),
-        },
-        {
-          gasLimit: 16_000_000n,
-        },
-      );
-    }
-
-    const entryQueueLengthAfter = await rollup.getEntryQueueLength();
-    const validatorCountAfter = await rollup.getActiveAttesterCount();
-
-    if (
-      entryQueueLengthAfter + validatorCountAfter <
-      entryQueueLengthBefore + validatorCountBefore + BigInt(validators.length)
-    ) {
-      throw new Error(
-        `Failed to add ${validators.length} validators. Active validators: ${validatorCountBefore} -> ${validatorCountAfter}. Queue: ${entryQueueLengthBefore} -> ${entryQueueLengthAfter}. A likely issue is the bootstrap size.`,
-      );
-    }
-
-    logger.info(
-      `Added ${validators.length} validators. Active validators: ${validatorCountBefore} -> ${validatorCountAfter}. Queue: ${entryQueueLengthBefore} -> ${entryQueueLengthAfter}`,
-    );
-  }
-};
-
-/**
  * Initialize the fee asset handler and make it a minter on the fee asset.
  * @note This function will only be used for testing purposes.
  *
@@ -855,175 +428,6 @@ export const cheat_initializeFeeAssetHandler = async (
   logger.verbose(`Added fee asset handler ${feeAssetHandlerAddress} as minter on fee asset in ${txHash}`);
   return { feeAssetHandlerAddress, txHash };
 };
-
-/**
- * @deprecated This function has been moved to Solidity. Use `setupL1ContractsViaForge` instead,
- * which calls the Forge script `DeployL1Contracts.s.sol`.
- *
- * @param rpcUrls - List of URLs of the ETH RPC to use for deployment.
- * @param account - Private Key or HD Account that will deploy the contracts.
- * @param chain - The chain instance to deploy to.
- * @param logger - A logger object.
- * @param args - Arguments for initialization of L1 contracts
- * @returns A list of ETH addresses of the deployed contracts.
- */
-export const deployL1Contracts = async (
-  _rpcUrls: string[],
-  _account: HDAccount | PrivateKeyAccount,
-  _chain: Chain,
-  _logger: Logger,
-  _args: DeployL1ContractsArgs,
-  _txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
-  _createVerificationJson: string | false = false,
-): Promise<DeployL1ContractsReturnType> => {
-  throw new Error(
-    'deployL1Contracts has been moved to Solidity. Use setupL1ContractsViaForge instead, ' +
-      'which calls the Forge script DeployL1Contracts.s.sol. See yarn-project/ethereum/src/forge_script.ts',
-  );
-  // logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
-  // validateConfig(args);
-
-  // if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
-  //   throw new Error(
-  //     'Cannot deploy with both initialValidators and existingTokenAddress. ' +
-  //       'Initial validator funding requires minting tokens, which is not possible with an external token.',
-  //   );
-  // }
-
-  // const l1Client = createExtendedL1Client(rpcUrls, account, chain);
-
-  // // Deploy multicall3 if it does not exist in this network
-  // await deployMulticall3(l1Client, logger);
-
-  // // We are assuming that you are running this on a local anvil node which have 1s block times
-  // // To align better with actual deployment, we update the block interval to 12s
-
-  // const rpcCall = async (method: string, params: any[]) => {
-  //   logger.info(`Calling ${method} with params: ${JSON.stringify(params)}`);
-  //   return (await l1Client.transport.request({
-  //     method,
-  //     params,
-  //   })) as any;
-  // };
-
-  // if (isAnvilTestChain(chain.id)) {
-  //   try {
-  //     await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
-  //     logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
-  //   } catch (e) {
-  //     logger.error(`Error setting block interval: ${e}`);
-  //   }
-  // }
-
-  // logger.verbose(`Deploying contracts from ${account.address.toString()}`);
-
-  // const dateProvider = new DateProvider();
-  // const deployer = new L1Deployer(
-  //   l1Client,
-  //   args.salt,
-  //   dateProvider,
-  //   args.acceleratedTestDeployments,
-  //   logger,
-  //   txUtilsConfig,
-  //   !!createVerificationJson,
-  // );
-
-  // const {
-  //   feeAssetAddress,
-  //   feeAssetHandlerAddress,
-  //   stakingAssetAddress,
-  //   stakingAssetHandlerAddress,
-  //   registryAddress,
-  //   gseAddress,
-  //   governanceAddress,
-  //   rewardDistributorAddress,
-  //   zkPassportVerifierAddress,
-  //   coinIssuerAddress,
-  // } = await deploySharedContracts(l1Client, deployer, args, logger);
-  // const { rollup, slashFactoryAddress } = await deployRollup(
-  //   l1Client,
-  //   deployer,
-  //   args,
-  //   {
-  //     feeJuiceAddress: feeAssetAddress,
-  //     registryAddress,
-  //     gseAddress,
-  //     rewardDistributorAddress,
-  //     stakingAssetAddress,
-  //     governanceAddress,
-  //   },
-  //   logger,
-  // );
-
-  // logger.verbose('Waiting for rollup and slash factory to be deployed');
-  // await deployer.waitForDeployments();
-
-  // // Now that the rollup has been deployed and added to the registry, transfer ownership to governance
-  // const { dateGatedRelayerAddress } = await handoverToGovernance(
-  //   l1Client,
-  //   deployer,
-  //   registryAddress,
-  //   gseAddress,
-  //   coinIssuerAddress,
-  //   feeAssetAddress,
-  //   governanceAddress,
-  //   logger,
-  //   args.acceleratedTestDeployments,
-  //   !!args.existingTokenAddress,
-  // );
-
-  // logger.info(`Handing over to governance complete`);
-
-  // logger.verbose(`All transactions for L1 deployment have been mined`);
-  // const l1Contracts = await RegistryContract.collectAddresses(l1Client, registryAddress, 'canonical');
-
-  // logger.info(`Aztec L1 contracts initialized`, l1Contracts);
-
-  // // Write verification data (constructor args + linked libraries) to file for later forge verify
-  // if (createVerificationJson) {
-  //   await generateRollupVerificationRecords(rollup, deployer, args, l1Contracts, l1Client, logger);
-  //   await writeVerificationJson(deployer, createVerificationJson, chain.id, '', logger);
-  // }
-
-  // if (isAnvilTestChain(chain.id)) {
-  //   // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
-  //   //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
-  //   //        This is critical to avoid HeaderLib__InvalidSlotNumber errors when the rollup processes new block headers.
-  //   try {
-  //     // Need to get the time
-  //     const currentSlot = await rollup.getSlotNumber();
-
-  //     if (currentSlot === 0) {
-  //       const ts = Number(await rollup.getTimestampForSlot(SlotNumber(1)));
-  //       await rpcCall('evm_setNextBlockTimestamp', [ts]);
-  //       await rpcCall('hardhat_mine', [1]);
-  //       const newSlot = await rollup.getSlotNumber();
-
-  //       if (newSlot !== 1) {
-  //         throw new Error(`Error jumping time: current slot is ${newSlot}, expected 1`);
-  //       }
-  //       logger.info(`Jumped to slot 1 to ensure block headers validate correctly`);
-  //     }
-  //   } catch (e) {
-  //     throw new Error(`Error jumping time: ${e}`);
-  //   }
-  // }
-
-  // return {
-  //   rollupVersion: Number(await rollup.getVersion()),
-  //   l1Client: l1Client,
-  //   l1ContractAddresses: {
-  //     ...l1Contracts,
-  //     slashFactoryAddress,
-  //     feeAssetHandlerAddress,
-  //     stakingAssetHandlerAddress,
-  //     zkPassportVerifierAddress,
-  //     coinIssuerAddress,
-  //     dateGatedRelayerAddress,
-  //   },
-  // };
-};
-
 export class L1Deployer {
   private salt: Hex | undefined;
   private txHashes: Hex[] = [];

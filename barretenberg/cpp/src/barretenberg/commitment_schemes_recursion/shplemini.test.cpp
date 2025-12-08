@@ -264,6 +264,9 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             validate_num_eccvm_rows(num_polys, num_shifted, short_scalars, &builder);
             if (prove_eccvm) {
+                // Add hiding op for ECCVM ZK (prepended to ECCVM ops at row 1)
+                using Fq = curve::Grumpkin::ScalarField;
+                builder.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
                 builder.op_queue->merge();
                 using clock = std::chrono::steady_clock;
                 auto start_total = clock::now();

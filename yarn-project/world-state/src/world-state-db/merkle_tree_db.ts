@@ -2,7 +2,7 @@ import { MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } f
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields';
 import type { IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
-import type { L2Block, L2BlockNew } from '@aztec/stdlib/block';
+import type { L2BlockNew } from '@aztec/stdlib/block';
 import type { ForkMerkleTreeOperations, MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import type { MerkleTreeId } from '@aztec/stdlib/trees';
 
@@ -40,13 +40,13 @@ export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations {
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
-   * @param isFirstBlock - Whether the block is the first block in a checkpoint. Temporary hack to only insert l1 to l2
-   * messages for the first block in a checkpoint. TODO(#17027) Remove this.
+   * @param isFirstBlock - Whether the block is the first block in a checkpoint. The messages are padded and inserted
+   * to the tree for the first block in a checkpoint.
    */
   handleL2BlockAndMessages(
-    block: L2Block | L2BlockNew,
+    block: L2BlockNew,
     l1ToL2Messages: Fr[],
-    isFirstBlock?: boolean,
+    isFirstBlock: boolean,
   ): Promise<WorldStateStatusFull>;
 
   /**

@@ -7,7 +7,7 @@ pub contract Escrow {
         macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
-        state_vars::PrivateImmutable,
+        state_vars::{Owned, PrivateImmutable},
     };
 
     use address_note::address_note::AddressNote;
@@ -15,7 +15,7 @@ pub contract Escrow {
 
     #[storage]
     struct Storage<Context> {
-        owner: PrivateImmutable<AddressNote, Context>,
+        owner: Owned<PrivateImmutable<AddressNote, Context>, Context>,
     }
 
     // Creates a new instance
@@ -23,7 +23,7 @@ pub contract Escrow {
     #[initializer]
     fn constructor(owner: AztecAddress) {
         let note = AddressNote::new(owner);
-        self.storage.owner.at(owner).initialize(note).emit(
+        self.storage.owner.at(owner).initialize(note).deliver(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

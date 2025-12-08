@@ -37,7 +37,6 @@ TEST(CalldataTraceGenTest, BasicHashing)
         {
             simulation::CalldataEvent{
                 .context_id = 1,
-                .calldata_size = 3,
                 .calldata = { 10, 20, 30 },
             },
         },
@@ -92,14 +91,13 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
     TestTraceContainer trace;
     CalldataTraceBuilder builder;
 
+    // Must be sorted by context_id in ascending order.
     const auto events = { simulation::CalldataEvent{
-                              .context_id = 3,
-                              .calldata_size = 2,
+                              .context_id = 1,
                               .calldata = { 1, 2 },
                           },
                           simulation::CalldataEvent{
-                              .context_id = 1,
-                              .calldata_size = 1,
+                              .context_id = 3,
                               .calldata = { 3 },
                           } };
 
@@ -108,29 +106,28 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
     const auto rows = trace.as_rows();
 
     // One extra empty row is prepended.
-
-    // Retrieval tracegen should have sorted by context_id:
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(calldata_sel, 1),
-                      ROW_FIELD_EQ(calldata_latch, 1),
-                      ROW_FIELD_EQ(calldata_context_id, 1),
-                      ROW_FIELD_EQ(calldata_index, 1),
-                      ROW_FIELD_EQ(calldata_value, 3),
-                      // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
-                      ROW_FIELD_EQ(calldata_diff_context_id, 1)));
-    EXPECT_THAT(rows.at(2),
-                AllOf(ROW_FIELD_EQ(calldata_sel, 1),
                       ROW_FIELD_EQ(calldata_latch, 0),
-                      ROW_FIELD_EQ(calldata_context_id, 3),
+                      ROW_FIELD_EQ(calldata_context_id, 1),
                       ROW_FIELD_EQ(calldata_index, 1),
                       ROW_FIELD_EQ(calldata_value, 1),
                       ROW_FIELD_EQ(calldata_diff_context_id, 0)));
+    EXPECT_THAT(rows.at(2),
+                AllOf(ROW_FIELD_EQ(calldata_sel, 1),
+                      ROW_FIELD_EQ(calldata_latch, 1),
+                      ROW_FIELD_EQ(calldata_context_id, 1),
+                      ROW_FIELD_EQ(calldata_index, 2),
+                      ROW_FIELD_EQ(calldata_value, 2),
+                      // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
+                      ROW_FIELD_EQ(calldata_diff_context_id, 1)));
     EXPECT_THAT(rows.at(3),
                 AllOf(ROW_FIELD_EQ(calldata_sel, 1),
                       ROW_FIELD_EQ(calldata_latch, 1),
                       ROW_FIELD_EQ(calldata_context_id, 3),
-                      ROW_FIELD_EQ(calldata_index, 2),
-                      ROW_FIELD_EQ(calldata_value, 2),
+                      ROW_FIELD_EQ(calldata_index, 1),
+                      ROW_FIELD_EQ(calldata_value, 3),
+                      // Last one and therefore no diff:
                       ROW_FIELD_EQ(calldata_diff_context_id, 0)));
     // Hashing tracegen:
     EXPECT_THAT(rows.at(1),
@@ -140,7 +137,7 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 1),
                       ROW_FIELD_EQ(calldata_hashing_latch, 1),
-                      ROW_FIELD_EQ(calldata_hashing_context_id, 3),
+                      ROW_FIELD_EQ(calldata_hashing_context_id, 1),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
                       ROW_FIELD_EQ(calldata_hashing_index_2_, 2),
@@ -161,7 +158,7 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
               ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
               ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
               ROW_FIELD_EQ(calldata_hashing_latch, 1),
-              ROW_FIELD_EQ(calldata_hashing_context_id, 1),
+              ROW_FIELD_EQ(calldata_hashing_context_id, 3),
               ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
               ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
               ROW_FIELD_EQ(calldata_hashing_index_2_, 2),
@@ -181,7 +178,6 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
 
     const auto events = { simulation::CalldataEvent{
         .context_id = 12,
-        .calldata_size = 0,
         .calldata = {},
     } };
 
@@ -234,7 +230,6 @@ TEST(CalldataTraceGenTest, LongerHash)
         {
             simulation::CalldataEvent{
                 .context_id = 1,
-                .calldata_size = 100,
                 .calldata = calldata,
             },
         },

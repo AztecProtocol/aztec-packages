@@ -19,16 +19,19 @@ export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
 function cleanup {
   set +e
   if [ -n "${test_engine_pid:-}" ]; then
+    echo "Sending SIGTERM to test engine process group..."
     kill -SIGTERM -- -$test_engine_pgid &>/dev/null
     wait $test_engine_pid
     test_engine_pid=
   fi
   if [ -n "${make_pid:-}" ]; then
+    echo "Sending SIGTERM to make process..."
     kill -SIGTERM $make_pid &>/dev/null
     wait $make_pid
     make_pid=
   fi
   if [ -n "${txe_pids:-}" ]; then
+    echo "Sending SIGTERM to TXE processes..."
     kill -SIGTERM $txe_pids &>/dev/null
     wait $txe_pids
     txe_pids=
@@ -230,7 +233,7 @@ function test_engine_start {
   # parallel will only process the result of job N when it receives a new job *after* job N has completed.
   # This can prevent a "fail fast" situation, or prevent the results from the first batch of commands from showing up.
   # Empty commands fed to run_test_cmd are no-ops, so we keep parallel processing results in timely fashion with this.
-  while ! grep -E '^STOP$' $test_cmds_file; do sleep 5; echo >> $test_cmds_file; done &
+  while ! grep -E '^STOP$' $test_cmds_file; do sleep 5; echo | atomic_append $test_cmds_file; done &
   # Continuously stream the test cmds into parallelize.
   DENOISE=0 parallelize < <(tail -n+0 -f $test_cmds_file)
 }
@@ -581,6 +584,22 @@ case "$cmd" in
     export AVM=0
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
+    ;;
+  "ci-avm-inputs-collection")
+    # Nightly job: Run e2e tests with AVM circuit inputs dumping, upload to cache
+    export CI=1
+    # Use tree hash for tarball name - consistent across all environments
+    export AVM_INPUTS_HASH=$(git rev-parse HEAD^{tree})
+    build
+    yarn-project/end-to-end/bootstrap.sh test_and_collect_avm_inputs
+    ;;
+  "ci-avm-check-circuit")
+    # Nightly job: Download cached AVM inputs and run check-circuit on each
+    export CI=1
+    # Use tree hash for tarball name - consistent across all environments
+    export AVM_INPUTS_HASH=$(git rev-parse HEAD^{tree})
+    build
+    yarn-project/end-to-end/bootstrap.sh avm_check_circuit
     ;;
   *)
     default_cmd_handler "$@"

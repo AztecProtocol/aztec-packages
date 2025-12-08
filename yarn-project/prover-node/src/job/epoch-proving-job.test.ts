@@ -147,7 +147,7 @@ describe('epoch-proving-job', () => {
         PublicSimulatorConfig.from({
           proverId: proverId.toField(),
           collectHints: true,
-          maxDebugLogMemoryReads: 0,
+          collectPublicInputs: true,
         }),
       ),
     );

@@ -13,14 +13,14 @@ pub contract EcdsaKAccount {
         },
         messages::message_delivery::MessageDelivery,
         oracle::{auth_witness::get_auth_witness, notes::{get_sender_for_tags, set_sender_for_tags}},
-        state_vars::PrivateImmutable,
+        state_vars::{Owned, PrivateImmutable},
     };
 
     use dep::ecdsa_public_key_note::EcdsaPublicKeyNote;
 
     #[storage]
     struct Storage<Context> {
-        signing_public_key: PrivateImmutable<EcdsaPublicKeyNote, Context>,
+        signing_public_key: Owned<PrivateImmutable<EcdsaPublicKeyNote, Context>, Context>,
     }
 
     // Creates a new account out of an ECDSA public key to use for signature verification
@@ -42,7 +42,7 @@ pub contract EcdsaKAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(self.address) };
-        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).emit(
+        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).deliver(
             self.address,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

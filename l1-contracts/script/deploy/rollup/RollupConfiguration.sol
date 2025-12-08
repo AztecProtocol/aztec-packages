@@ -77,12 +77,21 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     function getRewardConfiguration(IRewardDistributor _rewardDistributor) external view returns (RewardConfig memory) {
         // Default: sequencerBps=8000, checkpointReward=500e18
         // Mainnet: sequencerBps=7000, checkpointReward=400e18
-        (uint16 sequencerBps, uint96 checkpointReward) = _getRewardDefaults();
+        uint16 sequencerBps;
+        uint96 checkpointReward;
+        if (keccak256(bytes(networkName)) == keccak256("mainnet")) {
+            sequencerBps = 7000;
+            checkpointReward = 400e18;
+        } else {
+            sequencerBps = 8000;
+            checkpointReward = 500e18;
+        }
         return RewardConfig({
             rewardDistributor: _rewardDistributor,
-            sequencerBps: Bps.wrap(uint16(vm.envOr("REWARD_SEQUENCER_BPS", uint256(sequencerBps)))),
-            booster: IBoosterCore(vm.envOr("REWARD_BOOSTER", address(0))),
-            checkpointReward: uint96(vm.envOr("REWARD_CHECKPOINT_REWARD", uint256(checkpointReward)))
+            sequencerBps: Bps.wrap(sequencerBps),
+            // NOTE(AD): This matches the typescript logic, which always deploys a new reward booster.
+            booster: IBoosterCore(address(0))),
+            checkpointReward: checkpointReward
         });
     }
 
@@ -217,12 +226,6 @@ contract RollupConfiguration is IRollupConfiguration, Test {
         ];
     }
 
-    function getRewardDistributorFunding() external view returns (uint256) {
-        (, uint96 checkpointReward) = _getRewardDefaults();
-        uint256 defaultFunding = uint256(checkpointReward) * 200_000;
-        return vm.envOr("REWARD_DISTRIBUTOR_FUNDING", defaultFunding);
-    }
-
     function parseValidators() external view returns (CheatDepositArgs[] memory) {
         uint256 count = _countValidators();
         if (count == 0) {
@@ -234,13 +237,6 @@ contract RollupConfiguration is IRollupConfiguration, Test {
             validators[i] = _parseValidator(i);
         }
         return validators;
-    }
-
-    function _getRewardDefaults() private view returns (uint16 sequencerBps, uint96 checkpointReward) {
-        if (keccak256(bytes(networkName)) == keccak256("mainnet")) {
-            return (7000, 400e18);
-        }
-        return (8000, 500e18);
     }
 
     // ============ Validator Parsing (from INITIAL_VALIDATORS env var JSON) ============
@@ -299,13 +295,7 @@ contract RollupConfiguration is IRollupConfiguration, Test {
         uint256[3] memory slashAmounts = _getSlashAmounts();
         SlasherFlavor slasherFlavor = _getSlasherFlavor();
         uint256 slashingOffsetInRounds = _getSlashingOffset();
-
-        uint256 aztecSlotDuration = vm.envOr("AZTEC_SLOT_DURATION", uint256(36));
-        uint256 aztecEpochDuration = vm.envOr("AZTEC_EPOCH_DURATION", uint256(32));
-        uint256 aztecTargetCommitteeSize = vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48));
-        uint256 slashingRoundSizeInEpochs = vm.envOr("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
-        uint256 slashingLifetimeInRounds = vm.envOr("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", uint256(5));
-        uint256 slashingExecutionDelayInRounds = vm.envOr("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS", uint256(0));
+        RollupConfigInput memory rollupConfigInput = getRollupConfiguration(IRewardDistributor(address(0)));
 
         // RollupCore constructor validation: normalFlushSizeMin > 0
         require(
@@ -337,9 +327,9 @@ contract RollupConfiguration is IRollupConfiguration, Test {
         // Tally-specific validations
         if (slasherFlavor == SlasherFlavor.TALLY) {
             _validateTallySlasherConfig(
-                aztecEpochDuration,
-                aztecTargetCommitteeSize,
-                slashingRoundSizeInEpochs,
+                rollupConfigInput.aztecEpochDuration,
+                rollupConfigInput.aztecTargetCommitteeSize,
+                slashingRoundSize,
                 slashingQuorum,
                 slashingLifetimeInRounds,
                 slashingOffsetInRounds,

@@ -4,10 +4,12 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { bn254 } from '@noble/curves/bn254';
 import { spawn } from 'child_process';
 import { existsSync, readFileSync, rmSync } from 'fs';
+import { mkdtemp } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { foundry } from 'viem/chains';
 
+import { promiseWithResolvers } from '../../foundation/src/promise/utils.js';
 import { createExtendedL1Client } from './client.js';
 import type { Operator } from './deploy_l1_contracts.js';
 import { type L1ContractsDeployConfig, type ValidatorJson, stringifyConfig } from './forge_deploy_config.js';
@@ -261,7 +263,7 @@ export type ForgeDeploymentOptions = L1ContractsDeployConfig;
  * Only computes the G2 public key (which requires scalar multiplication on G2, not available in EVM).
  * Solidity will derive G1 public key and proof of possession from the private key.
  */
-function computeValidatorData(operator: Operator): ValidatorJson {
+export function computeValidatorData(operator: Operator): ValidatorJson {
   const privateKey = operator.bn254SecretKey.getValue();
 
   // Compute G2 public key: pk2 = privateKey * G2
@@ -627,6 +629,8 @@ export async function deployRollupUpgradeViaForge(
     STAKING_ASSET_ADDRESS: options.stakingAssetAddress,
   };
 
+  const { promise, resolve, reject } = promiseWithResolvers<RollupUpgradeReturnType>();
+
   // Optional funding
   if (options.fundFeeJuicePortal !== undefined) {
     envVars.FUND_FEE_JUICE_PORTAL = String(options.fundFeeJuicePortal);
@@ -643,8 +647,6 @@ export async function deployRollupUpgradeViaForge(
   Object.assign(envVars, configEnvVars);
 
   // Create unique output file
-  const l1ContractsPath = getL1ContractsPath();
-  const deploymentsDir = join(l1ContractsPath, '.deployments');
   const hrtime = process.hrtime.bigint();
   const pid = process.pid;
   const randomId = Math.random().toString(36).substring(2, 8);

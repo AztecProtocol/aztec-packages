@@ -51,14 +51,22 @@ contract DeployRollupForUpgrade is Script {
     /// @notice Parse existing L1 infrastructure from environment variables
     function _getRollupAddressInput() internal returns (RollupAddressInput memory) {
         Registry registry = Registry(vm.envAddress("REGISTRY_ADDRESS"));
+
+        // Load existing addresses from the registry.
+        GSE gse = registry.getGSE();
+        Governance governance = registry.getGovernance();
+        IERC20 feeAsset = registry.getCanonicalRollup().getFeeAsset();
+        IERC20 stakingAsset = registry.getCanonicalRollup().getStakingAsset();
+        RewardDistributor rewardDistributor = registry.getRewardDistributor();
+
         return RollupAddressInput({
             deployer: vm.envOr("DEPLOYER_ADDRESS", msg.sender),
             registry: registry,
-            gse: GSE(vm.envAddress("GSE_ADDRESS")),
-            governance: Governance(vm.envAddress("GOVERNANCE_ADDRESS")),
-            feeAsset: IERC20(vm.envAddress("FEE_ASSET_ADDRESS")),
-            stakingAsset: IERC20(vm.envAddress("STAKING_ASSET_ADDRESS")),
-            rewardDistributor: RewardDistributor(address(registry.getRewardDistributor()))
+            gse: gse,
+            governance: governance,
+            feeAsset: feeAsset,
+            stakingAsset: stakingAsset,
+            rewardDistributor: rewardDistributor
         });
     }
 }

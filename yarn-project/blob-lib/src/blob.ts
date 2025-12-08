@@ -4,7 +4,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { computeBlobCommitment, computeChallengeZ, computeEthVersionedBlobHash } from './hash.js';
 import type { BlobJson } from './interface.js';
-import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, kzg } from './kzg_context.js';
+import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, getKzg } from './kzg_context.js';
 
 export { FIELDS_PER_BLOB };
 
@@ -136,6 +136,7 @@ export class Blob {
    *  proof: Buffer - KZG opening proof for y = p(z). The commitment to quotient polynomial Q, used in compressed BLS12 point format (48 bytes).
    */
   evaluate(challengeZ: Fr, verifyProof = false) {
+    const kzg = getKzg();
     const res = kzg.computeKzgProof(this.data, challengeZ.toBuffer());
     if (verifyProof && !kzg.verifyKzgProof(this.commitment, challengeZ.toBuffer(), res[1], res[0])) {
       throw new Error(`KZG proof did not verify.`);
@@ -178,6 +179,7 @@ export class Blob {
   }
 
   static getViemKzgInstance() {
+    const kzg = getKzg();
     return {
       blobToKzgCommitment: kzg.blobToKzgCommitment.bind(kzg),
       computeBlobKzgProof: kzg.computeBlobKzgProof.bind(kzg),

@@ -1,20 +1,21 @@
 import { MockPrefilledArchiver } from '@aztec/archiver/test';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { timesAsync } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
-import { jest } from '@jest/globals';
+import { describe, jest } from '@jest/globals';
 
 import { NativeWorldStateService } from '../native/native_world_state.js';
 import type { WorldStateConfig } from '../synchronizer/config.js';
 import { createWorldState } from '../synchronizer/factory.js';
 import { ServerWorldStateSynchronizer } from '../synchronizer/server_world_state_synchronizer.js';
-import { mockBlocks } from './utils.js';
+import { mockCheckpoint } from './utils.js';
 
 jest.setTimeout(60_000);
 
@@ -26,18 +27,21 @@ describe('world-state integration', () => {
   let config: WorldStateConfig & DataStoreConfig;
   let log: Logger;
 
-  let blocks: L2Block[];
-  let messages: Fr[][];
+  let checkpoints: { checkpoint: Checkpoint; messages: Fr[] }[];
 
-  const MAX_BLOCK_COUNT = 20;
+  const MAX_CHECKPOINT_COUNT = 20;
 
   beforeAll(async () => {
     log = createLogger('world-state:test:integration');
     rollupAddress = EthAddress.random();
     const db = await NativeWorldStateService.tmp(rollupAddress);
-    log.info(`Generating ${MAX_BLOCK_COUNT} mock blocks`);
-    ({ blocks, messages } = await mockBlocks(BlockNumber(1), MAX_BLOCK_COUNT, 1, db));
-    log.info(`Generated ${blocks.length} mock blocks`);
+    const fork = await db.fork(BlockNumber(0));
+    log.info(`Generating ${MAX_CHECKPOINT_COUNT} mock checkpoints`);
+    checkpoints = await timesAsync(MAX_CHECKPOINT_COUNT, i =>
+      mockCheckpoint(CheckpointNumber(i + 1), { startBlockNumber: BlockNumber(i + 1), fork }),
+    );
+    log.info(`Generated ${checkpoints.length} mock checkpoints`);
+    await fork.close();
   });
 
   beforeEach(async () => {
@@ -52,7 +56,7 @@ describe('world-state integration', () => {
       worldStateBlockHistory: 0,
     };
 
-    archiver = new MockPrefilledArchiver(blocks, messages);
+    archiver = new MockPrefilledArchiver(checkpoints);
 
     db = (await createWorldState(config)) as NativeWorldStateService;
     synchronizer = new TestWorldStateSynchronizer(db, archiver, config);
@@ -184,9 +188,13 @@ describe('world-state integration', () => {
       await synchronizer.start();
       await expectSynchedToBlock(5);
 
-      // Create blocks for an alternate chain forking off block 2
-      const { blocks, messages } = await mockBlocks(BlockNumber(3), 5, 1, db);
-      archiver.setPrefilledBlocks(blocks, messages);
+      // Create checkpoints for an alternate chain forking off checkpoint 2
+      const fork = await db.fork(BlockNumber(2));
+      const newCheckpoints = await timesAsync(5, i =>
+        mockCheckpoint(CheckpointNumber(i + 3), { startBlockNumber: BlockNumber(i + 3), fork }),
+      );
+      await fork.close();
+      archiver.setPrefilled(newCheckpoints);
 
       archiver.removeBlocks(3);
       await archiver.createBlocks(2);
@@ -263,11 +271,6 @@ describe('world-state integration', () => {
 });
 
 class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
-  // Skip validation for the sake of this test
-  protected override verifyMessagesHashToInHash(_l1ToL2Messages: Fr[], _inHash: Fr): Promise<void> {
-    return Promise.resolve();
-  }
-
   // Stops the block stream but not the db so we can reuse it for another synchronizer
   public async stopBlockStream() {
     await this.blockStream?.stop();

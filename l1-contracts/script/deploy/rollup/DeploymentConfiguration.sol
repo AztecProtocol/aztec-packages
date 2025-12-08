@@ -52,7 +52,6 @@ struct DeploymentOptions {
 interface IDeploymentConfiguration {
     function loadConfig() external;
     function rollupConfig() external view returns (RollupConfiguration);
-    function getContractOptions() external view returns (DeploymentOptions memory);
     function getProtocolTreasuryConfiguration() external view returns (ProtocolTreasuryConfiguration memory);
     function getCoinIssuerConfiguration() external pure returns (CoinIssuerConfiguration memory);
     function getGseConfiguration() external view returns (GseConfiguration memory);
@@ -63,7 +62,6 @@ interface IDeploymentConfiguration {
     function getGenesisState() external view returns (GenesisState memory);
     function getRollupConfiguration(IRewardDistributor rewardDistributor) external view returns (RollupConfigInput memory);
     function getRewardDistributorFunding() external view returns (uint256);
-    function parseValidators() external view returns (CheatDepositArgs[] memory);
     function validateConfig() external view;
 }
 
@@ -73,26 +71,14 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
 
     // Storage for loaded config
     string public networkName;
-    DeploymentOptions public deploymentOptions;
-    ZkPassportConfiguration public zkPassportConfig;
 
-    function loadConfig() external {
+    function loadConfig() public {
         networkName = vm.envOr("NETWORK", string("local"));
-        _loadDeploymentOptions();
-        _loadZkPassportConfiguration();
-        _loadRollupConfiguration();
-    }
-
-    function _loadRollupConfiguration() private {
         rollupConfig = new RollupConfiguration();
         rollupConfig.loadConfig();
     }
 
     // ============ Deployment Options ============
-
-    function getContractOptions() external view returns (DeploymentOptions memory) {
-        return deploymentOptions;
-    }
 
     function getProtocolTreasuryConfiguration() external view returns (ProtocolTreasuryConfiguration memory) {
         return ProtocolTreasuryConfiguration({gatedUntil: block.timestamp + 90 minutes});
@@ -214,32 +200,20 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
     }
 
     function getRewardDistributorFunding() external view returns (uint256) {
+        RewardConfig memory rewardConfig = rollupConfig.getRewardConfiguration(address(0));
+        return uint256(rewardConfig.checkpointReward) * 200_000;
+    }
+
+    function getRewardDistributorFunding() external view returns (uint256) {
         return rollupConfig.getRewardDistributorFunding();
     }
 
-    function parseValidators() external view returns (CheatDepositArgs[] memory) {
-        return rollupConfig.parseValidators();
-    }
-
-    // ============ Internal Loading Functions ============
-
-    function _loadDeploymentOptions() private {
-        deploymentOptions = DeploymentOptions({
-            realVerifier: vm.envOr("REAL_VERIFIER", true),
-            fundRewardDistributor: vm.envOr("FUND_REWARD_DISTRIBUTOR", true),
-            existingStakingAssetAddress: vm.envOr("EXISTING_STAKING_ASSET_ADDRESS", address(0)),
-            feeJuicePortalInitialBalance: vm.envOr("FEE_JUICE_PORTAL_INITIAL_BALANCE", uint256(0))
-        });
-    }
-
-    function _loadZkPassportConfiguration() private {
-        zkPassportConfig = ZkPassportConfiguration({
+    function getZkPassportConfiguration() private {
+        return ZkPassportConfiguration({
             domain: vm.envOr("ZKPASSPORT_DOMAIN", string("sequencer.alpha-testnet.aztec.network")),
             scope: vm.envOr("ZKPASSPORT_SCOPE", string("personhood"))
         });
     }
-
-    // ============ Configuration Validation ============
 
     function validateConfig() external view {
         // Validate deployment-specific config
