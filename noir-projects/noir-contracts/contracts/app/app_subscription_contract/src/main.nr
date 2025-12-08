@@ -78,12 +78,14 @@ pub contract AppSubscription {
         // the parent takes. See aztec-nr/src/authwit/auth.nr for more details.
         assert_current_call_valid_authwit::<2>(self.context, user_address);
 
-        let emission = self.storage.subscriptions.at(user_address).replace(|mut note| {
+        let user_expiry_block_number = &mut 0;
+        let message = self.storage.subscriptions.at(user_address).replace(|note| {
             assert(note.remaining_txs > 0, "you're out of txs");
-            note.remaining_txs -= 1;
-            note
+            *user_expiry_block_number = note.expiry_block_number;
+
+            SubscriptionNote::new(note.expiry_block_number, note.remaining_txs - 1)
         });
-        emission.emit(user_address, MessageDelivery.CONSTRAINED_ONCHAIN);
+        message.deliver(user_address, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         self.context.set_as_fee_payer();
 
@@ -96,11 +98,7 @@ pub contract AppSubscription {
 
         // We check that the note is not expired. We do that via the router contract to conceal which contract
         // is performing the check.
-        privately_check_block_number(
-            Comparator.LT,
-            emission.content.note.expiry_block_number,
-            self.context,
-        );
+        privately_check_block_number(Comparator.LT, *user_expiry_block_number, self.context);
 
         payload.execute_calls(self.context, config.target_address);
     }
@@ -156,7 +154,7 @@ pub contract AppSubscription {
             .subscriptions
             .at(subscriber)
             .initialize_or_replace(|_| SubscriptionNote::new(expiry_block_number, tx_count))
-            .emit(subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
+            .deliver(subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("utility")]

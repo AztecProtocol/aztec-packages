@@ -64,7 +64,7 @@ pub contract Crowdfunding {
 
         // We don't constrain encryption because the donor is sending the note to himself. And hence by performing
         // encryption incorrectly would harm himself only.
-        self.storage.donation_receipts.at(donor).insert(note).emit(
+        self.storage.donation_receipts.at(donor).insert(note).deliver(
             donor,
             MessageDelivery.UNCONSTRAINED_ONCHAIN,
         );

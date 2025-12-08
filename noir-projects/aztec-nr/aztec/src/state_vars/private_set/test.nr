@@ -55,13 +55,13 @@ unconstrained fn insert() {
         let value = 42;
         let new_note = MockNote::new(value).build_note();
 
-        let emission = state_var.insert(new_note);
+        let note_message = state_var.insert(new_note);
 
         // insert creates a new note
         assert_eq(state_var.context.note_hashes.len(), 1);
 
-        assert_eq(emission.content.note, new_note);
-        assert_eq(emission.content.storage_slot, state_var.storage_slot);
+        assert_eq(note_message.new_note.note, new_note);
+        assert_eq(note_message.new_note.storage_slot, state_var.storage_slot);
     });
 }
 
@@ -96,13 +96,13 @@ unconstrained fn insert_and_get_settled() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
+    let note_message = env.private_context(|context| {
         let state_var = in_private(context);
 
         state_var.insert(note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -128,13 +128,13 @@ unconstrained fn insert_and_view_settled() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
+    let note_message = env.private_context(|context| {
         let state_var = in_private(context);
 
         state_var.insert(note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.utility_context(|context| {
         let state_var = in_utility(context);
@@ -173,13 +173,13 @@ unconstrained fn insert_and_pop_settled() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
+    let note_message = env.private_context(|context| {
         let state_var = in_private(context);
 
         state_var.insert(note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -220,12 +220,12 @@ unconstrained fn insert_and_remove_settled() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
+    let note_message = env.private_context(|context| {
         let state_var = in_private(context);
         state_var.insert(note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -263,13 +263,13 @@ unconstrained fn insert_pop_and_read_again_settled() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
+    let note_message = env.private_context(|context| {
         let state_var = in_private(context);
 
         state_var.insert(note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -307,13 +307,13 @@ unconstrained fn insert_remove_and_read_again_settled() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
+    let note_message = env.private_context(|context| {
         let state_var = in_private(context);
 
         state_var.insert(note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         let state_var = in_private(context);
