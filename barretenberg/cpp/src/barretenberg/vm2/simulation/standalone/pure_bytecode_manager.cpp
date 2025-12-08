@@ -74,6 +74,11 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     // the bytecode. The actual commitment is only needed for trace generation / witgen.
     BytecodeId bytecode_id = current_class_id;
 
+    // Check if we've already processed this bytecode (different class can have same bytecode).
+    if (bytecodes.contains(bytecode_id)) {
+        return bytecode_id;
+    }
+
     // We now save the bytecode so that we don't repeat this process.
     bytecodes[bytecode_id] = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
     return bytecode_id;
