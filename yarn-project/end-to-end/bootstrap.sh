@@ -156,7 +156,9 @@ function test_and_collect_avm_inputs {
   # Run tests in parallel (like regular test command)
   test_cmds | filter_test_cmds | parallelize
 
-  local tarball_name="e2e-avm-circuit-inputs-$hash.tar.gz"
+  # Use AVM_INPUTS_HASH if set (computed before build in CI), otherwise fall back to $hash
+  local avm_hash=${AVM_INPUTS_HASH:-$hash}
+  local tarball_name="e2e-avm-circuit-inputs-$avm_hash.tar.gz"
 
   if [ -d "$default_avm_inputs_dump_dir" ] && [ "$(ls -A $default_avm_inputs_dump_dir 2>/dev/null)" ]; then
     echo_header "Packaging and uploading AVM circuit inputs"
@@ -209,7 +211,9 @@ function avm_check_circuit_cmds {
 function avm_check_circuit {
   echo_header "AVM check-circuit on dumped inputs"
 
-  local tarball_name="e2e-avm-circuit-inputs-$hash.tar.gz"
+  # Use AVM_INPUTS_HASH if set (computed before build in CI), otherwise fall back to $hash
+  local avm_hash=${AVM_INPUTS_HASH:-$hash}
+  local tarball_name="e2e-avm-circuit-inputs-$avm_hash.tar.gz"
 
   # Download the cached tarball
   if ! cache_download "$tarball_name"; then

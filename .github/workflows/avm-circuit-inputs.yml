@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - next
-  pull_request:  # TEMPORARY: Remove after testing
   schedule:
     # Also run nightly at 3:00 AM UTC as a safety net
     - cron: "0 3 * * *"
@@ -23,15 +22,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Compute AVM inputs hash
+      - name: Compute tarball name
         id: compute-hash
         run: |
-          # Compute the same hash that will be used by the EC2 job
-          # This is computed before build to get a clean hash
-          REPO_HASH=$(./yarn-project/bootstrap.sh hash)
-          TARBALL_NAME="e2e-avm-circuit-inputs-$REPO_HASH.tar.gz"
+          # Use tree hash for tarball name - consistent across all environments
+          # Same content = same tree hash, even across different commits
+          TREE_HASH=$(git rev-parse HEAD^{tree})
+          TARBALL_NAME="e2e-avm-circuit-inputs-$TREE_HASH.tar.gz"
           echo "tarball_name=$TARBALL_NAME" >> $GITHUB_OUTPUT
-          echo "Computed tarball name: $TARBALL_NAME"
+          echo "Tarball name: $TARBALL_NAME"
 
       - name: Collect AVM Circuit Inputs
         env:
@@ -88,3 +87,14 @@ jobs:
 
           # Run via ci.sh which spins up an EC2 instance and runs ./bootstrap.sh ci-avm-check-circuit
           ./ci.sh avm-check-circuit
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-type: application/json" \
+            --data "{\"channel\": \"#team-bonobos\", \"text\": \"🚨 AVM check-circuit failed\\n<$WORKFLOW_URL|View Run>\"}"
