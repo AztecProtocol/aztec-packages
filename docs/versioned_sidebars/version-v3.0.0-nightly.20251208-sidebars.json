@@ -179,10 +179,6 @@
         },
         {
           "type": "doc",
-          "id": "the_aztec_network/operation/sequencer_management/running_delegated_stake"
-        },
-        {
-          "type": "doc",
           "id": "the_aztec_network/operation/sequencer_management/claiming_rewards"
         },
         {
