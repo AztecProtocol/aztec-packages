@@ -407,183 +407,14 @@ Extract attester addresses:
 jq -r '.validators[0].attester.eth' ~/.aztec/keystore/key1.json
 ```
 
-## Common Issues
+## Troubleshooting
 
-### Missing fee-recipient Flag
+If you encounter issues during keystore creation or management, see the **[Troubleshooting and Best Practices Guide](./troubleshooting.md)** for:
 
-**Error message:**
-```
-error: required option '--fee-recipient <address>' not specified
-```
-
-**Solution:** The CLI requires the `--fee-recipient` flag. Use the zero address:
-
-```bash
---fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000
-```
-
-### RPC Connection Issues
-
-**Error message:**
-```
-Error: HTTP request failed
-```
-
-**Solutions:**
-- Verify `$ETH_RPC` is set correctly: `echo $ETH_RPC`
-- Test RPC connectivity: `cast block-number --rpc-url $ETH_RPC`
-- Try a different RPC provider if the current one is rate-limited
-
-### Permission Denied
-
-**Error message:**
-```
-Error: permission denied
-```
-
-**Solution:** Ensure you have write permissions for the target directory:
-
-```bash
-mkdir -p ~/.aztec/keystore
-chmod 755 ~/.aztec/keystore
-```
-
-### Invalid Keystore JSON
-
-**Error:** Node fails to load keystore
-
-**Solutions:**
-- Validate JSON syntax: `jq . ~/.aztec/keystore/key1.json`
-- Ensure all required fields are present
-- Check that publisher is an array: `["0x..."]` not `"0x..."`
-- Verify private keys are 64-character hex strings (with or without `0x` prefix)
-
-### Legacy BLS Key Derivation (2.1.4 Users)
-
-**Issue:** Need to regenerate keys that were created with CLI version 2.1.4 or earlier
-
-Version 2.1.5 changed the BLS key derivation path, which means keys generated from the same mnemonic produce different results. This affects users who:
-- Generated keys with version 2.1.4 using `--count` parameter
-- Used `--account-index` explicitly in version 2.1.4
-- Need to regenerate keys from mnemonic that are already registered in the GSE contract
-
-**The derivation path change:**
-- **2.1.4**: `m/12381/3600/0/0/0`, `m/12381/3600/1/0/0`, `m/12381/3600/2/0/0`
-- **2.1.5+**: `m/12381/3600/0/0/0`, `m/12381/3600/0/0/1`, `m/12381/3600/0/0/2`
-
-**Solution: Use the --legacy flag**
-
-If you generated keys with version 2.1.4 and need to regenerate them from your mnemonic, use the `--legacy` flag:
-
-```bash
-aztec validator-keys new \
-  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
-  --staker-output \
-  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
-  --l1-rpc-urls $ETH_RPC \
-  --mnemonic "your twelve word mnemonic phrase here" \
-  --count 5 \
-  --legacy
-```
-
-The `--legacy` flag uses the 2.1.4 derivation path to reproduce your original keys.
-
-:::warning When NOT to Use --legacy
-Do NOT use the `--legacy` flag if:
-- You're generating keys for the first time
-- You generated keys with version 2.1.5 or later
-- You didn't use `--count` or `--account-index` in version 2.1.4
-
-Using `--legacy` unnecessarily will create keys with the old derivation path that won't match your newer registrations.
-:::
-
-:::info Why This Matters
-BLS keys are registered in the GSE (Governance Staking Escrow) contract and cannot be easily updated. If you regenerate keys with a different derivation path, they won't match what's registered on chain, and your sequencer won't be able to attest properly.
-:::
-
-## Security Best Practices
-
-### Protecting Private Keys
-
-1. **Never commit keystores to version control**
-   - Add `keystore.json` to `.gitignore`
-   - Store keystores outside your project directory
-
-2. **Backup your mnemonic securely**
-   - Write it down offline
-   - Store in a secure location (not on the server)
-   - Consider using a hardware wallet or password manager
-
-3. **Limit keystore access**
-   ```bash
-   chmod 600 ~/.aztec/keystore/key1.json
-   ```
-
-4. **Separate publisher from attester**
-   - Use dedicated publisher keys
-   - Keep attester keys offline when possible
-   - Use remote signers for production
-
-### Production Deployments
-
-For production, consider:
-- **Hardware Security Modules (HSMs)** for key storage
-- **Remote signers** to keep keys off the node
-- **Encrypted keystores** with password protection
-- **Key management systems** (HashiCorp Vault, AWS Secrets Manager)
-
-See [Key Storage Methods](./storage_methods.md) for advanced security patterns.
-
-## CLI Reference
-
-### validator-keys new
-
-Create a new keystore with validators:
-
-```bash
-aztec validator-keys new [options]
-```
-
-**Common Options:**
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--fee-recipient <address>` | L2 fee recipient (required) | None |
-| `--mnemonic <phrase>` | 12 or 24 word mnemonic | Auto-generated |
-| `--count <number>` | Number of validators to create | `1` |
-| `--publisher-count <number>` | Publishers per validator | `0` |
-| `--staker-output` | Generate public keystore for staking | `false` |
-| `--gse-address <address>` | GSE contract address (required with --staker-output) | None |
-| `--l1-rpc-urls <urls>` | L1 RPC endpoints (required with --staker-output) | None |
-| `--legacy` | Use 2.1.4 BLS derivation path (only for regenerating old keys) | `false` |
-| `--data-dir <path>` | Output directory | `~/.aztec/keystore` |
-| `--file <name>` | Keystore filename | `key1.json` |
-
-For the complete list:
-
-```bash
-aztec validator-keys new --help
-```
-
-### validator-keys add
-
-Add validators to an existing keystore:
-
-```bash
-aztec validator-keys add <keystore-path> [options]
-```
-
-### validator-keys staker
-
-Generate staker output from an existing keystore:
-
-```bash
-aztec validator-keys staker \
-  --from <keystore-path> \
-  --gse-address <address> \
-  --l1-rpc-urls <url> \
-  --output <output-file>
-```
+- Keystore creation issues (RPC, permissions, invalid JSON, legacy BLS keys)
+- Runtime and operational issues (node startup, remote signers, nonce conflicts)
+- Comprehensive security best practices
+- Complete CLI reference
 
 ## Next Steps
 
@@ -600,7 +431,7 @@ Now that you've created your keystores:
 
 - **[Advanced Keystore Patterns](./advanced_patterns.md)** - Multiple validators, high availability, remote signers
 - **[Key Storage Methods](./storage_methods.md)** - Encrypted keystores, HSMs, key management systems
-- **[Troubleshooting](./troubleshooting.md)** - Common issues and solutions
+- **[Troubleshooting and Best Practices](./troubleshooting.md)** - Common issues, security best practices, and CLI reference
 
 ### Getting Help
 
