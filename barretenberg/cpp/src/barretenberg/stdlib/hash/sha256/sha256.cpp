@@ -16,14 +16,38 @@ using namespace bb;
 namespace bb::stdlib {
 using namespace bb::plookup;
 
+/**
+ * @brief Convert a 32-bit witness value to sparse limbs form for message schedule extension
+ *
+ * This function decomposes a 32-bit value into base-16 sparse limbs and pre-computes
+ * rotation offsets needed for the σ₀ and σ₁ functions in SHA-256 message schedule extension:
+ *   σ₀(x) = (x >>> 7) ⊕ (x >>> 18) ⊕ (x >> 3)
+ *   σ₁(x) = (x >>> 17) ⊕ (x >>> 19) ⊕ (x >> 10)
+ *
+ * SHA256_WITNESS_INPUT Lookup Table Structure:
+ * - Decomposes 32-bit input into 4 slices: [3, 7, 8, 14] bits (total 32 bits)
+ * - Column 1 (C1): Accumulates normal form reconstruction (coefficients: 1, 2³, 2¹⁰, 2¹⁸)
+ * - Column 2 (C2): Sparse limbs in base-16 (4 limbs covering the 32 bits)
+ * - Column 3 (C3): Pre-rotated limbs for efficient rotation computation
+ *
+ * Limb Structure (base-16):
+ * - Each limb represents multiple bits from the original value
+ * - Limbs are sized to align with rotation boundaries where possible
+ * - The specific slice sizes (3, 7, 8, 14) optimize for the rotation patterns in σ₀ and σ₁
+ *
+ * @param input The 32-bit field element to convert (typically W[i-15] or W[i-2])
+ * @return sparse_witness_limbs
+ *
+ * @see extend_witness() lines 71-91 for how sparse_limbs and rotated_limbs are used together
+ * @see sha256.hpp left_multipliers and right_multipliers for rotation scaling factors
+ */
 template <typename Builder>
-SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const field_t<Builder>& w)
+SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const field_t<Builder>& input)
 {
-    typedef field_t<Builder> field_pt;
+    using field_pt = field_t<Builder>;
 
-    sparse_witness_limbs result(w);
-
-    const auto lookup = plookup_read<Builder>::get_lookup_accumulators(MultiTableId::SHA256_WITNESS_INPUT, w);
+    sparse_witness_limbs result(input);
+    const auto lookup = plookup_read<Builder>::get_lookup_accumulators(MultiTableId::SHA256_WITNESS_INPUT, input);
 
     result.sparse_limbs = std::array<field_pt, 4>{
         lookup[ColumnIdx::C2][0],
@@ -45,7 +69,7 @@ SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const fie
 template <typename Builder>
 std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::array<field_t<Builder>, 16>& w_in)
 {
-    typedef field_t<Builder> field_pt;
+    using field_pt = field_t<Builder>;
 
     Builder* ctx = w_in[0].get_context();
 
@@ -82,6 +106,7 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             w_right.sparse_limbs[3] * right_multipliers[3],
         };
 
+        // AUDITTODO: explain where the fr(4) scaling comes from here
         const field_pt left_xor_sparse =
             left[0].add_two(left[1], left[2]).add_two(left[3], w_left.rotated_limbs[1]) * fr(4);
 

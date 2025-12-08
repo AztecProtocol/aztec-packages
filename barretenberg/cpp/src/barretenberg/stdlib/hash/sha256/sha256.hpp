@@ -19,11 +19,32 @@ template <typename Builder> class SHA256 {
 
     using field_ct = field_t<Builder>;
 
-    static constexpr uint64_t init_constants[8]{ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-                                                 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+    static constexpr std::array<uint64_t, 8> init_constants{ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                                                             0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
 
     static constexpr fr base{ 16 };
 
+    /**
+     * @brief Multipliers for computing σ₀ and σ₁ during message schedule extension
+     *
+     * limb 0) bits [0..2]; pos_0 = 0
+     *   - rotation by 7: 16^(-7 + pos_0 mod 32) = 16^(32 - 7 + 0)
+     *   - rotation by 18: 16^(-18 + pos_0 mod 32) = 16^(32 - 18 + 0)
+     *   - shift by 3: no contribution (all 3 bits shifted out)
+     * limb 1) bits [3..9]; pos_1 = 3
+     *   - rotation by 7: not representable as scalar; accounted for in rotated_limbs[1]
+     *   - rotation by 18: 16^(-18 + pos_1 mod 32) = 16^(32 - 18 + 3)
+     *   - shift by 3: 16^(pos_1 - 3) = 16^0 = 1
+     * limb 2) bits [10..17]; pos_2 = 10
+     *   - rotation by 7: 16^(-7 + pos_2) = 16^(10 - 7)
+     *   - rotation by 18: 16^(-18 + pos_2 mod 32) = 16^(32 - 18 + 10)
+     *   - shift by 3: 16^(pos_2 - 3) = 16^(10 - 3)
+     * limb 3) bits [18..31]; pos_3 = 18
+     *  - rotation by 7: 16^(-7 + pos_3) = 16^(18 - 7)
+     *  - rotation by 18: 16^(-18 + pos_3) = 16^(18 - 18) = 1
+     *  - shift by 3: 16^(pos_3 - 3) = 16^(18 - 3)
+     */
+    // AUDITTODO: consider making thse expressions simpler in light of the above comments
     static constexpr std::array<fr, 4> left_multipliers{
         (base.pow(32 - 7) + base.pow(32 - 18)),
         (base.pow(32 - 18 + 3) + 1),
@@ -31,6 +52,26 @@ template <typename Builder> class SHA256 {
         (base.pow(18 - 7) + base.pow(18 - 3) + 1),
     };
 
+    /**
+     * @brief Multipliers for computing σ₁ during message schedule extension
+     *
+     * limb 0) bits [0..2]; pos_0 = 0
+     *   - rotation by 17: 16^(-17 + pos_0 mod 32) = 16^(32 - 17 + 0)
+     *   - rotation by 19: 16^(-19 + pos_0 mod 32) = 16^(32 - 19 + 0)
+     *   - shift by 10: no contribution (all 3 bits shifted out)
+     * limb 1) bits [3..9]; pos_1 = 3
+     *   - rotation by 17: 16^(-17 + pos_1 mod 32) = 16^(32 - 17 + 3)
+     *   - rotation by 19: 16^(-19 + pos_1 mod 32) = 16^(32 - 19 + 3)
+     *   - shift by 10: no contribution (all 7 bits shifted out)
+     * limb 2) bits [10..17]; pos_2 = 10
+     *   - rotation by 17: not representable as scalar; accounted for in rotated_limbs[2]
+     *   - rotation by 19: 16^(-19 + pos_2 mod 32) = 16^(32 - 19 + 10)
+     *   - shift by 10: 16^(pos_2 - 10) = 16^0 = 1
+     * limb 3) bits [18..31]; pos_3 = 18
+     *   - rotation by 17: 16^(-17 + pos_3) = 16^(18 - 17)
+     *   - rotation by 19: not representable as scalar; accounted for in rotated_limbs[3]
+     *   - shift by 10: 16^(pos_3 - 10) = 16^(18 - 10)
+     */
     static constexpr std::array<fr, 4> right_multipliers{
         base.pow(32 - 17) + base.pow(32 - 19),
         base.pow(32 - 17 + 3) + base.pow(32 - 19 + 3),
@@ -38,7 +79,7 @@ template <typename Builder> class SHA256 {
         base.pow(18 - 17) + base.pow(18 - 10),
     };
 
-    static constexpr uint64_t round_constants[64]{
+    static constexpr std::array<uint64_t, 64> round_constants{
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
         0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
         0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -50,15 +91,13 @@ template <typename Builder> class SHA256 {
     };
     struct sparse_witness_limbs {
         sparse_witness_limbs(const field_ct& in = 0)
-        {
-            normal = in;
-            has_sparse_limbs = false;
-        }
+            : normal(in)
+        {}
         sparse_witness_limbs(const sparse_witness_limbs& other) = default;
         sparse_witness_limbs(sparse_witness_limbs&& other) = default;
-
         sparse_witness_limbs& operator=(const sparse_witness_limbs& other) = default;
         sparse_witness_limbs& operator=(sparse_witness_limbs&& other) = default;
+        ~sparse_witness_limbs() = default;
 
         field_ct normal;
 
@@ -70,8 +109,8 @@ template <typename Builder> class SHA256 {
     };
     struct sparse_value {
         sparse_value(const field_ct& in = 0)
+            : normal(in)
         {
-            normal = in;
             if (normal.is_constant()) {
                 sparse = field_ct(in.get_context(),
                                   bb::fr(numeric::map_into_sparse_form<16>(uint256_t(in.get_value()).data[0])));
@@ -80,15 +119,15 @@ template <typename Builder> class SHA256 {
 
         sparse_value(const sparse_value& other) = default;
         sparse_value(sparse_value&& other) = default;
-
         sparse_value& operator=(const sparse_value& other) = default;
         sparse_value& operator=(sparse_value&& other) = default;
+        ~sparse_value() = default;
 
         field_ct normal;
         field_ct sparse;
     };
 
-    static sparse_witness_limbs convert_witness(const field_ct& w);
+    static sparse_witness_limbs convert_witness(const field_ct& input);
 
     static field_ct choose(sparse_value& e, const sparse_value& f, const sparse_value& g);
 
