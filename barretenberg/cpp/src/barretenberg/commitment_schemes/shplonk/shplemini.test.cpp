@@ -535,7 +535,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
 
     std::vector<Fr> padding_indicator_array(small_log_n, Fr{ 1 });
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
         padding_indicator_array, mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript);
 
     // Verify claim - should succeed because the polynomial was crafted to fold correctly
@@ -545,7 +545,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
         EXPECT_EQ(result, true);
     } else {
         const auto pairing_points =
-            KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
         EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
     }
 }
@@ -599,7 +599,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
 
     std::vector<Fr> padding_indicator_array(small_log_n, Fr{ 1 });
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
         padding_indicator_array, mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript);
 
     // Verify claim - should fail because the random polynomial doesn't fold correctly
@@ -610,7 +610,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
             std::runtime_error);
     } else {
         const auto pairing_points =
-            KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
         EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), false);
     }
 }
