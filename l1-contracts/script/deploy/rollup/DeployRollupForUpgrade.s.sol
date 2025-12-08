@@ -100,7 +100,7 @@ contract DeployRollupForUpgrade is Script, Test {
     /// @notice Deploy rollup with existing L1 infrastructure, write output to file
     /// @param _outputPath Path to write deployment output JSON
     function run(string memory _outputPath) public {
-        _loadExistingInfrastructure();
+        _parseInputAddresses();
         rollupConfig = new RollupConfiguration();
         rollupConfig.loadConfig();
 
@@ -113,7 +113,7 @@ contract DeployRollupForUpgrade is Script, Test {
 
     /// @notice Deploy rollup without output file (for backwards compatibility)
     function run() public {
-        _loadExistingInfrastructure();
+        _parseInputAddresses();
         rollupConfig = new RollupConfiguration();
         rollupConfig.loadConfig();
 
@@ -122,8 +122,8 @@ contract DeployRollupForUpgrade is Script, Test {
         vm.stopBroadcast();
     }
 
-    /// @notice Load existing L1 infrastructure from environment variables
-    function _loadExistingInfrastructure() internal {
+    /// @notice Parse existing L1 infrastructure from environment variables
+    function _parseInputAddresses() internal {
         address registryAddr = vm.envAddress("REGISTRY_ADDRESS");
         address gseAddr = vm.envAddress("GSE_ADDRESS");
         address governanceAddr = vm.envAddress("GOVERNANCE_ADDRESS");

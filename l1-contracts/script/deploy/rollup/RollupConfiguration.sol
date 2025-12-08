@@ -252,7 +252,8 @@ contract RollupConfiguration is Test {
 
     // keep
     function getRollupConfiguration(IRewardDistributor _rewardDistributor) external view returns (RollupConfigInput memory) {
-        return RollupConfigInput({
+        // Build config without version first
+        RollupConfigInput memory config = RollupConfigInput({
             aztecSlotDuration: vm.envOr("AZTEC_SLOT_DURATION", uint256(36)),
             aztecEpochDuration: vm.envOr("AZTEC_EPOCH_DURATION", uint256(32)),
             targetCommitteeSize: vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48)),
@@ -271,13 +272,31 @@ contract RollupConfiguration is Test {
             slashingDisableDuration: vm.envOr("AZTEC_SLASHING_DISABLE_DURATION", uint256(5 days)),
             manaTarget: vm.envOr("AZTEC_MANA_TARGET", uint256(100_000_000)),
             exitDelaySeconds: vm.envOr("AZTEC_EXIT_DELAY_SECONDS", uint256(2 days)),
-            version: 0,
+            version: 0,  // Computed below
             provingCostPerMana: EthValue.wrap(vm.envOr("AZTEC_PROVING_COST_PER_MANA", uint256(100))),
             rewardConfig: this.getRewardConfiguration(_rewardDistributor),
             rewardBoostConfig: this.getRewardBoostConfiguration(),
             stakingQueueConfig: this.getStakingQueueConfiguration(),
             earliestRewardsClaimableTimestamp: getEarliestRewardsClaimableTimestamp()
         });
+
+        // Compute version as first 4 bytes of hash(abi.encode(config, genesisState))
+        config.version = _computeConfigVersion(config, this.getGenesisState());
+
+        return config;
+    }
+
+    /// @notice Compute rollup config version by hashing config + genesis state
+    /// @dev Version is the first 4 bytes (uint32) of keccak256(abi.encode(rollupConfig, genesisState))
+    ///      This matches the TS implementation: keccak256(jsonStringify({rollupConfigArgs, genesisStateArgs}))
+    function _computeConfigVersion(RollupConfigInput memory _config, GenesisState memory _genesisState)
+        private
+        pure
+        returns (uint32)
+    {
+        bytes32 hash = keccak256(abi.encode(_config, _genesisState));
+        // Extract first 4 bytes as uint32 (big-endian)
+        return uint32(bytes4(hash));
     }
 
     function _getSlasherFlavor() private view returns (SlasherFlavor) {
