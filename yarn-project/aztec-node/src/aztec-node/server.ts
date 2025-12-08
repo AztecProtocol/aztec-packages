@@ -2,6 +2,11 @@ import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
+  type BlobFileStoreMetadata,
+  createReadOnlyFileStoreBlobClients,
+  createWritableFileStoreBlobClient,
+} from '@aztec/blob-sink/filestore';
+import {
   ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -197,8 +202,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const packageVersion = getPackageVersion() ?? '';
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const dateProvider = deps.dateProvider ?? new DateProvider();
-    const blobSinkClient =
-      deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
 
     // Build a key store from file if given or from environment otherwise
@@ -266,6 +269,25 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
     }
 
+    const blobFileStoreMetadata: BlobFileStoreMetadata = {
+      l1ChainId: config.l1ChainId,
+      rollupVersion: config.rollupVersion,
+      rollupAddress: config.l1Contracts.rollupAddress.toString(),
+    };
+
+    const [fileStoreClients, fileStoreUploadClient] = await Promise.all([
+      createReadOnlyFileStoreBlobClients(config.blobFileStoreUrls, blobFileStoreMetadata, log),
+      createWritableFileStoreBlobClient(config.blobFileStoreUploadUrl, blobFileStoreMetadata, log),
+    ]);
+
+    const blobSinkClient =
+      deps.blobSinkClient ??
+      createBlobSinkClient(config, {
+        logger: createLogger('node:blob-sink:client'),
+        fileStoreClients,
+        fileStoreUploadClient,
+      });
+
     // attempt snapshot sync if possible
     await trySnapshotSync(config, log);
 
@@ -331,6 +353,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockSource: archiver,
       l1ToL2MessageSource: archiver,
       keyStoreManager,
+      fileStoreBlobUploadClient: fileStoreUploadClient,
     });
 
     // If we have a validator client, register it as a source of offenses for the slasher,
