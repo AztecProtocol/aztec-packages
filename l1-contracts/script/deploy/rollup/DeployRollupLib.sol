@@ -1,0 +1,176 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2024 Aztec Labs.
+// solhint-disable imports-order, max-states-count, gas-small-strings, comprehensive-interface
+pragma solidity >=0.8.27;
+
+import {Vm} from "forge-std/Vm.sol";
+
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+
+import {GenesisState, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+
+import {Governance} from "@aztec/governance/Governance.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+
+import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
+import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
+
+import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
+
+import {HonkVerifier} from "../../../generated/HonkVerifier.sol";
+
+import {RollupConfiguration} from "./RollupConfiguration.sol";
+
+/// @notice Input addresses required for rollup deployment (existing L1 infrastructure)
+struct RollupAddressInput {
+    address deployer;
+    Registry registry;
+    GSE gse;
+    Governance governance;
+    IERC20 feeAsset;
+    IERC20 stakingAsset;
+    RewardDistributor rewardDistributor;
+}
+
+/// @notice Output addresses from rollup deployment (newly deployed contracts)
+struct RollupAddressOutput {
+    Rollup rollup;
+    IVerifier verifier;
+    SlashFactory slashFactory;
+}
+
+/// @title DeployRollupLib
+/// @author Aztec Labs
+/// @notice Library for deploying rollup contracts. Used by DeployL1Contracts and DeployRollupForUpgrade.
+library DeployRollupLib {
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
+    function deployRollup(RollupAddressInput memory input, RollupConfiguration config)
+        internal
+        returns (RollupAddressOutput memory output)
+    {
+        config.validateConfig();
+        output.verifier = _deployVerifier(config);
+        output.rollup = _deployRollupContract(input, output.verifier, config);
+        _maybeMintInitialFeeAsset(input, output.rollup, config);
+        output.slashFactory = new SlashFactory(output.rollup);
+        _maybeRegisterRollup(input, output.rollup);
+        _maybeAddInitialValidators(input, output.rollup, config);
+        _transferOwnership(input, output.rollup);
+    }
+
+    function writeRollupAddressesToJson(string memory jsonKey, RollupAddressOutput memory output)
+        internal
+        returns (string memory)
+    {
+        vm.serializeAddress(jsonKey, "rollupAddress", address(output.rollup));
+        vm.serializeAddress(jsonKey, "verifierAddress", address(output.verifier));
+        vm.serializeAddress(jsonKey, "slashFactoryAddress", address(output.slashFactory));
+        vm.serializeAddress(jsonKey, "inboxAddress", address(output.rollup.getInbox()));
+        vm.serializeAddress(jsonKey, "outboxAddress", address(output.rollup.getOutbox()));
+        vm.serializeAddress(jsonKey, "feeAssetPortalAddress", address(output.rollup.getFeeAssetPortal()));
+        return vm.serializeUint(jsonKey, "rollupVersion", output.rollup.getVersion());
+    }
+
+    function _deployVerifier(RollupConfiguration config) private returns (IVerifier) {
+        if (!config.useRealVerifier()) {
+            return new MockVerifier();
+        } else {
+            return IVerifier(address(new HonkVerifier()));
+        }
+    }
+
+    function _deployRollupContract(
+        RollupAddressInput memory input,
+        IVerifier verifier,
+        RollupConfiguration config
+    ) private returns (Rollup) {
+        GenesisState memory genesisState = config.getGenesisState();
+        RollupConfigInput memory rollupConfigInput =
+            config.getRollupConfiguration(IRewardDistributor(address(input.rewardDistributor)));
+
+        return new Rollup(
+            input.feeAsset,
+            input.stakingAsset,
+            input.gse,
+            verifier,
+            input.deployer,
+            genesisState,
+            rollupConfigInput
+        );
+    }
+
+    function _maybeMintInitialFeeAsset(
+        RollupAddressInput memory input,
+        Rollup rollup,
+        RollupConfiguration config
+    ) private {
+        uint256 initialFeeAssetAmount = config.getFeeJuicePortalInitialBalance();
+        if (initialFeeAssetAmount > 0) {
+            address feeAssetPortal = address(rollup.getFeeAssetPortal());
+            TestERC20(address(input.feeAsset)).mint(feeAssetPortal, initialFeeAssetAmount);
+        }
+    }
+
+    function _maybeRegisterRollup(RollupAddressInput memory input, Rollup rollup) private {
+        if (input.registry.owner() == input.deployer) {
+            input.registry.addRollup(rollup);
+        }
+        if (input.gse.owner() == input.deployer) {
+            input.gse.addRollup(address(rollup));
+        }
+    }
+
+    function _maybeAddInitialValidators(
+        RollupAddressInput memory input,
+        Rollup rollup,
+        RollupConfiguration config
+    ) private {
+        CheatDepositArgs[] memory initialValidators = config.parseValidators();
+        if (initialValidators.length == 0) {
+            return;
+        }
+
+        MultiAdder multiAdder = new MultiAdder(address(rollup), input.deployer);
+
+        uint256 activationThreshold = rollup.getActivationThreshold();
+        uint256 stakeNeeded = activationThreshold * initialValidators.length;
+        TestERC20(address(input.stakingAsset)).mint(address(multiAdder), stakeNeeded);
+
+        uint256 chunkSize = 16;
+        for (uint256 i = 0; i < initialValidators.length; i += chunkSize) {
+            uint256 end = i + chunkSize > initialValidators.length ? initialValidators.length : i + chunkSize;
+            uint256 chunkLen = end - i;
+
+            CheatDepositArgs[] memory chunk = new CheatDepositArgs[](chunkLen);
+            for (uint256 j = 0; j < chunkLen; ++j) {
+                chunk[j] = initialValidators[i + j];
+            }
+
+            multiAdder.addValidators(chunk, 0);
+        }
+
+        uint256 flushChunkSize = 16;
+        while (true) {
+            uint256 queueLength = rollup.getEntryQueueLength();
+            if (queueLength == 0) break;
+
+            uint256 availableFlushes = rollup.getAvailableValidatorFlushes();
+            if (availableFlushes == 0) break;
+
+            rollup.flushEntryQueue(flushChunkSize);
+        }
+    }
+
+    function _transferOwnership(RollupAddressInput memory input, Rollup rollup) private {
+        if (rollup.owner() == input.deployer) {
+            rollup.transferOwnership(address(input.governance));
+        }
+    }
+}

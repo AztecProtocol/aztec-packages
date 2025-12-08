@@ -28,7 +28,7 @@ import {DateGatedRelayer} from "@aztec/periphery/DateGatedRelayer.sol";
 
 import {ZKPassportVerifier} from "@zkpassport/ZKPassportVerifier.sol";
 
-import {DeployRollup, RollupAddressInput} from "./DeployRollup.s.sol";
+import {DeployRollupLib, RollupAddressInput, RollupAddressOutput} from "./DeployRollupLib.sol";
 import {
     CoinIssuerConfiguration,
     DeploymentOptions,
@@ -84,8 +84,8 @@ contract DeployL1Contracts is Script, Test {
     GovernanceProposer public governanceProposer;
     /// @notice Deployed governance contract
     Governance public governance;
-    /// @notice Rollup deployer helper (handles rollup-specific deployment)
-    DeployRollup public rollupDeployer;
+    /// @notice Rollup deployment output (rollup, verifier, slashFactory)
+    RollupAddressOutput public rollupOutput;
     /// @notice Deployed date gated relayer contract
     DateGatedRelayer public dateGatedRelayer;
     /// @notice Deployed fee asset handler contract or address(0)
@@ -228,10 +228,14 @@ contract DeployL1Contracts is Script, Test {
         gseContract.setGovernance(governance);
     }
 
-    /// @notice Deploy rollup and related contracts via DeployRollup helper
+    /// @notice Deploy rollup and related contracts via DeployRollupLib
     function _deployRollup() internal {
-        rollupDeployer = new DeployRollup();
-        rollupDeployer.setEnv(RollupAddressInput({
+        rollupOutput = DeployRollupLib.deployRollup(_getRollupAddressInput(), config.rollupConfig());
+    }
+
+    /// @notice Build RollupAddressInput from deployed contracts
+    function _getRollupAddressInput() internal view returns (RollupAddressInput memory) {
+        return RollupAddressInput({
             deployer: deployer,
             registry: registry,
             gse: gseContract,
@@ -239,8 +243,7 @@ contract DeployL1Contracts is Script, Test {
             feeAsset: feeAsset,
             stakingAsset: stakingAsset,
             rewardDistributor: rewardDistributor
-        }));
-        rollupDeployer.deployRollup(config.rollupConfig());
+        });
     }
 
     /// @notice Deploy date gated relayer contract
@@ -330,8 +333,8 @@ contract DeployL1Contracts is Script, Test {
         vm.serializeAddress(json, "feeAssetHandlerAddress", address(feeAssetHandler));
         vm.serializeAddress(json, "stakingAssetHandlerAddress", address(stakingAssetHandler));
         vm.serializeAddress(json, "zkPassportVerifierAddress", address(mockZkPassportVerifier));
-        // Rollup-related addresses from the deployer helper
-        string memory finalJson = rollupDeployer.writeRollupAddressesToJson(json);
+        // Rollup-related addresses
+        string memory finalJson = DeployRollupLib.writeRollupAddressesToJson(json, rollupOutput);
         vm.writeJson(finalJson, _outputPath);
     }
 

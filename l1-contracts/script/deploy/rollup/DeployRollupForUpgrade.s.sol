@@ -12,13 +12,13 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
-import {DeployRollup, RollupAddressInput} from "./DeployRollup.s.sol";
+import {DeployRollupLib, RollupAddressInput, RollupAddressOutput} from "./DeployRollupLib.sol";
 import {RollupConfiguration} from "./RollupConfiguration.sol";
 
 /// @title DeployRollupForUpgrade
 /// @author Aztec Labs
 /// @notice Standalone script for deploying a new Rollup contract as an upgrade.
-/// This uses DeployRollup via composition to provide the entrypoint for standalone rollup upgrades.
+/// This uses DeployRollupLib to deploy rollup contracts.
 /// It loads existing L1 infrastructure from environment variables and outputs
 /// deployment results to JSON.
 ///
@@ -31,33 +31,34 @@ import {RollupConfiguration} from "./RollupConfiguration.sol";
 /// - FEE_ASSET_ADDRESS: Existing fee asset ERC20 address
 /// - STAKING_ASSET_ADDRESS: Existing staking asset ERC20 address
 contract DeployRollupForUpgrade is Script {
-    /// @notice Rollup deployer script instance.
-    DeployRollup public rollupDeployer;
+    /// @notice Rollup deployment output
+    RollupAddressOutput public rollupOutput;
 
     /// @notice Deploy rollup and write output to file
     function run(string memory outputPath) public {
+        RollupAddressInput memory input = _getRollupAddressInput();
         RollupConfiguration rollupConfig = new RollupConfiguration();
         rollupConfig.loadConfig();
-        rollupDeployer = new DeployRollup();
-        rollupDeployer.setEnv(_getRollupAddressInput());
-        rollupDeployer.deployRollup(rollupConfig);
-        string memory finalJson = rollupDeployer.writeRollupAddressesToJson("rollup");
+
+        vm.startBroadcast(input.deployer);
+        rollupOutput = DeployRollupLib.deployRollup(input, rollupConfig);
+        vm.stopBroadcast();
+
+        string memory finalJson = DeployRollupLib.writeRollupAddressesToJson("rollup", rollupOutput);
         vm.writeJson(finalJson, outputPath);
     }
 
     /// @notice Parse existing L1 infrastructure from environment variables
     function _getRollupAddressInput() internal returns (RollupAddressInput memory) {
+        Registry registry = Registry(vm.envAddress("REGISTRY_ADDRESS"));
         return RollupAddressInput({
-            // the --private-key passed to forge script:
-            deployer: msg.sender,
-            registry: Registry(vm.envAddress("REGISTRY_ADDRESS")),
+            deployer: vm.envOr("DEPLOYER_ADDRESS", msg.sender),
+            registry: registry,
             gse: GSE(vm.envAddress("GSE_ADDRESS")),
             governance: Governance(vm.envAddress("GOVERNANCE_ADDRESS")),
             feeAsset: IERC20(vm.envAddress("FEE_ASSET_ADDRESS")),
             stakingAsset: IERC20(vm.envAddress("STAKING_ASSET_ADDRESS")),
-            rewardDistributor: RewardDistributor(
-                address(Registry(vm.envAddress("REGISTRY_ADDRESS")).getRewardDistributor())
-            )
+            rewardDistributor: RewardDistributor(address(registry.getRewardDistributor()))
         });
     }
 }
