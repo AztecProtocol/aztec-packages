@@ -215,72 +215,33 @@ export const deployRollupForUpgrade = async (
       {
         cwd: l1ContractsPath,
         env: {
+          // Env vars matching l1-contracts/script/deploy/rollup/RollupConfiguration.sol
           REGISTRY_ADDRESS: registryAddress.toString(),
-          // Below values match l1-contracts/script/deploy/rollup/RollupConfiguration.sol
-          // TODO DEFINE THESE
-          //           networkName = vm.envOr("NETWORK", string("local"));
-          // validatorsJson = vm.envOr("INITIAL_VALIDATORS", string("[]"));
-          // return vm.envOr("REAL_VERIFIER", false);
-          // return vm.envOr("FUND_REWARD_DISTRIBUTOR", false);
-          // return vm.envOr("FEE_JUICE_PORTAL_INITIAL_BALANCE", uint256(0));
-          //     vkTreeRoot: bytes32(vm.envOr("VK_TREE_ROOT", uint256(0))),
-          //     protocolContractsHash: bytes32(vm.envOr("PROTOCOL_CONTRACTS_HASH", uint256(0))),
-          //     genesisArchiveRoot: bytes32(vm.envOr("GENESIS_ARCHIVE_ROOT", uint256(0)))
-          //     sequencerBps: Bps.wrap(uint16(vm.envOr("REWARD_SEQUENCER_BPS", uint256(sequencerBps)))),
-          //     booster: IBoosterCore(vm.envOr("REWARD_BOOSTER", address(0))),
-          //     checkpointReward: uint96(vm.envOr("REWARD_CHECKPOINT_REWARD", uint256(checkpointReward)))
-          //     aztecSlotDuration: vm.envOr("AZTEC_SLOT_DURATION", uint256(36)),
-          //     aztecEpochDuration: vm.envOr("AZTEC_EPOCH_DURATION", uint256(32)),
-          //     targetCommitteeSize: vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48)),
-          //     lagInEpochsForValidatorSet: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET", uint256(2)),
-          //     lagInEpochsForRandao: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO", uint256(2)),
-          //     aztecProofSubmissionEpochs: vm.envOr("AZTEC_PROOF_SUBMISSION_EPOCHS", uint256(1)),
-          //     localEjectionThreshold: vm.envOr("AZTEC_LOCAL_EJECTION_THRESHOLD", uint256(98e18)),
-          //     slashingLifetimeInRounds: vm.envOr("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", uint256(5)),
-          //     slashingExecutionDelayInRounds: vm.envOr("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS", uint256(0)),
-          //     slashingVetoer: vm.envOr("AZTEC_SLASHING_VETOER", address(0)),
-          //     slashingDisableDuration: vm.envOr("AZTEC_SLASHING_DISABLE_DURATION", uint256(5 days)),
-          //     manaTarget: vm.envOr("AZTEC_MANA_TARGET", uint256(100_000_000)),
-          //     exitDelaySeconds: vm.envOr("AZTEC_EXIT_DELAY_SECONDS", uint256(2 days)),
-          //     provingCostPerMana: EthValue.wrap(vm.envOr("AZTEC_PROVING_COST_PER_MANA", uint256(100))),
-          // return _parseSlasherFlavor(vm.envOr("AZTEC_SLASHER_FLAVOR", string("tally")));
-          // uint256 roundSizeInEpochs = vm.envOr("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
-          // uint256 aztecEpochDuration = vm.envOr("AZTEC_EPOCH_DURATION", uint256(32));
-          // return vm.envOr("AZTEC_SLASHING_QUORUM", defaultQuorum);
-          // return vm.envOr("AZTEC_SLASHING_OFFSET_IN_ROUNDS", flavor == SlasherFlavor.TALLY ? uint256(2) : uint256(0));
-          //     vm.envOr("AZTEC_SLASH_AMOUNT_SMALL", uint256(10e18)),
-          //     vm.envOr("AZTEC_SLASH_AMOUNT_MEDIUM", uint256(20e18)),
-          //     vm.envOr("AZTEC_SLASH_AMOUNT_LARGE", uint256(50e18))
-          // return vm.envOr("REWARD_DISTRIBUTOR_FUNDING", defaultFunding);
-          // uint256 aztecSlotDuration = vm.envOr("AZTEC_SLOT_DURATION", uint256(36));
-          // uint256 aztecEpochDuration = vm.envOr("AZTEC_EPOCH_DURATION", uint256(32));
-          // uint256 aztecTargetCommitteeSize = vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48));
-          // uint256 slashingRoundSizeInEpochs = vm.envOr("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
-          // uint256 slashingLifetimeInRounds = vm.envOr("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", uint256(5));
-          // uint256 slashingExecutionDelayInRounds = vm.envOr("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS", uint256(0));
           NETWORK: getActiveNetworkName(),
           INITIAL_VALIDATORS: JSON.stringify((args.initialValidators ?? []).map(computeValidatorData)),
-          REAL_VERIFIER: args.realVerifier ? '1' : '0',
-          FUND_REWARD_DISTRIBUTOR: args.fundRewardDistributor ? '1' : '0',
+          REAL_VERIFIER: args.realVerifier ? 'true' : 'false',
+          FEE_JUICE_PORTAL_INITIAL_BALANCE: (args.feeJuicePortalInitialBalance ?? 0n).toString(),
+          // Genesis state
           VK_TREE_ROOT: args.vkTreeRoot.toString(),
           PROTOCOL_CONTRACTS_HASH: args.protocolContractsHash.toString(),
           GENESIS_ARCHIVE_ROOT: args.genesisArchiveRoot.toString(),
+          // Rollup config
           AZTEC_SLOT_DURATION: args.aztecSlotDuration.toString(),
           AZTEC_EPOCH_DURATION: args.aztecEpochDuration.toString(),
           AZTEC_TARGET_COMMITTEE_SIZE: args.aztecTargetCommitteeSize.toString(),
           AZTEC_PROOF_SUBMISSION_EPOCHS: args.aztecProofSubmissionEpochs.toString(),
-          SLASHER_FLAVOR: args.slasherFlavor,
-          SLASHING_ROUND_SIZE_IN_EPOCHS: args.slashingRoundSizeInEpochs.toString(),
-          SLASHING_LIFETIME_IN_ROUNDS: args.slashingLifetimeInRounds.toString(),
-          SLASHING_EXECUTION_DELAY_IN_ROUNDS: args.slashingExecutionDelayInRounds.toString(),
-          SLASHING_VETOER: args.slashingVetoer.toString(),
-          MANA_TARGET: args.manaTarget.toString(),
-          PROVING_COST_PER_MANA: args.provingCostPerMana.toString(),
-          EXIT_DELAY_SECONDS: args.exitDelaySeconds.toString(),
-          SLASH_AMOUNT_SMALL: args.slashAmountSmall.toString(),
-          SLASH_AMOUNT_MEDIUM: args.slashAmountMedium.toString(),
-          SLASH_AMOUNT_LARGE: args.slashAmountLarge.toString(),
-          FEE_JUICE_PORTAL_BALANCE: (args.feeJuicePortalInitialBalance ?? 0n).toString(),
+          AZTEC_MANA_TARGET: args.manaTarget.toString(),
+          AZTEC_PROVING_COST_PER_MANA: args.provingCostPerMana.toString(),
+          AZTEC_EXIT_DELAY_SECONDS: args.exitDelaySeconds.toString(),
+          // Slashing config
+          AZTEC_SLASHER_FLAVOR: args.slasherFlavor,
+          AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS: args.slashingRoundSizeInEpochs.toString(),
+          AZTEC_SLASHING_LIFETIME_IN_ROUNDS: args.slashingLifetimeInRounds.toString(),
+          AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS: args.slashingExecutionDelayInRounds.toString(),
+          AZTEC_SLASHING_VETOER: args.slashingVetoer.toString(),
+          AZTEC_SLASH_AMOUNT_SMALL: args.slashAmountSmall.toString(),
+          AZTEC_SLASH_AMOUNT_MEDIUM: args.slashAmountMedium.toString(),
+          AZTEC_SLASH_AMOUNT_LARGE: args.slashAmountLarge.toString(),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       },
@@ -323,49 +284,20 @@ export const deployRollupForUpgrade = async (
   const deploymentsDir = join(l1ContractsPath, '.deployments');
   // Use mkdtemp to ensure unique a directory.
   const tmpDir = await mkdtemp(join(deploymentsDir, 'rollup-upgrade-'));
+  let result: RollupUpgradeReturnType;
   try {
     const outputPath = join(tmpDir, 'rollup-upgrade.json');
-    await deployWithForge(outputPath);
+    result = await deployWithForge(outputPath);
   } finally {
     await rm(tmpDir, { recursive: true, force: true });
   }
-
-  const result = await deployRollupUpgradeViaForge(rpcUrl, privateKey, {
-    // Existing contract addresses
-    registryAddress: registryAddress.toString(),
-    // Rollup config from args
-    vkTreeRoot: args.vkTreeRoot.toString(),
-    protocolContractsHash: args.protocolContractsHash.toString(),
-    genesisArchiveRoot: args.genesisArchiveRoot.toString(),
-    realVerifier: !args.realVerifier,
-    aztecSlotDuration: args.aztecSlotDuration,
-    aztecEpochDuration: args.aztecEpochDuration,
-    aztecTargetCommitteeSize: args.aztecTargetCommitteeSize,
-    aztecProofSubmissionEpochs: args.aztecProofSubmissionEpochs,
-    slasherFlavor: args.slasherFlavor,
-    slashingRoundSizeInEpochs: args.slashingRoundSizeInEpochs,
-    slashingLifetimeInRounds: args.slashingLifetimeInRounds,
-    slashingExecutionDelayInRounds: args.slashingExecutionDelayInRounds,
-    slashingVetoer: args.slashingVetoer.toString(),
-    manaTarget: args.manaTarget.toString(),
-    provingCostPerMana: args.provingCostPerMana.toString(),
-    exitDelaySeconds: args.exitDelaySeconds,
-    slashAmountSmall: args.slashAmountSmall.toString(),
-    slashAmountMedium: args.slashAmountMedium.toString(),
-    slashAmountLarge: args.slashAmountLarge.toString(),
-    // Funding (for fee juice portal initial balance)
-    fundFeeJuicePortal: (args.feeJuicePortalInitialBalance ?? 0n) > 0n,
-    feeJuicePortalBalance: (args.feeJuicePortalInitialBalance ?? 0n).toString(),
-    // Logger
-    logger,
-  });
 
   // Create RollupContract wrapper for the deployed rollup
   const rollup = new RollupContract(extendedClient, result.rollupAddress.toString());
 
   return {
     rollup,
-    slashFactoryAddress: result.slashFactoryAddress,
+    slashFactoryAddress: EthAddress.fromString(result.slashFactoryAddress),
   };
 };
 
