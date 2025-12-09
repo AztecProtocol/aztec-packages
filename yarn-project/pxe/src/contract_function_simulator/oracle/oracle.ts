@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import {
   type ACIRCallback,
   type ACVMField,

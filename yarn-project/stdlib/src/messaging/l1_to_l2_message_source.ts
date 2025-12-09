@@ -1,5 +1,5 @@
 import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { L2Tips } from '../block/l2_block_source.js';
 
