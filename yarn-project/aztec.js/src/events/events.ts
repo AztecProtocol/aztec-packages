@@ -88,6 +88,8 @@ export async function getDecodedPublicEvents<T>(
   const { logs } = await node.getPublicLogs({
     fromBlock: sanitizedFilter.fromBlock,
     toBlock: sanitizedFilter.toBlock,
+    txHash: sanitizedFilter.txHash,
+    contractAddress: sanitizedFilter.contractAddress,
   });
 
   const decodedEvents = logs
