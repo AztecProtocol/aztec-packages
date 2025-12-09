@@ -2184,7 +2184,7 @@ TEST_F(AluShrConstrainingTest, NegativeAluShrTagMismatchOverflow)
 
 // TRUNCATE operation (SET/CAST opcodes)
 
-// Truncation is a special case as we always have FF TaggedValue inputs:
+// Truncation is a special case as we always have FF MemoryValue inputs:
 const std::vector<ThreeOperandTestParams> TEST_VALUES_TRUNCATE = {
     // Trivial truncation cases
     { MemoryValue::from_tag(MemoryTag::FF, 1),

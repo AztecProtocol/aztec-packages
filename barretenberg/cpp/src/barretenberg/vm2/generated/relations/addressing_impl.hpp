@@ -525,7 +525,7 @@ void addressingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp = CView(execution_ADDRESSING_COLLECTION_EQ);
         std::get<60>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // NO_ADDRESSING_ERROR_IF_NOT_RESOLVING
         using View = typename std::tuple_element_t<61, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - CView(execution_SEL_SHOULD_RESOLVE_ADDRESS)) *
                    static_cast<View>(in.get(C::execution_sel_addressing_error));
