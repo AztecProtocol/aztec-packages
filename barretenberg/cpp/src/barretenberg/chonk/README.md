@@ -359,6 +359,26 @@ The op queue contains EC operations from all circuits and must be hidden:
 2. **`hide_op_queue_content_in_tail`**: Protects tail kernel op queue data
 3. **`hide_op_queue_content_in_hiding`**: Final ZK protection in Hiding kernel
 
+### Constant Merged Table Size for ZK
+
+**Problem**: The final merge step uses APPEND mode. If the merged table size varied with transaction complexity, an observer could infer information about the transaction from the proof structure.
+
+**Solution**: We always merge to a **uniform total size** = `OP_QUEUE_SIZE`. The `shift_size` is set to `(OP_QUEUE_SIZE - |hiding_ops|) × NUM_ROWS_PER_OP`, which places the hiding kernel's ops at fixed positions at the end of the table, regardless of how many ops the actual transaction used.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  M_tail (transaction ops)  │  zero padding  │  hiding ops  │
+│  (variable size)           │  (to shift)    │  (fixed pos) │
+└─────────────────────────────────────────────────────────────┘
+                             ←── shift_size ──→
+```
+
+**Security - Zero Padding is Enforced**: The soundness argument has two parts:
+1. The cumulative PREPEND degree checks throughout the kernel chain ensure $[M_{tail}]$ has bounded degree
+2. The public input chain ensures the correct $[M_{tail}]$ reaches the final APPEND merge
+
+See [Appendix: Zero Padding Security](#appendix-zero-padding-security) for the detailed M_tail lifecycle and full soundness argument.
+
 ### Hiding Kernel
 
 The hiding kernel:
@@ -647,3 +667,58 @@ In debug builds (`NDEBUG` not defined):
 - Native verifier accumulator is maintained alongside prover accumulator
 - `update_native_verifier_accumulator` tracks verification state
 - `debug_incoming_circuit` validates circuits before accumulation
+
+---
+
+## Appendix: Zero Padding Security
+
+This appendix provides the detailed soundness argument for why the merged op queue table cannot contain non-zero values in the padding region.
+
+### M_tail Lifecycle
+
+**Step 1: Tail kernel performs final PREPEND merge**
+- Recursive merge verifier runs in K_tail
+- Verifies: $M_{tail}(\kappa) = t_{tail}(\kappa) + \kappa^{\ell_{tail}} \cdot T_{prev}(\kappa)$ where $\ell_{tail} = |t_{tail}| \times 2$
+- Verifies: $\deg(t_{tail}) < \ell_{tail}$ (Thakur degree check)
+- Outputs: `merged_table_commitments` = $[M_{tail,1}], [M_{tail,2}], [M_{tail,3}], [M_{tail,4}]$
+- K_tail's public inputs contain these commitments via `kernel_output.ecc_op_tables`
+
+**Step 2: K_tail → Hiding kernel via HyperNova**
+- Hiding kernel verifies K_tail's HyperNova folding proof
+- This binds K_tail's public inputs (including $[M_{tail}]$) to the proof
+
+**Step 3: Hiding kernel extracts [M_tail] from K_tail's public inputs**
+```cpp
+KernelIO kernel_input;
+kernel_input.reconstruct_from_public(public_inputs);
+merge_commitments.T_prev_commitments = std::move(kernel_input.ecc_op_tables);
+```
+- HyperNova verification ensures `public_inputs` matches K_tail's proven computation
+- Result: `T_prev_commitments` contains $[M_{tail}]$ verified to match K_tail's output
+
+**Step 4: Hiding kernel recursively verifies K_tail**
+- Verifies K_tail's HyperNova folding proof
+- Verifies K_tail's decider proof
+- Recursively verifies K_tail's merge proof
+- Returns `merged_table_commitments` = $[M_{tail}]$
+- **Critical**: Hiding kernel's own ops are NOT merged here - they will be merged by Chonk Verifier
+- Public output: `HidingKernelIO{ ..., T_prev_commitments }` where `T_prev_commitments` = $[M_{tail}]$
+
+**Step 5: Chonk verifier extracts [M_tail] from hiding kernel**
+```cpp
+auto [mega_verified, kernel_return_data, T_prev_commitments] =
+    verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
+```
+- Verifies hiding kernel's MegaZK proof (including its public inputs)
+- Extracts `T_prev_commitments` = $[M_{tail}]$ from `HidingKernelIO` public inputs
+- MegaZK verification ensures `T_prev_commitments` is bound to hiding kernel's proof
+
+**Step 6: Final merge (APPEND mode) - merges hiding kernel's ops with constant shift size**
+
+### Key Verifier Guarantees
+
+1. **Step 1**: K_tail outputs $[M_{tail}]$ via verified merge protocol with degree check
+2. **Step 2-3**: HyperNova ensures $[M_{tail}]$ from K_tail's public inputs matches proven computation
+3. **Step 4**: Hiding kernel uses verified $[M_{tail}]$ and outputs it in public inputs
+4. **Step 5**: MegaZK verification ensures hiding kernel's public outputs are bound to its proof
+5. **Step 6**: Final merge uses $[M_{tail}]$ from step 5, with degree check proving zero padding
