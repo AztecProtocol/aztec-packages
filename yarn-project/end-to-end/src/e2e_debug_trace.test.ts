@@ -1,5 +1,4 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import { EthAddress, type Logger, retryUntil } from '@aztec/aztec.js';
 import {
   type ExtendedViemWalletClient,
   FORWARDER_ABI,
@@ -8,10 +7,13 @@ import {
   deployForwarderProxy,
 } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import type { Logger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import type { AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -22,8 +24,8 @@ import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 describe('e2e_debug_trace_transaction', () => {
   jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
-  let pxe: PXE;
   let logger: Logger;
+  let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
   let publisherManager: PublisherManager;
@@ -40,7 +42,7 @@ describe('e2e_debug_trace_transaction', () => {
 
     ({
       teardown,
-      pxe,
+      aztecNode,
       logger,
       aztecNodeAdmin: maybeAztecNodeAdmin,
       sequencer: sequencerClient,
@@ -117,18 +119,18 @@ describe('e2e_debug_trace_transaction', () => {
         }
       });
 
-    expect(await pxe.getBlockNumber()).toBeGreaterThanOrEqual(2);
+    expect(await aztecNode.getBlockNumber()).toBeGreaterThanOrEqual(2);
 
     // The current config requires at least 1 tx per block, so the block number won't be increasing
 
     // We now want to set the sequencer config to allow blocks with 0 transactions
     // Wait until we have successfully moved forward by a few blocks
     const numBlocksToMine = 3;
-    const startBlockNumber = await pxe.getBlockNumber();
+    const startBlockNumber = await aztecNode.getBlockNumber();
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
     const result = await retryUntil(
       async () => {
-        const blockNumber = await pxe.getBlockNumber();
+        const blockNumber = await aztecNode.getBlockNumber();
         return blockNumber >= startBlockNumber + numBlocksToMine;
       },
       'block number check',
@@ -239,14 +241,14 @@ describe('e2e_debug_trace_transaction', () => {
         }
       });
 
-    expect(await pxe.getBlockNumber()).toBeGreaterThanOrEqual(2);
+    expect(await aztecNode.getBlockNumber()).toBeGreaterThanOrEqual(2);
 
     const numBlocksToMine = 3;
-    const startBlockNumber = await pxe.getBlockNumber();
+    const startBlockNumber = await aztecNode.getBlockNumber();
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
     const result = await retryUntil(
       async () => {
-        const blockNumber = await pxe.getBlockNumber();
+        const blockNumber = await aztecNode.getBlockNumber();
         return blockNumber >= startBlockNumber + numBlocksToMine;
       },
       'block number check',

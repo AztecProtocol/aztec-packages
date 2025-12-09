@@ -34,7 +34,8 @@ describe('ForwarderL1TxUtils', () => {
 
   beforeEach(async () => {
     ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: 1, port: port++, log: false }));
-    cheatCodes = new EthCheatCodes([rpcUrl]);
+    dateProvider = new TestDateProvider();
+    cheatCodes = new EthCheatCodes([rpcUrl], dateProvider);
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey;
     if (!privKeyRaw) {

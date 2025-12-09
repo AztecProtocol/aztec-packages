@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -140,21 +141,16 @@ async function main() {
     logger.info('Retrieving block header from rollup transaction...');
     logger.info('');
 
-    const result = await retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber);
+    // For this script, we don't have blob hashes, so pass empty array
+    const result = await retriever.getCheckpointFromRollupTx(txHash, [], CheckpointNumber(l2BlockNumber));
 
     logger.info(' Successfully retrieved block header!');
     logger.info('');
     logger.info('Block Header Details:');
     logger.info('====================');
-    logger.info(`L2 Block Number: ${result.l2BlockNumber}`);
+    logger.info(`Checkpoint Number: ${result.checkpointNumber}`);
     logger.info(`Block Hash: ${result.blockHash}`);
     logger.info(`Archive Root: ${result.archiveRoot.toString()}`);
-    logger.info('');
-    logger.info('State Reference:');
-    logger.info(`  L1 to L2 Message Tree Root: ${result.stateReference.l1ToL2MessageTree.root.toString()}`);
-    logger.info(
-      `  L1 to L2 Message Tree Next Index: ${result.stateReference.l1ToL2MessageTree.nextAvailableLeafIndex}`,
-    );
     logger.info('');
     logger.info('Header:');
     logger.info(`  Slot Number: ${result.header.slotNumber.toString()}`);
@@ -165,7 +161,7 @@ async function main() {
     logger.info('');
     logger.info('Attestations:');
     logger.info(`  Count: ${result.attestations.length}`);
-    logger.info(`  Non-empty attestations: ${result.attestations.filter(a => !a.signature.isEmpty()).length}`);
+    logger.info(`  Non-empty attestations: ${result.attestations.filter((a: any) => !a.signature.isEmpty()).length}`);
 
     process.exit(0);
   } catch (error) {

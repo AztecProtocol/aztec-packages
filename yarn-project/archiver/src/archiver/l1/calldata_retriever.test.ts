@@ -4,20 +4,20 @@ import {
   type ViemHeader,
   type ViemPublicClient,
   type ViemPublicDebugClient,
-  type ViemStateReference,
 } from '@aztec/ethereum';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { withHexPrefix } from '@aztec/foundation/string';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { L2Block, Signature } from '@aztec/stdlib/block';
+import { Signature } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
-import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { ContentCommitment, PartialStateReference, ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { ContentCommitment } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type Hex, type Transaction, encodeFunctionData, multicall3Abi, toFunctionSelector } from 'viem';
@@ -48,8 +48,8 @@ class TestCalldataRetriever extends CalldataRetriever {
     return await super.extractCalldataViaTrace(txHash);
   }
 
-  public override decodeAndBuildBlockHeader(proposeCalldata: Hex, blockHash: Hex, l2BlockNumber: number) {
-    return super.decodeAndBuildBlockHeader(proposeCalldata, blockHash, l2BlockNumber);
+  public override decodeAndBuildCheckpoint(proposeCalldata: Hex, blockHash: Hex, checkpointNumber: CheckpointNumber) {
+    return super.decodeAndBuildCheckpoint(proposeCalldata, blockHash, checkpointNumber);
   }
 }
 
@@ -83,13 +83,8 @@ describe('CalldataRetriever', () => {
     });
   });
 
-  async function makeViemHeader(): Promise<ViemHeader> {
-    const block = await L2Block.random(1);
-    return block.header.toPropose().toViem();
-  }
-
-  function makeViemStateReference(): ViemStateReference {
-    return StateReference.random().toViem();
+  function makeViemHeader(): ViemHeader {
+    return CheckpointHeader.random().toViem();
   }
 
   function makeViemCommitteeAttestations(): ViemCommitteeAttestations {
@@ -105,12 +100,11 @@ describe('CalldataRetriever', () => {
     };
   }
 
-  async function makeProposeCalldata(
+  function makeProposeCalldata(
     header?: ViemHeader,
-    stateReference: ViemStateReference = makeViemStateReference(),
     attestations: ViemCommitteeAttestations = makeViemCommitteeAttestations(),
-  ): Promise<Hex> {
-    const viemHeader = header || (await makeViemHeader());
+  ): Hex {
+    const viemHeader = header || makeViemHeader();
     const archive = Fr.random().toString() as Hex;
     const signers: Hex[] = [];
     const attestationsAndSignersSignature: ViemSignature = Signature.random().toViemSignature();
@@ -122,7 +116,6 @@ describe('CalldataRetriever', () => {
       args: [
         {
           archive,
-          stateReference,
           oracleInput: { feeAssetPriceModifier: BigInt(0) },
           header: viemHeader,
         },
@@ -148,20 +141,19 @@ describe('CalldataRetriever', () => {
     } as Transaction;
   }
 
-  describe('getBlockHeaderFromRollupTx', () => {
-    const l2BlockNumber = 42;
+  describe('getCheckpointFromRollupTx', () => {
+    const checkpointNumber = CheckpointNumber(42);
 
     it('should successfully decode valid multicall3 transaction', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
       const tx = makeMulticall3Transaction([{ target: rollupAddress.toString(), callData: proposeCalldata }]);
 
       publicClient.getTransaction.mockResolvedValue(tx);
 
-      const result = await retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber);
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber);
 
-      expect(result.l2BlockNumber).toBe(l2BlockNumber);
-      expect(result.header).toBeInstanceOf(ProposedBlockHeader);
-      expect(result.stateReference).toBeInstanceOf(StateReference);
+      expect(result.checkpointNumber).toBe(checkpointNumber);
+      expect(result.header).toBeInstanceOf(CheckpointHeader);
       expect(result.archiveRoot).toBeInstanceOf(Fr);
       expect(Array.isArray(result.attestations)).toBe(true);
       expect(result.blockHash).toBe(tx.blockHash);
@@ -169,7 +161,7 @@ describe('CalldataRetriever', () => {
     });
 
     it('should fall back to direct propose when multicall3 decoding fails', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
 
       // Transaction that's not multicall3 but is a direct propose call
       const tx = {
@@ -181,15 +173,15 @@ describe('CalldataRetriever', () => {
 
       publicClient.getTransaction.mockResolvedValue(tx);
 
-      const result = await retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber);
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber);
 
-      expect(result.l2BlockNumber).toBe(l2BlockNumber);
-      expect(result.header).toBeInstanceOf(ProposedBlockHeader);
+      expect(result.checkpointNumber).toBe(checkpointNumber);
+      expect(result.header).toBeInstanceOf(CheckpointHeader);
       expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(rollupAddress.toString(), false);
     });
 
     it('should fall back to trace when both multicall3 and direct propose fail', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
 
       // Transaction that's neither multicall3 nor direct propose (wrong address)
       const wrongAddress = EthAddress.random();
@@ -223,15 +215,15 @@ describe('CalldataRetriever', () => {
         },
       ]);
 
-      const result = await retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber);
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber);
 
-      expect(result.l2BlockNumber).toBe(l2BlockNumber);
+      expect(result.checkpointNumber).toBe(checkpointNumber);
       expect(debugClient.request).toHaveBeenCalledWith({ method: 'trace_transaction', params: [txHash] });
       expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(wrongAddress.toString(), true);
     });
 
     it('should throw when tracing fails', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
 
       // Transaction that's neither multicall3 nor direct propose (wrong address)
       const wrongAddress = EthAddress.random();
@@ -247,7 +239,7 @@ describe('CalldataRetriever', () => {
       // Mock both trace methods to fail
       debugClient.request.mockRejectedValue(new Error(`Method not available`));
 
-      await expect(retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber)).rejects.toThrow(
+      await expect(retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber)).rejects.toThrow(
         'Failed to trace transaction',
       );
     });
@@ -255,14 +247,14 @@ describe('CalldataRetriever', () => {
     it('should throw when transaction retrieval fails', async () => {
       publicClient.getTransaction.mockRejectedValue(new Error('Transaction not found'));
 
-      await expect(retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber)).rejects.toThrow(
+      await expect(retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber)).rejects.toThrow(
         'Transaction not found',
       );
     });
   });
   describe('tryDecodeMulticall3', () => {
-    it('should decode simple multicall3 with single propose call', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should decode simple multicall3 with single propose call', () => {
+      const proposeCalldata = makeProposeCalldata();
       const tx = makeMulticall3Transaction([{ target: rollupAddress.toString() as Hex, callData: proposeCalldata }]);
 
       const result = retriever.tryDecodeMulticall3(tx);
@@ -270,8 +262,8 @@ describe('CalldataRetriever', () => {
       expect(result).toBe(proposeCalldata);
     });
 
-    it('should decode multicall3 with propose and other rollup calls', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should decode multicall3 with propose and other rollup calls', () => {
+      const proposeCalldata = makeProposeCalldata();
       // Use the actual selector for these functions
       const invalidateBadSelector = toFunctionSelector(
         RollupAbi.find(x => x.type === 'function' && x.name === 'invalidateBadAttestation')!,
@@ -288,8 +280,8 @@ describe('CalldataRetriever', () => {
       expect(result).toBe(proposeCalldata);
     });
 
-    it('should decode multicall3 with mixed valid calls', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should decode multicall3 with mixed valid calls', () => {
+      const proposeCalldata = makeProposeCalldata();
       const invalidateBadSelector = toFunctionSelector(
         RollupAbi.find(x => x.type === 'function' && x.name === 'invalidateBadAttestation')!,
       );
@@ -305,8 +297,8 @@ describe('CalldataRetriever', () => {
       expect(result).toBe(proposeCalldata);
     });
 
-    it('should return undefined when not to multicall3 address', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should return undefined when not to multicall3 address', () => {
+      const proposeCalldata = makeProposeCalldata();
       const tx = {
         input: proposeCalldata,
         to: rollupAddress.toString() as Hex,
@@ -318,8 +310,8 @@ describe('CalldataRetriever', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should return undefined when to is null', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should return undefined when to is null', () => {
+      const proposeCalldata = makeProposeCalldata();
       const tx = {
         input: proposeCalldata,
         to: null,
@@ -331,8 +323,8 @@ describe('CalldataRetriever', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should return undefined when not multicall3 aggregate3', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should return undefined when not multicall3 aggregate3', () => {
+      const proposeCalldata = makeProposeCalldata();
       const tx = {
         input: proposeCalldata,
         to: MULTI_CALL_3_ADDRESS as Hex,
@@ -344,8 +336,8 @@ describe('CalldataRetriever', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should return undefined when call to unknown address', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should return undefined when call to unknown address', () => {
+      const proposeCalldata = makeProposeCalldata();
       const unknownAddress = EthAddress.random();
 
       const tx = makeMulticall3Transaction([
@@ -358,8 +350,8 @@ describe('CalldataRetriever', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should return undefined when unknown function selector on rollup', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should return undefined when unknown function selector on rollup', () => {
+      const proposeCalldata = makeProposeCalldata();
       const invalidCalldata = '0x99999999' as Hex; // Unknown selector
 
       const tx = makeMulticall3Transaction([
@@ -387,9 +379,9 @@ describe('CalldataRetriever', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should return undefined when multiple propose calls', async () => {
-      const proposeCalldata1 = await makeProposeCalldata();
-      const proposeCalldata2 = await makeProposeCalldata();
+    it('should return undefined when multiple propose calls', () => {
+      const proposeCalldata1 = makeProposeCalldata();
+      const proposeCalldata2 = makeProposeCalldata();
 
       const tx = makeMulticall3Transaction([
         { target: rollupAddress.toString() as Hex, callData: proposeCalldata1 },
@@ -431,8 +423,8 @@ describe('CalldataRetriever', () => {
   });
 
   describe('tryDecodeDirectPropose', () => {
-    it('should decode direct propose call to rollup', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should decode direct propose call to rollup', () => {
+      const proposeCalldata = makeProposeCalldata();
       const tx = {
         input: proposeCalldata,
         to: rollupAddress.toString() as Hex,
@@ -445,8 +437,8 @@ describe('CalldataRetriever', () => {
       expect(result).toBe(proposeCalldata);
     });
 
-    it('should return undefined when not to rollup address', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should return undefined when not to rollup address', () => {
+      const proposeCalldata = makeProposeCalldata();
       const wrongAddress = EthAddress.random();
       const tx = {
         input: proposeCalldata,
@@ -459,8 +451,8 @@ describe('CalldataRetriever', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should return undefined when to is null', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should return undefined when to is null', () => {
+      const proposeCalldata = makeProposeCalldata();
       const tx = {
         input: proposeCalldata,
         to: null,
@@ -550,7 +542,7 @@ describe('CalldataRetriever', () => {
     }
 
     it('should decode Spire Proposer with direct propose call', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
       const tx = makeSpireProposerMulticallTransaction({
         target: rollupAddress.toString() as Hex,
         data: proposeCalldata,
@@ -573,7 +565,7 @@ describe('CalldataRetriever', () => {
     });
 
     it('should decode Spire Proposer with multicall3 containing propose', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
       const multicall3Data = encodeFunctionData({
         abi: multicall3Abi,
         functionName: 'aggregate3',
@@ -598,7 +590,7 @@ describe('CalldataRetriever', () => {
     });
 
     it('should return undefined when not to Spire Proposer address', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
       const tx = {
         input: proposeCalldata,
         to: rollupAddress.toString() as Hex,
@@ -612,7 +604,7 @@ describe('CalldataRetriever', () => {
     });
 
     it('should return undefined when proxy implementation verification fails', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
       const tx = makeSpireProposerMulticallTransaction({
         target: rollupAddress.toString() as Hex,
         data: proposeCalldata,
@@ -627,7 +619,7 @@ describe('CalldataRetriever', () => {
     });
 
     it('should return undefined when Spire Proposer contains multiple calls', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
       const spireMulticallData = encodeFunctionData({
         abi: [
           {
@@ -711,7 +703,7 @@ describe('CalldataRetriever', () => {
     });
 
     it('should extract multicall3 call (validation of inner calls happens in next step)', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
       const invalidCalldata = '0x99999999' as Hex; // Unknown selector
 
       const multicall3Data = encodeFunctionData({
@@ -809,7 +801,7 @@ describe('CalldataRetriever', () => {
 
   describe('extractCalldataViaTrace', () => {
     it('should successfully extract calldata using trace_transaction', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
 
       // Mock debug client to return a successful trace (trace_transaction format)
       debugClient.request.mockResolvedValueOnce([
@@ -839,7 +831,7 @@ describe('CalldataRetriever', () => {
     });
 
     it('should fall back to debug_traceTransaction when trace_transaction fails', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
 
       // First call (trace_transaction) fails
       debugClient.request.mockRejectedValueOnce(new Error('trace_transaction not supported'));
@@ -903,8 +895,8 @@ describe('CalldataRetriever', () => {
     });
 
     it('should throw when multiple propose calls found', async () => {
-      const proposeCalldata1 = await makeProposeCalldata();
-      const proposeCalldata2 = await makeProposeCalldata();
+      const proposeCalldata1 = makeProposeCalldata();
+      const proposeCalldata2 = makeProposeCalldata();
 
       // Mock debug client to return trace with multiple propose calls
       debugClient.request.mockResolvedValueOnce([
@@ -950,28 +942,27 @@ describe('CalldataRetriever', () => {
     });
   });
 
-  describe('decodeAndBuildBlockHeader', () => {
+  describe('decodeAndBuildCheckpoint', () => {
     const blockHash = Fr.random().toString() as Hex;
-    const l2BlockNumber = 42;
+    const checkpointNumber = CheckpointNumber(42);
 
-    it('should correctly decode propose calldata and build block header', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should correctly decode propose calldata and build checkpoint', () => {
+      const proposeCalldata = makeProposeCalldata();
 
-      const result = retriever.decodeAndBuildBlockHeader(proposeCalldata, blockHash, l2BlockNumber);
+      const result = retriever.decodeAndBuildCheckpoint(proposeCalldata, blockHash, checkpointNumber);
 
-      expect(result.l2BlockNumber).toBe(l2BlockNumber);
-      expect(result.header).toBeInstanceOf(ProposedBlockHeader);
-      expect(result.stateReference).toBeInstanceOf(StateReference);
+      expect(result.checkpointNumber).toBe(checkpointNumber);
+      expect(result.header).toBeInstanceOf(CheckpointHeader);
       expect(result.archiveRoot).toBeInstanceOf(Fr);
       expect(Array.isArray(result.attestations)).toBe(true);
       expect(result.blockHash).toBe(blockHash);
     });
 
-    it('should handle attestations correctly', async () => {
+    it('should handle attestations correctly', () => {
       const attestations = makeViemCommitteeAttestations();
-      const proposeCalldata = await makeProposeCalldata(undefined, undefined, attestations);
+      const proposeCalldata = makeProposeCalldata(undefined, attestations);
 
-      const result = retriever.decodeAndBuildBlockHeader(proposeCalldata, blockHash, l2BlockNumber);
+      const result = retriever.decodeAndBuildCheckpoint(proposeCalldata, blockHash, checkpointNumber);
 
       expect(result.attestations).toHaveLength(TARGET_COMMITTEE_SIZE);
     });
@@ -982,38 +973,35 @@ describe('CalldataRetriever', () => {
       );
       const invalidCalldata = (invalidateBadSelector + '0'.repeat(120)) as Hex;
 
-      expect(() => retriever.decodeAndBuildBlockHeader(invalidCalldata, blockHash, l2BlockNumber)).toThrow();
+      expect(() => retriever.decodeAndBuildCheckpoint(invalidCalldata, blockHash, checkpointNumber)).toThrow();
     });
 
     it('should throw when calldata is malformed', () => {
       const malformedCalldata = '0xinvalid' as Hex;
 
-      expect(() => retriever.decodeAndBuildBlockHeader(malformedCalldata, blockHash, l2BlockNumber)).toThrow();
+      expect(() => retriever.decodeAndBuildCheckpoint(malformedCalldata, blockHash, checkpointNumber)).toThrow();
     });
   });
 
   describe('integration', () => {
-    const l2BlockNumber = 42;
+    const checkpointNumber = CheckpointNumber(42);
 
-    it('should complete full flow from tx hash to block header via multicall3', async () => {
-      const proposeCalldata = await makeProposeCalldata();
+    it('should complete full flow from tx hash to checkpoint via multicall3', async () => {
+      const proposeCalldata = makeProposeCalldata();
       const tx = makeMulticall3Transaction([{ target: rollupAddress.toString() as Hex, callData: proposeCalldata }]);
 
       publicClient.getTransaction.mockResolvedValue(tx);
 
-      const result = await retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber);
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber);
 
       expect(result).toBeDefined();
-      expect(result.l2BlockNumber).toBe(l2BlockNumber);
-      expect(result.header).toBeInstanceOf(ProposedBlockHeader);
-      expect(result.stateReference).toBeInstanceOf(StateReference);
+      expect(result.checkpointNumber).toBe(checkpointNumber);
+      expect(result.header).toBeInstanceOf(CheckpointHeader);
       expect(result.archiveRoot).toBeInstanceOf(Fr);
       expect(Array.isArray(result.attestations)).toBe(true);
       expect(result.blockHash).toBe(tx.blockHash);
 
       // Verify all components are properly decoded
-      expect(result.stateReference.l1ToL2MessageTree).toBeInstanceOf(AppendOnlyTreeSnapshot);
-      expect(result.stateReference.partial).toBeInstanceOf(PartialStateReference);
       expect(result.header.contentCommitment).toBeInstanceOf(ContentCommitment);
       expect(result.header.gasFees).toBeInstanceOf(GasFees);
 
@@ -1021,11 +1009,11 @@ describe('CalldataRetriever', () => {
       expect(instrumentation.recordBlockProposalTxTarget).toHaveBeenCalledWith(MULTI_CALL_3_ADDRESS, false);
     });
 
-    it('should complete full flow from tx hash to block header via Spire Proposer', async () => {
+    it('should complete full flow from tx hash to checkpoint via Spire Proposer', async () => {
       const SPIRE_PROPOSER_ADDRESS = '0x9ccc2f3ecde026230e11a5c8799ac7524f2bb294';
       const SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION = '0x7d38d47e7c82195e6e607d3b0f1c20c615c7bf42';
 
-      const proposeCalldata = await makeProposeCalldata();
+      const proposeCalldata = makeProposeCalldata();
 
       // Create Spire Proposer multicall transaction
       const spireMulticallData = encodeFunctionData({
@@ -1077,19 +1065,16 @@ describe('CalldataRetriever', () => {
         ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
       );
 
-      const result = await retriever.getBlockHeaderFromRollupTx(txHash, l2BlockNumber);
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber);
 
       expect(result).toBeDefined();
-      expect(result.l2BlockNumber).toBe(l2BlockNumber);
-      expect(result.header).toBeInstanceOf(ProposedBlockHeader);
-      expect(result.stateReference).toBeInstanceOf(StateReference);
+      expect(result.checkpointNumber).toBe(checkpointNumber);
+      expect(result.header).toBeInstanceOf(CheckpointHeader);
       expect(result.archiveRoot).toBeInstanceOf(Fr);
       expect(Array.isArray(result.attestations)).toBe(true);
       expect(result.blockHash).toBe(blockHash);
 
       // Verify all components are properly decoded
-      expect(result.stateReference.l1ToL2MessageTree).toBeInstanceOf(AppendOnlyTreeSnapshot);
-      expect(result.stateReference.partial).toBeInstanceOf(PartialStateReference);
       expect(result.header.contentCommitment).toBeInstanceOf(ContentCommitment);
       expect(result.header.gasFees).toBeInstanceOf(GasFees);
 

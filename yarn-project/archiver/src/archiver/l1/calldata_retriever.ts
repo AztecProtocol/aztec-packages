@@ -1,14 +1,9 @@
-import type {
-  ViemCommitteeAttestations,
-  ViemHeader,
-  ViemPublicClient,
-  ViemPublicDebugClient,
-  ViemStateReference,
-} from '@aztec/ethereum';
+import type { ViemCommitteeAttestations, ViemHeader, ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum';
 import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import {
   EmpireSlashingProposerAbi,
@@ -18,12 +13,11 @@ import {
   TallySlashingProposerAbi,
 } from '@aztec/l1-artifacts';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
-import { ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { type Hex, type Transaction, decodeFunctionData, hexToBytes, multicall3Abi, toFunctionSelector } from 'viem';
 
 import type { ArchiverInstrumentation } from '../instrumentation.js';
-import type { RetrievedL2Block } from './data_retrieval.js';
 import { getSuccessfulCallsFromDebug } from './debug_tx.js';
 import { getCallFromSpireProposer } from './spire_proposer.js';
 import { getSuccessfulCallsFromTrace } from './trace_tx.js';
@@ -57,24 +51,32 @@ export class CalldataRetriever {
   }
 
   /**
-   * Gets block header and metadata from the calldata of an L1 transaction.
+   * Gets checkpoint header and metadata from the calldata of an L1 transaction.
    * Tries multicall3 decoding, falls back to trace-based extraction.
    * @param txHash - Hash of the tx that published it.
-   * @param l2BlockNumber - L2 block number.
-   * @returns L2 block header and metadata from the calldata, deserialized (without body)
+   * @param blobHashes - Blob hashes for the checkpoint.
+   * @param checkpointNumber - Checkpoint number.
+   * @returns Checkpoint header and metadata from the calldata, deserialized
    */
-  async getBlockHeaderFromRollupTx(
+  async getCheckpointFromRollupTx(
     txHash: `0x${string}`,
-    l2BlockNumber: number,
-  ): Promise<Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version' | 'body'> & { blockHash: string }> {
-    this.logger.trace(`Fetching L2 block ${l2BlockNumber} from rollup tx ${txHash}`);
+    blobHashes: Buffer[],
+    checkpointNumber: CheckpointNumber,
+  ): Promise<{
+    checkpointNumber: CheckpointNumber;
+    archiveRoot: Fr;
+    header: CheckpointHeader;
+    attestations: CommitteeAttestation[];
+    blockHash: string;
+  }> {
+    this.logger.trace(`Fetching checkpoint ${checkpointNumber} from rollup tx ${txHash}`);
     const tx = await this.publicClient.getTransaction({ hash: txHash });
-    const proposeCalldata = await this.getProposeCallData(tx, l2BlockNumber);
-    return this.decodeAndBuildBlockHeader(proposeCalldata, tx.blockHash!, l2BlockNumber);
+    const proposeCalldata = await this.getProposeCallData(tx, checkpointNumber);
+    return this.decodeAndBuildCheckpoint(proposeCalldata, tx.blockHash!, checkpointNumber);
   }
 
   /** Gets rollup propose calldata from a transaction */
-  protected async getProposeCallData(tx: Transaction, l2BlockNumber: number): Promise<Hex> {
+  protected async getProposeCallData(tx: Transaction, checkpointNumber: CheckpointNumber): Promise<Hex> {
     // Try to decode as multicall3 with validation
     const proposeCalldata = this.tryDecodeMulticall3(tx);
     if (proposeCalldata) {
@@ -101,7 +103,7 @@ export class CalldataRetriever {
 
     // Fall back to trace-based extraction
     this.logger.warn(
-      `Failed to decode multicall3, direct propose, or Spire proposer for L1 tx ${tx.hash}, falling back to trace for L2 block ${l2BlockNumber}`,
+      `Failed to decode multicall3, direct propose, or Spire proposer for L1 tx ${tx.hash}, falling back to trace for checkpoint ${checkpointNumber}`,
     );
     this.instrumentation?.recordBlockProposalTxTarget(tx.to ?? EthAddress.ZERO.toString(), true);
     return await this.extractCalldataViaTrace(tx.hash);
@@ -323,18 +325,23 @@ export class CalldataRetriever {
   }
 
   /**
-   * Decodes propose calldata and builds the block header structure.
+   * Decodes propose calldata and builds the checkpoint header structure.
    * @param proposeCalldata - The propose function calldata
    * @param blockHash - The L1 block hash containing this transaction
-   * @param blobHashes - The blob hashes for this block
-   * @param l2BlockNumber - The L2 block number
-   * @returns The decoded block header and metadata
+   * @param checkpointNumber - The checkpoint number
+   * @returns The decoded checkpoint header and metadata
    */
-  protected decodeAndBuildBlockHeader(
+  protected decodeAndBuildCheckpoint(
     proposeCalldata: Hex,
     blockHash: Hex,
-    l2BlockNumber: number,
-  ): Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version' | 'body'> & { blockHash: string } {
+    checkpointNumber: CheckpointNumber,
+  ): {
+    checkpointNumber: CheckpointNumber;
+    archiveRoot: Fr;
+    header: CheckpointHeader;
+    attestations: CommitteeAttestation[];
+    blockHash: string;
+  } {
     const { functionName: rollupFunctionName, args: rollupArgs } = decodeFunctionData({
       abi: RollupAbi,
       data: proposeCalldata,
@@ -348,7 +355,6 @@ export class CalldataRetriever {
       rollupArgs! as readonly [
         {
           archive: Hex;
-          stateReference: ViemStateReference;
           oracleInput: { feeAssetPriceModifier: bigint };
           header: ViemHeader;
         },
@@ -361,9 +367,8 @@ export class CalldataRetriever {
     const attestations = CommitteeAttestation.fromPacked(packedAttestations, this.targetCommitteeSize);
 
     this.logger.trace(`Decoded propose calldata`, {
-      l2BlockNumber,
+      checkpointNumber,
       archive: decodedArgs.archive,
-      stateReference: decodedArgs.stateReference,
       header: decodedArgs.header,
       l1BlockHash: blockHash,
       attestations,
@@ -371,14 +376,12 @@ export class CalldataRetriever {
       targetCommitteeSize: this.targetCommitteeSize,
     });
 
-    const header = ProposedBlockHeader.fromViem(decodedArgs.header);
+    const header = CheckpointHeader.fromViem(decodedArgs.header);
     const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
-    const stateReference = StateReference.fromViem(decodedArgs.stateReference);
 
     return {
-      l2BlockNumber,
+      checkpointNumber,
       archiveRoot,
-      stateReference,
       header,
       attestations,
       blockHash,

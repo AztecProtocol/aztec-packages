@@ -88,16 +88,6 @@ describe('Archiver', () => {
   const slashFactoryAddress = EthAddress.random();
   const slashingProposerAddress = EthAddress.random();
 
-  const blockNumbers = [1, 2, 3];
-  const txsPerBlock = 4;
-
-  const getNumPrivateLogsForTx = (blockNumber: number, txIndex: number) => txIndex + blockNumber;
-  const getNumPrivateLogsForBlock = (blockNumber: number) =>
-    Array(txsPerBlock)
-      .fill(0)
-      .map((_, i) => getNumPrivateLogsForTx(blockNumber, i))
-      .reduce((accum, num) => accum + num, 0);
-
   const mockL1BlockNumbers = (...l1BlockNumbers: bigint[]) => {
     // During each archiver sync, we read the block number 3 times, so this ensures all three reads are consistent across the run.
     for (const blockNum of l1BlockNumbers) {
