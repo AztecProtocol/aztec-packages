@@ -111,7 +111,7 @@ struct AddressRef {
     uint32_t base_offset = 0;
     AddressingModeWrapper mode = AddressingMode::Direct;
 
-    MSGPACK_FIELDS(tag, index, base_offset, mode);
+    MSGPACK_FIELDS(tag, index, pointer_address, base_offset, mode);
 };
 
 struct ResultAddressRef {
@@ -122,8 +122,8 @@ struct ResultAddressRef {
 
     /// @brief Base offset used for Relative/IndirectRelative modes only
     uint32_t base_offset = 0;
-    AddressingModeWrapper mode = AddressingMode::Direct;
-    MSGPACK_FIELDS(address, mode);
+    AddressingMode mode = AddressingMode::Direct;
+    MSGPACK_FIELDS(address, pointer_address, base_offset, mode);
 };
 
 /// @brief mem[result_offset] = mem[a_address] + mem[b_address]
