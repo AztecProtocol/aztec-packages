@@ -42,6 +42,7 @@ using testing::NiceMock;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using l1_to_l2_message_exists = bb::avm2::l1_to_l2_message_exists<FF>;
+using execution = bb::avm2::execution<FF>;
 
 TEST(L1ToL2MessageExistsConstrainingTest, PositiveExists)
 {
@@ -106,9 +107,8 @@ TEST(L1ToL2MessageExistsConstrainingTest, NegativeL1ToL2MessageExistsSuccess)
         { C::execution_sel_opcode_error, 1 },
     } });
 
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<l1_to_l2_message_exists>(trace, l1_to_l2_message_exists::SR_L1_TO_L2_MSG_EXISTS_SUCCESS),
-        "L1_TO_L2_MSG_EXISTS_SUCCESS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_INFALLIBLE_OPCODES_SUCCESS),
+                              "INFALLIBLE_OPCODES_SUCCESS");
 }
 
 TEST(L1ToL2MessageExistsConstrainingTest, Interactions)

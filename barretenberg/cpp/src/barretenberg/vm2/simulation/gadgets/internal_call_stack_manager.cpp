@@ -27,7 +27,7 @@ void InternalCallStackManager::push(PC caller_pc, PC return_pc)
 PC InternalCallStackManager::pop()
 {
     if (internal_call_stack.empty()) {
-        throw std::runtime_error("Internal call stack is empty. Cannot pop.");
+        throw InternalCallStackException("Internal call stack is empty. Cannot pop.");
     }
     // We need to restore the call ptr info to the previous call
     InternalCallPtr prev_call_ptr = internal_call_stack.back();

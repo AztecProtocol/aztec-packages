@@ -148,7 +148,6 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
           },
           {
               { C::execution_sel, 0 },
-              { C::execution_last, 1 },
           } });
 
     check_relation<context>(trace);
@@ -277,7 +276,6 @@ TEST(ContextConstrainingTest, ContextSwitchingExceptionalHalt)
           },
           {
               { C::execution_sel, 0 },
-              { C::execution_last, 1 },
           } });
 
     check_relation<context>(trace);
@@ -334,7 +332,6 @@ TEST(ContextConstrainingTest, GasNextRow)
                                },
                                {
                                    { C::execution_sel, 0 },
-                                   { C::execution_last, 1 },
                                } });
 
     check_relation<context>(trace,
@@ -436,7 +433,6 @@ TEST(ContextConstrainingTest, GasUsedContinuity)
                                },
                                {
                                    { C::execution_sel, 0 },
-                                   { C::execution_last, 1 },
                                } });
 
     check_relation<context>(trace,

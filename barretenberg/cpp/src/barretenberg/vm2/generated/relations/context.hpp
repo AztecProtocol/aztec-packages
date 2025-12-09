@@ -15,7 +15,7 @@ template <typename FF_> class contextImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 79> SUBRELATION_PARTIAL_LENGTHS = {
-        2, 3, 3, 3, 4, 3, 3, 4, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 3, 5, 6, 6, 5, 5, 3,
+        2, 3, 3, 4, 3, 3, 4, 5, 5, 5, 5, 5, 3, 6, 4, 5, 5, 5, 5, 5, 3, 5, 6, 6, 5, 5, 3,
         5, 5, 6, 5, 3, 5, 6, 5, 3, 5, 5, 5, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4,
         4, 3, 3, 4, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5
     };
@@ -39,12 +39,13 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
     static constexpr const std::string_view NAME = "context";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_ENQUEUED_CALL_START_NEXT_CTX_ID = 6;
-    static constexpr size_t SR_INCR_NEXT_CONTEXT_ID = 7;
-    static constexpr size_t SR_CONTEXT_ID_NEXT_ROW = 8;
-    static constexpr size_t SR_CONTEXT_ID_EXT_CALL = 9;
-    static constexpr size_t SR_CONTEXT_ID_NESTED_EXIT = 10;
-    static constexpr size_t SR_PARENT_ID_NEXT_ROW = 11;
+    static constexpr size_t SR_ENQUEUED_CALL_START_NEXT_CTX_ID = 5;
+    static constexpr size_t SR_INCR_NEXT_CONTEXT_ID = 6;
+    static constexpr size_t SR_CONTEXT_ID_NEXT_ROW = 7;
+    static constexpr size_t SR_CONTEXT_ID_EXT_CALL = 8;
+    static constexpr size_t SR_CONTEXT_ID_NESTED_EXIT = 9;
+    static constexpr size_t SR_PARENT_ID_NEXT_ROW = 10;
+    static constexpr size_t SR_NEXT_PC = 12;
     static constexpr size_t SR_PC_NEXT_ROW_DEFAULT = 13;
     static constexpr size_t SR_PC_NEXT_ROW_EXT_CALL = 14;
     static constexpr size_t SR_MSG_SENDER_NEXT_ROW = 15;
@@ -118,6 +119,8 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
             return "CONTEXT_ID_NESTED_EXIT";
         case SR_PARENT_ID_NEXT_ROW:
             return "PARENT_ID_NEXT_ROW";
+        case SR_NEXT_PC:
+            return "NEXT_PC";
         case SR_PC_NEXT_ROW_DEFAULT:
             return "PC_NEXT_ROW_DEFAULT";
         case SR_PC_NEXT_ROW_EXT_CALL:
