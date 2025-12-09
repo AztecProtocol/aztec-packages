@@ -13,21 +13,16 @@ import { MockL2BlockSource } from './mock_l2_block_source.js';
 export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1ToL2MessageSource {
   private messageSource = new MockL1ToL2MessageSource(0);
 
-  public setL1ToL2Messages(blockNumber: number, msgs: Fr[]) {
-    this.messageSource.setL1ToL2Messages(blockNumber, msgs);
+  public setL1ToL2Messages(checkpointNumber: CheckpointNumber, msgs: Fr[]) {
+    this.messageSource.setL1ToL2Messages(checkpointNumber, msgs);
   }
 
-  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
-    return this.messageSource.getL1ToL2Messages(blockNumber);
+  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    return this.messageSource.getL1ToL2Messages(checkpointNumber);
   }
 
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.messageSource.getL1ToL2MessageIndex(_l1ToL2Message);
-  }
-
-  getL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    // TODO: Implement this properly. This only works when we have one block per checkpoint.
-    return this.messageSource.getL1ToL2Messages(checkpointNumber);
   }
 }
 
@@ -48,7 +43,7 @@ export class MockPrefilledArchiver extends MockArchiver {
       if (checkpoint.blocks.length !== 1) {
         throw new Error('Prefilled checkpoint must only have 1 block at the moment.');
       }
-      this.setL1ToL2Messages(checkpoint.blocks[0].number, messages);
+      this.setL1ToL2Messages(checkpoint.number, messages);
     }
   }
 
