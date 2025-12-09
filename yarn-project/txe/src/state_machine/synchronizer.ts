@@ -27,7 +27,6 @@ export class TXESynchronizer implements WorldStateSynchronizer {
     await this.nativeWorldStateService.handleL2BlockAndMessages(
       block,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero),
-      true,
     );
 
     this.blockNumber = block.header.globalVariables.blockNumber;

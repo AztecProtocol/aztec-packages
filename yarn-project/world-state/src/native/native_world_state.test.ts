@@ -90,7 +90,7 @@ describe('NativeWorldState', () => {
         isFirstBlock,
       );
 
-      const status = await ws.handleL2BlockAndMessages(block, messages, isFirstBlock);
+      const status = await ws.handleL2BlockAndMessages(block, messages);
 
       expect(status.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
 
@@ -119,7 +119,7 @@ describe('NativeWorldState', () => {
         isFirstBlock,
       );
 
-      const status = await ws.handleL2BlockAndMessages(block, messages, isFirstBlock);
+      const status = await ws.handleL2BlockAndMessages(block, messages);
 
       // L1 to L2 messages should NOT grow for non-first blocks
       expect(status.meta.messageTreeMeta.size).toBe(0n);
@@ -142,7 +142,7 @@ describe('NativeWorldState', () => {
       const numMessages = 0;
       const { block, messages } = await mockBlock(BlockNumber(1), 1, fork, 1, numMessages, isFirstBlock);
 
-      const status = await ws.handleL2BlockAndMessages(block, messages, isFirstBlock);
+      const status = await ws.handleL2BlockAndMessages(block, messages);
       expect(status.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
     });
 
@@ -151,7 +151,7 @@ describe('NativeWorldState', () => {
       const numMessages = 1;
       const { block, messages } = await mockBlock(BlockNumber(1), 1, fork, 1, numMessages, isFirstBlock);
 
-      await expect(ws.handleL2BlockAndMessages(block, messages, isFirstBlock)).rejects.toThrow(
+      await expect(ws.handleL2BlockAndMessages(block, messages)).rejects.toThrow(
         'L1 to L2 messages must be empty for non-first blocks',
       );
     });
@@ -183,7 +183,7 @@ describe('NativeWorldState', () => {
       noteHash = block.body.txEffects[0].noteHashes[0];
       await fork.close();
 
-      await ws.handleL2BlockAndMessages(block, messages, true);
+      await ws.handleL2BlockAndMessages(block, messages);
       await ws.close();
     });
 
@@ -219,7 +219,7 @@ describe('NativeWorldState', () => {
       await timesAsync(5, async i => {
         const fork = await ws.fork();
         const { block, messages } = await mockBlock(BlockNumber(i + 1), 2, fork);
-        await ws.handleL2BlockAndMessages(block, messages, true);
+        await ws.handleL2BlockAndMessages(block, messages);
         await fork.close();
       });
 
@@ -263,7 +263,7 @@ describe('NativeWorldState', () => {
       ({ block, messages } = await mockBlock(BlockNumber(1), 2, fork));
       await fork.close();
 
-      const status = await ws.handleL2BlockAndMessages(block, messages, true);
+      const status = await ws.handleL2BlockAndMessages(block, messages);
       expect(status.summary.unfinalizedBlockNumber).toBe(1);
       await ws.close();
       // we open up the version file that was created and modify the version to be older
@@ -302,7 +302,7 @@ describe('NativeWorldState', () => {
       const { block: block3, messages: messages3 } = await mockBlock(BlockNumber(3), 8, initialFork);
 
       // The first block should succeed
-      await expect(ws.handleL2BlockAndMessages(block1, messages1, true)).resolves.toBeDefined();
+      await expect(ws.handleL2BlockAndMessages(block1, messages1)).resolves.toBeDefined();
 
       // The trees should be synched at block 1
       const goodSummary = await ws.getStatusSummary();
@@ -314,7 +314,7 @@ describe('NativeWorldState', () => {
       } as WorldStateStatusSummary);
 
       // The second block should fail
-      await expect(ws.handleL2BlockAndMessages(block2, messages2, true)).rejects.toThrow();
+      await expect(ws.handleL2BlockAndMessages(block2, messages2)).rejects.toThrow();
 
       // The summary should indicate that the unfinalized block number (that of the archive tree) is 2
       // But it should also tell us that the trees are not synched
@@ -327,12 +327,8 @@ describe('NativeWorldState', () => {
       } as WorldStateStatusSummary);
 
       // Commits should always fail now, the trees are in an inconsistent state
-      await expect(ws.handleL2BlockAndMessages(block2, messages2, true)).rejects.toThrow(
-        'World state trees are out of sync',
-      );
-      await expect(ws.handleL2BlockAndMessages(block3, messages3, true)).rejects.toThrow(
-        'World state trees are out of sync',
-      );
+      await expect(ws.handleL2BlockAndMessages(block2, messages2)).rejects.toThrow('World state trees are out of sync');
+      await expect(ws.handleL2BlockAndMessages(block3, messages3)).rejects.toThrow('World state trees are out of sync');
 
       // Creating another world state instance should fail
       await ws.close();
@@ -347,7 +343,7 @@ describe('NativeWorldState', () => {
       const fork = await ws.fork();
       ({ block, messages } = await mockBlock(BlockNumber(1), 2, fork));
       await fork.close();
-      const status = await ws.handleL2BlockAndMessages(block, messages, true);
+      const status = await ws.handleL2BlockAndMessages(block, messages);
       expect(status.summary.unfinalizedBlockNumber).toBe(1);
 
       // Clear it
@@ -401,7 +397,7 @@ describe('NativeWorldState', () => {
       const initialFork = await ws.fork();
       for (let i = 0; i < 5; i++) {
         const { block, messages } = await mockBlock(BlockNumber(i + 1), 2, initialFork);
-        await ws.handleL2BlockAndMessages(block, messages, true);
+        await ws.handleL2BlockAndMessages(block, messages);
       }
 
       const fork = await ws.fork(BlockNumber(3));
@@ -430,7 +426,7 @@ describe('NativeWorldState', () => {
       for (let i = 0; i < 5; i++) {
         const blockNumber = i + 1;
         const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-        const status = await ws.handleL2BlockAndMessages(block, messages, true);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
 
         expect(status.summary.unfinalizedBlockNumber).toBe(blockNumber);
       }
@@ -460,7 +456,7 @@ describe('NativeWorldState', () => {
         const blockNumber = i + 1;
         const provenBlock = blockNumber - 4;
         const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-        const status = await ws.handleL2BlockAndMessages(block, messages, true);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
 
         expect(status.summary.unfinalizedBlockNumber).toBe(blockNumber);
         expect(status.summary.oldestHistoricalBlock).toBe(1);
@@ -482,7 +478,7 @@ describe('NativeWorldState', () => {
       for (let i = 0; i < 16; i++) {
         const blockNumber = i + 1;
         const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-        const status = await ws.handleL2BlockAndMessages(block, messages, true);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
 
         expect(status.summary.unfinalizedBlockNumber).toBe(blockNumber);
         expect(status.summary.oldestHistoricalBlock).toBe(1);
@@ -506,7 +502,7 @@ describe('NativeWorldState', () => {
         const provenBlock = blockNumber - provenBlockLag;
         const prunedBlockNumber = blockNumber - prunedBlockLag;
         const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-        const status = await ws.handleL2BlockAndMessages(block, messages, true);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
 
         expect(status.summary.unfinalizedBlockNumber).toBe(blockNumber);
 
@@ -607,7 +603,7 @@ describe('NativeWorldState', () => {
         const blockNumber = i + 1;
         const provenBlock = blockNumber - provenBlockLag;
         const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-        const status = await ws.handleL2BlockAndMessages(block, messages, true);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
 
         expect(status.summary.unfinalizedBlockNumber).toBe(blockNumber);
 
@@ -644,7 +640,7 @@ describe('NativeWorldState', () => {
         const blockNumber = i + 1;
         const provenBlock = blockNumber - provenBlockLag;
         const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-        const status = await ws.handleL2BlockAndMessages(block, messages, true);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
 
         expect(status.summary.unfinalizedBlockNumber).toBe(blockNumber);
 
@@ -677,7 +673,7 @@ describe('NativeWorldState', () => {
         for (let i = 0; i < 8; i++) {
           const blockNumber = i + 1;
           const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-          await ws.handleL2BlockAndMessages(block, messages, true);
+          await ws.handleL2BlockAndMessages(block, messages);
         }
       }
 
@@ -687,7 +683,7 @@ describe('NativeWorldState', () => {
         for (let i = 8; i < 16; i++) {
           const blockNumber = i + 1;
           const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-          await worldState.handleL2BlockAndMessages(block, messages, true);
+          await worldState.handleL2BlockAndMessages(block, messages);
         }
       });
 
@@ -701,7 +697,7 @@ describe('NativeWorldState', () => {
 
         const blockNumber = 9;
         const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-        const statusFull = await ws.handleL2BlockAndMessages(block, messages, true);
+        const statusFull = await ws.handleL2BlockAndMessages(block, messages);
         expect(statusFull.meta.archiveTreeMeta.unfinalizedBlockHeight).toEqual(9);
         expect(statusFull.meta.messageTreeMeta.unfinalizedBlockHeight).toEqual(9);
         expect(statusFull.meta.noteHashTreeMeta.unfinalizedBlockHeight).toEqual(9);
@@ -719,7 +715,7 @@ describe('NativeWorldState', () => {
         for (let i = 0; i < 16; i++) {
           const blockNumber = i + 1;
           const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-          const status = await ws.handleL2BlockAndMessages(block, messages, true);
+          const status = await ws.handleL2BlockAndMessages(block, messages);
 
           const provenBlock = blockNumber - provenBlockLag;
 
@@ -741,7 +737,7 @@ describe('NativeWorldState', () => {
         for (let i = 16; i < 20; i++) {
           const blockNumber = i + 1;
           const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-          await worldState.handleL2BlockAndMessages(block, messages, true);
+          await worldState.handleL2BlockAndMessages(block, messages);
           const provenBlock = blockNumber - provenBlockLag;
           await worldState.setFinalized(BlockNumber(provenBlock));
         }
@@ -758,7 +754,7 @@ describe('NativeWorldState', () => {
         expect(summary.unfinalizedBlockNumber).toEqual(expectedPendingBlockNumber);
 
         const { block, messages } = await mockBlock(BlockNumber(expectedPendingBlockNumber + 1), 1, fork);
-        const statusFull = await ws.handleL2BlockAndMessages(block, messages, true);
+        const statusFull = await ws.handleL2BlockAndMessages(block, messages);
         expect(statusFull.summary.treesAreSynched).toBeTruthy();
         expect(statusFull.meta.archiveTreeMeta.unfinalizedBlockHeight).toEqual(expectedPendingBlockNumber + 1);
         expect(statusFull.meta.messageTreeMeta.unfinalizedBlockHeight).toEqual(expectedPendingBlockNumber + 1);
@@ -820,7 +816,7 @@ describe('NativeWorldState', () => {
       for (let i = 0; i < 16; i++) {
         const blockNumber = i + 1;
         const { block, messages } = await genBlock(blockNumber, fork);
-        const status = await ws.handleL2BlockAndMessages(block, messages, true);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
         blockStats.push(status);
         const blockFork = await ws.fork();
         blockForks.push(blockFork);
@@ -830,14 +826,14 @@ describe('NativeWorldState', () => {
         siblingPaths.push(siblingPath);
 
         if (blockNumber < 9) {
-          const statusNonReorg = await nonReorgState.handleL2BlockAndMessages(block, messages, true);
+          const statusNonReorg = await nonReorgState.handleL2BlockAndMessages(block, messages);
           expect(status.summary).toEqual(statusNonReorg.summary);
 
           const treeInfoNonReorg = await nonReorgState.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
           expect(treeInfo).toEqual(treeInfoNonReorg);
         }
 
-        await sequentialReorgState.handleL2BlockAndMessages(block, messages, true);
+        await sequentialReorgState.handleL2BlockAndMessages(block, messages);
       }
 
       // unwind 1 chain by a single block at a time
@@ -884,7 +880,7 @@ describe('NativeWorldState', () => {
       for (let i = 8; i < 16; i++) {
         const blockNumber = i + 1;
         const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-        const status = await ws.handleL2BlockAndMessages(block, messages, true);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
         blockStats[i] = status;
         const blockFork = await ws.fork();
         blockForks[i] = blockFork;
@@ -893,7 +889,7 @@ describe('NativeWorldState', () => {
         const siblingPath = await ws.getCommitted().getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n);
         siblingPaths[i] = siblingPath;
 
-        const statusNonReorg = await nonReorgState.handleL2BlockAndMessages(block, messages, true);
+        const statusNonReorg = await nonReorgState.handleL2BlockAndMessages(block, messages);
         expect(status.summary).toEqual(statusNonReorg.summary);
       }
 
@@ -919,7 +915,7 @@ describe('NativeWorldState', () => {
       for (let i = 0; i < 16; i++) {
         const blockNumber = i + 1;
         const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-        const status = await ws.handleL2BlockAndMessages(block, messages, true);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
         blockStats.push(status);
         const blockFork = await ws.fork();
         blockForks.push(blockFork);
@@ -962,7 +958,7 @@ describe('NativeWorldState', () => {
         const blockNumber = i + 1;
         const provenBlock = blockNumber - 2;
         const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-        const status = await ws.handleL2BlockAndMessages(block, messages, true);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
 
         expect(status.summary.unfinalizedBlockNumber).toBe(blockNumber);
         expect(status.summary.oldestHistoricalBlock).toBe(1);
@@ -983,12 +979,12 @@ describe('NativeWorldState', () => {
         const invalidBlock = L2BlockNew.fromBuffer(block.toBuffer());
         invalidBlock.header.state.partial.nullifierTree.root = Fr.random();
 
-        await expect(ws.handleL2BlockAndMessages(invalidBlock, messages, true)).rejects.toThrow(
+        await expect(ws.handleL2BlockAndMessages(invalidBlock, messages)).rejects.toThrow(
           "Can't synch block: block state does not match world state",
         );
 
         // Accepts the correct block
-        await expect(ws.handleL2BlockAndMessages(block, messages, true)).resolves.toBeDefined();
+        await expect(ws.handleL2BlockAndMessages(block, messages)).resolves.toBeDefined();
 
         const summary = await ws.getStatusSummary();
         expect(summary.unfinalizedBlockNumber).toBe(5);
@@ -1002,7 +998,7 @@ describe('NativeWorldState', () => {
         const invalidBlock = L2BlockNew.fromBuffer(block.toBuffer());
         invalidBlock.header.state.partial.nullifierTree.root = Fr.random();
 
-        await expect(ws.handleL2BlockAndMessages(invalidBlock, messages, true)).rejects.toThrow(
+        await expect(ws.handleL2BlockAndMessages(invalidBlock, messages)).rejects.toThrow(
           "Can't synch block: block state does not match world state",
         );
 
@@ -1036,7 +1032,7 @@ describe('NativeWorldState', () => {
         nullifiers.push(...block.body.txEffects.flatMap(x => x.nullifiers.flatMap(x => x.toBuffer())));
         publicWrites.push(...block.body.txEffects.flatMap(x => x.publicDataWrites.flatMap(x => x.toBuffer())));
         await fork.close();
-        await ws.handleL2BlockAndMessages(block, messages, true);
+        await ws.handleL2BlockAndMessages(block, messages);
       }
 
       const testQuery = async (
@@ -1095,7 +1091,7 @@ describe('NativeWorldState', () => {
         nullifiers.push(...block.body.txEffects.flatMap(x => x.nullifiers.flatMap(x => x.toBuffer())));
         publicWrites.push(...block.body.txEffects.flatMap(x => x.publicDataWrites.flatMap(x => x.toBuffer())));
         await fork.close();
-        await ws.handleL2BlockAndMessages(block, messages, true);
+        await ws.handleL2BlockAndMessages(block, messages);
       }
 
       const testQuery = async (
@@ -1158,7 +1154,7 @@ describe('NativeWorldState', () => {
         nullifiers = block.body.txEffects[0].nullifiers.length;
         publicTree = block.body.txEffects[0].publicDataWrites.length;
         await fork.close();
-        const status = await ws.handleL2BlockAndMessages(block, messages, true);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
         statuses.push(status);
       }
 
@@ -1211,7 +1207,7 @@ describe('NativeWorldState', () => {
         const fork = await ws.fork();
         ({ block, messages } = await mockBlock(BlockNumber(1), 2, fork));
         await fork.close();
-        const status = await ws.handleL2BlockAndMessages(block, messages, true);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
         statuses.push(status);
 
         expect(status.summary).toEqual({
@@ -1372,7 +1368,7 @@ describe('NativeWorldState', () => {
       const { block: block2 } = await mockBlock(BlockNumber(2), 8, setupFork);
       const { block: block3 } = await mockBlock(BlockNumber(3), 8, setupFork);
 
-      await ws.handleL2BlockAndMessages(block1, messages, true);
+      await ws.handleL2BlockAndMessages(block1, messages);
 
       const testFork = await ws.fork();
       const commitmentDb = ws.getCommitted();
@@ -1441,7 +1437,7 @@ describe('NativeWorldState', () => {
       const { block, messages } = await mockBlock(BlockNumber(1), 2, fork);
       await fork.close();
 
-      await ws.handleL2BlockAndMessages(block, messages, true);
+      await ws.handleL2BlockAndMessages(block, messages);
     });
 
     afterEach(async () => {

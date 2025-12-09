@@ -1,17 +1,12 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { times, timesParallel } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import {
-  L2Block,
-  L2BlockNew,
-  type L2BlockSource,
-  type L2BlockStream,
-  type PublishedL2Block,
-} from '@aztec/stdlib/block';
+import { L2BlockNew, type L2BlockSource, type L2BlockStream, type PublishedL2Block } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -19,7 +14,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { MerkleTreeAdminDatabase, WorldStateConfig } from '../index.js';
 import { type WorldStateStatusSummary, buildEmptyWorldStateStatusFull } from '../native/message.js';
-import { mockCheckpoint } from '../test/utils.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 
 describe('ServerWorldStateSynchronizer', () => {
@@ -44,23 +38,19 @@ describe('ServerWorldStateSynchronizer', () => {
 
     // Generate 10 mock checkpoints, each with 1 block and i + 2 message.
     checkpoints = await timesParallel(10, i =>
-      mockCheckpoint(CheckpointNumber(i + 1), { startBlockNumber: BlockNumber(i + 1), numL1ToL2Messages: i + 2 }),
+      mockCheckpointAndMessages(CheckpointNumber(i + 1), {
+        startBlockNumber: BlockNumber(i + 1),
+        numBlocks: 1,
+        numL1ToL2Messages: i + 2,
+      }),
     );
   });
 
   beforeEach(() => {
     blockAndMessagesSource = mock<L2BlockSource & L1ToL2MessageSource>();
     blockAndMessagesSource.getBlockNumber.mockResolvedValue(BlockNumber(LATEST_BLOCK_NUMBER));
-    blockAndMessagesSource.getBlockHeader.mockImplementation(blockNumber => {
-      return Promise.resolve(checkpoints.flatMap(c => c.checkpoint.blocks).find(b => b.number === blockNumber)?.header);
-    });
-    blockAndMessagesSource.getCheckpointByArchive.mockImplementation(archiveRoot => {
-      return Promise.resolve(
-        checkpoints.find(c => c.checkpoint.blocks.at(-1)!.archive.root.equals(archiveRoot))?.checkpoint,
-      );
-    });
-    blockAndMessagesSource.getL1ToL2Messages.mockImplementation(blockNumber => {
-      return Promise.resolve(checkpoints.find(c => c.checkpoint.blocks[0].number === blockNumber)?.messages ?? []);
+    blockAndMessagesSource.getL1ToL2Messages.mockImplementation(checkNumber => {
+      return Promise.resolve(checkpoints.find(c => c.checkpoint.number === checkNumber)?.messages ?? []);
     });
 
     merkleTreeRead = mock<MerkleTreeReadOperations>();
@@ -103,12 +93,18 @@ describe('ServerWorldStateSynchronizer', () => {
   });
 
   const pushBlocks = async (from: number, to: number) => {
+    const blocks = checkpoints
+      .flatMap(c => c.checkpoint.blocks)
+      .filter(b => b.number >= from && b.number <= to)
+      .map(
+        b =>
+          ({
+            block: { toL2Block: () => b },
+          }) as any as PublishedL2Block,
+      );
     await server.handleBlockStreamEvent({
       type: 'blocks-added',
-      blocks: times(
-        to - from + 1,
-        i => ({ block: L2Block.fromCheckpoint(checkpoints[from + i - 1].checkpoint) }) as PublishedL2Block,
-      ),
+      blocks,
     });
     server.latest.number = BlockNumber(to);
   };
@@ -224,6 +220,34 @@ describe('ServerWorldStateSynchronizer', () => {
     void server.start();
     merkleTreeDb.handleL2BlockAndMessages.mockRejectedValue(new Error('Test error'));
     await expect(pushBlocks(1, 5)).rejects.toThrow(/Test error/i);
+  });
+
+  it('fetches L1->L2 messages only for the first block in a checkpoint', async () => {
+    // Generate 3 mock checkpoints, each with i + 1 block and i + 2 message.
+    checkpoints = await timesParallel(3, i =>
+      mockCheckpointAndMessages(CheckpointNumber(i + 1), {
+        startBlockNumber: BlockNumber(
+          Array(i + 1)
+            .fill(0)
+            .reduce((acc, _, index) => acc + index, 1),
+        ),
+        numBlocks: i + 1,
+        numL1ToL2Messages: i + 2,
+      }),
+    );
+
+    void server.start();
+    await pushBlocks(1, 6);
+
+    await expectServerStatus(WorldStateRunningState.RUNNING, 6);
+
+    expect(merkleTreeDb.handleL2BlockAndMessages).toHaveBeenCalledTimes(6);
+    expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[0][1]).toEqual(checkpoints[0].messages);
+    expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[1][1]).toEqual(checkpoints[1].messages);
+    expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[2][1]).toEqual([]);
+    expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[3][1]).toEqual(checkpoints[2].messages);
+    expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[4][1]).toEqual([]);
+    expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[5][1]).toEqual([]);
   });
 });
 

@@ -180,11 +180,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return this.initialHeader!;
   }
 
-  public async handleL2BlockAndMessages(
-    l2Block: L2BlockNew,
-    l1ToL2Messages: Fr[],
-    isFirstBlock: boolean,
-  ): Promise<WorldStateStatusFull> {
+  public async handleL2BlockAndMessages(l2Block: L2BlockNew, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
+    const isFirstBlock = l2Block.indexWithinCheckpoint === 0;
     if (!isFirstBlock && l1ToL2Messages.length > 0) {
       throw new Error(
         `L1 to L2 messages must be empty for non-first blocks, but got ${l1ToL2Messages.length} messages for block ${l2Block.number}.`,
