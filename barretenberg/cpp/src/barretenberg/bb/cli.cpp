@@ -252,6 +252,30 @@ int parse_and_run_cli_command(int argc, char* argv[])
                                     "starknet-no-zk" }));
     };
 
+    const auto add_verifier_target_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--verifier_target, -t",
+                         flags.verifier_target,
+                         "Target verification environment. Determines hash function and ZK settings.\n"
+                         "  evm:                    Ethereum/Solidity verification (keccak, ZK)\n"
+                         "  evm-no-zk:              Ethereum/Solidity without zero-knowledge\n"
+                         "  noir-recursive:         Recursive verification in Noir circuits (poseidon2, ZK)\n"
+                         "  noir-recursive-no-zk:   Recursive verification without ZK\n"
+                         "  noir-rollup:            Rollup circuits with IPA accumulation (poseidon2, ZK)\n"
+                         "  noir-rollup-no-zk:      Rollup circuits without ZK\n"
+                         "  starknet:               Starknet verification via Garaga (ZK)\n"
+                         "  starknet-no-zk:         Starknet without zero-knowledge")
+            ->envname("BB_VERIFIER_TARGET")
+            ->check(CLI::IsMember({ "evm",
+                                    "evm-no-zk",
+                                    "noir-recursive",
+                                    "noir-recursive-no-zk",
+                                    "noir-rollup",
+                                    "noir-rollup-no-zk",
+                                    "starknet",
+                                    "starknet-no-zk" }));
+    };
+
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag("--write_vk", flags.write_vk, "Write the provided circuit's verification key");
     };
