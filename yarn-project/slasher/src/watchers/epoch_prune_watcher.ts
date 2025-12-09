@@ -1,5 +1,5 @@
 import { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
@@ -145,8 +145,8 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       throw new TransactionsNotAvailableError(missingTxs);
     }
 
-    const blockNumber = blockFromL1.number;
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
+    const checkpointNumber = CheckpointNumber.fromBlockNumber(blockFromL1.number);
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
     const { block, failedTxs, numTxs } = await this.blockBuilder.buildBlock(
       txs,
       l1ToL2Messages,

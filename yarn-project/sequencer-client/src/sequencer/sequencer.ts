@@ -647,8 +647,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     await publisher.validateBlockHeader(proposalHeader, invalidateBlock);
 
     const blockNumber = newGlobalVariables.blockNumber;
+    const checkpointNumber = CheckpointNumber.fromBlockNumber(blockNumber);
     const slot = proposalHeader.slotNumber;
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
 
     const workTimer = new Timer();
     this.setState(SequencerState.CREATING_BLOCK, slot);
