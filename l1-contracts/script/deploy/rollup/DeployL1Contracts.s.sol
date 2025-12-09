@@ -38,6 +38,23 @@ import {
     DeploymentConfiguration
 } from "./DeploymentConfiguration.sol";
 
+/// @notice Output struct containing all deployed L1 contract addresses
+struct DeployL1ContractsOutput {
+    IERC20 feeAsset;
+    IERC20 stakingAsset;
+    GSE gse;
+    Registry registry;
+    RewardDistributor rewardDistributor;
+    CoinIssuer coinIssuer;
+    GovernanceProposer governanceProposer;
+    Governance governance;
+    RollupAddressOutput rollup;
+    DateGatedRelayer dateGatedRelayer;
+    FeeAssetHandler feeAssetHandler;
+    IZKPassportVerifier mockZkPassportVerifier;
+    StakingAssetHandler stakingAssetHandler;
+}
+
 /**
  * @title DeployL1Contracts
  * @author Aztec Labs
@@ -45,38 +62,8 @@ import {
  * See DeploymentConfiguration and RollupConfiguration for environment variables supported.
  */
 contract DeployL1Contracts is Script, Test {
-    // Deployed contracts, filled as we make progress in the deploy.
-    // Note that there's no good way to scope these in Solidity
-    // so that they must be accessed after creation, as it leaves the code brittle
-    // to facing stack-too-deep.
-
-    // TODO CLAUDE: make these a struct DeployL1ContractsOutput.
-    /// @notice Deployed fee asset (ERC20), could be test asset or existing asset
-    IERC20 public feeAsset;
-    /// @notice Deployed staking asset (ERC20), could be test asset or existing asset
-    IERC20 public stakingAsset;
-    /// @notice Deployed GSE contract
-    GSE public gseContract;
-    /// @notice Deployed registry contract
-    Registry public registry;
-    /// @notice Deployed reward distributor contract
-    RewardDistributor public rewardDistributor;
-    /// @notice Deployed coin issuer contract
-    CoinIssuer public coinIssuer;
-    /// @notice Deployed governance proposer contract
-    GovernanceProposer public governanceProposer;
-    /// @notice Deployed governance contract
-    Governance public governance;
-    /// @notice Rollup deployment output (rollup, verifier, slashFactory)
-    RollupAddressOutput public rollupOutput;
-    /// @notice Deployed date gated relayer contract
-    DateGatedRelayer public dateGatedRelayer;
-    /// @notice Deployed fee asset handler contract or address(0)
-    FeeAssetHandler public feeAssetHandler;
-    /// @notice Deployed mock zk passport verifier contract or address(0)
-    IZKPassportVerifier public mockZkPassportVerifier;
-    /// @notice Deployed staking asset handler contract or address(0)
-    StakingAssetHandler public stakingAssetHandler;
+    /// @notice All deployed contract addresses
+    DeployL1ContractsOutput public output;
 
     /// @notice Address performing the deployment
     address public deployer;
@@ -125,22 +112,22 @@ contract DeployL1Contracts is Script, Test {
     function _maybeDeployAssets() internal {
         address existingToken = config.existingTokenAddress();
         if (existingToken != address(0)) {
-            stakingAsset = IERC20(existingToken);
-            feeAsset = IERC20(existingToken);
+            output.stakingAsset = IERC20(existingToken);
+            output.feeAsset = IERC20(existingToken);
         } else {
             TestERC20 stakingAssetLocal = new TestERC20("Staking", "STK", deployer);
             TestERC20 feeAssetLocal = new TestERC20("FeeJuice", "FEE", deployer);
             feeAssetLocal.mint(deployer, 1e18);
-            stakingAsset = stakingAssetLocal;
-            feeAsset = feeAssetLocal;
+            output.stakingAsset = stakingAssetLocal;
+            output.feeAsset = feeAssetLocal;
         }
     }
 
     /// @notice Deploy coin issuer contract
     function _deployCoinIssuer() internal {
         CoinIssuerConfiguration memory coinConfig = config.getCoinIssuerConfiguration();
-        coinIssuer = new CoinIssuer(
-            IMintableERC20(address(feeAsset)),
+        output.coinIssuer = new CoinIssuer(
+            IMintableERC20(address(output.feeAsset)),
             coinConfig.coinIssuerRate,
             deployer
         );
@@ -150,17 +137,17 @@ contract DeployL1Contracts is Script, Test {
     function _maybeDeployFeeAssetHandler() internal {
         // Deploy on test chains only (when we control the staking asset)
         if (config.existingTokenAddress() == address(0)) {
-            feeAssetHandler = new FeeAssetHandler(deployer, address(feeAsset), 1000e18);
-            TestERC20(address(feeAsset)).addMinter(address(feeAssetHandler));
+            output.feeAssetHandler = new FeeAssetHandler(deployer, address(output.feeAsset), 1000e18);
+            TestERC20(address(output.feeAsset)).addMinter(address(output.feeAssetHandler));
         }
     }
 
     /// @notice Deploy GSE contract
     function _deployGSE() internal {
         GseConfiguration memory gseConfig = config.getGseConfiguration();
-        gseContract = new GSE(
+        output.gse = new GSE(
             deployer,
-            stakingAsset,
+            output.stakingAsset,
             gseConfig.activationThreshold,
             gseConfig.ejectionThreshold
         );
@@ -168,16 +155,16 @@ contract DeployL1Contracts is Script, Test {
 
     /// @notice Deploy registry and reward distributor
     function _deployRegistry() internal {
-        registry = new Registry(deployer, feeAsset);
-        rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
+        output.registry = new Registry(deployer, output.feeAsset);
+        output.rewardDistributor = RewardDistributor(address(output.registry.getRewardDistributor()));
     }
 
     /// @notice Deploy governance proposer contract
     function _deployGovernanceProposer() internal {
         GovernanceProposerConfiguration memory govPropConfig = config.getGovernanceProposerConfiguration();
-        governanceProposer = new GovernanceProposer(
-            registry,
-            gseContract,
+        output.governanceProposer = new GovernanceProposer(
+            output.registry,
+            output.gse,
             govPropConfig.quorum,
             govPropConfig.roundSize
         );
@@ -185,36 +172,36 @@ contract DeployL1Contracts is Script, Test {
 
     /// @notice Deploy governance contract
     function _deployGovernance() internal {
-        governance = new Governance(
-            stakingAsset,
-            address(governanceProposer),
-            address(gseContract),
+        output.governance = new Governance(
+            output.stakingAsset,
+            address(output.governanceProposer),
+            address(output.gse),
             config.getGovernanceConfiguration()
         );
-        gseContract.setGovernance(governance);
+        output.gse.setGovernance(output.governance);
     }
 
     /// @notice Deploy rollup and related contracts via DeployRollupLib
     function _deployRollup() internal {
-        rollupOutput = DeployRollupLib.deployRollup(_getRollupAddressInput(), config.rollupConfig());
+        output.rollup = DeployRollupLib.deployRollup(_getRollupAddressInput(), config.rollupConfig());
     }
 
     /// @notice Build RollupAddressInput from deployed contracts
     function _getRollupAddressInput() internal view returns (RollupAddressInput memory) {
         return RollupAddressInput({
             deployer: deployer,
-            registry: registry,
-            gse: gseContract,
-            governance: governance,
-            feeAsset: feeAsset,
-            stakingAsset: stakingAsset,
-            rewardDistributor: rewardDistributor
+            registry: output.registry,
+            gse: output.gse,
+            governance: output.governance,
+            feeAsset: output.feeAsset,
+            stakingAsset: output.stakingAsset,
+            rewardDistributor: output.rewardDistributor
         });
     }
 
     /// @notice Deploy date gated relayer contract
     function _deployDateGatedRelayer() internal {
-        dateGatedRelayer = new DateGatedRelayer(address(governance), 1798761600);
+        output.dateGatedRelayer = new DateGatedRelayer(address(output.governance), 1798761600);
     }
 
     /// @notice Deploy staking asset handler on sepolia/anvil
@@ -231,18 +218,18 @@ contract DeployL1Contracts is Script, Test {
                 zkPassportVerifier = 0x3101Bad9eA5fACadA5554844a1a88F7Fe48D4DE0;
             } else {
                 // Anvil - deploy mock verifier
-                mockZkPassportVerifier = IZKPassportVerifier(address(new MockZKPassportVerifier()));
-                zkPassportVerifier = address(mockZkPassportVerifier);
+                output.mockZkPassportVerifier = IZKPassportVerifier(address(new MockZKPassportVerifier()));
+                zkPassportVerifier = address(output.mockZkPassportVerifier);
             }
 
             ZkPassportConfiguration memory zkConfig = config.getZkPassportConfiguration();
             address[] memory unhinged = new address[](1);
             unhinged[0] = 0x3b218d0F26d15B36C715cB06c949210a0d630637; // AMIN isUnhinged
 
-            stakingAssetHandler = new StakingAssetHandler(StakingAssetHandler.StakingAssetHandlerArgs({
+            output.stakingAssetHandler = new StakingAssetHandler(StakingAssetHandler.StakingAssetHandlerArgs({
                 owner: deployer,
-                stakingAsset: address(stakingAsset),
-                registry: registry,
+                stakingAsset: address(output.stakingAsset),
+                registry: output.registry,
                 withdrawer: deployer,
                 validatorsToFlush: 16,
                 mintInterval: 60 * 60 * 24,
@@ -257,7 +244,7 @@ contract DeployL1Contracts is Script, Test {
                 skipBindCheck: true,
                 skipMerkleCheck: true
             }));
-            TestERC20(address(stakingAsset)).addMinter(address(stakingAssetHandler));
+            TestERC20(address(output.stakingAsset)).addMinter(address(output.stakingAssetHandler));
         }
     }
 
@@ -267,23 +254,23 @@ contract DeployL1Contracts is Script, Test {
         if (config.existingTokenAddress() == address(0)) {
             uint256 funding = config.getRewardDistributorFunding();
             if (funding > 0) {
-                TestERC20(address(feeAsset)).mint(address(rewardDistributor), funding);
+                TestERC20(address(output.feeAsset)).mint(address(output.rewardDistributor), funding);
             }
         }
     }
 
     /// @notice Transfer ownership of contracts to governance
     function _handoverToGovernance() internal {
-        if (registry.owner() == deployer) {
-            registry.transferOwnership(address(governance));
+        if (output.registry.owner() == deployer) {
+            output.registry.transferOwnership(address(output.governance));
         }
-        gseContract.transferOwnership(address(governance));
+        output.gse.transferOwnership(address(output.governance));
 
         // If we deployed assets, set them free.
         if (config.existingTokenAddress() == address(0)) {
-            Ownable(address(feeAsset)).transferOwnership(address(coinIssuer));
-            coinIssuer.acceptTokenOwnership();
-            coinIssuer.transferOwnership(address(dateGatedRelayer));
+            Ownable(address(output.feeAsset)).transferOwnership(address(output.coinIssuer));
+            output.coinIssuer.acceptTokenOwnership();
+            output.coinIssuer.transferOwnership(address(output.dateGatedRelayer));
         }
     }
 
@@ -292,37 +279,37 @@ contract DeployL1Contracts is Script, Test {
     function _writeDeploymentOutput(string memory _outputPath) internal {
         string memory json = "deployment";
         // Non-rollup addresses
-        vm.serializeAddress(json, "registryAddress", address(registry));
-        vm.serializeAddress(json, "feeAssetAddress", address(feeAsset));
-        vm.serializeAddress(json, "stakingAssetAddress", address(stakingAsset));
-        vm.serializeAddress(json, "gseAddress", address(gseContract));
-        vm.serializeAddress(json, "rewardDistributorAddress", address(rewardDistributor));
-        vm.serializeAddress(json, "coinIssuerAddress", address(coinIssuer));
-        vm.serializeAddress(json, "governanceProposerAddress", address(governanceProposer));
-        vm.serializeAddress(json, "governanceAddress", address(governance));
-        vm.serializeAddress(json, "feeAssetHandlerAddress", address(feeAssetHandler));
-        vm.serializeAddress(json, "stakingAssetHandlerAddress", address(stakingAssetHandler));
-        vm.serializeAddress(json, "zkPassportVerifierAddress", address(mockZkPassportVerifier));
+        vm.serializeAddress(json, "registryAddress", address(output.registry));
+        vm.serializeAddress(json, "feeAssetAddress", address(output.feeAsset));
+        vm.serializeAddress(json, "stakingAssetAddress", address(output.stakingAsset));
+        vm.serializeAddress(json, "gseAddress", address(output.gse));
+        vm.serializeAddress(json, "rewardDistributorAddress", address(output.rewardDistributor));
+        vm.serializeAddress(json, "coinIssuerAddress", address(output.coinIssuer));
+        vm.serializeAddress(json, "governanceProposerAddress", address(output.governanceProposer));
+        vm.serializeAddress(json, "governanceAddress", address(output.governance));
+        vm.serializeAddress(json, "feeAssetHandlerAddress", address(output.feeAssetHandler));
+        vm.serializeAddress(json, "stakingAssetHandlerAddress", address(output.stakingAssetHandler));
+        vm.serializeAddress(json, "zkPassportVerifierAddress", address(output.mockZkPassportVerifier));
         // Rollup-related addresses
-        string memory finalJson = DeployRollupLib.writeRollupAddressesToJson(vm, json, rollupOutput);
+        string memory finalJson = DeployRollupLib.writeRollupAddressesToJson(vm, json, output.rollup);
         vm.writeJson(finalJson, _outputPath);
     }
 
     /// @notice Verify access control is correctly set up
     function _assertAccessControl() internal view {
-        assertEq(gseContract.owner(), address(governance), "invalid gse owner");
-        assertEq(address(gseContract.getGovernance()), address(governance), "invalid gse governance");
-        assertEq(registry.owner(), address(governance), "invalid registry owner");
+        assertEq(output.gse.owner(), address(output.governance), "invalid gse owner");
+        assertEq(address(output.gse.getGovernance()), address(output.governance), "invalid gse governance");
+        assertEq(output.registry.owner(), address(output.governance), "invalid registry owner");
         assertEq(
-            address(rewardDistributor.REGISTRY()),
-            address(registry),
+            address(output.rewardDistributor.REGISTRY()),
+            address(output.registry),
             "invalid reward distributor registry"
         );
-        assertEq(dateGatedRelayer.owner(), address(governance), "invalid date gated relayer owner");
+        assertEq(output.dateGatedRelayer.owner(), address(output.governance), "invalid date gated relayer owner");
 
         if (config.existingTokenAddress() == address(0)) {
-            assertEq(TestERC20(address(feeAsset)).owner(), address(coinIssuer), "invalid fee asset owner");
-            assertEq(coinIssuer.owner(), address(dateGatedRelayer), "invalid coin issuer owner");
+            assertEq(TestERC20(address(output.feeAsset)).owner(), address(output.coinIssuer), "invalid fee asset owner");
+            assertEq(output.coinIssuer.owner(), address(output.dateGatedRelayer), "invalid coin issuer owner");
         }
     }
 }
