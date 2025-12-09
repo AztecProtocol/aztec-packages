@@ -363,14 +363,14 @@ The op queue contains EC operations from all circuits and must be hidden:
 
 **Problem**: The final merge step uses APPEND mode. If the merged table size varied with transaction complexity, an observer could infer information about the transaction from the proof structure.
 
-**Solution**: We always merge to a **uniform total size** = `OP_QUEUE_SIZE`. The `shift_size` is set to `(OP_QUEUE_SIZE - |hiding_ops|) × NUM_ROWS_PER_OP`, which places the hiding kernel's ops at fixed positions at the end of the table, regardless of how many ops the actual transaction used.
+**Solution**: We always merge to a **uniform total size** = `OP_QUEUE_SIZE`. In the code, `shift_size` is set to `(OP_QUEUE_SIZE - |hiding_ops|) × NUM_ROWS_PER_OP`, which represents the total degree of the prepended table and places the hiding kernel's ops at fixed positions at the end of the table, regardless of how many ops the actual transaction used.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  M_tail (transaction ops)  │  zero padding  │  hiding ops  │
-│  (variable size)           │  (to shift)    │  (fixed pos) │
+│  (variable size)           │                │  (fixed pos) │
 └─────────────────────────────────────────────────────────────┘
-                             ←── shift_size ──→
+                             ←─ padding_size ─→
 ```
 
 **Security - Zero Padding is Enforced**: The soundness argument has two parts:
