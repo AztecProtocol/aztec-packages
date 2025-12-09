@@ -11,8 +11,8 @@ enum class VecMutationOptions { Insertion, Deletion, Swap, ElementMutation };
 using VecMutationConfig = WeightedSelectionConfig<VecMutationOptions, 5>;
 
 constexpr VecMutationConfig BASIC_VEC_MUTATION_CONFIGURATION = VecMutationConfig({
-    { VecMutationOptions::Insertion, 7 },
-    { VecMutationOptions::Deletion, 22 },
+    { VecMutationOptions::Insertion, 30 },
+    { VecMutationOptions::Deletion, 15 },
     { VecMutationOptions::Swap, 20 },
     { VecMutationOptions::ElementMutation, 100 },
 });
