@@ -65,7 +65,7 @@ export async function createL1TxUtilsWithBlobsFromViemWallet(
 }
 
 /**
- * Creates L1TxUtils with blobs from multiple EthSigners, sharing store and metrics.
+ * Creates L1TxUtils with blobs from multiple EthSigners, sharing store and metrics. Removes duplicates
  */
 export async function createL1TxUtilsWithBlobsFromEthSigner(
   client: ViemClient,
@@ -79,7 +79,25 @@ export async function createL1TxUtilsWithBlobsFromEthSigner(
 ) {
   const sharedDeps = await createSharedDeps(config, deps);
 
-  return signers.map(signer =>
+  // Deduplicate signers by address to avoid creating multiple L1TxUtils instances
+  // for the same publisher address (e.g., when multiple attesters share the same publisher key)
+  const signersByAddress = new Map<string, EthSigner>();
+  for (const signer of signers) {
+    const addressKey = signer.address.toString().toLowerCase();
+    if (!signersByAddress.has(addressKey)) {
+      signersByAddress.set(addressKey, signer);
+    }
+  }
+
+  const uniqueSigners = Array.from(signersByAddress.values());
+
+  if (uniqueSigners.length < signers.length) {
+    sharedDeps.logger.info(
+      `Deduplicated ${signers.length} signers to ${uniqueSigners.length} unique publisher addresses`,
+    );
+  }
+
+  return uniqueSigners.map(signer =>
     createL1TxUtilsWithBlobsFromEthSignerBase(client, signer, sharedDeps, config, config.debugMaxGasLimit),
   );
 }
@@ -103,7 +121,7 @@ export async function createL1TxUtilsFromViemWalletWithStore(
 }
 
 /**
- * Creates L1TxUtils (without blobs) from multiple EthSigners, sharing store and metrics.
+ * Creates L1TxUtils (without blobs) from multiple EthSigners, sharing store and metrics. Removes duplicates.
  */
 export async function createL1TxUtilsFromEthSignerWithStore(
   client: ViemClient,
@@ -118,5 +136,23 @@ export async function createL1TxUtilsFromEthSignerWithStore(
 ) {
   const sharedDeps = await createSharedDeps(config, deps);
 
-  return signers.map(signer => createL1TxUtilsFromEthSignerBase(client, signer, sharedDeps, config));
+  // Deduplicate signers by address to avoid creating multiple L1TxUtils instances
+  // for the same publisher address (e.g., when multiple attesters share the same publisher key)
+  const signersByAddress = new Map<string, EthSigner>();
+  for (const signer of signers) {
+    const addressKey = signer.address.toString().toLowerCase();
+    if (!signersByAddress.has(addressKey)) {
+      signersByAddress.set(addressKey, signer);
+    }
+  }
+
+  const uniqueSigners = Array.from(signersByAddress.values());
+
+  if (uniqueSigners.length < signers.length) {
+    sharedDeps.logger.info(
+      `Deduplicated ${signers.length} signers to ${uniqueSigners.length} unique publisher addresses`,
+    );
+  }
+
+  return uniqueSigners.map(signer => createL1TxUtilsFromEthSignerBase(client, signer, sharedDeps, config));
 }
