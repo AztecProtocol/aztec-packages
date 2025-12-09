@@ -1,5 +1,5 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { AvmCircuitPublicInputs, AvmTxHint, deserializeFromMessagePack } from '@aztec/stdlib/avm';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
