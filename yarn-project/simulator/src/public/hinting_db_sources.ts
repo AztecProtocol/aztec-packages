@@ -1,5 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import { sha256Trunc } from '@aztec/foundation/crypto';
+import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';

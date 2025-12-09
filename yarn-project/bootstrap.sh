@@ -78,6 +78,10 @@ function lint {
   fi
 }
 
+function compile_all_projects {
+  get_projects | compile_project
+}
+
 function compile_all {
   set -euo pipefail
   local hash=$(hash)

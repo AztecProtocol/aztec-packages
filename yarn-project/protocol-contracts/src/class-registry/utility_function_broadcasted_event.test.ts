@@ -1,4 +1,4 @@
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';

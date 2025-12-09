@@ -1,6 +1,7 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
-import { randomInt, sha256 } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';

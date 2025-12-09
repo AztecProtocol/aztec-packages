@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 
-import { randomBytes } from '../crypto/index.js';
+import { randomBytes } from '../crypto/random/index.js';
 import { Fq, Fr } from '../curves/bn254/field.js';
 import { BufferReader } from './buffer_reader.js';
 import { bigintToUInt64BE, bigintToUInt128BE } from './free_funcs.js';

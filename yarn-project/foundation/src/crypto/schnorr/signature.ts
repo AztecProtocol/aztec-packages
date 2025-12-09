@@ -1,4 +1,4 @@
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, mapTuple } from '@aztec/foundation/serialize';
 

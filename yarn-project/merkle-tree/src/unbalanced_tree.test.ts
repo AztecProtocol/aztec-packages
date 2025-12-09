@@ -1,4 +1,4 @@
-import { SHA256Trunc, sha256Trunc } from '@aztec/foundation/crypto';
+import { SHA256Trunc, sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FromBuffer } from '@aztec/foundation/serialize';
 import type { Hasher } from '@aztec/foundation/trees';

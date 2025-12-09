@@ -1,4 +1,4 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 
 /**

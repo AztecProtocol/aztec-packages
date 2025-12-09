@@ -1,5 +1,5 @@
 import { GeneratorIndex, TX_REQUEST_LENGTH } from '@aztec/constants';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
