@@ -76,7 +76,7 @@ PROJECT_ROOT="$(cd "$BARRETENBERG_ROOT/.." && pwd)"
 CPP_DIR="$BARRETENBERG_ROOT/cpp"
 
 # Set AVM_SIMULATOR_BIN environment variable (relative to PROJECT_ROOT)
-export AVM_SIMULATOR_BIN="${AVM_SIMULATOR_BIN:-$PROJECT_ROOT/yarn-project/simulator/dest/scripts/fuzzing/avm_simulator_bin.cjs}"
+export AVM_SIMULATOR_BIN="${AVM_SIMULATOR_BIN:-$PROJECT_ROOT/yarn-project/simulator/dest/public/fuzzing/avm_simulator_bin.js}"
 
 # Check if AVM_SIMULATOR_BIN exists (only for avm fuzzer)
 if [ "$COMMAND" = "fuzz" ] && [ "$FUZZER_ALIAS" = "avm" ] && [ ! -f "$AVM_SIMULATOR_BIN" ]; then
@@ -85,10 +85,6 @@ if [ "$COMMAND" = "fuzz" ] && [ "$FUZZER_ALIAS" = "avm" ] && [ ! -f "$AVM_SIMULA
     echo "To build the AVM simulator fuzzer binary:"
     echo "  cd $PROJECT_ROOT/yarn-project/simulator"
     echo "  yarn build:fuzzer"
-    echo ""
-    echo "Then rename the output file:"
-    echo "  mv $PROJECT_ROOT/yarn-project/simulator/dest/scripts/fuzzing/avm_simulator_bin.js \\"
-    echo "     $PROJECT_ROOT/yarn-project/simulator/dest/scripts/fuzzing/avm_simulator_bin.cjs"
     echo ""
     exit 1
 fi

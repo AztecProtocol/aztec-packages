@@ -26,9 +26,9 @@ export function makeGas(gasCost: Partial<Gas>) {
 }
 
 /** Sums together multiple instances of Gas. */
-export function sumGas(...gases: Partial<Gas>[]) {
-  return gases.reduce(
-    (acc: Gas, gas) => ({
+export function sumGas(...gases: Partial<Gas>[]): Gas {
+  return gases.reduce<Gas>(
+    (acc, gas) => ({
       l2Gas: acc.l2Gas + (gas.l2Gas ?? 0),
       daGas: acc.daGas + (gas.daGas ?? 0),
     }),
