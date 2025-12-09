@@ -13,7 +13,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
 import {DeployRollupLib, RollupAddressInput, RollupAddressOutput} from "./DeployRollupLib.sol";
-import {RollupConfiguration} from "./RollupConfiguration.sol";
+import {IRollupConfiguration, RollupConfiguration} from "./RollupConfiguration.sol";
 
 /// @title DeployRollupForUpgrade
 /// @author Aztec Labs
@@ -37,7 +37,7 @@ contract DeployRollupForUpgrade is Script {
     /// @notice Deploy rollup and write output to file
     function run(string memory outputPath) public {
         RollupAddressInput memory input = _getRollupAddressInput();
-        RollupConfiguration rollupConfig = new RollupConfiguration();
+        IRollupConfiguration rollupConfig = new RollupConfiguration();
         rollupConfig.loadConfig();
 
         vm.startBroadcast(input.deployer);

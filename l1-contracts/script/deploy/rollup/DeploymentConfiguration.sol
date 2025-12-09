@@ -12,7 +12,7 @@ import {
     Configuration as GovernanceConfiguration,
     ProposeWithLockConfiguration
 } from "@aztec/governance/interfaces/IGovernance.sol";
-import {RollupConfiguration} from "./RollupConfiguration.sol";
+import {IRollupConfiguration, RollupConfiguration, RewardConfig} from "./RollupConfiguration.sol";
 
 struct ZkPassportConfiguration {
     string domain;
@@ -42,16 +42,10 @@ struct FlushRewardConfiguration {
     uint256 initialFundingAmount;
 }
 
-struct DeploymentOptions {
-    bool realVerifier;
-    bool fundRewardDistributor;
-    address existingStakingAssetAddress;
-    uint256 feeJuicePortalInitialBalance;
-}
 
 interface IDeploymentConfiguration {
     function loadConfig() external;
-    function rollupConfig() external view returns (RollupConfiguration);
+    function rollupConfig() external view returns (IRollupConfiguration);
     function getProtocolTreasuryConfiguration() external view returns (ProtocolTreasuryConfiguration memory);
     function getCoinIssuerConfiguration() external pure returns (CoinIssuerConfiguration memory);
     function getGseConfiguration() external view returns (GseConfiguration memory);
@@ -59,15 +53,13 @@ interface IDeploymentConfiguration {
     function getGovernanceConfiguration() external view returns (GovernanceConfiguration memory);
     function getFlushRewardConfiguration() external pure returns (FlushRewardConfiguration memory);
     function getZkPassportConfiguration() external view returns (ZkPassportConfiguration memory);
-    function getGenesisState() external view returns (GenesisState memory);
-    function getRollupConfiguration(IRewardDistributor rewardDistributor) external view returns (RollupConfigInput memory);
     function getRewardDistributorFunding() external view returns (uint256);
     function validateConfig() external view;
 }
 
 contract DeploymentConfiguration is IDeploymentConfiguration, Test {
     // Rollup configuration component - delegates rollup-specific config
-    RollupConfiguration public rollupConfig;
+    IRollupConfiguration public rollupConfig;
 
     // Storage for loaded config
     string public networkName;
@@ -78,7 +70,13 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
         rollupConfig.loadConfig();
     }
 
-    // ============ Deployment Options ============
+    function existingTokenAddress() public view returns (address) {
+        return vm.envOr("EXISTING_STAKING_ASSET_ADDRESS", address(0));
+    }
+
+    function isDeployingTestAssets() public view returns (bool) {
+        return existingTokenAddress() == address(0);
+    }
 
     function getProtocolTreasuryConfiguration() external view returns (ProtocolTreasuryConfiguration memory) {
         return ProtocolTreasuryConfiguration({gatedUntil: block.timestamp + 90 minutes});
@@ -185,35 +183,20 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
         return FlushRewardConfiguration({rewardPerInsertion: 100e18, initialFundingAmount: 1_000_000e18});
     }
 
-    function getZkPassportConfiguration() external view returns (ZkPassportConfiguration memory) {
-        return zkPassportConfig;
-    }
-
-    // ============ Delegated to RollupConfiguration ============
-
-    function getGenesisState() external view returns (GenesisState memory) {
-        return rollupConfig.getGenesisState();
-    }
-
-    function getRollupConfiguration(IRewardDistributor _rewardDistributor) external view returns (RollupConfigInput memory) {
-        return rollupConfig.getRollupConfiguration(_rewardDistributor);
-    }
-
-    function getRewardDistributorFunding() external view returns (uint256) {
-        RewardConfig memory rewardConfig = rollupConfig.getRewardConfiguration(address(0));
-        return uint256(rewardConfig.checkpointReward) * 200_000;
-    }
-
-    function getRewardDistributorFunding() external view returns (uint256) {
-        return rollupConfig.getRewardDistributorFunding();
-    }
-
-    function getZkPassportConfiguration() private {
+    function getZkPassportConfiguration() public view returns (ZkPassportConfiguration memory) {
         return ZkPassportConfiguration({
             domain: vm.envOr("ZKPASSPORT_DOMAIN", string("sequencer.alpha-testnet.aztec.network")),
             scope: vm.envOr("ZKPASSPORT_SCOPE", string("personhood"))
         });
     }
+
+    function getRewardDistributorFunding() external view returns (uint256) {
+        // Delegated to RollupConfiguration
+        RewardConfig memory rewardConfig = rollupConfig.getRewardConfiguration(address(0));
+        return uint256(rewardConfig.checkpointReward) * 200_000;
+    }
+
+    // ============ Validation ============
 
     function validateConfig() external view {
         // Validate deployment-specific config

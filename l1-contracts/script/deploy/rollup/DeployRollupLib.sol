@@ -25,7 +25,7 @@ import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 
 import {HonkVerifier} from "../../../generated/HonkVerifier.sol";
 
-import {RollupConfiguration} from "./RollupConfiguration.sol";
+import {IRollupConfiguration} from "./RollupConfiguration.sol";
 
 /// @notice Input addresses required for rollup deployment (existing L1 infrastructure)
 struct RollupAddressInput {
@@ -49,7 +49,7 @@ struct RollupAddressOutput {
 /// @author Aztec Labs
 /// @notice Library for deploying rollup contracts. Used by DeployL1Contracts and DeployRollupForUpgrade.
 library DeployRollupLib {
-    function deployRollup(RollupAddressInput memory input, RollupConfiguration config)
+    function deployRollup(RollupAddressInput memory input, IRollupConfiguration config)
         internal
         returns (RollupAddressOutput memory output)
     {
@@ -76,7 +76,7 @@ library DeployRollupLib {
         return vm.serializeUint(jsonKey, "rollupVersion", output.rollup.getVersion());
     }
 
-    function _deployVerifier(RollupConfiguration config) private returns (IVerifier) {
+    function _deployVerifier(IRollupConfiguration config) private returns (IVerifier) {
         if (!config.useRealVerifier()) {
             return new MockVerifier();
         } else {
@@ -87,7 +87,7 @@ library DeployRollupLib {
     function _deployRollupContract(
         RollupAddressInput memory input,
         IVerifier verifier,
-        RollupConfiguration config
+        IRollupConfiguration config
     ) private returns (Rollup) {
         GenesisState memory genesisState = config.getGenesisState();
         RollupConfigInput memory rollupConfigInput =
@@ -107,7 +107,7 @@ library DeployRollupLib {
     function _maybeMintInitialFeeAsset(
         RollupAddressInput memory input,
         Rollup rollup,
-        RollupConfiguration config
+        IRollupConfiguration config
     ) private {
         uint256 initialFeeAssetAmount = config.getFeeJuicePortalInitialBalance();
         if (initialFeeAssetAmount > 0) {
@@ -282,7 +282,7 @@ library DeployRollupLib {
     function _maybeAddInitialValidators(
         RollupAddressInput memory input,
         Rollup rollup,
-        RollupConfiguration config
+        IRollupConfiguration config
     ) private {
         CheatDepositArgs[] memory initialValidators = config.parseValidators();
         if (initialValidators.length == 0) {

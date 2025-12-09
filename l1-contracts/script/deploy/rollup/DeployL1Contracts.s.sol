@@ -30,8 +30,8 @@ import {ZKPassportVerifier} from "@zkpassport/ZKPassportVerifier.sol";
 
 import {DeployRollupLib, RollupAddressInput, RollupAddressOutput} from "./DeployRollupLib.sol";
 import {
+    IDeploymentConfiguration,
     CoinIssuerConfiguration,
-    DeploymentOptions,
     GovernanceProposerConfiguration,
     GseConfiguration,
     ZkPassportConfiguration,
@@ -42,25 +42,7 @@ import {
  * @title DeployL1Contracts
  * @author Aztec Labs
  * @notice Deploy Aztec L1 contracts. Configuration is read from environment variables.
- *
- * Usage:
- *   # Deploy with env var config, write addresses to output file:
- *   NETWORK=devnet REAL_VERIFIER=true \
- *   forge script script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts \
- *     --sig "run(string)" "./deployment-output.json" \
- *     --rpc-url $RPC_URL \
- *     --private-key $PRIVATE_KEY \
- *     --broadcast \
- *     -vvv
- *
- *   # Deploy without output file (uses defaults from env):
- *   forge script script/deploy/rollup/DeployL1Contracts.s.sol:DeployL1Contracts \
- *     --rpc-url $RPC_URL \
- *     --private-key $PRIVATE_KEY \
- *     --broadcast \
- *     -vvv
- *
- * See DeploymentConfiguration.sol for available environment variables.
+ * See DeploymentConfiguration and RollupConfiguration for environment variables supported.
  */
 contract DeployL1Contracts is Script, Test {
     // Deployed contracts, filled as we make progress in the deploy.
@@ -68,6 +50,7 @@ contract DeployL1Contracts is Script, Test {
     // so that they must be accessed after creation, as it leaves the code brittle
     // to facing stack-too-deep.
 
+    // TODO CLAUDE: make these a struct DeployL1ContractsOutput.
     /// @notice Deployed fee asset (ERC20), could be test asset or existing asset
     IERC20 public feeAsset;
     /// @notice Deployed staking asset (ERC20), could be test asset or existing asset
@@ -98,12 +81,7 @@ contract DeployL1Contracts is Script, Test {
     /// @notice Address performing the deployment
     address public deployer;
     /// @notice Deployment configuration loaded from environment
-    DeploymentConfiguration public config;
-
-    /// @notice Initialize deployer address from environment variable or msg.sender
-    function setUp() public virtual {
-        deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
-    }
+    IDeploymentConfiguration public config;
 
     /// @notice Deploy with env var config, write addresses to output file
     /// @param _outputPath Path to write deployment output JSON
@@ -156,10 +134,10 @@ contract DeployL1Contracts is Script, Test {
 
     /// @notice Deploy fee and staking assets on test networks
     function _maybeDeployAssets() internal {
-        DeploymentOptions memory opts = config.getContractOptions();
-        if (opts.existingStakingAssetAddress != address(0)) {
-            stakingAsset = IERC20(opts.existingStakingAssetAddress);
-            feeAsset = IERC20(opts.existingStakingAssetAddress);
+        address existingToken = config.existingTokenAddress();
+        if (existingToken != address(0)) {
+            stakingAsset = IERC20(existingToken);
+            feeAsset = IERC20(existingToken);
         } else {
             TestERC20 stakingAssetLocal = new TestERC20("Staking", "STK", deployer);
             TestERC20 feeAssetLocal = new TestERC20("FeeJuice", "FEE", deployer);
@@ -181,9 +159,8 @@ contract DeployL1Contracts is Script, Test {
 
     /// @notice Deploy fee asset handler on test chains
     function _maybeDeployFeeAssetHandler() internal {
-        DeploymentOptions memory opts = config.getContractOptions();
         // Deploy on test chains only (when we control the staking asset)
-        if (opts.existingStakingAssetAddress == address(0)) {
+        if (config.isDeployingTestAssets()) {
             feeAssetHandler = new FeeAssetHandler(deployer, address(feeAsset), 1000e18);
             TestERC20(address(feeAsset)).addMinter(address(feeAssetHandler));
         }
@@ -297,10 +274,12 @@ contract DeployL1Contracts is Script, Test {
 
     /// @notice Fund reward distributor on test networks
     function _maybeFundRewardDistributor() internal {
-        DeploymentOptions memory opts = config.getContractOptions();
-        if (opts.fundRewardDistributor && opts.existingStakingAssetAddress == address(0)) {
+        // If we deployed test assets, fund.
+        if (config.existingTokenAddress() == address(0)) {
             uint256 funding = config.getRewardDistributorFunding();
-            TestERC20(address(feeAsset)).mint(address(rewardDistributor), funding);
+            if (funding > 0) {
+                TestERC20(address(feeAsset)).mint(address(rewardDistributor), funding);
+            }
         }
     }
 
@@ -309,8 +288,8 @@ contract DeployL1Contracts is Script, Test {
         registry.transferOwnership(address(governance));
         gseContract.transferOwnership(address(governance));
 
-        DeploymentOptions memory opts = config.getContractOptions();
-        if (opts.existingStakingAssetAddress == address(0)) {
+        // If we deployed assets, set them free.
+        if (config.existingTokenAddress() == address(0)) {
             Ownable(address(feeAsset)).transferOwnership(address(coinIssuer));
             coinIssuer.acceptTokenOwnership();
             coinIssuer.transferOwnership(address(dateGatedRelayer));
@@ -350,8 +329,7 @@ contract DeployL1Contracts is Script, Test {
         );
         assertEq(dateGatedRelayer.owner(), address(governance), "invalid date gated relayer owner");
 
-        DeploymentOptions memory opts = config.getContractOptions();
-        if (opts.existingStakingAssetAddress == address(0)) {
+        if (config.existingTokenAddress() == address(0)) {
             assertEq(TestERC20(address(feeAsset)).owner(), address(coinIssuer), "invalid fee asset owner");
             assertEq(coinIssuer.owner(), address(dateGatedRelayer), "invalid coin issuer owner");
         }

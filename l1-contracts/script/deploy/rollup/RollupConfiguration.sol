@@ -19,7 +19,6 @@ import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 interface IRollupConfiguration {
     function loadConfig() external;
     function useRealVerifier() external view returns (bool);
-    function shouldFundRewardDistributor() external view returns (bool);
     function getFeeJuicePortalInitialBalance() external view returns (uint256);
     function getEarliestRewardsClaimableTimestamp() external view returns (Timestamp);
     function getGenesisState() external view returns (GenesisState memory);
@@ -27,7 +26,6 @@ interface IRollupConfiguration {
     function getRewardBoostConfiguration() external pure returns (RewardBoostConfig memory);
     function getStakingQueueConfiguration() external view returns (StakingQueueConfig memory);
     function getRollupConfiguration(IRewardDistributor rewardDistributor) external view returns (RollupConfigInput memory);
-    function getRewardDistributorFunding() external view returns (uint256);
     function parseValidators() external view returns (CheatDepositArgs[] memory);
     function validateConfig() external view;
 }
@@ -89,8 +87,8 @@ contract RollupConfiguration is IRollupConfiguration, Test {
         return RewardConfig({
             rewardDistributor: _rewardDistributor,
             sequencerBps: Bps.wrap(sequencerBps),
-            // NOTE(AD): This matches the typescript logic, which always deploys a new reward booster.
-            booster: IBoosterCore(address(0))),
+            // NOTE(AD): This matches the previous iteration of deployments that were in typescript. We always deploys a new reward booster.
+            booster: IBoosterCore(address(0)),
             checkpointReward: checkpointReward
         });
     }
@@ -148,7 +146,7 @@ contract RollupConfiguration is IRollupConfiguration, Test {
         }
     }
 
-    function getRollupConfiguration(IRewardDistributor _rewardDistributor) external view returns (RollupConfigInput memory) {
+    function getRollupConfiguration(IRewardDistributor _rewardDistributor) public view returns (RollupConfigInput memory) {
         // Build config without version first
         RollupConfigInput memory config = RollupConfigInput({
             aztecSlotDuration: vm.envOr("AZTEC_SLOT_DURATION", uint256(36)),
@@ -316,22 +314,22 @@ contract RollupConfiguration is IRollupConfiguration, Test {
 
         // EmpireBase and TallySlashingProposer lifetime and execution delay validation
         require(
-            slashingLifetimeInRounds > slashingExecutionDelayInRounds,
+            rollupConfigInput.slashingLifetimeInRounds > rollupConfigInput.slashingExecutionDelayInRounds,
             "validateConfig: slashingLifetimeInRounds must be greater than slashingExecutionDelayInRounds"
         );
 
         // Basic positive checks
-        require(aztecSlotDuration > 0, "validateConfig: aztecSlotDuration must be greater than 0");
-        require(aztecEpochDuration > 0, "validateConfig: aztecEpochDuration must be greater than 0");
+        require(rollupConfigInput.aztecSlotDuration > 0, "validateConfig: aztecSlotDuration must be greater than 0");
+        require(rollupConfigInput.aztecEpochDuration > 0, "validateConfig: aztecEpochDuration must be greater than 0");
 
         // Tally-specific validations
         if (slasherFlavor == SlasherFlavor.TALLY) {
             _validateTallySlasherConfig(
                 rollupConfigInput.aztecEpochDuration,
-                rollupConfigInput.aztecTargetCommitteeSize,
+                rollupConfigInput.targetCommitteeSize,
                 slashingRoundSize,
                 slashingQuorum,
-                slashingLifetimeInRounds,
+                rollupConfigInput.slashingLifetimeInRounds,
                 slashingOffsetInRounds,
                 slashAmounts
             );
