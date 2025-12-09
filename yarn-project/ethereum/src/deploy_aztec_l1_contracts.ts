@@ -100,7 +100,7 @@ export interface RollupUpgradeAddresses {
   slashFactoryAddress: string;
   inboxAddress: string;
   outboxAddress: string;
-  feeAssetPortalAddress: string;
+  feeJuicePortalAddress: string;
   rollupVersion: number;
 }
 
@@ -174,6 +174,7 @@ export async function deployAztecL1Contracts(
       {
         cwd: l1ContractsPath,
         env: {
+          ...process.env,
           // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
           NETWORK: getActiveNetworkName(),
           ...getDeployAztecL1ContractsEnvVars(args),
@@ -448,6 +449,7 @@ export const deployRollupForUpgrade = async (
       {
         cwd: l1ContractsPath,
         env: {
+          ...process.env,
           // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
           REGISTRY_ADDRESS: registryAddress.toString(),
           NETWORK: getActiveNetworkName(),

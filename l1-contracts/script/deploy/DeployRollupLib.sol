@@ -71,7 +71,7 @@ library DeployRollupLib {
         vm.serializeAddress(jsonKey, "slashFactoryAddress", address(output.slashFactory));
         vm.serializeAddress(jsonKey, "inboxAddress", address(output.rollup.getInbox()));
         vm.serializeAddress(jsonKey, "outboxAddress", address(output.rollup.getOutbox()));
-        vm.serializeAddress(jsonKey, "feeAssetPortalAddress", address(output.rollup.getFeeAssetPortal()));
+        vm.serializeAddress(jsonKey, "feeJuicePortalAddress", address(output.rollup.getFeeAssetPortal()));
         return vm.serializeUint(jsonKey, "rollupVersion", output.rollup.getVersion());
     }
 
