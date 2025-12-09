@@ -45,6 +45,16 @@ template <typename Flavor> class TranslatorVerifier_ {
     // Proof type: stdlib::Proof for recursive, HonkProof for native
     using Proof = std::conditional_t<IsRecursive, stdlib::Proof<Builder>, HonkProof>;
 
+    /**
+     * @brief Result of translator verification
+     * @details Contains pairing points for KZG verification and status of verification checks
+     */
+    struct VerificationResult {
+        PairingPoints pairing_points;
+        bool sumcheck_verified;
+        bool consistency_checked;
+    };
+
     // Native VK type for recursive constructor
     using NativeVerificationKey = TranslatorFlavor::VerificationKey;
 
@@ -112,24 +122,21 @@ template <typename Flavor> class TranslatorVerifier_ {
     /**
      * @brief Verify the translator proof
      * @details Verifies that the Translator circuit correctly processes the op queue transcript.
-     * Returns pairing points for external verification (native) or aggregation (recursive).
+     * Returns verification result containing pairing points and check status.
      *
      * @param proof The translator proof
      * @param evaluation_input_x Challenge point for polynomial evaluation
      * @param batching_challenge_v Challenge for batching translation polynomials
      * @param accumulated_result The accumulated result from ECCVM verifier
      * @param op_queue_wire_commitments Commitments to op queue wires from merge protocol
-     * @return PairingPoints for pairing check (native) or aggregation (recursive)
+     * @return VerificationResult containing pairing points and verification status
      */
-    [[nodiscard("Pairing points should be checked/accumulated")]] PairingPoints verify_proof(
+    [[nodiscard("Verification result should be checked")]] VerificationResult verify_proof(
         const Proof& proof,
         const EvaluationInput& evaluation_input_x,
         const BF& batching_challenge_v,
         const AccumulatedResult& accumulated_result,
         const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments);
-
-    // Native-only: tracks whether Shplemini consistency check passed
-    bool consistency_checked = false;
 };
 
 // Type aliases

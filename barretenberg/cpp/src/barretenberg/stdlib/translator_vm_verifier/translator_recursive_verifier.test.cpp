@@ -181,30 +181,31 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Verify proof recursively
         stdlib::Proof<OuterBuilder> stdlib_proof_for_verifier(outer_circuit, proof);
-        typename RecursiveVerifier::PairingPoints pairing_points =
-            verifier.verify_proof(stdlib_proof_for_verifier,
-                                  recursive_inputs.evaluation_challenge_x,
-                                  recursive_inputs.batching_challenge_v,
-                                  recursive_inputs.accumulated_result,
-                                  recursive_inputs.op_queue_commitments);
+        auto recursive_result = verifier.verify_proof(stdlib_proof_for_verifier,
+                                                      recursive_inputs.evaluation_challenge_x,
+                                                      recursive_inputs.batching_challenge_v,
+                                                      recursive_inputs.accumulated_result,
+                                                      recursive_inputs.op_queue_commitments);
 
         stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
-        inputs.pairing_inputs = pairing_points;
+        inputs.pairing_inputs = recursive_result.pairing_points;
         inputs.set_public();
 
         // Verify with native verifier and compare results
         auto native_verifier_transcript = std::make_shared<Transcript>(proof);
         InnerVerifier native_verifier(verification_key, native_verifier_transcript);
-        auto native_pairing_points = native_verifier.verify_proof(proof,
-                                                                  evaluation_challenge_x,
-                                                                  batching_challenge_v,
-                                                                  recursive_inputs.accumulated_result_native,
-                                                                  recursive_inputs.native_op_queue_commitments);
-        bool native_result = native_pairing_points.check() && native_verifier.consistency_checked;
+        auto native_result = native_verifier.verify_proof(proof,
+                                                          evaluation_challenge_x,
+                                                          batching_challenge_v,
+                                                          recursive_inputs.accumulated_result_native,
+                                                          recursive_inputs.native_op_queue_commitments);
+        bool native_verified = native_result.pairing_points.check() && native_result.sumcheck_verified &&
+                               native_result.consistency_checked;
 
         NativeVerifierCommitmentKey pcs_vkey{};
-        auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
-        EXPECT_EQ(recursive_result, native_result);
+        auto recursive_verified = pcs_vkey.pairing_check(recursive_result.pairing_points.P0.get_value(),
+                                                         recursive_result.pairing_points.P1.get_value());
+        EXPECT_EQ(recursive_verified, native_verified);
 
         // Verify VK consistency
         EXPECT_EQ(static_cast<uint64_t>(verifier.key->log_circuit_size.get_value()),

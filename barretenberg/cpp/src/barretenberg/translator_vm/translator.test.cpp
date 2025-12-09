@@ -100,10 +100,10 @@ class TranslatorTests : public ::testing::Test {
         op_queue_commitments[3] =
             proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.y_lo_z_2);
 
-        // Verify proof: get pairing points and perform check
-        auto pairing_points = verifier.verify_proof(
+        // Verify proof: get verification result and check all components
+        auto result = verifier.verify_proof(
             proof, evaluation_challenge_x, batching_challenge_v, accumulated_result, op_queue_commitments);
-        return pairing_points.check() && verifier.consistency_checked;
+        return result.pairing_points.check() && result.sumcheck_verified && result.consistency_checked;
     }
 };
 

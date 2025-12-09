@@ -116,10 +116,10 @@ void TranslatorVerifier_<Flavor>::put_translation_data_in_relation_parameters(
 /**
  * @brief Verify the TranslatorFlavor Honk proof
  * @details This function verifies the Translator circuit which ensures consistency between
- * the ECCVM transcript and the op queue data. Returns pairing points for external verification.
+ * the ECCVM transcript and the op queue data. Returns verification result with pairing points and check status.
  */
 template <typename Flavor>
-typename TranslatorVerifier_<Flavor>::PairingPoints TranslatorVerifier_<Flavor>::verify_proof(
+typename TranslatorVerifier_<Flavor>::VerificationResult TranslatorVerifier_<Flavor>::verify_proof(
     const Proof& proof,
     const EvaluationInput& evaluation_input_x,
     const BF& batching_challenge_v,
@@ -205,20 +205,11 @@ typename TranslatorVerifier_<Flavor>::PairingPoints TranslatorVerifier_<Flavor>:
 
     auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
-    // For native verification, check if Sumcheck verified
-    if constexpr (!IsRecursive) {
-        if (!sumcheck_output.verified) {
-            // Return infinity points to indicate failure (pairing check will fail)
-            return PairingPoints{};
-        }
-    }
-
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Execute Shplemini
-    // Native tracks this explicitly, recursive assumes true (circuit asserts consistency)
-    consistency_checked = IsRecursive;
+    bool consistency_checked = false;
 
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted_without_interleaved(),
@@ -249,7 +240,7 @@ typename TranslatorVerifier_<Flavor>::PairingPoints TranslatorVerifier_<Flavor>:
 
     auto pairing_points_array = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 
-    return PairingPoints(pairing_points_array);
+    return { PairingPoints(pairing_points_array), sumcheck_output.verified, consistency_checked };
 }
 
 // Explicit instantiations

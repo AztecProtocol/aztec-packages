@@ -35,15 +35,14 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinStdlib
     TranslatorVerifier translator_verifier{ builder, verification_keys.translator_verification_key, transcript };
     auto translator_input = eccvm_verifier.get_translator_input_data();
     // Pass merge commitments as op queue wire commitments (they represent the same data)
-    PairingPoints<bn254<Builder>> translator_pairing_points =
-        translator_verifier.verify_proof(proof.translator_proof,
-                                         translator_input.evaluation_challenge_x,
-                                         translator_input.batching_challenge_v,
-                                         translator_input.accumulated_result,
-                                         merged_table_commitments);
+    auto translator_result = translator_verifier.verify_proof(proof.translator_proof,
+                                                              translator_input.evaluation_challenge_x,
+                                                              translator_input.batching_challenge_v,
+                                                              translator_input.accumulated_result,
+                                                              merged_table_commitments);
 
-    translator_pairing_points.aggregate(merge_pairing_points);
+    translator_result.pairing_points.aggregate(merge_pairing_points);
 
-    return { translator_pairing_points, opening_claim, proof.ipa_proof };
+    return { translator_result.pairing_points, opening_claim, proof.ipa_proof };
 }
 } // namespace bb::stdlib::recursion::honk
