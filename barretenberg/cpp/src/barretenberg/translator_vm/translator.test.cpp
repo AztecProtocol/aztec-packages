@@ -97,11 +97,15 @@ class TranslatorTests : public ::testing::Test {
         uint256_t accumulated_result = prover.get_accumulated_result();
 
         // Create verifier
-        TranslatorVerifier verifier(verifier_transcript, proof);
+        TranslatorVerifier verifier(verifier_transcript,
+                                    proof,
+                                    evaluation_challenge_x,
+                                    batching_challenge_v,
+                                    accumulated_result,
+                                    op_queue_commitments);
 
         // Verify proof: get verification result and check all components
-        auto result = verifier.verify_proof(
-            proof, evaluation_challenge_x, batching_challenge_v, accumulated_result, op_queue_commitments);
+        auto result = verifier.verify_proof();
         return result.pairing_points.check() && result.sumcheck_verified && result.consistency_checked;
     }
 };

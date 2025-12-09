@@ -103,11 +103,7 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
 }
 } // namespace
 
-template <typename Flavor>
-void TranslatorVerifier_<Flavor>::put_translation_data_in_relation_parameters(
-    const EvaluationInput& evaluation_input_x,
-    const BF& batching_challenge_v,
-    const AccumulatedResult& accumulated_result)
+template <typename Flavor> void TranslatorVerifier_<Flavor>::put_translation_data_in_relation_parameters()
 {
     put_translation_data_in_relation_parameters_impl<Flavor>(
         relation_parameters, evaluation_input_x, batching_challenge_v, accumulated_result);
@@ -119,12 +115,7 @@ void TranslatorVerifier_<Flavor>::put_translation_data_in_relation_parameters(
  * the ECCVM transcript and the op queue data. Returns verification result with pairing points and check status.
  */
 template <typename Flavor>
-typename TranslatorVerifier_<Flavor>::VerificationResult TranslatorVerifier_<Flavor>::verify_proof(
-    const Proof& proof,
-    const EvaluationInput& evaluation_input_x,
-    const BF& batching_challenge_v,
-    const AccumulatedResult& accumulated_result,
-    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments)
+typename TranslatorVerifier_<Flavor>::VerificationResult TranslatorVerifier_<Flavor>::verify_proof()
 {
     using PCS = typename Flavor::PCS;
     using Shplemini = ShpleminiVerifier_<Curve>;
@@ -150,7 +141,7 @@ typename TranslatorVerifier_<Flavor>::VerificationResult TranslatorVerifier_<Fla
     }
 
     // Use accumulated_result from ECCVM verifier
-    put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
+    put_translation_data_in_relation_parameters();
 
     // Receive Gemini masking polynomial commitment (for ZK-PCS)
     commitments.gemini_masking_poly = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");

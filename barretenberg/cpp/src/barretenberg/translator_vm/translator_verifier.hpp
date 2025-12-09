@@ -63,7 +63,14 @@ template <typename Flavor> class TranslatorVerifier_ {
     std::shared_ptr<VerificationKey> key;
     FF vk_hash;
     std::shared_ptr<Transcript> transcript;
+    Proof proof;
     RelationParams relation_parameters;
+
+    // Translation inputs from ECCVM verifier
+    EvaluationInput evaluation_input_x;
+    BF batching_challenge_v;
+    AccumulatedResult accumulated_result;
+    std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_wire_commitments;
 
     // Builder pointer (only used for recursive, nullptr for native)
     std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
@@ -72,9 +79,26 @@ template <typename Flavor> class TranslatorVerifier_ {
      * @brief Unified constructor for both native and recursive verification
      * @details For recursive case, extracts builder from proof elements via get_context().
      * TranslatorFlavor VK is constant, so it's default-constructed.
+     *
+     * @param transcript Transcript for proof verification
+     * @param proof The translator proof
+     * @param evaluation_input_x Challenge point for polynomial evaluation (from ECCVM)
+     * @param batching_challenge_v Challenge for batching translation polynomials (from ECCVM)
+     * @param accumulated_result The accumulated result from ECCVM verifier
+     * @param op_queue_wire_commitments Commitments to op queue wires from merge protocol
      */
-    TranslatorVerifier_(const std::shared_ptr<Transcript>& transcript, const Proof& proof)
+    TranslatorVerifier_(const std::shared_ptr<Transcript>& transcript,
+                        const Proof& proof,
+                        const EvaluationInput& evaluation_input_x,
+                        const BF& batching_challenge_v,
+                        const AccumulatedResult& accumulated_result,
+                        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments)
         : transcript(transcript)
+        , proof(proof)
+        , evaluation_input_x(evaluation_input_x)
+        , batching_challenge_v(batching_challenge_v)
+        , accumulated_result(accumulated_result)
+        , op_queue_wire_commitments(op_queue_wire_commitments)
     {
         // Translator VK is constant
         auto native_vk = std::make_shared<TranslatorFlavor::VerificationKey>();
@@ -96,28 +120,17 @@ template <typename Flavor> class TranslatorVerifier_ {
      * @details Converts the translation challenges and accumulated result into limbs for use in Translator relations.
      * Native uses uint256_t::slice, recursive uses BF::binary_basis_limbs.
      */
-    void put_translation_data_in_relation_parameters(const EvaluationInput& evaluation_input_x,
-                                                     const BF& batching_challenge_v,
-                                                     const AccumulatedResult& accumulated_result);
+    void put_translation_data_in_relation_parameters();
 
     /**
      * @brief Verify the translator proof
      * @details Verifies that the Translator circuit correctly processes the op queue transcript.
      * Returns verification result containing pairing points and check status.
+     * All inputs are provided via constructor.
      *
-     * @param proof The translator proof
-     * @param evaluation_input_x Challenge point for polynomial evaluation
-     * @param batching_challenge_v Challenge for batching translation polynomials
-     * @param accumulated_result The accumulated result from ECCVM verifier
-     * @param op_queue_wire_commitments Commitments to op queue wires from merge protocol
      * @return VerificationResult containing pairing points and verification status
      */
-    [[nodiscard("Verification result should be checked")]] VerificationResult verify_proof(
-        const Proof& proof,
-        const EvaluationInput& evaluation_input_x,
-        const BF& batching_challenge_v,
-        const AccumulatedResult& accumulated_result,
-        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments);
+    [[nodiscard("Verification result should be checked")]] VerificationResult verify_proof();
 };
 
 // Type aliases

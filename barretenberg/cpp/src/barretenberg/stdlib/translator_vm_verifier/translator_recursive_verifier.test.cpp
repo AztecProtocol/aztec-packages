@@ -178,12 +178,13 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Verify proof recursively
         stdlib::Proof<OuterBuilder> stdlib_proof_for_verifier(outer_circuit, proof);
-        RecursiveVerifier verifier{ transcript, stdlib_proof_for_verifier };
-        auto recursive_result = verifier.verify_proof(stdlib_proof_for_verifier,
-                                                      recursive_inputs.evaluation_challenge_x,
-                                                      recursive_inputs.batching_challenge_v,
-                                                      recursive_inputs.accumulated_result,
-                                                      recursive_inputs.op_queue_commitments);
+        RecursiveVerifier verifier{ transcript,
+                                    stdlib_proof_for_verifier,
+                                    recursive_inputs.evaluation_challenge_x,
+                                    recursive_inputs.batching_challenge_v,
+                                    recursive_inputs.accumulated_result,
+                                    recursive_inputs.op_queue_commitments };
+        auto recursive_result = verifier.verify_proof();
 
         stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
         inputs.pairing_inputs = recursive_result.pairing_points;
@@ -191,12 +192,13 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Verify with native verifier and compare results
         auto native_verifier_transcript = std::make_shared<Transcript>(proof);
-        InnerVerifier native_verifier(native_verifier_transcript, proof);
-        auto native_result = native_verifier.verify_proof(proof,
-                                                          evaluation_challenge_x,
-                                                          batching_challenge_v,
-                                                          recursive_inputs.accumulated_result_native,
-                                                          recursive_inputs.native_op_queue_commitments);
+        InnerVerifier native_verifier(native_verifier_transcript,
+                                      proof,
+                                      evaluation_challenge_x,
+                                      batching_challenge_v,
+                                      recursive_inputs.accumulated_result_native,
+                                      recursive_inputs.native_op_queue_commitments);
+        auto native_result = native_verifier.verify_proof();
         bool native_verified = native_result.pairing_points.check() && native_result.sumcheck_verified &&
                                native_result.consistency_checked;
 
