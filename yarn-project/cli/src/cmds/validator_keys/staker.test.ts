@@ -1,10 +1,11 @@
 /* eslint-disable camelcase */
 import { GSEContract } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import { deriveBlsKeyFromMnemonic } from '@aztec/foundation/crypto/bls';
 import { computeBn254G1PublicKey, computeBn254G2PublicKey } from '@aztec/foundation/crypto/bn254';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { AttesterAccount, BLSAccount, EthAccount } from '@aztec/node-keystore/types';
+import type { AttesterAccount, BLSPrivateKey, EthAccount } from '@aztec/node-keystore/types';
 
 import { wordlist } from '@scure/bip39/wordlists/english.js';
 import { generateMnemonic, mnemonicToAccount, privateKeyToAddress } from 'viem/accounts';
@@ -18,14 +19,13 @@ function generateRandomMnemonic(): string {
 
 function deriveKeysFromMnemonic(mnemonic: string, accountIndex = 0, addressIndex = 0) {
   const account = mnemonicToAccount(mnemonic, { accountIndex, addressIndex });
-  const blsPrivateKey = deriveBlsKeyFromMnemonic(
-    mnemonic,
-    `m/12381'/3600'/${accountIndex}'/0/${addressIndex}`,
-  ) as BLSAccount;
+  const blsPrivateKey = new SecretValue(
+    deriveBlsKeyFromMnemonic(mnemonic, `m/12381'/3600'/${accountIndex}'/0/${addressIndex}`),
+  ) as BLSPrivateKey;
 
   return {
     ethPrivateKey: account.getHdKey().privateKey
-      ? (`0x${Buffer.from(account.getHdKey().privateKey!).toString('hex')}` as EthAccount)
+      ? (new SecretValue(`0x${Buffer.from(account.getHdKey().privateKey!).toString('hex')}`) as EthAccount)
       : (account.address as any),
     blsPrivateKey,
   };
@@ -74,7 +74,7 @@ describe('staker command', () => {
       const output = results[0];
 
       // Independently compute the expected G1 public key
-      const expectedG1 = await computeBn254G1PublicKey(blsPrivateKey as string);
+      const expectedG1 = await computeBn254G1PublicKey(blsPrivateKey.getValue());
 
       expect(output.publicKeyG1.x).toBe('0x' + expectedG1.x.toString(16).padStart(64, '0'));
       expect(output.publicKeyG1.y).toBe('0x' + expectedG1.y.toString(16).padStart(64, '0'));
@@ -95,7 +95,7 @@ describe('staker command', () => {
       const output = results[0];
 
       // Independently compute the expected G2 public key
-      const expectedG2 = await computeBn254G2PublicKey(blsPrivateKey as string);
+      const expectedG2 = await computeBn254G2PublicKey(blsPrivateKey.getValue());
 
       expect(output.publicKeyG2.x0).toBe('0x' + expectedG2.x.c0.toString(16).padStart(64, '0'));
       expect(output.publicKeyG2.x1).toBe('0x' + expectedG2.x.c1.toString(16).padStart(64, '0'));
@@ -156,7 +156,7 @@ describe('staker command', () => {
 
       // Verify the GSE contract was called with the BLS private key as a field element
       expect(makeRegistrationTupleCallCount).toBe(1);
-      const expectedFieldElement = Fr.fromString(blsPrivateKey as string).toBigInt();
+      const expectedFieldElement = Fr.fromString(blsPrivateKey.getValue()).toBigInt();
       expect(makeRegistrationTupleCalls[0]).toBe(expectedFieldElement);
     });
 
@@ -182,11 +182,11 @@ describe('staker command', () => {
       expect(results.length).toBe(2);
 
       // Verify first attester
-      const expectedG1_1 = await computeBn254G1PublicKey(keys1.blsPrivateKey as string);
+      const expectedG1_1 = await computeBn254G1PublicKey(keys1.blsPrivateKey.getValue());
       expect(results[0].publicKeyG1.x).toBe('0x' + expectedG1_1.x.toString(16).padStart(64, '0'));
 
       // Verify second attester
-      const expectedG1_2 = await computeBn254G1PublicKey(keys2.blsPrivateKey as string);
+      const expectedG1_2 = await computeBn254G1PublicKey(keys2.blsPrivateKey.getValue());
       expect(results[1].publicKeyG1.x).toBe('0x' + expectedG1_2.x.toString(16).padStart(64, '0'));
     });
 

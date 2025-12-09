@@ -138,7 +138,7 @@ function createKeyStoreFromPrivateKeys(config: ConfigRequiredToBuildKeyStore): K
   if (!ethPrivateKeys.length) {
     return undefined;
   }
-  const coinbase = config.coinbase ?? EthAddress.fromString(privateKeyToAddress(ethPrivateKeys[0]));
+  const coinbase = config.coinbase ?? EthAddress.fromString(privateKeyToAddress(ethPrivateKeys[0].getValue()));
   const feeRecipient = config.feeRecipient ?? AztecAddress.ZERO;
 
   const publisherKeys = config.publisherPrivateKeys

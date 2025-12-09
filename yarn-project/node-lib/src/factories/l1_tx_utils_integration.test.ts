@@ -1,6 +1,7 @@
 import type { ViemClient } from '@aztec/ethereum';
 import { getAddressFromPrivateKey } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -54,19 +55,19 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
 
   it('should deduplicate 500 validators sharing the same publisher key', async () => {
     // Create a shared publisher private key
-    const sharedPublisherKey = generatePrivateKey() as EthPrivateKey;
-    const expectedPublisherAddress = EthAddress.fromString(getAddressFromPrivateKey(sharedPublisherKey));
+    const sharedPublisherKey = new SecretValue(generatePrivateKey()) as EthPrivateKey;
+    const expectedPublisherAddress = EthAddress.fromString(getAddressFromPrivateKey(sharedPublisherKey.getValue()));
 
     // Create keystore with many validators, all using the same publisher
     const keystore: KeyStore = {
       schemaVersion: 1,
       validators: times(500, _ => {
-        const attesterKey = generatePrivateKey() as EthPrivateKey;
-        const attesterAddress = getAddressFromPrivateKey(attesterKey);
+        const attesterKey = new SecretValue(generatePrivateKey()) as EthPrivateKey;
+        const attesterAddress = getAddressFromPrivateKey(attesterKey.getValue());
 
         return {
-          attester: attesterKey,
-          publisher: sharedPublisherKey,
+          attester: new SecretValue(attesterKey.getValue()) as EthPrivateKey,
+          publisher: new SecretValue(sharedPublisherKey.getValue()) as EthPrivateKey,
           coinbase: EthAddress.fromString(attesterAddress),
           feeRecipient: AztecAddress.ZERO,
         };
@@ -91,14 +92,14 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
 
   it('should handle validators with 3 unique publishers correctly', async () => {
     // Create 3 different publisher keys
-    const publisherKey1 = generatePrivateKey() as EthPrivateKey;
-    const publisherKey2 = generatePrivateKey() as EthPrivateKey;
-    const publisherKey3 = generatePrivateKey() as EthPrivateKey;
+    const publisherKey1 = new SecretValue(generatePrivateKey()) as EthPrivateKey;
+    const publisherKey2 = new SecretValue(generatePrivateKey()) as EthPrivateKey;
+    const publisherKey3 = new SecretValue(generatePrivateKey()) as EthPrivateKey;
 
     const expectedAddresses = [
-      EthAddress.fromString(getAddressFromPrivateKey(publisherKey1)),
-      EthAddress.fromString(getAddressFromPrivateKey(publisherKey2)),
-      EthAddress.fromString(getAddressFromPrivateKey(publisherKey3)),
+      EthAddress.fromString(getAddressFromPrivateKey(publisherKey1.getValue())),
+      EthAddress.fromString(getAddressFromPrivateKey(publisherKey2.getValue())),
+      EthAddress.fromString(getAddressFromPrivateKey(publisherKey3.getValue())),
     ];
 
     const keystore: KeyStore = {
@@ -107,7 +108,7 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
         ...times(200, () => {
           const addr = EthAddress.random();
           return {
-            attester: generatePrivateKey() as EthPrivateKey,
+            attester: new SecretValue(generatePrivateKey()) as EthPrivateKey,
             publisher: publisherKey1,
             coinbase: addr,
             feeRecipient: AztecAddress.ZERO,
@@ -116,7 +117,7 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
         ...times(200, () => {
           const addr = EthAddress.random();
           return {
-            attester: generatePrivateKey() as EthPrivateKey,
+            attester: new SecretValue(generatePrivateKey()) as EthPrivateKey,
             publisher: publisherKey2,
             coinbase: addr,
             feeRecipient: AztecAddress.ZERO,
@@ -125,7 +126,7 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
         ...times(200, () => {
           const addr = EthAddress.random();
           return {
-            attester: generatePrivateKey() as EthPrivateKey,
+            attester: new SecretValue(generatePrivateKey()) as EthPrivateKey,
             publisher: publisherKey3,
             coinbase: addr,
             feeRecipient: AztecAddress.ZERO,

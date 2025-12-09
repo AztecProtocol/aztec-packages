@@ -88,7 +88,7 @@ describe('ValidatorClient', () => {
       remoteSigner: undefined,
       validators: [
         {
-          attester: validatorPrivateKeys.map(key => key as Hex<32>),
+          attester: validatorPrivateKeys.map(key => new SecretValue(key as Hex<32>)),
           feeRecipient: AztecAddress.ZERO,
           coinbase: undefined,
           remoteSigner: undefined,

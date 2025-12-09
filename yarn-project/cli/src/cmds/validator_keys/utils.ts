@@ -1,5 +1,5 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { type EthPrivateKey, ethPrivateKeySchema } from '@aztec/node-keystore';
+import { ethPrivateKeySchema } from '@aztec/node-keystore';
 
 export const defaultBlsPath = 'm/12381/3600/0/0/0';
 
