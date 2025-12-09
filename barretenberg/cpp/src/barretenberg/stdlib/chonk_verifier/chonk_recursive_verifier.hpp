@@ -28,7 +28,7 @@ namespace bb::stdlib::recursion::honk {
  * IPA claims are carried in RollupIO through rollup levels, accumulated via IPA::accumulate,
  * and verified in-circuit at root rollup via IPA::full_verify_recursive.
  *
- * Uses Ultra arithmetization (the Chonk verifier circuit itself doesn't need Goblin).
+ * Uses Ultra arithmetization, as all ECC ops have to be performed in-circuit at this stage.
  */
 class ChonkRecursiveVerifier {
     using Builder = UltraCircuitBuilder;                     // The circuit will be an Ultra circuit
@@ -49,8 +49,8 @@ class ChonkRecursiveVerifier {
 
     /**
      * @brief Stdlib representation of a Chonk proof for recursive verification.
-     * @details Contains the proof as circuit witness elements (field_t) rather than native values.
-     * Can be constructed from a native Chonk::Proof or from a vector of field indices.
+     * @details Contains the proof as circuit witness elements (field_t). Can be constructed from a native Chonk::Proof
+     * or from a vector of witness indices.
      */
     struct StdlibProof {
         using StdlibHonkProof = bb::stdlib::Proof<Builder>;
