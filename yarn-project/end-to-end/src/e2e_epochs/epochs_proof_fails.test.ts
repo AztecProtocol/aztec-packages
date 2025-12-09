@@ -9,7 +9,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import type { ProverNodePublisher } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
@@ -40,6 +40,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
       maxSpeedUpAttempts: 0, // No speed ups
       startProverNode: false, // Avoid early proving
       ethereumSlotDuration: 8,
+      cancelTxOnTimeout: false,
     });
     ({ sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
     ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
@@ -53,6 +54,17 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   it('does not allow submitting proof after epoch end', async () => {
     // Here we cause a re-org by not publishing the proof for epoch 0 until after the end of epoch 1
     // The proof will be rejected and a re-org will take place
+
+    // Ensure that there was at least one block mined in epoch 0, otherwise this test fails, since it
+    // relies on the proof for epoch zero not landing in time, which will never happen if there is
+    // nothing to prove on epoch zero. This is flakey because startup times change continuously.
+    // Also note that there should always be at least a checkpoint before we start since setup
+    // enforces it (search the comment "waiting for an empty block 1 to be mined" in `setup`).
+    const firstCheckpointNumber = (await test.monitor.run()).checkpointNumber;
+    expect(firstCheckpointNumber).toBeGreaterThanOrEqual(CheckpointNumber(1));
+    const firstCheckpoint = await rollup.getCheckpoint(CheckpointNumber(1));
+    const firstCheckpointEpoch = getEpochAtSlot(SlotNumber.fromBigInt(firstCheckpoint.slotNumber), test.constants);
+    expect(firstCheckpointEpoch).toEqual(EpochNumber(0));
 
     // Create prover node after test setup to avoid early proving. We ensure the prover does not retry txs.
     const proverNode = await test.createProverNode({ cancelTxOnTimeout: false, maxSpeedUpAttempts: 0 });
