@@ -55,8 +55,8 @@ library DeployRollupLib {
     {
         output.verifier = _deployVerifier(config);
         output.rollup = _deployRollupContract(input, output.verifier, config);
-        _maybeMintInitialFeeAsset(input, output.rollup, config);
         output.slashFactory = new SlashFactory(output.rollup);
+        _maybeMintInitialFeeAsset(input, output.rollup, config);
         _maybeRegisterRollup(input, output.rollup);
         _maybeAddInitialValidators(input, output.rollup, config);
         _transferOwnership(input, output.rollup);
@@ -77,7 +77,7 @@ library DeployRollupLib {
 
     function _deployVerifier(IRollupConfiguration config) private returns (IVerifier) {
         if (!config.useRealVerifier()) {
-            return new MockVerifier();
+            return new MockVerifier(); // aka MonkVerifier
         } else {
             return IVerifier(address(new HonkVerifier()));
         }

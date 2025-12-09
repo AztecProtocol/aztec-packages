@@ -45,10 +45,6 @@ contract RollupConfiguration is IRollupConfiguration, Test {
         return vm.envOr("REAL_VERIFIER", false);
     }
 
-    function shouldFundRewardDistributor() external view returns (bool) {
-        return vm.envOr("FUND_REWARD_DISTRIBUTOR", false);
-    }
-
     function getFeeJuicePortalInitialBalance() external view returns (uint256) {
         return vm.envOr("FEE_JUICE_PORTAL_INITIAL_BALANCE", uint256(0));
     }
@@ -146,17 +142,24 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     }
 
     function getRollupConfiguration(IRewardDistributor _rewardDistributor) public view returns (RollupConfigInput memory) {
+        uint256 aztecSlotDuration = vm.envOr("AZTEC_SLOT_DURATION", uint256(36));
+        uint256 aztecEpochDuration = vm.envOr("AZTEC_EPOCH_DURATION", uint256(32));
+        uint256 roundSizeInEpochs = vm.envOr("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
+        uint256 slashingRoundSize = roundSizeInEpochs * aztecEpochDuration;
+        // The slashing quorum, i.e. how many slots must signal for the same payload in a round for it to be submittable to the Slasher (defaults to slashRoundSize / 2 + 1)
+        uint256 slashingQuorum = vm.envOr("AZTEC_SLASHING_QUORUM", slashingRoundSize / 2 + 1);
+
         // Build config without version first
         RollupConfigInput memory config = RollupConfigInput({
-            aztecSlotDuration: vm.envOr("AZTEC_SLOT_DURATION", uint256(36)),
-            aztecEpochDuration: vm.envOr("AZTEC_EPOCH_DURATION", uint256(32)),
+            aztecSlotDuration: aztecSlotDuration,
+            aztecEpochDuration: aztecEpochDuration,
             targetCommitteeSize: vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48)),
             lagInEpochsForValidatorSet: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET", uint256(2)),
             lagInEpochsForRandao: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO", uint256(2)),
             aztecProofSubmissionEpochs: vm.envOr("AZTEC_PROOF_SUBMISSION_EPOCHS", uint256(1)),
             localEjectionThreshold: vm.envOr("AZTEC_LOCAL_EJECTION_THRESHOLD", uint256(98e18)),
-            slashingQuorum: _getSlashingQuorum(),
-            slashingRoundSize: _getSlashingRoundSize(),
+            slashingQuorum: slashingQuorum,
+            slashingRoundSize: slashingRoundSize,
             slashingLifetimeInRounds: vm.envOr("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", uint256(5)),
             slashingExecutionDelayInRounds: vm.envOr("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS", uint256(0)),
             slashAmounts: _getSlashAmounts(),
@@ -195,19 +198,6 @@ contract RollupConfiguration is IRollupConfiguration, Test {
 
     function _getSlasherFlavor() private view returns (SlasherFlavor) {
         return _parseSlasherFlavor(vm.envOr("AZTEC_SLASHER_FLAVOR", string("tally")));
-    }
-
-    function _getSlashingRoundSize() private view returns (uint256) {
-        uint256 roundSizeInEpochs = vm.envOr("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
-        uint256 aztecEpochDuration = vm.envOr("AZTEC_EPOCH_DURATION", uint256(32));
-        uint256 defaultRoundSize = roundSizeInEpochs * aztecEpochDuration;
-        return defaultRoundSize;
-    }
-
-    function _getSlashingQuorum() private view returns (uint256) {
-        uint256 roundSize = _getSlashingRoundSize();
-        uint256 defaultQuorum = roundSize / 2 + 1;
-        return vm.envOr("AZTEC_SLASHING_QUORUM", defaultQuorum);
     }
 
     function _getSlashingOffset() private view returns (uint256) {

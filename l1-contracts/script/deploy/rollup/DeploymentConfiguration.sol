@@ -71,7 +71,7 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
     }
 
     function existingTokenAddress() public view returns (address) {
-        return vm.envOr("EXISTING_STAKING_ASSET_ADDRESS", address(0));
+        return vm.envOr("EXISTING_TOKEN_ADDRESS", address(0));
     }
 
     function getProtocolTreasuryConfiguration() external view returns (ProtocolTreasuryConfiguration memory) {

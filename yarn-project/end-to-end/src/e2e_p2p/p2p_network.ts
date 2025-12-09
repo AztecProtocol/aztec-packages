@@ -94,7 +94,6 @@ export class P2PNetworkTest {
     // If set enable metrics collection
     private metricsPort?: number,
     startProverNode?: boolean,
-    mockZkPassportVerifier?: boolean,
   ) {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
@@ -116,7 +115,6 @@ export class P2PNetworkTest {
         ...initialValidatorConfig,
         // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
         // Forge deployment advances L1 time significantly, breaking tests that warp to specific epochs.
-        useForgeDeployment: true,
         ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
@@ -145,7 +143,6 @@ export class P2PNetworkTest {
         aztecTargetCommitteeSize: numberOfValidators,
         initialValidators: [],
         zkPassportArgs: {
-          mockZkPassportVerifier,
           zkPassportDomain: zkPassportParams.domain,
           zkPassportScope: zkPassportParams.scope,
         },
@@ -161,7 +158,6 @@ export class P2PNetworkTest {
     metricsPort,
     initialConfig,
     startProverNode,
-    mockZkPassportVerifier,
   }: {
     testName: string;
     numberOfNodes: number;
@@ -170,7 +166,6 @@ export class P2PNetworkTest {
     metricsPort?: number;
     initialConfig?: SetupOptions;
     startProverNode?: boolean;
-    mockZkPassportVerifier?: boolean;
   }) {
     const port = basePort || (await getPort());
 
@@ -191,7 +186,6 @@ export class P2PNetworkTest {
       numberOfNodes,
       metricsPort,
       startProverNode,
-      mockZkPassportVerifier,
     );
   }
 

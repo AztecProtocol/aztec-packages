@@ -7,7 +7,7 @@ import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import {
   NULL_KEY,
   createEthereumChain,
-  deployL1Contracts,
+  deployAztecL1Contracts,
   deployMulticall3,
   getL1ContractsConfigEnvVars,
   waitForPublicClient,
@@ -28,7 +28,14 @@ import {
 import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, http as httpViemTransport } from 'viem';
+import {
+  type HDAccount,
+  type Hex,
+  type PrivateKeyAccount,
+  createPublicClient,
+  fallback,
+  http as httpViemTransport,
+} from 'viem';
 import { mnemonicToAccount, privateKeyToAddress } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -49,7 +56,7 @@ const localAnvil = foundry;
  */
 export async function deployContractsToL1(
   aztecNodeConfig: AztecNodeConfig,
-  hdAccount: HDAccount | PrivateKeyAccount,
+  privateKey: Hex,
   contractDeployLogger = logger,
   opts: {
     assumeProvenThroughBlockNumber?: number;
@@ -58,30 +65,23 @@ export async function deployContractsToL1(
     feeJuicePortalInitialBalance?: bigint;
   } = {},
 ) {
-  const chain =
-    aztecNodeConfig.l1RpcUrls.length > 0
-      ? createEthereumChain(aztecNodeConfig.l1RpcUrls, aztecNodeConfig.l1ChainId)
-      : { chainInfo: localAnvil };
-
   await waitForPublicClient(aztecNodeConfig);
 
-  const l1Contracts = await deployL1Contracts(
-    aztecNodeConfig.l1RpcUrls,
-    hdAccount,
-    chain.chainInfo,
-    contractDeployLogger,
+  const l1Contracts = await deployAztecL1Contracts(
+    aztecNodeConfig.l1RpcUrls[0],
+    privateKey,
     {
       ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
       ...aztecNodeConfig,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractsHash,
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-      salt: opts.salt,
       feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
       aztecTargetCommitteeSize: 0, // no committee in local network
       slasherFlavor: 'none', // no slashing in local network
       realVerifier: false,
     },
+    contractDeployLogger,
   );
 
   await deployMulticall3(l1Contracts.l1Client, logger);

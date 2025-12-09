@@ -19,7 +19,7 @@ import {
 } from 'viem';
 
 import { getPublicClient } from '../client.js';
-import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
+import type { DeployL1ContractsReturnType } from '../deploy_aztec_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';

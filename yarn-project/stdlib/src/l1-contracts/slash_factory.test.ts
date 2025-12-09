@@ -2,7 +2,7 @@ import type { ExtendedViemWalletClient, ViemClient } from '@aztec/ethereum';
 import {
   DefaultL1ContractsConfig,
   createExtendedL1Client,
-  deployL1Contracts,
+  deployAztecL1Contracts,
   getPublicClient,
   tryExtractEvent,
 } from '@aztec/ethereum';
@@ -52,16 +52,16 @@ describe('SlashFactory', () => {
 
   beforeAll(async () => {
     logger = createLogger('ethereum:test:slash_factory');
-    privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    const privateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
+    privateKey = privateKeyToAccount(privateKeyRaw);
 
     ({ anvil, rpcUrl } = await startAnvil());
 
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
 
-    const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
+    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, logger, {
       ...DefaultL1ContractsConfig,
-      salt: undefined,
       vkTreeRoot: Fr.random(),
       protocolContractsHash: Fr.random(),
       genesisArchiveRoot: Fr.random(),

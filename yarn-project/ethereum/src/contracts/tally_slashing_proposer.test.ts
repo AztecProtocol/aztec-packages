@@ -4,7 +4,7 @@ import {
   RollupContract,
   createExtendedL1Client,
   decodeSlashConsensusVotes,
-  deployL1Contracts,
+  deployAztecL1Contracts,
 } from '@aztec/ethereum';
 import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -67,7 +67,6 @@ describe('TallySlashingProposer', () => {
 
     testConfig = {
       ...DefaultL1ContractsConfig,
-      salt: undefined,
       vkTreeRoot: Fr.random(),
       protocolContractsHash: Fr.random(),
       genesisArchiveRoot: Fr.random(),
@@ -83,7 +82,7 @@ describe('TallySlashingProposer', () => {
       })),
     };
 
-    const deployed = await deployL1Contracts([rpcUrl], deployerPrivateKey, foundry, logger, testConfig);
+    const deployed = await deployAztecL1Contracts([rpcUrl], deployerPrivateKey, logger, testConfig);
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
     rollupCheatCodes = new RollupCheatCodes(cheatCodes, deployed.l1ContractAddresses);
 

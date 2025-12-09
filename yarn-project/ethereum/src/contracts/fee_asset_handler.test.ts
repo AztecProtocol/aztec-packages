@@ -4,6 +4,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi as FeeAssetAbi } from '@aztec/l1-artifacts/TestERC20Abi';
 
 import type { Anvil } from '@viem/anvil';
+import { raw } from 'express';
 import omit from 'lodash.omit';
 import { type GetContractReturnType, getContract } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
@@ -11,7 +12,7 @@ import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
-import { deployL1Contracts } from '../deploy_l1_contracts.js';
+import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import { createL1TxUtilsFromViemWallet } from '../l1_tx_utils/index.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
@@ -31,7 +32,8 @@ describe('FeeAssetHandler', () => {
   beforeAll(async () => {
     logger = createLogger('ethereum:test:fee_asset_handler');
     // this is the 6th address that gets funded by the junk mnemonic
-    privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    const rawPrivateKey = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
+    privateKey = privateKeyToAccount(rawPrivateKey);
     const vkTreeRoot = Fr.random();
     const protocolContractsHash = Fr.random();
 
@@ -39,9 +41,8 @@ describe('FeeAssetHandler', () => {
 
     const l1Client = createExtendedL1Client([rpcUrl], privateKey, foundry);
 
-    const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
+    const deployed = await deployAztecL1Contracts(rpcUrl, rawPrivateKey, logger, {
       ...DefaultL1ContractsConfig,
-      salt: originalVersionSalt,
       vkTreeRoot,
       protocolContractsHash,
       genesisArchiveRoot: Fr.random(),

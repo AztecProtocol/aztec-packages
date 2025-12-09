@@ -302,9 +302,6 @@ async function setupFromFresh(
   opts.slasherFlavor ??= 'none';
   deployL1ContractsArgs.slasherFlavor ??= opts.slasherFlavor;
 
-  // Default to using forge deployment for L1 contracts
-  opts.useForgeDeployment ??= true;
-
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
@@ -333,13 +330,14 @@ async function setupFromFresh(
   const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+  const publisherPrivKeyHex = `0x${publisherPrivKey!.toString('hex')}` satisfies `0x${string}`;
 
   const l1Client = createExtendedL1Client([aztecNodeConfig.l1RpcUrls[0]], hdAccount, foundry);
 
   const validatorPrivKey = getPrivateKeyFromIndex(0);
   const proverNodePrivateKey = getPrivateKeyFromIndex(0);
 
-  aztecNodeConfig.publisherPrivateKeys = [new SecretValue<`0x${string}`>(`0x${publisherPrivKey!.toString('hex')}`)];
+  aztecNodeConfig.publisherPrivateKeys = [new SecretValue(publisherPrivKeyHex)];
   aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${validatorPrivKey!.toString('hex')}`]);
   aztecNodeConfig.coinbase = opts.coinbase ?? EthAddress.fromString(`${hdAccount.address}`);
 
@@ -371,47 +369,20 @@ async function setupFromFresh(
 
   // Deploy L1 contracts using either forge or TypeScript deployment
   let deployL1ContractsValues;
-  if (opts.useForgeDeployment) {
-    logger.info('Using forge script for L1 contract deployment', {
-      realVerifier: deployL1ContractsArgs.realVerifier ?? false,
-      fundRewardDistributor: opts.fundRewardDistributor ?? true,
-    });
-    const privateKeyHex = `0x${publisherPrivKey!.toString('hex')}` as `0x${string}`;
-    deployL1ContractsValues = await setupL1ContractsWithForge(aztecNodeConfig.l1RpcUrls[0], privateKeyHex, logger, {
-      ...getL1ContractsConfigEnvVars(),
-      ...deployL1ContractsArgs,
-      // Override with specific values that need special handling
-      genesisArchiveRoot: genesisArchiveRoot.toString() as `0x${string}`,
-      realVerifier: deployL1ContractsArgs.realVerifier,
-      fundRewardDistributor: opts.fundRewardDistributor,
-      zkPassportArgs: deployL1ContractsArgs.zkPassportArgs,
-      initialValidators: opts.initialValidators,
-    });
-
-    // Fund the fee juice portal after forge deployment
-    if (fundingNeeded > 0n) {
-      const feeJuiceAddress = deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress;
-      const feeJuicePortalAddress = deployL1ContractsValues.l1ContractAddresses.feeJuicePortalAddress;
-      const feeJuiceToken = getContract({
-        abi: TestERC20Abi,
-        address: feeJuiceAddress.toString(),
-        client: deployL1ContractsValues.l1Client,
-      });
-      logger.info(`Funding fee juice portal at ${feeJuicePortalAddress} with ${fundingNeeded}`);
-      const mintHash = await feeJuiceToken.write.mint([feeJuicePortalAddress.toString(), fundingNeeded]);
-      await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: mintHash });
-      logger.info(`Fee juice portal funded`);
-    }
-  } else {
-    deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
-      ...getL1ContractsConfigEnvVars(),
-      genesisArchiveRoot,
-      feeJuicePortalInitialBalance: fundingNeeded,
-      salt: opts.salt,
-      ...deployL1ContractsArgs,
-      initialValidators: opts.initialValidators,
-    });
-  }
+  logger.info('Using forge script for L1 contract deployment', {
+    realVerifier: deployL1ContractsArgs.realVerifier ?? false,
+    fundRewardDistributor: opts.fundRewardDistributor ?? true,
+  });
+  deployL1ContractsValues = await setupL1ContractsWithForge(aztecNodeConfig.l1RpcUrls[0], publisherPrivKeyHex, logger, {
+    ...getL1ContractsConfigEnvVars(),
+    ...deployL1ContractsArgs,
+    // Override with specific values that need special handling
+    genesisArchiveRoot: genesisArchiveRoot.toString() as `0x${string}`,
+    realVerifier: deployL1ContractsArgs.realVerifier,
+    fundRewardDistributor: opts.fundRewardDistributor,
+    zkPassportArgs: deployL1ContractsArgs.zkPassportArgs,
+    initialValidators: opts.initialValidators,
+  });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.rollupVersion = deployL1ContractsValues.rollupVersion;
 

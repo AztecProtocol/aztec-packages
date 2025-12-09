@@ -1,5 +1,5 @@
 export * from './constants.js';
-export * from './deploy_l1_contracts.js';
+export * from './deploy_aztec_l1_contracts.js';
 export * from './chain.js';
 export * from './l1_tx_utils/index.js';
 export * from './l1_contract_addresses.js';
@@ -15,4 +15,3 @@ export * from './l1_types.js';
 export * from './l1_artifacts.js';
 export * from './publisher_manager.js';
 export * from './eth-signer/index.js';
-export * from './forge_script.js';

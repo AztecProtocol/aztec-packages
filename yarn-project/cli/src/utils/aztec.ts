@@ -20,6 +20,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
+import type { HDAccount, PrivateKeyAccount } from 'viem';
 
 import { encodeArgs } from './encoding.js';
 
@@ -54,35 +55,38 @@ export async function deployAztecContracts(
   initialValidators: Operator[],
   genesisArchiveRoot: Fr,
   feeJuicePortalInitialBalance: bigint,
-  acceleratedTestDeployments: boolean,
   config: L1ContractsConfig,
   existingToken: EthAddress | undefined,
   realVerifier: boolean,
   createVerificationJson: string | false,
   debugLogger: Logger,
 ): Promise<DeployL1ContractsReturnType> {
-  const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
+  const { createEthereumChain, deployAztecL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
-  const account = !privateKey
-    ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
-    : privateKeyToAccount(addLeadingHex(privateKey));
+  let account: HDAccount | PrivateKeyAccount;
+  if (privateKey) {
+    account = privateKeyToAccount(addLeadingHex(privateKey));
+  } else {
+    account = mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex });
+    const privateKeyBuf = account.getHdKey().privateKey;
+    const privateKeyHex = Buffer.from(privateKeyBuf!).toString('hex');
+    privateKey = `0x${privateKeyHex}`;
+  }
   const chain = createEthereumChain(rpcUrls, chainId);
 
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
-  const result = await deployL1Contracts(
+  const result = await deployAztecL1Contracts(
     chain.rpcUrls,
     account,
     chain.chainInfo,
-    debugLogger,
     {
       vkTreeRoot: getVKTreeRoot(),
       protocolContractsHash,
       genesisArchiveRoot,
       salt,
       initialValidators,
-      acceleratedTestDeployments,
       feeJuicePortalInitialBalance,
       realVerifier,
       existingTokenAddress: existingToken,

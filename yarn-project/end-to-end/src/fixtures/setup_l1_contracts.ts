@@ -1,19 +1,17 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import {
   type DeployL1ContractsArgs,
+  type ForgeDeployL1ContractsReturnType,
   type L1ContractsConfig,
-  type Operator,
   RollupContract,
-  type ZKPassportArgs,
-  deployL1Contracts,
+  deployAztecL1Contracts,
   isAnvilTestChain,
-  setupL1ContractsViaForge,
 } from '@aztec/ethereum';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 
-import type { HDAccount, PrivateKeyAccount } from 'viem';
+import type { Hex } from 'viem';
 import { foundry } from 'viem/chains';
 
 /**
@@ -28,37 +26,19 @@ export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chai
 
 export const setupL1Contracts = async (
   l1RpcUrl: string,
-  account: HDAccount | PrivateKeyAccount,
+  privateKey: Hex,
   logger: Logger,
   args: Pick<DeployL1ContractsArgs, 'genesisArchiveRoot' | 'initialValidators'> & L1ContractsConfig,
 ) => {
-  const l1Data = await deployL1Contracts([l1RpcUrl], account, foundry, logger, {
+  const l1Data = await deployAztecL1Contracts(l1RpcUrl, privateKey, logger, {
     vkTreeRoot: getVKTreeRoot(),
     protocolContractsHash,
-    salt: undefined,
     realVerifier: false,
     ...args,
   });
 
   return l1Data;
 };
-
-/**
- * Options for forge-based L1 deployment in e2e tests.
- * Includes all L1ContractsConfig options that should be passed to the forge script.
- */
-export interface SetupL1ContractsWithForgeOptions extends Partial<L1ContractsConfig> {
-  /** Genesis archive root (required for proper block validation) */
-  genesisArchiveRoot?: `0x${string}`;
-  /** Use real verifier (HonkVerifier) instead of MockVerifier */
-  realVerifier?: boolean;
-  /** Fund the reward distributor with tokens */
-  fundRewardDistributor?: boolean;
-  /** Initial validators to register (with BLS keys) */
-  initialValidators?: (Operator & { privateKey?: `0x${string}` })[];
-  /** ZkPassport configuration (domain, scope, mock verifier) */
-  zkPassportArgs?: ZKPassportArgs;
-}
 
 /**
  * Setup L1 contracts using forge deployment scripts.
@@ -79,68 +59,9 @@ export const setupL1ContractsWithForge = async (
   l1RpcUrl: string,
   privateKey: `0x${string}`,
   logger: Logger,
-  options: SetupL1ContractsWithForgeOptions = {},
-) => {
-  const vkTreeRoot = getVKTreeRoot();
-
-  logger.info('Deploying L1 contracts via forge script', {
-    vkTreeRoot: vkTreeRoot.toString(),
-    protocolContractsHash: protocolContractsHash.toString(),
-    realVerifier: options.realVerifier ?? false,
-    fundRewardDistributor: options.fundRewardDistributor ?? true,
-    manaTarget: options.manaTarget?.toString(),
-    aztecSlotDuration: options.aztecSlotDuration,
-    aztecEpochDuration: options.aztecEpochDuration,
-    ethereumSlotDuration: options.ethereumSlotDuration,
-  });
-
-  const l1Data = await setupL1ContractsViaForge(l1RpcUrl, privateKey, {
-    // Runtime options
-    logger,
-    chain: foundry,
-    // Pass initial validators to be added during forge deployment (before governance handover)
-    initialValidators: options.initialValidators,
-    // Genesis config
-    vkTreeRoot: vkTreeRoot.toString(),
-    protocolContractsHash: protocolContractsHash.toString(),
-    genesisArchiveRoot: options.genesisArchiveRoot,
-    // Deployment options
-    realVerifier: !(options.realVerifier ?? false),
-    fundRewardDistributor: options.fundRewardDistributor,
-    // Timing config (ethereumSlotDuration not passed - derived from L1 block time)
-    aztecSlotDuration: options.aztecSlotDuration,
-    aztecEpochDuration: options.aztecEpochDuration,
-    aztecTargetCommitteeSize: options.aztecTargetCommitteeSize,
-    // Validator set config
-    lagInEpochsForValidatorSet: options.lagInEpochsForValidatorSet,
-    lagInEpochsForRandao: options.lagInEpochsForRandao,
-    aztecProofSubmissionEpochs: options.aztecProofSubmissionEpochs,
-    // GSE config
-    activationThreshold: options.activationThreshold?.toString(),
-    ejectionThreshold: options.ejectionThreshold?.toString(),
-    localEjectionThreshold: options.localEjectionThreshold?.toString(),
-    // Slashing config
-    slasherFlavor: options.slasherFlavor,
-    slashingRoundSizeInEpochs: options.slashingRoundSizeInEpochs,
-    slashingLifetimeInRounds: options.slashingLifetimeInRounds,
-    slashingExecutionDelayInRounds: options.slashingExecutionDelayInRounds,
-    slashingOffsetInRounds: options.slashingOffsetInRounds,
-    slashingDisableDuration: options.slashingDisableDuration,
-    slashingVetoer: options.slashingVetoer?.toString(),
-    slashAmountSmall: options.slashAmountSmall?.toString(),
-    slashAmountMedium: options.slashAmountMedium?.toString(),
-    slashAmountLarge: options.slashAmountLarge?.toString(),
-    // Fee config
-    manaTarget: options.manaTarget?.toString(),
-    exitDelaySeconds: options.exitDelaySeconds,
-    provingCostPerMana: options.provingCostPerMana?.toString(),
-    // Governance config
-    governanceProposerQuorum: options.governanceProposerQuorum,
-    governanceProposerRoundSize: options.governanceProposerRoundSize,
-    // ZK Passport config
-    zkPassportDomain: options.zkPassportArgs?.zkPassportDomain,
-    zkPassportScope: options.zkPassportArgs?.zkPassportScope,
-  });
+  args: DeployL1ContractsArgs,
+): Promise<ForgeDeployL1ContractsReturnType> => {
+  const l1Data = await deployAztecL1Contracts(l1RpcUrl, privateKey, logger, args);
 
   // Create a Rollup contract instance for querying state
   const rollup = new RollupContract(l1Data.l1Client, l1Data.l1ContractAddresses.rollupAddress.toString());
@@ -183,10 +104,5 @@ export const setupL1ContractsWithForge = async (
       throw new Error(`Error jumping time: ${e}`);
     }
   }
-
-  // Note: Initial validators are now added during forge deployment (before governance handover)
-  // The initialValidators option is passed to setupL1ContractsViaForge which computes
-  // registration tuples and passes them to the Solidity script
-
   return l1Data;
 };

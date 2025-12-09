@@ -16,12 +16,13 @@ import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
   FeeAssetArtifact,
+  type ForgeDeployL1ContractsReturnType,
   NULL_KEY,
   type Operator,
   RollupContract,
   type ZKPassportArgs,
   createExtendedL1Client,
-  deployL1Contracts,
+  deployAztecL1Contracts,
   deployMulticall3,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
@@ -114,31 +115,24 @@ export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
 };
 
 export const setupL1Contracts = async (
-  l1RpcUrls: string[],
-  account: HDAccount | PrivateKeyAccount,
+  l1RpcUrl: string,
+  privateKey: Hex,
   logger: Logger,
   args: Partial<DeployL1ContractsArgs> = {},
-  chain: Chain = foundry,
-) => {
-  const l1Data = await deployL1Contracts(
-    l1RpcUrls,
-    account,
-    chain,
-    logger,
+): Promise<ForgeDeployL1ContractsReturnType> => {
+  const l1Data = await deployAztecL1Contracts(
+    l1RpcUrl,
+    privateKey,
     {
       vkTreeRoot: getVKTreeRoot(),
       protocolContractsHash,
       genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-      salt: args.salt,
       initialValidators: args.initialValidators,
       ...getL1ContractsConfigEnvVars(),
       realVerifier: false,
       ...args,
     },
-    {
-      priorityFeeBumpPercentage: 0,
-      priorityFeeRetryBumpPercentage: 0,
-    },
+    logger,
   );
 
   return l1Data;
@@ -314,8 +308,6 @@ export type SetupOptions = {
   anvilPort?: number;
   /** Key to use for publishing L1 contracts */
   l1PublisherKey?: SecretValue<`0x${string}`>;
-  /** Whether to use forge scripts for L1 contract deployment (default: true) */
-  useForgeDeployment?: boolean;
   /** ZkPassport configuration (domain, scope, mock verifier) */
   zkPassportArgs?: ZKPassportArgs;
 } & Partial<AztecNodeConfig>;
@@ -330,7 +322,7 @@ export type EndToEndContext = {
   proverNode: ProverNode | undefined;
   /** A client to the sequencer service (undefined if connected to remote environment) */
   sequencer: SequencerClient | undefined;
-  /** Return values from deployL1Contracts function. */
+  /** Return values from deployAztecL1Contracts function. */
   deployL1ContractsValues: DeployL1ContractsReturnType;
   /** The Aztec Node configuration. */
   config: AztecNodeConfig;
@@ -378,8 +370,6 @@ export async function setup(
   try {
     opts.aztecTargetCommitteeSize ??= 0;
     opts.slasherFlavor ??= 'none';
-    // Default to using forge deployment for L1 contracts
-    opts.useForgeDeployment ??= true;
 
     const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
@@ -486,57 +476,18 @@ export async function setup(
     await deployMulticall3(l1Client, logger);
 
     // Deploy L1 contracts using either forge or TypeScript deployment
-    let deployL1ContractsValues: DeployL1ContractsReturnType;
-
-    if (opts.deployL1ContractsValues) {
-      deployL1ContractsValues = opts.deployL1ContractsValues;
-    } else if (opts.useForgeDeployment) {
-      logger.info('Using forge script for L1 contract deployment', {
-        realVerifier: opts.realProofs ?? false,
-        fundRewardDistributor: opts.fundRewardDistributor ?? true,
-        deployerAddress: publisherHdAccount!.address,
-      });
-      // Pass through all L1ContractsConfig options to forge deployment
-      deployL1ContractsValues = await setupL1ContractsWithForge(config.l1RpcUrls[0], publisherPrivKeyHex!, logger, {
-        // L1ContractsConfig options (passed through to forge script)
+    logger.info('Using TypeScript deployment for L1 contracts');
+    const deployL1ContractsValues: ForgeDeployL1ContractsReturnType = await setupL1Contracts(
+      config.l1RpcUrls[0],
+      publisherPrivKeyHex,
+      logger,
+      {
         ...opts,
-        // Forge-specific options
-        genesisArchiveRoot: genesisArchiveRoot.toString() as `0x${string}`,
-        realVerifier: opts.realProofs,
-        fundRewardDistributor: opts.fundRewardDistributor,
+        genesisArchiveRoot,
+        feeJuicePortalInitialBalance: fundingNeeded,
         initialValidators: opts.initialValidators,
-        zkPassportArgs: opts.zkPassportArgs,
-      });
-
-      // Fund the fee juice portal after forge deployment
-      if (fundingNeeded > 0n) {
-        const feeJuicePortalAddress = deployL1ContractsValues.l1ContractAddresses.feeJuicePortalAddress;
-        const feeJuiceAddress = deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress;
-        const feeJuiceToken = getContract({
-          address: feeJuiceAddress.toString(),
-          abi: FeeAssetArtifact.contractAbi,
-          client: deployL1ContractsValues.l1Client,
-        });
-        logger.info(`Funding fee juice portal at ${feeJuicePortalAddress} with ${fundingNeeded}`);
-        const mintHash = await feeJuiceToken.write.mint([feeJuicePortalAddress.toString(), fundingNeeded], {} as any);
-        await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: mintHash });
-        logger.info(`Fee juice portal funded`);
-      }
-    } else {
-      logger.info('Using TypeScript deployment for L1 contracts');
-      deployL1ContractsValues = await setupL1Contracts(
-        config.l1RpcUrls,
-        publisherHdAccount!,
-        logger,
-        {
-          ...opts,
-          genesisArchiveRoot,
-          feeJuicePortalInitialBalance: fundingNeeded,
-          initialValidators: opts.initialValidators,
-        },
-        chain,
-      );
-    }
+      },
+    );
 
     config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
     config.rollupVersion = deployL1ContractsValues.rollupVersion;

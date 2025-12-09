@@ -60,15 +60,10 @@ export class CrossChainMessagingTest {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
     // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
     // Forge deployment advances L1 time significantly, breaking tests that depend on slot timing.
-    this.snapshotManager = createSnapshotManager(
-      `e2e_cross_chain_messaging/${testName}`,
-      dataPath,
-      { useForgeDeployment: true, ...opts },
-      {
-        initialValidators: [],
-        ...deployL1ContractsArgs,
-      },
-    );
+    this.snapshotManager = createSnapshotManager(`e2e_cross_chain_messaging/${testName}`, dataPath, opts, {
+      initialValidators: [],
+      ...deployL1ContractsArgs,
+    });
   }
 
   async assumeProven() {

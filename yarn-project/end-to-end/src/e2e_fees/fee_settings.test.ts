@@ -24,7 +24,7 @@ describe('e2e_fees fee settings', () => {
   // TODO(WORKTODO): Re-enable Forge deployment once owner impersonation is supported.
   // With Forge deployment, the Rollup owner is the Governance contract, which cannot be
   // impersonated effectively for calling setProvingCostPerMana via cheat codes.
-  const t = new FeesTest('fee_juice', 1, { useForgeDeployment: true });
+  const t = new FeesTest('fee_juice', 1);
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();

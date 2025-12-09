@@ -168,7 +168,7 @@ describe('L1Publisher integration', () => {
     config.l1RpcUrls = [rpcUrl];
 
     deployerAccount = privateKeyToAccount(deployerPK);
-    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger, {
+    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls[0], deployerPK, logger, {
       aztecTargetCommitteeSize: 0,
       slasherFlavor: 'none',
       ...deployL1ContractsArgs,

@@ -33,7 +33,6 @@ describe('e2e_snapshot_sync', () => {
 
   beforeAll(async () => {
     context = await setup(0, {
-      useForgeDeployment: true,
       minTxsPerBlock: 0,
       ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
       aztecSlotDuration: L1_BLOCK_TIME_IN_S * 2,

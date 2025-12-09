@@ -283,6 +283,7 @@ contract DeployL1Contracts is Script, Test {
         vm.serializeAddress(json, "feeAssetAddress", address(output.feeAsset));
         vm.serializeAddress(json, "stakingAssetAddress", address(output.stakingAsset));
         vm.serializeAddress(json, "gseAddress", address(output.gse));
+        vm.serializeAddress(json, "dateGatedRelayerAddress", address(output.dateGatedRelayer));
         vm.serializeAddress(json, "rewardDistributorAddress", address(output.rewardDistributor));
         vm.serializeAddress(json, "coinIssuerAddress", address(output.coinIssuer));
         vm.serializeAddress(json, "governanceProposerAddress", address(output.governanceProposer));

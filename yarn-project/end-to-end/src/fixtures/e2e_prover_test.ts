@@ -91,7 +91,7 @@ export class FullProverTest {
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,
-      { startProverNode: true, fundRewardDistributor: true, coinbase, useForgeDeployment: true },
+      { startProverNode: true, fundRewardDistributor: true, coinbase },
       {
         realVerifier: realProofs,
       },

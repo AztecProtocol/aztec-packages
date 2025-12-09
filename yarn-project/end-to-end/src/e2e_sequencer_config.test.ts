@@ -33,7 +33,6 @@ describe('e2e_sequencer_config', () => {
     beforeAll(async () => {
       const initialFundedAccounts = await getInitialTestAccountsData();
       ({ teardown, sequencer, aztecNode, logger, wallet } = await setup(1, {
-        useForgeDeployment: true,
         maxL2BlockGas: manaTarget * 2,
         manaTarget: BigInt(manaTarget),
         initialFundedAccounts,
