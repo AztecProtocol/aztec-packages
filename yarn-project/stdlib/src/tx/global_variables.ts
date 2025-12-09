@@ -1,6 +1,6 @@
 import { GLOBAL_VARIABLES_LENGTH } from '@aztec/constants';
 import { BlockNumber, BlockNumberSchema, SlotNumber } from '@aztec/foundation/branded-types';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';

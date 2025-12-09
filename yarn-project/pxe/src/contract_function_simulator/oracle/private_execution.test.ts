@@ -7,7 +7,9 @@ import {
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times } from '@aztec/foundation/collection';
-import { poseidon2Hash, poseidon2HashWithSeparator, randomInt, sha256ToField } from '@aztec/foundation/crypto';
+import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';

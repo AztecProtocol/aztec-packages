@@ -4,7 +4,7 @@ import {
   MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS,
 } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { LogHash, ScopedLogHash } from '@aztec/stdlib/kernel';

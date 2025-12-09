@@ -1,4 +1,4 @@
-import { randomBigInt } from '../../crypto/index.js';
+import { randomBigInt } from '../../crypto/random/index.js';
 import { Fr } from '../bn254/field.js';
 import { BLS12Fq, BLS12Fr } from './field.js';
 

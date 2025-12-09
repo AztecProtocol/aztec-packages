@@ -1,5 +1,5 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { sha256ToField } from '@aztec/foundation/crypto';
+import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex } from '@aztec/foundation/string';

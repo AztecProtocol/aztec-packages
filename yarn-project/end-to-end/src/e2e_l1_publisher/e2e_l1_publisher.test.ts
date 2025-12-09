@@ -36,7 +36,8 @@ import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/f
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
-import { SHA256Trunc, Secp256k1Signer, flipSignature, sha256ToField } from '@aztec/foundation/crypto';
+import { Secp256k1Signer, flipSignature } from '@aztec/foundation/crypto/secp256k1-signer';
+import { SHA256Trunc, sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';

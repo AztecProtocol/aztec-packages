@@ -1,7 +1,7 @@
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue, getActiveNetworkName } from '@aztec/foundation/config';
-import { keccak256String } from '@aztec/foundation/crypto';
+import { keccak256String } from '@aztec/foundation/crypto/keccak';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';

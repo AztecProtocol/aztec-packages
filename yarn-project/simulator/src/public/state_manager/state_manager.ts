@@ -6,7 +6,7 @@ import {
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   ROUTER_ADDRESS,
 } from '@aztec/constants';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type LogLevel, createLogger } from '@aztec/foundation/log';
