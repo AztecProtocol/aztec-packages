@@ -212,7 +212,7 @@ void Sha256::compression(MemoryInterface& memory,
                       .output = output });
 
         // Rethrow the exception after emitting the event
-        throw e;
+        throw;
     }
 }
 
