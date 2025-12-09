@@ -37,7 +37,7 @@ describe('Governance', () => {
     walletClient = createExtendedL1Client([rpcUrl], privateKey, foundry);
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
 
-    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, logger, {
+    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry, logger, {
       ...DefaultL1ContractsConfig,
       vkTreeRoot,
       protocolContractsHash,

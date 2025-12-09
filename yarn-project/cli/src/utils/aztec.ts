@@ -77,7 +77,7 @@ export async function deployAztecContracts(
 
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
-  const result = await deployAztecL1Contracts(chain.rpcUrls[0], privateKey as Hex, debugLogger, {
+  const result = await deployAztecL1Contracts(chain.rpcUrls[0], privateKey as Hex, chain.chainInfo, debugLogger, {
     vkTreeRoot: getVKTreeRoot(),
     protocolContractsHash,
     genesisArchiveRoot,

@@ -30,7 +30,7 @@ export const setupL1Contracts = async (
   logger: Logger,
   args: Pick<DeployAztecL1ContractsArgs, 'genesisArchiveRoot' | 'initialValidators'> & L1ContractsConfig,
 ) => {
-  const l1Data = await deployAztecL1Contracts(l1RpcUrl, privateKey, logger, {
+  const l1Data = await deployAztecL1Contracts(l1RpcUrl, privateKey, foundry, logger, {
     vkTreeRoot: getVKTreeRoot(),
     protocolContractsHash,
     realVerifier: false,
@@ -61,7 +61,7 @@ export const setupL1ContractsWithForge = async (
   logger: Logger,
   args: DeployAztecL1ContractsArgs,
 ): Promise<ForgeDeployAztecL1ContractsReturnType> => {
-  const l1Data = await deployAztecL1Contracts(l1RpcUrl, privateKey, logger, args);
+  const l1Data = await deployAztecL1Contracts(l1RpcUrl, privateKey, foundry, logger, args);
 
   // Create a Rollup contract instance for querying state
   const rollup = new RollupContract(l1Data.l1Client, l1Data.l1ContractAddresses.rollupAddress.toString());

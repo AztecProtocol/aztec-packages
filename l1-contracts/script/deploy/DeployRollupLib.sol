@@ -23,7 +23,7 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 
-import {HonkVerifier} from "../../../generated/HonkVerifier.sol";
+import {HonkVerifier} from "../../generated/HonkVerifier.sol";
 
 import {IRollupConfiguration} from "./RollupConfiguration.sol";
 

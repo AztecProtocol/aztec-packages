@@ -19,6 +19,7 @@ import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingPropo
 import type { Anvil } from '@viem/anvil';
 import { type Hex, type TypedDataDefinition, encodeFunctionData, hashTypedData } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 
@@ -83,7 +84,7 @@ describe('TallySlashingProposer', () => {
       })),
     };
 
-    const deployed = await deployAztecL1Contracts(rpcUrl, deployerPrivateKeyRaw, logger, testConfig);
+    const deployed = await deployAztecL1Contracts(rpcUrl, deployerPrivateKeyRaw, foundry, logger, testConfig);
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
     rollupCheatCodes = new RollupCheatCodes(cheatCodes, deployed.l1ContractAddresses);
 

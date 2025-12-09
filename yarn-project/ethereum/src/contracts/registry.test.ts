@@ -51,7 +51,7 @@ describe('Registry', () => {
 
     l1Client = createExtendedL1Client([rpcUrl], privateKey, foundry);
 
-    const deployed = await deployAztecL1Contracts(rpcUrl, rawPrivateKey, logger, {
+    const deployed = await deployAztecL1Contracts(rpcUrl, rawPrivateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
       vkTreeRoot,
       protocolContractsHash,

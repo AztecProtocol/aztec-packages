@@ -43,7 +43,7 @@ describe('Multicall3', () => {
 
     walletClient = createExtendedL1Client([rpcUrl], privateKey, foundry);
 
-    deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, logger, {
+    deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry, logger, {
       ...DefaultL1ContractsConfig,
       vkTreeRoot,
       protocolContractsHash,

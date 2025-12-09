@@ -44,7 +44,7 @@ describe('Rollup', () => {
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
 
-    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, logger, {
+    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry, logger, {
       ...DefaultL1ContractsConfig,
       vkTreeRoot,
       protocolContractsHash,

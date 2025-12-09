@@ -67,17 +67,23 @@ export async function deployContractsToL1(
 ) {
   await waitForPublicClient(aztecNodeConfig);
 
-  const l1Contracts = await deployAztecL1Contracts(aztecNodeConfig.l1RpcUrls[0], privateKey, contractDeployLogger, {
-    ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
-    ...aztecNodeConfig,
-    vkTreeRoot: getVKTreeRoot(),
-    protocolContractsHash,
-    genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-    feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
-    aztecTargetCommitteeSize: 0, // no committee in local network
-    slasherFlavor: 'none', // no slashing in local network
-    realVerifier: false,
-  });
+  const l1Contracts = await deployAztecL1Contracts(
+    aztecNodeConfig.l1RpcUrls[0],
+    privateKey,
+    foundry,
+    contractDeployLogger,
+    {
+      ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
+      ...aztecNodeConfig,
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractsHash,
+      genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+      feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
+      aztecTargetCommitteeSize: 0, // no committee in local network
+      slasherFlavor: 'none', // no slashing in local network
+      realVerifier: false,
+    },
+  );
 
   await deployMulticall3(l1Contracts.l1Client, logger);
 

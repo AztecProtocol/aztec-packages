@@ -8,6 +8,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { mnemonicToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import { addLeadingHex } from '../../utils/aztec.js';
 import { getSponsoredFPCAddress } from '../../utils/setup_contracts.js';
@@ -63,6 +64,7 @@ export async function deployL1ContractsCmd(
   const { l1ContractAddresses, rollupVersion } = await deployAztecL1Contracts(
     rpcUrls[0],
     deployerPrivateKey,
+    foundry,
     debugLogger,
     {
       // Initial validators to add during deployment

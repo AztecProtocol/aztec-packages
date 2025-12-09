@@ -5,6 +5,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { InboxAbi } from '@aztec/l1-artifacts/InboxAbi';
 
 import type { Anvil } from '@viem/anvil';
+import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
 import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
@@ -38,7 +39,7 @@ describe('RollupCheatCodes', () => {
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
 
-    deployedL1Contracts = await deployAztecL1Contracts(rpcUrl, privateKey, logger, {
+    deployedL1Contracts = await deployAztecL1Contracts(rpcUrl, privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
       vkTreeRoot,
       protocolContractsHash,

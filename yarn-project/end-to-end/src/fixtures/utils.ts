@@ -120,7 +120,7 @@ export const setupL1Contracts = async (
   logger: Logger,
   args: Partial<DeployAztecL1ContractsArgs> = {},
 ): Promise<ForgeDeployAztecL1ContractsReturnType> => {
-  const l1Data = await deployAztecL1Contracts(l1RpcUrl, privateKey, logger, {
+  const l1Data = await deployAztecL1Contracts(l1RpcUrl, privateKey, foundry, logger, {
     vkTreeRoot: getVKTreeRoot(),
     protocolContractsHash,
     genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),

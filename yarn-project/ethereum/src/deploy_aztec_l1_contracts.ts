@@ -1,7 +1,9 @@
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue, getActiveNetworkName } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
-import type { Logger } from '@aztec/foundation/log';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+import { type Logger, logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { fileURLToPath } from '@aztec/foundation/url';
 
@@ -10,10 +12,12 @@ import type { Abi, Narrow } from 'abitype';
 import { spawn } from 'child_process';
 import { mkdtemp, readFile, rm } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
-import type { Hex } from 'viem';
+import type { Chain, Hex } from 'viem';
 
+import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
 import type { L1ContractsConfig } from './config.js';
+import { deployMulticall3 } from './contracts/multicall.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import type { L1TxUtilsConfig } from './l1_tx_utils/config.js';
@@ -147,10 +151,43 @@ export interface ForgeL1ContractsDeployResult extends ForgeRollupUpgradeResult {
 export async function deployAztecL1Contracts(
   rpcUrl: string,
   privateKey: `0x${string}`,
+  chain: Chain,
   logger: Logger,
   args: DeployAztecL1ContractsArgs,
 ): Promise<ForgeDeployAztecL1ContractsReturnType> {
+  logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
+  if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
+    throw new Error(
+      'Cannot deploy with both initialValidators and existingTokenAddress. ' +
+        'Initial validator funding requires minting tokens, which is not possible with an external token.',
+    );
+  }
   const currentDir = dirname(fileURLToPath(import.meta.url));
+
+  const l1Client = createExtendedL1Client([rpcUrl], privateKey, chain);
+  // Deploy multicall3 if it does not exist in this network
+  await deployMulticall3(l1Client, logger);
+
+  // We are assuming that you are running this on a local anvil node which have 1s block times
+  // To align better with actual deployment, we update the block interval to 12s
+  const rpcCall = async (method: string, params: any[]) => {
+    logger.info(`Calling ${method} with params: ${JSON.stringify(params)}`);
+    return (await l1Client.transport.request({
+      method,
+      params,
+    })) as any;
+  };
+
+  logger.verbose(`Deploying contracts from ${l1Client.account.address.toString()}`);
+
+  if (isAnvilTestChain(chain.id)) {
+    try {
+      await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
+      logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
+    } catch (e) {
+      logger.error(`Error setting block interval: ${e}`);
+    }
+  }
 
   // Relative location of l1-contracts in monorepo or docker image.
   const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
@@ -221,10 +258,33 @@ export async function deployAztecL1Contracts(
     await rm(tmpDir, { recursive: true, force: true });
   }
 
-  const extendedClient = createExtendedL1Client([rpcUrl], privateKey);
+  const rollup = new RollupContract(l1Client, result.rollupAddress);
+
+  if (isAnvilTestChain(chain.id)) {
+    // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
+    //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
+    try {
+      // Need to get the time
+      const currentSlot = await rollup.getSlotNumber();
+
+      if (currentSlot === 0) {
+        const ts = Number(await rollup.getTimestampForSlot(SlotNumber(1)));
+        await rpcCall('evm_setNextBlockTimestamp', [ts]);
+        await rpcCall('hardhat_mine', [1]);
+        const currentSlot = await rollup.getSlotNumber();
+
+        if (currentSlot !== 1) {
+          throw new Error(`Error jumping time: current slot is ${currentSlot}`);
+        }
+        logger.info(`Jumped to slot 1`);
+      }
+    } catch (e) {
+      throw new Error(`Error jumping time: ${e}`);
+    }
+  }
 
   return {
-    l1Client: extendedClient,
+    l1Client,
     rollupVersion: result.rollupVersion,
     l1ContractAddresses: {
       rollupAddress: EthAddress.fromString(result.rollupAddress),
@@ -353,6 +413,7 @@ export interface ZKPassportArgs {
 
 // picked up by l1-contracts DeploymentConfiguration.sol
 export function getDeployAztecL1ContractsEnvVars(args: DeployAztecL1ContractsArgs) {
+  logger.info(`Setting deployment env vars with args: ${jsonStringify(args)}`);
   return {
     ...getDeployRollupForUpgradeEnvVars(args), // parsed by RollupConfiguration.sol
     EXISTING_TOKEN_ADDRESS: args.existingTokenAddress?.toString(),
