@@ -104,6 +104,7 @@ namespace get_contract_instance;
     // If dst_offset = 0xFFFFFFFF (max valid mem offset), then dst_offset+1 is out of bounds.
     // Otherwise, we know that dst_offset+1 is in-bounds since dst_offset has already been validated by main execution logic.
     pol commit is_valid_writes_in_bounds;
+    is_valid_writes_in_bounds * (1 - is_valid_writes_in_bounds) = 0;
     pol WRITES_OUT_OF_BOUNDS = 1 - is_valid_writes_in_bounds;
     pol DST_OFFSET_DIFF_MAX = constants.AVM_HIGHEST_MEM_ADDRESS - dst_offset;
     pol commit dst_offset_diff_max_inv;

@@ -81,8 +81,7 @@ TEST(SStoreConstrainingTest, NegativeDynamicL2GasIsZero)
         { C::execution_sel_execute_sstore, 1 },
         { C::execution_dynamic_l2_gas_factor, 1 },
     } });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_SSTORE_DYN_L2_GAS_IS_ZERO),
-                              "SSTORE_DYN_L2_GAS_IS_ZERO");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_DYN_L2_GAS_IS_ZERO), "DYN_L2_GAS_IS_ZERO");
 }
 
 TEST(SStoreConstrainingTest, MaxDataWritesReached)

@@ -52,6 +52,7 @@ using testing::Return;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using sload = bb::avm2::sload<FF>;
+using execution = bb::avm2::execution<FF>;
 
 TEST(SLoadConstrainingTest, PositiveTest)
 {
@@ -90,7 +91,10 @@ TEST(SLoadConstrainingTest, NegativeSloadSuccess)
           { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SLOAD },
           { C::execution_sel_opcode_error, 1 } },
     });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sload>(trace), "SLOAD_SUCCESS");
+
+    check_relation<sload>(trace);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_INFALLIBLE_OPCODES_SUCCESS),
+                              "INFALLIBLE_OPCODES_SUCCESS");
 }
 
 TEST(SLoadConstrainingTest, Interactions)

@@ -2,7 +2,9 @@
 
 #include <vector>
 
+#include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/common/process.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
 
@@ -12,6 +14,8 @@ using namespace bb::avm2;
 struct SimulatorResult {
     bool reverted;
     std::vector<FF> output;
+    TreeSnapshots end_tree_snapshots;
+    std::string revert_reason;
 };
 
 class Simulator {
@@ -22,13 +26,17 @@ class Simulator {
     Simulator(Simulator&&) = delete;
     Simulator& operator=(Simulator&&) = delete;
     Simulator() = default;
-    virtual SimulatorResult simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata) = 0;
+    virtual SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
+                                     const std::vector<uint8_t>& bytecode,
+                                     const std::vector<FF>& calldata) = 0;
 };
 
 /// @brief uses barretenberg/vm2 to simulate the bytecode
 class CppSimulator : public Simulator {
   public:
-    SimulatorResult simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata) override;
+    SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
+                             const std::vector<uint8_t>& bytecode,
+                             const std::vector<FF>& calldata) override;
 };
 
 /// @brief uses the yarn-project/simulator to simulate the bytecode
@@ -40,8 +48,6 @@ class JsSimulator : public Simulator {
     JsSimulator(std::string& simulator_path);
     Process process;
 
-    void restart_simulator_process();
-
   public:
     JsSimulator(JsSimulator& other) = delete;
     void operator=(const JsSimulator&) = delete;
@@ -51,9 +57,10 @@ class JsSimulator : public Simulator {
 
     static JsSimulator* getInstance();
     static void initialize(std::string& simulator_path);
-    static void restart_simulator();
 
-    SimulatorResult simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata) override;
+    SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
+                             const std::vector<uint8_t>& bytecode,
+                             const std::vector<FF>& calldata) override;
 };
 
 bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2);
