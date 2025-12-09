@@ -281,13 +281,9 @@ Together, these prove the relation holds in integers.
 
 ---
 
-## Subrelation 1: Lower Mod 2¹³⁶ Check
-
-### Goal
+### Subrelation 1: Lower Mod 2¹³⁶ Check
 
 Prove that when we compute the accumulation formula using limbs 0 and 1, the result is a multiple of $2^{136}$.
-
-### The Computation
 
 We compute the accumulation using:
 
@@ -345,13 +341,9 @@ $$\boxed{L_{\text{even}} \cdot \texttt{op} \cdot \left( T_0 + 2^{68} \cdot T_1 -
 
 ---
 
-## Subrelation 2: Higher Mod 2¹³⁶ Check
-
-### Goal
+### Subrelation 2: Higher Mod 2¹³⁶ Check
 
 Prove that when we compute the accumulation formula using limbs 2 and 3, plus the carry from subrelation 1, the result is a multiple of $2^{136}$.
-
-### The Computation
 
 We compute using:
 
@@ -408,11 +400,7 @@ $$\boxed{L_{\text{even}} \cdot \texttt{op} \cdot \left( T_2 + 2^{68} \cdot T_3 -
 
 ## Subrelation 3: Native Field Check
 
-### Goal
-
 Prove the accumulation formula holds when computed directly in 𝔽p (the native field).
-
-### Reconstruction
 
 First, reconstruct all values from their limbs:
 
@@ -514,51 +502,3 @@ The soundness argument **requires** that all limbs are properly range-constraine
 
 ---
 
-## Complete Constraint System
-
-### Subrelation 1: Lower 136 Bits
-
-$$
-\boxed{\begin{align}
-&L_{\text{even}} \cdot \texttt{op} \cdot \Bigg[ \\
-&\quad \underbrace{a_0^{\text{prev}} \cdot x_0 + \texttt{op} + \sum_{j} \text{(limb 0 products)}_j - a_0^{\text{curr}}}_{\text{Limb 0: } T_0} \\
-&\quad + 2^{68} \cdot \underbrace{\sum_{i,j: i+j=1} \text{(limb } i \text{ × limb } j \text{ products)} - a_1^{\text{curr}}}_{\text{Limb 1: } T_1} \\
-&\quad - 2^{136} \cdot c^{\text{lo}} \\
-&\Bigg] = 0
-\end{align}}
-$$
-
-### Subrelation 2: Higher 136 Bits
-
-$$
-\boxed{\begin{align}
-&L_{\text{even}} \cdot \texttt{op} \cdot \Bigg[ \\
-&\quad \underbrace{c^{\text{lo}} + \sum_{i,j: i+j=2} \text{(limb } i \text{ × limb } j \text{ products)} - a_2^{\text{curr}}}_{\text{Limb 2: } T_2} \\
-&\quad + 2^{68} \cdot \underbrace{\sum_{i,j: i+j=3} \text{(limb } i \text{ × limb } j \text{ products)} - a_3^{\text{curr}}}_{\text{Limb 3: } T_3} \\
-&\quad - 2^{136} \cdot c^{\text{hi}} \\
-&\Bigg] = 0
-\end{align}}
-$$
-
-### Subrelation 3: Native Field
-
-$$
-\boxed{\begin{align}
-&L_{\text{even}} \cdot \texttt{op} \cdot \Bigg[ \\
-&\quad \tilde{a}^{\text{prev}} \cdot x_4 + \texttt{op} + \tilde{P}_x \cdot v_4 + \tilde{P}_y \cdot (v^2)_4 \\
-&\quad + \tilde{z}_1 \cdot (v^3)_4 + \tilde{z}_2 \cdot (v^4)_4 + \tilde{\mathcal{Q}} \cdot \bar{q}_4 - \tilde{a}^{\text{curr}} \\
-&\Bigg] = 0
-\end{align}}
-$$
-
-Where all $\tilde{\cdot}$ values are reconstructed from limbs in $\mathbb{F}_{p}$.
-
-### Combined Guarantee
-
-**If all three subrelations hold**, then:
-
-$$a^{\text{curr}} = a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4 \pmod{q}$$
-
-is **provably correct in $\mathbb{F}_{q}$**, despite being computed entirely in $\mathbb{F}_{p}$.
-
----
