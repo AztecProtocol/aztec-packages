@@ -119,10 +119,6 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     throw new Error('TXE Archiver does not implement "getBlockHeadersForEpoch"');
   }
 
-  public getL1ToL2MessagesForCheckpoint(_checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    throw new Error('TXE Archiver does not implement "getL1ToL2MessagesForCheckpoint"');
-  }
-
   public isEpochComplete(_epochNumber: EpochNumber): Promise<boolean> {
     throw new Error('TXE Archiver does not implement "isEpochComplete"');
   }
