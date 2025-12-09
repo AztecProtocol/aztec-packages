@@ -120,8 +120,14 @@ describe('Basic Barretenberg Example', () => {
 
     try {
       // docs:start:verification_keys
-      // Get verification key for recursive verification (default)
+      // Get verification key as bytes (for passing to verifier)
       const vk = await backend.getVerificationKey();
+
+      // Get VK as hex field strings (for recursive verification circuits)
+      const vkFields = await backend.getVerificationKeyAsFields({ verifierTarget: 'noir-recursive' });
+
+      // Get VK hash (for verifying VK matches expected in recursive circuit)
+      const vkHash = await backend.getVerificationKeyHash({ verifierTarget: 'noir-recursive' });
 
       // For a solidity verifier (EVM target):
       const vkEvm = await backend.getVerificationKey({ verifierTarget: 'evm-no-zk' });
@@ -132,6 +138,13 @@ describe('Basic Barretenberg Example', () => {
       expect(vk.length).toBeGreaterThan(0);
       expect(vkEvm).toBeInstanceOf(Uint8Array);
       expect(vkEvm.length).toBeGreaterThan(0);
+
+      // Test VK fields and hash
+      expect(vkFields).to.be.an('array');
+      expect(vkFields.length).to.be.greaterThan(0);
+      expect(vkFields[0]).to.match(/^0x[0-9a-f]+$/i);
+      expect(vkHash).to.be.a('string');
+      expect(vkHash).to.match(/^0x[0-9a-f]+$/i);
 
     } finally {
       // Always clean up
