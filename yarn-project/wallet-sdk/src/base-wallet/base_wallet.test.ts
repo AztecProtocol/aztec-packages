@@ -1,6 +1,7 @@
 import type { Account } from '@aztec/aztec.js/account';
+import type { Event } from '@aztec/aztec.js/events';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import type { Aliased, PrivateEvent } from '@aztec/aztec.js/wallet';
+import type { Aliased } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/fields';
 import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
@@ -75,7 +76,7 @@ describe('BaseWallet', () => {
     const packedPrivateEventTransfer1: PackedPrivateEvent = privateEventFor(transfer1Serialized);
     const packedPrivateEventTransfer2: PackedPrivateEvent = privateEventFor(transfer2Serialized);
 
-    const privateEventTransfer1: PrivateEvent<Transfer> = {
+    const privateEventTransfer1: Event<Transfer> = {
       event: transfer1,
       metadata: {
         l2BlockNumber: packedPrivateEventTransfer1.l2BlockNumber,
@@ -84,7 +85,7 @@ describe('BaseWallet', () => {
       },
     };
 
-    const privateEventTransfer2: PrivateEvent<Transfer> = {
+    const privateEventTransfer2: Event<Transfer> = {
       event: transfer2,
       metadata: {
         l2BlockNumber: packedPrivateEventTransfer2.l2BlockNumber,

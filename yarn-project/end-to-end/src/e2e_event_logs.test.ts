@@ -1,9 +1,9 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { getDecodedPublicEvents } from '@aztec/aztec.js/events';
+import { type PrivateEventFilter, getDecodedPublicEvents } from '@aztec/aztec.js/events';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import type { PrivateEventFilter, Wallet } from '@aztec/aztec.js/wallet';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { makeTuple } from '@aztec/foundation/array';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';

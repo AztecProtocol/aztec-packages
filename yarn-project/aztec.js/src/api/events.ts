@@ -1,5 +1,67 @@
-import { type EventMetadataDefinition, EventSelector, decodeFromAbi } from '@aztec/stdlib/abi';
+import { type BlockNumber, BlockNumberPositiveSchema } from '@aztec/foundation/branded-types';
+import { type AbiDecoded, type EventMetadataDefinition, EventSelector, decodeFromAbi } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { AbiDecodedSchema, type ZodFor, schemas } from '@aztec/stdlib/schemas';
+import { type InTx, TxHash, inTxSchema } from '@aztec/stdlib/tx';
+
+import { optional, z } from 'zod';
+
+/**
+ * Filter options when querying events.
+ */
+export type EventFilter = {
+  /** The address of the contract that emitted the events. */
+  contractAddress: AztecAddress;
+  /** Addresses of accounts that are in scope for this filter. */
+  scopes: AztecAddress[];
+  /** Transaction in which the events were emitted. */
+  txHash?: TxHash;
+  /** The block number from which to start fetching events (inclusive).
+   * Optional. If provided, it must be greater or equal than 1.
+   * Defaults to the initial L2 block number (INITIAL_L2_BLOCK_NUM).
+   * */
+  fromBlock?: BlockNumber;
+  /** The block number until which to fetch logs (not inclusive).
+   * Optional. If provided, it must be greater than fromBlock.
+   * Defaults to the latest known block to PXE + 1.
+   */
+  toBlock?: BlockNumber;
+};
+
+export const EventFilterSchema = z.object({
+  contractAddress: schemas.AztecAddress,
+  txHash: optional(TxHash.schema),
+  fromBlock: optional(BlockNumberPositiveSchema),
+  toBlock: optional(BlockNumberPositiveSchema),
+});
+
+/**
+ * Filter options when querying private events.
+ */
+export type PrivateEventFilter = EventFilter & {
+  /** Addresses of accounts that are in scope for this filter. */
+  scopes: AztecAddress[];
+};
+
+export const PrivateEventFilterSchema = EventFilterSchema.extend({
+  scopes: z.array(schemas.AztecAddress),
+});
+
+/**
+ * An ABI decoded event with associated metadata.
+ */
+export type Event<T> = {
+  /** The ABI decoded event */
+  event: T;
+  /** Metadata describing event context information such as tx and block */
+  metadata: InTx;
+};
+
+export const EventSchema: ZodFor<Event<AbiDecoded>> = z.object({
+  event: AbiDecodedSchema,
+  metadata: inTxSchema(),
+});
 
 /**
  * Returns decoded public events given search parameters.

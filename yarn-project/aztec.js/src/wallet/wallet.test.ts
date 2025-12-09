@@ -18,13 +18,12 @@ import {
   UtilitySimulationResult,
 } from '@aztec/stdlib/tx';
 
+import type { Event, PrivateEventFilter } from '../api/events.js';
 import type {
   Aliased,
   BatchResults,
   BatchableMethods,
   BatchedMethod,
-  PrivateEvent,
-  PrivateEventFilter,
   ProfileOptions,
   SendOptions,
   SimulateOptions,
@@ -342,10 +341,7 @@ class MockWallet implements Wallet {
     };
   }
 
-  getPrivateEvents<T>(
-    _eventMetadata: EventMetadataDefinition,
-    _filter: PrivateEventFilter,
-  ): Promise<PrivateEvent<T>[]> {
+  getPrivateEvents<T>(_eventMetadata: EventMetadataDefinition, _filter: PrivateEventFilter): Promise<Event<T>[]> {
     return Promise.resolve([
       {
         event: {
@@ -357,7 +353,7 @@ class MockWallet implements Wallet {
           txHash: TxHash.random(),
         },
       },
-    ] as PrivateEvent<T>[]);
+    ] as Event<T>[]);
   }
 
   getTxReceipt(_txHash: TxHash): Promise<TxReceipt> {

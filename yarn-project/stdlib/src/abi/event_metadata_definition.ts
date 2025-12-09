@@ -1,4 +1,7 @@
-import type { AbiType } from './abi.js';
+import { z } from 'zod';
+
+import { schemas } from '../schemas/schemas.js';
+import { type AbiType, AbiTypeSchema } from './abi.js';
 import type { EventSelector } from './event_selector.js';
 
 export type EventMetadataDefinition = {
@@ -6,3 +9,9 @@ export type EventMetadataDefinition = {
   abiType: AbiType;
   fieldNames: string[];
 };
+
+export const EventMetadataDefinitionSchema = z.object({
+  eventSelector: schemas.EventSelector,
+  abiType: AbiTypeSchema,
+  fieldNames: z.array(z.string()),
+});

@@ -9,8 +9,6 @@ export {
   type BatchedMethodResultWrapper,
   type BatchResults,
   type Wallet,
-  type PrivateEvent,
-  type PrivateEventFilter,
   FunctionCallSchema,
   ExecutionPayloadSchema,
   GasSettingsOptionSchema,
@@ -22,9 +20,6 @@ export {
   BatchedMethodSchema,
   ContractMetadataSchema,
   ContractClassMetadataSchema,
-  EventMetadataDefinitionSchema,
-  PrivateEventSchema,
-  PrivateEventFilterSchema,
   WalletSchema,
 } from '../wallet/wallet.js';
 

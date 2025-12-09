@@ -1,13 +1,12 @@
 import type { Account } from '@aztec/aztec.js/account';
 import type { CallIntent, IntentInnerHash } from '@aztec/aztec.js/authorization';
+import type { Event, PrivateEventFilter } from '@aztec/aztec.js/events';
 import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
 import type {
   Aliased,
   BatchResults,
   BatchableMethods,
   BatchedMethod,
-  PrivateEvent,
-  PrivateEventFilter,
   ProfileOptions,
   SendOptions,
   SimulateOptions,
@@ -326,13 +325,10 @@ export abstract class BaseWallet implements Wallet {
     return this.aztecNode.getTxReceipt(txHash);
   }
 
-  async getPrivateEvents<T>(
-    eventDef: EventMetadataDefinition,
-    eventFilter: PrivateEventFilter,
-  ): Promise<PrivateEvent<T>[]> {
+  async getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter): Promise<Event<T>[]> {
     const pxeEvents = await this.pxe.getPrivateEvents(eventDef.eventSelector, eventFilter);
 
-    const decodedEvents = pxeEvents.map((pxeEvent: PackedPrivateEvent): PrivateEvent<T> => {
+    const decodedEvents = pxeEvents.map((pxeEvent: PackedPrivateEvent): Event<T> => {
       return {
         event: decodeFromAbi([eventDef.abiType], pxeEvent.packedEvent) as T,
         metadata: {
