@@ -128,91 +128,81 @@ struct ResultAddressRef {
 
 /// @brief mem[result_offset] = mem[a_address] + mem[b_address]
 struct ADD_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] - mem[b_address]
 struct SUB_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] * mem[b_address]
 struct MUL_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] / mem[b_address]
 struct DIV_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 struct FDIV_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] == mem[b_address]
 struct EQ_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] < mem[b_address]
 struct LT_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] <= mem[b_address]
 struct LTE_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] & mem[b_address]
 struct AND_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] | mem[b_address]
 struct OR_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] ^ mem[b_address]
@@ -225,28 +215,25 @@ struct XOR_8_Instruction {
 };
 
 struct NOT_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, result_address);
+    MSGPACK_FIELDS(a_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] << mem[b_address]
 struct SHL_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] >> mem[b_address]
 struct SHR_8_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief SET_8 instruction
@@ -316,125 +303,111 @@ struct MOV_16_Instruction {
 
 /// @brief mem[result_offset] = mem[a_address] + mem[b_address] (16-bit)
 struct ADD_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] - mem[b_address] (16-bit)
 struct SUB_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] * mem[b_address] (16-bit)
 struct MUL_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] / mem[b_address] (16-bit)
 struct DIV_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 struct FDIV_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] == mem[b_address] (16-bit)
 struct EQ_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] < mem[b_address] (16-bit)
 struct LT_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] <= mem[b_address] (16-bit)
 struct LTE_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] & mem[b_address] (16-bit)
 struct AND_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] | mem[b_address] (16-bit)
 struct OR_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] ^ mem[b_address] (16-bit)
 struct XOR_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 struct NOT_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, result_address);
+    MSGPACK_FIELDS(a_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] << mem[b_address] (16-bit)
 struct SHL_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] >> mem[b_address] (16-bit)
 struct SHR_16_Instruction {
-    MemoryTagWrapper argument_tag;
     AddressRef a_address;
     AddressRef b_address;
     ResultAddressRef result_address;
-    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief CAST_8: cast mem[src_offset_index] to target_tag and store at dst_offset
@@ -609,8 +582,7 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
     std::visit(
         overloaded_instruction{
             [&](ADD_8_Instruction arg) {
-                os << "ADD_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "ADD_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](SET_8_Instruction arg) {
                 os << "SET_8_Instruction " << arg.value_tag << " " << arg.result_address << " " << arg.value;
@@ -632,110 +604,81 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                 os << "SET_FF_Instruction " << arg.value_tag << " " << arg.result_address << " " << arg.value;
             },
             [&](SUB_8_Instruction arg) {
-                os << "SUB_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "SUB_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](MUL_8_Instruction arg) {
-                os << "MUL_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "MUL_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](DIV_8_Instruction arg) {
-                os << "DIV_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "DIV_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](FDIV_8_Instruction arg) {
-                os << "FDIV_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "FDIV_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](EQ_8_Instruction arg) {
-                os << "EQ_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "EQ_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](LT_8_Instruction arg) {
-                os << "LT_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "LT_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](LTE_8_Instruction arg) {
-                os << "LTE_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "LTE_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](AND_8_Instruction arg) {
-                os << "AND_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "AND_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](OR_8_Instruction arg) {
-                os << "OR_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "OR_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](XOR_8_Instruction arg) {
-                os << "XOR_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "XOR_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](SHL_8_Instruction arg) {
-                os << "SHL_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "SHL_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](SHR_8_Instruction arg) {
-                os << "SHR_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "SHR_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
-            [&](NOT_8_Instruction arg) {
-                os << "NOT_8_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.result_address;
-            },
+            [&](NOT_8_Instruction arg) { os << "NOT_8_Instruction " << arg.a_address << " " << arg.result_address; },
             [&](ADD_16_Instruction arg) {
-                os << "ADD_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "ADD_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](SUB_16_Instruction arg) {
-                os << "SUB_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "SUB_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](MUL_16_Instruction arg) {
-                os << "MUL_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "MUL_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](DIV_16_Instruction arg) {
-                os << "DIV_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "DIV_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](FDIV_16_Instruction arg) {
-                os << "FDIV_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "FDIV_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](EQ_16_Instruction arg) {
-                os << "EQ_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "EQ_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](LT_16_Instruction arg) {
-                os << "LT_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "LT_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](LTE_16_Instruction arg) {
-                os << "LTE_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "LTE_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](AND_16_Instruction arg) {
-                os << "AND_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "AND_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](OR_16_Instruction arg) {
-                os << "OR_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "OR_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](XOR_16_Instruction arg) {
-                os << "XOR_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "XOR_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
-            [&](NOT_16_Instruction arg) {
-                os << "NOT_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.result_address;
-            },
+            [&](NOT_16_Instruction arg) { os << "NOT_16_Instruction " << arg.a_address << " " << arg.result_address; },
             [&](SHL_16_Instruction arg) {
-                os << "SHL_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "SHL_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](SHR_16_Instruction arg) {
-                os << "SHR_16_Instruction " << arg.argument_tag << " " << arg.a_address << " " << arg.b_address << " "
-                   << arg.result_address;
+                os << "SHR_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](CAST_8_Instruction arg) {
                 os << "CAST_8_Instruction " << arg.src_tag << " " << arg.src_address << " " << arg.result_address << " "

@@ -42,64 +42,52 @@ FuzzInstruction generate_instruction(std::mt19937_64& rng)
     // forgive me
     switch (option) {
     case InstructionGenerationOptions::ADD_8:
-        return ADD_8_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .a_address = generate_address_ref(rng),
+        return ADD_8_Instruction{ .a_address = generate_address_ref(rng),
                                   .b_address = generate_address_ref(rng),
                                   .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::SUB_8:
-        return SUB_8_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .a_address = generate_address_ref(rng),
+        return SUB_8_Instruction{ .a_address = generate_address_ref(rng),
                                   .b_address = generate_address_ref(rng),
                                   .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::MUL_8:
-        return MUL_8_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .a_address = generate_address_ref(rng),
+        return MUL_8_Instruction{ .a_address = generate_address_ref(rng),
                                   .b_address = generate_address_ref(rng),
                                   .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::DIV_8:
-        return DIV_8_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .a_address = generate_address_ref(rng),
+        return DIV_8_Instruction{ .a_address = generate_address_ref(rng),
                                   .b_address = generate_address_ref(rng),
                                   .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::EQ_8:
-        return EQ_8_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                 .a_address = generate_address_ref(rng),
+        return EQ_8_Instruction{ .a_address = generate_address_ref(rng),
                                  .b_address = generate_address_ref(rng),
                                  .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::LT_8:
-        return LT_8_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                 .a_address = generate_address_ref(rng),
+        return LT_8_Instruction{ .a_address = generate_address_ref(rng),
                                  .b_address = generate_address_ref(rng),
                                  .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::LTE_8:
-        return LTE_8_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .a_address = generate_address_ref(rng),
+        return LTE_8_Instruction{ .a_address = generate_address_ref(rng),
                                   .b_address = generate_address_ref(rng),
                                   .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::AND_8:
-        return AND_8_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .a_address = generate_address_ref(rng),
+        return AND_8_Instruction{ .a_address = generate_address_ref(rng),
                                   .b_address = generate_address_ref(rng),
                                   .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::OR_8:
-        return OR_8_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                 .a_address = generate_address_ref(rng),
+        return OR_8_Instruction{ .a_address = generate_address_ref(rng),
                                  .b_address = generate_address_ref(rng),
                                  .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::XOR_8:
-        return XOR_8_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .a_address = generate_address_ref(rng),
+        return XOR_8_Instruction{ .a_address = generate_address_ref(rng),
                                   .b_address = generate_address_ref(rng),
                                   .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::SHL_8:
-        return SHL_8_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .a_address = generate_address_ref(rng),
+        return SHL_8_Instruction{ .a_address = generate_address_ref(rng),
                                   .b_address = generate_address_ref(rng),
                                   .result_address = generate_result_address_ref(rng) };
 
     case InstructionGenerationOptions::SHR_8:
-        return SHR_8_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .a_address = generate_address_ref(rng),
+        return SHR_8_Instruction{ .a_address = generate_address_ref(rng),
                                   .b_address = generate_address_ref(rng),
                                   .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::SET_8:
@@ -128,82 +116,66 @@ FuzzInstruction generate_instruction(std::mt19937_64& rng)
                                    .result_address = generate_result_address_ref(rng),
                                    .value = generate_random_field(rng) };
     case InstructionGenerationOptions::ADD_16:
-        return ADD_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .a_address = generate_address_ref(rng),
+        return ADD_16_Instruction{ .a_address = generate_address_ref(rng),
                                    .b_address = generate_address_ref(rng),
                                    .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::SUB_16:
-        return SUB_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .a_address = generate_address_ref(rng),
+        return SUB_16_Instruction{ .a_address = generate_address_ref(rng),
                                    .b_address = generate_address_ref(rng),
                                    .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::MUL_16:
-        return MUL_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .a_address = generate_address_ref(rng),
+        return MUL_16_Instruction{ .a_address = generate_address_ref(rng),
                                    .b_address = generate_address_ref(rng),
                                    .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::DIV_16:
-        return DIV_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .a_address = generate_address_ref(rng),
+        return DIV_16_Instruction{ .a_address = generate_address_ref(rng),
                                    .b_address = generate_address_ref(rng),
                                    .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::FDIV_16:
-        return FDIV_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                    .a_address = generate_address_ref(rng),
+        return FDIV_16_Instruction{ .a_address = generate_address_ref(rng),
                                     .b_address = generate_address_ref(rng),
                                     .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::EQ_16:
-        return EQ_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .a_address = generate_address_ref(rng),
+        return EQ_16_Instruction{ .a_address = generate_address_ref(rng),
                                   .b_address = generate_address_ref(rng),
                                   .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::LT_16:
-        return LT_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .a_address = generate_address_ref(rng),
+        return LT_16_Instruction{ .a_address = generate_address_ref(rng),
                                   .b_address = generate_address_ref(rng),
                                   .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::LTE_16:
-        return LTE_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .a_address = generate_address_ref(rng),
+        return LTE_16_Instruction{ .a_address = generate_address_ref(rng),
                                    .b_address = generate_address_ref(rng),
                                    .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::AND_16:
-        return AND_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .a_address = generate_address_ref(rng),
+        return AND_16_Instruction{ .a_address = generate_address_ref(rng),
                                    .b_address = generate_address_ref(rng),
                                    .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::OR_16:
-        return OR_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                  .a_address = generate_address_ref(rng),
+        return OR_16_Instruction{ .a_address = generate_address_ref(rng),
                                   .b_address = generate_address_ref(rng),
                                   .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::XOR_16:
-        return XOR_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .a_address = generate_address_ref(rng),
+        return XOR_16_Instruction{ .a_address = generate_address_ref(rng),
                                    .b_address = generate_address_ref(rng),
                                    .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::NOT_16:
-        return NOT_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .a_address = generate_address_ref(rng),
+        return NOT_16_Instruction{ .a_address = generate_address_ref(rng),
                                    .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::SHL_16:
-        return SHL_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .a_address = generate_address_ref(rng),
+        return SHL_16_Instruction{ .a_address = generate_address_ref(rng),
                                    .b_address = generate_address_ref(rng),
                                    .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::SHR_16:
-        return SHR_16_Instruction{ .argument_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .a_address = generate_address_ref(rng),
+        return SHR_16_Instruction{ .a_address = generate_address_ref(rng),
                                    .b_address = generate_address_ref(rng),
                                    .result_address = generate_result_address_ref(rng) };
     case InstructionGenerationOptions::CAST_8:
-        return CAST_8_Instruction{ .src_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                   .src_address = generate_address_ref(rng),
+        return CAST_8_Instruction{ .src_address = generate_address_ref(rng),
                                    .result_address = generate_result_address_ref(rng),
                                    .target_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION) };
     case InstructionGenerationOptions::CAST_16:
-        return CAST_16_Instruction{ .src_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
-                                    .src_address = generate_address_ref(rng),
+        return CAST_16_Instruction{ .src_address = generate_address_ref(rng),
                                     .result_address = generate_result_address_ref(rng),
                                     .target_tag = generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION) };
     case InstructionGenerationOptions::SSTORE:
@@ -240,12 +212,17 @@ FuzzInstruction generate_instruction(std::mt19937_64& rng)
     }
 }
 
-void mutate_address_ref(AddressRef& address, std::mt19937_64& rng)
+/// Most of the tags will be equal to the default tag
+void mutate_address_ref(AddressRef& address, std::mt19937_64& rng, std::optional<MemoryTag> default_tag)
 {
     AddressRefMutationOptions option = BASIC_ADDRESS_REF_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
     case AddressRefMutationOptions::tag:
-        mutate_memory_tag(address.tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+        if (default_tag.has_value()) {
+            mutate_or_default_tag(address.tag.value, rng, default_tag.value());
+        } else {
+            mutate_memory_tag(address.tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+        }
         break;
     case AddressRefMutationOptions::index:
         mutate_uint32_t(address.index, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
@@ -286,16 +263,13 @@ void mutate_binary_instruction_8(BinaryInstructionType& instruction, std::mt1993
 {
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case BinaryInstruction8MutationOptions::memory_tag:
-        mutate_memory_tag(instruction.argument_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+    case BinaryInstruction8MutationOptions::a_address:
+        mutate_address_ref(instruction.a_address, rng, std::nullopt);
         break;
-    case BinaryInstruction8MutationOptions::a_offset_index:
-        mutate_address_ref(instruction.a_address, rng);
+    case BinaryInstruction8MutationOptions::b_address:
+        mutate_address_ref(instruction.b_address, rng, instruction.a_address.tag);
         break;
-    case BinaryInstruction8MutationOptions::b_offset_index:
-        mutate_address_ref(instruction.b_address, rng);
-        break;
-    case BinaryInstruction8MutationOptions::result_offset:
+    case BinaryInstruction8MutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     }
@@ -306,16 +280,13 @@ void mutate_binary_instruction_16(BinaryInstructionType& instruction, std::mt199
 {
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case BinaryInstruction8MutationOptions::memory_tag:
-        mutate_memory_tag(instruction.argument_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+    case BinaryInstruction8MutationOptions::a_address:
+        mutate_address_ref(instruction.a_address, rng, std::nullopt);
         break;
-    case BinaryInstruction8MutationOptions::a_offset_index:
-        mutate_address_ref(instruction.a_address, rng);
+    case BinaryInstruction8MutationOptions::b_address:
+        mutate_address_ref(instruction.b_address, rng, instruction.a_address.tag);
         break;
-    case BinaryInstruction8MutationOptions::b_offset_index:
-        mutate_address_ref(instruction.b_address, rng);
-        break;
-    case BinaryInstruction8MutationOptions::result_offset:
+    case BinaryInstruction8MutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     }
@@ -326,13 +297,10 @@ void mutate_not_8_instruction(NOT_8_Instruction& instruction, std::mt19937_64& r
 
     UnaryInstruction8MutationOptions option = BASIC_UNARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case UnaryInstruction8MutationOptions::memory_tag:
-        mutate_memory_tag(instruction.argument_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+    case UnaryInstruction8MutationOptions::a_address:
+        mutate_address_ref(instruction.a_address, rng, std::nullopt);
         break;
-    case UnaryInstruction8MutationOptions::offset:
-        mutate_address_ref(instruction.a_address, rng);
-        break;
-    case UnaryInstruction8MutationOptions::result_offset:
+    case UnaryInstruction8MutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     }
@@ -346,7 +314,7 @@ void mutate_set_8_instruction(SET_8_Instruction& instruction, std::mt19937_64& r
     case Set8MutationOptions::value_tag:
         mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
-    case Set8MutationOptions::offset:
+    case Set8MutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     case Set8MutationOptions::value:
@@ -363,7 +331,7 @@ void mutate_set_16_instruction(SET_16_Instruction& instruction, std::mt19937_64&
     case Set16MutationOptions::value_tag:
         mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
-    case Set16MutationOptions::offset:
+    case Set16MutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     case Set16MutationOptions::value:
@@ -380,7 +348,7 @@ void mutate_set_32_instruction(SET_32_Instruction& instruction, std::mt19937_64&
     case Set32MutationOptions::value_tag:
         mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
-    case Set32MutationOptions::offset:
+    case Set32MutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     case Set32MutationOptions::value:
@@ -397,7 +365,7 @@ void mutate_set_64_instruction(SET_64_Instruction& instruction, std::mt19937_64&
     case Set64MutationOptions::value_tag:
         mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
-    case Set64MutationOptions::offset:
+    case Set64MutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     case Set64MutationOptions::value:
@@ -414,7 +382,7 @@ void mutate_set_128_instruction(SET_128_Instruction& instruction, std::mt19937_6
     case Set128MutationOptions::value_tag:
         mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
-    case Set128MutationOptions::offset:
+    case Set128MutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     case Set128MutationOptions::value_low:
@@ -434,7 +402,7 @@ void mutate_set_ff_instruction(SET_FF_Instruction& instruction, std::mt19937_64&
     case SetFFMutationOptions::value_tag:
         mutate_memory_tag(instruction.value_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
-    case SetFFMutationOptions::offset:
+    case SetFFMutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     case SetFFMutationOptions::value:
@@ -448,13 +416,10 @@ void mutate_not_16_instruction(NOT_16_Instruction& instruction, std::mt19937_64&
 
     UnaryInstruction8MutationOptions option = BASIC_UNARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case UnaryInstruction8MutationOptions::memory_tag:
-        mutate_memory_tag(instruction.argument_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+    case UnaryInstruction8MutationOptions::a_address:
+        mutate_address_ref(instruction.a_address, rng, std::nullopt);
         break;
-    case UnaryInstruction8MutationOptions::offset:
-        mutate_address_ref(instruction.a_address, rng);
-        break;
-    case UnaryInstruction8MutationOptions::result_offset:
+    case UnaryInstruction8MutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     }
@@ -465,16 +430,13 @@ void mutate_cast_8_instruction(CAST_8_Instruction& instruction, std::mt19937_64&
 
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case BinaryInstruction8MutationOptions::memory_tag:
-        mutate_memory_tag(instruction.src_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+    case BinaryInstruction8MutationOptions::a_address:
+        mutate_address_ref(instruction.src_address, rng, std::nullopt);
         break;
-    case BinaryInstruction8MutationOptions::a_offset_index:
-        mutate_address_ref(instruction.src_address, rng);
-        break;
-    case BinaryInstruction8MutationOptions::b_offset_index:
+    case BinaryInstruction8MutationOptions::b_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
-    case BinaryInstruction8MutationOptions::result_offset:
+    case BinaryInstruction8MutationOptions::result_address:
         mutate_memory_tag(instruction.target_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
     }
@@ -485,16 +447,13 @@ void mutate_cast_16_instruction(CAST_16_Instruction& instruction, std::mt19937_6
 
     BinaryInstruction8MutationOptions option = BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case BinaryInstruction8MutationOptions::memory_tag:
-        mutate_memory_tag(instruction.src_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
+    case BinaryInstruction8MutationOptions::a_address:
+        mutate_address_ref(instruction.src_address, rng, std::nullopt);
         break;
-    case BinaryInstruction8MutationOptions::a_offset_index:
-        mutate_address_ref(instruction.src_address, rng);
-        break;
-    case BinaryInstruction8MutationOptions::b_offset_index:
+    case BinaryInstruction8MutationOptions::b_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
-    case BinaryInstruction8MutationOptions::result_offset:
+    case BinaryInstruction8MutationOptions::result_address:
         mutate_memory_tag(instruction.target_tag.value, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
         break;
     }
@@ -505,10 +464,10 @@ void mutate_sstore_instruction(SSTORE_Instruction& instruction, std::mt19937_64&
 
     SStoreMutationOptions option = BASIC_SSTORE_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case SStoreMutationOptions::src_offset_index:
-        mutate_address_ref(instruction.src_address, rng);
+    case SStoreMutationOptions::src_address:
+        mutate_address_ref(instruction.src_address, rng, MemoryTag::FF);
         break;
-    case SStoreMutationOptions::slot_offset:
+    case SStoreMutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     case SStoreMutationOptions::slot:
@@ -525,10 +484,10 @@ void mutate_sload_instruction(SLOAD_Instruction& instruction, std::mt19937_64& r
     case SLoadMutationOptions::slot_index:
         mutate_uint16_t(instruction.slot_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
         break;
-    case SLoadMutationOptions::slot_offset:
+    case SLoadMutationOptions::slot_address:
         mutate_result_address_ref(instruction.slot_address, rng);
         break;
-    case SLoadMutationOptions::result_offset:
+    case SLoadMutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     }
@@ -539,7 +498,7 @@ void mutate_getenvvar_instruction(GETENVVAR_Instruction& instruction, std::mt199
 
     GetEnvVarMutationOptions option = BASIC_GETENVVAR_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case GetEnvVarMutationOptions::result_offset:
+    case GetEnvVarMutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     case GetEnvVarMutationOptions::type:
@@ -552,7 +511,7 @@ void mutate_emit_nullifier_instruction(EMITNULLIFIER_Instruction& instruction, s
 {
     // emitnulifier only has one field
 
-    mutate_address_ref(instruction.nullifier_address, rng);
+    mutate_address_ref(instruction.nullifier_address, rng, MemoryTag::FF);
 }
 
 void mutate_nullifier_exists_instruction(NULLIFIEREXISTS_Instruction& instruction, std::mt19937_64& rng)
@@ -560,13 +519,13 @@ void mutate_nullifier_exists_instruction(NULLIFIEREXISTS_Instruction& instructio
 
     NullifierExistsMutationOptions option = BASIC_NULLIFIER_EXISTS_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case NullifierExistsMutationOptions::nullifier_offset_index:
-        mutate_address_ref(instruction.nullifier_address, rng);
+    case NullifierExistsMutationOptions::nullifier_address:
+        mutate_address_ref(instruction.nullifier_address, rng, MemoryTag::FF);
         break;
-    case NullifierExistsMutationOptions::contract_address_offset:
+    case NullifierExistsMutationOptions::contract_address_address:
         mutate_result_address_ref(instruction.contract_address_address, rng);
         break;
-    case NullifierExistsMutationOptions::result_offset:
+    case NullifierExistsMutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     }
@@ -577,7 +536,7 @@ void mutate_emit_note_hash_instruction(EMITNOTEHASH_Instruction& instruction, st
 
     EmitNoteHashMutationOptions option = BASIC_EMITNOTEHASH_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case EmitNoteHashMutationOptions::note_hash_offset:
+    case EmitNoteHashMutationOptions::note_hash_address:
         mutate_result_address_ref(instruction.note_hash_address, rng);
         break;
     case EmitNoteHashMutationOptions::note_hash:
@@ -593,13 +552,13 @@ void mutate_note_hash_exists_instruction(NOTEHASHEXISTS_Instruction& instruction
     case NoteHashExistsMutationOptions::notehash_index:
         mutate_uint16_t(instruction.notehash_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
         break;
-    case NoteHashExistsMutationOptions::notehash_offset:
+    case NoteHashExistsMutationOptions::notehash_address:
         mutate_result_address_ref(instruction.notehash_address, rng);
         break;
-    case NoteHashExistsMutationOptions::leaf_index_offset:
+    case NoteHashExistsMutationOptions::leaf_index_address:
         mutate_result_address_ref(instruction.leaf_index_address, rng);
         break;
-    case NoteHashExistsMutationOptions::result_offset:
+    case NoteHashExistsMutationOptions::result_address:
         mutate_result_address_ref(instruction.result_address, rng);
         break;
     }
@@ -610,19 +569,19 @@ void mutate_calldatacopy_instruction(CALLDATACOPY_Instruction& instruction, std:
 
     CalldataCopyMutationOptions option = BASIC_CALLDATACOPY_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case CalldataCopyMutationOptions::dst_offset:
+    case CalldataCopyMutationOptions::dst_address:
         mutate_result_address_ref(instruction.dst_address, rng);
         break;
     case CalldataCopyMutationOptions::copy_size:
         mutate_uint8_t(instruction.copy_size, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
         break;
-    case CalldataCopyMutationOptions::copy_size_offset:
+    case CalldataCopyMutationOptions::copy_size_address:
         mutate_result_address_ref(instruction.copy_size_address, rng);
         break;
     case CalldataCopyMutationOptions::cd_start:
         mutate_uint16_t(instruction.cd_start, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
         break;
-    case CalldataCopyMutationOptions::cd_start_offset:
+    case CalldataCopyMutationOptions::cd_start_address:
         mutate_result_address_ref(instruction.cd_start_address, rng);
         break;
     }

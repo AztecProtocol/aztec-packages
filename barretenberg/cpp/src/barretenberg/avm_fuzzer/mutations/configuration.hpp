@@ -125,87 +125,85 @@ constexpr ResultAddressRefMutationConfig BASIC_RESULT_ADDRESS_REF_MUTATION_CONFI
         { ResultAddressRefMutationOptions::mode, 1 },
     });
 
-enum class UnaryInstruction8MutationOptions { memory_tag, offset, result_offset };
+enum class UnaryInstruction8MutationOptions { a_address, result_address };
 
-using UnaryInstruction8MutationConfig = WeightedSelectionConfig<UnaryInstruction8MutationOptions, 3>;
+using UnaryInstruction8MutationConfig = WeightedSelectionConfig<UnaryInstruction8MutationOptions, 2>;
 
 constexpr UnaryInstruction8MutationConfig BASIC_UNARY_INSTRUCTION_8_MUTATION_CONFIGURATION =
     UnaryInstruction8MutationConfig({
-        { UnaryInstruction8MutationOptions::memory_tag, 1 },
-        { UnaryInstruction8MutationOptions::offset, 1 },
-        { UnaryInstruction8MutationOptions::result_offset, 1 },
+        { UnaryInstruction8MutationOptions::a_address, 1 },
+        { UnaryInstruction8MutationOptions::result_address, 1 },
     });
 
-enum class BinaryInstruction8MutationOptions { memory_tag, a_offset_index, b_offset_index, result_offset };
+enum class BinaryInstruction8MutationOptions { a_address, b_address, result_address };
 
-using BinaryInstruction8MutationConfig = WeightedSelectionConfig<BinaryInstruction8MutationOptions, 4>;
+using BinaryInstruction8MutationConfig = WeightedSelectionConfig<BinaryInstruction8MutationOptions, 3>;
 
 constexpr BinaryInstruction8MutationConfig BASIC_BINARY_INSTRUCTION_8_MUTATION_CONFIGURATION =
     BinaryInstruction8MutationConfig({
-        { BinaryInstruction8MutationOptions::memory_tag, 1 },
-        { BinaryInstruction8MutationOptions::a_offset_index, 4 },
-        { BinaryInstruction8MutationOptions::b_offset_index, 4 },
-        { BinaryInstruction8MutationOptions::result_offset, 1 },
+        { BinaryInstruction8MutationOptions::a_address, 4 },
+        { BinaryInstruction8MutationOptions::b_address, 4 },
+        { BinaryInstruction8MutationOptions::result_address, 1 },
     });
 
-enum class Set8MutationOptions { value_tag, offset, value };
+enum class Set8MutationOptions { value_tag, result_address, value };
 
 using Set8MutationConfig = WeightedSelectionConfig<Set8MutationOptions, 3>;
 
 constexpr Set8MutationConfig BASIC_SET_8_MUTATION_CONFIGURATION = Set8MutationConfig({
     { Set8MutationOptions::value_tag, 1 },
-    { Set8MutationOptions::offset, 1 },
+    { Set8MutationOptions::result_address, 1 },
     { Set8MutationOptions::value, 1 },
 });
 
-enum class Set16MutationOptions { value_tag, offset, value };
+enum class Set16MutationOptions { value_tag, result_address, value };
 
 using Set16MutationConfig = WeightedSelectionConfig<Set16MutationOptions, 3>;
 
 constexpr Set16MutationConfig BASIC_SET_16_MUTATION_CONFIGURATION = Set16MutationConfig({
     { Set16MutationOptions::value_tag, 1 },
-    { Set16MutationOptions::offset, 1 },
+    { Set16MutationOptions::result_address, 1 },
     { Set16MutationOptions::value, 1 },
 });
 
-enum class Set32MutationOptions { value_tag, offset, value };
+enum class Set32MutationOptions { value_tag, result_address, value };
 
 using Set32MutationConfig = WeightedSelectionConfig<Set32MutationOptions, 3>;
 
 constexpr Set32MutationConfig BASIC_SET_32_MUTATION_CONFIGURATION = Set32MutationConfig({
     { Set32MutationOptions::value_tag, 1 },
-    { Set32MutationOptions::offset, 1 },
+    { Set32MutationOptions::result_address, 1 },
     { Set32MutationOptions::value, 1 },
 });
 
-enum class Set64MutationOptions { value_tag, offset, value };
+enum class Set64MutationOptions { value_tag, result_address, value };
 
 using Set64MutationConfig = WeightedSelectionConfig<Set64MutationOptions, 3>;
 
 constexpr Set64MutationConfig BASIC_SET_64_MUTATION_CONFIGURATION = Set64MutationConfig({
     { Set64MutationOptions::value_tag, 1 },
-    { Set64MutationOptions::offset, 1 },
+    { Set64MutationOptions::result_address, 1 },
     { Set64MutationOptions::value, 1 },
 });
 
-enum class Set128MutationOptions { value_tag, offset, value_low, value_high };
+enum class Set128MutationOptions { value_tag, result_address, value_low, value_high };
 
 using Set128MutationConfig = WeightedSelectionConfig<Set128MutationOptions, 4>;
 
 constexpr Set128MutationConfig BASIC_SET_128_MUTATION_CONFIGURATION = Set128MutationConfig({
     { Set128MutationOptions::value_tag, 1 },
-    { Set128MutationOptions::offset, 1 },
+    { Set128MutationOptions::result_address, 1 },
     { Set128MutationOptions::value_low, 1 },
     { Set128MutationOptions::value_high, 1 },
 });
 
-enum class SetFFMutationOptions { value_tag, offset, value };
+enum class SetFFMutationOptions { value_tag, result_address, value };
 
 using SetFFMutationConfig = WeightedSelectionConfig<SetFFMutationOptions, 3>;
 
 constexpr SetFFMutationConfig BASIC_SET_FF_MUTATION_CONFIGURATION = SetFFMutationConfig({
     { SetFFMutationOptions::value_tag, 1 },
-    { SetFFMutationOptions::offset, 1 },
+    { SetFFMutationOptions::result_address, 1 },
     { SetFFMutationOptions::value, 1 },
 });
 
@@ -311,68 +309,68 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::CALLDATACOPY, 1 },
 });
 
-enum class SStoreMutationOptions { src_offset_index, slot_offset, slot };
+enum class SStoreMutationOptions { src_address, result_address, slot };
 using SStoreMutationConfig = WeightedSelectionConfig<SStoreMutationOptions, 3>;
 
 constexpr SStoreMutationConfig BASIC_SSTORE_MUTATION_CONFIGURATION = SStoreMutationConfig({
-    { SStoreMutationOptions::src_offset_index, 1 },
-    { SStoreMutationOptions::slot_offset, 1 },
+    { SStoreMutationOptions::src_address, 1 },
+    { SStoreMutationOptions::result_address, 1 },
     { SStoreMutationOptions::slot, 1 },
 });
 
-enum class SLoadMutationOptions { slot_index, slot_offset, result_offset };
+enum class SLoadMutationOptions { slot_index, slot_address, result_address };
 using SLoadMutationConfig = WeightedSelectionConfig<SLoadMutationOptions, 3>;
 
 constexpr SLoadMutationConfig BASIC_SLOAD_MUTATION_CONFIGURATION = SLoadMutationConfig({
     { SLoadMutationOptions::slot_index, 1 },
-    { SLoadMutationOptions::slot_offset, 1 },
-    { SLoadMutationOptions::result_offset, 1 },
+    { SLoadMutationOptions::slot_address, 1 },
+    { SLoadMutationOptions::result_address, 1 },
 });
 
-enum class GetEnvVarMutationOptions { result_offset, type };
+enum class GetEnvVarMutationOptions { result_address, type };
 using GetEnvVarMutationConfig = WeightedSelectionConfig<GetEnvVarMutationOptions, 2>;
 
 constexpr GetEnvVarMutationConfig BASIC_GETENVVAR_MUTATION_CONFIGURATION = GetEnvVarMutationConfig({
-    { GetEnvVarMutationOptions::result_offset, 1 },
+    { GetEnvVarMutationOptions::result_address, 1 },
     { GetEnvVarMutationOptions::type, 1 },
 });
 
-enum class NullifierExistsMutationOptions { nullifier_offset_index, contract_address_offset, result_offset };
+enum class NullifierExistsMutationOptions { nullifier_address, contract_address_address, result_address };
 using NullifierExistsMutationConfig = WeightedSelectionConfig<NullifierExistsMutationOptions, 3>;
 
 constexpr NullifierExistsMutationConfig BASIC_NULLIFIER_EXISTS_MUTATION_CONFIGURATION = NullifierExistsMutationConfig({
-    { NullifierExistsMutationOptions::nullifier_offset_index, 1 },
-    { NullifierExistsMutationOptions::contract_address_offset, 1 },
-    { NullifierExistsMutationOptions::result_offset, 1 },
+    { NullifierExistsMutationOptions::nullifier_address, 1 },
+    { NullifierExistsMutationOptions::contract_address_address, 1 },
+    { NullifierExistsMutationOptions::result_address, 1 },
 });
 
-enum class EmitNoteHashMutationOptions { note_hash_offset, note_hash };
+enum class EmitNoteHashMutationOptions { note_hash_address, note_hash };
 using EmitNoteHashMutationConfig = WeightedSelectionConfig<EmitNoteHashMutationOptions, 2>;
 
 constexpr EmitNoteHashMutationConfig BASIC_EMITNOTEHASH_MUTATION_CONFIGURATION = EmitNoteHashMutationConfig({
-    { EmitNoteHashMutationOptions::note_hash_offset, 1 },
+    { EmitNoteHashMutationOptions::note_hash_address, 1 },
     { EmitNoteHashMutationOptions::note_hash, 1 },
 });
 
-enum class NoteHashExistsMutationOptions { notehash_index, notehash_offset, leaf_index_offset, result_offset };
+enum class NoteHashExistsMutationOptions { notehash_index, notehash_address, leaf_index_address, result_address };
 using NoteHashExistsMutationConfig = WeightedSelectionConfig<NoteHashExistsMutationOptions, 4>;
 
 constexpr NoteHashExistsMutationConfig BASIC_NOTEHASHEXISTS_MUTATION_CONFIGURATION = NoteHashExistsMutationConfig({
     { NoteHashExistsMutationOptions::notehash_index, 1 },
-    { NoteHashExistsMutationOptions::notehash_offset, 1 },
-    { NoteHashExistsMutationOptions::leaf_index_offset, 1 },
-    { NoteHashExistsMutationOptions::result_offset, 1 },
+    { NoteHashExistsMutationOptions::notehash_address, 1 },
+    { NoteHashExistsMutationOptions::leaf_index_address, 1 },
+    { NoteHashExistsMutationOptions::result_address, 1 },
 });
 
-enum class CalldataCopyMutationOptions { dst_offset, copy_size, copy_size_offset, cd_start, cd_start_offset };
+enum class CalldataCopyMutationOptions { dst_address, copy_size, copy_size_address, cd_start, cd_start_address };
 using CalldataCopyMutationConfig = WeightedSelectionConfig<CalldataCopyMutationOptions, 5>;
 
 constexpr CalldataCopyMutationConfig BASIC_CALLDATACOPY_MUTATION_CONFIGURATION = CalldataCopyMutationConfig({
-    { CalldataCopyMutationOptions::dst_offset, 1 },
+    { CalldataCopyMutationOptions::dst_address, 1 },
     { CalldataCopyMutationOptions::copy_size, 1 },
-    { CalldataCopyMutationOptions::copy_size_offset, 1 },
+    { CalldataCopyMutationOptions::copy_size_address, 1 },
     { CalldataCopyMutationOptions::cd_start, 1 },
-    { CalldataCopyMutationOptions::cd_start_offset, 1 },
+    { CalldataCopyMutationOptions::cd_start_address, 1 },
 });
 
 enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };
