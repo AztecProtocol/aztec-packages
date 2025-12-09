@@ -55,7 +55,6 @@ interface IDeploymentConfiguration {
     function getFlushRewardConfiguration() external pure returns (FlushRewardConfiguration memory);
     function getZkPassportConfiguration() external view returns (ZkPassportConfiguration memory);
     function getRewardDistributorFunding() external view returns (uint256);
-    function validateConfig() external view;
 }
 
 contract DeploymentConfiguration is IDeploymentConfiguration, Test {
@@ -191,32 +190,5 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
         // Delegated to RollupConfiguration
         RewardConfig memory rewardConfig = rollupConfig.getRewardConfiguration(IRewardDistributor(address(0)));
         return uint256(rewardConfig.checkpointReward) * 200_000;
-    }
-
-    // ============ Validation ============
-
-    function validateConfig() external view {
-        // Validate deployment-specific config
-        GovernanceProposerConfiguration memory govPropConfig = this.getGovernanceProposerConfiguration();
-        GseConfiguration memory gseConfig = this.getGseConfiguration();
-
-        // EmpireBase constructor validations for governance proposers
-        require(
-            govPropConfig.quorum > govPropConfig.roundSize / 2,
-            "validateConfig: governanceProposerQuorum must be greater than half of roundSize"
-        );
-        require(
-            govPropConfig.quorum <= govPropConfig.roundSize,
-            "validateConfig: governanceProposerQuorum cannot be larger than roundSize"
-        );
-
-        // Staking asset validation: activationThreshold >= ejectionThreshold
-        require(
-            gseConfig.activationThreshold >= gseConfig.ejectionThreshold,
-            "validateConfig: activationThreshold must be >= ejectionThreshold"
-        );
-
-        // Delegate rollup-specific validation to RollupConfiguration
-        rollupConfig.validateConfig();
     }
 }

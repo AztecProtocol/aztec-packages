@@ -109,9 +109,6 @@ contract DeployL1Contracts is Script, Test {
 
     /// @notice Execute the full deployment sequence
     function _deploy() internal {
-        // Validate configuration before deployment
-        config.validateConfig();
-
         // On a test network, we deploy assets.
         _maybeDeployAssets();
         // CORE CONTRACTS

@@ -53,7 +53,6 @@ library DeployRollupLib {
         internal
         returns (RollupAddressOutput memory output)
     {
-        config.validateConfig();
         output.verifier = _deployVerifier(config);
         output.rollup = _deployRollupContract(input, output.verifier, config);
         _maybeMintInitialFeeAsset(input, output.rollup, config);
