@@ -6,6 +6,8 @@ import type {
   BatchResults,
   BatchableMethods,
   BatchedMethod,
+  PrivateEvent,
+  PrivateEventFilter,
   ProfileOptions,
   SendOptions,
   SimulateOptions,
@@ -22,7 +24,7 @@ import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
-import type { PXE } from '@aztec/pxe/server';
+import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
   type EventMetadataDefinition,
@@ -325,17 +327,21 @@ export abstract class BaseWallet implements Wallet {
   }
 
   async getPrivateEvents<T>(
-    contractAddress: AztecAddress,
     eventDef: EventMetadataDefinition,
-    from: number,
-    limit: number,
-    recipients: AztecAddress[] = [],
-  ): Promise<T[]> {
-    const events = await this.pxe.getPrivateEvents(contractAddress, eventDef.eventSelector, from, limit, recipients);
+    eventFilter: PrivateEventFilter,
+  ): Promise<PrivateEvent<T>[]> {
+    const pxeEvents = await this.pxe.getPrivateEvents(eventDef.eventSelector, eventFilter);
 
-    const decodedEvents = events.map(
-      (event: any /** PrivateEvent */): T => decodeFromAbi([eventDef.abiType], event.packedEvent) as T,
-    );
+    const decodedEvents = pxeEvents.map((pxeEvent: PackedPrivateEvent): PrivateEvent<T> => {
+      return {
+        event: decodeFromAbi([eventDef.abiType], pxeEvent.packedEvent) as T,
+        metadata: {
+          l2BlockNumber: pxeEvent.l2BlockNumber,
+          l2BlockHash: pxeEvent.l2BlockHash,
+          txHash: pxeEvent.txHash,
+        },
+      };
+    });
 
     return decodedEvents;
   }

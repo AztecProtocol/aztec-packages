@@ -1,4 +1,5 @@
 import { L2Block } from '@aztec/aztec.js/block';
+import { getKzg } from '@aztec/blob-lib';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
@@ -220,6 +221,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   public async init() {
+    // Takes ~3s to precompute some tables.
+    getKzg();
     this.publisher = (await this.publisherFactory.create(undefined)).publisher;
   }
 

@@ -69,7 +69,6 @@ jobs:
         run: ./.github/ci3.sh "${{ join(github.event.pull_request.labels.*.name, ',') }}"
 
       - name: Post-Actions
-        if: always()
         env:
           CI_INTERNAL: "1"
           # For updating success cache.

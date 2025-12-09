@@ -136,12 +136,12 @@ An example of this is seen in an example card game, where an update function is 
 
 ```rust
 let new_note = MyNote::new(new_value, owner);
-storage.my_value.replace(&mut new_note).emit(encode_and_encrypt_note(&mut context, owner));
+storage.my_value.replace(&mut new_note).deliver(encode_and_encrypt_note(&mut context, owner));
 ```
 
 :::info
 
-Calling `emit(encode_and_encrypt_note())` on the `replace` method will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
+Calling `deliver(encode_and_encrypt_note())` on the `replace` method will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
 
 :::
 
@@ -182,7 +182,7 @@ Set the value of an PrivateImmutable by calling the `initialize` method:
 fn initialize_private_immutable(my_value: u8) {
     let new_note = MyNote::new(my_value, context.msg_sender().unwrap());
 
-    storage.my_private_immutable.initialize(new_note).emit(encode_and_encrypt_note(
+    storage.my_private_immutable.initialize(new_note).deliver(encode_and_encrypt_note(
         &mut context,
         context.msg_sender(),
     ));
@@ -191,7 +191,7 @@ fn initialize_private_immutable(my_value: u8) {
 
 :::info
 
-Calling `emit(encode_and_encrypt_note())` on `initialize` will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
+Calling `deliver(encode_and_encrypt_note())` on `initialize` will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
 
 :::
 
@@ -239,12 +239,12 @@ Allows us to modify the storage by inserting a note into the `PrivateSet`.
 A hash of the note will be generated, and inserted into the note hash tree, allowing us to later use in contract interactions. Recall that the content of the note should be shared with the owner to allow them to use it, as mentioned this can be done via an encrypted log or offchain via web2, or completely offline.
 
 ```rust
-storage.set.at(aztec_address).insert(new_note).emit(encode_and_encrypt_note(&mut context, aztec_address));
+storage.set.at(aztec_address).insert(new_note).deliver(encode_and_encrypt_note(&mut context, aztec_address));
 ```
 
 :::info
 
-Calling `emit(encode_and_encrypt_note())` on `insert` will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
+Calling `deliver(encode_and_encrypt_note())` on `insert` will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
 
 :::
 

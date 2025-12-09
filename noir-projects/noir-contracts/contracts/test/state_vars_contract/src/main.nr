@@ -98,9 +98,9 @@ pub contract StateVars {
     #[external("private")]
     fn initialize_private_immutable(randomness: Field, value: Field) {
         let owner = self.msg_sender().unwrap();
-        let new_note = FieldNote::new(value);
+        let new_note = FieldNote { value };
 
-        self.storage.private_immutable.at(owner).initialize(new_note).emit(
+        self.storage.private_immutable.at(owner).initialize(new_note).deliver(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -109,9 +109,9 @@ pub contract StateVars {
     #[external("private")]
     fn initialize_private(randomness: Field, value: Field) {
         let owner = self.msg_sender().unwrap();
-        let private_mutable = FieldNote::new(value);
+        let private_mutable = FieldNote { value };
 
-        self.storage.private_mutable.at(owner).initialize(private_mutable).emit(
+        self.storage.private_mutable.at(owner).initialize(private_mutable).deliver(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -120,7 +120,7 @@ pub contract StateVars {
     #[external("private")]
     fn update_private_mutable(randomness: Field, value: Field) {
         let owner = self.msg_sender().unwrap();
-        self.storage.private_mutable.at(owner).replace(|_old_note| FieldNote::new(value)).emit(
+        self.storage.private_mutable.at(owner).replace(|_old_note| FieldNote { value }).deliver(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -135,10 +135,10 @@ pub contract StateVars {
             .private_mutable
             .at(owner)
             .replace(|old_note| {
-                let new_value = old_note.value() + 1;
-                FieldNote::new(new_value)
+                let new_value = old_note.value + 1;
+                FieldNote { value: new_value }
             })
-            .emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+            .deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("utility")]

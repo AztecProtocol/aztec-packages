@@ -45,8 +45,8 @@ pub contract StaticChild {
     #[external("private")]
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let note = FieldNote::new(new_value);
-        self.storage.a_private_value.at(owner).insert(note).emit(
+        let note = FieldNote { value: new_value };
+        self.storage.a_private_value.at(owner).insert(note).deliver(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -56,9 +56,9 @@ pub contract StaticChild {
     // Modify a note
     #[external("private")]
     fn private_set_value(new_value: Field, owner: AztecAddress, sender: AztecAddress) -> Field {
-        let note = FieldNote::new(new_value);
+        let note = FieldNote { value: new_value };
 
-        self.storage.a_private_value.at(owner).insert(note).emit(
+        self.storage.a_private_value.at(owner).insert(note).deliver(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -72,7 +72,7 @@ pub contract StaticChild {
         let mut options = NoteGetterOptions::new();
         options = options.select(FieldNote::properties().value, Comparator.EQ, amount).set_limit(1);
         let retrieved_notes = self.storage.a_private_value.at(owner).get_notes(options);
-        retrieved_notes.get(0).note.value()
+        retrieved_notes.get(0).note.value
     }
 
     // Increments `current_value` by `new_value`

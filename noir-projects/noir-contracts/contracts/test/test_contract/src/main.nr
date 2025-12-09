@@ -139,8 +139,8 @@ pub contract Test {
         storage_slot: Field,
         make_tx_hybrid: bool,
     ) {
-        let note = UintNote::new(value);
-        create_note(self.context, owner, storage_slot, note).emit(
+        let note = UintNote { value };
+        create_note(self.context, owner, storage_slot, note).deliver(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -182,7 +182,7 @@ pub contract Test {
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(self.context, owner, storage_slot, options);
 
-        retrieved_notes.get(0).note.get_value()
+        retrieved_notes.get(0).note.value
     }
 
     #[external("private")]
@@ -199,7 +199,7 @@ pub contract Test {
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(self.context, owner, storage_slot, options);
 
-        [retrieved_notes.get(0).note.get_value(), retrieved_notes.get(1).note.get_value()]
+        [retrieved_notes.get(0).note.value, retrieved_notes.get(1).note.value]
     }
 
     #[external("utility")]
@@ -216,7 +216,7 @@ pub contract Test {
         let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner, storage_slot, options);
 
-        notes.get(0).get_value()
+        notes.get(0).value
     }
 
     #[external("utility")]
@@ -233,7 +233,7 @@ pub contract Test {
         let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner, storage_slot, options);
 
-        [notes.get(0).get_value(), notes.get(1).get_value()]
+        [notes.get(0).value, notes.get(1).value]
     }
 
     #[external("private")]

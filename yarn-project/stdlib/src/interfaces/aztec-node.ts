@@ -21,7 +21,7 @@ import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
-import { type DataInBlock, inBlockSchemaFor } from '../block/in_block.js';
+import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
 import { PublishedL2Block } from '../block/published_l2_block.js';
@@ -502,7 +502,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   findLeavesIndexes: z
     .function()
     .args(BlockParameterSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr).max(MAX_RPC_LEN))
-    .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
+    .returns(z.array(optional(dataInBlockSchemaFor(schemas.BigInt)))),
 
   getNullifierSiblingPath: z
     .function()
