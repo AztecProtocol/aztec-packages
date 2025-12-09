@@ -1,4 +1,3 @@
-#include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
@@ -196,11 +195,12 @@ class TranslatorRecursiveTests : public ::testing::Test {
         // Verify with native verifier and compare results
         auto native_verifier_transcript = std::make_shared<Transcript>(proof);
         InnerVerifier native_verifier(verification_key, native_verifier_transcript);
-        bool native_result = native_verifier.verify_proof(proof,
-                                                          evaluation_challenge_x,
-                                                          batching_challenge_v,
-                                                          recursive_inputs.accumulated_result_native,
-                                                          recursive_inputs.native_op_queue_commitments);
+        auto native_pairing_points = native_verifier.verify_proof(proof,
+                                                                  evaluation_challenge_x,
+                                                                  batching_challenge_v,
+                                                                  recursive_inputs.accumulated_result_native,
+                                                                  recursive_inputs.native_op_queue_commitments);
+        bool native_result = native_pairing_points.check() && native_verifier.consistency_checked;
 
         NativeVerifierCommitmentKey pcs_vkey{};
         auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());

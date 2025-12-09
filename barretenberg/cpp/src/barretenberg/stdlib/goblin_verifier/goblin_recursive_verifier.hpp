@@ -11,7 +11,7 @@
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
-#include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
+#include "barretenberg/translator_vm/translator_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
@@ -55,7 +55,6 @@ class GoblinRecursiveVerifier {
     using Transcript = UltraStdlibTranscript;
     using TranslatorFlavor = TranslatorRecursiveFlavor;
     using TranslatorVerifier = TranslatorRecursiveVerifier;
-    using TranslationEvaluations = TranslatorVerifier::TranslationEvaluations;
     using TranslatorInputData = TranslatorInputData_<TranslatorRecursiveVerifier::BF>;
 
     // ECCVM and Translator verification keys
