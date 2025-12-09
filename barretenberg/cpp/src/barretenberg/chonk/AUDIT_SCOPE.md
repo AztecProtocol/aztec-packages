@@ -117,60 +117,17 @@
 
 ## Interface Consistency
 
-### Goblin::verify Flow
+### Goblin Chain
 
-```
-Merge → ECCVM → Translator
-  │        │         │
-  │        └─────────┴── TranslatorInputData{x, v, accumulated_result}
-  │
-  └── merged_table_commitments ──► Translator (copy-constrained)
-```
+- [ ] `merged_table_commitments` passed from Merge to Translator (not re-read from proof)
+- [ ] `TranslatorInputData` computed by ECCVM verifier, passed to Translator
+- [ ] Shared transcript across Merge → ECCVM → Translator
 
-**Critical checks**:
-- [ ] `merged_table_commitments` passed from Merge to Translator (same commitments)
-- [ ] `TranslatorInputData` from `eccvm_verifier.get_translator_input_data()`
-- [ ] Shared transcript prevents independent sub-proof generation
+### Transcript Boundaries
 
-### Key Data Structures
-
-```cpp
-// ECCVM → Translator
-struct TranslatorInputData {
-    FF evaluation_challenge_x;
-    FF batching_challenge_v;
-    FF accumulated_result;
-};
-
-// Merge inputs/outputs
-struct InputCommitments {
-    TableCommitments t_commitments;       // From HyperNova
-    TableCommitments T_prev_commitments;  // From kernel public inputs
-};
-
-struct VerificationResult {
-    PairingPoints pairing_points;
-    TableCommitments merged_commitments;  // → Translator
-    bool degree_check_passed;
-    bool concatenation_check_passed;
-};
-```
-
----
-
-## Transcript Security
-
-| Scope | Components | Risk |
-|-------|------------|------|
-| Per kernel/app pair | HyperNova fold | Reset boundary |
-| Final proof | Merge + ECCVM + Translator | Must share transcript |
-
-**Key risk**: Independent sub-proof generation if transcript not chained.
-
-**Transcript interface checks** (Transcript/Poseidon audited separately):
+- [ ] Reset at each kernel/app pair for HyperNova folding
+- [ ] Single shared transcript for final proof (Mega + Goblin)
 - [ ] Challenge generation order matches prover/verifier
-- [ ] `send_to_verifier` / `receive_from_prover` pairing
-- [ ] Transcript sharing/reset boundaries
 
 ---
 
@@ -181,18 +138,6 @@ struct VerificationResult {
 | 128-bit accumulated_result masking | Translator | Medium (documented) |
 | Complex QUEUE_TYPE state machine | `chonk.hpp` | Needs careful review |
 | Point at infinity initialization | `empty_ecc_op_tables()` | Edge case |
-
-## Architectural Notes
-
-**`Goblin::recursively_verify_merge` placement** (`goblin.hpp:112`)
-
-This method performs in-circuit (recursive) verification but lives in the native `Goblin` class alongside prover state (`op_queue`, `commitment_key`). It uses stdlib types (`MegaBuilder&`, `RecursiveTranscript`, `PairingPoints`) and consumes from `merge_verification_queue`.
-
-Rationale: The method needs access to the instance's `merge_verification_queue` to track which proofs need recursive verification during circuit accumulation.
-
-Consider: Could be cleaner as a standalone helper or in a `GoblinRecursiveVerifier` class, similar to how `MergeRecursiveVerifier` is separate from `MergeProver`.
-
----
 
 ## ZK Properties (Lower Priority)
 
@@ -206,44 +151,8 @@ Consider: Could be cleaner as a standalone helper or in a `GoblinRecursiveVerifi
 
 ## Documentation
 
-| Component | Status |
-|-----------|--------|
-| Chonk | ✓ `README.md` comprehensive |
-| Merge | ✓ `MERGE_PROTOCOL.md` with ZK analysis |
-| HyperNova | Covered in Chonk README |
-| Databus | Covered in Chonk README |
-
----
-
-## Inline Documentation Gaps
-
-Issues identified during code review that need addressing:
-
-### High Priority (Core Concepts)
-
-| Issue | Location | Status |
-|-------|----------|--------|
-| `padding_indicator_array` unexplained | `hypernova_verifier.cpp`, etc. | Covered in sumcheck docs |
-| Shifted vs unshifted polynomials | `hypernova_prover.hpp` | ✓ Done |
-| Accumulator structure concept | `hypernova_prover.hpp` | ✓ Done |
-| Tuple return `(bool, bool, Accumulator)` unclear | `hypernova_verifier.hpp:verify_folding_proof` | ✓ Done |
-| Multilinear batching relation purpose | `multilinear_batching_relation.hpp` | ✓ Done |
-| Databus lookup relation | `databus_lookup_relation.hpp` | ✓ Well documented + unit tests |
-
-### Medium Priority (Function Docs)
-
-| Issue | Location | Status |
-|-------|----------|--------|
-| PREPEND vs APPEND mode logic | `merge_verifier.cpp:133-141` | ✓ Done |
-| eq polynomial verification purpose | `multilinear_batching_verifier.cpp:check_eq_consistency` | ✓ Done |
-| FIFO queue rationale | `goblin.cpp:recursively_verify_merge` | ✓ Done |
-| `ensure_well_formed_op_queue_for_avm` purpose | `goblin.hpp` | ✓ Done |
-
-### Low Priority (Missing @brief)
-
-| Function | Location |
-|----------|----------|
-| `prove_merge` | `goblin.cpp` |
-| `prove_eccvm` | `goblin.cpp` |
-| `prove_translator` | `goblin.cpp` |
-| `HypernovaDeciderProver::construct_proof` | `hypernova_decider_prover.cpp` |
+| Component | Location |
+|-----------|----------|
+| Chonk | `README.md` |
+| Merge Protocol | `goblin/MERGE_PROTOCOL.md` |
+| Security Analysis | `SECURITY_ANALYSIS.md` |
