@@ -35,4 +35,3 @@ if(AVM AND FUZZING)
     # Add the harness subdirectory which will create the alu_fuzzer target
     add_subdirectory(harness)
 endif()
-
