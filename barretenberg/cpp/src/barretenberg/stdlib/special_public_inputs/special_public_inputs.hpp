@@ -3,7 +3,22 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-
+//
+// Special public inputs that propagate cross-circuit consistency data in Chonk.
+//
+// These structures are binding several Chonk components:
+//   - KernelIO:        Standard kernel outputs (pairing points, databus, ecc_op_tables, accum hash)
+//   - HidingKernelIO:  Final kernel outputs (no accum hash since folding terminates)
+//   - AppIO/DefaultIO: App circuit outputs (just pairing points)
+//   - RollupIO:        Rollup circuit outputs (pairing points + IPA claim)
+//
+// SECURITY CRITICAL:
+//   - `output_hn_accum_hash`: Binds the folded accumulator to the next kernel's verification
+//   - `ecc_op_tables`: Used to propagate commitments to merged tables, in particular [M_tail] is propagated from Tail
+//   all the way to Chonk Verifier.
+//   - `kernel_return_data`/`calldata`: Enables databus consistency checks between circuits
+//   - `empty_ecc_op_tables()`: Constrains initial T_prev to point-at-infinity
+//
 #pragma once
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"

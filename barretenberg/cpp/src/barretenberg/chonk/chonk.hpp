@@ -221,13 +221,24 @@ class Chonk : public IVCBase {
         }
     };
 
-    // Specifies proof type or equivalently the type of recursive verification to be performed on a given proof
+    /**
+     * @brief Proof type determining verification logic at each IVC stage.
+     *
+     * @details State machine transitions based on `num_circuits_accumulated`:
+     *   - OINK:     First app (circuit 0) - no prior accumulator, just Oink verification
+     *   - HN:       Apps 1..n-3 and inner kernels - full HyperNova folding verification
+     *   - HN_TAIL:  Circuit n-3 (last kernel before tail) - adds ZK masking at op queue start
+     *   - HN_FINAL: Circuit n-2 (tail kernel) - final folding + decider verification
+     *   - MEGA:     Circuit n-1 (hiding kernel) - MegaZK proof, no folding
+     *
+     * See `get_queue_type()` for transition logic and README.md#circuit-structure for overview.
+     */
     enum class QUEUE_TYPE : uint8_t {
-        OINK,
-        HN,
-        HN_FINAL, // the final HN verification, used in hiding kernel
-        HN_TAIL,  // used in tail to indicate special handling of merge for ZK
-        MEGA
+        OINK,     // First app: instance_to_accumulator, T_prev = infinity
+        HN,       // Inner circuits: verify_folding_proof
+        HN_FINAL, // Tail kernel: final folding + decider, recursive in hiding kernel
+        HN_TAIL,  // Pre-tail kernel: triggers ZK masking at op queue start
+        MEGA      // Hiding kernel: MegaZK proof only, no folding
     };
 
     // An entry in the native verification queue

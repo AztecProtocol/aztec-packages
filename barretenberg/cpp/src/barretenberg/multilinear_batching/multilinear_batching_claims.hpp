@@ -1,5 +1,16 @@
 #pragma once
-
+//
+// Accumulator claims for HyperNova multilinear batching.
+// See: chonk/README.md#batching-claims-into-accumulator
+//
+// SECURITY CRITICAL: The `hash_with_origin_tagging()` function computes the accumulator hash
+// that binds folded state between kernels. Each kernel outputs this hash as a public input
+// (`output_hn_accum_hash`), and the next kernel verifies it matches its input accumulator.
+// This prevents a malicious prover from substituting accumulators between folding steps.
+//
+// Hash includes: challenge vector, evaluations (shifted/unshifted), commitments (shifted/unshifted)
+// All components are tagged with transcript context to satisfy OriginTag security requirements..
+//
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 
