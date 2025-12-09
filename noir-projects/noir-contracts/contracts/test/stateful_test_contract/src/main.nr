@@ -46,7 +46,7 @@ pub contract StatefulTest {
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
         if (value != 0) {
-            let note = FieldNote::new(value);
+            let note = FieldNote { value };
             self.storage.notes.at(owner).insert(note).deliver(
                 owner,
                 MessageDelivery.CONSTRAINED_ONCHAIN,
@@ -58,7 +58,7 @@ pub contract StatefulTest {
     #[noinitcheck]
     fn create_note_no_init_check(owner: AztecAddress, value: Field) {
         if (value != 0) {
-            let note = FieldNote::new(value);
+            let note = FieldNote { value };
             self.storage.notes.at(owner).insert(note).deliver(
                 owner,
                 MessageDelivery.CONSTRAINED_ONCHAIN,
@@ -73,7 +73,7 @@ pub contract StatefulTest {
 
         let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 
-        self.storage.notes.at(recipient).insert(FieldNote::new(92)).deliver(
+        self.storage.notes.at(recipient).insert(FieldNote { value: 92 }).deliver(
             recipient,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -86,7 +86,7 @@ pub contract StatefulTest {
 
         let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 
-        self.storage.notes.at(recipient).insert(FieldNote::new(92)).deliver(
+        self.storage.notes.at(recipient).insert(FieldNote { value: 92 }).deliver(
             recipient,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -121,7 +121,7 @@ pub contract StatefulTest {
         let notes = set.view_notes(options.set_offset(offset));
         for i in 0..options.limit {
             if i < notes.len() {
-                balance += notes.get_unchecked(i).value();
+                balance += notes.get_unchecked(i).value;
             }
         }
 

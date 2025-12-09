@@ -479,6 +479,18 @@ describe('Arithmetic Instructions', () => {
       await new Shl(/*indirect=*/ 0, /*aOffset=*/ 20, /*bOffset=*/ 21, /*dstOffset=*/ 22).execute(context);
       expect(context.machineState.memory.get(22)).toEqual(new Uint32(0n));
     });
+
+    it('Should reject Field type for SHL', async () => {
+      const a = new Field(100n);
+      const b = new Field(2n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await expect(
+        async () => await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context),
+      ).rejects.toThrow(/expected integral/i);
+    });
   });
 
   describe('SHR huge shift amounts', () => {
@@ -566,6 +578,18 @@ describe('Arithmetic Instructions', () => {
       const expected = new Uint32(1n); // Only the MSB remains
       const actual = context.machineState.memory.get(2);
       expect(actual).toEqual(expected);
+    });
+
+    it('Should reject Field type for SHR', async () => {
+      const a = new Field(100n);
+      const b = new Field(2n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await expect(
+        async () => await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context),
+      ).rejects.toThrow(/expected integral/i);
     });
   });
 });

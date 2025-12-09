@@ -18,7 +18,7 @@ namespace bb::stdlib::recursion::honk {
 /**
  * @brief Output of recursive Goblin verification.
  * @details Contains the deferred verification data that must be accumulated and
- * verified outside the circuit (IPA claim for Grumpkin, pairing points for BN254).
+ * verified later (IPA claim for Grumpkin, pairing points for BN254).
  *
  * In Aztec's rollup architecture:
  *   - Pairing points: aggregated at each rollup level, verified on L1 via ecPairing precompile
@@ -37,15 +37,15 @@ struct GoblinRecursiveVerifierOutput {
 
 /**
  * @brief Recursive verifier for Goblin proofs (Merge + ECCVM + IPA + Translator).
- * @details Creates circuit constraints that verify a Goblin proof. The verification is split into:
+ * @details Creates a circuit verifying a Goblin proof. The verification is split into:
  *   1. Merge verification - checks ECC op queue commitment consistency
- *   2. ECCVM verification - verifies ECC operations, outputs an IPA opening claim
+ *   2. ECCVM verification - verifies the correctness of ECC operations, outputs an IPA opening claim
  *   3. Translator verification - links ECCVM to BN254, outputs KZG pairing points
  *
  * The output contains deferred verification data (IPA claim + pairing points) that must be
- * accumulated and verified outside the recursive circuit.
+ * accumulated and verified elsewhere.
  *
- * Uses Ultra arithmetization (not Mega) because ECCVM/Translator don't require Goblin recursion.
+ * Uses Ultra arithmetization, as all ECC ops have to be performed in-circuit at this stage.
  */
 class GoblinRecursiveVerifier {
   public:
@@ -71,10 +71,6 @@ class GoblinRecursiveVerifier {
         , verification_keys(verification_keys)
         , transcript(transcript) {};
 
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const GoblinProof&,
-        const MergeCommitments& merge_commitments,
-        const MergeSettings merge_settings = MergeSettings::PREPEND);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
         const GoblinStdlibProof&,
         const MergeCommitments& merge_commitments,

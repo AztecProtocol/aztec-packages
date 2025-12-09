@@ -120,7 +120,7 @@ class Goblin {
     /**
      * @brief Verify a full Goblin proof (Merge, ECCVM + IPA, Translator)
      *
-     * @param proof The complete Goblin proof containing merge, eccvm, ipa, and translator proofs
+     * @param proof The complete Goblin proof containing Merge, ECCVM, IPA, and Translator proofs
      * @param merge_commitments The input commitments for the Merge verifier (t and T_prev tables)
      * @param transcript Shared transcript for Fiat-Shamir
      * @param merge_settings How the ecc op subtable was merged (PREPEND or APPEND)

@@ -83,7 +83,10 @@ pub contract AppSubscription {
             assert(note.remaining_txs > 0, "you're out of txs");
             *user_expiry_block_number = note.expiry_block_number;
 
-            SubscriptionNote::new(note.expiry_block_number, note.remaining_txs - 1)
+            SubscriptionNote {
+                expiry_block_number: note.expiry_block_number,
+                remaining_txs: note.remaining_txs - 1,
+            }
         });
         message.deliver(user_address, MessageDelivery.CONSTRAINED_ONCHAIN);
 
@@ -153,7 +156,9 @@ pub contract AppSubscription {
             .storage
             .subscriptions
             .at(subscriber)
-            .initialize_or_replace(|_| SubscriptionNote::new(expiry_block_number, tx_count))
+            .initialize_or_replace(|_| {
+                SubscriptionNote { expiry_block_number, remaining_txs: tx_count }
+            })
             .deliver(subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 

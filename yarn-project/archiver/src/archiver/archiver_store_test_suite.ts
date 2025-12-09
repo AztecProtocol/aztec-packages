@@ -20,7 +20,7 @@ import {
   PublishedL2Block,
   type ValidateBlockResult,
   randomBlockInfo,
-  wrapInBlock,
+  wrapDataInBlock,
 } from '@aztec/stdlib/block';
 import {
   type ContractClassPublic,
@@ -413,11 +413,11 @@ export function describeArchiverDataStore(
       });
 
       it.each([
-        () => wrapInBlock(blocks[0].block.body.txEffects[0], blocks[0].block),
-        () => wrapInBlock(blocks[9].block.body.txEffects[3], blocks[9].block),
-        () => wrapInBlock(blocks[3].block.body.txEffects[1], blocks[3].block),
-        () => wrapInBlock(blocks[5].block.body.txEffects[2], blocks[5].block),
-        () => wrapInBlock(blocks[1].block.body.txEffects[0], blocks[1].block),
+        () => wrapDataInBlock(blocks[0].block.body.txEffects[0], blocks[0].block),
+        () => wrapDataInBlock(blocks[9].block.body.txEffects[3], blocks[9].block),
+        () => wrapDataInBlock(blocks[3].block.body.txEffects[1], blocks[3].block),
+        () => wrapDataInBlock(blocks[5].block.body.txEffects[2], blocks[5].block),
+        () => wrapDataInBlock(blocks[1].block.body.txEffects[0], blocks[1].block),
       ])('tries to retrieves a previously stored transaction after deleted', async getExpectedTx => {
         await store.unwindBlocks(BlockNumber(blocks.length), blocks.length);
 
@@ -431,7 +431,7 @@ export function describeArchiverDataStore(
       });
 
       it('does not fail if the block is unwound while requesting a tx', async () => {
-        const expectedTx = await wrapInBlock(blocks[1].block.body.txEffects[0], blocks[1].block);
+        const expectedTx = await wrapDataInBlock(blocks[1].block.body.txEffects[0], blocks[1].block);
         let done = false;
         void (async () => {
           while (!done) {
