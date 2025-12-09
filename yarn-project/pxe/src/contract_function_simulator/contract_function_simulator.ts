@@ -17,7 +17,7 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
 } from '@aztec/constants';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';

@@ -45,7 +45,10 @@ import {
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
-import { Grumpkin, SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
+import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { SchnorrSignature } from '@aztec/foundation/crypto/schnorr';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';

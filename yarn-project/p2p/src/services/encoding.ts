@@ -1,5 +1,5 @@
 // Taken from lodestar: https://github.com/ChainSafe/lodestar
-import { sha256 } from '@aztec/foundation/crypto';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { createLogger } from '@aztec/foundation/log';
 import { TopicType, getTopicFromString } from '@aztec/stdlib/p2p';
 

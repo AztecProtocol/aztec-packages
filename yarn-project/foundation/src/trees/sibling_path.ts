@@ -1,5 +1,5 @@
 import { makeTuple } from '../array/array.js';
-import { pedersenHash } from '../crypto/index.js';
+import { pedersenHash } from '../crypto/pedersen/index.js';
 import { Fr } from '../curves/bn254/index.js';
 import { schemas } from '../schemas/index.js';
 import {

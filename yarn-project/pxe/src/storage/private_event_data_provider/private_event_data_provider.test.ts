@@ -1,5 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { EventSelector } from '@aztec/stdlib/abi';

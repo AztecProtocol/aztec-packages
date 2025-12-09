@@ -9,7 +9,7 @@ import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
