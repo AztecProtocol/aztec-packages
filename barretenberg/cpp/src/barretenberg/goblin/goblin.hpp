@@ -116,20 +116,6 @@ class Goblin {
         const MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
-     * @brief Verify a full Goblin proof (Merge, ECCVM + IPA, Translator)
-     *
-     * @param proof The complete Goblin proof containing Merge, ECCVM, IPA, and Translator proofs
-     * @param merge_commitments The input commitments for the Merge verifier (t and T_prev tables)
-     * @param transcript Shared transcript for Fiat-Shamir
-     * @param merge_settings How the ecc op subtable was merged (PREPEND or APPEND)
-     * @return true if all sub-proofs verify successfully
-     */
-    static bool verify(const GoblinProof& proof,
-                       const MergeCommitments& merge_commitments,
-                       const std::shared_ptr<Transcript>& transcript,
-                       const MergeSettings merge_settings = MergeSettings::PREPEND);
-
-    /**
      * @brief Add required initial ops to the op queue for AVM mode.
      * @details Adds 1 no-op (for shiftability) followed by 3 random ops (for ZK hiding of accumulation result).
      * This matches the structure expected by Translator. In Chonk, these ops are added automatically during

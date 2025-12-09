@@ -12,6 +12,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
@@ -97,49 +98,6 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     merge_verification_queue.pop_front(); // remove the processed proof from the queue
 
     return { pairing_points, merged_table_commitments };
-}
-
-bool Goblin::verify(const GoblinProof& proof,
-                    const MergeCommitments& merge_commitments,
-                    const std::shared_ptr<Transcript>& transcript,
-                    const MergeSettings merge_settings)
-{
-    MergeVerifier merge_verifier(merge_settings, transcript);
-    auto [merge_pairing_points, merged_table_commitments, degree_check_passed, concatenation_check_passed] =
-        merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
-    bool merge_verified = merge_pairing_points.check() && degree_check_passed && concatenation_check_passed;
-
-    ECCVMVerifier_<ECCVMFlavor> eccvm_verifier(transcript, proof.eccvm_proof);
-    auto opening_claim = eccvm_verifier.verify_proof();
-
-    // Verify IPA opening
-    auto ipa_transcript = std::make_shared<NativeTranscript>(proof.ipa_proof);
-    bool ipa_verified =
-        ECCVMFlavor::PCS::reduce_verify(eccvm_verifier.key->pcs_verification_key, opening_claim, ipa_transcript);
-
-    vinfo("eccvm ipa verified?: ", ipa_verified);
-    bool eccvm_verified = ipa_verified && eccvm_verifier.sumcheck_verified && eccvm_verifier.consistency_checked &&
-                          eccvm_verifier.translation_masking_consistency_checked;
-
-    // Get translation data from ECCVM verifier to pass to Translator verifier
-    TranslatorInputData translator_input = eccvm_verifier.get_translator_input_data();
-
-    // Pass merge commitments as op queue wire commitments (they represent the same data)
-    TranslatorVerifier translator_verifier(transcript,
-                                           proof.translator_proof,
-                                           translator_input.evaluation_challenge_x,
-                                           translator_input.batching_challenge_v,
-                                           translator_input.accumulated_result,
-                                           merged_table_commitments);
-    auto translator_result = translator_verifier.verify_proof();
-    bool translator_verified = translator_result.pairing_points.check() && translator_result.sumcheck_verified &&
-                               translator_result.consistency_checked;
-
-    vinfo("merge verified?: ", merge_verified);
-    vinfo("eccvm verified?: ", eccvm_verified);
-    vinfo("translator verified?: ", translator_verified);
-
-    return merge_verified && eccvm_verified && translator_verified;
 }
 
 void Goblin::ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const
