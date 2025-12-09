@@ -8,8 +8,9 @@ import {
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash, poseidon2HashWithSeparator, randomInt, sha256ToField } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -28,7 +29,7 @@ import {
   getFunctionArtifactByName,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockNumber } from '@aztec/stdlib/block';
+import type { BlockParameter } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstance,
@@ -325,7 +326,7 @@ describe('Private Execution test suite', () => {
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     executionDataProvider.getPublicStorageAt.mockImplementation(
-      (_blockNumber: L2BlockNumber, _address: AztecAddress, _storageSlot: Fr) => {
+      (_blockNumber: BlockParameter, _address: AztecAddress, _storageSlot: Fr) => {
         return Promise.resolve(Fr.ZERO);
       },
     );

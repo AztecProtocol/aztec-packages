@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import {
   type L2BlockSource,
@@ -20,7 +21,7 @@ export class TraceableL2BlockStream extends L2BlockStream implements Traceable {
       proven?: boolean;
       pollIntervalMS?: number;
       batchSize?: number;
-      startingBlock?: number;
+      startingBlock?: BlockNumber;
     } = {},
   ) {
     super(l2BlockSource, localData, handler, log, opts);

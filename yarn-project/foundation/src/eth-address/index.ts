@@ -2,7 +2,7 @@ import { inspect } from 'util';
 
 import { keccak256String } from '../crypto/keccak/index.js';
 import { randomBytes } from '../crypto/random/index.js';
-import { Fr } from '../fields/index.js';
+import { Fr } from '../curves/bn254/index.js';
 import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader, FieldReader } from '../serialize/index.js';
 import { TypeRegistry } from '../serialize/type_registry.js';

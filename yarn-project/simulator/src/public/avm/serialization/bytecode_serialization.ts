@@ -1,6 +1,13 @@
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { AvmExecutionError, AvmParsingError, InvalidOpcodeError, InvalidProgramCounterError } from '../errors.js';
+import {
+  AvmExecutionError,
+  AvmParsingError,
+  InvalidOpcodeError,
+  InvalidProgramCounterError,
+  InvalidTagValueError,
+  duringInstrFetch,
+} from '../errors.js';
 import {
   Add,
   And,
@@ -172,7 +179,7 @@ export function decodeInstructionFromBytecode(
   instructionSet: InstructionSet = INSTRUCTION_SET,
 ): [Instruction, number] {
   if (pc >= bytecode.length) {
-    throw new InvalidProgramCounterError(pc, bytecode.length);
+    throw new InvalidProgramCounterError(pc, bytecode.length - 1);
   }
 
   try {
@@ -182,7 +189,7 @@ export function decodeInstructionFromBytecode(
 
     if (opcode > MAX_OPCODE_VALUE) {
       throw new InvalidOpcodeError(
-        `Opcode ${opcode} (0x${opcode.toString(16)}) value is not in the range of valid opcodes.`,
+        `Opcode ${opcode} (0x${opcode.toString(16)}) value is not in the range of valid opcodes (at PC ${pc}).`,
       );
     }
 
@@ -192,13 +199,17 @@ export function decodeInstructionFromBytecode(
     }
 
     const instructionDeserializer: InstructionDeserializer = instructionDeserializerOrUndef;
+
     const instruction = instructionDeserializer(cursor);
     return [instruction, cursor.position() - startingPosition];
   } catch (error) {
-    if (error instanceof InvalidOpcodeError || error instanceof AvmExecutionError) {
-      throw error;
+    if (error instanceof InvalidTagValueError || error instanceof InvalidOpcodeError) {
+      throw duringInstrFetch(error, pc);
+    } else if (error instanceof AvmExecutionError) {
+      throw new AvmParsingError(`Instruction parsing error at pc ${pc}: ${error.message}`);
     } else {
-      throw new AvmParsingError(`${error}`);
+      const msg = error instanceof Error ? `: ${error.message}` : '';
+      throw new AvmParsingError(`Instruction fetching error at pc ${pc}${msg}`);
     }
   }
 }

@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct VkData documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">VkData</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -49,13 +55,13 @@
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;let VK_LENGTH: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../protocol_types/proof/vk_data/struct.VkData.html" class="struct">VkData</a>&lt;VK_LENGTH&gt;</code></h3>
 
-<div class="padded-methods"><code id="validate_allowed_in_vk_tree" class="code-header">pub fn <span class="fn">validate_allowed_in_vk_tree</span>&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+<div class="padded-methods"><code id="validate_allowed_in_vk_tree" class="code-header">pub fn <a href="#validate_allowed_in_vk_tree"><span class="fn">validate_allowed_in_vk_tree</span></a>&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     self,
     vk_tree_root: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     allowed_indices: [<a href="../../../std/primitive.u32.html" class="primitive">u32</a>; N],
 )</code>
 
-<code id="validate_in_vk_tree" class="code-header">pub fn <span class="fn">validate_in_vk_tree</span>(self, vk_tree_root: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+<code id="validate_in_vk_tree" class="code-header">pub fn <a href="#validate_in_vk_tree"><span class="fn">validate_in_vk_tree</span></a>(self, vk_tree_root: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 </div><h2>Trait implementations</h2>
 <h3 id="impl-Empty-for-VkData<VK_LENGTH>"><code class="code-header">impl&lt;let VK_LENGTH: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../protocol_types/proof/vk_data/struct.VkData.html" class="struct">VkData</a>&lt;VK_LENGTH&gt;</code></h3>
@@ -71,5 +77,6 @@
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 </div></main>
+</span>
 </body>
 </html>

@@ -11,6 +11,7 @@ import {
   getAddressFromPrivateKey,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type EthPrivateKey, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
@@ -362,7 +363,7 @@ describe('e2e_multi_validator_node', () => {
 
     const originalCreateProposal = validatorClient.createBlockProposal.bind(validatorClient);
     const createBlockProposal = (
-      blockNumber: number,
+      blockNumber: BlockNumber,
       header: CheckpointHeader,
       archive: Fr,
       txs: Tx[],

@@ -26,6 +26,7 @@ include "../public_inputs.pil";
  *     note_hash_tree_check.address, note_hash_tree_check.should_unique, note_hash_tree_check.note_hash_index,
  *     note_hash_tree_check.discard, note_hash_tree_check.next_root };
  *
+ * As write variant usage, we can omit the address column whenever we pass should_silo == 0.
 **/
 namespace note_hash_tree_check;
     pol commit sel;

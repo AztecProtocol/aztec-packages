@@ -6,7 +6,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
   ULTRA_KECCAK_PROOF_LENGTH,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';

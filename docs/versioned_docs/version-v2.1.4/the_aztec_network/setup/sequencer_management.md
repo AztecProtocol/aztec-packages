@@ -9,6 +9,10 @@ description: Learn how to manage your sequencer on the Aztec network, including 
 
 This guide covers sequencer lifecycle management on the Aztec network: keystore configuration, node setup, registration, ongoing operations, and eventual exit.
 
+:::danger Minimum Stake Requirement
+To participate as a sequencer on the Aztec network, you must stake a minimum of **200,000 AZTEC tokens**. Ensure you have sufficient tokens before proceeding with sequencer setup and registration.
+:::
+
 Sequencer nodes are critical infrastructure responsible for ordering transactions and producing blocks. They perform three key actions:
 
 1. Assemble unprocessed transactions and propose the next block
@@ -116,7 +120,7 @@ aztec validator-keys new \
 - `--fee-recipient`: Set to all zeros (not currently used by the protocol)
 - `--staker-output`: Generate the public keystore for the staking dashboard
 - `--gse-address`: The GSE (Governance Staking Escrow) contract address (`0xfb243b9112bb65785a4a8edaf32529accf003614` for Sepolia testnet)
-- `--l1-rpc-urls`: Your Ethereum L1 RPC endpoint
+- `--l1-rpc-urls`: Your Ethereum Sepolia L1 RPC endpoint
   - Set `ETH_RPC` environment variable, or replace `$ETH_RPC` with your RPC URL (e.g., `https://sepolia.infura.io/v3/YOUR_API_KEY`)
 - `--count`: Number of validator identities to generate (default: 1)
   - Use this to generate multiple attester identities in a single keystore
@@ -186,20 +190,6 @@ acc3:
 - **File paths**: Where the keystores were saved
 
 All other information (BLS keys, public keys, addresses) can be re-derived from the mnemonic if needed.
-
-:::tip Complete Example Command
-Complete command with all recommended parameters:
-```bash
-# Replace YOUR_API_KEY with your actual Infura API key
-export ETH_RPC=https://sepolia.infura.io/v3/YOUR_API_KEY
-
-aztec validator-keys new \
-  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
-  --staker-output \
-  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
-  --l1-rpc-urls $ETH_RPC
-```
-:::
 
 :::tip Provide Your Own Mnemonic
 For deterministic key generation or to recreate keys later, provide your own mnemonic:
@@ -294,8 +284,8 @@ Add the following to your `.env` file:
 DATA_DIRECTORY=./data
 KEY_STORE_DIRECTORY=./keys
 LOG_LEVEL=info
-ETHEREUM_HOSTS=[your L1 execution endpoint, or a comma separated list if you have multiple]
-L1_CONSENSUS_HOST_URLS=[your L1 consensus endpoint, or a comma separated list if you have multiple]
+ETHEREUM_HOSTS=[your Ethereum Sepolia execution endpoint, or a comma separated list if you have multiple]
+L1_CONSENSUS_HOST_URLS=[your Ethereum Sepolia consensus endpoint, or a comma separated list if you have multiple]
 P2P_IP=[your external IP address]
 P2P_PORT=40400
 AZTEC_PORT=8080
@@ -396,7 +386,7 @@ curl http://localhost:8080/status
 ### View Logs
 
 ```bash
-docker compose logs -f aztec-sequencer
+docker compose logs -f --tail 100 aztec-sequencer
 ```
 
 ## Next Steps: Registering Your Sequencer

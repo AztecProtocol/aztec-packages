@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import type { TreeInsertionStats } from '@aztec/stdlib/stats';
@@ -33,11 +34,11 @@ export class StandardTree<T extends Bufferable = Buffer> extends TreeBase<T> imp
     } satisfies TreeInsertionStats);
   }
 
-  public snapshot(blockNumber: number): Promise<TreeSnapshot<T>> {
+  public snapshot(blockNumber: BlockNumber): Promise<TreeSnapshot<T>> {
     return this.#snapshotBuilder.snapshot(blockNumber);
   }
 
-  public getSnapshot(blockNumber: number): Promise<TreeSnapshot<T>> {
+  public getSnapshot(blockNumber: BlockNumber): Promise<TreeSnapshot<T>> {
     return this.#snapshotBuilder.getSnapshot(blockNumber);
   }
 

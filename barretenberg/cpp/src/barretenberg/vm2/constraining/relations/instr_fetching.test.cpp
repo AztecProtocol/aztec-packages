@@ -33,7 +33,7 @@ using C = Column;
 using instr_fetching = instr_fetching<FF>;
 
 using simulation::BytecodeDecompositionEvent;
-using simulation::InstrDeserializationError;
+using simulation::InstrDeserializationEventError;
 using simulation::Instruction;
 using simulation::InstructionFetchingEvent;
 using simulation::Operand;
@@ -223,9 +223,10 @@ std::vector<RangeCheckEvent> gen_range_check_events(const std::vector<Instructio
 
     for (const auto& instr_event : instr_events) {
         range_check_events.emplace_back(RangeCheckEvent{
-            .value = instr_event.error == InstrDeserializationError::PC_OUT_OF_RANGE
-                         ? instr_event.pc - instr_event.bytecode->size()
-                         : instr_event.bytecode->size() - instr_event.pc - 1,
+            .value =
+                (instr_event.error.has_value() && instr_event.error == InstrDeserializationEventError::PC_OUT_OF_RANGE)
+                    ? instr_event.pc - instr_event.bytecode->size()
+                    : instr_event.bytecode->size() - instr_event.pc - 1,
             .num_bits = AVM_PC_SIZE_IN_BITS,
         });
     }
@@ -376,7 +377,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRange)
             .bytecode_id = 1,
             .pc = 0,
             .bytecode = bytecode_ptr,
-            .error = InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE,
+            .error = InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE,
         },
     };
 
@@ -413,7 +414,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRangeSplitOperand)
             .bytecode_id = 1,
             .pc = 0,
             .bytecode = bytecode_ptr,
-            .error = InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE,
+            .error = InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE,
         },
     };
 
@@ -451,7 +452,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionPcOutOfRange)
             .bytecode_id = 1,
             .pc = static_cast<uint32_t>(bytecode_ptr->size() + 1),
             .bytecode = bytecode_ptr,
-            .error = InstrDeserializationError::PC_OUT_OF_RANGE,
+            .error = InstrDeserializationEventError::PC_OUT_OF_RANGE,
         },
     };
 
@@ -492,7 +493,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOpcodeOutOfRange)
             .bytecode_id = 1,
             .pc = 5, // We move pc to the beginning of the 128-bit immediate value.
             .bytecode = bytecode_ptr,
-            .error = InstrDeserializationError::OPCODE_OUT_OF_RANGE,
+            .error = InstrDeserializationEventError::OPCODE_OUT_OF_RANGE,
         },
     };
 
@@ -526,7 +527,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionTagOutOfRange)
             .pc = 0,
             .instruction = set_16_instruction,
             .bytecode = bytecode_ptr,
-            .error = InstrDeserializationError::TAG_OUT_OF_RANGE,
+            .error = InstrDeserializationEventError::TAG_OUT_OF_RANGE,
         },
     };
 

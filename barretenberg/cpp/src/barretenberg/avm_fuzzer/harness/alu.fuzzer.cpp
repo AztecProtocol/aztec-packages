@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <fuzzer/FuzzedDataProvider.h>
 
+#include "barretenberg/avm_fuzzer/harness/mutation_helper.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -29,6 +30,7 @@
 using namespace bb::avm2::simulation;
 using namespace bb::avm2::tracegen;
 using namespace bb::avm2::constraining;
+using namespace bb::avm2::fuzzing;
 
 using bb::avm2::FF;
 using bb::avm2::MemoryTag;

@@ -15,7 +15,7 @@ fn mismatch_note_hash_in_output() {
     builder.validate();
 }
 
-#[test(should_fail_with = "array should be padded with empty items")]
+#[test(should_fail_with = "incorrect output note_hashes")]
 fn extra_note_hash_in_output() {
     let builder = TestBuilder::new();
 

@@ -9,16 +9,20 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VK_FILE="$SCRIPT_DIR/../src/honk/keys/BlakeHonkVerificationKey.sol"
 OPT_FILE="$SCRIPT_DIR/../src/honk/optimised/blake-opt.sol"
+TEMPLATE_FILE="$SCRIPT_DIR/../src/honk/optimised/blake-opt.sol.template"
 
 if [ ! -f "$VK_FILE" ]; then
     echo "Error: VK file not found at $VK_FILE"
     exit 1
 fi
 
-if [ ! -f "$OPT_FILE" ]; then
-    echo "Error: blake-opt.sol not found at $OPT_FILE"
+if [ ! -f "$TEMPLATE_FILE" ]; then
+    echo "Error: blake-opt.sol.template not found at $TEMPLATE_FILE"
     exit 1
 fi
+
+# Always copy template to target
+cp "$TEMPLATE_FILE" "$OPT_FILE"
 
 # Function to extract x,y coordinates from VK file for a given field name
 extract_coords() {

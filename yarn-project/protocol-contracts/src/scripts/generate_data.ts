@@ -14,7 +14,7 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -149,7 +149,7 @@ async function generateLogTags() {
 async function generateOutputFile(names: string[], derivedAddresses: AztecAddress[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
-    import { Fr } from '@aztec/foundation/fields';
+    import { Fr } from '@aztec/foundation/curves/bn254';
     import { AztecAddress } from '@aztec/stdlib/aztec-address';
     import { ProtocolContracts } from '@aztec/stdlib/tx';
 

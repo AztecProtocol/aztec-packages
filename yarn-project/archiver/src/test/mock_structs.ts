@@ -1,6 +1,7 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { randomBigInt, randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 
 import { type InboxMessage, updateRollingHash } from '../archiver/structs/inbox_message.js';
@@ -19,7 +20,7 @@ export function makeInboxMessage(
   return {
     index,
     leaf,
-    l2BlockNumber,
+    l2BlockNumber: BlockNumber(l2BlockNumber),
     l1BlockNumber,
     l1BlockHash,
     rollingHash,
@@ -39,7 +40,7 @@ export function makeInboxMessages(
   let rollingHash = initialHash;
   for (let i = 0; i < count; i++) {
     const leaf = Fr.random();
-    const l2BlockNumber = i + initialL2BlockNumber;
+    const l2BlockNumber = BlockNumber(i + initialL2BlockNumber);
     const message = overrideFn(makeInboxMessage(rollingHash, { leaf, l2BlockNumber }), i);
     rollingHash = message.rollingHash;
     messages.push(message);

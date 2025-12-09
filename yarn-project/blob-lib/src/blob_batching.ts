@@ -1,13 +1,14 @@
 import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT } from '@aztec/constants';
 import { poseidon2Hash, sha256ToField } from '@aztec/foundation/crypto';
-import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
+import { BLS12Fr, BLS12Point } from '@aztec/foundation/curves/bls12';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { BatchedBlob } from './batched_blob.js';
 import { Blob } from './blob.js';
 import { getBlobsPerL1Block } from './blob_utils.js';
 import { BlobAccumulator, FinalBlobAccumulator, FinalBlobBatchingChallenges } from './circuit_types/index.js';
 import { computeBlobFieldsHash, hashNoirBigNumLimbs } from './hash.js';
-import { kzg } from './kzg_context.js';
+import { getKzg } from './kzg_context.js';
 
 /**
  * A class to create, manage, and prove batched EVM blobs.
@@ -248,7 +249,12 @@ export class BatchedBlobAccumulator {
   }
 
   verify() {
-    return kzg.verifyKzgProof(this.cAcc.compress(), this.zAcc.toBuffer(), this.yAcc.toBuffer(), this.qAcc.compress());
+    return getKzg().verifyKzgProof(
+      this.cAcc.compress(),
+      this.zAcc.toBuffer(),
+      this.yAcc.toBuffer(),
+      this.qAcc.compress(),
+    );
   }
 
   isEmptyState() {

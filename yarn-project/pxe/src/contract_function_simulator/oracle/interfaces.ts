@@ -1,5 +1,7 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { Fr, Point } from '@aztec/foundation/fields';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -64,17 +66,17 @@ export interface IUtilityExecutionOracle {
   utilityGetUtilityContext(): Promise<UtilityContext>;
   utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest>;
   utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance>;
-  utilityGetMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined>;
+  utilityGetMembershipWitness(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined>;
   utilityGetNullifierMembershipWitness(
-    blockNumber: number,
+    blockNumber: BlockNumber,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
-  utilityGetPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  utilityGetPublicDataWitness(blockNumber: BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
   utilityGetLowNullifierMembershipWitness(
-    blockNumber: number,
+    blockNumber: BlockNumber,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
-  utilityGetBlockHeader(blockNumber: number): Promise<BlockHeader | undefined>;
+  utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined>;
   utilityGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress>;
   utilityGetAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
   utilityGetNotes(
@@ -103,7 +105,7 @@ export interface IUtilityExecutionOracle {
   utilityStorageRead(
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
-    blockNumber: number,
+    blockNumber: BlockNumber,
     numberOfElements: number,
   ): Promise<Fr[]>;
   utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr): Promise<void>;

@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
 <title>Trait Packable documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Packable</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../index.html">aztec-nr</a></h1>
 <div><a href="../../all.html">All items</a></div>
@@ -29,6 +35,7 @@
 <li><a href="#impl-Packable-for-EthAddress">EthAddress</a></li>
 <li><a href="#impl-Packable-for-Field">Field</a></li>
 <li><a href="#impl-Packable-for-FieldCompressedString">FieldCompressedString</a></li>
+<li><a href="#impl-Packable-for-FieldNote">FieldNote</a></li>
 <li><a href="#impl-Packable-for-HasArrayWithGenerics<T, N>">HasArrayWithGenerics<T, N></a></li>
 <li><a href="#impl-Packable-for-MockStruct">MockStruct</a></li>
 <li><a href="#impl-Packable-for-MockStruct">MockStruct</a></li>
@@ -37,7 +44,6 @@
 <li><a href="#impl-Packable-for-RetrievedNote<Note>">RetrievedNote<Note></a></li>
 <li><a href="#impl-Packable-for-Smol">Smol</a></li>
 <li><a href="#impl-Packable-for-UintNote">UintNote</a></li>
-<li><a href="#impl-Packable-for-ValueNote">ValueNote</a></li>
 <li><a href="#impl-Packable-for-WithHash<T, M>">WithHash<T, M></a></li>
 <li><a href="#impl-Packable-for-[T; M]">[T; M]</a></li>
 <li><a href="#impl-Packable-for-bool">bool</a></li>
@@ -84,12 +90,12 @@ in the contract's public storage).</p>
 </ul>
 </div>
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="pack" class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]</code>
+<div class="padded-methods"><code id="pack" class="code-header">pub fn <a href="#pack"><span class="fn">pack</span></a>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]</code>
 
 <div class="padded-description"><div class="comments">
 <p>Packs the current value into a compact array of <code>Field</code> elements.</p>
 </div>
-</div><code id="unpack" class="code-header">pub fn <span class="fn">unpack</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> Self</code>
+</div><code id="unpack" class="code-header">pub fn <a href="#unpack"><span class="fn">unpack</span></a>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Unpacks a compact array of <code>Field</code> elements into the original value.</p>
@@ -117,13 +123,15 @@ in the contract's public storage).</p>
 
 <h3 id="impl-Packable-for-FieldCompressedString"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
 
+<h3 id="impl-Packable-for-FieldNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../field_note/field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
+
 <h3 id="impl-Packable-for-HasArrayWithGenerics<T, N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for HasArrayWithGenerics&lt;T, N&gt;
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></h3>
 
-<h3 id="impl-Packable-for-MockStruct"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for MockStruct</code></h3>
-
 <h3 id="impl-Packable-for-MockStruct"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../noir_aztec/test/mocks/mock_struct/struct.MockStruct.html" class="struct">MockStruct</a></code></h3>
+
+<h3 id="impl-Packable-for-MockStruct"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for MockStruct</code></h3>
 
 <h3 id="impl-Packable-for-NoteMetadata"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
 
@@ -136,8 +144,6 @@ in the contract's public storage).</p>
 <h3 id="impl-Packable-for-Smol"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for Smol</code></h3>
 
 <h3 id="impl-Packable-for-UintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../uint_note/uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
-
-<h3 id="impl-Packable-for-ValueNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
 
 <h3 id="impl-Packable-for-WithHash<T, M>"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../noir_aztec/utils/with_hash/struct.WithHash.html" class="struct">WithHash</a>&lt;T, M&gt;
 <div class="where-clause">where
@@ -168,5 +174,6 @@ in the contract's public storage).</p>
 <h3 id="impl-Packable-for-u8"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/primitive.u8.html" class="primitive">u8</a></code></h3>
 
 </main>
+</span>
 </body>
 </html>

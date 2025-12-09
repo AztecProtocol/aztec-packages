@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct Gas documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Gas</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -53,15 +59,15 @@
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(da_gas: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, l2_gas: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(da_gas: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, l2_gas: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
 
-<code id="tx_overhead" class="code-header">pub fn <span class="fn">tx_overhead</span>() -> Self</code>
+<code id="tx_overhead" class="code-header">pub fn <a href="#tx_overhead"><span class="fn">tx_overhead</span></a>() -> Self</code>
 
-<code id="compute_fee" class="code-header">pub fn <span class="fn">compute_fee</span>(self, fees: <a href="../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+<code id="compute_fee" class="code-header">pub fn <a href="#compute_fee"><span class="fn">compute_fee</span></a>(self, fees: <a href="../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-<code id="is_empty" class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+<code id="is_empty" class="code-header">pub fn <a href="#is_empty"><span class="fn">is_empty</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
-<code id="within" class="code-header">pub fn <span class="fn">within</span>(self, limits: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+<code id="within" class="code-header">pub fn <a href="#within"><span class="fn">within</span></a>(self, limits: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 </div><h2>Trait implementations</h2>
 <h3 id="impl-Add-for-Gas"><code class="code-header">impl <a href="../../../std/ops/trait.Add.html" class="trait">Add</a> for <a href="../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a></code></h3>
@@ -93,5 +99,6 @@
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">sub</span>(self, other: Self) -> Self</code>
 
 </div></main>
+</span>
 </body>
 </html>

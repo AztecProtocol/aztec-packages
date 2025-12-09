@@ -9,6 +9,119 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Note fields are now public
+
+All note struct fields are now public, and the `new()` constructor methods and getter methods have been removed. Notes should be instantiated using struct literal syntax, and fields should be accessed directly.
+
+The motivation for this change has been enshrining of randomness which lead to the `new` method being unnecessary boilerplate.
+
+**Affected notes:**
+- `UintNote` - `value` is now public, `new()` and `get_value()` removed
+- `AddressNote` - `address` is now public, `new()` and `get_address()` removed
+- `FieldNote` - `value` is now public, `new()` and `value()` removed
+
+**Migration:**
+
+```diff
+- let note = UintNote::new(100);
++ let note = UintNote { value: 100 };
+
+- let value = note.get_value();
++ let value = note.value;
+
+- let address_note = AddressNote::new(owner);
++ let address_note = AddressNote { address: owner };
+
+- let address = address_note.get_address();
++ let address = address_note.address;
+
+- let field_note = FieldNote::new(42);
++ let field_note = FieldNote { value: 42 };
+
+- let value = field_note.value();
++ let value = field_note.value;
+```
+
+### [Aztec.nr] `emit` renamed to `deliver`
+
+Private state variable functions that created notes and returned their messages no longer return a `NoteEmission` but instead a `NoteMessage`. These messages are delivered to their recipient via `deliver` instead of `emit`. The verb 'emit' remains for things like emitting events.
+
+```diff
+- self.storage.balances.at(owner).add(5).emit(owner);
++ self.storage.balances.at(owner).add(5).deliver(owner);
+```
+
+### [Aztec.nr] `ValueNote` renamed to `FieldNote` and `value-note` crate renamed to `field-note`
+
+The `ValueNote` struct has been renamed to `FieldNote` to better reflect that it stores a `Field` value. The crate has also been renamed from `value-note` to `field-note`.
+
+**Migration:**
+
+- Update your `Nargo.toml` dependencies: `value_note = { path = "..." }` → `field_note = { path = "..." }`
+- Update imports: `use value_note::value_note::ValueNote` → `use field_note::field_note::FieldNote`
+- Update type references: `ValueNote` → `FieldNote`
+- Update generic parameters: `PrivateSet<ValueNote, ...>` → `PrivateSet<FieldNote, ...>`
+
+### [Aztec.nr] New `balance-set` library for managing token balances
+
+A new `balance-set` library has been created that provides `BalanceSet<Context>` for managing u128 token balances with `UintNote`. This consolidates balance management functionality that was previously duplicated across contracts.
+
+**Features:**
+
+- `add(amount: u128)` - Add to balance
+- `sub(amount: u128)` - Subtract from balance (with change note)
+- `try_sub(amount: u128, max_notes: u32)` - Attempt to subtract with configurable note limit
+- `balance_of()` - Get total balance (unconstrained)
+
+**Usage:**
+
+```rust
+use balance_set::BalanceSet;
+
+#[storage]
+struct Storage<Context> {
+    balances: Owned<BalanceSet<Context>, Context>,
+}
+
+// In a private function:
+self.storage.balances.at(owner).add(amount).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+self.storage.balances.at(owner).sub(amount).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+
+// In an unconstrained function:
+let balance = self.storage.balances.at(owner).balance_of();
+```
+
+### [Aztec.nr] `EasyPrivateUint` deprecated and removed
+
+The `EasyPrivateUint` type and `easy-private-state` crate have been deprecated and removed. Use `BalanceSet` from the `balance-set` crate instead.
+
+**Migration:**
+
+- Remove `easy_private_state` dependency from `Nargo.toml`
+- Add `balance_set = { path = "../../../../aztec-nr/balance-set" }` to `Nargo.toml`
+- Update storage: `EasyPrivateUint<Context>` → `Owned<BalanceSet<Context>, Context>`
+- Update method calls:
+  - `add(amount, owner)` → `at(owner).add(amount).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN)`
+  - `sub(amount, owner)` → `at(owner).sub(amount).deliver(owner, MessageDelivery.CONSTRAINED_ONCHAIN)`
+  - `get_value(owner)` → `at(owner).balance_of()` (returns `u128` instead of `Field`)
+
+### [Aztec.nr] `balance_utils` removed from `value-note` (now `field-note`)
+
+The `balance_utils` module has been removed from the `field-note` crate (formerly `value-note`). If you need similar functionality, implement it locally in your contract or use `BalanceSet` for u128 balances.
+
+### [Aztec.nr] `filter_notes_min_sum` removed from `value-note` (now `field-note`)
+
+The `filter_notes_min_sum` function has been removed from the `field-note` crate (formerly in `value-note`). If you need this functionality, copy it to your contract locally. This function was only used in specific test contracts and doesn't belong in the general-purpose note library.
+
+### [Aztec.nr] `derive_ecdh_shared_secret_using_aztec_address` removed
+
+This function made it annoying to deal with invalid addresses in circuits. If you were using it, replace it with `derive_ecdh_shared_secret` instead:
+
+```diff
+-let shared_secret = derive_ecdh_shared_secret_using_aztec_address(secret, address).unwrap();
++let shared_secret = derive_ecdh_shared_secret(secret, address.to_address_point().unwrap().inner);
+```
+
 ### [Aztec.nr] Note owner is now enshrined
 
 It turns out that in all the cases a note always have a logical owner.
@@ -81,18 +194,25 @@ where
 ```
 
 `PrivateImmutable`, `PrivateMutable` and `PrivateSet` got modified to directly contain the owner instead of implicitly "containing it" by including it in the storage slot via a `Map`.
-Now the `Map` is redundant and the relevant state variable should be moved out of it:
+These state variables now implement a newly introduced `OwnedStateVariable` trait (see docs of `OwnedStateVariable` for explanation of what it is).
+These changes make the state variables incompatible with `Map` and now instead these should be wrapped in new `Owned` state variable:
 
 ```diff
 #[storage]
 struct Storage<Context> {
 -    private_nfts: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
-+    private_nfts: PrivateSet<NFTNote, Context>,
++    private_nfts: Owned<PrivateSet<NFTNote, Context>, Context>,
 }
 ```
 
-Now we have an `at` method on the private state variables that scopes it to a given owner.
-Given that we used to call `at` on the map and now we call it directly on the set if you so the above change it should not be required of you to do any further changes in your contract.
+Note that even though the types of your state variables are changing from `Map<AztecAddress, T, Context>` to `Owned<T, Context>`, usage remains unchanged:
+
+```
+let nft_notes = self.storage.private_nfts.at(from).pop_notes(NoteGetterOptions::new().select(NFTNote::properties().token_id, Comparator.EQ, token_id).set_limit(1));
+```
+
+With this change the underlying notes will inherit the storage slot of the `Owned` state variable.
+This is unlike `Map` where the nested state variable got the storage slot computed as `hash([map_storage_slot, key])`.
 
 if you had `PrivateImmutable` or `PrivateMutable` defined out of a `Map`, e.g.:
 
@@ -104,12 +224,23 @@ struct Storage<Context> {
 ```
 
 you were most likely dealing with some kind of admin flow where only the admin can modify the state variable.
-Now, unfortunately, there is a bit of a regression and you will need to call `at` on the state var:
+Now, unfortunately, there is a bit of a regression and you will need to wrap the state variable in `Owned` and call `at` on the state var:
 
 ```diff
-- self.storage.signing_public_key.initialize(pub_key_note)
-+ self.storage.signing_public_key.at(self.address).initialize(pub_key_note)
-    .emit(self.address, MessageDelivery.CONSTRAINED_ONCHAIN);
++ use aztec::state_vars::Owned;
+
+#[storage]
+struct Storage<Context> {
+-   signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
++   signing_public_key: Owned<PrivateImmutable<PublicKeyNote, Context>, Context>,
+}
+
+#[external("private")]
+fn my_external_function() {
+-   self.storage.signing_public_key.initialize(pub_key_note)
++   self.storage.signing_public_key.at(self.address).initialize(pub_key_note)
+        .emit(self.address, MessageDelivery.CONSTRAINED_ONCHAIN);
+}
 ```
 
 We are likely to come up with a concept of admin state variables in the future.
@@ -436,6 +567,66 @@ The method now only accepts:
 Return value of `getNotes` used to be defined as `Promise<UniqueNote[]>` and now it's defined as `Promise<UniqueNote[]>`.
 `NoteDao` is mostly a super-set of `UniqueNote` but it doesn't contain a `recipient`.
 Having the recipient in the return value has been redundant as the same outcome can be achieved by populating the `scopes` array in `NoteFilter` with the `recipient` value.
+
+#### Changes to `getPrivateEvents`
+
+The signature of `getPrivateEvents` has changed for two reasons:
+1. To align it with how other query methods that include filtering by block range work (for example, `AztecNode#getPublicLogs`)
+2. To enrich the returned private events with metadata.
+
+```diff
+getPrivateEvents<T>(
+-    contractAddress: AztecAddress,
+-    eventMetadata: EventMetadataDefinition,
+-    from: number,
+-    numBlocks: number,
+-    recipients: AztecAddress[],
+-  ): Promise<T[]>;
++    eventFilter: PrivateEventFilter,
++  ): Promise<PrivateEvent<T>[]>;
+```
+
+`PrivateEvent<T>` bundles together an ABI decoded event of type `T`, with `metadata` of type `InTx`:
+
+```ts
+export type InBlock = {
+  l2BlockNumber: BlockNumber;
+  l2BlockHash: L2BlockHash;
+};
+
+export type InTx = InBlock & {
+  txHash: TxHash;
+};
+
+export type PrivateEvent<T> = {
+  event: T;
+  metadata: InTx;
+};
+```
+
+You will need to update any calls to `Wallet#getPrivateEvents` accordingly. See below for before/after comparison which conserves
+semantics.
+
+Pay special attention to the fact that the old method expects a `numBlocks` parameter that instructs it to
+return `numBlocks` blocks after `fromBlock`, whereas the new version expects an (exclusive) `toBlock` block number.
+
+Also note we're replacing _recipient_ terminology with _scope_. While underlying data types are equivalent (they are Aztec addresses), they have different semantics. Messages have a recipient who will be able to receive and process them. As a result of processing messages for a given recipient address, PXE might discover events. Those events are then said to be _in scope_ for that address.
+
+```diff
+- const events = await context.client.getPrivateEvents(contractAddress, eventMetadata, 42, 10, [recipient]);
+- doSomethingWithAnEvent(events[0]);
+
++ const events = await context.client.getPrivateEvents(eventMetadata, {
++   contractAddress,
++   fromBlock: BlockNumber(42),
++   toBlock: BlockNumber(42 + 10),
++   scopes: [scope],
++ });
++ doSomethingWithAnEvent(events[0].event);
+```
+
+Please refer to the wallet interface js-docs for further details.
+
 
 ### [CLI] Command refactor
 

@@ -3,15 +3,36 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-
+//
+// Recursive Chonk verifier for in-circuit verification of Chonk IVC proofs.
+// See: chonk/README.md
+//
 #pragma once
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
+
+/**
+ * @brief Recursive verifier for Chonk IVC proofs.
+ * @details Creates circuit constraints that verify a Chonk proof, which consists of:
+ *   1. MegaZK proof of the hiding kernel
+ *   2. Goblin proof (Merge + ECCVM + Translator) - note: IPA is NOT verified here
+ *
+ * The hiding kernel proof is verified first to extract ECC op queue commitments,
+ * which are then used as inputs to Goblin verification. Databus consistency is
+ * checked between the kernel's return data and calldata commitments.
+ *
+ * Returns an Output containing deferred verification data: pairing points (BN254) and
+ * an IPA claim (Grumpkin). Pairing points are aggregated at each rollup level and verified on L1.
+ * IPA claims are carried in RollupIO through rollup levels, accumulated via IPA::accumulate,
+ * and verified in-circuit at root rollup via IPA::full_verify_recursive.
+ *
+ * Uses Ultra arithmetization, as all ECC ops have to be performed in-circuit at this stage.
+ */
 class ChonkRecursiveVerifier {
     using Builder = UltraCircuitBuilder;                     // The circuit will be an Ultra circuit
-    using RecursiveFlavor = MegaZKRecursiveFlavor_<Builder>; // The hiding circuit verifier algorithm is MegaZK
+    using RecursiveFlavor = MegaZKRecursiveFlavor_<Builder>; // The Hiding kernel verifier algorithm is MegaZK
     using RecursiveVerifierInstance = RecursiveVerifierInstance_<RecursiveFlavor>;
     using RecursiveVerificationKey = RecursiveVerifierInstance::VerificationKey;
     using MegaVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
@@ -26,9 +47,13 @@ class ChonkRecursiveVerifier {
     using RecursiveVKAndHash = RecursiveVerifierInstance::VKAndHash;
     using RecursiveVK = RecursiveFlavor::VerificationKey;
 
+    /**
+     * @brief Stdlib representation of a Chonk proof for recursive verification.
+     * @details Contains the proof as circuit witness elements (field_t). Can be constructed from a native Chonk::Proof
+     * or from a vector of witness indices.
+     */
     struct StdlibProof {
         using StdlibHonkProof = bb::stdlib::Proof<Builder>;
-        using StdlibGoblinProof = GoblinRecursiveVerifier::StdlibProof;
 
         static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
         {
@@ -40,8 +65,8 @@ class ChonkRecursiveVerifier {
             return bb::Chonk::Proof::PROOF_LENGTH(virtual_log_n);
         }
 
-        StdlibHonkProof mega_proof; // proof of the hiding circuit
-        StdlibGoblinProof goblin_proof;
+        StdlibHonkProof mega_proof;     // MegaZK proof of the hiding kernel circuit
+        GoblinStdlibProof goblin_proof; // Goblin proof (Merge + ECCVM + IPA + Translator)
 
         StdlibProof(Builder& builder, const Chonk::Proof& proof)
             : mega_proof(builder, proof.mega_proof)
@@ -77,17 +102,15 @@ class ChonkRecursiveVerifier {
             end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
             goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), it + start_idx, it + end_idx);
 
-            // ECCVM pre-ipa proof
+            // ECCVM proof (IPA is separate)
             start_idx = end_idx;
-            end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
-            goblin_proof.eccvm_proof.pre_ipa_proof.insert(
-                goblin_proof.eccvm_proof.pre_ipa_proof.end(), it + start_idx, it + end_idx);
+            end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+            goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), it + start_idx, it + end_idx);
 
-            // ECCVM ipa proof
+            // IPA proof
             start_idx = end_idx;
             end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
-            goblin_proof.eccvm_proof.ipa_proof.insert(
-                goblin_proof.eccvm_proof.ipa_proof.end(), it + start_idx, it + end_idx);
+            goblin_proof.ipa_proof.insert(goblin_proof.ipa_proof.end(), it + start_idx, it + end_idx);
 
             // Translator proof
             start_idx = end_idx;
@@ -100,15 +123,11 @@ class ChonkRecursiveVerifier {
         }
     };
 
-    ChonkRecursiveVerifier(Builder* builder, const std::shared_ptr<VerificationKey>& native_mega_vk)
-        : builder(builder)
-        , stdlib_mega_vk_and_hash(std::make_shared<RecursiveVKAndHash>(*builder, native_mega_vk)) {};
-
     ChonkRecursiveVerifier(Builder* builder, const std::shared_ptr<RecursiveVKAndHash>& stdlib_mega_vk_and_hash)
         : builder(builder)
         , stdlib_mega_vk_and_hash(stdlib_mega_vk_and_hash) {};
 
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify(const StdlibProof&);
+    [[nodiscard("IPA claim and pairing points must be accumulated")]] Output verify(const StdlibProof&);
 
   private:
     Builder* builder;

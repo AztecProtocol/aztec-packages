@@ -1,6 +1,7 @@
 import { GeneratorIndex } from '@aztec/constants';
 import { Grumpkin, poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
-import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { KeyPrefix } from './key_types.js';

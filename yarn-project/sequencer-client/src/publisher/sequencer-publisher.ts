@@ -25,10 +25,10 @@ import {
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
-import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
-import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
@@ -82,8 +82,8 @@ export type InvalidateBlockRequest = {
   request: L1TxRequest;
   reason: 'invalid-attestation' | 'insufficient-attestations';
   gasUsed: bigint;
-  blockNumber: number;
-  forcePendingBlockNumber: number;
+  blockNumber: BlockNumber;
+  forcePendingBlockNumber: BlockNumber;
 };
 
 interface RequestWithExpiry {
@@ -335,7 +335,7 @@ export class SequencerPublisher {
   public canProposeAtNextEthBlock(
     tipArchive: Fr,
     msgSender: EthAddress,
-    opts: { forcePendingBlockNumber?: number } = {},
+    opts: { forcePendingBlockNumber?: BlockNumber } = {},
   ) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
@@ -364,7 +364,10 @@ export class SequencerPublisher {
    *          It will throw if the block header is invalid.
    * @param header - The block header to validate
    */
-  public async validateBlockHeader(header: CheckpointHeader, opts?: { forcePendingBlockNumber: number | undefined }) {
+  public async validateBlockHeader(
+    header: CheckpointHeader,
+    opts?: { forcePendingBlockNumber: BlockNumber | undefined },
+  ) {
     const flags = { ignoreDA: true, ignoreSignatures: true };
 
     const args = [
@@ -441,7 +444,7 @@ export class SequencerPublisher {
       const { gasUsed } = await this.l1TxUtils.simulate(request, undefined, undefined, ErrorsAbi);
       this.log.verbose(`Simulation for invalidate block ${blockNumber} succeeded`, { ...logData, request, gasUsed });
 
-      return { request, gasUsed, blockNumber, forcePendingBlockNumber: blockNumber - 1, reason };
+      return { request, gasUsed, blockNumber, forcePendingBlockNumber: BlockNumber(blockNumber - 1), reason };
     } catch (err) {
       const viemError = formatViemError(err);
 
@@ -519,7 +522,7 @@ export class SequencerPublisher {
     block: L2Block,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    options: { forcePendingBlockNumber?: number },
+    options: { forcePendingBlockNumber?: BlockNumber },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
 
@@ -802,7 +805,7 @@ export class SequencerPublisher {
     block: L2Block,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: number } = {},
+    opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: BlockNumber } = {},
   ): Promise<boolean> {
     const checkpointHeader = block.getCheckpointHeader();
 
@@ -945,7 +948,7 @@ export class SequencerPublisher {
   private async prepareProposeTx(
     encodedData: L1ProcessArgs,
     timestamp: bigint,
-    options: { forcePendingBlockNumber?: number },
+    options: { forcePendingBlockNumber?: BlockNumber },
   ) {
     const kzg = Blob.getViemKzgInstance();
     const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
@@ -1026,7 +1029,7 @@ export class SequencerPublisher {
       `0x${string}`,
     ],
     timestamp: bigint,
-    options: { forcePendingBlockNumber?: number },
+    options: { forcePendingBlockNumber?: BlockNumber },
   ) {
     const rollupData = encodeFunctionData({
       abi: RollupAbi,
@@ -1105,7 +1108,7 @@ export class SequencerPublisher {
   private async addProposeTx(
     block: L2Block,
     encodedData: L1ProcessArgs,
-    opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: number } = {},
+    opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: BlockNumber } = {},
     timestamp: bigint,
   ): Promise<void> {
     const timer = new Timer();

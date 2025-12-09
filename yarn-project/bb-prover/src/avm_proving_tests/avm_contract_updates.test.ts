@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { defaultGlobals } from '@aztec/simulator/public/fixtures';

@@ -1,5 +1,4 @@
 // docs:start:imports
-mod types;
 mod test;
 
 use aztec::macros::aztec;
@@ -27,12 +26,12 @@ pub contract Token {
         },
         messages::message_delivery::MessageDelivery,
         protocol_types::{address::AztecAddress, traits::ToField},
-        state_vars::{Map, PublicImmutable, PublicMutable},
+        state_vars::{Map, Owned, PublicImmutable, PublicMutable, StateVariable},
     };
 
     use uint_note::uint_note::{PartialUintNote, UintNote};
 
-    use crate::types::balance_set::BalanceSet;
+    use balance_set::BalanceSet;
 
     // docs:end::imports
 
@@ -57,7 +56,7 @@ pub contract Token {
     struct Storage<Context> {
         admin: PublicMutable<AztecAddress, Context>,
         minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
-        balances: BalanceSet<Context>,
+        balances: Owned<BalanceSet<Context>, Context>,
         total_supply: PublicMutable<u128, Context>,
         public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
         symbol: PublicImmutable<FieldCompressedString, Context>,
@@ -193,7 +192,7 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        self.storage.balances.at(from).sub(amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).sub(amount).deliver(from, MessageDelivery.CONSTRAINED_ONCHAIN);
         self.enqueue_self._increase_public_balance(to, amount);
     }
 
@@ -219,7 +218,7 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) -> PartialUintNote {
-        self.storage.balances.at(from).sub(amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).sub(amount).deliver(from, MessageDelivery.CONSTRAINED_ONCHAIN);
         self.enqueue_self._increase_public_balance(to, amount);
 
         // We prepare the private balance increase (the partial note for the change).
@@ -237,8 +236,11 @@ pub contract Token {
         // note for `from` with the change amount, e.g. if `amount` is 10 and two notes are nullified with amounts 8 and
         // 5, then the change will be 3 (since 8 + 5 - 10 = 3).
         let change = self.internal.subtract_balance(from, amount, INITIAL_TRANSFER_CALL_MAX_NOTES);
-        self.storage.balances.at(from).add(change).emit(from, MessageDelivery.UNCONSTRAINED_ONCHAIN);
-        self.storage.balances.at(to).add(amount).emit(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).add(change).deliver(
+            from,
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
+        self.storage.balances.at(to).add(amount).deliver(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_in_private`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
@@ -304,15 +306,15 @@ pub contract Token {
         authwit_nonce: Field,
     ) {
         // docs:start:increase_private_balance
-        self.storage.balances.at(from).sub(amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).sub(amount).deliver(from, MessageDelivery.CONSTRAINED_ONCHAIN);
         // docs:end:increase_private_balance
-        self.storage.balances.at(to).add(amount).emit(to, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(to).add(amount).deliver(to, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        self.storage.balances.at(from).sub(amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).sub(amount).deliver(from, MessageDelivery.CONSTRAINED_ONCHAIN);
         self.enqueue_self._reduce_total_supply(amount);
     }
 
@@ -346,7 +348,7 @@ pub contract Token {
     fn _prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
         let partial_note = UintNote::partial(
             to,
-            self.storage.balances.set.storage_slot,
+            self.storage.balances.get_storage_slot(),
             self.context,
             to,
             self.msg_sender().unwrap(),
@@ -388,7 +390,7 @@ pub contract Token {
         authwit_nonce: Field,
     ) {
         // First we subtract the `amount` from the private balance of `from`
-        self.storage.balances.at(from).sub(amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).sub(amount).deliver(from, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         partial_note.complete_from_private(self.context, self.msg_sender().unwrap(), amount);
     }

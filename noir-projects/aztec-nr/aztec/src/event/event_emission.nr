@@ -4,7 +4,7 @@ use crate::{
     messages::{
         logs::{event::to_encrypted_private_event_message, utils::prefix_with_tag},
         message_delivery::MessageDelivery,
-        offchain_messages::emit_offchain_message,
+        offchain_messages::deliver_offchain_message,
     },
     utils::remove_constraints::remove_constraints_if,
 };
@@ -61,7 +61,7 @@ where
     context.push_nullifier(event_commitment);
 
     if emit_as_offchain_message {
-        emit_offchain_message(ciphertext, recipient);
+        deliver_offchain_message(ciphertext, recipient);
     } else {
         // Safety: Currently unsafe. See description of CONSTRAINED_ONCHAIN in MessageDeliveryEnum.
         // TODO(#14565): Implement proper constrained tag prefixing to make this truly CONSTRAINED_ONCHAIN

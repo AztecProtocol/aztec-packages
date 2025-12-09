@@ -1,4 +1,4 @@
-import type { Point } from '@aztec/foundation/fields';
+import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { FailingFunction, NoirCallStack } from '@aztec/stdlib/errors';
 
 import { ExecutionError } from '../../common/errors.js';
@@ -58,7 +58,7 @@ export class AvmParsingError extends AvmExecutionError {
  */
 export class InvalidTagValueError extends AvmExecutionError {
   constructor(tagValue: number) {
-    super(`Tag value ${tagValue} is invalid.`);
+    super(`Tag check failed: Tag value ${tagValue} is invalid.`);
     this.name = 'InvalidTagValueError';
   }
 }
@@ -77,6 +77,12 @@ export class InstructionExecutionError extends AvmExecutionError {
  * Error thrown on failed AVM memory tag check.
  */
 export class TagCheckError extends AvmExecutionError {
+  public static forBaseAddress(gotTag: string): TagCheckError {
+    return new TagCheckError(`Base address (mem[0]) is not a valid address (has tag ${gotTag})`);
+  }
+  public static forIndirectAddress(address: number, gotTag: string): TagCheckError {
+    return new TagCheckError(`Address after indirection is not a valid address (address ${address} has tag ${gotTag})`);
+  }
   public static forOffset(offset: number, gotTag: string, expectedTag: string): TagCheckError {
     return new TagCheckError(`Tag mismatch at offset ${offset}, got ${gotTag}, expected ${expectedTag}`);
   }
@@ -97,7 +103,7 @@ export class TagCheckError extends AvmExecutionError {
  */
 export class RelativeAddressOutOfRangeError extends AvmExecutionError {
   constructor(baseAddr: number, relOffset: number) {
-    super(`Address out of range. Base address ${baseAddr}, relative offset ${relOffset}`);
+    super(`Relative address out of range. Base address ${baseAddr}, relative offset ${relOffset}`);
     this.name = 'RelativeAddressOutOfRangeError';
   }
 }
@@ -160,4 +166,12 @@ export class AvmRevertReason extends ExecutionError {
   constructor(message: string, failingFunction: FailingFunction, noirCallStack: NoirCallStack, options?: ErrorOptions) {
     super(message, failingFunction, noirCallStack, options);
   }
+}
+
+/**
+ * Helper to annotate errors occurring during instruction fetching.
+ */
+export function duringInstrFetch(error: Error, pc: number) {
+  error.message = `Instruction fetching error at pc ${pc}: ${error.message}`;
+  return error;
 }

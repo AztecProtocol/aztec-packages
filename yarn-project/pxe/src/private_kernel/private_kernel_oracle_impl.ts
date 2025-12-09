@@ -1,5 +1,6 @@
 import { NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
-import type { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
@@ -8,7 +9,7 @@ import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-type
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockNumber } from '@aztec/stdlib/block';
+import type { BlockParameter } from '@aztec/stdlib/block';
 import { computeContractClassIdPreimage, computeSaltedInitializationHash } from '@aztec/stdlib/contract';
 import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
@@ -31,7 +32,7 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
     private contractDataProvider: ContractDataProvider,
     private keyStore: KeyStore,
     private node: AztecNode,
-    private blockNumber: L2BlockNumber = 'latest',
+    private blockNumber: BlockParameter = 'latest',
     private log = createLogger('pxe:kernel_oracle'),
   ) {}
 

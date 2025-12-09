@@ -1,3 +1,6 @@
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+
 import type { L2Block } from '../l2_block.js';
 import type { L2BlockId, L2BlockTag, L2Tips } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
@@ -7,7 +10,7 @@ import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalD
  * @dev tests in kv-store/src/stores/l2_tips_memory_store.test.ts
  */
 export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
-  protected readonly l2TipsStore: Map<L2BlockTag, number> = new Map();
+  protected readonly l2TipsStore: Map<L2BlockTag, BlockNumber> = new Map();
   protected readonly l2BlockHashesStore: Map<number, string> = new Map();
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
@@ -25,7 +28,7 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
   private getL2Tip(tag: L2BlockTag): L2BlockId {
     const blockNumber = this.l2TipsStore.get(tag);
     if (blockNumber === undefined || blockNumber === 0) {
-      return { number: 0, hash: undefined };
+      return { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
     }
     const blockHash = this.l2BlockHashesStore.get(blockNumber);
     if (!blockHash) {

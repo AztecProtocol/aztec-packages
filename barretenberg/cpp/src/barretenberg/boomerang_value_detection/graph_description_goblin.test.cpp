@@ -84,7 +84,9 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     }
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
+    GoblinStdlibProof stdlib_proof(builder, proof);
+    GoblinRecursiveVerifierOutput output =
+        verifier.verify(stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND);
 
     stdlib::recursion::honk::DefaultIO<Builder> inputs;
     inputs.pairing_inputs = output.points_accumulator;
