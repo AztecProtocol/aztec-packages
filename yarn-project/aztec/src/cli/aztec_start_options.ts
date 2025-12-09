@@ -10,6 +10,8 @@ import {
   booleanConfigHelper,
   isBooleanConfigValue,
   omitConfigMappings,
+  numberConfigHelper,
+  optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import { dataConfigMappings } from '@aztec/kv-store/config';
 import { sharedNodeConfigMappings } from '@aztec/node-lib/config';
@@ -129,24 +131,21 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description:
         'Numeric salt for deploying L1 Aztec contracts before starting the local network. Needs mnemonic or private key to be set.',
       env: 'DEPLOY_AZTEC_CONTRACTS_SALT',
-      defaultValue: undefined,
-      parseVal: (val: string) => (val ? parseInt(val) : undefined),
+      ...optionalNumberConfigHelper(),
     },
   ],
   API: [
     {
       flag: '--port <value>',
       description: 'Port to run the Aztec Services on',
-      defaultValue: 8080,
       env: 'AZTEC_PORT',
-      parseVal: val => parseInt(val, 10),
+      ...numberConfigHelper(8080),
     },
     {
       flag: '--admin-port <value>',
       description: 'Port to run admin APIs of Aztec Services on',
-      defaultValue: 8880,
       env: 'AZTEC_ADMIN_PORT',
-      parseVal: val => parseInt(val, 10),
+      ...numberConfigHelper(8880),
     },
     {
       flag: '--api-prefix <value>',
