@@ -182,9 +182,9 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
         auto tmp = prev_accumulators_binary_limbs_0 * evaluation_input_x_0
                    + op
                    + p_x_limb_0 * v_0
-                   + p_y_limb_0 * v_0
-                   + z_1_limb_0 * v_0
-                   + z_2_limb_0 * v_0
+                   + p_y_limb_0 * v_sqr_0
+                   + z_1_limb_0 * v_cube_0
+                   + z_2_limb_0 * v_quad_0
                    + quotient_binary_limbs_0 * NEGATIVE_MODULUS_LIMBS[0]
                    - accumulators_binary_limbs_0;
 
