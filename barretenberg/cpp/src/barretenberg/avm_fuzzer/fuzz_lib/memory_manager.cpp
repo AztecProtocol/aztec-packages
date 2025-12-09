@@ -106,7 +106,6 @@ std::optional<std::pair<uint32_t, bb::avm2::testing::OperandBuilder>> MemoryMana
         return std::nullopt;
     }
     if (absolute_address.value() > 255) {
-        std::cout << "Absolute address is greater than 255 " << absolute_address.value() << std::endl;
         return std::nullopt;
     }
     auto operand = OperandBuilder::from<uint8_t>(static_cast<uint8_t>(absolute_address.value()));
