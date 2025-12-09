@@ -8,8 +8,6 @@
 // See: chonk/README.md#goblin-eccvm--translator
 //
 #pragma once
-#include "barretenberg/commitment_schemes/claim.hpp"
-#include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
@@ -18,8 +16,6 @@
 #include "barretenberg/goblin/types.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
-#include "barretenberg/stdlib/primitives/pairing_points.hpp"
-#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 
 namespace bb {
