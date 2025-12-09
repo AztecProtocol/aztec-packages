@@ -33,6 +33,17 @@ Releases are driven by [release-please](https://github.com/googleapis/release-pl
 
 There are many ways you can participate and help build high quality software. Check out the [contribution guide](CONTRIBUTING.md)!
 
+## Further resources
+
+Useful resources for learning more about Aztec and this monorepo:
+
+- **Docs:** https://docs.aztec.network/
+- **Roadmap:** https://aztec.network/roadmap
+- **Technical whitepaper:** https://aztec.network/technical-whitepaper
+- **Developer forum:** https://forum.aztec.network/
+- **Blog:** https://medium.com/aztec-protocol
+
+
 ## Syncing noir
 
 We use marker commits and [git-subrepo](https://github.com/ingydotnet/git-subrepo) (for a subset of its intended use) to manage a mirror of noir. This tool was chosen because it makes code checkout and development as simple as possible (compared to submodules or subtrees), with the tradeoff of complexity around sync's.
