@@ -1,5 +1,5 @@
 import { UPDATES_VALUE_SIZE } from '@aztec/constants';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 

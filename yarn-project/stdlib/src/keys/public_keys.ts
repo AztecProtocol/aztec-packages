@@ -9,7 +9,7 @@ import {
   DEFAULT_TPK_M_Y,
   GeneratorIndex,
 } from '@aztec/constants';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { schemas } from '@aztec/foundation/schemas';

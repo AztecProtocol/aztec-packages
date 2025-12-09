@@ -1,5 +1,5 @@
 import type { Buffer32 } from '@aztec/foundation/buffer';
-import { normalizeSignature } from '@aztec/foundation/crypto';
+import { normalizeSignature } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 

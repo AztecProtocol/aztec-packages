@@ -1,5 +1,6 @@
 import { FUNCTION_TREE_HEIGHT, GeneratorIndex } from '@aztec/constants';
-import { pedersenHash, poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { pedersenHash } from '@aztec/foundation/crypto/pedersen';
+import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
 
