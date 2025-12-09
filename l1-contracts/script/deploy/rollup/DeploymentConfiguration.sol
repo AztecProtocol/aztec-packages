@@ -45,6 +45,7 @@ struct FlushRewardConfiguration {
 
 interface IDeploymentConfiguration {
     function loadConfig() external;
+    function existingTokenAddress() public view returns (address);
     function rollupConfig() external view returns (IRollupConfiguration);
     function getProtocolTreasuryConfiguration() external view returns (ProtocolTreasuryConfiguration memory);
     function getCoinIssuerConfiguration() external pure returns (CoinIssuerConfiguration memory);
@@ -72,10 +73,6 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
 
     function existingTokenAddress() public view returns (address) {
         return vm.envOr("EXISTING_STAKING_ASSET_ADDRESS", address(0));
-    }
-
-    function isDeployingTestAssets() public view returns (bool) {
-        return existingTokenAddress() == address(0);
     }
 
     function getProtocolTreasuryConfiguration() external view returns (ProtocolTreasuryConfiguration memory) {
@@ -192,7 +189,7 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
 
     function getRewardDistributorFunding() external view returns (uint256) {
         // Delegated to RollupConfiguration
-        RewardConfig memory rewardConfig = rollupConfig.getRewardConfiguration(address(0));
+        RewardConfig memory rewardConfig = rollupConfig.getRewardConfiguration(IRewardDistributor(address(0)));
         return uint256(rewardConfig.checkpointReward) * 200_000;
     }
 
