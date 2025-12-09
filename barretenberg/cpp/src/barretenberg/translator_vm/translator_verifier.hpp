@@ -60,21 +60,6 @@ template <typename Flavor> class TranslatorVerifier_ {
     using EvaluationInput = std::conditional_t<IsRecursive, BF, uint256_t>;
     using AccumulatedResult = std::conditional_t<IsRecursive, BF, uint256_t>;
 
-    std::shared_ptr<VerificationKey> key;
-    FF vk_hash;
-    std::shared_ptr<Transcript> transcript;
-    Proof proof;
-    RelationParams relation_parameters;
-
-    // Translation inputs from ECCVM verifier
-    EvaluationInput evaluation_input_x;
-    BF batching_challenge_v;
-    AccumulatedResult accumulated_result;
-    std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_wire_commitments;
-
-    // Builder pointer (only used for recursive, nullptr for native)
-    std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
-
     /**
      * @brief Unified constructor for both native and recursive verification
      * @details For recursive case, extracts builder from proof elements via get_context().
@@ -116,13 +101,6 @@ template <typename Flavor> class TranslatorVerifier_ {
     }
 
     /**
-     * @brief Populate relation parameters with translation data from ECCVM verifier
-     * @details Converts the translation challenges and accumulated result into limbs for use in Translator relations.
-     * Native uses uint256_t::slice, recursive uses BF::binary_basis_limbs.
-     */
-    void put_translation_data_in_relation_parameters();
-
-    /**
      * @brief Verify the translator proof
      * @details Verifies that the Translator circuit correctly processes the op queue transcript.
      * Returns verification result containing pairing points and check status.
@@ -131,6 +109,35 @@ template <typename Flavor> class TranslatorVerifier_ {
      * @return VerificationResult containing pairing points and verification status
      */
     [[nodiscard("Verification result should be checked")]] VerificationResult verify_proof();
+
+    /**
+     * @brief Get the verification key
+     * @return Shared pointer to the verification key
+     */
+    std::shared_ptr<VerificationKey> get_verification_key() const { return key; }
+
+  private:
+    std::shared_ptr<VerificationKey> key;
+    FF vk_hash;
+    std::shared_ptr<Transcript> transcript;
+    Proof proof;
+    RelationParams relation_parameters;
+
+    // Translation inputs from ECCVM verifier
+    EvaluationInput evaluation_input_x;
+    BF batching_challenge_v;
+    AccumulatedResult accumulated_result;
+    std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_wire_commitments;
+
+    // Builder pointer (only used for recursive, nullptr for native)
+    std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
+
+    /**
+     * @brief Populate relation parameters with translation data from ECCVM verifier
+     * @details Converts the translation challenges and accumulated result into limbs for use in Translator relations.
+     * Native uses uint256_t::slice, recursive uses BF::binary_basis_limbs.
+     */
+    void put_translation_data_in_relation_parameters();
 };
 
 // Type aliases
