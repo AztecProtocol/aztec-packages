@@ -251,6 +251,11 @@ template <typename Field> class StdlibCodec {
         } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::BaseField;
 
+            // Unlike native FrCodec which outputs (0,0) for infinity, we assert infinity doesn't occur.
+            // Points serialized in recursive verification should originate from the native prover
+            // (via receive_from_prover) which already enforces (0,0) for infinity.
+            BB_ASSERT(!val.is_point_at_infinity().get_value(),
+                      "StdlibCodec::serialize_to_fields does not support point at infinity");
             std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x());
             std::vector<field_ct> fr_vec_y = serialize_to_fields<BaseField>(val.y());
             std::vector<field_ct> fr_vec(fr_vec_x.begin(), fr_vec_x.end());

@@ -14,6 +14,7 @@
 #include "../field/field_utils.hpp"
 #include "../memory/rom_table.hpp"
 #include "../memory/twin_rom_table.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
@@ -55,6 +56,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     uint32_t set_public() const
     {
+        // Infinity cannot be propagated through public inputs (reconstruct_from_public hardcodes is_infinity=false)
+        BB_ASSERT(!_is_infinity.get_value(), "biggroup::set_public does not support point at infinity");
         const uint32_t start_idx = _x.set_public();
         _y.set_public();
 

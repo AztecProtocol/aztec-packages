@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
@@ -198,6 +199,8 @@ template <typename Builder> class cycle_group {
      */
     uint32_t set_public()
     {
+        // Infinity cannot be propagated through public inputs (reconstruct_from_public hardcodes is_infinity=false)
+        BB_ASSERT(!_is_infinity.get_value(), "cycle_group::set_public does not support point at infinity");
         uint32_t start_idx = _x.set_public();
         _y.set_public();
         return start_idx;

@@ -149,15 +149,14 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionBN254AffineElement)
             this->check_conversion(group_element);
         }
     }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Remove `point_at_infinity` flag when point at
-    // infinity is consistently represented.
-    { // Serialize and deserialize the point at infinity
+    { // Serializing point at infinity should assert (not supported)
+        using Codec = StdlibCodec<field_t<Builder>>;
         Builder builder;
 
         bn254_element<Builder> group_element =
             bn254_element<Builder>::from_witness(&builder, curve::BN254::AffineElement::infinity());
-        // The circuit is valid, because the point at infinity is set to `one`.
-        this->check_conversion(group_element, /* valid circuit */ true, /* point at infinity */ true);
+        EXPECT_THROW_OR_ABORT(Codec::serialize_to_fields(group_element),
+                              "StdlibCodec::serialize_to_fields does not support point at infinity");
     }
 
     { // Serialize and deserialize "coordinates" that do not correspond to any point on the curve
@@ -211,12 +210,14 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionGrumpkinAffineElement)
         this->check_conversion(group_element, /* valid circuit */ false);
     }
 
-    { // Serialize and deserialize the point at infinity
+    { // Serializing point at infinity should assert (not supported)
+        using Codec = StdlibCodec<field_t<Builder>>;
         Builder builder;
 
         grumpkin_element<Builder> group_element =
             grumpkin_element<Builder>::from_witness(&builder, curve::Grumpkin::AffineElement::infinity());
-        this->check_conversion(group_element);
+        EXPECT_THROW_OR_ABORT(Codec::serialize_to_fields(group_element),
+                              "StdlibCodec::serialize_to_fields does not support point at infinity");
     }
 }
 
