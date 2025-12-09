@@ -10,8 +10,10 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
+
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 import {DeployRollupLib, RollupAddressInput, RollupAddressOutput} from "./DeployRollupLib.sol";
 import {IRollupConfiguration, RollupConfiguration} from "./RollupConfiguration.sol";
@@ -56,10 +58,13 @@ contract DeployRollupForUpgrade is Script {
         // Load existing addresses from the registry.
         Governance governance = Governance(registry.getGovernance());
         GovernanceProposer governanceProposer = GovernanceProposer(governance.governanceProposer());
-        GSE gse = GSE(governanceProposer.gse);
-        IERC20 feeAsset = registry.getCanonicalRollup().getFeeAsset();
-        IERC20 stakingAsset = registry.getCanonicalRollup().getStakingAsset();
-        RewardDistributor rewardDistributor = registry.getRewardDistributor();
+        GSE gse = GSE(address(governanceProposer.GSE()));
+        IRollup rollup = IRollup(address(registry.getCanonicalRollup()));
+        // We support these being separate for test cases.
+        // NOTE(AD): Do we still need to support this? Could simplify a bit.
+        IERC20 feeAsset = rollup.getFeeAsset();
+        IERC20 stakingAsset = governance.ASSET();
+        IRewardDistributor rewardDistributor = registry.getRewardDistributor();
 
         return RollupAddressInput({
             deployer: vm.envOr("DEPLOYER_ADDRESS", msg.sender),

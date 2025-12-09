@@ -15,7 +15,7 @@ import {Governance} from "@aztec/governance/Governance.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
@@ -35,7 +35,7 @@ struct RollupAddressInput {
     Governance governance;
     IERC20 feeAsset;
     IERC20 stakingAsset;
-    RewardDistributor rewardDistributor;
+    IRewardDistributor rewardDistributor;
 }
 
 /// @notice Output addresses from rollup deployment (newly deployed contracts)
