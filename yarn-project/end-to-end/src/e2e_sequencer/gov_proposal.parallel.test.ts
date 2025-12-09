@@ -2,7 +2,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { CheatCodes } from '@aztec/aztec/testing';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
 import {
-  type DeployL1ContractsReturnType,
+  type DeployAztecL1ContractsReturnType,
   GovernanceProposerContract,
   RollupContract,
   deployL1Contract,
@@ -47,7 +47,7 @@ describe('e2e_gov_proposal', () => {
   let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode | undefined;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
-  let deployL1ContractsValues: DeployL1ContractsReturnType;
+  let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   let cheatCodes: CheatCodes;
   let blobSink: BlobSinkServer | undefined;
   let dateProvider: TestDateProvider | undefined;

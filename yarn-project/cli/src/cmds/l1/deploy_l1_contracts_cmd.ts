@@ -7,7 +7,6 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { encodeFunctionData } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { addLeadingHex } from '../../utils/aztec.js';
@@ -64,6 +63,7 @@ export async function deployL1ContractsCmd(
   const { l1ContractAddresses, rollupVersion } = await deployAztecL1Contracts(
     rpcUrls[0],
     deployerPrivateKey,
+    debugLogger,
     {
       // Initial validators to add during deployment
       initialValidators: initialValidatorOperators,
@@ -76,7 +76,6 @@ export async function deployL1ContractsCmd(
       ...config,
       feeJuicePortalInitialBalance: fundingNeeded,
     },
-    debugLogger,
   );
 
   debugLogger.info('Forge deployment complete', { rollupVersion });

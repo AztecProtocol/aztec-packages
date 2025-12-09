@@ -6,7 +6,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import {
-  type DeployL1ContractsReturnType,
+  type DeployAztecL1ContractsReturnType,
   RollupContract,
   getAddressFromPrivateKey,
   getL1ContractsConfigEnvVars,
@@ -164,7 +164,7 @@ describe('e2e_multi_validator_node', () => {
   let wallet: Wallet;
   let ownerAddress: AztecAddress;
   let config: AztecNodeConfig;
-  let deployL1ContractsValues: DeployL1ContractsReturnType;
+  let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   let rollup: RollupContract;
   let keyStoreDirectory: string;
   let aztecNode: AztecNode;

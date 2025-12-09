@@ -1,4 +1,4 @@
-import type { DeployL1ContractsArgs, ExtendedViemWalletClient } from '@aztec/ethereum';
+import type { DeployAztecL1ContractsArgs, ExtendedViemWalletClient } from '@aztec/ethereum';
 import {
   DefaultL1ContractsConfig,
   RollupContract,
@@ -19,13 +19,13 @@ import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingPropo
 import type { Anvil } from '@viem/anvil';
 import { type Hex, type TypedDataDefinition, encodeFunctionData, hashTypedData } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
 
 import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 
 describe('TallySlashingProposer', () => {
   let anvil: Anvil;
   let rpcUrl: string;
+  let deployerPrivateKeyRaw: Hex;
   let deployerPrivateKey: PrivateKeyAccount;
   let logger: Logger;
   let writeClient: ExtendedViemWalletClient;
@@ -38,7 +38,7 @@ describe('TallySlashingProposer', () => {
   let rollup: RollupContract;
   let tallySlashingProposer: TallySlashingProposerContract;
   let tallySlashingProposerAddress: EthAddress;
-  let testConfig: DeployL1ContractsArgs;
+  let testConfig: DeployAztecL1ContractsArgs;
 
   const mockSignature = {
     v: 27,
@@ -51,7 +51,8 @@ describe('TallySlashingProposer', () => {
 
   beforeAll(async () => {
     logger = createLogger('ethereum:test:tally_slashing_proposer');
-    deployerPrivateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    deployerPrivateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
+    deployerPrivateKey = privateKeyToAccount(deployerPrivateKeyRaw);
 
     ({ anvil, rpcUrl } = await startAnvil());
 
@@ -82,7 +83,7 @@ describe('TallySlashingProposer', () => {
       })),
     };
 
-    const deployed = await deployAztecL1Contracts([rpcUrl], deployerPrivateKey, logger, testConfig);
+    const deployed = await deployAztecL1Contracts(rpcUrl, deployerPrivateKeyRaw, logger, testConfig);
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
     rollupCheatCodes = new RollupCheatCodes(cheatCodes, deployed.l1ContractAddresses);
 

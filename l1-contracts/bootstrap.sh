@@ -60,7 +60,7 @@ function build_verifier {
 
     # Build the one test that imports the verifier,
     # and our deployment script used in yarn-project.
-    forge build test/shouting.t.sol script/deploy/rollup/DeployL1Contracts.s.sol
+    forge build test/shouting.t.sol script/deploy/DeployAztecL1Contracts.s.sol
 
     cache_upload $artifact out generated
   fi

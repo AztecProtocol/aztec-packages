@@ -67,22 +67,17 @@ export async function deployContractsToL1(
 ) {
   await waitForPublicClient(aztecNodeConfig);
 
-  const l1Contracts = await deployAztecL1Contracts(
-    aztecNodeConfig.l1RpcUrls[0],
-    privateKey,
-    {
-      ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
-      ...aztecNodeConfig,
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractsHash,
-      genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-      feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
-      aztecTargetCommitteeSize: 0, // no committee in local network
-      slasherFlavor: 'none', // no slashing in local network
-      realVerifier: false,
-    },
-    contractDeployLogger,
-  );
+  const l1Contracts = await deployAztecL1Contracts(aztecNodeConfig.l1RpcUrls[0], privateKey, contractDeployLogger, {
+    ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
+    ...aztecNodeConfig,
+    vkTreeRoot: getVKTreeRoot(),
+    protocolContractsHash,
+    genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+    feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
+    aztecTargetCommitteeSize: 0, // no committee in local network
+    slasherFlavor: 'none', // no slashing in local network
+    realVerifier: false,
+  });
 
   await deployMulticall3(l1Contracts.l1Client, logger);
 
@@ -156,12 +151,17 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   let watcher: AnvilTestWatcher | undefined = undefined;
   const dateProvider = new TestDateProvider();
   if (!aztecNodeConfig.p2pEnabled) {
-    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
-      assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
-      genesisArchiveRoot,
-      salt: config.deployAztecContractsSalt ? parseInt(config.deployAztecContractsSalt) : undefined,
-      feeJuicePortalInitialBalance: fundingNeeded,
-    });
+    const l1ContractAddresses = await deployContractsToL1(
+      aztecNodeConfig,
+      aztecNodeConfig.validatorPrivateKeys.getValue()[0],
+      undefined,
+      {
+        assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
+        genesisArchiveRoot,
+        salt: config.deployAztecContractsSalt ? parseInt(config.deployAztecContractsSalt) : undefined,
+        feeJuicePortalInitialBalance: fundingNeeded,
+      },
+    );
 
     const chain =
       aztecNodeConfig.l1RpcUrls.length > 0

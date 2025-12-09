@@ -20,7 +20,7 @@ import {
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
-  type DeployL1ContractsArgs,
+  type DeployAztecL1ContractsArgs,
   type ExtendedViemWalletClient,
   GovernanceProposerContract,
   type L1ContractAddresses,
@@ -163,7 +163,7 @@ describe('L1Publisher integration', () => {
     }
   };
 
-  const setup = async (deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {}) => {
+  const setup = async (deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {}) => {
     ({ rpcUrl, anvil } = await startAnvil());
     config.l1RpcUrls = [rpcUrl];
 

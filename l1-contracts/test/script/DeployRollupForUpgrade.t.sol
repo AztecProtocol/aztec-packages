@@ -5,8 +5,8 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 
-import {DeployL1Contracts} from "../../script/deploy/rollup/DeployL1Contracts.s.sol";
-import {DeployRollupForUpgrade} from "../../script/deploy/rollup/DeployRollupForUpgrade.s.sol";
+import {DeployAztecL1Contracts} from "../../script/deploy/DeployAztecL1Contracts.s.sol";
+import {DeployRollupForUpgrade} from "../../script/deploy/DeployRollupForUpgrade.s.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
@@ -25,7 +25,7 @@ contract DeployRollupForUpgradeTest is Test {
     using stdJson for string;
 
     // First deploy a full L1 setup, then test upgrading the rollup
-    DeployL1Contracts fullDeployScript;
+    DeployAztecL1Contracts fullDeployScript;
     DeployRollupForUpgrade upgradeScript;
 
     string initialOutputPath;
@@ -81,7 +81,7 @@ contract DeployRollupForUpgradeTest is Test {
         _setOutputPaths("UpgradeDeploysNewRollup");
 
         // First, deploy full L1 contracts
-        fullDeployScript = new DeployL1Contracts();
+        fullDeployScript = new DeployAztecL1Contracts();
         fullDeployScript.run(initialOutputPath);
 
         // Read initial deployment addresses

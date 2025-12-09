@@ -11,8 +11,8 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import {
-  type DeployL1ContractsArgs,
-  type DeployL1ContractsReturnType,
+  type DeployAztecL1ContractsArgs,
+  type DeployAztecL1ContractsReturnType,
   createExtendedL1Client,
   deployMulticall3,
   getL1ContractsConfigEnvVars,
@@ -65,7 +65,7 @@ export type SubsystemsContext = {
   aztecNode: AztecNodeService;
   aztecNodeConfig: AztecNodeConfig;
   wallet: TestWallet;
-  deployL1ContractsValues: DeployL1ContractsReturnType;
+  deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
@@ -87,7 +87,7 @@ export function createSnapshotManager(
   testName: string,
   dataPath?: string,
   config: Partial<SetupOptions> = {},
-  deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
+  deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {
     initialValidators: [],
   },
 ) {
@@ -116,7 +116,7 @@ class MockSnapshotManager implements ISnapshotManager {
   constructor(
     testName: string,
     private config: Partial<AztecNodeConfig> = {},
-    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {},
+    private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
   ) {
     this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
     this.logger.warn(`No data path given, will not persist any snapshots.`);
@@ -164,7 +164,7 @@ class SnapshotManager implements ISnapshotManager {
     testName: string,
     private dataPath: string,
     private config: Partial<SetupOptions> = {},
-    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {},
+    private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
   ) {
     this.livePath = join(this.dataPath, 'live', testName);
     this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
@@ -290,7 +290,7 @@ async function setupFromFresh(
   statePath: string | undefined,
   logger: Logger,
   { numberOfInitialFundedAccounts = 10, ...opts }: SetupOptions = {},
-  deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
+  deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {
     initialValidators: [],
   },
 ): Promise<SubsystemsContext> {

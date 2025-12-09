@@ -34,17 +34,14 @@ export async function deployNewRollup(
   const { rollup, slashFactoryAddress } = await deployNewRollupContracts(
     registryAddress,
     rpcUrls,
-    chainId,
     privateKey,
     mnemonic,
     mnemonicIndex,
-    salt,
     initialValidators,
     genesisArchiveRoot,
     fundingNeeded,
     config,
     realVerifier,
-    createVerificationJson,
     debugLogger,
   );
 

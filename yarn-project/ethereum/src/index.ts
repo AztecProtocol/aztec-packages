@@ -1,5 +1,6 @@
 export * from './constants.js';
 export * from './deploy_aztec_l1_contracts.js';
+export * from './deploy_l1_contract.js';
 export * from './chain.js';
 export * from './l1_tx_utils/index.js';
 export * from './l1_contract_addresses.js';

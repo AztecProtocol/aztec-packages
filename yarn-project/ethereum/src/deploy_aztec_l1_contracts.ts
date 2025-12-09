@@ -55,7 +55,7 @@ export function getL1ContractsPath(): string {
 /**
  * Return type matching the TypeScript deployAztecL1Contracts function.
  */
-export interface ForgeDeployL1ContractsReturnType {
+export interface ForgeDeployAztecL1ContractsReturnType {
   /** Extended Wallet Client Type. */
   l1Client: ExtendedViemWalletClient;
   /** The currently deployed l1 contract addresses */
@@ -110,7 +110,7 @@ export interface RollupUpgradeAddresses {
 export interface ForgeRollupUpgradeResult {
   rollupAddress: Hex;
   verifierAddress: Hex;
-  slashFactoryAddress?: Hex;
+  slashFactoryAddress: Hex;
   inboxAddress: Hex;
   outboxAddress: Hex;
   feeJuicePortalAddress: Hex;
@@ -148,8 +148,8 @@ export async function deployAztecL1Contracts(
   rpcUrl: string,
   privateKey: `0x${string}`,
   logger: Logger,
-  args: DeployL1ContractsArgs,
-): Promise<ForgeDeployL1ContractsReturnType> {
+  args: DeployAztecL1ContractsArgs,
+): Promise<ForgeDeployAztecL1ContractsReturnType> {
   const currentDir = dirname(fileURLToPath(import.meta.url));
 
   // Relative location of l1-contracts in monorepo or docker image.
@@ -161,9 +161,7 @@ export async function deployAztecL1Contracts(
       'forge',
       [
         'script',
-        // CLAUDE TODO rename deploy/rollup to just deploy/ folder holistically.
-        // CLAUDE TODO basically find replace every deploy/rollup instance
-        'script/deploy/rollup/DeployL1Contracts.s.sol',
+        'script/deploy/DeployAztecL1Contracts.s.sol',
         '--sig',
         'run(string)',
         outputPath,
@@ -176,9 +174,9 @@ export async function deployAztecL1Contracts(
       {
         cwd: l1ContractsPath,
         env: {
-          // Env vars required by l1-contracts/script/deploy/rollup/DeploymentConfiguration.sol.
+          // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
           NETWORK: getActiveNetworkName(),
-          ...getDeployL1ContractsEnvVars(args),
+          ...getDeployAztecL1ContractsEnvVars(args),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       },
@@ -268,7 +266,7 @@ export type Operator = {
 /**
  * Return type of the deployL1Contract function.
  */
-export type DeployL1ContractsReturnType = {
+export type DeployAztecL1ContractsReturnType = {
   /** Extended Wallet Client Type. */
   l1Client: ExtendedViemWalletClient;
   /** The currently deployed l1 contract addresses */
@@ -326,7 +324,7 @@ export type VerificationRecord = {
   libraries: VerificationLibraryEntry[];
 };
 
-export interface DeployL1ContractsArgs extends Omit<L1ContractsConfig, keyof L1TxUtilsConfig> {
+export interface DeployAztecL1ContractsArgs extends Omit<L1ContractsConfig, keyof L1TxUtilsConfig> {
   /** The vk tree root. */
   vkTreeRoot: Fr;
   /** The hash of the protocol contracts. */
@@ -353,7 +351,7 @@ export interface ZKPassportArgs {
 }
 
 // picked up by l1-contracts DeploymentConfiguration.sol
-export function getDeployL1ContractsEnvVars(args: DeployL1ContractsArgs) {
+export function getDeployAztecL1ContractsEnvVars(args: DeployAztecL1ContractsArgs) {
   return {
     ...getDeployRollupForUpgradeEnvVars(args), // parsed by RollupConfiguration.sol
     EXISTING_TOKEN_ADDRESS: args.existingTokenAddress?.toString(),
@@ -369,7 +367,7 @@ export function getDeployL1ContractsEnvVars(args: DeployL1ContractsArgs) {
 // picked up by l1-contracts RollupConfiguration.sol
 export function getDeployRollupForUpgradeEnvVars(
   args: Omit<
-    DeployL1ContractsArgs,
+    DeployAztecL1ContractsArgs,
     | 'governanceProposerQuorum'
     | 'governanceProposerRoundSize'
     | 'ejectionThreshold'
@@ -418,7 +416,7 @@ export const deployRollupForUpgrade = async (
   registryAddress: EthAddress,
   logger: Logger,
   args: Omit<
-    DeployL1ContractsArgs,
+    DeployAztecL1ContractsArgs,
     | 'governanceProposerQuorum'
     | 'governanceProposerRoundSize'
     | 'ejectionThreshold'
@@ -437,7 +435,7 @@ export const deployRollupForUpgrade = async (
       'forge',
       [
         'script',
-        'script/deploy/rollup/DeployRollupForUpgrade.s.sol',
+        'script/deploy/DeployRollupForUpgrade.s.sol',
         '--sig',
         'run(string)',
         outputPath,
@@ -450,7 +448,7 @@ export const deployRollupForUpgrade = async (
       {
         cwd: l1ContractsPath,
         env: {
-          // Env vars required by l1-contracts/script/deploy/rollup/RollupConfiguration.sol.
+          // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
           REGISTRY_ADDRESS: registryAddress.toString(),
           NETWORK: getActiveNetworkName(),
           ...getDeployRollupForUpgradeEnvVars(args),

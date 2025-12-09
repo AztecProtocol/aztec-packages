@@ -51,11 +51,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--existing-token <address>', 'Use an existing ERC20 for both fee and staking', parseEthereumAddress)
     .option('--create-verification-json [path]', 'Create JSON file for etherscan contract verification', false)
     .action(async options => {
-      const { deployAztecL1Contracts } = await import('./deploy_aztec_l1_contracts.js');
+      const { deployL1ContractsCmd } = await import('./deploy_l1_contracts_cmd.js');
 
       const initialValidators =
         options.validators?.split(',').map((validator: string) => EthAddress.fromString(validator)) || [];
-      await deployAztecL1Contracts(
+      await deployL1ContractsCmd(
         options.l1RpcUrls,
         options.l1ChainId,
         options.privateKey,

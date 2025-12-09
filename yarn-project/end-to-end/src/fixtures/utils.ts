@@ -13,10 +13,10 @@ import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
 import {
-  type DeployL1ContractsArgs,
-  type DeployL1ContractsReturnType,
+  type DeployAztecL1ContractsArgs,
+  type DeployAztecL1ContractsReturnType,
   FeeAssetArtifact,
-  type ForgeDeployL1ContractsReturnType,
+  type ForgeDeployAztecL1ContractsReturnType,
   NULL_KEY,
   type Operator,
   RollupContract,
@@ -118,8 +118,8 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   privateKey: Hex,
   logger: Logger,
-  args: Partial<DeployL1ContractsArgs> = {},
-): Promise<ForgeDeployL1ContractsReturnType> => {
+  args: Partial<DeployAztecL1ContractsArgs> = {},
+): Promise<ForgeDeployAztecL1ContractsReturnType> => {
   const l1Data = await deployAztecL1Contracts(
     l1RpcUrl,
     privateKey,
@@ -214,7 +214,7 @@ async function setupWithRemoteEnvironment(
 
   const l1Client = createExtendedL1Client(config.l1RpcUrls, account, foundry);
 
-  const deployL1ContractsValues: DeployL1ContractsReturnType = {
+  const deployL1ContractsValues: DeployAztecL1ContractsReturnType = {
     l1ContractAddresses,
     l1Client,
     rollupVersion,
@@ -269,7 +269,7 @@ export type SetupOptions = {
   /** Whether to enable metrics collection, if undefined, metrics collection is disabled */
   metricsPort?: number | undefined;
   /** Previously deployed contracts on L1 */
-  deployL1ContractsValues?: DeployL1ContractsReturnType;
+  deployL1ContractsValues?: DeployAztecL1ContractsReturnType;
   /** Whether to skip deployment of protocol contracts (auth registry, etc) */
   skipProtocolContracts?: boolean;
   /** Initial fee juice for default accounts */
@@ -323,7 +323,7 @@ export type EndToEndContext = {
   /** A client to the sequencer service (undefined if connected to remote environment) */
   sequencer: SequencerClient | undefined;
   /** Return values from deployAztecL1Contracts function. */
-  deployL1ContractsValues: DeployL1ContractsReturnType;
+  deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   /** The Aztec Node configuration. */
   config: AztecNodeConfig;
   /** The data for the initial funded accounts. */
@@ -477,7 +477,7 @@ export async function setup(
 
     // Deploy L1 contracts using either forge or TypeScript deployment
     logger.info('Using TypeScript deployment for L1 contracts');
-    const deployL1ContractsValues: ForgeDeployL1ContractsReturnType = await setupL1Contracts(
+    const deployL1ContractsValues: ForgeDeployAztecL1ContractsReturnType = await setupL1Contracts(
       config.l1RpcUrls[0],
       publisherPrivKeyHex,
       logger,

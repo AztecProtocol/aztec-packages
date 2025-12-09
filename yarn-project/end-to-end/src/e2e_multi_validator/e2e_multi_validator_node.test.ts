@@ -9,7 +9,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import {
-  type DeployL1ContractsReturnType,
+  type DeployAztecL1ContractsReturnType,
   RollupContract,
   createExtendedL1Client,
   getL1ContractsConfigEnvVars,
@@ -40,7 +40,7 @@ describe('e2e_multi_validator_node', () => {
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
   let logger: Logger;
-  let deployL1ContractsValues: DeployL1ContractsReturnType;
+  let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   let rollup: RollupContract;
   let cheatCodes: CheatCodes;
   const artifact = StatefulTestContractArtifact;

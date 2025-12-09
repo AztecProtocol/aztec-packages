@@ -7,7 +7,7 @@ import {
 } from '@aztec/aztec.js/abi';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import {
-  type DeployL1ContractsReturnType,
+  type DeployAztecL1ContractsReturnType,
   type L1ContractsConfig,
   type Operator,
   RollupContract,
@@ -20,7 +20,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
-import type { HDAccount, PrivateKeyAccount } from 'viem';
+import type { HDAccount, Hex, PrivateKeyAccount } from 'viem';
 
 import { encodeArgs } from './encoding.js';
 
@@ -60,7 +60,7 @@ export async function deployAztecContracts(
   realVerifier: boolean,
   createVerificationJson: string | false,
   debugLogger: Logger,
-): Promise<DeployL1ContractsReturnType> {
+): Promise<DeployAztecL1ContractsReturnType> {
   const { createEthereumChain, deployAztecL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
@@ -77,24 +77,16 @@ export async function deployAztecContracts(
 
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
-  const result = await deployAztecL1Contracts(
-    chain.rpcUrls,
-    account,
-    chain.chainInfo,
-    {
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractsHash,
-      genesisArchiveRoot,
-      salt,
-      initialValidators,
-      feeJuicePortalInitialBalance,
-      realVerifier,
-      existingTokenAddress: existingToken,
-      ...config,
-    },
-    config,
-    createVerificationJson,
-  );
+  const result = await deployAztecL1Contracts(chain.rpcUrls[0], privateKey as Hex, debugLogger, {
+    vkTreeRoot: getVKTreeRoot(),
+    protocolContractsHash,
+    genesisArchiveRoot,
+    initialValidators,
+    feeJuicePortalInitialBalance,
+    realVerifier,
+    existingTokenAddress: existingToken,
+    ...config,
+  });
 
   return result;
 }
@@ -102,28 +94,29 @@ export async function deployAztecContracts(
 export async function deployNewRollupContracts(
   registryAddress: EthAddress,
   rpcUrls: string[],
-  chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
   mnemonicIndex: number,
-  salt: number | undefined,
   initialValidators: Operator[],
   genesisArchiveRoot: Fr,
   feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
   realVerifier: boolean,
-  createVerificationJson: string | false,
   logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
-  const { createEthereumChain, deployRollupForUpgrade, createExtendedL1Client } = await import('@aztec/ethereum');
+  const { deployRollupForUpgrade } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
-  const account = !privateKey
-    ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
-    : privateKeyToAccount(addLeadingHex(privateKey));
-  const chain = createEthereumChain(rpcUrls, chainId);
-  const client = createExtendedL1Client(rpcUrls, account, chain.chainInfo, undefined, mnemonicIndex);
+  let account: HDAccount | PrivateKeyAccount;
+  if (privateKey) {
+    account = privateKeyToAccount(addLeadingHex(privateKey));
+  } else {
+    account = mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex });
+    const privateKeyBuf = account.getHdKey().privateKey;
+    const privateKeyHex = Buffer.from(privateKeyBuf!).toString('hex');
+    privateKey = `0x${privateKeyHex}`;
+  }
 
   if (!initialValidators || initialValidators.length === 0) {
     // initialize the new rollup with Amin's validator address.
@@ -142,9 +135,11 @@ export async function deployNewRollupContracts(
   }
 
   const { rollup, slashFactoryAddress } = await deployRollupForUpgrade(
-    client,
+    privateKey as Hex,
+    rpcUrls[0],
+    registryAddress,
+    logger,
     {
-      salt,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractsHash,
       genesisArchiveRoot,
@@ -153,11 +148,9 @@ export async function deployNewRollupContracts(
       realVerifier,
       ...config,
     },
-    registryAddress,
-    logger,
   );
 
-  return { rollup, slashFactoryAddress };
+  return { rollup, slashFactoryAddress: EthAddress.fromString(slashFactoryAddress!) };
 }
 
 /**

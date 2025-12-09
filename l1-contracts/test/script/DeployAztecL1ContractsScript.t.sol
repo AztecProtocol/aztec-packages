@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 
-import {DeployL1Contracts} from "../../script/deploy/rollup/DeployL1Contracts.s.sol";
+import {DeployAztecL1Contracts} from "../../script/deploy/DeployAztecL1Contracts.s.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
@@ -18,8 +18,8 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 /**
- * @title DeployL1ContractsScriptTest
- * @notice Tests for the DeployL1Contracts.s.sol script with env var config
+ * @title DeployAztecL1ContractsScriptTest
+ * @notice Tests for the DeployAztecL1Contracts.s.sol script with env var config
  * @dev This test validates:
  *      1. The script deploys all contracts correctly with various env var configs
  *      2. The JSON output file is written with correct addresses
@@ -28,7 +28,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
  * NOTE: Each test uses a unique output file in .deployments/ to avoid race conditions.
  * Tests can safely run in parallel.
  */
-contract DeployL1ContractsScriptTest is Test {
+contract DeployAztecL1ContractsScriptTest is Test {
     using stdJson for string;
 
     // Get a unique output path for each test to avoid race conditions when tests run in parallel
@@ -48,7 +48,7 @@ contract DeployL1ContractsScriptTest is Test {
      * @notice Test deployment with custom GSE thresholds
      */
     function test_DeployWithCustomGSEThresholds() public {
-        DeployL1Contracts deployScript = new DeployL1Contracts();
+        DeployAztecL1Contracts deployScript = new DeployAztecL1Contracts();
         string memory outputPath = _getOutputPath();
         // Arrange: custom GSE thresholds via env vars
         vm.setEnv("AZTEC_ACTIVATION_THRESHOLD", "200000000000000000000");
@@ -71,7 +71,7 @@ contract DeployL1ContractsScriptTest is Test {
      * @notice Test that ownership is correctly transferred to governance
      */
     function test_OwnershipTransferredToGovernance() public {
-        DeployL1Contracts deployScript = new DeployL1Contracts();
+        DeployAztecL1Contracts deployScript = new DeployAztecL1Contracts();
         string memory outputPath = _getOutputPath();
         // Act
         deployScript.run(outputPath);

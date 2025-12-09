@@ -11,10 +11,10 @@ import {TestConstants} from "../harnesses/TestConstants.sol";
 import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 
 /**
- * @title DeployL1ContractsTest
+ * @title DeployAztecL1ContractsTest
  * @notice Tests for the L1 contract deployment using RollupBuilder
  * @dev This test verifies that the RollupBuilder correctly deploys all L1 contracts
- *      and that they are properly configured. The DeployL1Contracts.s.sol script
+ *      and that they are properly configured. The DeployAztecL1Contracts.s.sol script
  *      uses the same RollupBuilder mechanism, so these tests validate the underlying
  *      deployment logic.
  *
@@ -22,7 +22,7 @@ import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
  *      vm.broadcast/vm.prank incompatibility. The script should be tested
  *      by running it against a local network (e.g., anvil).
  */
-contract DeployL1ContractsTest is Test {
+contract DeployAztecL1ContractsTest is Test {
   address public deployer;
 
   function setUp() public {

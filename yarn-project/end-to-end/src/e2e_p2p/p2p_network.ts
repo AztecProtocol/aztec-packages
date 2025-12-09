@@ -446,7 +446,7 @@ export class P2PNetworkTest {
     slashFactory: SlashFactoryContract;
   }> {
     if (!this.ctx.deployL1ContractsValues) {
-      throw new Error('DeployL1ContractsValues not set');
+      throw new Error('DeployAztecL1ContractsValues not set');
     }
 
     const rollup = new RollupContract(

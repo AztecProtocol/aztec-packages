@@ -6,7 +6,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
 import {
-  type DeployL1ContractsReturnType,
+  type DeployAztecL1ContractsReturnType,
   type ExtendedViemWalletClient,
   RollupContract,
   deployL1Contract,
@@ -49,7 +49,7 @@ export type UniswapSetupContext = {
   /** The sponsor wallet. */
   sponsorAddress: AztecAddress;
   /**  */
-  deployL1ContractsValues: DeployL1ContractsReturnType;
+  deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   /** Cheat codes instance. */
   cheatCodes: CheatCodes;
 };
@@ -79,7 +79,7 @@ export const uniswapL1L2TestSuite = (
     let daiCrossChainHarness: CrossChainTestHarness;
     let wethCrossChainHarness: CrossChainTestHarness;
 
-    let deployL1ContractsValues: DeployL1ContractsReturnType;
+    let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
     let rollup: RollupContract;
     let uniswapPortal: GetContractReturnType<typeof UniswapPortalAbi, ExtendedViemWalletClient>;
     let uniswapPortalAddress: EthAddress;

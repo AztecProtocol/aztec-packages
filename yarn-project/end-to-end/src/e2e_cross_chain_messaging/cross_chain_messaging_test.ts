@@ -4,8 +4,8 @@ import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
 import {
-  type DeployL1ContractsArgs,
-  type DeployL1ContractsReturnType,
+  type DeployAztecL1ContractsArgs,
+  type DeployAztecL1ContractsReturnType,
   type ExtendedViemWalletClient,
   createExtendedL1Client,
   deployL1Contract,
@@ -54,9 +54,13 @@ export class CrossChainMessagingTest {
   outbox!: any; // GetContractReturnType<typeof OutboxAbi> | undefined;
   cheatCodes!: CheatCodes;
 
-  deployL1ContractsValues!: DeployL1ContractsReturnType;
+  deployL1ContractsValues!: DeployAztecL1ContractsReturnType;
 
-  constructor(testName: string, opts: SetupOptions = {}, deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {}) {
+  constructor(
+    testName: string,
+    opts: SetupOptions = {},
+    deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
+  ) {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
     // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
     // Forge deployment advances L1 time significantly, breaking tests that depend on slot timing.

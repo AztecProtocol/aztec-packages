@@ -12,7 +12,7 @@ import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
-import { type DeployL1ContractsReturnType, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
+import { type DeployAztecL1ContractsReturnType, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import { deployL1Contract } from '../deploy_l1_contract.js';
 import { L1TxUtils, createL1TxUtilsFromViemWallet } from '../l1_tx_utils/index.js';
 import { startAnvil } from '../test/start_anvil.js';
@@ -26,7 +26,7 @@ describe('Multicall3', () => {
   let privateKey: PrivateKeyAccount;
   let logger: Logger;
   let walletClient: ExtendedViemWalletClient;
-  let deployed: DeployL1ContractsReturnType;
+  let deployed: DeployAztecL1ContractsReturnType;
   let tokenContract: GetContractReturnType<typeof TestERC20Abi, ExtendedViemWalletClient>;
   let tokenAddress: `0x${string}`;
   let l1TxUtils: L1TxUtils;

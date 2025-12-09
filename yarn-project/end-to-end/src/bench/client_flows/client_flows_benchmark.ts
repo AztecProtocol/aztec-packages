@@ -5,7 +5,12 @@ import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { CheatCodes } from '@aztec/aztec/testing';
-import { type DeployL1ContractsArgs, RollupContract, createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
+import {
+  type DeployAztecL1ContractsArgs,
+  RollupContract,
+  createExtendedL1Client,
+  deployL1Contract,
+} from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -123,7 +128,7 @@ export class ClientFlowsBenchmark {
 
   private proxyLogger: ProxyLogger;
 
-  constructor(testName?: string, setupOptions: Partial<SetupOptions & DeployL1ContractsArgs> = {}) {
+  constructor(testName?: string, setupOptions: Partial<SetupOptions & DeployAztecL1ContractsArgs> = {}) {
     this.logger = createLogger(`bench:client_flows${testName ? `:${testName}` : ''}`);
     this.snapshotManager = createSnapshotManager(
       `bench_client_flows${testName ? `/${testName}` : ''}`,
