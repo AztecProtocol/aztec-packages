@@ -929,7 +929,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex ? BlockNumber(InboxLeaf.l2BlockFromIndex(messageIndex)) : undefined;
+    return messageIndex
+      ? BlockNumber.fromCheckpointNumber(InboxLeaf.checkpointNumberFromIndex(messageIndex))
+      : undefined;
   }
 
   /**

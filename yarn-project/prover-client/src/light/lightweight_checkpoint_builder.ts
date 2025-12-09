@@ -81,7 +81,8 @@ export class LightweightCheckpointBuilder {
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
     this.lastArchives.push(newArchive);
 
-    const block = new L2BlockNew(newArchive, header, body);
+    const indexWithinCheckpoint = this.blocks.length;
+    const block = new L2BlockNew(newArchive, header, body, this.checkpointNumber, indexWithinCheckpoint);
     this.blocks.push(block);
 
     await this.spongeBlob.absorb(blockBlobFields);

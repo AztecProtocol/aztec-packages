@@ -63,7 +63,7 @@ import {
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { type BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -594,7 +594,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     // Log stats for messages retrieved (if any).
     if (messageCount > 0) {
       this.log.info(
-        `Retrieved ${messageCount} new L1 to L2 messages up to message with index ${lastMessage?.index} for L2 block ${lastMessage?.l2BlockNumber}`,
+        `Retrieved ${messageCount} new L1 to L2 messages up to message with index ${lastMessage?.index} for checkpoint ${lastMessage?.checkpointNumber}`,
         { lastMessage, messageCount },
       );
     }
@@ -916,6 +916,25 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
           continue;
         }
 
+        // Check the inHash of the checkpoint against the l1->l2 messages.
+        // The messages should've been synced up to the currentL1BlockNumber and must be available for the published
+        // checkpoints we just retrieved.
+        const l1ToL2Messages = await this.getL1ToL2Messages(published.checkpoint.number);
+        const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
+        const publishedInHash = published.checkpoint.header.contentCommitment.inHash;
+        if (!computedInHash.equals(publishedInHash)) {
+          this.log.fatal(`Mismatch inHash for checkpoint ${published.checkpoint.number}`, {
+            checkpointHash: published.checkpoint.hash(),
+            l1BlockNumber: published.l1.blockNumber,
+            computedInHash,
+            publishedInHash,
+          });
+          // Throwing an error since this is most likely caused by a bug.
+          throw new Error(
+            `Mismatch inHash for checkpoint ${published.checkpoint.number}. Expected ${computedInHash} but got ${publishedInHash}`,
+          );
+        }
+
         validCheckpoints.push(published);
         this.log.debug(
           `Ingesting new checkpoint ${published.checkpoint.number} with ${published.checkpoint.blocks.length} blocks`,
@@ -969,7 +988,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         });
       }
       lastRetrievedCheckpoint = validCheckpoints.at(-1) ?? lastRetrievedCheckpoint;
-      lastL1BlockWithCheckpoint = publishedCheckpoints.at(-1)?.l1.blockNumber ?? lastL1BlockWithCheckpoint;
+      lastL1BlockWithCheckpoint = retrievedCheckpoints.at(-1)?.l1.blockNumber ?? lastL1BlockWithCheckpoint;
     } while (searchEndBlock < currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.
@@ -1247,12 +1266,6 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return blocks.map(b => b.toCheckpoint());
   }
 
-  public getL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    // TODO: Create dedicated api for checkpoints.
-    // This only works when we have one block per checkpoint.
-    return this.getL1ToL2Messages(BlockNumber.fromCheckpointNumber(checkpointNumber));
-  }
-
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
@@ -1404,12 +1417,12 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   }
 
   /**
-   * Gets L1 to L2 message (to be) included in a given block.
-   * @param blockNumber - L2 block number to get messages for.
+   * Gets L1 to L2 message (to be) included in a given checkpoint.
+   * @param checkpointNumber - Checkpoint number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: BlockNumber): Promise<Fr[]> {
-    return this.store.getL1ToL2Messages(blockNumber);
+  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    return this.store.getL1ToL2Messages(checkpointNumber);
   }
 
   /**
@@ -1500,11 +1513,12 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       throw new Error(`Target L2 block ${targetL2BlockNumber} not found`);
     }
     const targetL1BlockNumber = targetL2Block.l1.blockNumber;
+    const targetCheckpointNumber = CheckpointNumber.fromBlockNumber(targetL2BlockNumber);
     const targetL1BlockHash = await this.getL1BlockHash(targetL1BlockNumber);
     this.log.info(`Unwinding ${blocksToUnwind} blocks from L2 block ${currentL2Block}`);
     await this.store.unwindBlocks(BlockNumber(currentL2Block), blocksToUnwind);
-    this.log.info(`Unwinding L1 to L2 messages to ${targetL2BlockNumber}`);
-    await this.store.rollbackL1ToL2MessagesToL2Block(targetL2BlockNumber);
+    this.log.info(`Unwinding L1 to L2 messages to checkpoint ${targetCheckpointNumber}`);
+    await this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
     await this.store.setBlockSynchedL1BlockNumber(targetL1BlockNumber);
     await this.store.setMessageSynchedL1Block({ l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash });
@@ -1798,8 +1812,8 @@ export class ArchiverStoreHelper
   addL1ToL2Messages(messages: InboxMessage[]): Promise<void> {
     return this.store.addL1ToL2Messages(messages);
   }
-  getL1ToL2Messages(blockNumber: BlockNumber): Promise<Fr[]> {
-    return this.store.getL1ToL2Messages(blockNumber);
+  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    return this.store.getL1ToL2Messages(checkpointNumber);
   }
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.store.getL1ToL2MessageIndex(l1ToL2Message);
@@ -1858,8 +1872,8 @@ export class ArchiverStoreHelper
   estimateSize(): Promise<{ mappingSize: number; physicalFileSize: number; actualSize: number; numItems: number }> {
     return this.store.estimateSize();
   }
-  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: BlockNumber): Promise<void> {
-    return this.store.rollbackL1ToL2MessagesToL2Block(targetBlockNumber);
+  rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
+    return this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
   }
   iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {
     return this.store.iterateL1ToL2Messages(range);
