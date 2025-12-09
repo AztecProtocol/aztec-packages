@@ -16,6 +16,11 @@ namespace acir_format {
 using namespace bb;
 using namespace bb::stdlib;
 
+/// ========== ACIR TO BARRETENBERG ========== ///
+
+/// The functions below are helpers for constructing in-circuit representations of the witnesses passed from ACIR to
+/// barretenberg
+
 /**
  * @brief Generate builder variables from witness indices. This function is useful when receiving the indices of the
  * witness from ACIR.
@@ -26,15 +31,7 @@ using namespace bb::stdlib;
  * @return std::vector<stdlib::field_t<Builder>>
  */
 template <typename Builder>
-static std::vector<field_t<Builder>> fields_from_witnesses(Builder& builder, std::span<const uint32_t> witness_indices)
-{
-    std::vector<field_t<Builder>> result;
-    result.reserve(witness_indices.size());
-    for (const auto& idx : witness_indices) {
-        result.emplace_back(field_t<Builder>::from_witness_index(&builder, idx));
-    }
-    return result;
-}
+std::vector<field_t<Builder>> fields_from_witnesses(Builder& builder, std::span<const uint32_t> witness_indices);
 
 /**
  * @brief Convert a vector of field_t elements to a byte_array enforcing each element to be a boolean
@@ -44,19 +41,42 @@ static std::vector<field_t<Builder>> fields_from_witnesses(Builder& builder, std
  * @param fields
  * @return byte_array<Builder>
  */
-template <typename Builder> byte_array<Builder> fields_to_bytes(Builder& builder, std::vector<field_t<Builder>>& fields)
-{
-    byte_array<Builder> result = byte_array<Builder>::constant_padding(&builder, /*length*/ 0);
-    for (auto& field : fields) {
-        // Construct byte array of length 1 from the field element
-        // The constructor enforces that `field` fits in one byte
-        byte_array<Builder> byte_to_append(field, /*num_bytes=*/1);
-        // Append the new byte to the result
-        result.write(byte_to_append);
-    }
+template <typename Builder>
+byte_array<Builder> fields_to_bytes(Builder& builder, std::vector<field_t<Builder>>& fields);
 
-    return result;
-};
+/**
+ * @brief Reconstruct a barretenberg style proof from an ACIR style proof + public inputs
+ *
+ * @details In barretenberg, proofs start with the public inputs. ACIR represents proofs in the format
+ * (public_inputs, proof_without_public_inputs). This function stitches together the indices for the public inputs
+ * with those for the proof to transform ACIR-style proofs into barretenberg-style proofs.
+ *
+ * @param proof_in A proof stripped of its public inputs
+ * @param public_inputs The public inputs to be reinserted into the proof
+ * @return std::vector<uint32_t> The witness indices of the complete proof
+ */
+std::vector<uint32_t> add_public_inputs_to_proof(const std::vector<uint32_t>& proof_in,
+                                                 const std::vector<uint32_t>& public_inputs);
+
+/**
+ * @brief Given recursion data (proof, key, key hash, predicate and the number of public inputs) and a proof type,
+ * populate a witness vector with these values and return the associated recursion constraint.
+ *
+ * @details The proof is assumed to be barretenberg-style: containing all the public inputs at its start. The variable
+ * num_public_inputs_to_extract is used to extract the ACIR-style public inputs.
+ *
+ */
+RecursionConstraint recursion_data_to_recursion_constraint(std::vector<bb::fr>& witness,
+                                                           const std::vector<bb::fr>& proof,
+                                                           const std::vector<bb::fr>& key,
+                                                           const bb::fr& key_hash,
+                                                           const bb::fr& predicate,
+                                                           const size_t num_public_inputs_to_extract,
+                                                           const uint32_t proof_type);
+
+/// ========== TESTING UTILITIES ========== ///
+
+/// The functions below are helpers for handling witnesses in testing situations
 
 /**
  * @brief Append values to a witness vector and track their indices.
@@ -89,7 +109,7 @@ template <typename T> std::vector<uint32_t> add_to_witness_and_track_indices(Wit
     }
 
     return indices;
-};
+}
 
 /**
  * @brief Add a single value to the witness vector and track its index.
@@ -112,42 +132,17 @@ std::array<uint32_t, N> add_to_witness_and_track_indices(WitnessVector& witness,
     std::array<uint32_t, N> indices;
     std::ranges::copy(tracked_indices, indices.begin());
     return indices;
-};
+}
+
+/// ========== WRITE_VK UTILITIES ========== ///
+
+/// The functions below are helper for write_vk situations
 
 /**
- * @brief Populate fields in the builder with the given values. To be used in mocking situations.
+ * @brief Populate fields in the builder with the given values.
  *
  */
 template <typename Builder>
-void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fields, const std::vector<bb::fr>& values)
-{
-    for (auto [field, value] : zip_view(fields, values)) {
-        builder.set_variable(field.get_witness_index(), value);
-    }
-};
-
-/**
- * @brief Reconstruct a barretenberg style proof from an ACIR style proof + public inputs
- *
- * @details In barretenberg, proofs start with the public inputs. ACIR represents proofs in the format
- * (public_inputs, proof_without_public_inputs). This function stitches together the indices for the public inputs
- * with those for the proof to transform ACIR-style proofs into barretenberg-style proofs.
- *
- * @param proof_in A proof stripped of its public inputs
- * @param public_inputs The public inputs to be reinserted into the proof
- * @return std::vector<uint32_t> The witness indices of the complete proof
- */
-inline std::vector<uint32_t> add_public_inputs_to_proof(const std::vector<uint32_t>& proof_in,
-                                                        const std::vector<uint32_t>& public_inputs)
-{
-    std::vector<uint32_t> proof;
-    proof.reserve(proof_in.size() + public_inputs.size());
-
-    // Construct the complete proof as the concatenation {public_inputs | proof_in}
-    proof.insert(proof.end(), public_inputs.begin(), public_inputs.end());
-    proof.insert(proof.end(), proof_in.begin(), proof_in.end());
-
-    return proof;
-}
+void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fields, const std::vector<bb::fr>& values);
 
 } // namespace acir_format
