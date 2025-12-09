@@ -88,17 +88,21 @@ Tests in `databus_lookup_relation_consistency.test.cpp` verify: relation arithme
 
 ## 5. HyperNova Decider PCS ✅ VERIFIED
 
-**Location**: `hypernova_decider_verifier.cpp:12-43`, `shplemini.hpp:231-288`
+**Location**: `hypernova_decider_verifier.cpp:12-43`, `shplemini.hpp:231-288`, `gemini_impl.hpp:63-65`
 
 **Verified Properties**:
 - [x] Decider manifest pinned (5 rounds)
 - [x] Tampering tests verify detection of modified accumulator
 - [x] Batching challenges derived from transcript via Fiat-Shamir:
-  - `rho` (Gemini batching) at `shplemini.hpp:231`
+  - `rho` (Gemini batching) at `gemini_impl.hpp:63`, `shplemini.hpp:231`
   - `Gemini:r` (evaluation point) at `shplemini.hpp:238`
   - `Shplonk:nu` (Shplonk batching) at `shplemini.hpp:274`
   - `Shplonk:z` (opening point) at `shplemini.hpp:288`
 - [x] Accumulated evaluations computed by verifier during folding (not claimed by prover), then verified by PCS
+- [x] **Edge case (1 unshifted, 1 shifted claim)**: ρ properly separates claims
+  - Prover: `A₀ = non_shifted × ρ⁰ + shifted.shifted() × ρ¹` (`gemini.hpp:188-197`)
+  - Verifier: `batched_eval = non_shifted_eval × ρ⁰ + shifted_eval × ρ¹` (`claim_batcher.hpp:157-164`)
+  - ρ derived before fold commitments sent, so prover cannot manipulate
 
 ---
 
