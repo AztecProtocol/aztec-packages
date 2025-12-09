@@ -55,9 +55,6 @@ template <typename Flavor> class TranslatorVerifier_ {
         bool consistency_checked;
     };
 
-    // Native VK type for recursive constructor
-    using NativeVerificationKey = TranslatorFlavor::VerificationKey;
-
     // Input type for translation data: BF for recursive, uint256_t for native evaluation_input_x/accumulated_result
     // Note: batching_challenge_v is always BF since it's an element of the BN254 base field
     using EvaluationInput = std::conditional_t<IsRecursive, BF, uint256_t>;
@@ -72,42 +69,26 @@ template <typename Flavor> class TranslatorVerifier_ {
     std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
 
     /**
-     * @brief Constructor for native verification
-     * @details Creates a default-constructed verification key (TranslatorFlavor VK is constant)
+     * @brief Unified constructor for both native and recursive verification
+     * @details For recursive case, extracts builder from proof elements via get_context().
+     * TranslatorFlavor VK is constant, so it's default-constructed.
      */
-    TranslatorVerifier_(const std::shared_ptr<Transcript>& transcript)
-        requires(!IsRecursive)
-        : key(std::make_shared<VerificationKey>())
-        , vk_hash(key->hash())
-        , transcript(transcript)
-    {}
-
-    /**
-     * @brief Constructor for native verification with explicit VK
-     */
-    TranslatorVerifier_(const std::shared_ptr<VerificationKey>& verifier_key,
-                        const std::shared_ptr<Transcript>& transcript)
-        requires(!IsRecursive)
-        : key(verifier_key)
-        , vk_hash(key->hash())
-        , transcript(transcript)
-    {}
-
-    /**
-     * @brief Constructor for recursive verification
-     * @details Creates stdlib verification key from native VK, fixes witness values
-     */
-    TranslatorVerifier_(Builder* builder,
-                        const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-                        const std::shared_ptr<Transcript>& transcript)
-        requires(IsRecursive)
-        : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
-        , vk_hash(stdlib::witness_t<Builder>(builder, native_verifier_key->hash()))
-        , transcript(transcript)
-        , builder(builder)
+    TranslatorVerifier_(const std::shared_ptr<Transcript>& transcript, const Proof& proof)
+        : transcript(transcript)
     {
-        key->fix_witness();    // fixed to a constant
-        vk_hash.fix_witness(); // fixed to a constant
+        // Translator VK is constant
+        auto native_vk = std::make_shared<TranslatorFlavor::VerificationKey>();
+        if constexpr (IsRecursive) {
+            // Extract builder from proof - safe since transcript cannot hash non-witness elements
+            builder = proof.back().get_context();
+            key = std::make_shared<VerificationKey>(builder, native_vk);
+            vk_hash = stdlib::witness_t<Builder>(builder, native_vk->hash());
+            key->fix_witness();
+            vk_hash.fix_witness();
+        } else {
+            key = native_vk;
+            vk_hash = native_vk->hash();
+        }
     }
 
     /**

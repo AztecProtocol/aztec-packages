@@ -82,13 +82,6 @@ class TranslatorTests : public ::testing::Test {
         // Generate proof
         auto proof = prover.construct_proof();
 
-        // Create verifier
-        auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
-        TranslatorVerifier verifier(verification_key, verifier_transcript);
-
-        // Get accumulated_result from the prover
-        uint256_t accumulated_result = prover.get_accumulated_result();
-
         // Commit to op queue wires
         std::array<TranslatorFlavor::Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
         op_queue_commitments[0] =
@@ -99,6 +92,12 @@ class TranslatorTests : public ::testing::Test {
             proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.x_hi_z_1);
         op_queue_commitments[3] =
             proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.y_lo_z_2);
+
+        // Get accumulated_result from the prover
+        uint256_t accumulated_result = prover.get_accumulated_result();
+
+        // Create verifier
+        TranslatorVerifier verifier(verifier_transcript, proof);
 
         // Verify proof: get verification result and check all components
         auto result = verifier.verify_proof(

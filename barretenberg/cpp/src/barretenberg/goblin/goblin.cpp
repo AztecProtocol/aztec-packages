@@ -121,10 +121,10 @@ bool Goblin::verify(const GoblinProof& proof,
     bool eccvm_verified = ipa_verified && eccvm_verifier.sumcheck_verified && eccvm_verifier.consistency_checked &&
                           eccvm_verifier.translation_masking_consistency_checked;
 
-    TranslatorVerifier translator_verifier(transcript);
-
     // Get translation data from ECCVM verifier to pass to Translator verifier
     TranslatorInputData translator_input = eccvm_verifier.get_translator_input_data();
+
+    TranslatorVerifier translator_verifier(transcript, proof.translator_proof);
     // Pass merge commitments as op queue wire commitments (they represent the same data)
     auto translator_result = translator_verifier.verify_proof(proof.translator_proof,
                                                               translator_input.evaluation_challenge_x,

@@ -172,15 +172,13 @@ class TranslatorRecursiveTests : public ::testing::Test {
         stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
         auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
 
-        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key->proving_key);
-        RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
-
         // Create recursive verifier inputs
         auto recursive_inputs =
             create_recursive_verifier_inputs(&outer_circuit, prover, evaluation_challenge_x, batching_challenge_v);
 
         // Verify proof recursively
         stdlib::Proof<OuterBuilder> stdlib_proof_for_verifier(outer_circuit, proof);
+        RecursiveVerifier verifier{ transcript, stdlib_proof_for_verifier };
         auto recursive_result = verifier.verify_proof(stdlib_proof_for_verifier,
                                                       recursive_inputs.evaluation_challenge_x,
                                                       recursive_inputs.batching_challenge_v,
@@ -193,7 +191,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Verify with native verifier and compare results
         auto native_verifier_transcript = std::make_shared<Transcript>(proof);
-        InnerVerifier native_verifier(verification_key, native_verifier_transcript);
+        InnerVerifier native_verifier(native_verifier_transcript, proof);
         auto native_result = native_verifier.verify_proof(proof,
                                                           evaluation_challenge_x,
                                                           batching_challenge_v,
@@ -207,12 +205,12 @@ class TranslatorRecursiveTests : public ::testing::Test {
                                                          recursive_result.pairing_points.P1.get_value());
         EXPECT_EQ(recursive_verified, native_verified);
 
-        // Verify VK consistency
+        // Verify VK consistency between recursive and native verifiers
         EXPECT_EQ(static_cast<uint64_t>(verifier.key->log_circuit_size.get_value()),
-                  verification_key->log_circuit_size);
+                  native_verifier.key->log_circuit_size);
         EXPECT_EQ(static_cast<uint64_t>(verifier.key->num_public_inputs.get_value()),
-                  verification_key->num_public_inputs);
-        for (auto [vk_poly, native_vk_poly] : zip_view(verifier.key->get_all(), verification_key->get_all())) {
+                  native_verifier.key->num_public_inputs);
+        for (auto [vk_poly, native_vk_poly] : zip_view(verifier.key->get_all(), native_verifier.key->get_all())) {
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
 

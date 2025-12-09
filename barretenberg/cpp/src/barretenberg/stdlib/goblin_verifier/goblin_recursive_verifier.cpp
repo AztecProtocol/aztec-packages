@@ -32,8 +32,9 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinStdlib
 
     // Run the Translator recursive verifier
     // Get translation data from ECCVM verifier
-    TranslatorVerifier translator_verifier{ builder, verification_keys.translator_verification_key, transcript };
     auto translator_input = eccvm_verifier.get_translator_input_data();
+
+    TranslatorVerifier translator_verifier{ transcript, proof.translator_proof };
     // Pass merge commitments as op queue wire commitments (they represent the same data)
     auto translator_result = translator_verifier.verify_proof(proof.translator_proof,
                                                               translator_input.evaluation_challenge_x,
