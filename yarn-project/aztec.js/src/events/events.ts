@@ -82,7 +82,7 @@ export async function getDecodedPublicEvents<T>(
   node: AztecNode,
   eventMetadataDef: EventMetadataDefinition,
   filter: EventFilter = {},
-): Promise<T[]> {
+): Promise<Event<T>[]> {
   const sanitizedFilter = sanitizeEventFilter(filter);
 
   const { logs } = await node.getPublicLogs({
@@ -92,7 +92,7 @@ export async function getDecodedPublicEvents<T>(
     contractAddress: sanitizedFilter.contractAddress,
   });
 
-  const decodedEvents = logs
+  const decodedEvents: Event<T>[] = logs
     .map(log => {
       // +1 for the event selector
       const expectedLength = eventMetadataDef.fieldNames.length + 1;
@@ -108,9 +108,12 @@ export async function getDecodedPublicEvents<T>(
         return undefined;
       }
 
-      return decodeFromAbi([eventMetadataDef.abiType], log.log.fields) as T;
+      return {
+        event: decodeFromAbi([eventMetadataDef.abiType], log.log.fields) as T,
+        metadata: {},
+      };
     })
-    .filter(log => log !== undefined) as T[];
+    .filter(log => log !== undefined);
 
   return decodedEvents;
 }
