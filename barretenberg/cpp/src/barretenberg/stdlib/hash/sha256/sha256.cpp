@@ -37,9 +37,6 @@ using namespace bb::plookup;
  *
  * @param input The 32-bit field element to convert (typically W[i-15] or W[i-2])
  * @return sparse_witness_limbs
- *
- * @see extend_witness() lines 71-91 for how sparse_limbs and rotated_limbs are used together
- * @see sha256.hpp left_multipliers and right_multipliers for rotation scaling factors
  */
 template <typename Builder>
 SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const field_t<Builder>& input)
@@ -55,7 +52,7 @@ SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const fie
         lookup[ColumnIdx::C2][2],
         lookup[ColumnIdx::C2][3],
     };
-    result.rotated_limbs = std::array<field_pt, 4>{
+    result.rotated_limb_corrections = std::array<field_pt, 4>{
         lookup[ColumnIdx::C3][0],
         lookup[ColumnIdx::C3][1],
         lookup[ColumnIdx::C3][2],
@@ -106,14 +103,19 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             w_right.sparse_limbs[3] * right_multipliers[3],
         };
 
-        // AUDITTODO: explain where the fr(4) scaling comes from here
+        // Compute σ₀ in sparse form: each sparse digit holds the sum of contributions from the three
+        // rotation/shift operations (digit value in {0,1,2,3}).
+        // The fr(4) scaling positions σ₀'s contribution in the upper 2 bits of each 4-bit digit slot:
+        // when combined with σ₁ (unscaled, in lower 2 bits), each digit becomes 4*σ₀_digit + σ₁_digit ∈ [0,15].
+        // This allows the SHA256_WITNESS_OUTPUT normalization table to jointly extract XOR(σ₀, σ₁).
         const field_pt left_xor_sparse =
-            left[0].add_two(left[1], left[2]).add_two(left[3], w_left.rotated_limbs[1]) * fr(4);
+            left[0].add_two(left[1], left[2]).add_two(left[3], w_left.rotated_limb_corrections[1]) * fr(4);
 
+        // Combine σ₁ contributions with the scaled σ₀ result
         const field_pt xor_result_sparse = right[0]
                                                .add_two(right[1], right[2])
-                                               .add_two(right[3], w_right.rotated_limbs[2])
-                                               .add_two(w_right.rotated_limbs[3], left_xor_sparse);
+                                               .add_two(right[3], w_right.rotated_limb_corrections[2])
+                                               .add_two(w_right.rotated_limb_corrections[3], left_xor_sparse);
 
         field_pt xor_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_WITNESS_OUTPUT, xor_result_sparse);
 

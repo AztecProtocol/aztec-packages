@@ -25,14 +25,20 @@ template <typename Builder> class SHA256 {
     static constexpr fr base{ 16 };
 
     /**
-     * @brief Multipliers for computing σ₀ and σ₁ during message schedule extension
+     * @brief Multipliers for computing σ₀ during message schedule extension
+     *
+     * σ₀(x) = (x >>> 7) ⊕ (x >>> 18) ⊕ (x >> 3)
+     *
+     * These multipliers handle rotations that keep the limb within the 32-bit word boundary.
+     * Rotations that split a limb across the wrap boundary (i.e., rot7 for limb 1) cannot be
+     * represented as a simple scalar and are instead handled via rotated_limb_corrections from the lookup table.
      *
      * limb 0) bits [0..2]; pos_0 = 0
      *   - rotation by 7: 16^(-7 + pos_0 mod 32) = 16^(32 - 7 + 0)
      *   - rotation by 18: 16^(-18 + pos_0 mod 32) = 16^(32 - 18 + 0)
      *   - shift by 3: no contribution (all 3 bits shifted out)
      * limb 1) bits [3..9]; pos_1 = 3
-     *   - rotation by 7: not representable as scalar; accounted for in rotated_limbs[1]
+     *   - rotation by 7: not representable as scalar; accounted for in rotated_limb_corrections[1]
      *   - rotation by 18: 16^(-18 + pos_1 mod 32) = 16^(32 - 18 + 3)
      *   - shift by 3: 16^(pos_1 - 3) = 16^0 = 1
      * limb 2) bits [10..17]; pos_2 = 10
@@ -44,16 +50,22 @@ template <typename Builder> class SHA256 {
      *  - rotation by 18: 16^(-18 + pos_3) = 16^(18 - 18) = 1
      *  - shift by 3: 16^(pos_3 - 3) = 16^(18 - 3)
      */
-    // AUDITTODO: consider making thse expressions simpler in light of the above comments
     static constexpr std::array<fr, 4> left_multipliers{
-        (base.pow(32 - 7) + base.pow(32 - 18)),
-        (base.pow(32 - 18 + 3) + 1),
-        (base.pow(32 - 18 + 10) + base.pow(10 - 7) + base.pow(10 - 3)),
-        (base.pow(18 - 7) + base.pow(18 - 3) + 1),
+        base.pow(32 - 7) + base.pow(32 - 18),                         // limb 0: rot7 + rot18
+        base.pow(32 - 18 + 3) + fr(1),                                // limb 1: rot18 + shift3
+        base.pow(10 - 7) + base.pow(32 - 18 + 10) + base.pow(10 - 3), // limb 2: rot7 + rot18 + shift3
+        base.pow(18 - 7) + fr(1) + base.pow(18 - 3),                  // limb 3: rot7 + rot18 + shift3
     };
 
     /**
      * @brief Multipliers for computing σ₁ during message schedule extension
+     *
+     * σ₁(x) = (x >>> 17) ⊕ (x >>> 19) ⊕ (x >> 10)
+     *
+     * These multipliers handle rotations that keep the limb within the 32-bit word boundary.
+     * Rotations that split a limb across the wrap boundary (i.e., rot17 for limb 2, rot19 for limb 3)
+     * cannot be represented as a simple scalar and are instead handled via rotated_limb_corrections from the lookup
+     * table.
      *
      * limb 0) bits [0..2]; pos_0 = 0
      *   - rotation by 17: 16^(-17 + pos_0 mod 32) = 16^(32 - 17 + 0)
@@ -64,19 +76,19 @@ template <typename Builder> class SHA256 {
      *   - rotation by 19: 16^(-19 + pos_1 mod 32) = 16^(32 - 19 + 3)
      *   - shift by 10: no contribution (all 7 bits shifted out)
      * limb 2) bits [10..17]; pos_2 = 10
-     *   - rotation by 17: not representable as scalar; accounted for in rotated_limbs[2]
+     *   - rotation by 17: not representable as scalar; accounted for in rotated_limb_corrections[2]
      *   - rotation by 19: 16^(-19 + pos_2 mod 32) = 16^(32 - 19 + 10)
      *   - shift by 10: 16^(pos_2 - 10) = 16^0 = 1
      * limb 3) bits [18..31]; pos_3 = 18
      *   - rotation by 17: 16^(-17 + pos_3) = 16^(18 - 17)
-     *   - rotation by 19: not representable as scalar; accounted for in rotated_limbs[3]
+     *   - rotation by 19: not representable as scalar; accounted for in rotated_limb_corrections[3]
      *   - shift by 10: 16^(pos_3 - 10) = 16^(18 - 10)
      */
     static constexpr std::array<fr, 4> right_multipliers{
-        base.pow(32 - 17) + base.pow(32 - 19),
-        base.pow(32 - 17 + 3) + base.pow(32 - 19 + 3),
-        base.pow(32 - 19 + 10) + fr(1),
-        base.pow(18 - 17) + base.pow(18 - 10),
+        base.pow(32 - 17) + base.pow(32 - 19),         // limb 0: rot17 + rot19
+        base.pow(32 - 17 + 3) + base.pow(32 - 19 + 3), // limb 1: rot17 + rot19
+        base.pow(32 - 19 + 10) + fr(1),                // limb 2: rot19 + shift10
+        base.pow(18 - 17) + base.pow(18 - 10),         // limb 3: rot17 + shift10
     };
 
     static constexpr std::array<uint64_t, 64> round_constants{
@@ -103,7 +115,7 @@ template <typename Builder> class SHA256 {
 
         std::array<field_ct, 4> sparse_limbs;
 
-        std::array<field_ct, 4> rotated_limbs;
+        std::array<field_ct, 4> rotated_limb_corrections;
 
         bool has_sparse_limbs = false;
     };
