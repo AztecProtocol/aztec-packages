@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { PublicSimulatorConfig } from '@aztec/stdlib/avm';

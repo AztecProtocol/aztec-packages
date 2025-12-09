@@ -1,5 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 // Re-export L2 block number constants with proper BlockNumber type
 // Note: The generated constants are plain numbers, but we provide typed versions here

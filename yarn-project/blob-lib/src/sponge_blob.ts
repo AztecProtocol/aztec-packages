@@ -1,7 +1,7 @@
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, TWO_POW_64 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { poseidon2Permutation } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import {
   BufferReader,
   FieldReader,
