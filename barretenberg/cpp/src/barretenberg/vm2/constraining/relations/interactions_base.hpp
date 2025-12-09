@@ -105,13 +105,11 @@ template <typename Settings_> struct permutation_settings : public Settings_ {
         return []<size_t... ISource, size_t... IDest>(
                    AllEntities&& in, std::index_sequence<ISource...>, std::index_sequence<IDest...>) {
             // 0.                       The polynomial containing the inverse products -> taken from the attributes
-            // 1.                       The polynomial enabling the relation (the selector)
-            // 2.                       lhs selector
-            // 3.                       rhs selector
-            // 4.. + columns per set.   lhs cols
-            // 4 + columns per set      rhs cols
+            // 1.                       lhs selector
+            // 2.                       rhs selector
+            // 3.. + columns per set.   lhs cols
+            // 3 + columns per set      rhs cols
             return flat_tuple::forward_as_tuple(in.get(static_cast<ColumnAndShifts>(Settings_::INVERSES)),
-                                                in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)),
                                                 in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)),
                                                 in.get(static_cast<ColumnAndShifts>(Settings_::DST_SELECTOR)),
                                                 in.get(Settings_::SRC_COLUMNS[ISource])...,
