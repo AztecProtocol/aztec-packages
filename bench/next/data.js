@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1765238249817,
+  "lastUpdate": 1765257142769,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "Aztec Benchmarks": [
@@ -465528,6 +465528,50 @@ window.BENCHMARK_DATA = {
             "name": "noir-projects/noir-protocol-circuits/rollup_checkpoint_merge_gates",
             "value": 1576097,
             "unit": "gates"
+          }
+        ]
+      }
+    ],
+    "CI Benchmarks": [
+      {
+        "commit": {
+          "author": {
+            "name": "Jan Beneš",
+            "username": "benesjan",
+            "email": "janbenes1234@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "631c323e57ab7a8a433715bb2c4a55186474bee9",
+          "message": "refactor: de-boilerplating notes (#18871)\n\nAs discussed\n[here](https://aztecprotocol.slack.com/archives/C09CN078WQ5/p1765210502463579)\nthe `new` method and the getters on notes are now a pointless\nboilerplate as now we don't populate randomness in the `new` method. In\nthis PR I drop these.\n\nDecided to go ahead and just do it because AI is able to one-shot\nchanges like this which makes doing them almost free.\n\nNow is also a good time to do this because there were some note-related\nchanges done recently which will force devs to migrate anyway (e.g.\n`ValueNote` has been renamed as `FieldNote`, partial notes\nimplementation has changed etc.).",
+          "timestamp": "2025-12-08T23:24:06Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/631c323e57ab7a8a433715bb2c4a55186474bee9"
+        },
+        "date": 1765257140550,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "spartan/ci/network_deploy/total",
+            "value": 670,
+            "unit": "seconds"
+          },
+          {
+            "name": "spartan/ci/network_deploy/eth_devnet",
+            "value": 120,
+            "unit": "seconds"
+          },
+          {
+            "name": "spartan/ci/network_deploy/rollup_contracts",
+            "value": 255,
+            "unit": "seconds"
+          },
+          {
+            "name": "spartan/ci/network_deploy/aztec_infra",
+            "value": 291,
+            "unit": "seconds"
           }
         ]
       }
