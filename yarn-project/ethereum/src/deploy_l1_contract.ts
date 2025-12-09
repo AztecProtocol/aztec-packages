@@ -22,6 +22,7 @@ import {
   type VerificationLibraryEntry,
   type VerificationRecord,
 } from './deploy_aztec_l1_contracts.js';
+import { RegisterNewRollupVersionPayloadArtifact } from './l1_artifacts.js';
 import { type L1TxUtilsConfig, getL1TxUtilsConfigEnvVars } from './l1_tx_utils/config.js';
 import { createL1TxUtilsFromViemWallet } from './l1_tx_utils/factory.js';
 import type { L1TxUtils } from './l1_tx_utils/l1_tx_utils.js';

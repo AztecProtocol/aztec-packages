@@ -120,20 +120,15 @@ export const setupL1Contracts = async (
   logger: Logger,
   args: Partial<DeployAztecL1ContractsArgs> = {},
 ): Promise<ForgeDeployAztecL1ContractsReturnType> => {
-  const l1Data = await deployAztecL1Contracts(
-    l1RpcUrl,
-    privateKey,
-    {
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractsHash,
-      genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-      initialValidators: args.initialValidators,
-      ...getL1ContractsConfigEnvVars(),
-      realVerifier: false,
-      ...args,
-    },
-    logger,
-  );
+  const l1Data = await deployAztecL1Contracts(l1RpcUrl, privateKey, logger, {
+    vkTreeRoot: getVKTreeRoot(),
+    protocolContractsHash,
+    genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+    initialValidators: args.initialValidators,
+    ...getL1ContractsConfigEnvVars(),
+    realVerifier: false,
+    ...args,
+  });
 
   return l1Data;
 };

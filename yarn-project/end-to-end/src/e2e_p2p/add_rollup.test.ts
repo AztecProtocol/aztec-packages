@@ -12,7 +12,6 @@ import {
   RegistryContract,
   RollupContract,
   createL1TxUtilsFromViemWallet,
-  defaultL1TxUtilsConfig,
   deployL1Contract,
   deployRollupForUpgrade,
 } from '@aztec/ethereum';
@@ -150,9 +149,11 @@ describe('e2e_p2p_add_rollup', () => {
       initialTestAccounts.map(a => a.address),
     );
     const { rollup: newRollup } = await deployRollupForUpgrade(
-      t.ctx.deployL1ContractsValues.l1Client,
+      t.baseAccountPrivateKey,
+      l1TxUtils.client.chain.rpcUrls[0].http[0],
+      t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
+      t.logger,
       {
-        salt: Math.floor(Math.random() * 1000000),
         vkTreeRoot: getVKTreeRoot(),
         protocolContractsHash,
         genesisArchiveRoot,
@@ -181,8 +182,6 @@ describe('e2e_p2p_add_rollup', () => {
         slashAmountLarge: t.ctx.aztecNodeConfig.slashAmountLarge,
         localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
       },
-      t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
-      t.logger,
     );
 
     const { address: newPayloadAddress } = await deployL1Contract(

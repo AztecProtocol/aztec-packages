@@ -336,7 +336,7 @@ export interface DeployAztecL1ContractsArgs extends Omit<L1ContractsConfig, keyo
   /** The initial balance of the fee juice portal. This is the amount of fee juice that is prefunded to accounts */
   feeJuicePortalInitialBalance?: bigint;
   /** Whether to deploy the real verifier or the mock verifier */
-  realVerifier: boolean;
+  realVerifier?: boolean;
   /** The zk passport args */
   zkPassportArgs?: ZKPassportArgs;
   /** If provided, use this token for BOTH fee and staking assets (skip deployments) */

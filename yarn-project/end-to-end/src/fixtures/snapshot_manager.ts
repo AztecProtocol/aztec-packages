@@ -25,7 +25,8 @@ import { tryRmDir } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { TestERC20Abi } from '@aztec/l1-artifacts';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ProverNode } from '@aztec/prover-node';
 import { getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -365,24 +366,35 @@ async function setupFromFresh(
     opts.initialAccountFeeJuice,
   );
 
+  const vkTreeRoot = getVKTreeRoot();
   await deployMulticall3(l1Client, logger);
 
   // Deploy L1 contracts using either forge or TypeScript deployment
-  let deployL1ContractsValues;
   logger.info('Using forge script for L1 contract deployment', {
     realVerifier: deployL1ContractsArgs.realVerifier ?? false,
     fundRewardDistributor: opts.fundRewardDistributor ?? true,
   });
-  deployL1ContractsValues = await setupL1ContractsWithForge(aztecNodeConfig.l1RpcUrls[0], publisherPrivKeyHex, logger, {
+
+  // Define args, defaulted to our environment variables.
+  const args: DeployAztecL1ContractsArgs = {
     ...getL1ContractsConfigEnvVars(),
     ...deployL1ContractsArgs,
-    // Override with specific values that need special handling
-    genesisArchiveRoot: genesisArchiveRoot.toString() as `0x${string}`,
-    realVerifier: deployL1ContractsArgs.realVerifier,
-    fundRewardDistributor: opts.fundRewardDistributor,
-    zkPassportArgs: deployL1ContractsArgs.zkPassportArgs,
+    vkTreeRoot,
+    genesisArchiveRoot,
+    protocolContractsHash,
     initialValidators: opts.initialValidators,
-  });
+    feeJuicePortalInitialBalance: fundingNeeded,
+  };
+  const deployL1ContractsValues = await setupL1ContractsWithForge(
+    aztecNodeConfig.l1RpcUrls[0],
+    publisherPrivKeyHex,
+    logger,
+    {
+      ...args,
+      // Override with specific values that need special handling
+      genesisArchiveRoot,
+    },
+  );
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.rollupVersion = deployL1ContractsValues.rollupVersion;
 
