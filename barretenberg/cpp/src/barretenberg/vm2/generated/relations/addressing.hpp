@@ -73,6 +73,7 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
     static constexpr size_t SR_INDIRECT_PROPAGATION_6 = 56;
     static constexpr size_t SR_BATCHED_TAGS_DIFF_CHECK = 58;
     static constexpr size_t SR_ADDRESSING_COLLECTION_INV_CHECK = 60;
+    static constexpr size_t SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING = 61;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -143,6 +144,8 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
             return "BATCHED_TAGS_DIFF_CHECK";
         case SR_ADDRESSING_COLLECTION_INV_CHECK:
             return "ADDRESSING_COLLECTION_INV_CHECK";
+        case SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING:
+            return "NO_ADDRESSING_ERROR_IF_NOT_RESOLVING";
         }
         return std::to_string(index);
     }
