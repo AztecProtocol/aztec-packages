@@ -52,6 +52,8 @@ template <class Curve> class EcdsaTestingFunctions {
     static constexpr FrNative private_key =
         FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     static void invalidate_witness(EcdsaConstraint& ecdsa_constraints,
                                    WitnessVector& witness_values,
                                    const InvalidWitness::Target& invalid_witness_target)

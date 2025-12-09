@@ -248,9 +248,9 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
     // Construct a circuit with a single gate
     Builder builder;
 
-    fr a = fr::one();
-    fr b = fr::one();
-    fr c = fr::one();
+    fr a = fr::random_element();
+    fr b = fr::random_element();
+    fr c = fr::random_element();
     fr d = a + b + c;
 
     uint32_t a_idx = builder.add_variable(a);
@@ -262,7 +262,7 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
 
     // Add the public inputs
     for (size_t i = 0; i < acir_public_inputs_size; ++i) {
-        builder.add_public_variable(fr::one());
+        builder.add_public_variable(fr::random_element());
     }
 
     // Add the default pairing points and IPA claim

@@ -46,6 +46,8 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
         static std::vector<std::string> get_labels() { return { "None", "Points", "Scalars", "Result" }; }
     };
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     static void generate_constraints(AcirConstraint& msm_constraint, WitnessVector& witness_values)
     {
         // Generate a single point and scalar for simplicity

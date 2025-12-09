@@ -47,6 +47,8 @@ template <typename Builder_, InputConstancy Constancy> class EcOperationsTesting
         static std::vector<std::string> get_labels() { return { "None", "Input1", "Input2", "Result" }; }
     };
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     static void generate_constraints(AcirConstraint& ec_add_constraint, WitnessVector& witness_values)
     {
         // Generate points on Grumpkin

@@ -33,6 +33,8 @@ template <class BuilderType> class Poseidon2TestingFunctions {
         static std::vector<std::string> get_labels() { return { "None", "Input", "Output" }; }
     };
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     void invalidate_witness(Poseidon2Constraint& constraint,
                             WitnessVector& witness_values,
                             const InvalidWitness::Target& invalid_witness_target)

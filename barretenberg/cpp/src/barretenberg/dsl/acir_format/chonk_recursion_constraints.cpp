@@ -46,23 +46,15 @@ void create_dummy_vkey_and_proof(UltraCircuitBuilder& builder,
         1 << MegaZKFlavor::VIRTUAL_LOG_N, pub_inputs_offset, num_inner_public_inputs);
 
     // Set honk vk in builder
-    size_t offset = 0;
-    for (auto& vk_element : honk_vk->to_field_elements()) {
-        builder.set_variable(key_fields[offset].get_witness_index(), vk_element);
-        offset++;
-    }
+    populate_fields(builder, key_fields, honk_vk->to_field_elements());
 
     // Generate dummy Chonk proof
     bb::HonkProof chonk_proof = create_mock_chonk_proof<Builder>(num_inner_public_inputs);
 
     // Set Chonk proof in builder
-    offset = 0;
-    for (auto& proof_element : chonk_proof) {
-        builder.set_variable(proof_fields[offset].get_witness_index(), proof_element);
-        offset++;
-    }
+    populate_fields(builder, proof_fields, chonk_proof);
 
-    BB_ASSERT_EQ(offset, proof_size + public_inputs_size);
+    BB_ASSERT_EQ(chonk_proof.size(), proof_size + public_inputs_size);
 }
 
 /**

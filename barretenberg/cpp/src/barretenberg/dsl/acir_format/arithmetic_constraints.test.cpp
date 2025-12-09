@@ -136,6 +136,8 @@ class ArithmeticConstraintsTestingFunctions {
         return result;
     }
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     void generate_constraints(AcirConstraint& arithmetic_constraint, WitnessVector& witness_values)
     {
         // (scalar, (lhs_index, lhs_value), (rhs_index, rhs_value))

@@ -48,6 +48,8 @@ class LogicConstraintTestingFunctions {
         static std::vector<std::string> get_labels() { return { "None", "Inputs", "Input1BitSize", "Input2BitSize" }; }
     };
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     static void generate_constraints(AcirConstraint& logic_constraint, WitnessVector& witness_values)
     {
         // Helper to add an input

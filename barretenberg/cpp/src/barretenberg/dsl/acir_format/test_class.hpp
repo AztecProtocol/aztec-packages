@@ -12,12 +12,20 @@
 #include "barretenberg/dsl/acir_format/serde/index.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "gtest/gtest.h"
+#include <type_traits>
 #include <vector>
 
 namespace acir_format {
 
 using namespace bb;
 using namespace bb::stdlib;
+
+// Type trait to detect std::vector
+template <typename T> struct is_std_vector : std::false_type {};
+
+template <typename T, typename Alloc> struct is_std_vector<std::vector<T, Alloc>> : std::true_type {};
+
+template <typename T> inline constexpr bool is_std_vector_v = is_std_vector<T>::value;
 
 /**
  * @brief Convert a WitnessOrConstant back to an Acir::FunctionInput.
@@ -488,21 +496,35 @@ inline Acir::Circuit build_acir_circuit(const std::vector<Acir::Opcode>& opcodes
 }
 
 /**
- * @brief Convert an AcirConstraint to AcirFormat by going through the full ACIR serde flow.
+ * @brief Convert an AcirConstraint (single or vector) to AcirFormat by going through the full ACIR serde flow.
  *
  * @details This function:
- * 1. Converts the constraint to Acir::Opcodes
+ * 1. Converts the constraint(s) to Acir::Opcodes
  * 2. Builds an Acir::Circuit with those opcodes
  * 3. Passes the circuit through circuit_serde_to_acir_format
  *
- * @param constraint The constraint to convert
+ * When ConstraintType is a std::vector, iterates over all constraints and collects their opcodes.
+ *
+ * @param constraint The constraint (or vector of constraints) to convert
  * @param varnum The number of witnesses
  * @return AcirFormat The resulting AcirFormat
  */
 template <typename ConstraintType>
 AcirFormat constraint_to_acir_format(const ConstraintType& constraint, uint32_t varnum)
 {
-    std::vector<Acir::Opcode> opcodes = constraint_to_acir_opcode(constraint);
+    std::vector<Acir::Opcode> opcodes;
+
+    if constexpr (is_std_vector_v<ConstraintType>) {
+        // Handle vector of constraints - collect all opcodes
+        for (const auto& c : constraint) {
+            auto c_opcodes = constraint_to_acir_opcode(c);
+            opcodes.insert(opcodes.end(), c_opcodes.begin(), c_opcodes.end());
+        }
+    } else {
+        // Handle single constraint
+        opcodes = constraint_to_acir_opcode(constraint);
+    }
+
     Acir::Circuit circuit = build_acir_circuit(opcodes, varnum);
     return circuit_serde_to_acir_format(circuit);
 }
@@ -552,6 +574,12 @@ concept TestBase = requires {
          *
          */
         { instance.invalidate_witness(constraint, witness_values, invalid_witness_target) } -> std::same_as<void>;
+
+        /**
+         * @brief Method to generate ProgramMetadata to feed to create_circuit
+         *
+         */
+        { T::generate_metadata() } -> std::same_as<ProgramMetadata>;
     };
 };
 
@@ -602,7 +630,7 @@ template <TestBase Base> class TestClass {
             constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
 
         AcirProgram program{ constraint_system, witness_values };
-        auto builder = create_circuit<Builder>(program);
+        auto builder = create_circuit<Builder>(program, Base::generate_metadata());
 
         return { CircuitChecker::check(builder), builder.failed(), builder.err() };
     }
@@ -633,7 +661,7 @@ template <TestBase Base> class TestClass {
         std::shared_ptr<VerificationKey> vk_from_witness;
         {
             AcirProgram program{ constraint_system, witness_values };
-            auto builder = create_circuit<Builder>(program);
+            auto builder = create_circuit<Builder>(program, Base::generate_metadata());
             num_gates = builder.get_num_finalized_gates_inefficient();
 
             auto prover_instance = std::make_shared<ProverInstance>(builder);
@@ -646,7 +674,7 @@ template <TestBase Base> class TestClass {
         std::shared_ptr<VerificationKey> vk_from_constraint;
         {
             AcirProgram program{ constraint_system, /*witness=*/{} };
-            auto builder = create_circuit<Builder>(program);
+            auto builder = create_circuit<Builder>(program, Base::generate_metadata());
             auto prover_instance = std::make_shared<ProverInstance>(builder);
             vk_from_constraint = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         }
