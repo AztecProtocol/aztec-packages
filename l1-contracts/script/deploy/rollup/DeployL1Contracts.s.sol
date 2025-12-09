@@ -88,6 +88,8 @@ contract DeployL1Contracts is Script, Test {
     function run(string memory _outputPath) public {
         config = new DeploymentConfiguration();
         config.loadConfig();
+        // DEPLOYER_ADDRESS env var is intended only for tests.
+        deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
 
         vm.startBroadcast(deployer);
         _deploy();
@@ -95,16 +97,6 @@ contract DeployL1Contracts is Script, Test {
 
         // Write deployed addresses to output file for TypeScript to read
         _writeDeploymentOutput(_outputPath);
-    }
-
-    /// @notice Deploy without output file (for backwards compatibility)
-    function run() public {
-        config = new DeploymentConfiguration();
-        config.loadConfig();
-
-        vm.startBroadcast(deployer);
-        _deploy();
-        vm.stopBroadcast();
     }
 
     /// @notice Execute the full deployment sequence
@@ -282,7 +274,9 @@ contract DeployL1Contracts is Script, Test {
 
     /// @notice Transfer ownership of contracts to governance
     function _handoverToGovernance() internal {
-        registry.transferOwnership(address(governance));
+        if (registry.owner() == deployer) {
+            registry.transferOwnership(address(governance));
+        }
         gseContract.transferOwnership(address(governance));
 
         // If we deployed assets, set them free.

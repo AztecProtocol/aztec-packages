@@ -67,6 +67,7 @@ contract DeployRollupForUpgrade is Script {
         IRewardDistributor rewardDistributor = registry.getRewardDistributor();
 
         return RollupAddressInput({
+            // DEPLOYER_ADDRESS env var is intended only for tests.
             deployer: vm.envOr("DEPLOYER_ADDRESS", msg.sender),
             registry: registry,
             gse: gse,
