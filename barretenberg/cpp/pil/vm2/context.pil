@@ -208,16 +208,20 @@ namespace execution;
     #[IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT]
     NOT_LAST_EXEC * sel_enter_call * is_static * (is_static' - 1) = 0;
 
-    // nested_exit_call = 1 ==> constraints come from lookup
-    // sel_enter_call   = 1 ==> parent_calldata_addr' = rop[4] (resolved operand 5 from execution trace)
-    // otherwise        = 0 ==> parent_calldata_addr' = parent_calldata_addr
+    // nested_exit_call    = 1 ==> constraints come from lookup
+    // sel_enter_call      = 1 ==> parent_calldata_addr' = rop[4] (resolved operand 5 from execution trace)
+    // otherwise           = 0 ==> parent_calldata_addr' = parent_calldata_addr
+    // enqueued_call_start = 1 ==> parent_calldata_addr = 0;
     #[CD_OFFSET_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_addr' - parent_calldata_addr) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_addr' - rop[4]) = 0;
+    #[CD_SIZE_ENQUEUED_CALL_IS_ZERO]
+    enqueued_call_start * parent_calldata_addr = 0;
 
-    // nested_exit_call = 1 ==> constraints come from lookup
-    // sel_enter_call   = 1 ==> parent_calldata_size' = register[3] (register 4 from execution trace)
-    // otherwise        = 0 ==> parent_calldata_size' = parent_calldata_size
+    // enqueued_call_start = 1 ==> parent_calldata_size is constrained in tx.pil (#[DISPATCH_EXEC_START])
+    // nested_exit_call    = 1 ==> constraints come from lookup
+    // sel_enter_call      = 1 ==> parent_calldata_size' = register[3] (register 4 from execution trace)
+    // otherwise           = 0 ==> parent_calldata_size' = parent_calldata_size
     #[CD_SIZE_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_size' - parent_calldata_size) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size' - register[3]) = 0;

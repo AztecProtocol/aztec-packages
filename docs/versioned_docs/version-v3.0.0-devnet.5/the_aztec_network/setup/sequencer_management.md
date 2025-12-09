@@ -9,6 +9,10 @@ description: Learn how to manage your sequencer on the Aztec network, including 
 
 This guide covers sequencer lifecycle management on the Aztec network: keystore configuration, node setup, registration, ongoing operations, and eventual exit.
 
+:::danger Minimum Stake Requirement
+To participate as a sequencer on the Aztec network, you must stake a minimum of **200,000 AZTEC tokens**. Ensure you have sufficient tokens before proceeding with sequencer setup and registration.
+:::
+
 Sequencer nodes are critical infrastructure responsible for ordering transactions and producing blocks. They perform three key actions:
 
 1. Assemble unprocessed transactions and propose the next block
@@ -186,20 +190,6 @@ acc3:
 - **File paths**: Where the keystores were saved
 
 All other information (BLS keys, public keys, addresses) can be re-derived from the mnemonic if needed.
-
-:::tip Complete Example Command
-Complete command with all recommended parameters:
-```bash
-# Replace YOUR_API_KEY with your actual Infura API key
-export ETH_RPC=https://mainnet.infura.io/v3/YOUR_API_KEY
-
-aztec validator-keys new \
-  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
-  --staker-output \
-  --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
-  --l1-rpc-urls $ETH_RPC
-```
-:::
 
 :::tip Provide Your Own Mnemonic
 For deterministic key generation or to recreate keys later, provide your own mnemonic:
@@ -396,7 +386,7 @@ curl http://localhost:8080/status
 ### View Logs
 
 ```bash
-docker compose logs -f aztec-sequencer
+docker compose logs -f --tail 100 aztec-sequencer
 ```
 
 ## Next Steps: Registering Your Sequencer

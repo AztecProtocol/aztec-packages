@@ -71,7 +71,7 @@ void EmitUnencryptedLog::emit_unencrypted_log(MemoryInterface& memory,
         throw EmitUnencryptedLogException("Tag mismatch");
     }
     if (error_is_static) {
-        throw EmitUnencryptedLogException("Static context");
+        throw EmitUnencryptedLogException("Static call cannot update the state.");
     }
 }
 

@@ -81,7 +81,7 @@ unconstrained fn test_cast_vote_with_separate_accounts() {
     });
 }
 
-#[test(should_fail_with = "already exists")]
+#[test(should_fail_with = "duplicate siloed nullifier")]
 unconstrained fn test_fail_vote_twice() {
     let (mut env, voting_contract_address, _) = utils::setup();
     let alice = env.create_light_account();

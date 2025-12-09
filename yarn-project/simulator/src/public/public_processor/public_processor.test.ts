@@ -1,6 +1,6 @@
 import { CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE, CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -8,7 +8,6 @@ import { bufferAsFields } from '@aztec/stdlib/abi';
 import { PublicDataWrite, PublicTxResult, RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { LogHash } from '@aztec/stdlib/kernel';
 import { ContractClassLogFields } from '@aztec/stdlib/logs';
@@ -135,7 +134,6 @@ describe('public_processor', () => {
       const tx = await mockTxWithPublicCalls();
 
       mockedEnqueuedCallsResult.revertCode = RevertCode.APP_LOGIC_REVERTED;
-      mockedEnqueuedCallsResult.revertReason = new SimulationError(`Failed`, []);
 
       const [processed, failed] = await processor.process([tx]);
 

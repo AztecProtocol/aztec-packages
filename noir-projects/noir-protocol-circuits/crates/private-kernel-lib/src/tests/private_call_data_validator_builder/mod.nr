@@ -9,7 +9,6 @@ mod validate_side_effect_counters;
 mod validate_private_call_requests;
 mod verify_proof;
 mod validate_claimed_lengths;
-mod validate_min_revertible_counter_within_range;
 
 use crate::components::private_call_data_validator::PrivateCallDataValidator;
 use dep::types::{

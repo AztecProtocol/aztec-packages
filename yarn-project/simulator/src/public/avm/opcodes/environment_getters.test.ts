@@ -1,4 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 
@@ -16,7 +17,7 @@ describe('Environment getters', () => {
   const transactionFee = Fr.random();
   const chainId = Fr.random();
   const version = Fr.random();
-  const blockNumber = randomInt(20000);
+  const blockNumber = BlockNumber(randomInt(20000));
   const timestamp = BigInt(randomInt(100000)); // timestamp as UInt64
   const isStaticCall = true;
   const gasFees = GasFees.random();

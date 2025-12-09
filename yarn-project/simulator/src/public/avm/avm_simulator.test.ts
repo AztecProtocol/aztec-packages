@@ -1,4 +1,5 @@
 import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import {
   Grumpkin,
   keccak256,
@@ -8,7 +9,8 @@ import {
   poseidon2Hash,
   sha256,
 } from '@aztec/foundation/crypto';
-import { Fq, Fr, Point } from '@aztec/foundation/fields';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import type { Fieldable } from '@aztec/foundation/serialize';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
@@ -487,7 +489,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const transactionFee = Fr.random();
     const chainId = Fr.random();
     const version = Fr.random();
-    const blockNumber = randomInt(20000);
+    const blockNumber = BlockNumber(randomInt(20000));
     const timestamp = BigInt(randomInt(100000)); // timestamp as UInt64
     const gasFees = GasFees.random();
 

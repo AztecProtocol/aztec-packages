@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import type { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
@@ -38,11 +39,11 @@ export class SparseTree<T extends Bufferable> extends TreeBase<T> implements Upd
     return Promise.resolve();
   }
 
-  public snapshot(block: number): Promise<TreeSnapshot<T>> {
+  public snapshot(block: BlockNumber): Promise<TreeSnapshot<T>> {
     return this.#snapshotBuilder.snapshot(block);
   }
 
-  public getSnapshot(block: number): Promise<TreeSnapshot<T>> {
+  public getSnapshot(block: BlockNumber): Promise<TreeSnapshot<T>> {
     return this.#snapshotBuilder.getSnapshot(block);
   }
 

@@ -1,9 +1,9 @@
 import type { Archiver } from '@aztec/archiver';
 import type { RollupContract } from '@aztec/ethereum';
-import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
-import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -357,7 +357,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private async gatherPreviousBlockHeader(epochNumber: EpochNumber, previousBlockNumber: number) {
     const header = await (previousBlockNumber === 0
       ? this.worldState.getCommitted().getInitialHeader()
-      : this.l2BlockSource.getBlockHeader(previousBlockNumber));
+      : this.l2BlockSource.getBlockHeader(BlockNumber(previousBlockNumber)));
 
     if (!header) {
       throw new Error(`Previous block header ${previousBlockNumber} not found for proving epoch ${epochNumber}`);

@@ -1,5 +1,6 @@
 import type { L1BlockId } from '@aztec/ethereum';
-import type { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { CustomRange } from '@aztec/kv-store';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -53,13 +54,13 @@ export interface ArchiverDataStore {
    * @param blocksToUnwind - The number of blocks we are to unwind
    * @returns True if the operation is successful
    */
-  unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean>;
+  unwindBlocks(from: BlockNumber, blocksToUnwind: number): Promise<boolean>;
 
   /**
    * Returns the block for the given number, or undefined if not exists.
    * @param number - The block number to return.
    */
-  getPublishedBlock(number: number): Promise<PublishedL2Block | undefined>;
+  getPublishedBlock(number: BlockNumber): Promise<PublishedL2Block | undefined>;
 
   /**
    * Returns the block for the given hash, or undefined if not exists.
@@ -79,7 +80,7 @@ export interface ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]>;
+  getPublishedBlocks(from: BlockNumber, limit: number): Promise<PublishedL2Block[]>;
 
   /**
    * Gets up to `limit` amount of L2 block headers starting from `from`.
@@ -87,7 +88,7 @@ export interface ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 block headers.
    */
-  getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]>;
+  getBlockHeaders(from: BlockNumber, limit: number): Promise<BlockHeader[]>;
 
   /**
    * Returns the block header for the given hash, or undefined if not exists.
@@ -135,7 +136,7 @@ export interface ArchiverDataStore {
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: number): Promise<Fr[]>;
+  getL1ToL2Messages(blockNumber: BlockNumber): Promise<Fr[]>;
 
   /**
    * Gets the L1 to L2 message index in the L1 to L2 message tree.
@@ -156,7 +157,7 @@ export interface ArchiverDataStore {
    * @param limit - The maximum number of blocks to retrieve logs from.
    * @returns An array of private logs from the specified range of blocks.
    */
-  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]>;
+  getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]>;
 
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
@@ -185,19 +186,19 @@ export interface ArchiverDataStore {
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
-  getSynchedL2BlockNumber(): Promise<number>;
+  getSynchedL2BlockNumber(): Promise<BlockNumber>;
 
   /**
    * Gets the number of the latest proven L2 block processed.
    * @returns The number of the latest proven L2 block processed.
    */
-  getProvenL2BlockNumber(): Promise<number>;
+  getProvenL2BlockNumber(): Promise<BlockNumber>;
 
   /**
    * Stores the number of the latest proven L2 block processed.
    * @param l2BlockNumber - The number of the latest proven L2 block processed.
    */
-  setProvenL2BlockNumber(l2BlockNumber: number): Promise<void>;
+  setProvenL2BlockNumber(l2BlockNumber: BlockNumber): Promise<void>;
 
   /**
    * Stores the l1 block number that blocks have been synched until
@@ -221,9 +222,13 @@ export interface ArchiverDataStore {
    * @param blockNumber - Number of the L2 block the contracts were registered in.
    * @returns True if the operation is successful.
    */
-  addContractClasses(data: ContractClassPublic[], bytecodeCommitments: Fr[], blockNumber: number): Promise<boolean>;
+  addContractClasses(
+    data: ContractClassPublic[],
+    bytecodeCommitments: Fr[],
+    blockNumber: BlockNumber,
+  ): Promise<boolean>;
 
-  deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
+  deleteContractClasses(data: ContractClassPublic[], blockNumber: BlockNumber): Promise<boolean>;
 
   getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined>;
 
@@ -239,8 +244,8 @@ export interface ArchiverDataStore {
    * @param blockNumber - Number of the L2 block the instances were deployed in.
    * @returns True if the operation is successful.
    */
-  addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
-  deleteContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
+  addContractInstances(data: ContractInstanceWithAddress[], blockNumber: BlockNumber): Promise<boolean>;
+  deleteContractInstances(data: ContractInstanceWithAddress[], blockNumber: BlockNumber): Promise<boolean>;
 
   /**
    * Add new contract instance updates
@@ -286,7 +291,7 @@ export interface ArchiverDataStore {
   close(): Promise<void>;
 
   /** Deletes all L1 to L2 messages up until (excluding) the target L2 block number. */
-  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number): Promise<void>;
+  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: BlockNumber): Promise<void>;
 
   /** Returns an async iterator to all L1 to L2 messages on the range. */
   iterateL1ToL2Messages(range?: CustomRange<bigint>): AsyncIterableIterator<InboxMessage>;

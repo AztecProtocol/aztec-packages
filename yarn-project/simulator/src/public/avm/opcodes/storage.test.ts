@@ -1,5 +1,5 @@
 import { AVM_SSTORE_DYN_DA_GAS } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { type MockProxy, mock } from 'jest-mock-extended';

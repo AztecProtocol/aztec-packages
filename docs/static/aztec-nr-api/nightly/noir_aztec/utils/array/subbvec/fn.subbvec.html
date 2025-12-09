@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
 <title>Function subbvec documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">subbvec</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../../all.html">All items</a></div>
@@ -37,5 +43,6 @@ of the vector by passing a value for <code>DstLen</code> that is smaller than <c
 <span class="kw">let</span> bar: BoundedVec&lt;_, <span class="number">1</span>&gt; = subbvec(foo, <span class="number">2</span>); <span class="comment">// fails - we can't return just 1 element since 3 remain</span>
 <span class="kw">let</span> baz: BoundedVec&lt;_, <span class="number">10</span>&gt; = subbvec(foo, <span class="number">3</span>); <span class="comment">// fails - we can't return 10 elements since only 7 remain</span></code></pre></div>
 </main>
+</span>
 </body>
 </html>

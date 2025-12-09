@@ -1,4 +1,4 @@
-use crate::state_vars::storage::HasStorageSlot;
+use crate::state_vars::state_variable::StateVariable;
 use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToField};
 
 /// Map
@@ -15,7 +15,7 @@ use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToFi
 /// #[storage] struct.
 ///
 /// For example, you might use
-/// `Map<AztecAddress, PrivateMutable<ValueNote, Context>, Context>` to track
+/// `Map<AztecAddress, PublicMutable<FieldNote, Context>, Context>` to track
 /// token balances for different users, similar to how you'd use
 /// `mapping(address => uint256)` in Solidity.
 ///
@@ -31,12 +31,9 @@ use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToFi
 /// ## Generic Parameters
 /// - `K`: The key type (must implement `ToField` trait for hashing)
 /// - `V`: The value type:
-///   - any Aztec state variable:
+///   - any Aztec state variable (variable that implements the StateVariable trait):
 ///     - `PublicMutable`
 ///     - `PublicImmutable`
-///     - `PrivateMutable`
-///     - `PrivateImmutable`
-///     - `PrivateSet`
 ///     - `DelayedPublicMutable`
 ///     - `Map`
 /// - `Context`: The execution context (handles private/public function
@@ -48,6 +45,10 @@ use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToFi
 /// using the `at(key)` method to get the state variable for a specific key.
 /// The resulting state variable can then be read from or written to using its
 /// own methods.
+///
+/// Note that maps cannot be used with owned state variables (variables that
+/// implement the OwnedStateVariable trait) - those need to be wrapped in an
+/// `Owned` state variable instead.
 ///
 /// ## Advanced
 /// Internally, `Map` uses a single base storage slot to represent the
@@ -69,7 +70,6 @@ use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToFi
 pub struct Map<K, V, Context> {
     pub context: Context,
     storage_slot: Field,
-    state_var_constructor: fn(Context, Field) -> V,
 }
 
 // Map reserves a single storage slot regardless of what it stores because
@@ -77,43 +77,18 @@ pub struct Map<K, V, Context> {
 // of nested state variables, which is expected to never result in collisions
 // or slots being close to one another due to these being hashes. This mirrors
 // the strategy adopted by Solidity mappings.
-impl<K, T, Context> HasStorageSlot<1> for Map<K, T, Context> {
+impl<K, V, Context> StateVariable<1, Context> for Map<K, V, Context> {
+    fn new(context: Context, storage_slot: Field) -> Self {
+        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
+        Map { context, storage_slot }
+    }
+
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }
 }
 
 impl<K, V, Context> Map<K, V, Context> {
-    /// Initializes a new Map state variable.
-    ///
-    /// This function is usually automatically called within the #[storage]
-    /// macro.
-    /// You typically don't need to call this directly when writing smart contracts.
-    ///
-    /// # Arguments
-    ///
-    /// * `context` - One of `PrivateContext`/`PublicContext`/`UtilityContext`.
-    ///               The Context determines which methods of this struct will
-    ///               be made available to the calling smart contract function.
-    /// * `storage_slot` - A unique identifier for this Map within the contract.
-    ///                    Usually, the #[storage] macro will determine an
-    ///                    appropriate storage_slot automatically. A smart
-    ///                    contract dev shouldn't have to worry about this, as
-    ///                    it's managed behind the scenes.
-    /// * `state_var_constructor` - A function that creates the value type (V)
-    ///                             given a context and storage slot. This is
-    ///                             typically the constructor of the state
-    ///                             variable type being stored in the Map.
-    ///
-    pub fn new(
-        context: Context,
-        storage_slot: Field,
-        state_var_constructor: fn(Context, Field) -> V,
-    ) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        Map { context, storage_slot, state_var_constructor }
-    }
-
     /// Returns the state variable associated with the given key.
     ///
     /// This is equivalent to accessing `mapping[key]` in Solidity. It returns
@@ -121,7 +96,7 @@ impl<K, V, Context> Map<K, V, Context> {
     /// used to read or write the value at that key.
     ///
     /// Unlike Solidity mappings which return the value directly, this returns
-    /// the state variable wrapper (like PrivateMutable, PublicMutable, etc.)
+    /// the state variable wrapper (like PublicMutable, nested Map etc.)
     /// that you then call methods on to interact with the actual value.
     ///
     /// # Arguments
@@ -138,7 +113,7 @@ impl<K, V, Context> Map<K, V, Context> {
     /// # Example
     ///
     /// ```noir
-    /// // Get a user's balance (assuming PrivateMutable<ValueNote>)
+    /// // Get a user's balance (assuming PrivateMutable<FieldNote>)
     /// let user_balance = self.storage.balances.at(user_address);
     /// let current_note = user_balance.get_note();
     ///
@@ -146,14 +121,14 @@ impl<K, V, Context> Map<K, V, Context> {
     /// user_balance.replace(new_note);
     /// ```
     ///
-    pub fn at(self, key: K) -> V
+    pub fn at<let N: u32>(self, key: K) -> V
     where
         K: ToField,
+        V: StateVariable<N, Context>,
     {
-        // TODO(#1204): use a generator index for the storage slot
-        let derived_storage_slot = derive_storage_slot_in_map(self.storage_slot, key);
-
-        let state_var_constructor = self.state_var_constructor;
-        state_var_constructor(self.context, derived_storage_slot)
+        V::new(
+            self.context,
+            derive_storage_slot_in_map(self.storage_slot, key),
+        )
     }
 }

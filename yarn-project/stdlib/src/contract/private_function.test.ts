@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { fr, makeSelector } from '../tests/factories.js';

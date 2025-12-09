@@ -1,5 +1,6 @@
 import type { L1BlockId } from '@aztec/ethereum';
-import type { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
@@ -65,7 +66,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.db.transactionAsync(callback);
   }
 
-  public getBlockNumber(): Promise<number> {
+  public getBlockNumber(): Promise<BlockNumber> {
     return this.getSynchedL2BlockNumber();
   }
 
@@ -124,7 +125,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
   async addContractClasses(
     data: ContractClassPublic[],
     bytecodeCommitments: Fr[],
-    blockNumber: number,
+    blockNumber: BlockNumber,
   ): Promise<boolean> {
     return (
       await Promise.all(
@@ -133,7 +134,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     ).every(Boolean);
   }
 
-  async deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
+  async deleteContractClasses(data: ContractClassPublic[], blockNumber: BlockNumber): Promise<boolean> {
     return (await Promise.all(data.map(c => this.#contractClassStore.deleteContractClasses(c, blockNumber)))).every(
       Boolean,
     );
@@ -151,13 +152,13 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, utilityFunctions);
   }
 
-  async addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean> {
+  async addContractInstances(data: ContractInstanceWithAddress[], blockNumber: BlockNumber): Promise<boolean> {
     return (await Promise.all(data.map(c => this.#contractInstanceStore.addContractInstance(c, blockNumber)))).every(
       Boolean,
     );
   }
 
-  async deleteContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
+  async deleteContractInstances(data: ContractInstanceWithAddress[], _blockNumber: BlockNumber): Promise<boolean> {
     return (await Promise.all(data.map(c => this.#contractInstanceStore.deleteContractInstance(c)))).every(Boolean);
   }
 
@@ -196,11 +197,11 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    * @param blocksToUnwind - The number of blocks we are to unwind
    * @returns True if the operation is successful
    */
-  unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
+  unwindBlocks(from: BlockNumber, blocksToUnwind: number): Promise<boolean> {
     return this.#blockStore.unwindBlocks(from, blocksToUnwind);
   }
 
-  getPublishedBlock(number: number): Promise<PublishedL2Block | undefined> {
+  getPublishedBlock(number: BlockNumber): Promise<PublishedL2Block | undefined> {
     return this.#blockStore.getBlock(number);
   }
 
@@ -219,7 +220,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  getPublishedBlocks(start: number, limit: number): Promise<PublishedL2Block[]> {
+  getPublishedBlocks(start: BlockNumber, limit: number): Promise<PublishedL2Block[]> {
     return toArray(this.#blockStore.getBlocks(start, limit));
   }
 
@@ -230,7 +231,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  getBlockHeaders(start: number, limit: number): Promise<BlockHeader[]> {
+  getBlockHeaders(start: BlockNumber, limit: number): Promise<BlockHeader[]> {
     return toArray(this.#blockStore.getBlockHeaders(start, limit));
   }
 
@@ -303,7 +304,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
+  getL1ToL2Messages(blockNumber: BlockNumber): Promise<Fr[]> {
     return this.#messageStore.getL1ToL2Messages(blockNumber);
   }
 
@@ -313,7 +314,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    * @param limit - The maximum number of blocks to retrieve logs from.
    * @returns An array of private logs from the specified range of blocks.
    */
-  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
+  getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]> {
     return this.#logStore.getPrivateLogs(from, limit);
   }
 
@@ -362,15 +363,15 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
-  getSynchedL2BlockNumber(): Promise<number> {
+  getSynchedL2BlockNumber(): Promise<BlockNumber> {
     return this.#blockStore.getSynchedL2BlockNumber();
   }
 
-  getProvenL2BlockNumber(): Promise<number> {
+  getProvenL2BlockNumber(): Promise<BlockNumber> {
     return this.#blockStore.getProvenL2BlockNumber();
   }
 
-  async setProvenL2BlockNumber(blockNumber: number) {
+  async setProvenL2BlockNumber(blockNumber: BlockNumber) {
     await this.#blockStore.setProvenL2BlockNumber(blockNumber);
   }
 
@@ -400,7 +401,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.db.estimateSize();
   }
 
-  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number): Promise<void> {
+  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: BlockNumber): Promise<void> {
     return this.#messageStore.rollbackL1ToL2MessagesToL2Block(targetBlockNumber);
   }
 

@@ -1,5 +1,5 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -62,12 +62,12 @@ describe('P2P Client', () => {
   const createClient = (config: Partial<P2PConfig> = {}) =>
     new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, txCollection, config);
 
-  const advanceToProvenBlock = async (blockNumber: number) => {
+  const advanceToProvenBlock = async (blockNumber: BlockNumber) => {
     blockSource.setProvenBlockNumber(blockNumber);
     await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= blockNumber, 'synced', 10, 0.1);
   };
 
-  const advanceToFinalizedBlock = async (blockNumber: number) => {
+  const advanceToFinalizedBlock = async (blockNumber: BlockNumber) => {
     blockSource.setFinalizedBlockNumber(blockNumber);
     await retryUntil(async () => (await client.getSyncedFinalizedBlockNum()) >= blockNumber, 'synced', 10, 0.1);
   };
@@ -145,14 +145,14 @@ describe('P2P Client', () => {
     await client.start();
     expect(txPool.deleteTxs).not.toHaveBeenCalled();
 
-    await advanceToProvenBlock(5);
+    await advanceToProvenBlock(BlockNumber(5));
     expect(txPool.deleteTxs).not.toHaveBeenCalled();
 
-    await advanceToFinalizedBlock(5);
+    await advanceToFinalizedBlock(BlockNumber(5));
     expect(txPool.deleteTxs).toHaveBeenCalledTimes(1);
     txPool.deleteTxs.mockClear();
 
-    await advanceToFinalizedBlock(8);
+    await advanceToFinalizedBlock(BlockNumber(8));
     expect(txPool.deleteTxs).toHaveBeenCalledTimes(1);
     await client.stop();
   });
@@ -248,7 +248,7 @@ describe('P2P Client', () => {
     const minedTxs = allTxs.slice(0, Math.ceil(allTxs.length / 3));
     const pendingTxs = allTxs.slice(Math.ceil(allTxs.length / 3));
 
-    txPool.getMinedTxHashes.mockResolvedValue(minedTxs.map(tx => [tx.getTxHash(), 42]));
+    txPool.getMinedTxHashes.mockResolvedValue(minedTxs.map(tx => [tx.getTxHash(), BlockNumber(42)]));
     txPool.getPendingTxHashes.mockResolvedValue(await Promise.all(pendingTxs.map(tx => tx.getTxHash())));
 
     txPool.getAllTxs.mockResolvedValue(allTxs);
@@ -293,8 +293,8 @@ describe('P2P Client', () => {
 
       // Mock the mined transactions
       txPool.getMinedTxHashes.mockResolvedValue([
-        [txMinedInPrunedBlock.getTxHash(), 95],
-        [txMinedInKeptBlock.getTxHash(), 90],
+        [txMinedInPrunedBlock.getTxHash(), BlockNumber(95)],
+        [txMinedInKeptBlock.getTxHash(), BlockNumber(90)],
       ]);
 
       txPool.getAllTxs.mockResolvedValue([txMinedInPrunedBlock, txMinedInKeptBlock]);
@@ -312,13 +312,13 @@ describe('P2P Client', () => {
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
-      await advanceToProvenBlock(90);
-      await advanceToFinalizedBlock(50);
+      await advanceToProvenBlock(BlockNumber(90));
+      await advanceToFinalizedBlock(BlockNumber(50));
 
       await expect(client.getL2Tips()).resolves.toEqual({
-        latest: { number: 100, hash: expect.any(String) },
-        proven: { number: 90, hash: expect.any(String) },
-        finalized: { number: 50, hash: expect.any(String) },
+        latest: { number: BlockNumber(100), hash: expect.any(String) },
+        proven: { number: BlockNumber(90), hash: expect.any(String) },
+        finalized: { number: BlockNumber(50), hash: expect.any(String) },
       });
 
       blockSource.removeBlocks(10);
@@ -326,19 +326,19 @@ describe('P2P Client', () => {
       await client.sync();
 
       await expect(client.getL2Tips()).resolves.toEqual({
-        latest: { number: 90, hash: expect.any(String) },
-        proven: { number: 90, hash: expect.any(String) },
-        finalized: { number: 50, hash: expect.any(String) },
+        latest: { number: BlockNumber(90), hash: expect.any(String) },
+        proven: { number: BlockNumber(90), hash: expect.any(String) },
+        finalized: { number: BlockNumber(50), hash: expect.any(String) },
       });
 
-      blockSource.addBlocks([await L2Block.random(91), await L2Block.random(92)]);
+      blockSource.addBlocks([await L2Block.random(BlockNumber(91)), await L2Block.random(BlockNumber(92))]);
 
       await client.sync();
 
       await expect(client.getL2Tips()).resolves.toEqual({
-        latest: { number: 92, hash: expect.any(String) },
-        proven: { number: 90, hash: expect.any(String) },
-        finalized: { number: 50, hash: expect.any(String) },
+        latest: { number: BlockNumber(92), hash: expect.any(String) },
+        proven: { number: BlockNumber(90), hash: expect.any(String) },
+        finalized: { number: BlockNumber(50), hash: expect.any(String) },
       });
     });
 
@@ -351,10 +351,10 @@ describe('P2P Client', () => {
       // then prune the chain back to block 90
       // only one tx should be deleted
       const goodTx = await mockTx();
-      goodTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = 90;
+      goodTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(90);
 
       const badTx = await mockTx();
-      badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = 95;
+      badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(95);
 
       txPool.getAllTxs.mockResolvedValue([goodTx, badTx]);
 
@@ -373,18 +373,18 @@ describe('P2P Client', () => {
       // then prune the chain back to block 90
       // only one tx should be deleted
       const goodButOldTx = await mockTx();
-      goodButOldTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = 89;
+      goodButOldTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(89);
 
       const goodTx = await mockTx();
-      goodTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = 90;
+      goodTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(90);
 
       const badTx = await mockTx();
-      badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = 95;
+      badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(95);
 
       txPool.getAllTxs.mockResolvedValue([goodButOldTx, goodTx, badTx]);
       txPool.getMinedTxHashes.mockResolvedValue([
-        [goodButOldTx.getTxHash(), 90],
-        [goodTx.getTxHash(), 91],
+        [goodButOldTx.getTxHash(), BlockNumber(90)],
+        [goodTx.getTxHash(), BlockNumber(91)],
       ]);
 
       blockSource.removeBlocks(10);
@@ -403,14 +403,14 @@ describe('P2P Client', () => {
       await client.start();
       expect(deleteAttestationsOlderThanSpy).not.toHaveBeenCalled();
 
-      await advanceToProvenBlock(10);
+      await advanceToProvenBlock(BlockNumber(10));
       expect(deleteAttestationsOlderThanSpy).not.toHaveBeenCalled();
 
-      await advanceToFinalizedBlock(10);
+      await advanceToFinalizedBlock(BlockNumber(10));
       expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(1);
       expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(10));
 
-      await advanceToFinalizedBlock(15);
+      await advanceToFinalizedBlock(BlockNumber(15));
       expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(2);
       expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(15));
     });
@@ -424,7 +424,7 @@ describe('P2P Client', () => {
 
     it('syncs new blocks', async () => {
       await client.start();
-      blockSource.addBlocks([await L2Block.random(101), await L2Block.random(102)]);
+      blockSource.addBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
       await client.sync();
       expect(await client.getSyncedLatestBlockNum()).toEqual(102);
     });
@@ -441,8 +441,8 @@ describe('P2P Client', () => {
       expect(provenBlock).toEqual(0);
       expect(finalizedBlock).toEqual(0);
 
-      await advanceToProvenBlock(10);
-      await advanceToFinalizedBlock(5);
+      await advanceToProvenBlock(BlockNumber(10));
+      await advanceToFinalizedBlock(BlockNumber(5));
 
       expect(await client.getSyncedProvenBlockNum()).toEqual(10);
       expect(await client.getSyncedFinalizedBlockNum()).toEqual(5);
@@ -450,26 +450,26 @@ describe('P2P Client', () => {
 
     it('stops tx collection for pruned blocks', async () => {
       await client.start();
-      blockSource.addBlocks([await L2Block.random(101), await L2Block.random(102)]);
+      blockSource.addBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
       await client.sync();
 
       blockSource.removeBlocks(1);
       await client.sync();
-      expect(txCollection.stopCollectingForBlocksAfter).toHaveBeenCalledWith(101);
+      expect(txCollection.stopCollectingForBlocksAfter).toHaveBeenCalledWith(BlockNumber(101));
     });
 
     it('stops tx collection for proven blocks', async () => {
       await client.start();
-      blockSource.addBlocks([await L2Block.random(101), await L2Block.random(102)]);
+      blockSource.addBlocks([await L2Block.random(BlockNumber(101)), await L2Block.random(BlockNumber(102))]);
       await client.sync();
 
-      await advanceToProvenBlock(101);
-      expect(txCollection.stopCollectingForBlocksUpTo).toHaveBeenCalledWith(101);
+      await advanceToProvenBlock(BlockNumber(101));
+      expect(txCollection.stopCollectingForBlocksUpTo).toHaveBeenCalledWith(BlockNumber(101));
     });
 
     it('triggers tx collection for missing txs from mined blocks', async () => {
       await client.start();
-      const block = await L2Block.random(101, 3);
+      const block = await L2Block.random(BlockNumber(101), 3);
 
       txPool.hasTxs.mockResolvedValue([true, false, true]);
       blockSource.addBlocks([block]);

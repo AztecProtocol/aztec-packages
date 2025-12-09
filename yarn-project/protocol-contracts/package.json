@@ -21,12 +21,12 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && yarn generate:cleanup-artifacts && tsgo -b",
+    "build": "yarn clean && yarn generate && yarn generate:cleanup-artifacts && ../scripts/tsc.sh",
     "build:keep-debug-symbols": "yarn clean && yarn generate && tsgo -b",
     "generate": "yarn generate:data",
     "generate:cleanup-artifacts": "node --no-warnings --loader @swc-node/register/esm src/scripts/cleanup_artifacts.ts",
     "generate:data": "node --no-warnings --loader @swc-node/register/esm src/scripts/generate_data.ts",
-    "build:dev": "tsgo -b --watch",
+    "build:dev": "../scripts/tsc.sh --watch",
     "build:ts": "tsgo -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"

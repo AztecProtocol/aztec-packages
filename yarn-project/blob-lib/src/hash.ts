@@ -1,7 +1,8 @@
 import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
-import { BLS12Fr, Fr } from '@aztec/foundation/fields';
+import { BLS12Fr } from '@aztec/foundation/curves/bls12';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
-import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, kzg } from './kzg_context.js';
+import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, getKzg } from './kzg_context.js';
 import { SpongeBlob } from './sponge_blob.js';
 
 const VERSIONED_HASH_VERSION_KZG = 0x01;
@@ -47,7 +48,7 @@ export function computeBlobCommitment(data: Uint8Array): Buffer {
     throw new Error(`Expected ${BYTES_PER_BLOB} bytes per blob. Got ${data.length}.`);
   }
 
-  return Buffer.from(kzg.blobToKzgCommitment(data));
+  return Buffer.from(getKzg().blobToKzgCommitment(data));
 }
 
 /**

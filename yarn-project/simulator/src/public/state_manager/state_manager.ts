@@ -7,10 +7,11 @@ import {
   ROUTER_ADDRESS,
 } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type LogLevel, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublicWithCommitment, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
@@ -26,7 +27,7 @@ import { strict as assert } from 'assert';
 
 import type { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import type { PublicContractsDBInterface } from '../db_interfaces.js';
-import { getPublicFunctionDebugName } from '../debug_fn_name.js';
+import { getPublicFunctionDebugName, getPublicFunctionSelectorAndName } from '../debug_fn_name.js';
 import type { PublicTreesDB } from '../public_db_sources.js';
 import {
   L1ToL2MessageIndexOutOfRangeError,
@@ -530,6 +531,12 @@ export class PublicPersistableStateManager {
 
   public async getPublicFunctionDebugName(avmEnvironment: AvmExecutionEnvironment): Promise<string> {
     return await getPublicFunctionDebugName(this.contractsDB, avmEnvironment.address, avmEnvironment.calldata);
+  }
+
+  public async getPublicFunctionSelectorAndName(
+    avmEnvironment: AvmExecutionEnvironment,
+  ): Promise<{ functionSelector?: FunctionSelector; functionName?: string }> {
+    return await getPublicFunctionSelectorAndName(this.contractsDB, avmEnvironment.address, avmEnvironment.calldata);
   }
 
   public async padTree(treeId: MerkleTreeId, leavesToInsert: number): Promise<void> {

@@ -6,10 +6,10 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
 } from '@aztec/constants';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { AbortError } from '@aztec/foundation/error';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { assertLength } from '@aztec/foundation/serialize';
@@ -93,7 +93,8 @@ export class ProvingOrchestrator implements EpochProver {
 
   private provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
-  private dbs: Map<number, MerkleTreeWriteOperations> = new Map();
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  private dbs: Map<BlockNumber, MerkleTreeWriteOperations> = new Map();
 
   constructor(
     private dbProvider: ForkMerkleTreeOperations,
@@ -161,7 +162,7 @@ export class ProvingOrchestrator implements EpochProver {
     const lastBlockNumber = headerOfLastBlockInPreviousCheckpoint.globalVariables.blockNumber;
     const db = await this.dbProvider.fork(lastBlockNumber);
 
-    const firstBlockNumber = lastBlockNumber + 1;
+    const firstBlockNumber = BlockNumber(lastBlockNumber + 1);
     this.dbs.set(firstBlockNumber, db);
 
     // Get archive sibling path before any block in this checkpoint lands.
@@ -199,7 +200,7 @@ export class ProvingOrchestrator implements EpochProver {
   @trackSpan('ProvingOrchestrator.startNewBlock', blockNumber => ({
     [Attributes.BLOCK_NUMBER]: blockNumber,
   }))
-  public async startNewBlock(blockNumber: number, timestamp: UInt64, totalNumTxs: number) {
+  public async startNewBlock(blockNumber: BlockNumber, timestamp: UInt64, totalNumTxs: number) {
     if (!this.provingState) {
       throw new Error('Empty epoch proving state. Call startNewEpoch before starting a block.');
     }
@@ -219,7 +220,7 @@ export class ProvingOrchestrator implements EpochProver {
     // Fork the db only when it's not already set. The db for the first block is set in `startNewCheckpoint`.
     if (!this.dbs.has(blockNumber)) {
       // Fork world state at the end of the immediately previous block
-      const db = await this.dbProvider.fork(blockNumber - 1);
+      const db = await this.dbProvider.fork(BlockNumber(blockNumber - 1));
       this.dbs.set(blockNumber, db);
     }
     const db = this.dbs.get(blockNumber)!;
@@ -278,7 +279,7 @@ export class ProvingOrchestrator implements EpochProver {
       return;
     }
 
-    const blockNumber = txs[0].globalVariables.blockNumber;
+    const blockNumber = BlockNumber(txs[0].globalVariables.blockNumber);
     const provingState = this.provingState.getBlockProvingStateByBlockNumber(blockNumber!);
     if (!provingState) {
       throw new Error(`Proving state for block ${blockNumber} not found. Call startNewBlock first.`);
@@ -388,10 +389,10 @@ export class ProvingOrchestrator implements EpochProver {
    * Marks the block as completed.
    * Computes the block header and updates the archive tree.
    */
-  @trackSpan('ProvingOrchestrator.setBlockCompleted', (blockNumber: number) => ({
+  @trackSpan('ProvingOrchestrator.setBlockCompleted', (blockNumber: BlockNumber) => ({
     [Attributes.BLOCK_NUMBER]: blockNumber,
   }))
-  public async setBlockCompleted(blockNumber: number, expectedHeader?: BlockHeader): Promise<BlockHeader> {
+  public async setBlockCompleted(blockNumber: BlockNumber, expectedHeader?: BlockHeader): Promise<BlockHeader> {
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber);
     if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);

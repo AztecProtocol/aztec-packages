@@ -1,7 +1,7 @@
 import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -82,7 +82,7 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
   return new GlobalVariables(
     overrides?.chainId ?? Fr.zero(),
     overrides?.version ?? Fr.zero(),
-    overrides?.blockNumber ?? 0,
+    overrides?.blockNumber ?? BlockNumber.ZERO,
     overrides?.slotNumber ?? SlotNumber.ZERO,
     overrides?.timestamp ?? 0n,
     overrides?.coinbase ?? EthAddress.ZERO,
