@@ -107,32 +107,32 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     const auto& evaluation_input_x_4 = params.evaluation_input_x[4];
 
     // Limbs of batching challenge v
-    const auto& v_0_0 = params.batching_challenge_v[0][0];
-    const auto& v_0_1 = params.batching_challenge_v[0][1];
-    const auto& v_0_2 = params.batching_challenge_v[0][2];
-    const auto& v_0_3 = params.batching_challenge_v[0][3];
-    const auto& v_0_4 = params.batching_challenge_v[0][4];
+    const auto& v_0 = params.batching_challenge_v[0][0];
+    const auto& v_1 = params.batching_challenge_v[0][1];
+    const auto& v_2 = params.batching_challenge_v[0][2];
+    const auto& v_3 = params.batching_challenge_v[0][3];
+    const auto& v_4 = params.batching_challenge_v[0][4];
 
     // Limbs of batching challenge v²
-    const auto& v_1_0 = params.batching_challenge_v[1][0];
-    const auto& v_1_1 = params.batching_challenge_v[1][1];
-    const auto& v_1_2 = params.batching_challenge_v[1][2];
-    const auto& v_1_3 = params.batching_challenge_v[1][3];
-    const auto& v_1_4 = params.batching_challenge_v[1][4];
+    const auto& v_sqr_0 = params.batching_challenge_v[1][0];
+    const auto& v_sqr_1 = params.batching_challenge_v[1][1];
+    const auto& v_sqr_2 = params.batching_challenge_v[1][2];
+    const auto& v_sqr_3 = params.batching_challenge_v[1][3];
+    const auto& v_sqr_4 = params.batching_challenge_v[1][4];
 
     // Limbs of batching challenge v³
-    const auto& v_2_0 = params.batching_challenge_v[2][0];
-    const auto& v_2_1 = params.batching_challenge_v[2][1];
-    const auto& v_2_2 = params.batching_challenge_v[2][2];
-    const auto& v_2_3 = params.batching_challenge_v[2][3];
-    const auto& v_2_4 = params.batching_challenge_v[2][4];
+    const auto& v_cube_0 = params.batching_challenge_v[2][0];
+    const auto& v_cube_1 = params.batching_challenge_v[2][1];
+    const auto& v_cube_2 = params.batching_challenge_v[2][2];
+    const auto& v_cube_3 = params.batching_challenge_v[2][3];
+    const auto& v_cube_4 = params.batching_challenge_v[2][4];
 
     // Limbs of batching challenge v⁴
-    const auto& v_3_0 = params.batching_challenge_v[3][0];
-    const auto& v_3_1 = params.batching_challenge_v[3][1];
-    const auto& v_3_2 = params.batching_challenge_v[3][2];
-    const auto& v_3_3 = params.batching_challenge_v[3][3];
-    const auto& v_3_4 = params.batching_challenge_v[3][4];
+    const auto& v_quad_0 = params.batching_challenge_v[3][0];
+    const auto& v_quad_1 = params.batching_challenge_v[3][1];
+    const auto& v_quad_2 = params.batching_challenge_v[3][2];
+    const auto& v_quad_3 = params.batching_challenge_v[3][3];
+    const auto& v_quad_4 = params.batching_challenge_v[3][4];
 
     // Fetch witness values
     // Pₓ = (Pₓ,₃ || Pₓ,₂ || Pₓ,₁ || Pₓ,₀)
@@ -181,24 +181,24 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
         // T₀: Limb 0 contribution (all products contributing at weight 2⁰)
         auto tmp = prev_accumulators_binary_limbs_0 * evaluation_input_x_0
                    + op
-                   + p_x_limb_0 * v_0_0
-                   + p_y_limb_0 * v_1_0
-                   + z_1_limb_0 * v_2_0
-                   + z_2_limb_0 * v_3_0
+                   + p_x_limb_0 * v_0
+                   + p_y_limb_0 * v_0
+                   + z_1_limb_0 * v_0
+                   + z_2_limb_0 * v_0
                    + quotient_binary_limbs_0 * NEGATIVE_MODULUS_LIMBS[0]
                    - accumulators_binary_limbs_0;
 
         // T₁: Limb 1 contribution (all cross-products contributing at weight 2⁶⁸)
         tmp += (prev_accumulators_binary_limbs_1      * evaluation_input_x_0
                    + prev_accumulators_binary_limbs_0 * evaluation_input_x_1
-                   + p_x_limb_0 * v_0_1
-                   + p_x_limb_1 * v_0_0
-                   + p_y_limb_0 * v_1_1
-                   + p_y_limb_1 * v_1_0
-                   + z_1_limb_0 * v_2_1
-                   + z_1_limb_1 * v_2_0
-                   + z_2_limb_0 * v_3_1
-                   + z_2_limb_1 * v_3_0
+                   + p_x_limb_0 * v_1
+                   + p_x_limb_1 * v_0
+                   + p_y_limb_0 * v_sqr_1
+                   + p_y_limb_1 * v_sqr_0
+                   + z_1_limb_0 * v_cube_1
+                   + z_1_limb_1 * v_cube_0
+                   + z_2_limb_0 * v_quad_1
+                   + z_2_limb_1 * v_quad_0
                    + quotient_binary_limbs_0 * NEGATIVE_MODULUS_LIMBS[1]
                    + quotient_binary_limbs_1 * NEGATIVE_MODULUS_LIMBS[0]
                    - accumulators_binary_limbs_1)
@@ -225,16 +225,16 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
               + prev_accumulators_binary_limbs_2 * evaluation_input_x_0
               + prev_accumulators_binary_limbs_1 * evaluation_input_x_1
               + prev_accumulators_binary_limbs_0 * evaluation_input_x_2
-              + p_x_limb_2 * v_0_0
-              + p_x_limb_1 * v_0_1
-              + p_x_limb_0 * v_0_2
-              + p_y_limb_2 * v_1_0
-              + p_y_limb_1 * v_1_1
-              + p_y_limb_0 * v_1_2
-              + z_1_limb_1 * v_2_1
-              + z_1_limb_0 * v_2_2
-              + z_2_limb_1 * v_3_1
-              + z_2_limb_0 * v_3_2
+              + p_x_limb_2 * v_0
+              + p_x_limb_1 * v_1
+              + p_x_limb_0 * v_2
+              + p_y_limb_2 * v_sqr_0
+              + p_y_limb_1 * v_sqr_1
+              + p_y_limb_0 * v_sqr_2
+              + z_1_limb_1 * v_cube_1
+              + z_1_limb_0 * v_cube_2
+              + z_2_limb_1 * v_quad_1
+              + z_2_limb_0 * v_quad_2
               + quotient_binary_limbs_2 * NEGATIVE_MODULUS_LIMBS[0]
               + quotient_binary_limbs_1 * NEGATIVE_MODULUS_LIMBS[1]
               + quotient_binary_limbs_0 * NEGATIVE_MODULUS_LIMBS[2]
@@ -245,18 +245,18 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                    + prev_accumulators_binary_limbs_2 * evaluation_input_x_1
                    + prev_accumulators_binary_limbs_1 * evaluation_input_x_2
                    + prev_accumulators_binary_limbs_0 * evaluation_input_x_3
-                   + p_x_limb_3 * v_0_0
-                   + p_x_limb_2 * v_0_1
-                   + p_x_limb_1 * v_0_2
-                   + p_x_limb_0 * v_0_3
-                   + p_y_limb_3 * v_1_0
-                   + p_y_limb_2 * v_1_1
-                   + p_y_limb_1 * v_1_2
-                   + p_y_limb_0 * v_1_3
-                   + z_1_limb_1 * v_2_2
-                   + z_1_limb_0 * v_2_3
-                   + z_2_limb_1 * v_3_2
-                   + z_2_limb_0 * v_3_3
+                   + p_x_limb_3 * v_0
+                   + p_x_limb_2 * v_1
+                   + p_x_limb_1 * v_2
+                   + p_x_limb_0 * v_3
+                   + p_y_limb_3 * v_sqr_0
+                   + p_y_limb_2 * v_sqr_1
+                   + p_y_limb_1 * v_sqr_2
+                   + p_y_limb_0 * v_sqr_3
+                   + z_1_limb_1 * v_cube_2
+                   + z_1_limb_0 * v_cube_3
+                   + z_2_limb_1 * v_quad_2
+                   + z_2_limb_0 * v_quad_3
                    + quotient_binary_limbs_3 * NEGATIVE_MODULUS_LIMBS[0]
                    + quotient_binary_limbs_2 * NEGATIVE_MODULUS_LIMBS[1]
                    + quotient_binary_limbs_1 * NEGATIVE_MODULUS_LIMBS[2]
@@ -305,10 +305,10 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
         // Compute accumulation formula using native 𝔽ᵣ arithmetic (limb index 4)
         tmp = reconstructed_previous_accumulator * evaluation_input_x_4
                      + op
-                     + reconstructed_p_x * v_0_4
-                     + reconstructed_p_y * v_1_4
-                     + reconstructed_z1  * v_2_4
-                     + reconstructed_z2  * v_3_4
+                     + reconstructed_p_x * v_4
+                     + reconstructed_p_y * v_sqr_4
+                     + reconstructed_z1  * v_cube_4
+                     + reconstructed_z2  * v_quad_4
                      + reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4]
                      - reconstructed_current_accumulator;
     // clang-format on
