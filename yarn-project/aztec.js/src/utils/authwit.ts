@@ -1,5 +1,5 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ABIParameterVisibility, type FunctionAbi, type FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness, computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';

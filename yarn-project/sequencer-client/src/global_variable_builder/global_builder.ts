@@ -6,8 +6,8 @@ import {
   createEthereumChain,
 } from '@aztec/ethereum';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';

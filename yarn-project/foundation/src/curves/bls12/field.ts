@@ -2,12 +2,12 @@
 import { bls12_381 } from '@noble/curves/bls12-381';
 import { inspect } from 'util';
 
-import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
-import { randomBytes } from '../crypto/random/index.js';
-import { hexSchemaFor } from '../schemas/utils.js';
-import { BufferReader } from '../serialize/buffer_reader.js';
-import { TypeRegistry } from '../serialize/type_registry.js';
-import { Fr } from './fields.js';
+import { toBigIntBE, toBufferBE } from '../../bigint-buffer/index.js';
+import { randomBytes } from '../../crypto/random/index.js';
+import { hexSchemaFor } from '../../schemas/utils.js';
+import { BufferReader } from '../../serialize/buffer_reader.js';
+import { TypeRegistry } from '../../serialize/type_registry.js';
+import { Fr } from '../bn254/field.js';
 
 /**
  * Represents a field derived from BLS12Field.

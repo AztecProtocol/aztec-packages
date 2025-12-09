@@ -5,7 +5,7 @@ import {
   DEFAULT_TEARDOWN_L2_GAS_LIMIT,
   GAS_SETTINGS_LENGTH,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 

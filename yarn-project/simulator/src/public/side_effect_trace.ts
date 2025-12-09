@@ -7,8 +7,8 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { type LogLevel, createLogger } from '@aztec/foundation/log';
 import { PublicDataUpdateRequest } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';

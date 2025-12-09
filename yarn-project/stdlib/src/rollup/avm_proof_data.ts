@@ -1,5 +1,5 @@
 import { AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import type { ProofData } from '../proofs/proof_data.js';

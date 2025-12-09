@@ -3,7 +3,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
 import { prettyPrintJSON } from '@aztec/cli/utils';
 import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';

@@ -1,6 +1,6 @@
-import { jsonParseWithSchema, jsonStringify } from '../json-rpc/convert.js';
-import { updateInlineTestData } from '../testing/files/index.js';
-import { Fr } from './fields.js';
+import { jsonParseWithSchema, jsonStringify } from '../../json-rpc/convert.js';
+import { updateInlineTestData } from '../../testing/files/index.js';
+import { Fr } from '../bn254/field.js';
 import { Point } from './point.js';
 
 describe('Point', () => {
