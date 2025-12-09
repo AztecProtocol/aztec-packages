@@ -96,7 +96,12 @@ function getProofSettingsFromOptions(options?: UltraHonkBackendOptions): {
           optimizedSolidityVerifier: false,
         };
       case 'noir-rollup-no-zk':
-        return { ipaAccumulation: true, oracleHashType: 'poseidon2', disableZk: true, optimizedSolidityVerifier: false };
+        return {
+          ipaAccumulation: true,
+          oracleHashType: 'poseidon2',
+          disableZk: true,
+          optimizedSolidityVerifier: false,
+        };
       case 'starknet':
         return {
           ipaAccumulation: false,
