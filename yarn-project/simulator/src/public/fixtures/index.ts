@@ -7,3 +7,4 @@ export { ammTest } from './amm_test.js';
 export { bulkTest, megaBulkTest } from './bulk_test.js';
 export { tokenTest } from './token_test.js';
 export * from './custom_bytecode_tests.js';
+export { testCustomBytecode, testNestedCustomBytecode } from './custom_bytecode_tester.js';
