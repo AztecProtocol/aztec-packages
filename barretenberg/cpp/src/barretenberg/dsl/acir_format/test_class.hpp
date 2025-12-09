@@ -583,8 +583,9 @@ concept TestBase = requires {
     };
 };
 
-template <TestBase Base> class TestClass {
+template <TestBase Base_> class TestClass {
   public:
+    using Base = Base_;
     using Builder = Base::Builder;
     using AcirConstraint = Base::AcirConstraint;
     using InvalidWitness = Base::InvalidWitness;

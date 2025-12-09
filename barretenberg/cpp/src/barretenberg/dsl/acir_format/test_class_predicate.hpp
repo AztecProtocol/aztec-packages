@@ -98,8 +98,9 @@ concept TestBaseWithPredicate = requires {
 /**
  * @brief Test class for ACIR constraints that contain a predicate.
  */
-template <TestBaseWithPredicate Base> class TestClassWithPredicate {
+template <TestBaseWithPredicate Base_> class TestClassWithPredicate {
   public:
+    using Base = Base_;
     using Builder = Base::Builder;
     using InvalidWitness = Base::InvalidWitness;
     using InvalidWitnessTarget = InvalidWitness::Target;
