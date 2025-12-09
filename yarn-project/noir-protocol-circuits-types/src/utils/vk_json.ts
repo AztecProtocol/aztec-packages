@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
