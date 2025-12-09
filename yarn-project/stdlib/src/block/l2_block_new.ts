@@ -1,5 +1,6 @@
 import { type BlockBlobData, encodeBlockBlobData } from '@aztec/blob-lib/encoding';
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber, CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
@@ -21,10 +22,14 @@ export class L2BlockNew {
     public header: BlockHeader,
     /** L2 block body. */
     public body: Body,
+    /** Number of the checkpoint that the block belongs to. */
+    public checkpointNumber: CheckpointNumber,
+    /** Index of the block within the checkpoint. */
+    public indexWithinCheckpoint: number,
     private blockHash: Fr | undefined = undefined,
   ) {}
 
-  get number(): number {
+  get number(): BlockNumber {
     return this.header.globalVariables.blockNumber;
   }
 
@@ -38,8 +43,13 @@ export class L2BlockNew {
         archive: AppendOnlyTreeSnapshot.schema,
         header: BlockHeader.schema,
         body: Body.schema,
+        checkpointNumber: CheckpointNumberSchema,
+        indexWithinCheckpoint: z.number(),
       })
-      .transform(({ archive, header, body }) => new L2BlockNew(archive, header, body));
+      .transform(
+        ({ archive, header, body, checkpointNumber, indexWithinCheckpoint }) =>
+          new L2BlockNew(archive, header, body, checkpointNumber, indexWithinCheckpoint),
+      );
   }
 
   /**
@@ -51,8 +61,10 @@ export class L2BlockNew {
     const header = reader.readObject(BlockHeader);
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
     const body = reader.readObject(Body);
+    const checkpointNumber = CheckpointNumber(reader.readNumber());
+    const indexWithinCheckpoint = reader.readNumber();
 
-    return new L2BlockNew(archive, header, body);
+    return new L2BlockNew(archive, header, body, checkpointNumber, indexWithinCheckpoint);
   }
 
   /**
@@ -60,7 +72,7 @@ export class L2BlockNew {
    * @returns A serialized L2 block as a Buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.header, this.archive, this.body);
+    return serializeToBuffer(this.header, this.archive, this.body, this.checkpointNumber, this.indexWithinCheckpoint);
   }
 
   /**
@@ -74,12 +86,13 @@ export class L2BlockNew {
     return this.blockHash;
   }
 
-  public toBlobFields(isFirstBlock: boolean): Fr[] {
-    const blockBlobData = this.toBlockBlobData(isFirstBlock);
+  public toBlobFields(): Fr[] {
+    const blockBlobData = this.toBlockBlobData();
     return encodeBlockBlobData(blockBlobData);
   }
 
-  public toBlockBlobData(isFirstBlock: boolean): BlockBlobData {
+  public toBlockBlobData(): BlockBlobData {
+    const isFirstBlock = this.indexWithinCheckpoint === 0;
     return {
       blockEndMarker: {
         numTxs: this.body.txEffects.length,
@@ -102,6 +115,10 @@ export class L2BlockNew {
     };
   }
 
+  static empty() {
+    return new L2BlockNew(AppendOnlyTreeSnapshot.empty(), BlockHeader.empty(), Body.empty(), CheckpointNumber(0), 0);
+  }
+
   /**
    * Creates an L2 block containing random data.
    * @param l2BlockNum - The number of the L2 block.
@@ -112,13 +129,17 @@ export class L2BlockNew {
    * @returns The L2 block.
    */
   static async random(
-    blockNumber: number,
+    blockNumber: BlockNumber,
     {
+      checkpointNumber = CheckpointNumber(Number(blockNumber)),
+      indexWithinCheckpoint = 0,
       txsPerBlock = 1,
       txOptions = {},
       makeTxOptions,
       ...blockHeaderOverrides
     }: {
+      checkpointNumber?: CheckpointNumber;
+      indexWithinCheckpoint?: number;
       txsPerBlock?: number;
       txOptions?: Partial<Parameters<typeof Body.random>[0]>;
       makeTxOptions?: (txIndex: number) => Partial<Parameters<typeof Body.random>[0]>;
@@ -127,7 +148,7 @@ export class L2BlockNew {
     const archive = new AppendOnlyTreeSnapshot(Fr.random(), blockNumber + 1);
     const header = BlockHeader.random({ blockNumber, ...blockHeaderOverrides });
     const body = await Body.random({ txsPerBlock, makeTxOptions, ...txOptions });
-    return new L2BlockNew(archive, header, body);
+    return new L2BlockNew(archive, header, body, checkpointNumber, indexWithinCheckpoint);
   }
 
   /**
@@ -163,7 +184,7 @@ export class L2BlockNew {
       archive: this.archive.root,
       lastArchive: this.header.lastArchive.root,
       blockNumber: this.number,
-      slotNumber: Number(this.header.getSlot()),
+      slotNumber: this.header.getSlot(),
       txCount: this.body.txEffects.length,
       timestamp: this.header.globalVariables.timestamp,
     };

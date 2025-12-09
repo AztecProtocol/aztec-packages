@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct RetrievedNote documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">RetrievedNote</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct RetrievedNote</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.contract_address">contract_address</a></li>
+<li><a href="#structfield.metadata">metadata</a></li>
+<li><a href="#structfield.note">note</a></li>
+<li><a href="#structfield.randomness">randomness</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-RetrievedNote<Note>">Deserialize</a></li>
+<li><a href="#impl-Eq-for-RetrievedNote<Note>">Eq</a></li>
+<li><a href="#impl-Packable-for-RetrievedNote<Note>">Packable</a></li>
+<li><a href="#impl-Serialize-for-RetrievedNote<Note>">Serialize</a></li>
+</ul>
+<h2>In module retrieved_note</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.RetrievedNote.html">RetrievedNote</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::<a href="index.html">retrieved_note</a></div>
+<h1>Struct <span id="struct" class="struct">RetrievedNote</span></h1>
+<pre><code>pub struct RetrievedNote&lt;Note&gt; {
+    pub note: Note,
+    pub contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub randomness: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub metadata: <a href="../../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a>,
+}
+</code></pre>
+<div class="comments">
+<p>A container of a note and the metadata required to prove its existence, regardless of whether the note is
+pending (created in the current transaction) or settled (created in a previous transaction).</p>
+</div>
+<h2>Fields</h2>
+<div id="structfield.note" class="struct-field"><code class="code-header">note: Note</code></div>
+<div class="padded-description"></div><div id="structfield.contract_address" class="struct-field"><code class="code-header">contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="structfield.randomness" class="struct-field"><code class="code-header">randomness: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.metadata" class="struct-field"><code class="code-header">metadata: <a href="../../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-RetrievedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(
+    serialized: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Deserialize&gt;::N + 4],
+) -> Self</code>
+
+</div><h3 id="impl-Eq-for-RetrievedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Packable-for-RetrievedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">pack</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Packable&gt;::N + 4]</code>
+
+<code class="code-header">pub fn <span class="fn">unpack</span>(packed: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Packable&gt;::N + 4]) -> Self</code>
+
+</div><h3 id="impl-Serialize-for-RetrievedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;(resolved type) as Serialize&gt;::N + 4]</code>
+
+</div></main>
+</span>
+</body>
+</html>

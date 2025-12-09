@@ -1,7 +1,8 @@
 import { prettyPrintJSON } from '@aztec/cli/utils';
 import { SecretValue } from '@aztec/foundation/config';
-import { computeBn254G1PublicKeyCompressed, deriveBlsPrivateKey } from '@aztec/foundation/crypto';
+import { deriveBlsPrivateKey } from '@aztec/foundation/crypto/bls';
 import { createBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
+import { computeBn254G1PublicKeyCompressed } from '@aztec/foundation/crypto/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import type { BLSPrivateKey, EthAccount, EthPrivateKey, KeyStore, ValidatorKeyStore } from '@aztec/node-keystore/types';

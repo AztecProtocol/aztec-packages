@@ -1,8 +1,8 @@
 import type { ViemHeader } from '@aztec/ethereum';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { sha256ToField } from '@aztec/foundation/crypto';
+import { sha256ToField } from '@aztec/foundation/crypto/sha256';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -137,11 +137,13 @@ export class CheckpointHeader {
     });
   }
 
-  static random(overrides: Partial<FieldsOf<CheckpointHeader>> = {}): CheckpointHeader {
+  static random(
+    overrides: Partial<FieldsOf<CheckpointHeader>> & Partial<FieldsOf<ContentCommitment>> = {},
+  ): CheckpointHeader {
     return CheckpointHeader.from({
       lastArchiveRoot: Fr.random(),
       blockHeadersHash: Fr.random(),
-      contentCommitment: ContentCommitment.random(),
+      contentCommitment: ContentCommitment.random(overrides),
       slotNumber: SlotNumber(Math.floor(Math.random() * 1000) + 1),
       timestamp: BigInt(Math.floor(Date.now() / 1000)),
       coinbase: EthAddress.random(),

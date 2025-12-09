@@ -78,6 +78,10 @@ function lint {
   fi
 }
 
+function compile_all_projects {
+  get_projects | compile_project
+}
+
 function compile_all {
   set -euo pipefail
   local hash=$(hash)
@@ -106,13 +110,9 @@ function compile_all {
   cd pxe && yarn check_oracle_version
   cd ..
 
-  cmds=('format --check')
-  if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
-    # Fully type check and lint.
-    cmds+=('yarn tsgo -b --emitDeclarationOnly && lint --check')
-  else
-    # We just need the type declarations required for downstream consumers.
-    cmds+=('cd aztec.js && yarn tsgo -b --emitDeclarationOnly')
+  cmds=('format --check' 'yarn tsgo -b --emitDeclarationOnly')
+  if [ "${CI:-0}" -eq 1 ]; then
+    cmds+=('lint --check')
   fi
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt
@@ -145,7 +145,7 @@ function test_cmds {
     local cmd_env=""
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser) ]]; then
+    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser|blob-sink/src/server) ]]; then
       prefix+=":ISOLATE=1:NAME=$test"
     fi
 
@@ -189,6 +189,7 @@ function test_cmds {
 
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
+    echo "$hash yarn-project/scripts/run_test.sh aztec/src/mainnet_compatibility.test.ts"
   fi
 }
 

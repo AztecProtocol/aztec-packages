@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct PublicMutable documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PublicMutable</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PublicMutable</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#read">read</a></li>
+<li><a href="#read">read</a></li>
+<li><a href="#write">write</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-StateVariable&lt;M, Context&gt;-for-PublicMutable<T, Context>">StateVariable&lt;M, Context&gt;</a></li>
+</ul>
+<h2>In module public_mutable</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PublicMutable.html">PublicMutable</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">state_vars</a>::<a href="index.html">public_mutable</a></div>
+<h1>Struct <span id="struct" class="struct">PublicMutable</span></h1>
+<pre><code>pub struct PublicMutable&lt;T, Context&gt;
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<h2>PublicMutable</h2>
+<p>PublicMutable is a public state variable type for values that can be read
+and written within #[external(&quot;public&quot;)] functions of your smart contract.</p>
+<p>You can declare a state variable of type PublicMutable within your contract's
+#[storage] struct:</p>
+<p>E.g.:
+<code>your_variable: PublicMutable&lt;T, Context&gt;</code>
+or:
+<code>your_mapping: Map&lt;Field, PublicMutable&lt;T, Context&gt;&gt;</code></p>
+<p>The methods of PublicMutable are:</p>
+<ul>
+<li><code>read</code></li>
+<li><code>write</code>
+(see the methods' own doc comments for more info).</li>
+</ul>
+<h2>Example.</h2>
+<p>A voting contract's proposal count can be represented as a PublicMutable<u64>.
+The count can be read by anyone to see how many proposals exist, and incremented
+when new proposals are submitted.</p>
+<h2>Generic Parameters:</h2>
+<ul>
+<li><code>T</code> - The type of value stored (must implement Packable).</li>
+<li><code>Context</code> - The execution context (PublicContext or UtilityContext).</li>
+</ul>
+<h2>Advanced</h2>
+<p>Unlike private state variables which use notes, PublicMutable stores values
+directly in Aztec's public data tree. This enables direct read and write
+access to the current state during public function execution.</p>
+<p>docs:start:public_mutable_struct</p>
+</div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Reads the current value stored in this PublicMutable state variable.</p>
+<p>Notice that this function is executable only within a UtilityContext, which
+is an unconstrained environment on the user's local device.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - The current value stored in this PublicMutable.</li>
+</ul>
+</div>
+</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Reads the current value stored in this PublicMutable state variable.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - The current value stored in this PublicMutable.</li>
+</ul>
+<p>docs:start:public_mutable_struct_read</p>
+</div>
+</div><code id="write" class="code-header">pub fn <a href="#write"><span class="fn">write</span></a>(self, value: T)
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Writes a new value to this PublicMutable state variable.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>value</code> - The new value to store in this PublicMutable.</li>
+</ul>
+<h4>Advanced</h4>
+<p>This function updates the value stored in Aztec's public data tree.
+The new value becomes immediately available to subsequent reads within
+the same transaction.</p>
+<p>docs:start:public_mutable_struct_write</p>
+</div>
+</div></div><h2>Trait implementations</h2>
+<h3 id="impl-StateVariable&lt;M, Context&gt;-for-PublicMutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/state_vars/state_variable/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M, Context&gt; for <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, Context&gt;
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

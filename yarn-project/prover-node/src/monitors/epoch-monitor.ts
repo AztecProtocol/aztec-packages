@@ -1,4 +1,4 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -105,7 +105,7 @@ export class EpochMonitor implements Traceable {
 
   private async getEpochNumberToProve() {
     const lastBlockProven = await this.l2BlockSource.getProvenBlockNumber();
-    const firstBlockToProve = lastBlockProven + 1;
+    const firstBlockToProve = BlockNumber(lastBlockProven + 1);
     const firstBlockHeaderToProve = await this.l2BlockSource.getBlockHeader(firstBlockToProve);
     if (!firstBlockHeaderToProve) {
       return { epochToProve: undefined, blockNumber: firstBlockToProve };

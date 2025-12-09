@@ -602,7 +602,6 @@ TYPED_TEST(EmptyBlockConstraintTests, EmptyBlockConstraints)
 
         AcirProgram program;
         program.constraints = {
-            .varnum = 0, // No variables needed for empty block constraints
             .num_acir_opcodes = 1,
             .public_inputs = {},
             .block_constraints = { block },

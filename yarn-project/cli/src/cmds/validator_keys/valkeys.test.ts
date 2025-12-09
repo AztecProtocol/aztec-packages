@@ -1,5 +1,5 @@
 import { SecretValue } from '@aztec/foundation/config';
-import { deriveBlsPrivateKey } from '@aztec/foundation/crypto';
+import { deriveBlsPrivateKey } from '@aztec/foundation/crypto/bls';
 import { decryptBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import { loadKeystoreFile } from '@aztec/node-keystore/loader';
 import type { KeyStore } from '@aztec/node-keystore/types';
@@ -636,8 +636,6 @@ describe('validator keys utilities', () => {
         ],
       } as any;
       writeFileSync(existing, JSON.stringify(baseKeystore, null, 2), 'utf-8');
-
-      const fileContent = readFileSync(existing, 'utf-8');
 
       const logs: string[] = [];
       const log = (s: string) => logs.push(s);

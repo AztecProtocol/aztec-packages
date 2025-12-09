@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
@@ -106,8 +107,8 @@ void ToRadixTraceBuilder::process_with_memory(
 
         // Error Handling - Out of Memory Access
         uint64_t dst_addr = static_cast<uint64_t>(event.dst_addr);
-        uint64_t max_write_addr = dst_addr + event.num_limbs - 1;
-        bool write_out_of_range = max_write_addr > AVM_HIGHEST_MEM_ADDRESS;
+        uint64_t write_addr_upper_bound = dst_addr + event.num_limbs;
+        bool write_out_of_range = write_addr_upper_bound > AVM_MEMORY_SIZE;
 
         // Error Handling - Radix Range
         bool invalid_radix = (event.radix < 2 || event.radix > 256);
@@ -130,8 +131,8 @@ void ToRadixTraceBuilder::process_with_memory(
                       { C::to_radix_mem_num_limbs, event.num_limbs },
                       { C::to_radix_mem_is_output_bits, event.is_output_bits ? 1 : 0 },
                       // Helpers
-                      { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
-                      { C::to_radix_mem_max_write_addr, max_write_addr },
+                      { C::to_radix_mem_max_mem_size, static_cast<uint64_t>(AVM_MEMORY_SIZE) },
+                      { C::to_radix_mem_write_addr_upper_bound, write_addr_upper_bound },
                       { C::to_radix_mem_two, 2 },
                       { C::to_radix_mem_two_five_six, 256 },
                       { C::to_radix_mem_sel_num_limbs_is_zero, num_limbs_is_zero },

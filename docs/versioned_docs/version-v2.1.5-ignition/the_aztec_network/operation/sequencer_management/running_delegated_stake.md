@@ -1,7 +1,7 @@
 ---
-id: running_delegated_stake
+id: become_a_staking_provider
 sidebar_position: 2
-title: Running Delegated Stake
+title: Become a Staking Provider
 description: Learn how to run a sequencer with delegated stake on the Aztec network, including provider registration and sequencer identity management.
 ---
 
@@ -44,12 +44,10 @@ You register with the StakingRegistry contract and add sequencer identities (key
 When a delegator stakes to your provider, a Split contract is automatically created to manage reward distribution. You configure your sequencer to use the Split contract address as the coinbase (see [After Delegation: Configure Sequencer Coinbase](#after-delegation-configure-sequencer-coinbase)).
 
 Rewards are distributed according to your agreed commission rate:
-
 - **Provider commission**: Your `providerRewardsRecipient` address receives your commission rate (e.g., 5% for 500 basis points)
 - **Delegator rewards**: The delegator's Aztec Token Vault (ATV) receives the remaining percentage
 
 **Rewards flow:**
-
 1. Rewards accumulate in the rollup under the coinbase address (the Split contract)
 2. After governance unlocks rewards, anyone can release them from the rollup to the `coinbase` address.
 3. Anyone can then disperse the rewards from the Split contract to both the ATV and your `providerRewardsRecipient`
@@ -83,7 +81,6 @@ function registerProvider(
 ```
 
 **Parameters:**
-
 - `_providerAdmin`: Address that can update provider configuration
 - `_providerTakeRate`: Commission rate in basis points (500 = 5%)
 - `_providerRewardsRecipient`: Address receiving commission payments
@@ -151,7 +148,6 @@ function addKeysToProvider(
 ```
 
 **Parameters:**
-
 - `_providerIdentifier`: Your provider identifier from registration
 - `_keyStores`: Array of keystore structures (max 100 per transaction)
 
@@ -171,11 +167,10 @@ struct KeyStore {
 **⚠️ If you run out of keys, users cannot delegate tokens to you.**
 
 The Staking Registry **DOES NOT** check for duplicate keys. Please take **EXTREME** care when registering keys:
-
 - Duplicate keys will cause delegation failures when that duplicate is at the top of your queue
 - The only way to fix this is by calling `dripProviderQueue(_providerIdentifier, _numberOfKeysToDrip)` to remove the duplicate
 - Always verify keys before registration to avoid user experience issues
-  :::
+:::
 
 ### Generating Keys for Registration
 
@@ -183,20 +178,22 @@ Use the `aztec validator-keys` command with the `--staker-output` flag to automa
 
 ```bash
 aztec validator-keys new \
-  --fee-recipient $AZTEC_ADDRESS \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
   --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
-  --l1-rpc-urls $RPC_URL
+  --l1-rpc-urls $ETH_RPC \
+  --l1-chain-id 1
 ```
 
 This command automatically:
-
-1. Generates the keystore with ETH and BLS keys
-2. Computes G1 and G2 public keys
+1. Generates the private keystore with ETH and BLS keys
+2. Generates the public keystore with G1 and G2 public keys
 3. Generates the proof of possession signature
 4. Outputs the data in the correct format for the `addKeysToProvider` function
 
-For more details on keystore creation, see the [Creating Sequencer Keystores](../keystore/creating_keystores.md) guide.
+The public keystore file (`keyN_staker_output.json`) contains the data you'll use for provider registration.
+
+For more details on keystore creation, see the [Sequencer Setup Guide](../../setup/sequencer_management.md#generating-keys).
 
 ### Building the Registration Command
 
@@ -219,7 +216,6 @@ addKeysToProvider(uint256,(address,(uint256,uint256),(uint256,uint256,uint256,ui
 ```
 
 **Parameters:**
-
 - First `uint256`: Your provider identifier (from registration in Step 1)
 - Tuple array: `KeyStore[]` where each element contains:
   - `address`: Sequencer address
@@ -239,7 +235,6 @@ cast send $STAKING_REGISTRY_ADDRESS \
 ```
 
 **Important:**
-
 - Replace all values above with actual data from `aztec validator-keys new --staker-output`
 - Add a maximum of 100 keystores per transaction to avoid gas limit issues
 - Verify each keystore is unique before adding to prevent duplicate key issues
@@ -249,7 +244,6 @@ cast send $STAKING_REGISTRY_ADDRESS \
 To be featured on the staking dashboard, submit metadata about your provider.
 
 **Required metadata:**
-
 - Provider name and description
 - Contact email
 - Logo image (PNG or SVG, recommended size: 256x256px)
@@ -297,12 +291,12 @@ Update the `coinbase` field in your sequencer node's keystore configuration to t
   "validators": [
     {
       "attester": {
-        "eth": "0x...", // Your Ethereum sequencer private key
-        "bls": "0x..." // Your BLS sequencer private key
+        "eth": "0x...",  // Your Ethereum sequencer private key
+        "bls": "0x..."   // Your BLS sequencer private key
       },
-      "publisher": ["0x..."], // Address that submits blocks to L1
-      "coinbase": "0x[SPLIT_CONTRACT_ADDRESS]", // Split contract for this delegation
-      "feeRecipient": "0x..." // Your Aztec address for L2 fees
+      "publisher": ["0x..."],  // Address that submits blocks to L1
+      "coinbase": "0x[SPLIT_CONTRACT_ADDRESS]",  // Split contract for this delegation
+      "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000"  // Not currently used, set to all zeros
     }
   ]
 }
@@ -329,7 +323,6 @@ The dropdown will display a table showing which Split contract corresponds to ea
 **Manual monitoring approach:**
 
 Since coinbase configuration must be done manually, you should:
-
 - Regularly check the staking dashboard for new delegations
 - Set up alerts or scheduled checks (daily or more frequently during high activity)
 - Update keystore configurations promptly when new delegations appear
@@ -350,7 +343,6 @@ As a provider, you must maintain sufficient sequencer identities (keystores) in 
 ### Why Monitoring Matters
 
 Each time a delegator stakes to your provider:
-
 1. One keystore is dequeued from your provider queue
 2. A sequencer is activated using that keystore
 3. Your available keystore count decreases by one
@@ -361,7 +353,7 @@ If your queue runs empty, new delegations cannot activate sequencers until you a
 
 Check your current keystore queue with this call:
 
-````bash
+```bash
 # Check provider queue length
 cast call [STAKING_REGISTRY_ADDRESS] \
   "getProviderQueueLength(uint256) (uint256)" \
@@ -408,7 +400,7 @@ if [ "$QUEUE_LENGTH" -lt "$THRESHOLD" ]; then
   # Email via mail command:
   # echo "Keystore queue has $QUEUE_LENGTH keys remaining" | mail -s "Low Keystore Alert" your-email@example.com
 fi
-````
+```
 
 Make the script executable and schedule it with cron:
 
@@ -426,7 +418,6 @@ crontab -e
 ### When to Add More Keystores
 
 Add keystores proactively before running out:
-
 - Monitor your delegation growth rate
 - Add in batches (max 100 per transaction)
 - Stay ahead of demand during high-activity periods
@@ -476,8 +467,8 @@ cast send [STAKING_REGISTRY_ADDRESS] \
   --private-key [ADMIN_PRIVATE_KEY]
 ```
 
-:::note
-Rate changes only apply to new delegations. Existing delegations retain the original commission rate they agreed to.
+:::warning Commission Changes Only Apply to New Delegations
+When you update your commission rate, only **new delegations** will use the updated rate. **Existing delegations cannot be changed**—they permanently retain the original commission rate that was agreed upon when the delegation was created.
 :::
 
 ## Verification
@@ -496,7 +487,6 @@ cast call [STAKING_REGISTRY_ADDRESS] \
 ```
 
 This returns:
-
 1. The provider's admin address
 2. The provider's commission rate in bps
 3. The provider's rewards recipient
@@ -515,7 +505,6 @@ cast call [STAKING_REGISTRY_ADDRESS] \
 ### Monitor Delegations
 
 View these metrics on the staking dashboard:
-
 - Total stake delegated to your provider
 - Number of active sequencers
 - Commission earned
@@ -532,7 +521,6 @@ Ensure your sequencer nodes are running and synced. See [Useful Commands](./usef
 **Issue**: The `registerProvider` transaction reverts or fails.
 
 **Solutions**:
-
 - Ensure your wallet has sufficient ETH for gas fees
 - Verify the StakingRegistry contract address is correct
 - Check that the commission rate is within acceptable bounds (typically 0-10000 basis points)
@@ -543,7 +531,6 @@ Ensure your sequencer nodes are running and synced. See [Useful Commands](./usef
 **Issue**: The `addKeysToProvider` function fails.
 
 **Solutions**:
-
 - Confirm you're calling from the `providerAdmin` address
 - Verify your `providerIdentifier` is correct
 - Ensure BLS signatures in `KeyStore` are properly formatted (use the keystore creation utility)
@@ -555,7 +542,6 @@ Ensure your sequencer nodes are running and synced. See [Useful Commands](./usef
 **Issue**: No delegators are staking to your provider.
 
 **Solutions**:
-
 - Verify your provider is visible on the staking dashboard
 - Complete all metadata fields to build trust
 - Ensure your commission rate is competitive with other providers
@@ -567,7 +553,6 @@ Ensure your sequencer nodes are running and synced. See [Useful Commands](./usef
 **Issue**: Commission payments aren't arriving at the rewards recipient address.
 
 **Solutions**:
-
 - Verify the `providerRewardsRecipient` address is correct
 - Check that delegations are active and generating fees
 - Confirm your sequencers are producing blocks and earning fees

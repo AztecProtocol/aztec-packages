@@ -1,7 +1,7 @@
 import type { AccountInterface, AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { DefaultAccountEntrypoint, type DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import type { ChainInfo, EntrypointInterface } from '@aztec/entrypoints/interfaces';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress } from '@aztec/stdlib/contract';

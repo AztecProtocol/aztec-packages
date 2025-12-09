@@ -1,6 +1,7 @@
 import type { L1BlockId } from '@aztec/ethereum';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -113,20 +114,20 @@ export class MessageStore {
           );
         }
 
-        // Check index corresponds to the L2 block number.
-        const [expectedStart, expectedEnd] = InboxLeaf.indexRangeFromL2Block(message.l2BlockNumber);
+        // Check index corresponds to the checkpoint number.
+        const [expectedStart, expectedEnd] = InboxLeaf.indexRangeForCheckpoint(message.checkpointNumber);
         if (message.index < expectedStart || message.index >= expectedEnd) {
           throw new MessageStoreError(
             `Invalid index ${message.index} for incoming L1 to L2 message ${message.leaf.toString()} ` +
-              `at block ${message.l2BlockNumber} (expected value in range [${expectedStart}, ${expectedEnd}))`,
+              `at checkpoint ${message.checkpointNumber} (expected value in range [${expectedStart}, ${expectedEnd}))`,
             message,
           );
         }
 
-        // Check there are no gaps in the indices within the same block.
+        // Check there are no gaps in the indices within the same checkpoint.
         if (
           lastMessage &&
-          message.l2BlockNumber === lastMessage.l2BlockNumber &&
+          message.checkpointNumber === lastMessage.checkpointNumber &&
           message.index !== lastMessage.index + 1n
         ) {
           throw new MessageStoreError(
@@ -138,12 +139,12 @@ export class MessageStore {
 
         // Check the first message in a block has the correct index.
         if (
-          (!lastMessage || message.l2BlockNumber > lastMessage.l2BlockNumber) &&
-          message.index !== InboxLeaf.smallestIndexFromL2Block(message.l2BlockNumber)
+          (!lastMessage || message.checkpointNumber > lastMessage.checkpointNumber) &&
+          message.index !== expectedStart
         ) {
           throw new MessageStoreError(
-            `Message ${message.leaf.toString()} for L2 block ${message.l2BlockNumber} has wrong index ` +
-              `${message.index} (expected ${InboxLeaf.smallestIndexFromL2Block(message.l2BlockNumber)})`,
+            `Message ${message.leaf.toString()} for checkpoint ${message.checkpointNumber} has wrong index ` +
+              `${message.index} (expected ${expectedStart})`,
             message,
           );
         }
@@ -184,10 +185,10 @@ export class MessageStore {
     return msg ? deserializeInboxMessage(msg) : undefined;
   }
 
-  public async getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
+  public async getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
     const messages: Fr[] = [];
 
-    const [startIndex, endIndex] = InboxLeaf.indexRangeFromL2Block(blockNumber);
+    const [startIndex, endIndex] = InboxLeaf.indexRangeForCheckpoint(checkpointNumber);
     let lastIndex = startIndex - 1n;
 
     for await (const msgBuffer of this.#l1ToL2Messages.valuesAsync({
@@ -195,8 +196,10 @@ export class MessageStore {
       end: this.indexToKey(endIndex),
     })) {
       const msg = deserializeInboxMessage(msgBuffer);
-      if (msg.l2BlockNumber !== blockNumber) {
-        throw new Error(`L1 to L2 message with index ${msg.index} has invalid block number ${msg.l2BlockNumber}`);
+      if (msg.checkpointNumber !== checkpointNumber) {
+        throw new Error(
+          `L1 to L2 message with index ${msg.index} has invalid checkpoint number ${msg.checkpointNumber}`,
+        );
       } else if (msg.index !== lastIndex + 1n) {
         throw new Error(`Expected L1 to L2 message with index ${lastIndex + 1n} but got ${msg.index}`);
       }
@@ -232,9 +235,9 @@ export class MessageStore {
     });
   }
 
-  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number): Promise<void> {
-    this.#log.debug(`Deleting L1 to L2 messages up to target L2 block ${targetBlockNumber}`);
-    const startIndex = InboxLeaf.smallestIndexFromL2Block(targetBlockNumber + 1);
+  public rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
+    this.#log.debug(`Deleting L1 to L2 messages up to target checkpoint ${targetCheckpointNumber}`);
+    const startIndex = InboxLeaf.smallestIndexForCheckpoint(CheckpointNumber(targetCheckpointNumber + 1));
     return this.removeL1ToL2Messages(startIndex);
   }
 

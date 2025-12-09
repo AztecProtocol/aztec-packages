@@ -92,7 +92,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         std::iota(avm_recursion_opcode_indices.begin(), avm_recursion_opcode_indices.end(), 0);
 
         AcirFormat& constraint_system = program.constraints;
-        constraint_system.varnum = static_cast<uint32_t>(witness.size());
+        constraint_system.max_witness_index = static_cast<uint32_t>(witness.size() - 1);
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(avm_recursion_constraints.size());
         constraint_system.avm_recursion_constraints = avm_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
@@ -113,7 +113,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     std::vector<InnerCircuitData> layer_1_circuits;
     layer_1_circuits.push_back(create_inner_circuit_data());
     AcirProgram avm_verifier_program = construct_avm_verifier_program(layer_1_circuits);
-    auto layer_2_circuit = create_circuit(avm_verifier_program);
+    auto layer_2_circuit = create_circuit<OuterBuilder>(avm_verifier_program);
 
     info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 
@@ -151,7 +151,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         const ProgramMetadata metadata{
             .has_ipa_claim = true,
         };
-        auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
+        auto layer_2_circuit = create_circuit<OuterBuilder>(avm_verifier_program, metadata);
 
         info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 
@@ -177,7 +177,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         // Clear the program witness then construct the bberg circuit as normal
         avm_verifier_program.witness.clear();
         const ProgramMetadata metadata{ .has_ipa_claim = true };
-        auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
+        auto layer_2_circuit = create_circuit<OuterBuilder>(avm_verifier_program, metadata);
 
         info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 

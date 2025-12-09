@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { unfreeze } from '@aztec/foundation/types';
 import { GasFees } from '@aztec/stdlib/gas';
 import { mockTx } from '@aztec/stdlib/testing';
@@ -13,7 +14,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
   let pool: TxPool;
 
   const minedBlockHeader = BlockHeader.empty({
-    globalVariables: GlobalVariables.empty({ blockNumber: 1, timestamp: 0n }),
+    globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1), timestamp: 0n }),
   });
 
   beforeEach(() => {
@@ -261,7 +262,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
       await pool.deleteTxs([txs[0].getTxHash(), txs[1].getTxHash()]);
 
       // Clean up deleted mined txs from block 1 and earlier
-      const deletedCount = await pool.cleanupDeletedMinedTxs(1);
+      const deletedCount = await pool.cleanupDeletedMinedTxs(BlockNumber(1));
 
       // Verify old transactions are permanently deleted
       expect(deletedCount).toBe(2);
@@ -276,7 +277,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
 
       // Mark as mined in block 2
       const laterBlockHeader = BlockHeader.empty({
-        globalVariables: GlobalVariables.empty({ blockNumber: 2, timestamp: 0n }),
+        globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(2), timestamp: 0n }),
       });
       await pool.markAsMined([txs[0].getTxHash()], laterBlockHeader);
 
@@ -284,7 +285,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
       await pool.deleteTxs([txs[0].getTxHash()]);
 
       // Try to clean up with block 1 (before the mined block)
-      const deletedCount = await pool.cleanupDeletedMinedTxs(1);
+      const deletedCount = await pool.cleanupDeletedMinedTxs(BlockNumber(1));
 
       // Verify no transactions were cleaned up
       expect(deletedCount).toBe(0);
