@@ -222,7 +222,7 @@ class Chonk : public IVCBase {
     };
 
     /**
-     * @brief Proof type determining verification logic at each IVC stage.
+     * @brief Proof type determining recursive verification logic in kernel circuits.
      *
      * @details State machine transitions based on `num_circuits_accumulated`:
      *   - OINK:     First app (circuit 0) - no prior accumulator, just Oink verification
@@ -231,7 +231,7 @@ class Chonk : public IVCBase {
      *   - HN_FINAL: Circuit n-2 (tail kernel) - final folding + decider verification
      *   - MEGA:     Circuit n-1 (hiding kernel) - MegaZK proof, no folding
      *
-     * See `get_queue_type()` for transition logic and README.md#circuit-structure for overview.
+     * See `get_queue_type()` for assignment logic and README.md#circuit-structure for overview.
      */
     enum class QUEUE_TYPE : uint8_t {
         OINK,     // First app: instance_to_accumulator, T_prev = infinity
@@ -280,9 +280,11 @@ class Chonk : public IVCBase {
     FF native_verifier_accum_hash; // hash of the native verifier accumulator when entering recursive verification
 #endif
 
-    // Set of tuples {proof, verification_key, type (Oink/HN)} to be recursively verified
+    // PARALLEL QUEUES: These two queues must stay synchronized.
+    // - verification_queue: Native proofs created by accumulate() (prover side)
+    // - stdlib_verification_queue: Circuit witnesses for complete_kernel_circuit_logic() (verifier side)
+    // The stdlib queue is populated from the native queue via instantiate_stdlib_verification_queue().
     VerificationQueue verification_queue;
-    // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
     StdlibVerificationQueue stdlib_verification_queue;
 
     // Management of linking databus commitments between circuits in the IVC
