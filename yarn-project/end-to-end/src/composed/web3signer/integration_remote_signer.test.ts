@@ -1,5 +1,7 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { SecretValue } from '@aztec/foundation/config';
+import type { Hex } from '@aztec/foundation/string';
 import { LocalSigner, RemoteSigner } from '@aztec/node-keystore';
 
 import { jest } from '@jest/globals';
@@ -35,7 +37,7 @@ describe('RemoteSigner integration: Web3Signer (compose)', () => {
 
     chainId = parseInt(L1_CHAIN_ID, 10);
 
-    await createWeb3SignerKeystore(getWeb3SignerTestKeystoreDir(), privateKey.toString());
+    await createWeb3SignerKeystore(getWeb3SignerTestKeystoreDir(), new SecretValue(privateKey.toString() as Hex<32>));
     await refreshWeb3Signer(web3SignerUrl, address.toString());
   });
 
