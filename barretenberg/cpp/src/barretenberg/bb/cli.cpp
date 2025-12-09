@@ -200,6 +200,30 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->check(CLI::IsMember({ "poseidon2", "keccak", "starknet" }).name("is_member"));
     };
 
+    const auto add_verifier_target_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--verifier_target, -t",
+                         flags.verifier_target,
+                         "Target verification environment. Determines hash function and ZK settings.\n"
+                         "  evm:                    Ethereum/Solidity verification (keccak, ZK)\n"
+                         "  evm-no-zk:              Ethereum/Solidity without zero-knowledge\n"
+                         "  noir-recursive:         Recursive verification in Noir circuits (poseidon2, ZK)\n"
+                         "  noir-recursive-no-zk:   Recursive verification without ZK\n"
+                         "  noir-rollup:            Rollup circuits with IPA accumulation (poseidon2, ZK)\n"
+                         "  noir-rollup-no-zk:      Rollup circuits without ZK\n"
+                         "  starknet:               Starknet verification via Garaga (ZK)\n"
+                         "  starknet-no-zk:         Starknet without zero-knowledge")
+            ->envname("BB_VERIFIER_TARGET")
+            ->check(CLI::IsMember({ "evm",
+                                    "evm-no-zk",
+                                    "noir-recursive",
+                                    "noir-recursive-no-zk",
+                                    "noir-rollup",
+                                    "noir-rollup-no-zk",
+                                    "starknet",
+                                    "starknet-no-zk" }));
+    };
+
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag("--write_vk", flags.write_vk, "Write the provided circuit's verification key");
     };
@@ -354,6 +378,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(gates);
     add_bytecode_path_option(gates);
     add_include_gates_per_opcode_flag(gates);
+    add_verifier_target_option(gates);
     add_oracle_hash_option(gates);
     add_ipa_accumulation_flag(gates);
 
@@ -372,6 +397,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(prove);
     add_debug_flag(prove);
     add_crs_path_option(prove);
+    add_verifier_target_option(prove);
     add_oracle_hash_option(prove);
     add_write_vk_flag(prove);
     add_ipa_accumulation_flag(prove);
@@ -401,6 +427,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
     add_crs_path_option(write_vk);
+    add_verifier_target_option(write_vk);
     add_oracle_hash_option(write_vk);
     add_ipa_accumulation_flag(write_vk);
     add_verifier_type_option(write_vk)->default_val("standalone");
@@ -419,6 +446,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(verify);
     add_scheme_option(verify);
     add_crs_path_option(verify);
+    add_verifier_target_option(verify);
     add_oracle_hash_option(verify);
     remove_zk_option(verify);
     add_ipa_accumulation_flag(verify);
@@ -437,6 +465,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_path_option(write_solidity_verifier, output_path);
 
     add_verbose_flag(write_solidity_verifier);
+    add_verifier_target_option(write_solidity_verifier);
     remove_zk_option(write_solidity_verifier);
     add_crs_path_option(write_solidity_verifier);
     add_optimized_solidity_verifier_flag(write_solidity_verifier);
@@ -588,6 +617,71 @@ int parse_and_run_cli_command(int argc, char* argv[])
      ***************************************************************************************************************/
 
     CLI11_PARSE(app, argc, argv);
+
+    // Apply verifier_target to derive oracle_hash_type, disable_zk, and ipa_accumulation
+    // This only applies when verifier_target is explicitly set
+    if (!flags.verifier_target.empty()) {
+        // Check for conflicting flags - verifier_target should not be combined with low-level flags
+        // We need to check the active subcommand for these options
+        CLI::App* active_sub = find_deepest_subcommand(&app);
+        if (active_sub != nullptr) {
+            // Helper to safely get option count (returns 0 if option doesn't exist)
+            auto get_option_count = [](CLI::App* sub, const std::string& name) -> size_t {
+                try {
+                    return sub->get_option(name)->count();
+                } catch (const CLI::OptionNotFound&) {
+                    return 0;
+                }
+            };
+
+            if (get_option_count(active_sub, "--oracle_hash") > 0) {
+                throw_or_abort("Cannot use --verifier_target with --oracle_hash. "
+                               "The --verifier_target flag sets oracle_hash automatically.");
+            }
+            if (get_option_count(active_sub, "--disable_zk") > 0) {
+                throw_or_abort("Cannot use --verifier_target with --disable_zk. "
+                               "Use a '-no-zk' variant of --verifier_target instead (e.g., 'evm-no-zk').");
+            }
+            if (get_option_count(active_sub, "--ipa_accumulation") > 0) {
+                throw_or_abort("Cannot use --verifier_target with --ipa_accumulation. "
+                               "Use '--verifier_target noir-rollup' for IPA accumulation.");
+            }
+        }
+
+        // Map verifier_target to underlying flags
+        if (flags.verifier_target == "evm") {
+            flags.oracle_hash_type = "keccak";
+        } else if (flags.verifier_target == "evm-no-zk") {
+            flags.oracle_hash_type = "keccak";
+            flags.disable_zk = true;
+        } else if (flags.verifier_target == "noir-recursive") {
+            flags.oracle_hash_type = "poseidon2";
+        } else if (flags.verifier_target == "noir-recursive-no-zk") {
+            flags.oracle_hash_type = "poseidon2";
+            flags.disable_zk = true;
+        } else if (flags.verifier_target == "noir-rollup") {
+            flags.oracle_hash_type = "poseidon2";
+            flags.ipa_accumulation = true;
+        } else if (flags.verifier_target == "noir-rollup-no-zk") {
+            flags.oracle_hash_type = "poseidon2";
+            flags.ipa_accumulation = true;
+            flags.disable_zk = true;
+        } else if (flags.verifier_target == "starknet") {
+            flags.oracle_hash_type = "starknet";
+        } else if (flags.verifier_target == "starknet-no-zk") {
+            flags.oracle_hash_type = "starknet";
+            flags.disable_zk = true;
+        }
+        vinfo("verifier_target '",
+              flags.verifier_target,
+              "' -> oracle_hash_type='",
+              flags.oracle_hash_type,
+              "', disable_zk=",
+              flags.disable_zk,
+              ", ipa_accumulation=",
+              flags.ipa_accumulation);
+    }
+
     // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any
     // points; that is done on-demand.
     srs::init_net_crs_factory(flags.crs_path);
@@ -635,6 +729,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return verified ? 0 : 1;
         }
         if (write_solidity_verifier->parsed()) {
+            // Validate that verifier_target is compatible with Solidity verifier
+            if (!flags.verifier_target.empty() && flags.verifier_target != "evm" &&
+                flags.verifier_target != "evm-no-zk") {
+                throw_or_abort("write_solidity_verifier requires --verifier_target to be 'evm' or 'evm-no-zk', got '" +
+                               flags.verifier_target + "'");
+            }
             api.write_solidity_verifier(flags, output_path, vk_path);
             return 0;
         }
