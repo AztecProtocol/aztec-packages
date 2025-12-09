@@ -5,12 +5,12 @@ import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig, InboxContract, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
-import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -100,7 +100,7 @@ describe('Archiver', () => {
   };
 
   const makeBlock = async (blockNumber: number, txsPerBlock: number, maxEffects?: number) => {
-    const block = await L2BlockNew.random(blockNumber, {
+    const block = await L2BlockNew.random(BlockNumber(blockNumber), {
       txsPerBlock,
       state: makeStateReference(0x100),
       makeTxOptions: txIndex => ({
@@ -348,9 +348,9 @@ describe('Archiver', () => {
 
     expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
 
-    expect(await archiver.getL1ToL2Messages(1)).toHaveLength(2);
-    expect(await archiver.getL1ToL2Messages(2)).toHaveLength(3);
-    expect(await archiver.getL1ToL2Messages(3)).toHaveLength(1);
+    expect(await archiver.getL1ToL2Messages(BlockNumber(1))).toHaveLength(2);
+    expect(await archiver.getL1ToL2Messages(BlockNumber(2))).toHaveLength(3);
+    expect(await archiver.getL1ToL2Messages(BlockNumber(3))).toHaveLength(1);
 
     // Expect logs to correspond to what is set by L2Block.random(...)
     for (const checkpoint of checkpoints) {
@@ -690,7 +690,7 @@ describe('Archiver', () => {
     expect(await archiver.getTxEffect(txHash)).resolves.toBeUndefined;
     expect(await archiver.getCheckpoint(CheckpointNumber(2))).resolves.toBeUndefined;
 
-    expect(await archiver.getPrivateLogs(2, 1)).toEqual([]);
+    expect(await archiver.getPrivateLogs(BlockNumber(2), 1)).toEqual([]);
     expect((await archiver.getPublicLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
     expect((await archiver.getContractClassLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
   }, 10_000);
@@ -712,12 +712,12 @@ describe('Archiver', () => {
 
     await archiver.start(false);
 
-    await retryUntil(() => archiver.getL1ToL2Messages(3).then(msgs => msgs.length === 4), 'sync', 10, 0.1);
+    await retryUntil(() => archiver.getL1ToL2Messages(BlockNumber(3)).then(msgs => msgs.length === 4), 'sync', 10, 0.1);
 
-    expect(await archiver.getL1ToL2Messages(1)).toHaveLength(2);
-    expect(await archiver.getL1ToL2Messages(2)).toHaveLength(0);
-    expect(await archiver.getL1ToL2Messages(3)).toHaveLength(4);
-    expect(await archiver.getL1ToL2Messages(4)).toHaveLength(0);
+    expect(await archiver.getL1ToL2Messages(BlockNumber(1))).toHaveLength(2);
+    expect(await archiver.getL1ToL2Messages(BlockNumber(2))).toHaveLength(0);
+    expect(await archiver.getL1ToL2Messages(BlockNumber(3))).toHaveLength(4);
+    expect(await archiver.getL1ToL2Messages(BlockNumber(4))).toHaveLength(0);
 
     // Drops the last 2 messages from checkpoint 3, and adds new messages for checkpoints 4 and 5
     // Note the overlap in L1 blocks, to test reinsertion of messages
@@ -730,18 +730,23 @@ describe('Archiver', () => {
     expect(l2MessageSentLogs).toHaveLength(7);
     mockInbox.read.getState.mockResolvedValue(makeInboxStateFromMsgCount(7));
 
-    await retryUntil(() => archiver.getL1ToL2Messages(5).then(msgs => msgs.length === 2), 're-sync', 10, 0.1);
+    await retryUntil(
+      () => archiver.getL1ToL2Messages(BlockNumber(5)).then(msgs => msgs.length === 2),
+      're-sync',
+      10,
+      0.1,
+    );
 
-    expect(await archiver.getL1ToL2Messages(1)).toHaveLength(2);
-    expect(await archiver.getL1ToL2Messages(2)).toHaveLength(0);
-    expect(await archiver.getL1ToL2Messages(3)).toHaveLength(2);
-    expect(await archiver.getL1ToL2Messages(4)).toHaveLength(1);
-    expect(await archiver.getL1ToL2Messages(5)).toHaveLength(2);
+    expect(await archiver.getL1ToL2Messages(BlockNumber(1))).toHaveLength(2);
+    expect(await archiver.getL1ToL2Messages(BlockNumber(2))).toHaveLength(0);
+    expect(await archiver.getL1ToL2Messages(BlockNumber(3))).toHaveLength(2);
+    expect(await archiver.getL1ToL2Messages(BlockNumber(4))).toHaveLength(1);
+    expect(await archiver.getL1ToL2Messages(BlockNumber(5))).toHaveLength(2);
 
-    expect((await archiver.getL1ToL2Messages(4)).map(leaf => leaf.toString())).toEqual(
+    expect((await archiver.getL1ToL2Messages(BlockNumber(4))).map(leaf => leaf.toString())).toEqual(
       [msg40].map(leaf => leaf.toString()),
     );
-    expect((await archiver.getL1ToL2Messages(5)).map(leaf => leaf.toString())).toEqual(
+    expect((await archiver.getL1ToL2Messages(BlockNumber(5))).map(leaf => leaf.toString())).toEqual(
       [msg50, msg51].map(leaf => leaf.toString()),
     );
   });

@@ -62,11 +62,10 @@ TEST_F(CalldataHashingTest, SimpleHash)
     auto output_hash = calldata_hasher.compute_calldata_hash(calldata_fields);
 
     EXPECT_EQ(output_hash, hash);
-    EXPECT_THAT(calldata_events.dump_events(),
-                AllOf(SizeIs(1),
-                      ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1),
-                                        Field(&CalldataEvent::calldata_size, 100),
-                                        Field(&CalldataEvent::calldata, SizeIs(100))))));
+    EXPECT_THAT(
+        calldata_events.dump_events(),
+        AllOf(SizeIs(1),
+              ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1), Field(&CalldataEvent::calldata, SizeIs(100))))));
 }
 
 TEST_F(CalldataHashingTest, Hash)
@@ -79,11 +78,10 @@ TEST_F(CalldataHashingTest, Hash)
     EXPECT_CALL(poseidon2, hash(prepended_calldata_fields)).WillOnce(Return(hash));
 
     calldata_hasher.compute_calldata_hash(calldata);
-    EXPECT_THAT(calldata_events.dump_events(),
-                AllOf(SizeIs(1),
-                      ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1),
-                                        Field(&CalldataEvent::calldata_size, 500),
-                                        Field(&CalldataEvent::calldata, calldata)))));
+    EXPECT_THAT(
+        calldata_events.dump_events(),
+        AllOf(SizeIs(1),
+              ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1), Field(&CalldataEvent::calldata, calldata)))));
 }
 
 TEST_F(CalldataHashingTest, Empty)
@@ -96,11 +94,10 @@ TEST_F(CalldataHashingTest, Empty)
     EXPECT_CALL(poseidon2, hash(prepended_calldata_fields)).WillOnce(Return(hash));
 
     calldata_hasher.compute_calldata_hash(calldata);
-    EXPECT_THAT(calldata_events.dump_events(),
-                AllOf(SizeIs(1),
-                      ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1),
-                                        Field(&CalldataEvent::calldata_size, 0),
-                                        Field(&CalldataEvent::calldata, calldata)))));
+    EXPECT_THAT(
+        calldata_events.dump_events(),
+        AllOf(SizeIs(1),
+              ElementsAre(AllOf(Field(&CalldataEvent::context_id, 1), Field(&CalldataEvent::calldata, calldata)))));
 }
 
 } // namespace

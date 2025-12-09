@@ -1,13 +1,13 @@
 import { Body, L2Block } from '@aztec/aztec.js/block';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { GENESIS_BLOCK_HEADER_HASH, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum';
-import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
@@ -68,8 +68,8 @@ describe('sequencer', () => {
   let dateProvider: TestDateProvider;
 
   let initialBlockHeader: BlockHeader;
-  let lastBlockNumber: number;
-  let newBlockNumber: number;
+  let lastBlockNumber: BlockNumber;
+  let newBlockNumber: BlockNumber;
   let newSlotNumber: number;
   let hash: string;
 
@@ -163,8 +163,8 @@ describe('sequencer', () => {
   beforeEach(async () => {
     feeRecipient = await AztecAddress.random();
     initialBlockHeader = BlockHeader.empty();
-    lastBlockNumber = 0;
-    newBlockNumber = lastBlockNumber + 1;
+    lastBlockNumber = BlockNumber.ZERO;
+    newBlockNumber = BlockNumber(lastBlockNumber + 1);
     newSlotNumber = newBlockNumber;
     hash = Fr.ZERO.toString();
 
@@ -243,8 +243,8 @@ describe('sequencer', () => {
         syncSummary: {
           latestBlockNumber: lastBlockNumber,
           latestBlockHash: hash,
-          finalizedBlockNumber: 0,
-          oldestHistoricBlockNumber: 0,
+          finalizedBlockNumber: BlockNumber.ZERO,
+          oldestHistoricBlockNumber: BlockNumber.ZERO,
           treesAreSynched: true,
         },
       } satisfies WorldStateSynchronizerStatus),
@@ -438,7 +438,7 @@ describe('sequencer', () => {
     it('settles on the chain tip before it starts building a block', async () => {
       // this test simulates a synch happening right after the sequencer starts building a block
       // simulate every component being synched
-      const firstBlock = await L2Block.random(1);
+      const firstBlock = await L2Block.random(BlockNumber(1));
       const currentTip = firstBlock;
       const syncedToL2Block = { number: currentTip.number, hash: (await currentTip.hash()).toString() };
       worldState.status.mockImplementation(() =>
@@ -454,25 +454,25 @@ describe('sequencer', () => {
       l2BlockSource.getL2Tips.mockImplementation(() =>
         Promise.resolve({
           latest: syncedToL2Block,
-          proven: { number: 0, hash: undefined },
-          finalized: { number: 0, hash: undefined },
+          proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         }),
       );
       l1ToL2MessageSource.getL2Tips.mockImplementation(() =>
         Promise.resolve({
           latest: syncedToL2Block,
-          proven: { number: 0, hash: undefined },
-          finalized: { number: 0, hash: undefined },
+          proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         }),
       );
 
       // simulate a synch happening right after
       l2BlockSource.getBlockNumber.mockResolvedValueOnce(currentTip.number);
-      l2BlockSource.getBlockNumber.mockResolvedValueOnce(currentTip.number + 1);
+      l2BlockSource.getBlockNumber.mockResolvedValueOnce(BlockNumber(currentTip.number + 1));
       // now the new tip is actually block 2
       l2BlockSource.getBlock.mockImplementation(n =>
         n === -1
-          ? L2Block.random(currentTip.number + 1)
+          ? L2Block.random(BlockNumber(currentTip.number + 1))
           : n === currentTip.number
             ? Promise.resolve(currentTip)
             : Promise.resolve(undefined),
@@ -645,8 +645,8 @@ describe('sequencer', () => {
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
-          latestBlockNumber: lastBlockNumber,
-          latestBlockHash: differentHash, // Different hash causes sync check to fail
+          latestBlockNumber: BlockNumber(lastBlockNumber + 1),
+          latestBlockHash: differentHash,
         } as WorldStateSyncStatus,
       });
     });

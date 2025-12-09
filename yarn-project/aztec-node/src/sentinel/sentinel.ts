@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { countWhile, filterAsync, fromEntries, getEntries, mapValues } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -44,7 +44,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   protected initialSlot: SlotNumber | undefined;
   protected lastProcessedSlot: SlotNumber | undefined;
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
-  protected slotNumberToBlock: Map<SlotNumber, { blockNumber: number; archive: string; attestors: EthAddress[] }> =
+  protected slotNumberToBlock: Map<SlotNumber, { blockNumber: BlockNumber; archive: string; attestors: EthAddress[] }> =
     new Map();
 
   constructor(
@@ -76,7 +76,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   /** Loads initial slot and initializes blockstream. We will not process anything at or before the initial slot. */
   protected async init() {
     this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
-    const startingBlock = await this.archiver.getBlockNumber();
+    const startingBlock = BlockNumber(await this.archiver.getBlockNumber());
     this.logger.info(`Starting validator sentinel with initial slot ${this.initialSlot} and block ${startingBlock}`);
     this.blockStream = new L2BlockStream(this.archiver, this.l2TipsStore, this, this.logger, { startingBlock });
   }
@@ -91,7 +91,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       // Store mapping from slot to archive, block number, and attestors
       for (const block of event.blocks) {
         this.slotNumberToBlock.set(block.block.header.getSlot(), {
-          blockNumber: block.block.number,
+          blockNumber: BlockNumber(block.block.number),
           archive: block.block.archive.root.toString(),
           attestors: getAttestationInfoFromPublishedL2Block(block)
             .filter(a => a.status === 'recovered-from-signature')
@@ -118,7 +118,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     if (event.type !== 'chain-proven') {
       return;
     }
-    const blockNumber = event.block.number;
+    const blockNumber = BlockNumber(event.block.number);
     const block = await this.archiver.getBlock(blockNumber);
     if (!block) {
       this.logger.error(`Failed to get block ${blockNumber}`, { block });

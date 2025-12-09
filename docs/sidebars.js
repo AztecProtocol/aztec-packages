@@ -80,6 +80,14 @@ const sidebar = {
       "items": [
         {
           "type": "doc",
+          "id": "the_aztec_network/operation/sequencer_management/registering_sequencer"
+        },
+        {
+          "type": "doc",
+          "id": "the_aztec_network/operation/sequencer_management/become_a_staking_provider"
+        },
+        {
+          "type": "doc",
           "id": "the_aztec_network/setup/high_availability_sequencers"
         }
       ]
@@ -182,10 +190,6 @@ const sidebar = {
         {
           "type": "doc",
           "id": "the_aztec_network/operation/sequencer_management/slashing_and_offenses"
-        },
-        {
-          "type": "doc",
-          "id": "the_aztec_network/operation/sequencer_management/running_delegated_stake"
         },
         {
           type: "doc",

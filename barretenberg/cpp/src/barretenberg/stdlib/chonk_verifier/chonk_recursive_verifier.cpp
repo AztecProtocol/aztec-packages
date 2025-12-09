@@ -9,10 +9,14 @@
 namespace bb::stdlib::recursion::honk {
 
 /**
- * @brief Creates a circuit that executes the Chonk verification algorithm.
+ * @brief Creates a circuit that verifies a Chonk IVC proof.
+ * @details Performs:
+ *   1. MegaZK verification of the hiding kernel proof
+ *   2. Databus consistency check (kernel return data == calldata commitment)
+ *   3. Goblin verification using ECC op wire commitments from the kernel
  *
- * @param proof Stdlib proof
- * @return ChonkRecursiveVerifier::Output
+ * @param proof Stdlib Chonk proof containing mega_proof and goblin_proof
+ * @return Output containing deferred verification data (pairing points, IPA claim)
  */
 ChonkRecursiveVerifier::Output ChonkRecursiveVerifier::verify(const StdlibProof& proof)
 {

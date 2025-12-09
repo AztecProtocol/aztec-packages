@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
@@ -18,10 +19,11 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
    * Our tx pool, stored as a Map in-memory, with K: tx hash and V: the transaction.
    */
   private txs: Map<bigint, Tx>;
-  private minedTxs: Map<bigint, number>;
+  private minedTxs: Map<bigint, BlockNumber>;
   private pendingTxs: Set<bigint>;
-  private deletedMinedTxHashes: Map<bigint, number>;
-  private blockToDeletedMinedTxHash: Map<number, Set<bigint>>;
+  private deletedMinedTxHashes: Map<bigint, BlockNumber>;
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  private blockToDeletedMinedTxHash: Map<BlockNumber, Set<bigint>>;
 
   private metrics: PoolInstrumentation<Tx>;
 
@@ -108,7 +110,7 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
     });
   }
 
-  public getMinedTxHashes(): Promise<[TxHash, number][]> {
+  public getMinedTxHashes(): Promise<[TxHash, BlockNumber][]> {
     return Promise.resolve(
       Array.from(this.minedTxs.entries()).map(([txHash, blockNumber]) => [TxHash.fromBigInt(txHash), blockNumber]),
     );
@@ -253,9 +255,9 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
    * @param blockNumber - Block number threshold. Deleted mined txs from this block or earlier will be permanently deleted.
    * @returns The number of transactions permanently deleted.
    */
-  public cleanupDeletedMinedTxs(blockNumber: number): Promise<number> {
+  public cleanupDeletedMinedTxs(blockNumber: BlockNumber): Promise<number> {
     let deletedCount = 0;
-    const blocksToDelete: number[] = [];
+    const blocksToDelete: BlockNumber[] = [];
 
     // Find all blocks up to the specified block number
     for (const [block, txHashes] of this.blockToDeletedMinedTxHash.entries()) {

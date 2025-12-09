@@ -10,6 +10,7 @@
 #include <variant>
 #include <vector>
 
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/addressing.hpp"
@@ -233,15 +234,23 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
     const auto bytecode_length = bytecode.size();
 
     if (pos >= bytecode_length) {
-        vinfo("PC is out of range. Position: ", pos, " Bytecode length: ", bytecode_length);
-        throw InstrDeserializationError::PC_OUT_OF_RANGE;
+        std::string error_msg = format("Invalid program counter ", pos, ", max is ", bytecode_length - 1);
+        vinfo(error_msg);
+        throw InstrDeserializationError(InstrDeserializationEventError::PC_OUT_OF_RANGE, error_msg);
     }
 
     const uint8_t opcode_byte = bytecode[pos];
 
     if (!is_wire_opcode_valid(opcode_byte)) {
-        vinfo("Invalid wire opcode byte: 0x", to_hex(opcode_byte), " at position: ", pos);
-        throw InstrDeserializationError::OPCODE_OUT_OF_RANGE;
+        std::string error_msg = format("Opcode ",
+                                       static_cast<uint32_t>(opcode_byte),
+                                       " (0x",
+                                       to_hex(opcode_byte),
+                                       ") value is not in the range of valid opcodes (at PC ",
+                                       pos,
+                                       ").");
+        vinfo(error_msg);
+        throw InstrDeserializationError(InstrDeserializationEventError::OPCODE_OUT_OF_RANGE, error_msg);
     }
 
     const auto opcode = static_cast<WireOpCode>(opcode_byte);
@@ -254,15 +263,15 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
     // We know we will encounter a parsing error, but continue processing because
     // we need the partial instruction to be parsed for witness generation.
     if (pos + instruction_size > bytecode_length) {
-        vinfo("Instruction does not fit in remaining bytecode. Wire opcode: ",
-              opcode,
-              " pos: ",
-              pos,
-              " instruction size: ",
-              instruction_size,
-              " bytecode length: ",
-              bytecode_length);
-        throw InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
+        std::string error_msg = format("Instruction at PC ",
+                                       pos,
+                                       " does not fit in bytecode (instruction size: ",
+                                       instruction_size,
+                                       ", remaining: ",
+                                       bytecode_length - pos,
+                                       ")");
+        vinfo(error_msg);
+        throw InstrDeserializationError(InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE, error_msg);
     }
 
     pos++; // move after opcode byte

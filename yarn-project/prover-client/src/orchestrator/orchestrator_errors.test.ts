@@ -1,7 +1,7 @@
 import type { FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import { EpochNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
@@ -94,7 +94,7 @@ describe('prover/orchestrator/errors', () => {
       await orchestrator.addTxs(block.txs);
 
       await expect(
-        async () => await orchestrator.startNewBlock(blockNumber + 1, timestamp + 1n, 0 /* numTxs */),
+        async () => await orchestrator.startNewBlock(BlockNumber(blockNumber + 1), timestamp + 1n, 0 /* numTxs */),
       ).rejects.toThrow(`Cannot create a block with 0 txs, unless it's the first block.`);
     });
 

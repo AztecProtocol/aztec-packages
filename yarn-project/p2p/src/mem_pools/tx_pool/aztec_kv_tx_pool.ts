@@ -1,4 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
@@ -37,7 +38,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
   txPoolOverflowFactor: number = 1;
 
   /** Index from tx hash to the block number in which they were mined, filtered by mined txs. */
-  #minedTxHashToBlock: AztecAsyncMap<string, number>;
+  #minedTxHashToBlock: AztecAsyncMap<string, BlockNumber>;
 
   /** Index from tx priority (stored as hex) to its tx hash, filtered by pending txs. */
   #pendingTxPriorityToHash: AztecAsyncMultiMap<string, string>;
@@ -49,10 +50,10 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
   #pendingTxHashToHeaderHash: AztecAsyncMap<string, string>;
 
   /** Map from tx hash to the block number it was originally mined in (for soft-deleted txs). */
-  #deletedMinedTxHashes: AztecAsyncMap<string, number>;
+  #deletedMinedTxHashes: AztecAsyncMap<string, BlockNumber>;
 
   /** MultiMap from block number to deleted mined tx hashes for efficient cleanup. */
-  #blockToDeletedMinedTxHash: AztecAsyncMultiMap<number, string>;
+  #blockToDeletedMinedTxHash: AztecAsyncMultiMap<BlockNumber, string>;
 
   /** The cumulative tx size in bytes that the pending txs in the pool take up. */
   #pendingTxSize: AztecAsyncSingleton<number>;
@@ -222,7 +223,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     return vals.map(TxHash.fromString);
   }
 
-  public async getMinedTxHashes(): Promise<[TxHash, number][]> {
+  public async getMinedTxHashes(): Promise<[TxHash, BlockNumber][]> {
     const vals = await toArray(this.#minedTxHashToBlock.entriesAsync());
     return vals.map(([txHash, blockNumber]) => [TxHash.fromString(txHash), blockNumber]);
   }
@@ -441,10 +442,10 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
    * @param blockNumber - Block number threshold. Deleted mined txs from this block or earlier will be permanently deleted.
    * @returns The number of transactions permanently deleted.
    */
-  public async cleanupDeletedMinedTxs(blockNumber: number): Promise<number> {
+  public async cleanupDeletedMinedTxs(blockNumber: BlockNumber): Promise<number> {
     let deletedCount = 0;
     const txHashesToDelete: string[] = [];
-    const blocksToDelete: number[] = [];
+    const blocksToDelete: BlockNumber[] = [];
 
     await this.#store.transactionAsync(async () => {
       // Iterate through all entries and check block numbers

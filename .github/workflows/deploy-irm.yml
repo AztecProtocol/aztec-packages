@@ -28,6 +28,16 @@ on:
         required: true
         type: string
         default: "aztec-gke-private"
+    secrets:
+      GCP_SA_KEY:
+        description: "GCP Service Account Key for authentication"
+        required: true
+      DOCKERHUB_PASSWORD:
+        description: "Docker Hub password for building and publishing images"
+        required: true
+      DOCKERHUB_USERNAME:
+        description: "Docker Hub username for building and publishing images"
+        required: true
   workflow_dispatch:
     inputs:
       network:
@@ -67,7 +77,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ steps.checkout-ref.outputs.ref }}
+          ref: ${{ github.ref }}
           persist-credentials: false
 
       - name: Authenticate to Google Cloud
@@ -123,6 +133,9 @@ jobs:
           echo "MONITORING_NAMESPACE=${EFFECTIVE_MONITORING_NAMESPACE}" >> "$GITHUB_ENV"
 
       - name: Deploy IRM
+        env:
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           echo "Deploying IRM to network: ${{ inputs.network }}"
           echo "Namespace to monitor: ${NAMESPACE}"

@@ -606,19 +606,19 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
         .bytecode_id = bytecode_id,
         .pc = 0,
         .bytecode = bytecode_ptr,
-        .error = simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationEventError::OPCODE_OUT_OF_RANGE,
     });
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = bytecode_id,
         .pc = 19,
         .bytecode = bytecode_ptr,
-        .error = simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE,
     });
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = bytecode_id,
         .pc = 38,
         .bytecode = bytecode_ptr,
-        .error = simulation::InstrDeserializationError::PC_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationEventError::PC_OUT_OF_RANGE,
     });
 
     builder.process_instruction_fetching(events, trace);
@@ -697,7 +697,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
         .pc = 0,
         .instruction = deserialize_instruction(bytecode, 0), // Reflect more the real code path than passing instr_cast.
         .bytecode = bytecode_ptr,
-        .error = simulation::InstrDeserializationError::TAG_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationEventError::TAG_OUT_OF_RANGE,
     });
 
     events.emplace_back(InstructionFetchingEvent{
@@ -706,7 +706,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
         .instruction =
             deserialize_instruction(bytecode, cast_size), // Reflect more the real code path than passing instr_set.
         .bytecode = bytecode_ptr,
-        .error = simulation::InstrDeserializationError::TAG_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationEventError::TAG_OUT_OF_RANGE,
     });
 
     builder.process_instruction_fetching(events, trace);

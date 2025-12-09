@@ -1,9 +1,10 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type {
@@ -893,7 +894,8 @@ describe('PeerManager', () => {
   });
 
   describe('authentication', () => {
-    const mockStatusMessage = () => new StatusMessage('Test Version', 4, randomBytes(32).toString('hex'), 2);
+    const mockStatusMessage = () =>
+      new StatusMessage('Test Version', BlockNumber(4), randomBytes(32).toString('hex'), BlockNumber(2));
 
     it('should fail to construct with disabled status handshake and validators only', () => {
       expect(() =>

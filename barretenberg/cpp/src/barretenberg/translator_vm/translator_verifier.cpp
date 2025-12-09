@@ -57,9 +57,12 @@ void TranslatorVerifier::put_translation_data_in_relation_parameters(const uint2
 /**
  * @brief This function verifies a TranslatorFlavor Honk proof for given program settings.
  */
-bool TranslatorVerifier::verify_proof(const HonkProof& proof,
-                                      const uint256_t& evaluation_input_x,
-                                      const BF& batching_challenge_v)
+bool TranslatorVerifier::verify_proof(
+    const HonkProof& proof,
+    const uint256_t& evaluation_input_x,
+    const BF& batching_challenge_v,
+    const uint256_t& accumulated_result,
+    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments)
 {
     using Curve = Flavor::Curve;
     using PCS = Flavor::PCS;
@@ -81,19 +84,23 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;
 
-    const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
-
+    // Use accumulated_result from ECCVM verifier
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
 
     // Receive Gemini masking polynomial commitment (for ZK-PCS)
     commitments.gemini_masking_poly = transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
 
-    // Get commitments to wires and the ordered range constraints that do not require additional challenges
-    for (auto [comm, label] : zip_view(commitments.get_wires_and_ordered_range_constraints(),
-                                       commitment_labels.get_wires_and_ordered_range_constraints())) {
+    // Set op queue wire commitments (provided by merge protocol, not from translator proof)
+    commitments.op = op_queue_wire_commitments[0];
+    commitments.x_lo_y_hi = op_queue_wire_commitments[1];
+    commitments.x_hi_z_1 = op_queue_wire_commitments[2];
+    commitments.y_lo_z_2 = op_queue_wire_commitments[3];
+
+    // Receive commitments to non-op-queue wires and ordered range constraints
+    for (auto [comm, label] : zip_view(commitments.get_non_opqueue_wires_and_ordered_range_constraints(),
+                                       commitment_labels.get_non_opqueue_wires_and_ordered_range_constraints())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
-    op_queue_commitments = { commitments.op, commitments.x_lo_y_hi, commitments.x_hi_z_1, commitments.y_lo_z_2 };
 
     // Get permutation challenges
     FF beta = transcript->template get_challenge<FF>("beta");
@@ -143,90 +150,20 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
         .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_interleaved(),
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
-    const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                               claim_batcher,
-                                               sumcheck_output.challenge,
-                                               Commitment::one(),
-                                               transcript,
-                                               Flavor::REPEATED_COMMITMENTS,
-                                               Flavor::HasZK,
-                                               &consistency_checked,
-                                               libra_commitments,
-                                               sumcheck_output.claimed_libra_evaluation);
-    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    auto opening_claim = Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                                                claim_batcher,
+                                                                sumcheck_output.challenge,
+                                                                Commitment::one(),
+                                                                transcript,
+                                                                Flavor::REPEATED_COMMITMENTS,
+                                                                Flavor::HasZK,
+                                                                &consistency_checked,
+                                                                libra_commitments,
+                                                                sumcheck_output.claimed_libra_evaluation);
+    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 
     VerifierCommitmentKey pcs_vkey{};
     auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
     return verified && consistency_checked;
-}
-
-bool TranslatorVerifier::verify_translation(const TranslationEvaluations& translation_evaluations,
-                                            const BF& translation_masking_term_eval)
-{
-    const auto reconstruct_from_array = [&](const auto& arr) {
-        const BF elt_0 = (static_cast<uint256_t>(arr[0]));
-        const BF elt_1 = (static_cast<uint256_t>(arr[1]) << 68);
-        const BF elt_2 = (static_cast<uint256_t>(arr[2]) << 136);
-        const BF elt_3 = (static_cast<uint256_t>(arr[3]) << 204);
-        const BF reconstructed = elt_0 + elt_1 + elt_2 + elt_3;
-        return reconstructed;
-    };
-
-    const auto& reconstruct_value_from_eccvm_evaluations = [&](const TranslationEvaluations& translation_evaluations,
-                                                               auto& relation_parameters) {
-        const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
-        const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
-        const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
-        const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
-        const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);
-        const BF v4 = reconstruct_from_array(relation_parameters.batching_challenge_v[3]);
-        const BF& op = translation_evaluations.op;
-        const BF& Px = translation_evaluations.Px;
-        const BF& Py = translation_evaluations.Py;
-        const BF& z1 = translation_evaluations.z1;
-        const BF& z2 = translation_evaluations.z2;
-
-        const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
-        // multiply by x here to deal with shift
-        return x * accumulated_result == eccvm_opening;
-    };
-
-    bool is_value_reconstructed =
-        reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
-    return is_value_reconstructed;
-}
-
-/**
- * @brief Checks that translator and merge protocol operate on the same EccOpQueue data.
- *
- * @details The final merge verifier receives commitments to 4 polynomials whose coefficients are the values of the full
- * op queue (referred to as the ultra ops table in the merge protocol). These have to match the EccOpQueue commitments
- * received by the translator verifier, representing 4 wires in its circuit, to ensure the two Goblin components,
- * both operating on the UltraOp version of the op queue, actually use the same data.
- */
-bool TranslatorVerifier::verify_consistency_with_final_merge(const std::array<Commitment, 4>& merge_commitments)
-{
-    if (op_queue_commitments[0] != merge_commitments[0]) {
-        info("Consistency check failed: op commitment mismatch");
-        return false;
-    }
-
-    if (op_queue_commitments[1] != merge_commitments[1]) {
-        info("Consistency check failed: x_lo_y_hi commitment mismatch");
-        return false;
-    }
-
-    if (op_queue_commitments[2] != merge_commitments[2]) {
-        info("Consistency check failed: x_hi_z_1 commitment mismatch");
-        return false;
-    }
-
-    if (op_queue_commitments[3] != merge_commitments[3]) {
-        info("Consistency check failed: y_lo_z_2 commitment mismatch");
-        return false;
-    }
-
-    return true;
 }
 } // namespace bb

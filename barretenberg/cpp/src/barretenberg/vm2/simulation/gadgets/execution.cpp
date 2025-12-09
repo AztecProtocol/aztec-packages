@@ -18,12 +18,33 @@
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
+#include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
+#include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
+#include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
+#include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
+#include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/context.hpp"
 #include "barretenberg/vm2/simulation/gadgets/gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/interfaces/alu.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
+#include "barretenberg/vm2/simulation/interfaces/call_stack_metadata_collector.hpp"
+#include "barretenberg/vm2/simulation/interfaces/context_provider.hpp"
+#include "barretenberg/vm2/simulation/interfaces/data_copy.hpp"
+#include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/ecc.hpp"
+#include "barretenberg/vm2/simulation/interfaces/emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/execution_components.hpp"
+#include "barretenberg/vm2/simulation/interfaces/get_contract_instance.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/interfaces/sha256.hpp"
+#include "barretenberg/vm2/simulation/interfaces/to_radix.hpp"
+#include "barretenberg/vm2/simulation/lib/call_stack_metadata_collector.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -54,7 +75,7 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu add operation failed");
+        throw OpcodeExecutionException("Alu add operation failed: " + std::string(e.what()));
     }
 }
 
@@ -94,7 +115,7 @@ void Execution::mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu mul operation failed");
+        throw OpcodeExecutionException("Alu mul operation failed: " + std::string(e.what()));
     }
 }
 
@@ -114,7 +135,7 @@ void Execution::div(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu div operation failed");
+        throw OpcodeExecutionException("Alu div operation failed: " + std::string(e.what()));
     }
 }
 
@@ -134,7 +155,7 @@ void Execution::fdiv(ContextInterface& context, MemoryAddress a_addr, MemoryAddr
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu fdiv operation failed");
+        throw OpcodeExecutionException("Alu fdiv operation failed: " + std::string(e.what()));
     }
 }
 
@@ -154,7 +175,7 @@ void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu eq operation failed");
+        throw OpcodeExecutionException("Alu eq operation failed: " + std::string(e.what()));
     }
 }
 
@@ -174,7 +195,7 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu lt operation failed");
+        throw OpcodeExecutionException("Alu lt operation failed: " + std::string(e.what()));
     }
 }
 
@@ -194,7 +215,7 @@ void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu lte operation failed");
+        throw OpcodeExecutionException("Alu lte operation failed: " + std::string(e.what()));
     }
 }
 
@@ -213,7 +234,7 @@ void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, Memory
         memory.set(dst_addr, b);
         set_output(opcode, b);
     } catch (AluException& e) {
-        throw OpcodeExecutionException("Alu not operation failed");
+        throw OpcodeExecutionException("Alu not operation failed: " + std::string(e.what()));
     }
 }
 
@@ -500,7 +521,9 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
     set_execution_result({ .rd_offset = ret_offset,
                            .rd_size = rd_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
-                           .success = true });
+                           .success = true,
+                           .halting_pc = context.get_pc(),
+                           .halting_message = std::nullopt });
 
     context.halt();
 }
@@ -518,7 +541,9 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
     set_execution_result({ .rd_offset = rev_offset,
                            .rd_size = rev_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
-                           .success = false });
+                           .success = false,
+                           .halting_pc = context.get_pc(),
+                           .halting_message = "Assertion failed: " });
 
     context.halt();
 }
@@ -554,7 +579,7 @@ void Execution::internal_call(ContextInterface& context, uint32_t loc)
 
     auto& internal_call_stack_manager = context.get_internal_call_stack_manager();
     // The next pc is pushed onto the internal call stack. This will become return_pc later.
-    internal_call_stack_manager.push(context.get_next_pc());
+    internal_call_stack_manager.push(context.get_pc(), context.get_next_pc());
     context.set_next_pc(loc);
 }
 
@@ -635,7 +660,7 @@ void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (const BitwiseException& e) {
-        throw OpcodeExecutionException("Bitwise AND Exeception");
+        throw OpcodeExecutionException("Bitwise AND Exeception: " + std::string(e.what()));
     }
 }
 
@@ -657,7 +682,7 @@ void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAdd
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (const BitwiseException& e) {
-        throw OpcodeExecutionException("Bitwise OR Exception");
+        throw OpcodeExecutionException("Bitwise OR Exception: " + std::string(e.what()));
     }
 }
 
@@ -679,7 +704,7 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (const BitwiseException& e) {
-        throw OpcodeExecutionException("Bitwise XOR Exception");
+        throw OpcodeExecutionException("Bitwise XOR Exception: " + std::string(e.what()));
     }
 }
 
@@ -717,7 +742,8 @@ void Execution::sstore(ContextInterface& context, MemoryAddress src_addr, Memory
     get_gas_tracker().consume_gas({ .l2_gas = 0, .da_gas = da_gas_factor });
 
     if (context.get_is_static()) {
-        throw OpcodeExecutionException("SSTORE: Cannot write to storage in static context");
+        throw OpcodeExecutionException(
+            "SSTORE: Static call cannot update the state. Cannot write to storage in static context");
     }
 
     if (!was_slot_written_before &&
@@ -797,7 +823,8 @@ void Execution::emit_nullifier(ContextInterface& context, MemoryAddress nullifie
     get_gas_tracker().consume_gas();
 
     if (context.get_is_static()) {
-        throw OpcodeExecutionException("EMITNULLIFIER: Cannot emit nullifier in static context");
+        throw OpcodeExecutionException(
+            "EMITNULLIFIER: Static call cannot update the state. Cannot emit nullifier in static context");
     }
 
     if (merkle_db.get_tree_state().nullifier_tree.counter == MAX_NULLIFIERS_PER_TX) {
@@ -833,7 +860,7 @@ void Execution::get_contract_instance(ContextInterface& context,
     try {
         get_contract_instance_component.get_contract_instance(memory, contract_address, dst_offset, member_enum);
     } catch (const GetContractInstanceException& e) {
-        throw OpcodeExecutionException("GetContractInstance Exception");
+        throw OpcodeExecutionException("GetContractInstance Exception: " + std::string(e.what()));
     }
 
     // No `set_output` here since the dedicated component handles memory writes.
@@ -851,7 +878,8 @@ void Execution::emit_note_hash(ContextInterface& context, MemoryAddress note_has
     get_gas_tracker().consume_gas();
 
     if (context.get_is_static()) {
-        throw OpcodeExecutionException("EMITNOTEHASH: Cannot emit note hash in static context");
+        throw OpcodeExecutionException(
+            "EMITNOTEHASH: Static call cannot update the state. Cannot emit note hash in static context");
     }
 
     if (merkle_db.get_tree_state().note_hash_tree.counter == MAX_NOTE_HASHES_PER_TX) {
@@ -1016,7 +1044,7 @@ void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress lo
         emit_unencrypted_log_component.emit_unencrypted_log(
             memory, context, context.get_address(), log_offset, log_size_int);
     } catch (const EmitUnencryptedLogException& e) {
-        throw OpcodeExecutionException("EmitUnencryptedLog Exception");
+        throw OpcodeExecutionException("EmitUnencryptedLog Exception: " + std::string(e.what()));
     }
 }
 
@@ -1033,7 +1061,8 @@ void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recip
     get_gas_tracker().consume_gas();
 
     if (context.get_is_static()) {
-        throw OpcodeExecutionException("SENDL2TOL1MSG: Cannot send L2 to L1 message in static context");
+        throw OpcodeExecutionException(
+            "SENDL2TOL1MSG: Static call cannot update the state. Cannot send L2 to L1 message in static context");
     }
 
     auto& side_effect_tracker = context.get_side_effect_tracker();
@@ -1066,6 +1095,11 @@ void Execution::sha256_compression(ContextInterface& context,
 EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
 {
     BB_BENCH_NAME("Execution::execute");
+    call_stack_metadata_collector.notify_enter_call(enqueued_call_context->get_address(),
+                                                    0,
+                                                    make_calldata_provider(*enqueued_call_context),
+                                                    enqueued_call_context->get_is_static(),
+                                                    enqueued_call_context->get_gas_limit());
     external_call_stack.push(std::move(enqueued_call_context));
 
     while (!external_call_stack.empty()) {
@@ -1117,27 +1151,27 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
         catch (const BytecodeRetrievalError& e) {
             vinfo("Bytecode retrieval error:: ", e.what());
             ex_event.error = ExecutionError::BYTECODE_RETRIEVAL;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const InstructionFetchingError& e) {
             vinfo("Instruction fetching error: ", e.what());
             ex_event.error = ExecutionError::INSTRUCTION_FETCHING;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const AddressingException& e) {
             vinfo("Addressing exception: ", e.what());
             ex_event.error = ExecutionError::ADDRESSING;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const RegisterValidationException& e) {
             vinfo("Register validation exception: ", e.what());
             ex_event.error = ExecutionError::REGISTER_READ;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const OutOfGasException& e) {
             vinfo("Out of gas exception: ", e.what());
             ex_event.error = ExecutionError::GAS;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const OpcodeExecutionException& e) {
             vinfo("Opcode execution exception: ", e.what());
             ex_event.error = ExecutionError::OPCODE_EXECUTION;
-            handle_exceptional_halt(context);
+            handle_exceptional_halt(context, e.what());
         } catch (const std::exception& e) {
             // This is a coding error, we should not get here.
             // All exceptions should fall in the above catch blocks.
@@ -1169,13 +1203,19 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
     return {
         .success = result.success,
         .gas_used = result.gas_used,
-        .output = std::nullopt, // The gadgets do not need to return data.
     };
 }
 
 void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context)
 {
     const auto& side_effects = parent_context.get_side_effect_tracker().get_side_effects();
+
+    // Optionally collect call stack metadata.
+    call_stack_metadata_collector.notify_enter_call(child_context->get_address(),
+                                                    parent_context.get_pc(),
+                                                    make_calldata_provider(*child_context),
+                                                    child_context->get_is_static(),
+                                                    child_context->get_gas_limit());
 
     ctx_stack_events.emit({
         .id = parent_context.get_context_id(),
@@ -1208,8 +1248,18 @@ void Execution::handle_exit_call()
 
     // NOTE: the current (child) context should not be modified here, since it was already emitted.
     std::unique_ptr<ContextInterface> child_context = std::move(external_call_stack.top());
-    external_call_stack.pop();
+
     const ExecutionResult& result = get_execution_result();
+
+    // Optionally collect call stack metadata.
+    call_stack_metadata_collector.notify_exit_call(
+        result.success,
+        result.halting_pc,
+        result.halting_message,
+        make_return_data_provider(*child_context, result.rd_offset, result.rd_size),
+        make_internal_call_stack_provider(child_context->get_internal_call_stack_manager()));
+
+    external_call_stack.pop();
 
     // We only handle reverting/committing of nested calls. Enqueued calls are handled by TX execution.
     if (!external_call_stack.empty()) {
@@ -1243,7 +1293,7 @@ void Execution::handle_exit_call()
     // Else: was top level. ExecutionResult is already set and that will be returned.
 }
 
-void Execution::handle_exceptional_halt(ContextInterface& context)
+void Execution::handle_exceptional_halt(ContextInterface& context, const std::string& halting_message)
 {
     context.set_gas_used(context.get_gas_limit()); // Consume all gas.
     context.halt();
@@ -1252,6 +1302,8 @@ void Execution::handle_exceptional_halt(ContextInterface& context)
         .rd_size = 0,
         .gas_used = context.get_gas_used(),
         .success = false,
+        .halting_pc = context.get_pc(),
+        .halting_message = halting_message,
     });
 }
 

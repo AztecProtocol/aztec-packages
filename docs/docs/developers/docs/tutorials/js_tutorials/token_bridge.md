@@ -104,10 +104,6 @@ In this file, you're going to create a **private note** that represents NFT owne
 
 #include_code nft_note_struct /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/nft.nr rust
 
-Now add a `new` method to make creating notes easier. For simplicity, set the randomness within the method. This approach is unsafe because it's unconstrained, but in the current case this won't cause problems:
-
-#include_code nft_note_new /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/nft.nr rust
-
 You now have a note that represents the owner of a particular NFT. Next, move on to the contract itself.
 
 :::tip Custom Notes
