@@ -45,7 +45,7 @@ struct FlushRewardConfiguration {
 
 interface IDeploymentConfiguration {
     function loadConfig() external;
-    function existingTokenAddress() public view returns (address);
+    function existingTokenAddress() external view returns (address);
     function rollupConfig() external view returns (IRollupConfiguration);
     function getProtocolTreasuryConfiguration() external view returns (ProtocolTreasuryConfiguration memory);
     function getCoinIssuerConfiguration() external pure returns (CoinIssuerConfiguration memory);

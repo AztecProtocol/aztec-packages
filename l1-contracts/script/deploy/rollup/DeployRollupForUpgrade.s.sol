@@ -11,6 +11,7 @@ import {Governance} from "@aztec/governance/Governance.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 
 import {DeployRollupLib, RollupAddressInput, RollupAddressOutput} from "./DeployRollupLib.sol";
 import {IRollupConfiguration, RollupConfiguration} from "./RollupConfiguration.sol";
@@ -53,8 +54,9 @@ contract DeployRollupForUpgrade is Script {
         Registry registry = Registry(vm.envAddress("REGISTRY_ADDRESS"));
 
         // Load existing addresses from the registry.
-        GSE gse = registry.getGSE();
-        Governance governance = registry.getGovernance();
+        Governance governance = Governance(registry.getGovernance());
+        GovernanceProposer governanceProposer = GovernanceProposer(governance.governanceProposer());
+        GSE gse = GSE(governanceProposer.gse);
         IERC20 feeAsset = registry.getCanonicalRollup().getFeeAsset();
         IERC20 stakingAsset = registry.getCanonicalRollup().getStakingAsset();
         RewardDistributor rewardDistributor = registry.getRewardDistributor();

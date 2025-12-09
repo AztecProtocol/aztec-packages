@@ -160,7 +160,7 @@ contract DeployL1Contracts is Script, Test {
     /// @notice Deploy fee asset handler on test chains
     function _maybeDeployFeeAssetHandler() internal {
         // Deploy on test chains only (when we control the staking asset)
-        if (config.isDeployingTestAssets()) {
+        if (config.existingTokenAddress() == address(0)) {
             feeAssetHandler = new FeeAssetHandler(deployer, address(feeAsset), 1000e18);
             TestERC20(address(feeAsset)).addMinter(address(feeAssetHandler));
         }
