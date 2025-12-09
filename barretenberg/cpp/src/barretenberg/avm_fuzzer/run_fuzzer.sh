@@ -6,11 +6,14 @@
 set -e
 
 show_usage() {
-    echo "Usage: $0 <command> <fuzzer_type> [options]"
+    echo "Usage: $0 <command> <fuzzer_type> [options] [-- fuzzer_args...]"
     echo "Commands:"
-    echo "  fuzz <fuzzer_type> [--log]     - Run the fuzzer (--log to tail fuzz-0.log)"
-    echo "  coverage <fuzzer_type> [type]  - Generate coverage report (type: html or report, default: html)"
-    echo "  list-targets                   - List all available fuzzing targets"
+    echo "  fuzz <fuzzer_type> [--log] [-- args...]     - Run the fuzzer (--log to tail fuzz-0.log)"
+    echo "  coverage <fuzzer_type> [type]              - Generate coverage report (type: html or report, default: html)"
+    echo "  list-targets                               - List all available fuzzing targets"
+    echo ""
+    echo "Additional fuzzer arguments can be passed after '--'. For example:"
+    echo "  $0 fuzz tx -- -max_len=4096 -runs=1000"
 }
 
 # Check if command is provided
@@ -26,6 +29,7 @@ shift
 if [ "$COMMAND" = "list-targets" ]; then
     echo "Available fuzzing options (<target_name>):"
     echo "  avm - AVM fuzzer (avm_fuzzer_avm_fuzzer)"
+    echo "  tx - Transaction fuzzer (avm_fuzzer_tx_fuzzer)"
     echo "  alu - ALU fuzzer (harness_alu_fuzzer)"
     echo "  bitwise - Bitwise fuzzer (harness_bitwise_fuzzer)"
     echo "  ecc - ECC fuzzer (harness_ecc_fuzzer)"
@@ -56,9 +60,17 @@ if [ "$COMMAND" = "coverage" ] && [ $# -ge 1 ]; then
     fi
 fi
 
+# Parse additional arguments after '--'
+EXTRA_ARGS=()
+if [ $# -ge 1 ] && [ "$1" = "--" ]; then
+    shift
+    EXTRA_ARGS=("$@")
+fi
+
 # Validate and map fuzzer type
 case "$FUZZER_ALIAS" in
     avm) FUZZER_TYPE="avm_fuzzer_avm_fuzzer" ;;
+    tx) FUZZER_TYPE="avm_fuzzer_tx_fuzzer" ;;
     alu) FUZZER_TYPE="harness_alu_fuzzer" ;;
     bitwise) FUZZER_TYPE="harness_bitwise_fuzzer" ;;
     ecc) FUZZER_TYPE="harness_ecc_fuzzer" ;;
@@ -66,7 +78,7 @@ case "$FUZZER_ALIAS" in
     merkle_check) FUZZER_TYPE="harness_merkle_check_fuzzer" ;;
     *)
         echo "Error: Invalid fuzzer type '$FUZZER_ALIAS'"
-        echo "Valid options: 'avm', 'alu', 'bitwise', 'ecc', 'gt' or 'merkle_check'"
+        echo "Valid options: 'avm', 'tx', alu', 'bitwise', 'ecc', 'gt' or 'merkle_check'"
         exit 1
         ;;
 esac
@@ -80,8 +92,8 @@ CPP_DIR="$BARRETENBERG_ROOT/cpp"
 # Set AVM_SIMULATOR_BIN environment variable (relative to PROJECT_ROOT)
 export AVM_SIMULATOR_BIN="${AVM_SIMULATOR_BIN:-$PROJECT_ROOT/yarn-project/simulator/dest/public/fuzzing/avm_simulator_bin.js}"
 
-# Check if AVM_SIMULATOR_BIN exists (only for avm fuzzer)
-if [ "$COMMAND" = "fuzz" ] && [ "$FUZZER_ALIAS" = "avm" ] && [ ! -f "$AVM_SIMULATOR_BIN" ]; then
+# Check if AVM_SIMULATOR_BIN exists (only for avm and tx fuzzers)
+if [ "$COMMAND" = "fuzz" ] && { [ "$FUZZER_ALIAS" = "avm" ] || [ "$FUZZER_ALIAS" = "tx" ]; } && [ ! -f "$AVM_SIMULATOR_BIN" ]; then
     echo "Error: AVM simulator binary not found at: $AVM_SIMULATOR_BIN"
     echo ""
     echo "To build the AVM simulator fuzzer binary:"
@@ -139,6 +151,7 @@ WORKERS=1 # EVERYTHING TUNED TO 1 BY DEFAULT UNTIL DIFFERENTIAL FUZZER WORKS IN 
 JOBS=1 # EVERYTHING TUNED TO 1 BY DEFAULT UNTIL DIFFERENTIAL FUZZER WORKS IN PARALLEL
 ENTROPIC=1
 SHRINK=1
+MAX_LEN=8192
 ARTIFACT_PREFIX="$CRASHES_DIR/"
 
 echo "=========================================="
@@ -156,6 +169,9 @@ if [ "$COMMAND" = "fuzz" ]; then
     echo "  -entropic=$ENTROPIC"
     echo "  -shrink=$SHRINK"
     echo "  -artifact_prefix=$ARTIFACT_PREFIX"
+    if [ ${#EXTRA_ARGS[@]} -gt 0 ]; then
+        echo "Extra arguments: ${EXTRA_ARGS[*]}"
+    fi
 fi
 echo "=========================================="
 echo ""
@@ -171,8 +187,8 @@ fi
 FUZZER_CMD=(./bin/$FUZZER_TYPE)
 
 if [ "$COMMAND" = "coverage" ]; then
-    # When running with coverage, use simplified command
-    FUZZER_CMD+=("$CORPUS_DIR" "$SYNC_CORPUS_DIR" -runs=1)
+    # When running with coverage, run all corpus entries once (runs=0 means corpus only)
+    FUZZER_CMD+=("$CORPUS_DIR" "$SYNC_CORPUS_DIR" -runs=0)
 else
     # Normal fuzzing with full parameters
     FUZZER_CMD+=(
@@ -185,6 +201,11 @@ else
         "$CORPUS_DIR"
         "$SYNC_CORPUS_DIR"
     )
+fi
+
+# Add any extra arguments passed after '--'
+if [ ${#EXTRA_ARGS[@]} -gt 0 ]; then
+    FUZZER_CMD+=("${EXTRA_ARGS[@]}")
 fi
 
 # Run the fuzzer
