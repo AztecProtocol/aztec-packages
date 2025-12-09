@@ -2,7 +2,7 @@
 
 ## Document Purpose
 
-This document provides a rigorous mathematical treatment of the **Non-Native Field Relation** in the Translator circuit, using consistent LaTeX nomenclature throughout. This is the core relation that enables computation in 𝔽q (BN254 base field) using only 𝔽r (BN254 scalar field) arithmetic.
+This document provides a rigorous mathematical treatment of the **Non-Native Field Relation** in the Translator circuit, using consistent LaTeX nomenclature throughout. This is the core relation that enables computation in 𝔽q (BN254 base field) using only 𝔽p (BN254 scalar field) arithmetic.
 
 ---
 
@@ -127,7 +127,7 @@ Each limb is further decomposed into **14-bit microlimbs** for range checking:
 
 This table establishes **all notation** used in the relations:
 
-| Value                           | Native (𝔽q)          | Binary Limbs                                                                         | Native (𝔽r)     |
+| Value                           | Native (𝔽q)          | Binary Limbs                                                                         | Native (𝔽p)     |
 | ------------------------------- | -------------------- | ------------------------------------------------------------------------------------ | --------------- |
 | **Evaluation challenge**        |
 | $x$                             | Evaluation point     | $x_0, x_1, x_2, x_3$                                                                 | $x_4$           |
@@ -192,9 +192,9 @@ $$\mathcal{Q} = q_0 + 2^{68} \cdot q_1 + 2^{136} \cdot q_2 + 2^{204} \cdot q_3$$
 | Symbol | Value                                                                | Description                     |
 | ------ | -------------------------------------------------------------------- | ------------------------------- |
 | $q$    | `0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47` | BN254 base field modulus (𝔽q)   |
-| $r$    | `0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001` | BN254 scalar field modulus (𝔽r) |
+| $p$    | `0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001` | BN254 scalar field modulus (𝔽p) |
 
-**Key fact:** $q \neq r$, so we cannot directly compute in 𝔽q using 𝔽r arithmetic.
+**Key fact:** $q \neq p$, so we cannot directly compute in 𝔽q using 𝔽p arithmetic.
 
 ### Goal
 
@@ -204,7 +204,7 @@ $$\boxed{a^{\text{curr}} = a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v +
 
 ### Challenge
 
-We can only perform arithmetic in $\mathbb{F}_r$ (the scalar field), but we need to prove correctness in $\mathbb{F}_q$ (the base field).
+We can only perform arithmetic in $\mathbb{F}_p$ (the scalar field), but we need to prove correctness in $\mathbb{F}_q$ (the base field).
 
 ### Solution Approach
 
@@ -214,11 +214,11 @@ $$a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdo
 
 **Key insight:** If this equation holds:
 
-1. **Modulo $2^{272}$** (via limb arithmetic in 𝔽r), AND
-2. **Modulo $r$** (native 𝔽r computation), AND
+1. **Modulo $2^{272}$** (via limb arithmetic in 𝔽p), AND
+2. **Modulo $p$** (native 𝔽p computation), AND
 3. All values are properly range-constrained
 
-Then it holds in integers (since $2^{272} \cdot r > 2^{514}$ > max possible value), which implies it holds modulo $q$.
+Then it holds in integers (since $2^{272} \cdot p > 2^{514}$ > max possible value), which implies it holds modulo $q$.
 
 ### Negative Prime Modulus
 
@@ -230,7 +230,7 @@ Decomposed into limbs:
 
 $$\bar{q} = \bar{q}_0 + 2^{68} \cdot \bar{q}_1 + 2^{136} \cdot \bar{q}_2 + 2^{204} \cdot \bar{q}_3$$
 
-Plus native field representation: $\bar{q}_4 = -q \pmod{r}$
+Plus native field representation: $\bar{q}_4 = -q \pmod{p}$
 
 ---
 
@@ -244,13 +244,13 @@ $$\boxed{a^{\text{curr}} = a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v +
 
 ### Challenge
 
-We can only perform arithmetic in 𝔽r (the scalar field), but we need to prove correctness in 𝔽q (the base field).
-Since $q \neq r$, so we cannot directly compute in 𝔽q using 𝔽r arithmetic.
+We can only perform arithmetic in 𝔽p (the scalar field), but we need to prove correctness in 𝔽q (the base field).
+Since $q \neq p$, so we cannot directly compute in 𝔽q using 𝔽p arithmetic.
 
 | Symbol | LaTeX | Value                                                                | Description                     |
 | ------ | ----- | -------------------------------------------------------------------- | ------------------------------- |
 | q      | `q`   | `0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47` | BN254 base field modulus (𝔽q)   |
-| r      | `r`   | `0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001` | BN254 scalar field modulus (𝔽r) |
+| p      | `p`   | `0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001` | BN254 scalar field modulus (𝔽p) |
 
 ### Solution Approach
 
@@ -260,11 +260,11 @@ $$a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdo
 
 **Key insight:** If this equation holds:
 
-1. **Modulo 2²⁷²** (via limb arithmetic in 𝔽r), AND
-2. **Modulo r** (native 𝔽r computation), AND
+1. **Modulo 2²⁷²** (via limb arithmetic in 𝔽p), AND
+2. **Modulo p** (native 𝔽p computation), AND
 3. All values are properly range-constrained
 
-Using Chinese Remainder Theorem, then it holds in integers (since $2^{272} \cdot r > 2^{514}$ > max possible value), which implies it holds modulo q.
+Using Chinese Remainder Theorem, then it holds in integers (since $2^{272} \cdot p > 2^{514}$ > max possible value), which implies it holds modulo q.
 See [bigfield documentation](barretenberg/cpp/src/barretenberg/stdlib/primitives/bigfield/README.md) for more details on non-native field arithmetic.
 
 ## Non-Native Field Relations
@@ -275,7 +275,7 @@ The non-native field relation is enforced through **three separate subrelations*
 | ----------- | --------------------- | --------- | ------------------------------------- |
 | 1           | Lower mod 2²⁷² check  | $2^{136}$ | Limbs 0, 1                            |
 | 2           | Higher mod 2²⁷² check | $2^{136}$ | Limbs 2, 3 (with carry from subrel 1) |
-| 3           | Native field check    | $r$       | Full native reconstruction            |
+| 3           | Native field check    | $p$       | Full native reconstruction            |
 
 Together, these prove the relation holds in integers.
 
@@ -296,55 +296,38 @@ We compute the accumulation using:
 
 The result should be: $\text{Result} = c^{\text{lo}} \cdot 2^{136}$ for some carry $c^{\text{lo}}$.
 
-### Limb 0 Contribution
-
-$$\boxed{T_0 := a_0^{\text{prev}} \cdot x_0 + \texttt{op} + P_{x,0}^{\text{lo}} \cdot v_0 + P_{y,0}^{\text{lo}} \cdot (v^2)_0 + z_{1,0} \cdot (v^3)_0 + z_{2,0} \cdot (v^4)_0 + q_0 \cdot \bar{q}_0 - a_0^{\text{curr}}}$$
-
-**Expanded with all products:**
-
-| Term                                | Product                                           | Weight |
-| ----------------------------------- | ------------------------------------------------- | ------ |
-| $a_0^{\text{prev}} \cdot x_0$       | Previous acc limb 0 × evaluation challenge limb 0 | $2^0$  |
-| $\texttt{op}$                       | Operation code (small value ≤ 8)                  | $2^0$  |
-| $P_{x,0}^{\text{lo}} \cdot v_0$     | P.x low limb 0 × batching challenge limb 0        | $2^0$  |
-| $P_{y,0}^{\text{lo}} \cdot (v^2)_0$ | P.y low limb 0 × v² limb 0                        | $2^0$  |
-| $z_{1,0} \cdot (v^3)_0$             | z₁ limb 0 × v³ limb 0                             | $2^0$  |
-| $z_{2,0} \cdot (v^4)_0$             | z₂ limb 0 × v⁴ limb 0                             | $2^0$  |
-| $q_0 \cdot \bar{q}_0$               | Quotient limb 0 × negative modulus limb 0         | $2^0$  |
-| $-a_0^{\text{curr}}$                | Negative of current accumulator limb 0            | $2^0$  |
-
-### Limb 1 Contribution
+The limb 0 contribution is:
 
 $$
-\boxed{\begin{align}T_1 := &\; a_1^{\text{prev}} \cdot x_0 + a_0^{\text{prev}} \cdot x_1 \\
+\boxed{
+    \begin{align*}
+    T_0 := &\; a_0^{\text{prev}} \cdot x_0 & \\
+    &+ \texttt{op} \\
+    &+ P_{x,0}^{\text{lo}} \cdot v_0 \\
+    &+ P_{y,0}^{\text{lo}} \cdot (v^2)_0 \\
+    &+ z_{1,0} \cdot (v^3)_0 \\
+    &+ z_{2,0} \cdot (v^4)_0 \\
+    &+ q_0 \cdot \bar{q}_0 \\
+    &- a_0^{\text{curr}}
+    \end{align*}
+}
+$$
+
+The limb 1 contribution is:
+
+$$
+\boxed{\begin{align*}
+T_1 := &\; a_1^{\text{prev}} \cdot x_0 + a_0^{\text{prev}} \cdot x_1 & \\
 &+ P_{x,0}^{\text{lo}} \cdot v_1 + P_{x,1}^{\text{lo}} \cdot v_0 \\
 &+ P_{y,0}^{\text{lo}} \cdot (v^2)_1 + P_{y,1}^{\text{lo}} \cdot (v^2)_0 \\
 &+ z_{1,0} \cdot (v^3)_1 + z_{1,1} \cdot (v^3)_0 \\
 &+ z_{2,0} \cdot (v^4)_1 + z_{2,1} \cdot (v^4)_0 \\
 &+ q_0 \cdot \bar{q}_1 + q_1 \cdot \bar{q}_0 \\
 &- a_1^{\text{curr}}
-\end{align}}
+\end{align*}}
 $$
 
-**Expanded with all cross-products:**
-
-| Term                                | Product                                 | Weight   |
-| ----------------------------------- | --------------------------------------- | -------- |
-| $a_1^{\text{prev}} \cdot x_0$       | Prev acc limb 1 × eval challenge limb 0 | $2^{68}$ |
-| $a_0^{\text{prev}} \cdot x_1$       | Prev acc limb 0 × eval challenge limb 1 | $2^{68}$ |
-| $P_{x,0}^{\text{lo}} \cdot v_1$     | P.x low limb 0 × batching limb 1        | $2^{68}$ |
-| $P_{x,1}^{\text{lo}} \cdot v_0$     | P.x low limb 1 × batching limb 0        | $2^{68}$ |
-| $P_{y,0}^{\text{lo}} \cdot (v^2)_1$ | P.y low limb 0 × v² limb 1              | $2^{68}$ |
-| $P_{y,1}^{\text{lo}} \cdot (v^2)_0$ | P.y low limb 1 × v² limb 0              | $2^{68}$ |
-| $z_{1,0} \cdot (v^3)_1$             | z₁ limb 0 × v³ limb 1                   | $2^{68}$ |
-| $z_{1,1} \cdot (v^3)_0$             | z₁ limb 1 × v³ limb 0                   | $2^{68}$ |
-| $z_{2,0} \cdot (v^4)_1$             | z₂ limb 0 × v⁴ limb 1                   | $2^{68}$ |
-| $z_{2,1} \cdot (v^4)_0$             | z₂ limb 1 × v⁴ limb 0                   | $2^{68}$ |
-| $q_0 \cdot \bar{q}_1$               | Quotient limb 0 × neg mod limb 1        | $2^{68}$ |
-| $q_1 \cdot \bar{q}_0$               | Quotient limb 1 × neg mod limb 0        | $2^{68}$ |
-| $-a_1^{\text{curr}}$                | Negative of current acc limb 1          | $2^{68}$ |
-
-### Combined Subrelation 1 Formula
+Thus, the combined subrelation is:
 
 $$\boxed{L_{\text{even}} \cdot \texttt{op} \cdot \left( T_0 + 2^{68} \cdot T_1 - 2^{136} \cdot c^{\text{lo}} \right) = 0}$$
 
@@ -378,10 +361,11 @@ We compute using:
 
 The result should be: $\text{Result} = c^{\text{hi}} \cdot 2^{136}$ for some carry $c^{\text{hi}}$.
 
-### Limb 2 Contribution (with Carry)
+The limb 2 contribution (with carry) is:
 
 $$
-\boxed{\begin{align}T_2 := &\; c^{\text{lo}} \quad \text{(carry from subrelation 1)} \\
+\boxed{\begin{align*}
+T_2 := &\; c^{\text{lo}} \quad \text{(carry from subrelation 1)} & \\
 &+ a_2^{\text{prev}} \cdot x_0 + a_1^{\text{prev}} \cdot x_1 + a_0^{\text{prev}} \cdot x_2 \\
 &+ P_{x,0}^{\text{hi}} \cdot v_0 + P_{x,1}^{\text{lo}} \cdot v_1 + P_{x,0}^{\text{lo}} \cdot v_2 \\
 &+ P_{y,0}^{\text{hi}} \cdot (v^2)_0 + P_{y,1}^{\text{lo}} \cdot (v^2)_1 + P_{y,0}^{\text{lo}} \cdot (v^2)_2 \\
@@ -389,46 +373,24 @@ $$
 &+ z_{2,1} \cdot (v^4)_1 + z_{2,0} \cdot (v^4)_2 \\
 &+ q_2 \cdot \bar{q}_0 + q_1 \cdot \bar{q}_1 + q_0 \cdot \bar{q}_2 \\
 &- a_2^{\text{curr}}
-\end{align}}
+\end{align*}}
 $$
 
-**Key cross-products at weight $2^{136}$:**
-
-| Term                            | Product                    | Description                        |
-| ------------------------------- | -------------------------- | ---------------------------------- |
-| $c^{\text{lo}}$                 | Carry                      | From lower 136-bit computation     |
-| $a_2^{\text{prev}} \cdot x_0$   | Acc limb 2 × eval limb 0   | Direct limb 2 term                 |
-| $a_1^{\text{prev}} \cdot x_1$   | Acc limb 1 × eval limb 1   | Cross-product $(1,1)$              |
-| $a_0^{\text{prev}} \cdot x_2$   | Acc limb 0 × eval limb 2   | Cross-product $(0,2)$              |
-| $P_{x,0}^{\text{hi}} \cdot v_0$ | P.x high limb 0 × v limb 0 | High limbs start here              |
-| $P_{x,1}^{\text{lo}} \cdot v_1$ | P.x low limb 1 × v limb 1  | Cross-product                      |
-| $P_{x,0}^{\text{lo}} \cdot v_2$ | P.x low limb 0 × v limb 2  | Cross-product                      |
-| ...                             | (similar for P.y, z₁, z₂)  | All combinations summing to limb 2 |
-
-### Limb 3 Contribution
+The limb 3 contribution is:
 
 $$
-\boxed{\begin{align}T_3 := &\; a_3^{\text{prev}} \cdot x_0 + a_2^{\text{prev}} \cdot x_1 + a_1^{\text{prev}} \cdot x_2 + a_0^{\text{prev}} \cdot x_3 \\
+\boxed{\begin{align*}
+T_3 := &\; a_3^{\text{prev}} \cdot x_0 + a_2^{\text{prev}} \cdot x_1 + a_1^{\text{prev}} \cdot x_2 + a_0^{\text{prev}} \cdot x_3 & \\
 &+ P_{x,1}^{\text{hi}} \cdot v_0 + P_{x,0}^{\text{hi}} \cdot v_1 + P_{x,1}^{\text{lo}} \cdot v_2 + P_{x,0}^{\text{lo}} \cdot v_3 \\
 &+ P_{y,1}^{\text{hi}} \cdot (v^2)_0 + P_{y,0}^{\text{hi}} \cdot (v^2)_1 + P_{y,1}^{\text{lo}} \cdot (v^2)_2 + P_{y,0}^{\text{lo}} \cdot (v^2)_3 \\
 &+ z_{1,1} \cdot (v^3)_2 + z_{1,0} \cdot (v^3)_3 \\
 &+ z_{2,1} \cdot (v^4)_2 + z_{2,0} \cdot (v^4)_3 \\
 &+ q_3 \cdot \bar{q}_0 + q_2 \cdot \bar{q}_1 + q_1 \cdot \bar{q}_2 + q_0 \cdot \bar{q}_3 \\
 &- a_3^{\text{curr}}
-\end{align}}
+\end{align*}}
 $$
 
-**Key cross-products at weight $2^{204}$:**
-
-| Term                          | Product                  | Description                        |
-| ----------------------------- | ------------------------ | ---------------------------------- |
-| $a_3^{\text{prev}} \cdot x_0$ | Acc limb 3 × eval limb 0 | Direct limb 3 term                 |
-| $a_2^{\text{prev}} \cdot x_1$ | Acc limb 2 × eval limb 1 | Cross-product $(2,1)$              |
-| $a_1^{\text{prev}} \cdot x_2$ | Acc limb 1 × eval limb 2 | Cross-product $(1,2)$              |
-| $a_0^{\text{prev}} \cdot x_3$ | Acc limb 0 × eval limb 3 | Cross-product $(0,3)$              |
-| ...                           | (all 4-limb products)    | All combinations summing to limb 3 |
-
-### Combined Subrelation 2 Formula
+The combined subrelation 2 is:
 
 $$\boxed{L_{\text{even}} \cdot \texttt{op} \cdot \left( T_2 + 2^{68} \cdot T_3 - 2^{136} \cdot c^{\text{hi}} \right) = 0}$$
 
@@ -448,30 +410,31 @@ $$\boxed{L_{\text{even}} \cdot \texttt{op} \cdot \left( T_2 + 2^{68} \cdot T_3 -
 
 ### Goal
 
-Prove the accumulation formula holds when computed directly in 𝔽r (the native field).
+Prove the accumulation formula holds when computed directly in 𝔽p (the native field).
 
 ### Reconstruction
 
 First, reconstruct all values from their limbs:
 
 $$
-\begin{align}
-\tilde{P}_x &= P_{x,0}^{\text{lo}} + 2^{68} \cdot P_{x,1}^{\text{lo}} + 2^{136} \cdot P_{x,0}^{\text{hi}} + 2^{204} \cdot P_{x,1}^{\text{hi}} \pmod{r} \\
-\tilde{P}_y &= P_{y,0}^{\text{lo}} + 2^{68} \cdot P_{y,1}^{\text{lo}} + 2^{136} \cdot P_{y,0}^{\text{hi}} + 2^{204} \cdot P_{y,1}^{\text{hi}} \pmod{r} \\
-\tilde{z}_1 &= z_{1,0} + 2^{68} \cdot z_{1,1} \pmod{r} \\
-\tilde{z}_2 &= z_{2,0} + 2^{68} \cdot z_{2,1} \pmod{r} \\
-\tilde{a}^{\text{prev}} &= a_0^{\text{prev}} + 2^{68} \cdot a_1^{\text{prev}} + 2^{136} \cdot a_2^{\text{prev}} + 2^{204} \cdot a_3^{\text{prev}} \pmod{r} \\
-\tilde{a}^{\text{curr}} &= a_0^{\text{curr}} + 2^{68} \cdot a_1^{\text{curr}} + 2^{136} \cdot a_2^{\text{curr}} + 2^{204} \cdot a_3^{\text{curr}} \pmod{r} \\
-\tilde{\mathcal{Q}} &= q_0 + 2^{68} \cdot q_1 + 2^{136} \cdot q_2 + 2^{204} \cdot q_3 \pmod{r}
-\end{align}
+\begin{align*}
+\tilde{P}_x &= P_{x,0}^{\text{lo}} + 2^{68} \cdot P_{x,1}^{\text{lo}} + 2^{136} \cdot P_{x,0}^{\text{hi}} + 2^{204} \cdot P_{x,1}^{\text{hi}} \pmod{p} \\
+\tilde{P}_y &= P_{y,0}^{\text{lo}} + 2^{68} \cdot P_{y,1}^{\text{lo}} + 2^{136} \cdot P_{y,0}^{\text{hi}} + 2^{204} \cdot P_{y,1}^{\text{hi}} \pmod{p} \\
+\tilde{z}_1 &= z_{1,0} + 2^{68} \cdot z_{1,1} \pmod{p} \\
+\tilde{z}_2 &= z_{2,0} + 2^{68} \cdot z_{2,1} \pmod{p} \\
+\tilde{a}^{\text{prev}} &= a_0^{\text{prev}} + 2^{68} \cdot a_1^{\text{prev}} + 2^{136} \cdot a_2^{\text{prev}} + 2^{204} \cdot a_3^{\text{prev}} \pmod{p} \\
+\tilde{a}^{\text{curr}} &= a_0^{\text{curr}} + 2^{68} \cdot a_1^{\text{curr}} + 2^{136} \cdot a_2^{\text{curr}} + 2^{204} \cdot a_3^{\text{curr}} \pmod{p} \\
+\tilde{\mathcal{Q}} &= q_0 + 2^{68} \cdot q_1 + 2^{136} \cdot q_2 + 2^{204} \cdot q_3 \pmod{p}
+\end{align*}
 $$
 
-**Note:** The tilde $\tilde{}$ indicates these are native field reconstructions in 𝔽r, not the original 𝔽q values.
+**Note:** The tilde indicates these are native field reconstructions in 𝔽p, not the original 𝔽q values.
 
-### Subrelation 3 Formula
+The subrelation 3 is then:
 
 $$
-\boxed{\begin{align}L_{\text{even}} \cdot \texttt{op} \cdot \Big( &\tilde{a}^{\text{prev}} \cdot x_4 \\
+\boxed{\begin{align*}
+L_{\text{even}} \cdot \texttt{op} \cdot \Big( &\tilde{a}^{\text{prev}} \cdot x_4 & \\
 &+ \texttt{op} \\
 &+ \tilde{P}_x \cdot v_4 \\
 &+ \tilde{P}_y \cdot (v^2)_4 \\
@@ -479,20 +442,20 @@ $$
 &+ \tilde{z}_2 \cdot (v^4)_4 \\
 &+ \tilde{\mathcal{Q}} \cdot \bar{q}_4 \\
 &- \tilde{a}^{\text{curr}} \Big) = 0
-\end{align}}
+\end{align*}}
 $$
 
 Where:
 
-- All arithmetic is performed in $\mathbb{F}_{r}$
+- All arithmetic is performed in $\mathbb{F}_{p}$
 - $x_4, v_4, (v^2)_4, (v^3)_4, (v^4)_4$ are the native field representations of the challenges
-- $\bar{q}_4 = -q \pmod{r}$
+- $\bar{q}_4 = -q \pmod{p}$
 
 **Interpretation:**
 
-- Reconstruct all limbed values back to native $\mathbb{F}_{r}$ elements
-- Compute the accumulation formula directly in $\mathbb{F}_{r}$
-- If subrelations 1 and 2 prove it holds mod $2^{272}$, and subrelation 3 proves it holds mod $r$, then it holds in integers
+- Reconstruct all limbed values back to native $\mathbb{F}_{p}$ elements
+- Compute the accumulation formula directly in $\mathbb{F}_{p}$
+- If subrelations 1 and 2 prove it holds mod $2^{272}$, and subrelation 3 proves it holds mod $p$, then it holds in integers
 
 ---
 
@@ -504,7 +467,7 @@ We prove the accumulation identity holds in three ways:
 
 1. **Modulo $2^{136}$ (lower):** Subrelation 1
 2. **Modulo $2^{136}$ (higher):** Subrelation 2, which together with 1 gives mod $2^{272}$
-3. **Modulo $r$:** Subrelation 3
+3. **Modulo $p$:** Subrelation 3
 
 ### Chinese Remainder Theorem Intuition
 
@@ -512,9 +475,9 @@ If an equation holds modulo $M_1$ and modulo $M_2$ where $\gcd(M_1, M_2) = 1$, t
 
 **Application:**
 
-- $\gcd(2^{272}, r) = 1$ (since $r$ is odd prime)
-- If equation holds mod $2^{272}$ AND mod $r$
-- Then it holds mod $2^{272} \cdot r$
+- $\gcd(2^{272}, p) = 1$ (since $p$ is odd prime)
+- If equation holds mod $2^{272}$ AND mod $p$
+- Then it holds mod $2^{272} \cdot p$
 
 ### Maximum Value Bound
 
@@ -526,12 +489,11 @@ Each factor is at most $2^{254}$, so:
 
 $$\text{Max} < 2^{254} \cdot 2^{254} + 4 \cdot 2^{254} \cdot 2^{254} < 5 \cdot 2^{508} < 2^{511}$$
 
-**Key inequality:**
-$$2^{272} \cdot r > 2^{272} \cdot 2^{254} = 2^{526} > 2^{511} > \text{Max}$$
+$$\implies 2^{272} \cdot p > 2^{272} \cdot 2^{253} = 2^{525} > 2^{511} > \text{Max}$$
 
 **Conclusion:**
 
-- If the equation holds mod $2^{272} \cdot r$
+- If the equation holds mod $2^{272} \cdot p$
 - AND all values are bounded as above
 - THEN the equation holds in integers (no wraparound possible)
 - THEREFORE it holds modulo any smaller modulus, including $q$
@@ -589,7 +551,7 @@ $$
 \end{align}}
 $$
 
-Where all $\tilde{\cdot}$ values are reconstructed from limbs in $\mathbb{F}_{r}$.
+Where all $\tilde{\cdot}$ values are reconstructed from limbs in $\mathbb{F}_{p}$.
 
 ### Combined Guarantee
 
@@ -597,8 +559,6 @@ Where all $\tilde{\cdot}$ values are reconstructed from limbs in $\mathbb{F}_{r}
 
 $$a^{\text{curr}} = a^{\text{prev}} \cdot x + \texttt{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4 \pmod{q}$$
 
-is **provably correct in $\mathbb{F}_{q}$**, despite being computed entirely in $\mathbb{F}_{r}$.
+is **provably correct in $\mathbb{F}_{q}$**, despite being computed entirely in $\mathbb{F}_{p}$.
 
 ---
-
-**This completes the mathematical specification of the Non-Native Field Relation.**
