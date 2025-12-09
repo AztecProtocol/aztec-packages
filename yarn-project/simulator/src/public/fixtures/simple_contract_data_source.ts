@@ -1,9 +1,10 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { getFunctionSelector } from '../avm/fixtures/utils.js';
 
@@ -118,5 +119,43 @@ export class SimpleContractDataSource implements ContractDataSource {
   addContractInstance(contractInstance: ContractInstanceWithAddress): Promise<void> {
     this.contractInstances.set(contractInstance.address.toString(), contractInstance);
     return Promise.resolve();
+  }
+
+  /**
+   * FIXME: This is temporary
+   * Helper method for fuzzer: registers a contract with raw bytecode at a given address.
+   * Creates a minimal ContractClassPublic and ContractInstanceWithAddress.
+   * @param address - The contract address
+   * @param bytecode - The raw AVM bytecode
+   */
+  async addContractWithBytecode(address: AztecAddress, bytecode: Buffer): Promise<void> {
+    // Generate a deterministic class ID from the bytecode
+    const classId = Fr.fromBufferReduce(bytecode.subarray(0, 32));
+
+    // Create minimal ContractClassPublic
+    const contractClass: ContractClassPublic = {
+      id: classId,
+      version: 1 as const,
+      artifactHash: Fr.ZERO,
+      privateFunctionsRoot: Fr.ZERO,
+      privateFunctions: [],
+      utilityFunctions: [],
+      packedBytecode: bytecode,
+    };
+
+    // Create minimal ContractInstanceWithAddress
+    const contractInstance: ContractInstanceWithAddress = {
+      address,
+      version: 1 as const,
+      salt: Fr.ZERO,
+      deployer: address, // Use the contract address as deployer
+      currentContractClassId: classId,
+      originalContractClassId: classId,
+      initializationHash: Fr.ZERO,
+      publicKeys: PublicKeys.default(),
+    };
+
+    await this.addContractClass(contractClass);
+    await this.addContractInstance(contractInstance);
   }
 }
