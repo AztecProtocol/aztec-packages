@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/aztec.js/fields';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractsHash } from '@aztec/protocol-contracts';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 /**
@@ -13,7 +13,7 @@ describe('Mainnet compatibility', () => {
     expect(expectedRoots).toContainEqual(getVKTreeRoot());
   });
   it('has expected Protocol Contracts tree root', () => {
-    expect(protocolContractsHash).toEqual(
+    expect(protocolContractTreeRoot).toEqual(
       Fr.fromHexString('0x12e9aa367b065eff3e48912b8cae62209970117d34a8c9ef1e9e4116e41bc8d6'),
     );
   });
