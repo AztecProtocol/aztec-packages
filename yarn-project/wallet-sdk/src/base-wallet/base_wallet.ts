@@ -21,7 +21,7 @@ import {
 } from '@aztec/constants';
 import { AccountFeePaymentMethodOptions, type DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';

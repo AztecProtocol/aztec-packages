@@ -9,7 +9,8 @@ import {
   poseidon2Hash,
   sha256,
 } from '@aztec/foundation/crypto';
-import { Fq, Fr, Point } from '@aztec/foundation/fields';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import type { Fieldable } from '@aztec/foundation/serialize';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';

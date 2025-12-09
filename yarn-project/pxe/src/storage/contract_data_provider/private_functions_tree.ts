@@ -1,5 +1,5 @@
 import { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { assertLength } from '@aztec/foundation/serialize';
 import { MembershipWitness, type MerkleTree } from '@aztec/foundation/trees';
 import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';

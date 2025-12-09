@@ -1,6 +1,6 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { BlockNumber, BlockNumberPositiveSchema } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import {
   type AbiDecoded,
   AbiTypeSchema,

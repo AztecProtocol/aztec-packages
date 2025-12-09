@@ -1,6 +1,6 @@
-import { randomBigInt } from '../crypto/index.js';
-import { BLS12Fq, BLS12Fr } from './bls12_fields.js';
-import { Fr } from './fields.js';
+import { randomBigInt } from '../../crypto/index.js';
+import { Fr } from '../bn254/field.js';
+import { BLS12Fq, BLS12Fr } from './field.js';
 
 function testFn(Field: any, name: string) {
   describe(`${name} Serialization`, () => {

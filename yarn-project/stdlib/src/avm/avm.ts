@@ -1,5 +1,5 @@
 import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { z } from 'zod';
