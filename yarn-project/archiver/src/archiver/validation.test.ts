@@ -2,7 +2,7 @@ import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { CommitteeAttestation, EthAddress } from '@aztec/stdlib/block';

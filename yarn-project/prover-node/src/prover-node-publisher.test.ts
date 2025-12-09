@@ -2,7 +2,7 @@ import { BatchedBlob } from '@aztec/blob-lib/types';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';

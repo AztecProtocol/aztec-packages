@@ -1,5 +1,5 @@
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, TypeRegistry } from '@aztec/foundation/serialize';

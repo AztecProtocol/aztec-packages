@@ -1,4 +1,4 @@
-import { Grumpkin } from '@aztec/foundation/crypto';
+import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 
 import type { AvmContext } from '../avm_context.js';

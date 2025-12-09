@@ -1,5 +1,5 @@
 import { GeneratorIndex } from '@aztec/constants';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '../abi/index.js';

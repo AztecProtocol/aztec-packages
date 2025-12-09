@@ -1,4 +1,4 @@
-import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
+import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { pushTestData } from '@aztec/foundation/testing';
