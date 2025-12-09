@@ -62,8 +62,8 @@ SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data)
         fuzz_info("JsSimulator  ", js_result);
         throw std::runtime_error("Simulator results are different");
     }
-    fuzz_info("Simulator results match successfully");
-    fuzz_info("CppSimulator ", cpp_result);
-    fuzz_info("JsSimulator  ", js_result);
+    // fuzz_info("Simulator results match successfully");
+    // fuzz_info("CppSimulator ", cpp_result);
+    // fuzz_info("JsSimulator  ", js_result);
     return cpp_result;
 }

@@ -39,6 +39,14 @@ std::string serialize_simulation_request(const Tx& tx,
     std::vector<ContractClass> classes_vec = contract_db.get_contract_classes();
     std::vector<std::pair<AztecAddress, ContractInstance>> instances_vec = contract_db.get_contract_instances();
 
+    // Sort by address for consistency in insertion order with TypeScript simulator
+    std::ranges::sort(
+        instances_vec.begin(),
+        instances_vec.end(),
+        [](const std::pair<AztecAddress, ContractInstance>& a, const std::pair<AztecAddress, ContractInstance>& b) {
+            return uint256_t(a.first) < uint256_t(b.first);
+        });
+
     FuzzerSimulationRequest request{
         .ws_data_dir = FuzzerWorldStateManager::get_data_dir(),
         .ws_map_size_kb = FuzzerWorldStateManager::get_map_size_kb(),
@@ -116,7 +124,7 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
 JsSimulator* JsSimulator::instance = nullptr;
 JsSimulator::JsSimulator(std::string& simulator_path)
     : simulator_path(simulator_path)
-    , process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
+    , process("LOG_LEVEL=silent node " + simulator_path) // + d" 2>&1 /dev/null")
 {}
 
 JsSimulator* JsSimulator::getInstance()
