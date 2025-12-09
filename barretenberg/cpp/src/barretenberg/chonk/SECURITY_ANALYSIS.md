@@ -33,9 +33,7 @@ Tests in `databus_lookup_relation_consistency.test.cpp` verify: relation arithme
 - [x] All prover messages bound to transcript before challenges derived (verified via manifest structure)
 - [x] Transcript isolation between circuits (verified via unique_transcript_index)
 - [x] Single shared transcript in verification (verified via count = 4)
-
-**Remaining**:
-- [ ] Verify public inputs are bound to transcript
+- [x] Public inputs bound to transcript (`oink_prover.cpp:70-72`, `oink_verifier.cpp:69-72`)
 
 ---
 
@@ -88,17 +86,19 @@ Tests in `databus_lookup_relation_consistency.test.cpp` verify: relation arithme
 
 ---
 
-## 5. HyperNova Decider PCS ✅ PARTIALLY VERIFIED
+## 5. HyperNova Decider PCS ✅ VERIFIED
 
-**Location**: `hypernova_decider_verifier.cpp:12-43`
+**Location**: `hypernova_decider_verifier.cpp:12-43`, `shplemini.hpp:231-288`
 
-**Verified**:
+**Verified Properties**:
 - [x] Decider manifest pinned (5 rounds)
 - [x] Tampering tests verify detection of modified accumulator
-
-**Remaining**:
-- [ ] Verify batching challenges derived correctly from transcript
-- [ ] Check all accumulated evaluations properly bound
+- [x] Batching challenges derived from transcript via Fiat-Shamir:
+  - `rho` (Gemini batching) at `shplemini.hpp:231`
+  - `Gemini:r` (evaluation point) at `shplemini.hpp:238`
+  - `Shplonk:nu` (Shplonk batching) at `shplemini.hpp:274`
+  - `Shplonk:z` (opening point) at `shplemini.hpp:288`
+- [x] Accumulated evaluations computed by verifier during folding (not claimed by prover), then verified by PCS
 
 ---
 
@@ -120,11 +120,11 @@ Tests in `databus_lookup_relation_consistency.test.cpp` verify: relation arithme
 
 | Component | Status | Key Property |
 |-----------|--------|--------------|
-| Transcript Binding | ✅ VERIFIED | Structure and count pinned |
+| Transcript Binding | ✅ VERIFIED | Structure pinned, public inputs bound |
 | Accumulator Hash | ✅ VERIFIED | All components hashed with origin tagging |
 | Databus Consistency | ✅ VERIFIED | Relation arithmetic + point comparison tested |
 | Merge Soundness | ✅ VERIFIED | Degree checks + T_prev initialization constrained |
-| Decider PCS | ✅ PARTIALLY | Manifest pinned, batching challenges TBD |
+| Decider PCS | ✅ VERIFIED | Challenges from transcript, evaluations verifier-computed |
 | Goblin Chain | ✅ VERIFIED | Direct commitment passing, shared transcript |
 
 ---
@@ -179,11 +179,11 @@ Tests in `databus_lookup_relation_consistency.test.cpp` verify: relation arithme
 
 ## Recommendations
 
-**Soundness**:
+**Soundness** (all core properties verified):
 1. Edge case testing for databus with infinity points
-2. End-to-end fuzzing with adversarial proofs targeting Goblin linking points
+2. End-to-end fuzzing with adversarial proofs
 
-**ZK**:
+**ZK** (needs formal analysis):
 3. Formal ZK simulators for MegaZK, Translator, and ECCVM proof systems
 
 ---
