@@ -54,6 +54,40 @@ enum class AddressingMode : uint8_t {
     IndirectRelative = 3,
 };
 
+/// @brief Wrapper for AddressingMode to allow for msgpack packing and unpacking
+struct AddressingModeWrapper {
+    AddressingMode value;
+
+    AddressingModeWrapper() = default;
+    AddressingModeWrapper(AddressingMode v)
+        : value(v)
+    {}
+
+    operator AddressingMode() const { return value; }
+
+    void msgpack_pack(auto& packer) const
+    {
+        uint8_t value_to_serialize = static_cast<uint8_t>(this->value);
+        packer.pack_bin(sizeof(value_to_serialize));
+        packer.pack_bin_body((char*)&value_to_serialize, sizeof(value_to_serialize)); // NOLINT
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        // Handle binary data unpacking
+        if (o.type == msgpack::type::BIN) {
+            auto bin = o.via.bin;
+            if (bin.size == sizeof(uint8_t)) {
+                uint8_t value_to_deserialize = 0;
+                std::memcpy(&value_to_deserialize, bin.ptr, sizeof(value_to_deserialize));
+                *this = AddressingModeWrapper(static_cast<AddressingMode>(value_to_deserialize));
+            } else {
+                throw std::runtime_error("Invalid binary data size for AddressingMode");
+            }
+        }
+    }
+};
+
 /// @brief Address reference
 /// Used to resolve actual memory address from memory_manager
 /// @example
@@ -75,7 +109,7 @@ struct AddressRef {
     /// Used for Relative/IndirectRelative modes only
     /// Sets M[0] = base_offset
     uint32_t base_offset = 0;
-    AddressingMode mode = AddressingMode::Direct;
+    AddressingModeWrapper mode = AddressingMode::Direct;
 
     MSGPACK_FIELDS(tag, index, base_offset, mode);
 };
@@ -88,7 +122,7 @@ struct ResultAddressRef {
 
     /// @brief Base offset used for Relative/IndirectRelative modes only
     uint32_t base_offset = 0;
-    AddressingMode mode = AddressingMode::Direct;
+    AddressingModeWrapper mode = AddressingMode::Direct;
     MSGPACK_FIELDS(address, mode);
 };
 
@@ -559,13 +593,14 @@ inline std::ostream& operator<<(std::ostream& os, const MemoryTag& tag)
 inline std::ostream& operator<<(std::ostream& os, const AddressRef& address)
 {
     os << "AddressRef " << address.tag << " " << address.index << " " << address.base_offset << " "
-       << static_cast<int>(address.mode);
+       << static_cast<int>(static_cast<AddressingMode>(address.mode));
     return os;
 }
 
 inline std::ostream& operator<<(std::ostream& os, const ResultAddressRef& result_address)
 {
-    os << "ResultAddressRef " << result_address.address << " " << static_cast<int>(result_address.mode);
+    os << "ResultAddressRef " << result_address.address << " "
+       << static_cast<int>(static_cast<AddressingMode>(result_address.mode));
     return os;
 }
 
