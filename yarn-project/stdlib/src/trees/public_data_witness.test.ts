@@ -1,6 +1,6 @@
 import { PUBLIC_DATA_TREE_HEIGHT } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { SiblingPath } from '@aztec/foundation/trees';
 
 import { makePublicDataTreeLeafPreimage } from '../tests/factories.js';

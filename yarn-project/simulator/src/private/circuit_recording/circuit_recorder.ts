@@ -1,4 +1,4 @@
-import { sha512 } from '@aztec/foundation/crypto';
+import { sha512 } from '@aztec/foundation/crypto/sha512';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { ForeignCallHandler, ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';

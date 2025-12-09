@@ -1,5 +1,5 @@
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
-import { keccak256 } from '@aztec/foundation/crypto';
+import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';

@@ -1,6 +1,6 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
-import { randomBytes, randomInt } from '@aztec/foundation/crypto';
+import { randomBytes, randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FieldsOf } from '@aztec/foundation/types';
 

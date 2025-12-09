@@ -1,6 +1,6 @@
 import type { ExtendedViemWalletClient, ViemContract } from '@aztec/ethereum';
 import { extractEvent } from '@aztec/ethereum/utils';
-import { sha256ToField } from '@aztec/foundation/crypto';
+import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';

@@ -1,5 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { randomBigInt } from '@aztec/foundation/crypto';
+import { randomBigInt } from '@aztec/foundation/crypto/random';
 import type { Bufferable } from '@aztec/foundation/serialize';
 
 import { jest } from '@jest/globals';
