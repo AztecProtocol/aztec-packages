@@ -25,7 +25,7 @@ import {IRollupConfiguration, RollupConfiguration} from "./RollupConfiguration.s
 /// It loads existing L1 infrastructure from environment variables and outputs
 /// deployment results to JSON.
 ///
-/// For initial L1 deployment, use DeployL1Contracts.s.sol instead.
+/// For initial L1 deployment, use DeployAztecL1Contracts.s.sol instead.
 ///
 /// Required environment variables:
 /// - REGISTRY_ADDRESS: Existing Registry contract address

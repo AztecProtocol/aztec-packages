@@ -39,7 +39,7 @@ import {
 } from "./DeploymentConfiguration.sol";
 
 /// @notice Output struct containing all deployed L1 contract addresses
-struct DeployL1ContractsOutput {
+struct DeployAztecL1ContractsOutput {
     IERC20 feeAsset;
     IERC20 stakingAsset;
     GSE gse;
@@ -56,14 +56,14 @@ struct DeployL1ContractsOutput {
 }
 
 /**
- * @title DeployL1Contracts
+ * @title DeployAztecL1Contracts
  * @author Aztec Labs
  * @notice Deploy Aztec L1 contracts. Configuration is read from environment variables.
  * See DeploymentConfiguration and RollupConfiguration for environment variables supported.
  */
-contract DeployL1Contracts is Script, Test {
+contract DeployAztecL1Contracts is Script, Test {
     /// @notice All deployed contract addresses
-    DeployL1ContractsOutput public output;
+    DeployAztecL1ContractsOutput public output;
 
     /// @notice Address performing the deployment
     address public deployer;

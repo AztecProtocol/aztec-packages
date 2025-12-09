@@ -47,7 +47,7 @@ struct RollupAddressOutput {
 
 /// @title DeployRollupLib
 /// @author Aztec Labs
-/// @notice Library for deploying rollup contracts. Used by DeployL1Contracts and DeployRollupForUpgrade.
+/// @notice Library for deploying rollup contracts. Used by DeployAztecL1Contracts and DeployRollupForUpgrade.
 library DeployRollupLib {
     function deployRollup(RollupAddressInput memory input, IRollupConfiguration config)
         internal
