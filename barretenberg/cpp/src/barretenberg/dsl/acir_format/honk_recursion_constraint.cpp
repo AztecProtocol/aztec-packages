@@ -56,14 +56,10 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
 
     if (builder.is_write_vk_mode()) {
         // Set honk vk in builder
-        for (const auto [vk_witness, vk_element] : zip_view(vk_fields, honk_vk->to_field_elements())) {
-            builder.set_variable(vk_witness.get_witness_index(), vk_element);
-        }
+        populate_fields(builder, vk_fields, honk_vk->to_field_elements());
 
         // Set honk proof in builder
-        for (const auto [proof_witness, proof_element] : zip_view(proof_fields, honk_proof)) {
-            builder.set_variable(proof_witness.get_witness_index(), proof_element);
-        }
+        populate_fields(builder, proof_fields, honk_proof);
     }
 
     if (!predicate.is_constant()) {
