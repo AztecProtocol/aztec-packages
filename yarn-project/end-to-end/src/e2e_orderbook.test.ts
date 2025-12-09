@@ -4,6 +4,7 @@ import { getDecodedPublicEvents } from '@aztec/aztec.js/events';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type OrderCreated, type OrderFulfilled, OrderbookContract } from '@aztec/noir-contracts.js/Orderbook';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { TestWallet } from '@aztec/test-wallet/server';
@@ -85,8 +86,6 @@ describe('Orderbook', () => {
       const orderCreatedEvents = await getDecodedPublicEvents<OrderCreated>(
         aztecNode,
         OrderbookContract.events.OrderCreated,
-        0,
-        100,
       );
       expect(orderCreatedEvents.length).toBe(1);
 
@@ -139,8 +138,6 @@ describe('Orderbook', () => {
       const orderFulfilledEvents = await getDecodedPublicEvents<OrderFulfilled>(
         aztecNode,
         OrderbookContract.events.OrderFulfilled,
-        0,
-        100,
       );
       expect(orderFulfilledEvents.length).toBe(1);
       expect(orderFulfilledEvents[0].order_id).toEqual(orderId);

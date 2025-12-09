@@ -7,14 +7,14 @@ import { type InTx, TxHash, inTxSchema } from '@aztec/stdlib/tx';
 
 import { optional, z } from 'zod';
 
+import { sanitizeEventFilter } from './event_filter_validator.js';
+
 /**
  * Filter options when querying events.
  */
 export type EventFilter = {
   /** The address of the contract that emitted the events. */
-  contractAddress: AztecAddress;
-  /** Addresses of accounts that are in scope for this filter. */
-  scopes: AztecAddress[];
+  contractAddress?: AztecAddress;
   /** Transaction in which the events were emitted. */
   txHash?: TxHash;
   /** The block number from which to start fetching events (inclusive).
@@ -40,6 +40,8 @@ export const EventFilterSchema = z.object({
  * Filter options when querying private events.
  */
 export type PrivateEventFilter = EventFilter & {
+  /** The address of the contract that emitted the events. */
+  contractAddress: AztecAddress;
   /** Addresses of accounts that are in scope for this filter. */
   scopes: AztecAddress[];
 };
@@ -67,19 +69,25 @@ export const EventSchema: ZodFor<Event<AbiDecoded>> = z.object({
  * Returns decoded public events given search parameters.
  * @param node - The node to request events from
  * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
- * @param from - The block number to search from.
- * @param limit - The amount of blocks to search.
- * @returns - The deserialized events.
+ * @param filter -
+ *  contractAddress - The address of the contract to get events from. Optional.
+ *  fromBlock - The block number to search from (inclusive). Optional. If provided, it must be greater than or equal to 1.
+ *    Defaults to .
+ *    If toBlock is defined but fromBlock is not, fromBlock defaults to toBlock - 1.
+ *  toBlock - The block number to search up to (exclusive). Optional. If provided, it must be greater than or equal to 1.
+ *    Defaults to the latest known block to PXE + 1.
+ * @returns - The deserialized events with block and tx metadata.
  */
 export async function getDecodedPublicEvents<T>(
   node: AztecNode,
   eventMetadataDef: EventMetadataDefinition,
-  from: number,
-  limit: number,
+  filter: EventFilter = {},
 ): Promise<T[]> {
+  const sanitizedFilter = sanitizeEventFilter(filter);
+
   const { logs } = await node.getPublicLogs({
-    fromBlock: from,
-    toBlock: from + limit,
+    fromBlock: sanitizedFilter.fromBlock,
+    toBlock: sanitizedFilter.toBlock,
   });
 
   const decodedEvents = logs

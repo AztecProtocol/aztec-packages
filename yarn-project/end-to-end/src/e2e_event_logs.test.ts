@@ -135,15 +135,19 @@ describe('Logs', () => {
       const collectedEvent0s = await getDecodedPublicEvents<ExampleEvent0>(
         aztecNode,
         TestLogContract.events.ExampleEvent0,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        {
+          fromBlock: firstTx.blockNumber!,
+          toBlock: BlockNumber(lastTx.blockNumber! + 1),
+        },
       );
 
       const collectedEvent1s = await getDecodedPublicEvents<ExampleEvent1>(
         aztecNode,
         TestLogContract.events.ExampleEvent1,
-        firstTx.blockNumber!,
-        lastTx.blockNumber! - firstTx.blockNumber! + 1,
+        {
+          fromBlock: firstTx.blockNumber!,
+          toBlock: BlockNumber(lastTx.blockNumber! + 1),
+        },
       );
 
       expect(collectedEvent0s.length).toBe(5);
