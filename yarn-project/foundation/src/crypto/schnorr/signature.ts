@@ -1,5 +1,5 @@
 import { randomBytes } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, mapTuple } from '@aztec/foundation/serialize';
 
 import type { Signature } from '../signature/index.js';

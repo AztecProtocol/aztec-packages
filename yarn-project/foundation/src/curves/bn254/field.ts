@@ -2,11 +2,11 @@ import { BarretenbergSync } from '@aztec/bb.js';
 
 import { inspect } from 'util';
 
-import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
-import { randomBytes } from '../crypto/random/index.js';
-import { hexSchemaFor } from '../schemas/utils.js';
-import { BufferReader } from '../serialize/buffer_reader.js';
-import { TypeRegistry } from '../serialize/type_registry.js';
+import { toBigIntBE, toBufferBE } from '../../bigint-buffer/index.js';
+import { randomBytes } from '../../crypto/random/index.js';
+import { hexSchemaFor } from '../../schemas/utils.js';
+import { BufferReader } from '../../serialize/buffer_reader.js';
+import { TypeRegistry } from '../../serialize/type_registry.js';
 
 const ZERO_BUFFER = Buffer.alloc(32);
 
@@ -510,14 +510,6 @@ function extendedEuclidean(a: bigint, modulus: bigint): [bigint, bigint, bigint]
     return [gcd, y - (modulus / a) * x, x];
   }
 }
-
-/**
- * GrumpkinScalar is an Fq.
- * @remarks Called GrumpkinScalar because it is used to represent elements in Grumpkin's scalar field as defined in
- *          the Aztec Protocol Specs.
- */
-export type GrumpkinScalar = Fq;
-export const GrumpkinScalar = Fq;
 
 /** Wraps a function that returns a buffer so that all results are reduced into a field of the given type. */
 export function reduceFn<TInput, TField extends BaseField>(fn: (input: TInput) => Buffer, field: DerivedField<TField>) {
