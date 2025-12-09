@@ -11,22 +11,6 @@ namespace bb::stdlib::recursion::honk {
 /**
  * @brief Creates a circuit that executes the Merge, ECCVM, and Translator verifiers.
  *
- * @param proof Native Goblin proof containing merge, eccvm, ipa, and translator proofs
- * @param merge_commitments Commitments for Merge verification (t_commitments and T_prev_commitments)
- * @param merge_settings How the ecc op subtable was merged (PREPEND or APPEND)
- * @return GoblinRecursiveVerifierOutput containing pairing points, IPA claim, and IPA proof
- */
-GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof,
-                                                              const MergeCommitments& merge_commitments,
-                                                              const MergeSettings merge_settings)
-{
-    GoblinStdlibProof stdlib_proof(*builder, proof);
-    return verify(stdlib_proof, merge_commitments, merge_settings);
-}
-
-/**
- * @brief Creates a circuit that executes the Merge, ECCVM, and Translator verifiers.
- *
  * @param proof Stdlib Goblin proof (circuit witness elements)
  * @param merge_commitments Commitments for Merge verification (t_commitments and T_prev_commitments)
  * @param merge_settings How the ecc op subtable was merged (PREPEND or APPEND)

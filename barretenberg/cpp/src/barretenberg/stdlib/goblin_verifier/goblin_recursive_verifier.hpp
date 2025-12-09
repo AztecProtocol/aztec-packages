@@ -72,10 +72,6 @@ class GoblinRecursiveVerifier {
         , transcript(transcript) {};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const GoblinProof&,
-        const MergeCommitments& merge_commitments,
-        const MergeSettings merge_settings = MergeSettings::PREPEND);
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
         const GoblinStdlibProof&,
         const MergeCommitments& merge_commitments,
         const MergeSettings merge_settings = MergeSettings::PREPEND);
