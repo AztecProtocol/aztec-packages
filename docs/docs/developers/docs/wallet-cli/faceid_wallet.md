@@ -1,5 +1,5 @@
 ---
-title: Using FaceID to Sign Transactions (Mac Only)
+title: Using FaceID to Sign Transactions
 tags: [local_network, wallet, cli]
 keywords: [wallet, cli wallet, faceid]
 sidebar_position: 5
@@ -54,65 +54,37 @@ Fortunately, Aztec implements [Account Abstraction](../foundational-topics/accou
 
 :::
 
-### Using the wallet
+### Creating an account
 
-Now we can use the key in our wallet. Every account on Aztec is a contract, so you can write your own contract with its own account logic.
+Now we can use the key to create an account. Every account on Aztec is a contract, so you can write your own contract with its own account logic.
 
 The Aztec team already wrote some account contract boilerplates we can use. One of them is an account that uses the `secp256r1` elliptic curve (the one the Secure Enclave uses).
 
 Let's create an account in our wallet:
 
 ```bash
-aztec-wallet create-account -a my-wallet -t ecdsasecp256r1ssh
+aztec-wallet create-account -a my-faceid-wallet -t ecdsasecp256r1ssh
 ```
 
-This command creates an account using the `ecdsasecp256r1ssh` type and aliases it to `my-wallet`.
+This command creates an account using the `ecdsasecp256r1ssh` type and aliases it to `my-faceid-wallet`.
 
-You should see a prompt like `? What public key to use?` with the public key you created in Secretive. Select this. If you see the message `Account stored in database with aliases last & my-wallet` then you have successfully created the account!
+You should see a prompt like `? What public key to use?` with the public key you created in Secretive. Select this. If you see the message `Account stored in database with aliases last & my-faceid-wallet` then you have successfully created the account!
 
 You can find other accounts by running `aztec-wallet create-account -h`.
 
 ### Using the wallet
 
-You can now use it as you would use any other wallet. Let's create a simple token contract example and mint ourselves some tokens with this.
+Your FaceID-backed wallet is now ready to use. You can interact with it via the alias `accounts:my-faceid-wallet` just like any other wallet in the CLI.
 
-Create a new Aztec app with `npx aztec-app`:
-
-```bash
-npx aztec-app new -s -t contract -n token_contract token
-```
-
-This creates a new project, skips running the local network (`-s`), and clones the contract-only box (`-t`) called token_contract (`-n`). You should now have a `token_contract` folder. Let's compile our contract:
+Verify your account was stored correctly:
 
 ```bash
-cd token_contract
-aztec compile        # compile contract
+aztec-wallet get-alias accounts:my-faceid-wallet
 ```
 
-Great, our contract is ready to deploy with our TouchID wallet:
+From here, you can deploy contracts, send transactions, and interact with the network - each transaction will prompt you to authenticate with TouchID or your password.
 
-```bash
-aztec-wallet deploy --from accounts:my-wallet token_contract@Token --args accounts:my-wallet DevToken DTK 18 -a devtoken
-
-You should get prompted to sign with TouchID or password. Once authorized, you should see `Contract stored in database with aliases last & devtoken`
-```
-
-Check [the reference](./cli_wallet_reference.md) for the whole set of commands, but these mean:
-
-- --from is the sender: our account `my-wallet`. We use the alias because it's easier than writing the key stored in our Secure Enclave. The wallet resolves the alias and knows where to grab it.
-- token_contract@Token is a shorthand to look in the `target` folder for our contract `token_contract-Token`
-- --args are the arguments for our token contract: owner, name, ticker and decimals.
-- -a tells the wallet to store its address with the "devtoken" alias, this way we can just use it later like `contracts:devtoken`
-
-You should get a prompt to sign this transaction. You can now mint, transfer, and do anything you want with it:
-
-```bash
-aztec-wallet create-account -a new_recipient # creating a schnorr account
-aztec-wallet send mint_to_public -ca last --args accounts:my-wallet 10 -f accounts:my-wallet # minting some tokens in public
-aztec-wallet simulate balance_of_public -ca contracts:devtoken --args accounts:my-wallet -f my-wallet # checking that my-wallet has 10 tokens
-aztec-wallet send transfer_in_public -ca contracts:devtoken --args accounts:my-wallet accounts:new_recipient 10 0 -f accounts:my-wallet # transferring some tokens in public
-aztec-wallet simulate balance_of_public -ca contracts:devtoken --args accounts:new_recipient -f my-wallet # checking that new_recipient has 10 tokens
-```
+Check out the [CLI Wallet Reference](./cli_wallet_reference.md) for the full set of available commands, or follow the [Getting Started on Local Network](../../getting_started_on_local_network.md) guide to deploy contracts and interact with the network using your new wallet.
 
 ### What next
 
