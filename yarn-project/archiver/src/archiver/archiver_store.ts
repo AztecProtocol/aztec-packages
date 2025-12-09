@@ -1,5 +1,5 @@
 import type { L1BlockId } from '@aztec/ethereum';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { CustomRange } from '@aztec/kv-store';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
@@ -132,11 +132,11 @@ export interface ArchiverDataStore {
   addL1ToL2Messages(messages: InboxMessage[]): Promise<void>;
 
   /**
-   * Gets L1 to L2 message (to be) included in a given block.
-   * @param blockNumber - L2 block number to get messages for.
+   * Gets L1 to L2 message (to be) included in a given checkpoint.
+   * @param checkpointNumber - Checkpoint number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: BlockNumber): Promise<Fr[]>;
+  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]>;
 
   /**
    * Gets the L1 to L2 message index in the L1 to L2 message tree.
@@ -290,8 +290,8 @@ export interface ArchiverDataStore {
   /** Closes the underlying data store. */
   close(): Promise<void>;
 
-  /** Deletes all L1 to L2 messages up until (excluding) the target L2 block number. */
-  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: BlockNumber): Promise<void>;
+  /** Deletes all L1 to L2 messages up until (excluding) the target checkpoint number. */
+  rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void>;
 
   /** Returns an async iterator to all L1 to L2 messages on the range. */
   iterateL1ToL2Messages(range?: CustomRange<bigint>): AsyncIterableIterator<InboxMessage>;
