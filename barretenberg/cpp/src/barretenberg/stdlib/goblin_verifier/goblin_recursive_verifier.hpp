@@ -63,11 +63,9 @@ class GoblinRecursiveVerifier {
     // Merge commitments
     using MergeCommitments = MergeVerifier::InputCommitments;
 
-    GoblinRecursiveVerifier(Builder* builder,
-                            const VerificationKey& verification_keys,
+    GoblinRecursiveVerifier(const VerificationKey& verification_keys,
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
-        : builder(builder)
-        , verification_keys(verification_keys)
+        : verification_keys(verification_keys)
         , transcript(transcript) {};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
@@ -76,7 +74,6 @@ class GoblinRecursiveVerifier {
         const MergeSettings merge_settings = MergeSettings::PREPEND);
 
   private:
-    Builder* builder;
     VerificationKey verification_keys; // ECCVM and Translator verification keys
     std::shared_ptr<Transcript> transcript;
 };

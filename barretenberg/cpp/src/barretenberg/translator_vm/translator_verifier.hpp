@@ -17,10 +17,7 @@
 namespace bb {
 
 /**
- * @brief Unified translator verifier class for both native and recursive verification
- * @details Verifies the correctness of the Translator circuit which ensures that the ECCVM transcript
- * is consistent with the op queue data. Works for both native verification (returns PairingPoints
- * for external pairing check) and recursive verification (returns stdlib PairingPoints for aggregation).
+ * @brief Translator verifier class that verifies the proof of the Translator circuit.
  * @tparam Flavor Either TranslatorFlavor (native) or TranslatorRecursiveFlavor (recursive)
  */
 template <typename Flavor> class TranslatorVerifier_ {
@@ -55,11 +52,6 @@ template <typename Flavor> class TranslatorVerifier_ {
         bool consistency_checked;
     };
 
-    // Input type for translation data: BF for recursive, uint256_t for native evaluation_input_x/accumulated_result
-    // Note: batching_challenge_v is always BF since it's an element of the BN254 base field
-    using EvaluationInput = std::conditional_t<IsRecursive, BF, uint256_t>;
-    using AccumulatedResult = std::conditional_t<IsRecursive, BF, uint256_t>;
-
     /**
      * @brief Unified constructor for both native and recursive verification
      * @details For recursive case, extracts builder from proof elements via get_context().
@@ -72,13 +64,13 @@ template <typename Flavor> class TranslatorVerifier_ {
      * @param accumulated_result The accumulated result from ECCVM verifier
      * @param op_queue_wire_commitments Commitments to op queue wires from merge protocol
      */
-    TranslatorVerifier_(const std::shared_ptr<Transcript>& transcript,
+    TranslatorVerifier_(std::shared_ptr<Transcript> transcript,
                         const Proof& proof,
-                        const EvaluationInput& evaluation_input_x,
+                        const BF& evaluation_input_x,
                         const BF& batching_challenge_v,
-                        const AccumulatedResult& accumulated_result,
+                        const BF& accumulated_result,
                         const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments)
-        : transcript(transcript)
+        : transcript(std::move(transcript))
         , proof(proof)
         , evaluation_input_x(evaluation_input_x)
         , batching_challenge_v(batching_challenge_v)
@@ -124,9 +116,9 @@ template <typename Flavor> class TranslatorVerifier_ {
     RelationParams relation_parameters;
 
     // Translation inputs from ECCVM verifier
-    EvaluationInput evaluation_input_x;
+    BF evaluation_input_x;
     BF batching_challenge_v;
-    AccumulatedResult accumulated_result;
+    BF accumulated_result;
     std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_wire_commitments;
 
     // Builder pointer (only used for recursive, nullptr for native)
