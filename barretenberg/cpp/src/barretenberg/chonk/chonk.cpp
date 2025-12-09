@@ -573,7 +573,6 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
         proof.goblin_proof, { t_commitments, T_prev_commitments }, chonk_verifier_transcript, MergeSettings::APPEND);
     vinfo("Goblin verified: ", goblin_verified);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in Chonk verifiers.
     return goblin_verified && mega_verified && databus_consistency_verified;
 }
 
