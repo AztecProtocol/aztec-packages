@@ -15,19 +15,21 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 
 namespace bb::avm2 {
 
-// TODO(#15892): Remove vk argument from all functions once its fixed.
-AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
+AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder)
     : builder(builder)
-    , key(vkey)
 {
-    // TODO(#15892): Uncomment this when we make the AVM vk and vk
-    // hash fixed.
-    // key->fix_witness();
-    // compute the vk hash from the native vk fields
-    // this->vk_hash.fix_witness();
+    auto native_vk = std::make_shared<NativeVerificationKey>(constraining::AvmFixedVKCommitments::get_all());
+
+    key = std::make_shared<VerificationKey>(&builder, native_vk);
+    key->fix_witness();
+
+    auto native_vk_hash = native_vk->hash();
+    vk_hash = FF::from_witness(&builder, native_vk_hash);
+    vk_hash.fix_witness();
 }
 
 // Evaluate the given public input column over the multivariate challenge points
