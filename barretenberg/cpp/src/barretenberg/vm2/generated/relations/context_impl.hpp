@@ -16,8 +16,8 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     using C = ColumnAndShifts;
 
     const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
-    const auto execution_SWITCH_CTX = in.get(C::execution_sel_enter_call) + in.get(C::execution_sel_exit_call);
-    const auto execution_DEFAULT_CTX_ROW = (FF(1) - execution_SWITCH_CTX);
+    const auto execution_DEFAULT_CTX_ROW =
+        (FF(1) - (in.get(C::execution_sel_enter_call) + in.get(C::execution_sel_exit_call)));
     const auto execution_PC_JUMP = in.get(C::execution_sel_execute_internal_call) +
                                    in.get(C::execution_sel_execute_internal_return) +
                                    in.get(C::execution_sel_execute_jump) + in.get(C::execution_sel_execute_jumpi);
@@ -35,89 +35,91 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_enter_call)) *
-                   static_cast<View>(in.get(C::precomputed_first_row));
-        std::get<1>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_sel_exit_call)) -
                     (FF(1) - ((FF(1) - static_cast<View>(in.get(C::execution_sel_execute_revert))) -
                               static_cast<View>(in.get(C::execution_sel_execute_return))) *
                                  (FF(1) - static_cast<View>(in.get(C::execution_sel_error)))));
+        std::get<1>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_has_parent_ctx)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_has_parent_ctx)));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_has_parent_ctx)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_has_parent_ctx)));
-        std::get<3>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_parent_id)) *
                         ((FF(1) - static_cast<View>(in.get(C::execution_has_parent_ctx))) *
                              (FF(1) - static_cast<View>(in.get(C::execution_is_parent_id_inv))) +
                          static_cast<View>(in.get(C::execution_is_parent_id_inv))) -
                     static_cast<View>(in.get(C::execution_has_parent_ctx)));
-        std::get<4>(evals) += (tmp * scaling_factor);
+        std::get<3>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_nested_exit_call)) -
                     static_cast<View>(in.get(C::execution_has_parent_ctx)) *
                         static_cast<View>(in.get(C::execution_sel_exit_call)));
-        std::get<5>(evals) += (tmp * scaling_factor);
+        std::get<4>(evals) += (tmp * scaling_factor);
     }
     { // ENQUEUED_CALL_START_NEXT_CTX_ID
-        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_enqueued_call_start)) *
                    ((static_cast<View>(in.get(C::execution_context_id)) + FF(1)) -
                     static_cast<View>(in.get(C::execution_next_context_id)));
-        std::get<6>(evals) += (tmp * scaling_factor);
+        std::get<5>(evals) += (tmp * scaling_factor);
     }
     { // INCR_NEXT_CONTEXT_ID
-        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
         auto tmp =
             CView(execution_NOT_LAST_EXEC) * (static_cast<View>(in.get(C::execution_next_context_id_shift)) -
                                               (static_cast<View>(in.get(C::execution_next_context_id)) +
                                                static_cast<View>(in.get(C::execution_sel_enter_call)) +
                                                static_cast<View>(in.get(C::execution_enqueued_call_start_shift))));
-        std::get<7>(evals) += (tmp * scaling_factor);
+        std::get<6>(evals) += (tmp * scaling_factor);
     }
     { // CONTEXT_ID_NEXT_ROW
-        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
         auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_CTX_ROW) *
                    (static_cast<View>(in.get(C::execution_context_id_shift)) -
                     static_cast<View>(in.get(C::execution_context_id)));
-        std::get<8>(evals) += (tmp * scaling_factor);
+        std::get<7>(evals) += (tmp * scaling_factor);
     }
     { // CONTEXT_ID_EXT_CALL
-        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (static_cast<View>(in.get(C::execution_context_id_shift)) -
                     static_cast<View>(in.get(C::execution_next_context_id)));
-        std::get<9>(evals) += (tmp * scaling_factor);
+        std::get<8>(evals) += (tmp * scaling_factor);
     }
     { // CONTEXT_ID_NESTED_EXIT
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_nested_exit_call)) *
                    (static_cast<View>(in.get(C::execution_context_id_shift)) -
                     static_cast<View>(in.get(C::execution_parent_id)));
-        std::get<10>(evals) += (tmp * scaling_factor);
+        std::get<9>(evals) += (tmp * scaling_factor);
     }
     { // PARENT_ID_NEXT_ROW
-        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp = CView(execution_NOT_LAST_EXEC) * CView(execution_DEFAULT_CTX_ROW) *
                    (static_cast<View>(in.get(C::execution_parent_id_shift)) -
                     static_cast<View>(in.get(C::execution_parent_id)));
-        std::get<11>(evals) += (tmp * scaling_factor);
+        std::get<10>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
                    (static_cast<View>(in.get(C::execution_parent_id_shift)) -
                     static_cast<View>(in.get(C::execution_context_id)));
+        std::get<11>(evals) += (tmp * scaling_factor);
+    }
+    { // NEXT_PC
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::execution_sel_instruction_fetching_success)) *
+            ((static_cast<View>(in.get(C::execution_pc)) + static_cast<View>(in.get(C::execution_instr_length))) -
+             static_cast<View>(in.get(C::execution_next_pc)));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
     { // PC_NEXT_ROW_DEFAULT
@@ -129,7 +131,9 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // PC_NEXT_ROW_EXT_CALL
         using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_enter_call)) *
+        auto tmp = static_cast<View>(in.get(C::execution_sel_shift)) *
+                   (static_cast<View>(in.get(C::execution_sel_enter_call)) +
+                    static_cast<View>(in.get(C::execution_enqueued_call_start_shift))) *
                    static_cast<View>(in.get(C::execution_pc_shift));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
