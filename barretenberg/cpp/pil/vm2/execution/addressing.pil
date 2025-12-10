@@ -4,6 +4,8 @@ include "../range_check.pil";
 include "../constants_gen.pil";
 include "../gt.pil";
 
+// See https://docs.google.com/document/d/1EgFj0OQYZCWufjzLgoAAiVL9jV0-fUAaCCIVlvRc8bY/ for circuit design.
+
 // This gadget constrains the resolution of the operands from instruction fetching.
 // The input operands are op[0], ..., op[6] (from execution.pil).
 // The output operands are rop[0], ..., rop[6] (from execution.pil).
@@ -11,7 +13,7 @@ include "../gt.pil";
 
 // Inputs (from execution.pil):
 //  - SEL_SHOULD_RESOLVE_ADDRESS (alias for sel_instruction_fetching_success)
-//  - sel_op_is_address[7] (via exec spec)
+//  - sel_op_is_address[7] (via exec spec; derived from ExecInstructionSpec.num_addresses)
 //  - indirect (via instruction fetching)
 //  - op[7] (via instruction fetching)
 // Outputs (to execution.pil):
