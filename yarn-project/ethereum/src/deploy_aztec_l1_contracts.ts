@@ -13,7 +13,6 @@ import { spawn } from 'child_process';
 import { mkdtemp, readFile, rm } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
 import type { Chain, Hex } from 'viem';
-import { sepolia } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
@@ -195,8 +194,8 @@ export async function deployAztecL1Contracts(
   // Relative location of l1-contracts in monorepo or docker image.
   const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
 
-  // From heuristic testing.
-  // const MAGIC_TRANSACTION_BATCH_SIZE = 12;
+  // From heuristic testing. More caused issues with anvil.
+  const MAGIC_TRANSACTION_BATCH_SIZE = 16;
   const deployWithForge = (outputPath: string): Promise<ForgeL1ContractsDeployResult> => {
     const { promise, resolve, reject } = promiseWithResolvers<ForgeL1ContractsDeployResult>();
     const forgeArgs = [
@@ -210,12 +209,9 @@ export async function deployAztecL1Contracts(
       '--private-key',
       privateKey,
       '--broadcast',
+      '--batch-size',
+      MAGIC_TRANSACTION_BATCH_SIZE.toString(),
     ];
-    if (chain.id === sepolia.id) {
-      const MAGIC_TRANSACTION_BATCH_SIZE = 12;
-      forgeArgs.push('--batch-size');
-      forgeArgs.push(MAGIC_TRANSACTION_BATCH_SIZE.toString());
-    }
     const proc = spawn('forge', forgeArgs, {
       cwd: l1ContractsPath,
       env: {
