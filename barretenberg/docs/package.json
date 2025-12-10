@@ -12,7 +12,7 @@
     "clear": "./scripts/clean.sh",
     "serve": "docusaurus serve",
     "typecheck": "yarn tsgo",
-    "test": "TS_NODE_PROJECT=./tsconfig.test.json mocha",
+    "test": "mocha",
     "preprocess": "node src/preprocess/index.js",
     "preprocess:clean": "node src/preprocess/index.js clean"
   },
