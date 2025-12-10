@@ -195,7 +195,7 @@ export async function deployAztecL1Contracts(
   const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
 
   // From heuristic testing. More caused issues with anvil.
-  const MAGIC_TRANSACTION_BATCH_SIZE = 16;
+  const MAGIC_TRANSACTION_BATCH_SIZE = 12;
   const deployWithForge = (outputPath: string): Promise<ForgeL1ContractsDeployResult> => {
     const { promise, resolve, reject } = promiseWithResolvers<ForgeL1ContractsDeployResult>();
     const forgeArgs = [
