@@ -15,9 +15,16 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 - [Aztec.js](./yarn-project/aztec.js/): A tool for interacting with the Aztec network. It communicates via the [Private Execution Environment (PXE)](./yarn-project/pxe/).
 - [Example contracts](./noir-projects/noir-contracts/): Example contracts for the Aztec network, written in Noir.
 - [End to end tests](./yarn-project/end-to-end/): Integration tests written in Typescript--a good reference for how to use the packages for specific tasks.
-- [Aztec Boxes](./boxes/): Example starter projects.
+  * Aztec Boxes: Example starter projects.
+
+## Documentation
+
+The source for the public documentation site lives in the `docs/` directory of this repository and is published to https://docs.aztec.network.
+
+If you want to propose documentation changes, open a pull request that updates files under `./docs` and follow the contribution guide in CONTRIBUTING.md.
 
 ## Issues Board
+
 
 All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://aztec.network/roadmap) section of our website.
 
