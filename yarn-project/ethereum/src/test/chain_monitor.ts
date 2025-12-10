@@ -1,4 +1,5 @@
-import { InboxContract, type RollupContract } from '@aztec/ethereum/contracts';
+import type { RollupContract } from '@aztec/ethereum/contracts';
+import { InboxContract } from '@aztec/ethereum/contracts';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';

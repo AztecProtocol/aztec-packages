@@ -1,4 +1,4 @@
-import { getPublicClient } from '@aztec/ethereum';
+import { getPublicClient } from '@aztec/ethereum/client';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';

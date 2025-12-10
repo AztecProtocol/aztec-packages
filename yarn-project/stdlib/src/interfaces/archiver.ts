@@ -1,4 +1,4 @@
-import type { L1ContractAddresses } from '@aztec/ethereum';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumberSchema, CheckpointNumberSchema, EpochNumberSchema } from '@aztec/foundation/branded-types';
 import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
@@ -55,6 +55,9 @@ export type ArchiverSpecificConfig = {
 
   /** Maximum allowed drift in seconds between the Ethereum client and current time. */
   maxAllowedEthClientDriftSeconds?: number;
+
+  /** Whether to allow starting the archiver without debug/trace method support on Ethereum hosts */
+  ethereumAllowNoDebugHosts?: boolean;
 };
 
 export const ArchiverSpecificConfigSchema = z.object({
@@ -65,6 +68,7 @@ export const ArchiverSpecificConfigSchema = z.object({
   archiverStoreMapSizeKb: schemas.Integer.optional(),
   skipValidateBlockAttestations: z.boolean().optional(),
   maxAllowedEthClientDriftSeconds: schemas.Integer.optional(),
+  ethereumAllowNoDebugHosts: z.boolean().optional(),
 });
 
 export type ArchiverApi = Omit<

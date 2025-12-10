@@ -141,7 +141,6 @@ pub contract Test {
     ) {
         let note = UintNote { value };
         create_note(self.context, owner, storage_slot, note).deliver(
-            owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
 

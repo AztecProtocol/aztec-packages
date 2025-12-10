@@ -1,5 +1,6 @@
 import { prettyPrintJSON } from '@aztec/cli/utils';
-import { GSEContract, createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { GSEContract } from '@aztec/ethereum/contracts';
 import { decryptBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import { computeBn254G1PublicKey, computeBn254G2PublicKey } from '@aztec/foundation/crypto/bn254';
 import { Fr } from '@aztec/foundation/curves/bn254';

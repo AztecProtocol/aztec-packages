@@ -1,5 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
-import { type L1TxState, TxUtilsState } from '@aztec/ethereum';
+import { type L1TxState, TxUtilsState } from '@aztec/ethereum/l1-tx-utils';
 import { omit } from '@aztec/foundation/collection';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';

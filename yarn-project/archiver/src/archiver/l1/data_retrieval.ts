@@ -6,19 +6,13 @@ import {
   encodeBlockBlobData,
 } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import type {
-  EpochProofPublicInputArgs,
-  ViemClient,
-  ViemCommitteeAttestations,
-  ViemHeader,
-  ViemPublicClient,
-} from '@aztec/ethereum';
+import type { EpochProofPublicInputArgs } from '@aztec/ethereum/contracts';
+import type { ViemClient, ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { ViemSignature } from '@aztec/foundation/eth-signature';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
@@ -35,13 +29,14 @@ import {
   decodeFunctionData,
   getAbiItem,
   hexToBytes,
-  multicall3Abi,
 } from 'viem';
 
-import { NoBlobBodiesFoundError } from './errors.js';
-import type { DataRetrieval } from './structs/data_retrieval.js';
-import type { InboxMessage } from './structs/inbox_message.js';
-import type { L1PublishedData } from './structs/published.js';
+import { NoBlobBodiesFoundError } from '../errors.js';
+import type { ArchiverInstrumentation } from '../instrumentation.js';
+import type { DataRetrieval } from '../structs/data_retrieval.js';
+import type { InboxMessage } from '../structs/inbox_message.js';
+import type { L1PublishedData } from '../structs/published.js';
+import { CalldataRetriever } from './calldata_retriever.js';
 
 export type RetrievedCheckpoint = {
   checkpointNumber: CheckpointNumber;
@@ -144,6 +139,7 @@ export async function retrievedToPublishedCheckpoint({
 /**
  * Fetches new checkpoints.
  * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param debugClient - The viem debug client to use for trace/debug RPC methods (optional).
  * @param rollupAddress - The address of the rollup contract.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
@@ -153,9 +149,16 @@ export async function retrievedToPublishedCheckpoint({
 export async function retrieveCheckpointsFromRollup(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
+  debugClient: ViemPublicDebugClient,
   blobSinkClient: BlobSinkClientInterface,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
+  contractAddresses: {
+    governanceProposerAddress: EthAddress;
+    slashFactoryAddress?: EthAddress;
+    slashingProposerAddress: EthAddress;
+  },
+  instrumentation: ArchiverInstrumentation,
   logger: Logger = createLogger('archiver'),
 ): Promise<RetrievedCheckpoint[]> {
   const retrievedCheckpoints: RetrievedCheckpoint[] = [];
@@ -201,9 +204,12 @@ export async function retrieveCheckpointsFromRollup(
     const newCheckpoints = await processCheckpointProposedLogs(
       rollup,
       publicClient,
+      debugClient,
       blobSinkClient,
       checkpointProposedLogs,
       rollupConstants,
+      contractAddresses,
+      instrumentation,
       logger,
     );
     retrievedCheckpoints.push(...newCheckpoints);
@@ -218,18 +224,35 @@ export async function retrieveCheckpointsFromRollup(
  * Processes newly received CheckpointProposed logs.
  * @param rollup - The rollup contract
  * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param debugClient - The viem debug client to use for trace/debug RPC methods (optional).
  * @param logs - CheckpointProposed logs.
  * @returns - An array of checkpoints.
  */
 async function processCheckpointProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
+  debugClient: ViemPublicDebugClient,
   blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'CheckpointProposed'>,
   { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
+  contractAddresses: {
+    governanceProposerAddress: EthAddress;
+    slashFactoryAddress?: EthAddress;
+    slashingProposerAddress: EthAddress;
+  },
+  instrumentation: ArchiverInstrumentation,
   logger: Logger,
 ): Promise<RetrievedCheckpoint[]> {
   const retrievedCheckpoints: RetrievedCheckpoint[] = [];
+  const calldataRetriever = new CalldataRetriever(
+    publicClient,
+    debugClient,
+    targetCommitteeSize,
+    instrumentation,
+    logger,
+    { ...contractAddresses, rollupAddress: EthAddress.fromString(rollup.address) },
+  );
+
   await asyncPool(10, logs, async log => {
     const checkpointNumber = CheckpointNumber.fromBigInt(log.args.checkpointNumber!);
     const archive = log.args.archive!;
@@ -238,14 +261,16 @@ async function processCheckpointProposedLogs(
 
     // The value from the event and contract will match only if the checkpoint is in the chain.
     if (archive === archiveFromChain) {
-      const checkpoint = await getCheckpointFromRollupTx(
-        publicClient,
-        blobSinkClient,
+      const checkpoint = await calldataRetriever.getCheckpointFromRollupTx(
         log.transactionHash!,
         blobHashes,
         checkpointNumber,
-        rollup.address,
-        targetCommitteeSize,
+      );
+      const checkpointBlobData = await getCheckpointBlobDataFromBlobs(
+        blobSinkClient,
+        checkpoint.blockHash,
+        blobHashes,
+        checkpointNumber,
         logger,
       );
 
@@ -255,7 +280,7 @@ async function processCheckpointProposedLogs(
         timestamp: await getL1BlockTime(publicClient, log.blockNumber),
       };
 
-      retrievedCheckpoints.push({ ...checkpoint, l1, chainId, version });
+      retrievedCheckpoints.push({ ...checkpoint, checkpointBlobData, l1, chainId, version });
       logger.trace(`Retrieved checkpoint ${checkpointNumber} from L1 tx ${log.transactionHash}`, {
         l1BlockNumber: log.blockNumber,
         checkpointNumber,
@@ -278,117 +303,13 @@ export async function getL1BlockTime(publicClient: ViemPublicClient, blockNumber
   return block.timestamp;
 }
 
-/**
- * Extracts the first 'propose' method calldata from a multicall3 transaction's data.
- * @param multicall3Data - The multicall3 transaction input data
- * @param rollupAddress - The address of the rollup contract
- * @returns The calldata for the first 'propose' method call to the rollup contract
- */
-function extractRollupProposeCalldata(multicall3Data: Hex, rollupAddress: Hex): Hex {
-  const { functionName: multicall3FunctionName, args: multicall3Args } = decodeFunctionData({
-    abi: multicall3Abi,
-    data: multicall3Data,
-  });
-
-  if (multicall3FunctionName !== 'aggregate3') {
-    throw new Error(`Unexpected multicall3 method called ${multicall3FunctionName}`);
-  }
-
-  if (multicall3Args.length !== 1) {
-    throw new Error(`Unexpected number of arguments for multicall3`);
-  }
-
-  const [calls] = multicall3Args;
-
-  // Find all rollup calls
-  const rollupAddressLower = rollupAddress.toLowerCase();
-
-  for (let i = 0; i < calls.length; i++) {
-    const addr = calls[i].target;
-    if (addr.toLowerCase() !== rollupAddressLower) {
-      continue;
-    }
-    const callData = calls[i].callData;
-
-    try {
-      const { functionName: rollupFunctionName } = decodeFunctionData({
-        abi: RollupAbi,
-        data: callData,
-      });
-
-      if (rollupFunctionName === 'propose') {
-        return callData;
-      }
-    } catch {
-      // Skip invalid function data
-      continue;
-    }
-  }
-
-  throw new Error(`Rollup address not found in multicall3 args`);
-}
-
-/**
- * Gets checkpoint from the calldata of an L1 transaction.
- * Assumes that the checkpoint was published from an EOA.
- * TODO: Add retries and error management.
- * @param publicClient - The viem public client to use for transaction retrieval.
- * @param txHash - Hash of the tx that published it.
- * @param checkpointNumber - Checkpoint number.
- * @returns Checkpoint from the calldata, deserialized
- */
-async function getCheckpointFromRollupTx(
-  publicClient: ViemPublicClient,
+export async function getCheckpointBlobDataFromBlobs(
   blobSinkClient: BlobSinkClientInterface,
-  txHash: `0x${string}`,
-  blobHashes: Buffer[], // TODO(md): buffer32?
+  blockHash: string,
+  blobHashes: Buffer<ArrayBufferLike>[],
   checkpointNumber: CheckpointNumber,
-  rollupAddress: Hex,
-  targetCommitteeSize: number,
   logger: Logger,
-): Promise<Omit<RetrievedCheckpoint, 'l1' | 'chainId' | 'version'>> {
-  logger.trace(`Fetching checkpoint ${checkpointNumber} from rollup tx ${txHash}`);
-  const { input: forwarderData, blockHash } = await publicClient.getTransaction({ hash: txHash });
-
-  const rollupData = extractRollupProposeCalldata(forwarderData, rollupAddress);
-  const { functionName: rollupFunctionName, args: rollupArgs } = decodeFunctionData({
-    abi: RollupAbi,
-    data: rollupData,
-  });
-
-  if (rollupFunctionName !== 'propose') {
-    throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
-  }
-
-  const [decodedArgs, packedAttestations, _signers, _blobInput] = rollupArgs! as readonly [
-    {
-      archive: Hex;
-      oracleInput: {
-        feeAssetPriceModifier: bigint;
-      };
-      header: ViemHeader;
-      txHashes: readonly Hex[];
-    },
-    ViemCommitteeAttestations,
-    Hex[],
-    ViemSignature,
-    Hex,
-  ];
-
-  const attestations = CommitteeAttestation.fromPacked(packedAttestations, targetCommitteeSize);
-
-  logger.trace(`Recovered propose calldata from tx ${txHash}`, {
-    checkpointNumber,
-    archive: decodedArgs.archive,
-    header: decodedArgs.header,
-    l1BlockHash: blockHash,
-    blobHashes,
-    attestations,
-    packedAttestations,
-    targetCommitteeSize,
-  });
-
-  const header = CheckpointHeader.fromViem(decodedArgs.header);
+): Promise<CheckpointBlobData> {
   const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(checkpointNumber);
@@ -408,15 +329,7 @@ async function getCheckpointFromRollupTx(
     throw err;
   }
 
-  const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
-
-  return {
-    checkpointNumber,
-    archiveRoot,
-    header,
-    checkpointBlobData,
-    attestations,
-  };
+  return checkpointBlobData;
 }
 
 /** Given an L1 to L2 message, retrieves its corresponding event from the Inbox within a specific block range. */

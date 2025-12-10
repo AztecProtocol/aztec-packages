@@ -5,13 +5,10 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
-import {
-  type DeployL1ContractsReturnType,
-  type ExtendedViemWalletClient,
-  RollupContract,
-  deployL1Contract,
-  extractEvent,
-} from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import { type DeployL1ContractsReturnType, deployL1Contract } from '@aztec/ethereum/deploy-l1-contracts';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
+import { extractEvent } from '@aztec/ethereum/utils';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';

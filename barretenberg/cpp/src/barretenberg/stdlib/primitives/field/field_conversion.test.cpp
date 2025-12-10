@@ -166,8 +166,8 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionBN254AffineElement)
         curve::BN254::AffineElement group_element_val(1, 4);
         bn254_element<Builder> group_element;
         if constexpr (IsAnyOf<Builder, UltraCircuitBuilder>) {
-            EXPECT_THROW_OR_ABORT(group_element = bn254_element<Builder>::from_witness(&builder, group_element_val),
-                                  "");
+            EXPECT_THROW_WITH_MESSAGE(group_element = bn254_element<Builder>::from_witness(&builder, group_element_val),
+                                      "");
         } else {
             group_element = bn254_element<Builder>::from_witness(&builder, group_element_val);
             this->check_conversion(group_element);

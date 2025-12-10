@@ -79,7 +79,8 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     // After ensuring that `additive_constant` \in {0, 1}, we set the `.witness_bool` field of `result` to match the
     // value of `additive_constant`.
     if (is_constant()) {
-        BB_ASSERT(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero());
+        BB_ASSERT(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero(),
+                  "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
         bool_t<Builder> result(context);
         result.witness_bool = (additive_constant == bb::fr::one());
         result.set_origin_tag(tag);
@@ -106,9 +107,8 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     }
     // Get the normalized value of the witness
     bb::fr witness = context->get_variable(witness_idx);
-    BB_ASSERT_EQ((witness == bb::fr::zero()) || (witness == bb::fr::one()),
-                 true,
-                 "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
+    BB_ASSERT(witness == bb::fr::zero() || witness == bb::fr::one(),
+              "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
     bool_t result(context, witness == bb::fr::one());
     result.witness_inverted = result_inverted;
     result.witness_index = witness_idx;
@@ -459,7 +459,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_
 template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
 {
     uint256_t exponent_value = exponent.get_value();
-    BB_ASSERT_LT(exponent_value.get_msb(), 32U);
+    BB_ASSERT_LT(exponent_value.get_msb(), 32U, "Exponent too large in field_t::pow");
 
     if (is_constant() && exponent.is_constant()) {
         return field_t(get_value().pow(exponent_value));

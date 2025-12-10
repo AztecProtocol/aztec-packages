@@ -19,18 +19,15 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import {
-  type DeployL1ContractsArgs,
-  type ExtendedViemWalletClient,
-  GovernanceProposerContract,
-  type L1ContractAddresses,
-  RollupContract,
-  TxUtilsState,
-  createEthereumChain,
-  createExtendedL1Client,
-} from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
+import type { DeployL1ContractsArgs } from '@aztec/ethereum/deploy-l1-contracts';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { TxUtilsState } from '@aztec/ethereum/l1-tx-utils';
 import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { range } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -258,6 +255,7 @@ describe('L1Publisher integration', () => {
     publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
+        l1DebugRpcUrls: [],
         l1Contracts: l1ContractAddresses,
         publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1ChainId: chainId,
