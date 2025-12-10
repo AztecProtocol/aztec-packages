@@ -127,31 +127,16 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
     auto [proof, merge_commitments, _] = create_goblin_prover_output();
 
     auto transcript = std::make_shared<NativeTranscript>();
-    info("Test: about to create verifier");
     bb::GoblinVerifier verifier(transcript, proof, merge_commitments);
-    info("Test: verifier created, about to verify");
     auto result = verifier.verify();
-    info("Test: verify() returned");
 
     // Check pairing points
-    info("Test: about to check pairing points");
     bool pairing_verified = result.pairing_points.check();
-    info("Test: pairing points checked = ", pairing_verified);
 
     // Verify IPA opening
-    info("Test: about to verify IPA");
-    info("Test: ipa_proof size = ", result.ipa_proof.size());
     auto ipa_transcript = std::make_shared<NativeTranscript>(result.ipa_proof);
-    info("Test: created ipa_transcript");
-    info("Test: about to create VerifierCommitmentKey");
-    auto vk = ECCVMFlavor::VerifierCommitmentKey{};
-    info("Test: created VerifierCommitmentKey");
-    info("Test: ipa_claim.opening_pair.challenge = ", result.ipa_claim.opening_pair.challenge);
-    info("Test: ipa_claim.opening_pair.evaluation = ", result.ipa_claim.opening_pair.evaluation);
-    info("Test: ipa_claim.commitment = ", result.ipa_claim.commitment);
-    info("Test: about to call reduce_verify");
+    auto vk = ECCVMFlavor::VerifierCommitmentKey{ ECCVMFlavor::ECCVM_FIXED_SIZE };
     bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(vk, result.ipa_claim, ipa_transcript);
-    info("Test: IPA verified = ", ipa_verified);
 
     EXPECT_TRUE(pairing_verified && ipa_verified);
 }

@@ -3,10 +3,6 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-//
-// Unified Goblin verifier for both native and recursive verification.
-// See: chonk/README.md#goblin-eccvm--translator
-//
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
@@ -22,7 +18,10 @@
 namespace bb {
 
 /**
- * @brief Unified verifier for Goblin proofs (Merge + ECCVM + IPA + Translator).
+ * @brief Unified Goblin verifier for both native and recursive verification.
+ * @details See: chonk/README.md#goblin-eccvm--translator
+ *
+ * Unified verifier for Goblin proofs (Merge + ECCVM + IPA + Translator).
  * @details Creates a circuit verifying a Goblin proof. The verification is split into:
  *   1. Merge verification - checks ECC op queue commitment consistency
  *   2. ECCVM verification - verifies the correctness of ECC operations, outputs an IPA opening claim

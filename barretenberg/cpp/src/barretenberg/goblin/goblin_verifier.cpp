@@ -66,9 +66,7 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     }
 
     // Aggregate merge pairing points into translator pairing points
-    info("GoblinVerifier: about to aggregate pairing points");
     translator_result.pairing_points.aggregate(merge_result.pairing_points);
-    info("GoblinVerifier: pairing points aggregated");
 
     // Compute aggregate verification result
     auto all_checks_passed = [&]() {
@@ -83,17 +81,13 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
         return consistency_checks;
     };
 
-    info("GoblinVerifier: about to call all_checks_passed lambda");
     const bool aggregate_result = all_checks_passed();
-    info("GoblinVerifier: all_checks_passed = ", aggregate_result);
 
     // Build and return verification result
-    info("GoblinVerifier: about to construct VerificationResult");
     VerificationResult result{ .pairing_points = std::move(translator_result.pairing_points),
                                .ipa_claim = std::move(opening_claim),
                                .ipa_proof = proof.ipa_proof,
                                .all_checks_passed = aggregate_result };
-    info("GoblinVerifier: VerificationResult constructed, returning");
 
     return result;
 }
