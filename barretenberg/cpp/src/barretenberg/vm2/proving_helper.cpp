@@ -10,6 +10,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 #include "barretenberg/vm2/constraining/check_circuit.hpp"
 #include "barretenberg/vm2/constraining/polynomials.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
@@ -55,15 +56,12 @@ std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::create_verificat
     return std::make_shared<VerificationKey>(precomputed_cmts);
 }
 
-AvmProvingHelper::VkData AvmProvingHelper::compute_verification_key(tracegen::TraceContainer& trace)
+AvmProvingHelper::VkData AvmProvingHelper::get_verification_key()
 {
-    auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
-    auto proving_key = AVM_TRACK_TIME_V("proving/prove:proving_key", create_proving_key(polynomials));
-
     auto verification_key =
-        AVM_TRACK_TIME_V("proving/prove:verification_key", std::make_shared<AvmVerifier::VerificationKey>(proving_key));
+        std::make_shared<AvmVerifier::VerificationKey>(constraining::AvmFixedVKCommitments::get_all());
 
-    info("Computed AVM vk hash: ", verification_key->hash());
+    info("AVM vk hash: ", verification_key->hash());
 
     auto serialized_vk = to_buffer(verification_key->to_field_elements());
 
@@ -74,9 +72,10 @@ std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::p
 {
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
     auto proving_key = AVM_TRACK_TIME_V("proving/prove:proving_key", create_proving_key(polynomials));
-    // TODO(#15892): VK needs to be hardcoded. Computing it here is not efficient.
+
     auto verification_key =
-        AVM_TRACK_TIME_V("proving/prove:verification_key", std::make_shared<AvmVerifier::VerificationKey>(proving_key));
+        std::make_shared<AvmVerifier::VerificationKey>(constraining::AvmFixedVKCommitments::get_all());
+
     auto prover = AVM_TRACK_TIME_V("proving/prove:construct_prover",
                                    AvmProver(proving_key, verification_key, proving_key->commitment_key));
 

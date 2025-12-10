@@ -25,7 +25,6 @@ using namespace bb::avm2;
 
 struct InnerCircuitData {
     AvmProvingHelper::Proof proof;
-    std::shared_ptr<AvmFlavor::VerificationKey> verification_key;
     std::vector<FF> public_inputs_flat;
 };
 
@@ -50,7 +49,6 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
         InnerProver prover;
         auto [proof, vk_data] = prover.prove(std::move(trace));
-        const auto verification_key = InnerProver::create_verification_key(vk_data);
 
         const bool verified = prover.verify(proof, public_inputs, vk_data);
         EXPECT_TRUE(verified) << "native proof verification failed";
@@ -59,7 +57,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
         // TODO(#14234)[Unconditional PIs validation]: Remove next line
         proof.insert(proof.begin(), 0);
-        return { proof, verification_key, public_inputs_flat };
+        return { proof, public_inputs_flat };
     }
 
     /**
@@ -74,12 +72,10 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         std::vector<fr>& witness = program.witness;
 
         for (const auto& inner_circuit_data : inner_circuits) {
-            const std::vector<fr> key_witnesses = inner_circuit_data.verification_key->to_field_elements();
             const std::vector<fr> proof_witnesses = inner_circuit_data.proof;
             const std::vector<fr> public_inputs_witnesses = inner_circuit_data.public_inputs_flat;
 
             RecursionConstraint avm_recursion_constraint{
-                .key = add_to_witness_and_track_indices(witness, key_witnesses),
                 .proof = add_to_witness_and_track_indices(witness, proof_witnesses),
                 .public_inputs = add_to_witness_and_track_indices(witness, public_inputs_witnesses),
                 .key_hash = 0, // not used

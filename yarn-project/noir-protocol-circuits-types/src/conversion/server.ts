@@ -6,6 +6,7 @@ import {
   SpongeBlob,
 } from '@aztec/blob-lib/types';
 import {
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AZTEC_MAX_EPOCH_DURATION,
   BLS12_FQ_LIMBS,
   BLS12_FR_LIMBS,
@@ -32,7 +33,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import type { FlatPublicLogs } from '@aztec/stdlib/logs';
 import { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
-import type { ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
+import type { ProofData, ProofDataForFixedVk, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
   BlockConstantData,
   BlockMergeRollupPrivateInputs,
@@ -98,6 +99,7 @@ import type {
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateTxBaseRollupPrivateInputs as PrivateTxBaseRollupPrivateInputsNoir,
+  ProofDataForFixedVk as ProofDataForFixedVkNoir,
   ProofData as ProofDataNoir,
   PublicChonkVerifierPrivateInputs as PublicChonkVerifierPrivateInputsNoir,
   PublicChonkVerifierPublicInputs as PublicChonkVerifierPublicInputsNoir,
@@ -453,6 +455,16 @@ function mapProofDataToNoir<T extends Bufferable, TN, PROOF_LENGTH extends numbe
   };
 }
 
+// Not generic since only one type exists on noir.
+export function mapAvmProofDataToNoir(
+  proofData: ProofDataForFixedVk<AvmCircuitPublicInputs, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>,
+): ProofDataForFixedVkNoir {
+  return {
+    public_inputs: mapAvmCircuitPublicInputsToNoir(proofData.publicInputs),
+    proof: mapFieldArrayToNoir(proofData.recursiveProof.proof),
+  };
+}
+
 function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): ParityPublicInputsNoir {
   return {
     sha_root: mapFieldToNoir(parityPublicInputs.shaRoot),
@@ -753,7 +765,7 @@ export function mapPublicTxBaseRollupPrivateInputsToNoir(
       inputs.publicChonkVerifierProofData,
       mapPublicChonkVerifierPublicInputsToNoir,
     ),
-    avm_proof_data: mapProofDataToNoir(inputs.avmProofData, mapAvmCircuitPublicInputsToNoir),
+    avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     last_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.hints.lastArchive),
     anchor_block_archive_sibling_path: mapFieldArrayToNoir(inputs.hints.anchorBlockArchiveSiblingPath),
