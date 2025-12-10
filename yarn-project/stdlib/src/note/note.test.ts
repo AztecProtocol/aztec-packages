@@ -19,4 +19,12 @@ describe('note', () => {
   it('converts to and from json', () => {
     expect(jsonParseWithSchema(jsonStringify(note), Note.schema)).toEqual(note);
   });
+
+  it('equals returns false when number of items is different', () => {
+    const note1 = new Note([Fr.random(), Fr.random(), Fr.random()]);
+    const note2 = new Note([...note1.items, Fr.random(), Fr.random()]);
+
+    expect(note1.equals(note2)).toBe(false);
+    expect(note2.equals(note1)).toBe(false);
+  });
 });
