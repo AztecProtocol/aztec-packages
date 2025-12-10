@@ -84,19 +84,19 @@ void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fiel
 
 // Explicit template instantiations
 template std::vector<field_t<UltraCircuitBuilder>> fields_from_witnesses<UltraCircuitBuilder>(
-    UltraCircuitBuilder& builder, std::span<const uint32_t> witness_indices);
-template std::vector<field_t<MegaCircuitBuilder>> fields_from_witnesses<MegaCircuitBuilder>(
-    MegaCircuitBuilder& builder, std::span<const uint32_t> witness_indices);
+    UltraCircuitBuilder&, std::span<const uint32_t>);
+template std::vector<field_t<MegaCircuitBuilder>> fields_from_witnesses<MegaCircuitBuilder>(MegaCircuitBuilder&,
+                                                                                            std::span<const uint32_t>);
 
 template byte_array<UltraCircuitBuilder> fields_to_bytes<UltraCircuitBuilder>(
-    UltraCircuitBuilder& builder, std::vector<field_t<UltraCircuitBuilder>>& fields);
-template byte_array<MegaCircuitBuilder> fields_to_bytes<MegaCircuitBuilder>(
-    MegaCircuitBuilder& builder, std::vector<field_t<MegaCircuitBuilder>>& fields);
+    UltraCircuitBuilder&, std::vector<field_t<UltraCircuitBuilder>>&);
+template byte_array<MegaCircuitBuilder> fields_to_bytes<MegaCircuitBuilder>(MegaCircuitBuilder&,
+                                                                            std::vector<field_t<MegaCircuitBuilder>>&);
 
-template void populate_fields<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                   const std::vector<field_t<UltraCircuitBuilder>>& fields,
-                                                   const std::vector<bb::fr>& values);
-template void populate_fields<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                  const std::vector<field_t<MegaCircuitBuilder>>& fields,
-                                                  const std::vector<bb::fr>& values);
+template void populate_fields<UltraCircuitBuilder>(UltraCircuitBuilder&,
+                                                   const std::vector<field_t<UltraCircuitBuilder>>&,
+                                                   const std::vector<bb::fr>&);
+template void populate_fields<MegaCircuitBuilder>(MegaCircuitBuilder&,
+                                                  const std::vector<field_t<MegaCircuitBuilder>>&,
+                                                  const std::vector<bb::fr>&);
 } // namespace acir_format

@@ -162,16 +162,6 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
      */
     static RecursionConstraint create_recursion_constraint(const VerifierInputs& input, std::vector<FF>& witness)
     {
-        // Assemble simple vectors of witnesses for vkey and proof
-        std::vector<FF> key_witnesses = input.honk_vk->to_field_elements();
-        FF key_hash_witness = input.honk_vk->hash();
-        std::vector<FF> proof_witnesses = input.proof; // proof contains the public inputs at this stage
-
-        // Construct witness indices for each component in the constraint; populate the witness array
-        auto [key_indices, key_hash_index, proof_indices, public_inputs_indices] =
-            ProofSurgeon<FF>::populate_recursion_witness_data(
-                witness, proof_witnesses, key_witnesses, key_hash_witness, /*num_public_inputs_to_extract=*/0);
-
         // The proof type can be either Oink or HN or PG_FINAL
         PROOF_TYPE proof_type;
         switch (input.type) {
@@ -191,13 +181,18 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
             throw std::runtime_error("Invalid proof type");
         }
 
-        return RecursionConstraint{
-            .key = key_indices,
-            .proof = {}, // the proof witness indices are not needed in an ivc recursion constraint
-            .public_inputs = public_inputs_indices,
-            .key_hash = key_hash_index,
-            .proof_type = proof_type,
-        };
+        RecursionConstraint constraint =
+            recursion_data_to_recursion_constraint(witness,
+                                                   input.proof, // proof contains the public inputs at this stage
+                                                   input.honk_vk->to_field_elements(),
+                                                   input.honk_vk->hash(),
+                                                   bb::fr::zero(),
+                                                   /*num_public_inputs_to_extract=*/0,
+                                                   proof_type);
+
+        constraint.proof = {}; // the proof witness indices are not needed in an ivc recursion constraint
+
+        return constraint;
     }
 
     /**

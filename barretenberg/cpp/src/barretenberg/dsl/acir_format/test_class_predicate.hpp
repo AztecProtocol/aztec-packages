@@ -88,7 +88,7 @@ concept TestBaseWithPredicate = requires {
         { T::generate_constraints(constraint, witness_values) } -> std::same_as<void>;
 
         /**
-         * @brief Method to generate ProgramMetadata to feed to create_circuit
+         * @brief Method to generate ProgramMetadata to be passed to create_circuit
          *
          */
         { T::generate_metadata() } -> std::same_as<ProgramMetadata>;

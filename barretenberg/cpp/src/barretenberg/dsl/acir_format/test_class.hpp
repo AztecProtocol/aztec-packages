@@ -576,7 +576,7 @@ concept TestBase = requires {
         { instance.invalidate_witness(constraint, witness_values, invalid_witness_target) } -> std::same_as<void>;
 
         /**
-         * @brief Method to generate ProgramMetadata to feed to create_circuit
+         * @brief Method to generate ProgramMetadata to be passed to create_circuit
          *
          */
         { T::generate_metadata() } -> std::same_as<ProgramMetadata>;

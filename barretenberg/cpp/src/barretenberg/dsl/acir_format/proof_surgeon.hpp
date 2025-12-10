@@ -22,29 +22,6 @@ namespace acir_format {
 template <typename FF> class ProofSurgeon {
   public:
     /**
-     * @brief Extract then remove a given number of public inputs from a proof
-     *
-     * @param proof_witnesses Witness values of a bberg style proof containing public inputs
-     * @param num_public_inputs The number of public inputs to extract from the proof
-     * @return std::vector<FF> The extracted public input witness values
-     */
-    static std::vector<FF> cut_public_inputs_from_proof(std::vector<FF>& proof_witnesses,
-                                                        const size_t num_public_inputs_to_extract)
-    {
-        // Construct iterators pointing to the start and end of the public inputs within the proof
-        auto pub_inputs_begin_itr = proof_witnesses.begin();
-        auto pub_inputs_end_itr = proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_public_inputs_to_extract);
-
-        // Construct the isolated public inputs
-        std::vector<FF> public_input_witnesses{ pub_inputs_begin_itr, pub_inputs_end_itr };
-
-        // Erase the public inputs from the proof
-        proof_witnesses.erase(pub_inputs_begin_itr, pub_inputs_end_itr);
-
-        return public_input_witnesses;
-    }
-
-    /**
      * @brief Get the witness indices for a given number of public inputs contained within a stdlib proof
      *
      * @param proof A bberg style stdlib proof (contains public inputs)
@@ -65,47 +42,5 @@ template <typename FF> class ProofSurgeon {
 
         return public_input_witness_indices;
     }
-
-    struct RecursionWitnessData {
-        std::vector<uint32_t> key_indices;
-        uint32_t key_hash_index;
-        std::vector<uint32_t> proof_indices;
-        std::vector<uint32_t> public_inputs_indices;
-    };
-
-    /**
-     * @brief Populate a witness vector with key, proof, and public inputs; track witness indices for each component
-     * @details This method is used to constuct acir-style inputs to a recursion constraint. It is assumed that the
-     * provided proof contains all of its public inputs (i.e. the conventional bberg format) which are extracted herein.
-     * Each component is appended to the witness which may already contain data. The order in which they are added is
-     * arbitrary as long as the corresponding witness indices are correct.
-     *
-     * @param witness
-     * @param proof_witnesses
-     * @param key_witnesses
-     * @param num_public_inputs
-     * @return RecursionWitnessData
-     */
-    static RecursionWitnessData populate_recursion_witness_data(std::vector<FF>& witness,
-                                                                std::vector<FF>& proof_witnesses,
-                                                                const std::vector<FF>& key_witnesses,
-                                                                const FF& key_hash_witness,
-                                                                const size_t num_public_inputs_to_extract)
-    {
-        // Extract all public inputs except for those corresponding to the aggregation object
-        std::vector<FF> public_input_witnesses =
-            cut_public_inputs_from_proof(proof_witnesses, num_public_inputs_to_extract);
-
-        // Append key, proof, and public inputs while storing the associated witness indices
-        std::vector<uint32_t> key_indices = add_to_witness_and_track_indices<std::vector<FF>>(witness, key_witnesses);
-        uint32_t key_hash_index = add_to_witness_and_track_indices(witness, key_hash_witness);
-        std::vector<uint32_t> proof_indices =
-            add_to_witness_and_track_indices<std::vector<FF>>(witness, proof_witnesses);
-        std::vector<uint32_t> public_input_indices =
-            add_to_witness_and_track_indices<std::vector<FF>>(witness, public_input_witnesses);
-
-        return { key_indices, key_hash_index, proof_indices, public_input_indices };
-    }
 };
-
 } // namespace acir_format
