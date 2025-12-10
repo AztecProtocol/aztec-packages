@@ -17,11 +17,11 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsgo -b",
-    "build:dev": "tsgo -b --watch",
+    "build": "yarn clean && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
-    "build:fuzzer": "tsgo scripts/fuzzing/avm_simulator_bin.ts --outDir dest/scripts/fuzzing --module commonjs --target es2022 --esModuleInterop --allowSyntheticDefaultImports --resolveJsonModule --skipLibCheck"
+    "build:fuzzer": "tsgo src/public/fuzzing/avm_simulator_bin.ts --outDir dest --rootDir src --module nodenext --moduleResolution nodenext --skipLibCheck --ignoreConfig"
   },
   "inherits": [
     "../package.common.json"

@@ -29,9 +29,9 @@ export interface L1TxUtilsConfig {
    */
   priorityFeeRetryBumpPercentage?: number;
   /**
-   * Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage config
+   * Minimum priority fee per gas in Gwei. Acts as a floor for the computed priority fee.
    */
-  fixedPriorityFeePerGas?: number;
+  minimumPriorityFeePerGas?: number;
   /**
    * Maximum number of speed-up attempts
    */
@@ -90,10 +90,21 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     env: 'L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE',
     ...numberConfigHelper(50),
   },
-  fixedPriorityFeePerGas: {
-    description: 'Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage',
-    env: 'L1_FIXED_PRIORITY_FEE_PER_GAS',
-    fallback: ['L1_FIXED_PRIORITY_FEE_PER_GAS_GWEI'],
+  minimumPriorityFeePerGas: {
+    description:
+      'Minimum priority fee per gas in Gwei. Acts as a floor for the computed priority fee. If network conditions require a higher fee, the higher fee will be used.',
+    env: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
+    fallback: ['L1_FIXED_PRIORITY_FEE_PER_GAS', 'L1_FIXED_PRIORITY_FEE_PER_GAS_GWEI'],
+    deprecatedFallback: [
+      {
+        env: 'L1_FIXED_PRIORITY_FEE_PER_GAS',
+        message: deprecatedFixedFeeMessage('L1_FIXED_PRIORITY_FEE_PER_GAS'),
+      },
+      {
+        env: 'L1_FIXED_PRIORITY_FEE_PER_GAS_GWEI',
+        message: deprecatedFixedFeeMessage('L1_FIXED_PRIORITY_FEE_PER_GAS_GWEI'),
+      },
+    ],
     ...floatConfigHelper(0),
   },
   maxSpeedUpAttempts: {
@@ -140,4 +151,11 @@ export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(
 
 export function getL1TxUtilsConfigEnvVars(): L1TxUtilsConfig {
   return getConfigFromMappings(l1TxUtilsConfigMappings);
+}
+
+function deprecatedFixedFeeMessage(envVar: string): string {
+  return (
+    `Environment variable ${envVar} is deprecated. It is now used as a MINIMUM priority fee rather than a fixed value. ` +
+    'Please use L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI instead. If network conditions require a higher fee, the higher fee will be used.'
+  );
 }

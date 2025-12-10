@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import type { RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import {
   Attributes,

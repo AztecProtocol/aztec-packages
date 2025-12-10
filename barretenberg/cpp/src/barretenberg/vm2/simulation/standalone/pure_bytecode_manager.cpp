@@ -61,6 +61,18 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     retrieved_class_ids.insert(current_class_id);
 
+    // For fast simulation, we use the class_id as the bytecode_id instead of computing the
+    // expensive bytecode commitment hash. This is safe because class_id uniquely identifies
+    // the bytecode. The actual commitment is only needed for trace generation / witgen.
+    BytecodeId bytecode_id = current_class_id;
+
+    // Check if we've already processed this class id.
+    // NOTE: If two different classes have the same bytecode, we cannot deduplicate them.
+    // This is the downside of using the class id as the bytecode id.
+    if (bytecodes.contains(bytecode_id)) {
+        return bytecode_id;
+    }
+
     // Contract class retrieval and class ID validation
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarantees
@@ -68,20 +80,6 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     assert(maybe_klass.has_value());
     auto& klass = maybe_klass.value();
     debug("Bytecode for ", address, " successfully retrieved!");
-
-    // TODO(dbanks12): in TS, the PublicContractsDB will hash the bytecode if it has never been hashed there before.
-    // After that, it caches it. It should only happen once per contract class, but when we are making a callback
-    // to the TS cache to hash the bytecode there, it might be unnecessarily slow, in which case we could do the same
-    // hashing and caching here in C++ and avoid callbacks to TS.
-    std::optional<FF> maybe_bytecode_commitment = contract_db.get_bytecode_commitment(current_class_id);
-    // If we reach this point, class ID and instance both exist which means bytecode commitment must exist.
-    assert(maybe_bytecode_commitment.has_value());
-    BytecodeId bytecode_id = maybe_bytecode_commitment.value();
-
-    // Check if we've already processed this bytecode.
-    if (bytecodes.contains(bytecode_id)) {
-        return bytecode_id;
-    }
 
     // We now save the bytecode so that we don't repeat this process.
     bytecodes[bytecode_id] = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
@@ -115,12 +113,17 @@ Instruction PureTxBytecodeManager::read_instruction(const BytecodeId&,
     try {
         instruction = deserialize_instruction(bytecode, pc);
     } catch (const InstrDeserializationError& error) {
-        throw InstructionFetchingError("Instruction fetching error: " + std::to_string(static_cast<int>(error)));
+        std::string error_msg = format("Instruction fetching error at pc ", pc);
+        if (error.message.has_value()) {
+            error_msg = format(error_msg, ": ", error.message.value());
+        }
+        throw InstructionFetchingError(error_msg);
     }
 
     // If the following code is executed, no error was thrown in deserialize_instruction().
     if (!check_tag(instruction)) {
-        throw InstructionFetchingError("Tag check failed");
+        std::string error_msg = format("Instruction fetching error at pc ", pc, ": Tag check failed");
+        throw InstructionFetchingError(error_msg);
     };
 
     // Save the instruction to the cache.

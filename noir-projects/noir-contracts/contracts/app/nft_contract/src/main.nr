@@ -21,7 +21,7 @@ pub contract NFT {
             note_interface::NoteProperties, note_viewer_options::NoteViewerOptions,
         },
         protocol_types::{address::AztecAddress, traits::ToField},
-        state_vars::{Map, PrivateSet, PublicImmutable, PublicMutable},
+        state_vars::{Map, Owned, PrivateSet, PublicImmutable, PublicMutable},
         utils::comparison::Comparator,
     };
     use compressed_string::FieldCompressedString;
@@ -49,7 +49,7 @@ pub contract NFT {
         // Addresses that can mint
         minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
         // Contains the NFTs owned by each address in private.
-        private_nfts: PrivateSet<NFTNote, Context>,
+        private_nfts: Owned<PrivateSet<NFTNote, Context>, Context>,
         // A map from token ID to a boolean indicating if the NFT exists.
         nft_exists: Map<Field, PublicMutable<bool, Context>, Context>,
         // A map from token ID to the public owner of the NFT.
@@ -254,9 +254,9 @@ pub contract NFT {
             .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring");
 
-        let new_note = NFTNote::new(token_id);
+        let new_note = NFTNote { token_id };
 
-        nfts.at(to).insert(new_note).emit(to, MessageDelivery.CONSTRAINED_ONCHAIN);
+        nfts.at(to).insert(new_note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -304,7 +304,7 @@ pub contract NFT {
         let mut owned_nft_ids = [0; MAX_NOTES_PER_PAGE];
         for i in 0..options.limit {
             if i < notes.len() {
-                owned_nft_ids[i] = notes.get_unchecked(i).get_token_id();
+                owned_nft_ids[i] = notes.get_unchecked(i).token_id;
             }
         }
 

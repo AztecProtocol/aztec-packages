@@ -62,7 +62,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     if (!low_bits_in.is_constant()) {
         // Decompose the low bits into 2 limbs and range constrain them.
         const auto limb_witnesses =
-            context->decompose_non_native_field_double_width_limb(low_bits_in.get_witness_index());
+            decompose_non_native_field_double_width_limb(context, low_bits_in.get_witness_index());
         limb_0.witness_index = limb_witnesses[0];
         limb_1.witness_index = limb_witnesses[1];
         field_t<Builder>::evaluate_linear_identity(low_bits_in, -limb_0, -limb_1 * shift_1, field_t<Builder>(0));
@@ -88,8 +88,8 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     const uint64_t num_high_limb_bits = NUM_LIMB_BITS + num_last_limb_bits;
     if (!high_bits_in.is_constant()) {
         // Decompose the high bits into 2 limbs and range constrain them.
-        const auto limb_witnesses = context->decompose_non_native_field_double_width_limb(
-            high_bits_in.get_witness_index(), static_cast<size_t>(num_high_limb_bits));
+        const auto limb_witnesses = decompose_non_native_field_double_width_limb(
+            context, high_bits_in.get_witness_index(), static_cast<size_t>(num_high_limb_bits));
         limb_2.witness_index = limb_witnesses[0];
         limb_3.witness_index = limb_witnesses[1];
         field_t<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1, field_t<Builder>(0));
@@ -2766,6 +2766,41 @@ std::pair<uint512_t, uint512_t> bigfield<Builder, T>::compute_partial_schoolbook
     const uint512_t lo_val = r0_inner + (r1_inner << NUM_LIMB_BITS);      // lo := c0 + c1 * 2^b
     const uint512_t hi_val = r2_inner + (r3_inner << NUM_LIMB_BITS);      // hi := c2 + c3 * 2^b
     return std::pair<uint512_t, uint512_t>(lo_val, hi_val);
+}
+
+/**
+ * @brief Decompose a single witness into two limbs, range constrained to NUM_LIMB_BITS (68) and
+ * num_limb_bits - NUM_LIMB_BITS, respectively.
+ *
+ * @details Doesn't create gates constraining the limbs to each other.
+ *
+ * @param ctx The circuit context
+ * @param limb_idx The index of the limb that will be decomposed
+ * @param num_limb_bits The range we want to constrain the original limb to
+ * @return std::array<uint32_t, 2> The indices of new limbs.
+ */
+template <typename Builder, typename T>
+std::array<uint32_t, 2> bigfield<Builder, T>::decompose_non_native_field_double_width_limb(Builder* ctx,
+                                                                                           const uint32_t limb_idx,
+                                                                                           const size_t num_limb_bits)
+{
+    BB_ASSERT_LT(uint256_t(ctx->get_variable(limb_idx)), (uint256_t(1) << num_limb_bits));
+    constexpr bb::fr LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
+    const uint256_t value = ctx->get_variable(limb_idx);
+    const uint256_t low = value & LIMB_MASK;
+    const uint256_t hi = value >> NUM_LIMB_BITS;
+    BB_ASSERT_EQ(low + (hi << NUM_LIMB_BITS), value);
+
+    const uint32_t low_idx = ctx->add_variable(bb::fr(low));
+    const uint32_t hi_idx = ctx->add_variable(bb::fr(hi));
+
+    BB_ASSERT_GT(num_limb_bits, NUM_LIMB_BITS);
+    const size_t lo_bits = NUM_LIMB_BITS;
+    const size_t hi_bits = num_limb_bits - NUM_LIMB_BITS;
+    ctx->range_constrain_two_limbs(
+        low_idx, hi_idx, lo_bits, hi_bits, "decompose_non_native_field_double_width_limb: limbs too large");
+
+    return std::array<uint32_t, 2>{ low_idx, hi_idx };
 }
 
 } // namespace bb::stdlib

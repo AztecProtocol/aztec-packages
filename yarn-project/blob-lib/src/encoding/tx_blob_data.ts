@@ -1,5 +1,5 @@
 import { chunk } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
 
 import { BlobDeserializationError } from '../errors.js';

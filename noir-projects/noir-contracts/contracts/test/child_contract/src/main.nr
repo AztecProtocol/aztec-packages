@@ -9,15 +9,15 @@ pub contract Child {
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},
-        state_vars::{PrivateSet, PublicMutable},
+        state_vars::{Owned, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
-    use dep::value_note::value_note::ValueNote;
+    use field_note::field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {
         current_value: PublicMutable<Field, Context>,
-        private_values: PrivateSet<ValueNote, Context>,
+        private_values: Owned<PrivateSet<FieldNote, Context>, Context>,
     }
 
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
@@ -49,10 +49,9 @@ pub contract Child {
 
     #[external("private")]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let note = ValueNote::new(new_value);
+        let note = FieldNote { value: new_value };
 
-        self.storage.private_values.at(owner).insert(note).emit(
-            owner,
+        self.storage.private_values.at(owner).insert(note).deliver(
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
         new_value
@@ -61,9 +60,9 @@ pub contract Child {
     #[external("private")]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let mut options = NoteGetterOptions::new();
-        options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);
+        options = options.select(FieldNote::properties().value, Comparator.EQ, amount).set_limit(1);
         let retrieved_notes = self.storage.private_values.at(owner).get_notes(options);
-        retrieved_notes.get(0).note.value()
+        retrieved_notes.get(0).note.value
     }
 
     // Increments `current_value` by `new_value`

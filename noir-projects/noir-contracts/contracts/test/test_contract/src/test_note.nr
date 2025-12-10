@@ -12,7 +12,7 @@ use dep::aztec::{
 #[derive(Eq, Packable)]
 #[custom_note]
 pub struct TestNote {
-    value: Field,
+    pub value: Field,
 }
 
 impl NoteHash for TestNote {
@@ -47,15 +47,5 @@ impl NoteHash for TestNote {
         // This note's nullifier is never used for any meaningful purpose so we don't care about having a real
         // implementation here.
         0
-    }
-}
-
-impl TestNote {
-    pub fn new(value: Field) -> Self {
-        TestNote { value }
-    }
-
-    pub fn get_value(self) -> Field {
-        self.value
     }
 }

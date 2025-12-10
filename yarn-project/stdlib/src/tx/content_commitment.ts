@@ -1,5 +1,5 @@
-import type { ViemContentCommitment } from '@aztec/ethereum';
-import { Fr } from '@aztec/foundation/fields';
+import type { ViemContentCommitment } from '@aztec/ethereum/contracts';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex } from '@aztec/foundation/string';
@@ -26,6 +26,10 @@ export class ContentCommitment {
 
   static getFields(fields: FieldsOf<ContentCommitment>) {
     return [fields.blobsHash, fields.inHash, fields.outHash] as const;
+  }
+
+  static from(fields: FieldsOf<ContentCommitment>) {
+    return new ContentCommitment(...ContentCommitment.getFields(fields));
   }
 
   getSize() {
@@ -75,8 +79,13 @@ export class ContentCommitment {
     return new ContentCommitment(reader.readField(), reader.readField(), reader.readField());
   }
 
-  static random(): ContentCommitment {
-    return new ContentCommitment(Fr.random(), Fr.random(), Fr.random());
+  static random(overrides: Partial<FieldsOf<ContentCommitment>> = {}): ContentCommitment {
+    return ContentCommitment.from({
+      blobsHash: Fr.random(),
+      inHash: Fr.random(),
+      outHash: Fr.random(),
+      ...overrides,
+    });
   }
 
   static empty(): ContentCommitment {

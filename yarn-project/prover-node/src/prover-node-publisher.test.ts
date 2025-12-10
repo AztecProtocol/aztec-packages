@@ -1,10 +1,11 @@
 import { BatchedBlob } from '@aztec/blob-lib/types';
-import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
@@ -30,6 +31,7 @@ describe('prover-node-publisher', () => {
     config = {
       l1ChainId: 1,
       l1RpcUrls: ['http://localhost:8545'],
+      l1DebugRpcUrls: [],
       publisherPrivateKeys: [new SecretValue('0x1234')],
       viemPollingIntervalMS: 1000,
       l1Contracts: {
@@ -54,30 +56,30 @@ describe('prover-node-publisher', () => {
 
   const testCases = [
     // Usual case of proving full epoch
-    { pending: 65n, proven: 32n, fromCheckpoint: 33, toCheckpoint: 64, expectedPublish: true, message: '' },
+    { pending: 65, proven: 32, fromCheckpoint: 33, toCheckpoint: 64, expectedPublish: true, message: '' },
     // Failure case of proving beyond the pending chain
     {
-      pending: 65n,
-      proven: 32n,
+      pending: 65,
+      proven: 32,
       fromCheckpoint: 33,
       toCheckpoint: 66,
       expectedPublish: false,
       message: 'Cannot submit epoch proof for 33-66 as pending checkpoint is 65',
     },
     // Some successful partial epochs
-    { pending: 33n, proven: 32n, fromCheckpoint: 33, toCheckpoint: 33, expectedPublish: true, message: '' },
-    { pending: 65n, proven: 32n, fromCheckpoint: 33, toCheckpoint: 38, expectedPublish: true, message: '' },
-    { pending: 40n, proven: 32n, fromCheckpoint: 33, toCheckpoint: 33, expectedPublish: true, message: '' },
+    { pending: 33, proven: 32, fromCheckpoint: 33, toCheckpoint: 33, expectedPublish: true, message: '' },
+    { pending: 65, proven: 32, fromCheckpoint: 33, toCheckpoint: 38, expectedPublish: true, message: '' },
+    { pending: 40, proven: 32, fromCheckpoint: 33, toCheckpoint: 33, expectedPublish: true, message: '' },
 
     // Somebody else proved the entire epoch already
 
     // We try and prove the full epoch - succeeds
-    { pending: 65n, proven: 64n, fromCheckpoint: 33, toCheckpoint: 64, expectedPublish: true, message: '' },
+    { pending: 65, proven: 64, fromCheckpoint: 33, toCheckpoint: 64, expectedPublish: true, message: '' },
 
     // We try and prove a partial epoch that falls short of the end - fails as pointless to publish
     {
-      pending: 65n,
-      proven: 64n,
+      pending: 65,
+      proven: 64,
       fromCheckpoint: 33,
       toCheckpoint: 35,
       expectedPublish: false,
@@ -87,24 +89,24 @@ describe('prover-node-publisher', () => {
     // Somebody else partially proved the epoch already
 
     // We try and prove the rest of the epoch - succeeds
-    { pending: 65n, proven: 40n, fromCheckpoint: 41, toCheckpoint: 64, expectedPublish: true, message: '' },
+    { pending: 65, proven: 40, fromCheckpoint: 41, toCheckpoint: 64, expectedPublish: true, message: '' },
 
     // We try and prove all of the epoch - succeeds
-    { pending: 65n, proven: 40n, fromCheckpoint: 33, toCheckpoint: 64, expectedPublish: true, message: '' },
+    { pending: 65, proven: 40, fromCheckpoint: 33, toCheckpoint: 64, expectedPublish: true, message: '' },
 
     // We try and partially prove the epoch after their proof - succeeds again
-    { pending: 65n, proven: 40n, fromCheckpoint: 41, toCheckpoint: 45, expectedPublish: true, message: '' },
+    { pending: 65, proven: 40, fromCheckpoint: 41, toCheckpoint: 45, expectedPublish: true, message: '' },
 
     // We try and partially prove the epoch on top of their proof - succeeds again
-    { pending: 65n, proven: 40n, fromCheckpoint: 33, toCheckpoint: 45, expectedPublish: true, message: '' },
+    { pending: 65, proven: 40, fromCheckpoint: 33, toCheckpoint: 45, expectedPublish: true, message: '' },
 
     // We try and partially prove the epoch and partially on top of their proof - succeeds again
-    { pending: 65n, proven: 40n, fromCheckpoint: 35, toCheckpoint: 45, expectedPublish: true, message: '' },
+    { pending: 65, proven: 40, fromCheckpoint: 35, toCheckpoint: 45, expectedPublish: true, message: '' },
 
     // We try and partially prove the epoch but less than was already proven - fails as pointless
     {
-      pending: 65n,
-      proven: 40n,
+      pending: 65,
+      proven: 40,
       fromCheckpoint: 33,
       toCheckpoint: 39,
       expectedPublish: false,
@@ -113,8 +115,8 @@ describe('prover-node-publisher', () => {
 
     // We try and partially prove the epoch but the same as was already proven - should possibly fail but succeeds for now, quite an edge case
     {
-      pending: 65n,
-      proven: 40n,
+      pending: 65,
+      proven: 40,
       fromCheckpoint: 33,
       toCheckpoint: 40,
       expectedPublish: true,
@@ -131,8 +133,8 @@ describe('prover-node-publisher', () => {
 
       // Return the tips specified by the test
       rollup.getTips.mockResolvedValue({
-        pending: pending,
-        proven: proven,
+        pending: CheckpointNumber(pending),
+        proven: CheckpointNumber(proven),
       });
 
       // Return the requested checkpoint
@@ -200,8 +202,8 @@ describe('prover-node-publisher', () => {
 
     // Return the tips specified by the test
     rollup.getTips.mockResolvedValue({
-      pending: 2n,
-      proven: 1n,
+      pending: CheckpointNumber(2),
+      proven: CheckpointNumber(1),
     });
 
     // Return the requested checkpoint

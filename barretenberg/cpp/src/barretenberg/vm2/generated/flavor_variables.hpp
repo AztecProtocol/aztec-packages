@@ -142,11 +142,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 129;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3072;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 342;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 124;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3064;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 343;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3543;
+    static constexpr size_t NUM_ALL_ENTITIES = 3531;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -291,7 +291,6 @@ struct AvmFlavorVariables {
         lookup_execution_dispatch_to_alu_relation<FF_>,
         lookup_execution_dispatch_to_bitwise_relation<FF_>,
         lookup_execution_dispatch_to_cast_relation<FF_>,
-        lookup_execution_dispatch_to_emit_unencrypted_log_relation<FF_>,
         lookup_execution_dispatch_to_set_relation<FF_>,
         lookup_execution_dyn_l2_factor_bitwise_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
@@ -601,7 +600,6 @@ struct AvmFlavorVariables {
         lookup_tx_context_restore_state_on_revert_relation<FF_>,
         lookup_tx_note_hash_append_relation<FF_>,
         lookup_tx_nullifier_append_relation<FF_>,
-        lookup_tx_read_calldata_hash_relation<FF_>,
         lookup_tx_read_effective_fee_public_inputs_relation<FF_>,
         lookup_tx_read_fee_payer_public_inputs_relation<FF_>,
         lookup_tx_read_l2_l1_msg_relation<FF_>,
@@ -645,6 +643,7 @@ struct AvmFlavorVariables {
         perm_emit_unencrypted_log_read_mem_relation<FF_>,
         perm_execution_dispatch_to_cd_copy_relation<FF_>,
         perm_execution_dispatch_to_ecc_add_relation<FF_>,
+        perm_execution_dispatch_to_emit_unencrypted_log_relation<FF_>,
         perm_execution_dispatch_to_get_contract_instance_relation<FF_>,
         perm_execution_dispatch_to_keccakf1600_relation<FF_>,
         perm_execution_dispatch_to_poseidon2_perm_relation<FF_>,
@@ -684,7 +683,8 @@ struct AvmFlavorVariables {
         perm_to_radix_mem_write_mem_relation<FF_>,
         perm_tx_balance_update_relation<FF_>,
         perm_tx_dispatch_exec_end_relation<FF_>,
-        perm_tx_dispatch_exec_start_relation<FF_>>;
+        perm_tx_dispatch_exec_start_relation<FF_>,
+        perm_tx_read_calldata_hash_relation<FF_>>;
 };
 
 } // namespace bb::avm2

@@ -6,8 +6,11 @@
 
 #include "goblin.hpp"
 
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
@@ -34,7 +37,13 @@ void Goblin::prove_eccvm()
     BB_BENCH_NAME("Goblin::prove_eccvm");
     ECCVMBuilder eccvm_builder(op_queue);
     ECCVMProver eccvm_prover(eccvm_builder, transcript);
-    goblin_proof.eccvm_proof = eccvm_prover.construct_proof();
+    auto [eccvm_proof, opening_claim] = eccvm_prover.construct_proof();
+    goblin_proof.eccvm_proof = std::move(eccvm_proof);
+
+    // Compute IPA proof for the opening claim
+    auto ipa_transcript = std::make_shared<NativeTranscript>();
+    ECCVMFlavor::PCS::compute_opening_proof(eccvm_prover.key->commitment_key, opening_claim, ipa_transcript);
+    goblin_proof.ipa_proof = ipa_transcript->export_proof();
 
     translation_batching_challenge_v = eccvm_prover.batching_challenge_v;
     evaluation_challenge_x = eccvm_prover.evaluation_challenge_x;
@@ -100,8 +109,17 @@ bool Goblin::verify(const GoblinProof& proof,
         merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
     bool merge_verified = merge_pairing_points.check() && degree_check_passed && concatenation_check_passed;
 
-    ECCVMVerifier eccvm_verifier(transcript);
-    bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
+    ECCVMVerifier_<ECCVMFlavor> eccvm_verifier(transcript, proof.eccvm_proof);
+    auto opening_claim = eccvm_verifier.verify_proof();
+
+    // Verify IPA opening
+    auto ipa_transcript = std::make_shared<NativeTranscript>(proof.ipa_proof);
+    bool ipa_verified =
+        ECCVMFlavor::PCS::reduce_verify(eccvm_verifier.key->pcs_verification_key, opening_claim, ipa_transcript);
+
+    vinfo("eccvm ipa verified?: ", ipa_verified);
+    bool eccvm_verified = ipa_verified && eccvm_verifier.sumcheck_verified && eccvm_verifier.consistency_checked &&
+                          eccvm_verifier.translation_masking_consistency_checked;
 
     TranslatorVerifier translator_verifier(transcript);
 
@@ -124,10 +142,15 @@ bool Goblin::verify(const GoblinProof& proof,
 void Goblin::ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const
 {
     BB_ASSERT_EQ(avm_mode, true, "ensure_well_formed_op_queue should only be called for avm");
+    // Add Ultra ops for the Translator (no-op + 3 random ops as prefix for translator accumulation)
     builder.queue_ecc_no_op();
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();
+    // In the AVM Recursive Verifier case, we don't need ZK; so we place a deterministic non-op as a "hiding_op", it
+    // does not contribute to the actual MSM circuit.
+    using Fq = curve::Grumpkin::ScalarField;
+    builder.queue_ecc_hiding_op(Fq(0), Fq(0));
 }
 
 } // namespace bb

@@ -61,8 +61,15 @@ The export is important there. The `AZTEC_DOCKER_IMAGE` env var is used as both:
 - the containers for the aztec infrastructure (validators, provers, etc)
 
 # Deploy Metrics
+
 ```bash
 ./spartan/bootstrap.sh metrics-kind
+```
+
+# Install Chaos Mesh
+
+```bash
+./spartan/bootstrap.sh chaos-mesh
 ```
 
 # Deploy stuff

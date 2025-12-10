@@ -9,7 +9,7 @@ pub contract Crowdfunding {
         macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
-        state_vars::{PrivateSet, PublicImmutable, storage::HasStorageSlot},
+        state_vars::{Owned, PrivateSet, PublicImmutable, state_variable::StateVariable},
         utils::{array, comparison::Comparator},
     };
     use aztec::note::{
@@ -30,7 +30,7 @@ pub contract Crowdfunding {
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
         // Notes emitted to donors when they donate (can be used as proof to obtain rewards, eg in Claim contracts)
-        donation_receipts: PrivateSet<UintNote, Context>,
+        donation_receipts: Owned<PrivateSet<UintNote, Context>, Context>,
     }
     // docs:end:storage
 
@@ -60,12 +60,11 @@ pub contract Crowdfunding {
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let note = UintNote::new(amount);
+        let note = UintNote { value: amount };
 
         // We don't constrain encryption because the donor is sending the note to himself. And hence by performing
         // encryption incorrectly would harm himself only.
-        self.storage.donation_receipts.at(donor).insert(note).emit(
-            donor,
+        self.storage.donation_receipts.at(donor).insert(note).deliver(
             MessageDelivery.UNCONSTRAINED_ONCHAIN,
         );
     }

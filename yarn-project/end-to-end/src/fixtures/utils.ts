@@ -12,19 +12,18 @@ import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
+import { isAnvilTestChain } from '@aztec/ethereum/chain';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { NULL_KEY } from '@aztec/ethereum/constants';
+import { RollupContract, deployMulticall3 } from '@aztec/ethereum/contracts';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
-  FeeAssetArtifact,
-  NULL_KEY,
   type Operator,
-  RollupContract,
-  createExtendedL1Client,
   deployL1Contracts,
-  deployMulticall3,
-  getL1ContractsConfigEnvVars,
-  isAnvilTestChain,
-} from '@aztec/ethereum';
+} from '@aztec/ethereum/deploy-l1-contracts';
+import { FeeAssetArtifact } from '@aztec/ethereum/l1-artifacts';
 import {
   DelayedTxUtils,
   EthCheatCodes,
@@ -34,9 +33,9 @@ import {
 } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -449,7 +448,9 @@ export async function setup(
       config.publisherPrivateKeys = [new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const)];
     }
 
-    config.coinbase = EthAddress.fromString(publisherHdAccount.address);
+    if (config.coinbase === undefined) {
+      config.coinbase = EthAddress.fromString(publisherHdAccount.address);
+    }
 
     if (AZTEC_NODE_URL) {
       // we are setting up against a remote environment, l1 contracts are assumed to already be deployed

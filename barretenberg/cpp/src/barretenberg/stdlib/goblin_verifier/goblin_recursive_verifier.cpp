@@ -9,28 +9,14 @@
 namespace bb::stdlib::recursion::honk {
 
 /**
- * @brief Creates a circuit that executes the ECCVM, Translator and Merge verifiers.
+ * @brief Creates a circuit that executes the Merge, ECCVM, and Translator verifiers.
  *
- * @param proof Native Goblin proof
- * @param t_commitments The commitments to the subtable for the merge being verified
- *
+ * @param proof Stdlib Goblin proof (circuit witness elements)
+ * @param merge_commitments Commitments for Merge verification (t_commitments and T_prev_commitments)
+ * @param merge_settings How the ecc op subtable was merged (PREPEND or APPEND)
+ * @return GoblinRecursiveVerifierOutput containing pairing points, IPA claim, and IPA proof
  */
-GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof,
-                                                              const MergeCommitments& merge_commitments,
-                                                              const MergeSettings merge_settings)
-{
-    StdlibProof stdlib_proof(*builder, proof);
-    return verify(stdlib_proof, merge_commitments, merge_settings);
-}
-
-/**
- * @brief Creates a circuit that executes the ECCVM, Translator and Merge verifiers.
- *
- * @param proof Stdlib Goblin proof
- * @param t_commitments The commitments to the subtable for the merge being verified
- *
- */
-GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof& proof,
+GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinStdlibProof& proof,
                                                               const MergeCommitments& merge_commitments,
                                                               const MergeSettings merge_settings)
 {
@@ -41,8 +27,8 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
     vinfo("Merge Verifier: degree check identity passed", degree_check_verified);
     vinfo("Merge Verifier: concatenation identity passed", concatenation_check_passed);
     // Run the ECCVM recursive verifier
-    ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };
-    auto [opening_claim, ipa_proof] = eccvm_verifier.verify_proof(proof.eccvm_proof);
+    ECCVMRecursiveVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
+    auto opening_claim = eccvm_verifier.verify_proof();
 
     // Run the Translator recursive verifier
     // Get translation data from ECCVM verifier
@@ -58,6 +44,6 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
 
     translator_pairing_points.aggregate(merge_pairing_points);
 
-    return { translator_pairing_points, opening_claim, ipa_proof };
+    return { translator_pairing_points, opening_claim, proof.ipa_proof };
 }
 } // namespace bb::stdlib::recursion::honk

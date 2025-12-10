@@ -17,7 +17,7 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     const auto constants_MEM_TAG_U1 = FF(1);
     const auto constants_MEM_TAG_U8 = FF(2);
-    const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
+    const auto constants_AVM_MEMORY_SIZE = FF(4294967296UL);
     const auto to_radix_mem_LATCH_CONDITION = in.get(C::to_radix_mem_last) + in.get(C::precomputed_first_row);
     const auto to_radix_mem_NOT_LAST = in.get(C::to_radix_mem_sel) * (FF(1) - to_radix_mem_LATCH_CONDITION);
     const auto to_radix_mem_NO_ERR_NOR_NUM_LIMBS_ZERO =
@@ -90,16 +90,15 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::to_radix_mem_start)) *
-                   (static_cast<View>(in.get(C::to_radix_mem_max_mem_addr)) - CView(constants_AVM_HIGHEST_MEM_ADDRESS));
+                   (static_cast<View>(in.get(C::to_radix_mem_max_mem_size)) - CView(constants_AVM_MEMORY_SIZE));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::to_radix_mem_start)) *
-                   (static_cast<View>(in.get(C::to_radix_mem_max_write_addr)) -
-                    ((static_cast<View>(in.get(C::to_radix_mem_dst_addr)) +
-                      static_cast<View>(in.get(C::to_radix_mem_num_limbs))) -
-                     FF(1)));
+                   ((static_cast<View>(in.get(C::to_radix_mem_write_addr_upper_bound)) -
+                     static_cast<View>(in.get(C::to_radix_mem_dst_addr))) -
+                    static_cast<View>(in.get(C::to_radix_mem_num_limbs)));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
     {

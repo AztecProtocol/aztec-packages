@@ -50,12 +50,12 @@ TEST(MockVerifierInputsTest, MockMergeProofSize)
  */
 TEST(MockVerifierInputsTest, MockPreIpaProofSize)
 {
-    size_t CURRENT_PRE_IPA_PROOF_SIZE = 606;
-    EXPECT_EQ(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH, CURRENT_PRE_IPA_PROOF_SIZE)
+    size_t CURRENT_ECCVM_PROOF_SIZE = 608;
+    EXPECT_EQ(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS, CURRENT_ECCVM_PROOF_SIZE)
         << "The length of the Pre-IPA proof changed.";
 
-    HonkProof pre_ipa_proof = create_mock_pre_ipa_proof();
-    EXPECT_EQ(pre_ipa_proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
+    HonkProof eccvm_proof = create_mock_eccvm_proof();
+    EXPECT_EQ(eccvm_proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 }
 
 /**
@@ -244,7 +244,7 @@ TEST(MockVerifierInputsTest, MockChonkProofSize)
 
     // If this value changes, we need to update the corresponding constants in noir and in yarn-project. Also, we need
     // to update the Prover.toml file for rollup-tx-private to reflect the new length of the Chonk proof.
-    size_t CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 1905;
+    size_t CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 1907;
     HonkProof chonk_proof = create_mock_chonk_proof<Builder>();
     EXPECT_EQ(chonk_proof.size(), Chonk::Proof::PROOF_LENGTH());
     EXPECT_EQ(chonk_proof.size(),

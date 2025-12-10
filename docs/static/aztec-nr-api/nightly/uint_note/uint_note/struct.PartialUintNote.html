@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
 <title>Struct PartialUintNote documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PartialUintNote</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../index.html">aztec-nr</a></h1>
 <div><a href="../../all.html">All items</a></div>
@@ -49,12 +55,12 @@ of course that its value is known).</p>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../uint_note/uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
 
-<div class="padded-methods"><code id="complete" class="code-header">pub fn <span class="fn">complete</span>(self, context: <a href="../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>, completer: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, value: <a href="../../std/primitive.u128.html" class="primitive">u128</a>)</code>
+<div class="padded-methods"><code id="complete" class="code-header">pub fn <a href="#complete"><span class="fn">complete</span></a>(self, context: <a href="../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>, completer: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, value: <a href="../../std/primitive.u128.html" class="primitive">u128</a>)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Completes the partial note, creating a new note that can be used like any other UintNote.</p>
 </div>
-</div><code id="complete_from_private" class="code-header">pub fn <span class="fn">complete_from_private</span>(
+</div><code id="complete_from_private" class="code-header">pub fn <a href="#complete_from_private"><span class="fn">complete_from_private</span></a>(
     self,
     context: &mut <a href="../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
     completer: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
@@ -65,7 +71,7 @@ of course that its value is known).</p>
 <p>Completes the partial note, creating a new note that can be used like any other UintNote. Same as <code>complete</code>
 function but works from private context.</p>
 </div>
-</div><code id="compute_validity_commitment" class="code-header">pub fn <span class="fn">compute_validity_commitment</span>(self, completer: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+</div><code id="compute_validity_commitment" class="code-header">pub fn <a href="#compute_validity_commitment"><span class="fn">compute_validity_commitment</span></a>(self, completer: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Computes a validity commitment for this partial note. The commitment cryptographically binds the note's private
@@ -102,5 +108,6 @@ legitimate.</p>
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">to_field</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 </div></main>
+</span>
 </body>
 </html>

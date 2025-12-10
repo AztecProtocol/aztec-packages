@@ -31,6 +31,30 @@ export async function addressingWithBaseTagIssueTest(isIndirect: boolean, tester
   return await testCustomBytecode(bytecode, tester, txLabel);
 }
 
+// First instruction sets a value with tag U64 at offset 0. Then a CalldataCopy instruction
+// uses INDIRECT addressing to read from offset 0, which should fail because the value at
+// offset 0 has tag U64 (not U32), making it an invalid address tag.
+export async function addressingWithIndirectTagIssueTest(tester: PublicTxSimulationTester) {
+  // Set a U64 value at offset 0 - this will be used as an indirect address
+  const addressingMode = Addressing.fromModes([
+    AddressingMode.INDIRECT, // First operand (cdOffset) uses indirect addressing
+    AddressingMode.DIRECT,
+    AddressingMode.DIRECT,
+  ]);
+
+  const bytecode = encodeToBytecode([
+    // Set a U64 value at offset 0 - this has the wrong tag for an address (should be U32)
+    new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT64, /*value=*/ 100n).as(Opcode.SET_64, Set.wireFormat64),
+    // Try to use indirect addressing: read from offset 0, which contains a U64 value
+    // This should fail because U64 is not a valid address tag (must be U32)
+    new CalldataCopy(/*indirect=*/ addressingMode.toWire(), /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 1),
+    new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+  ]);
+
+  const txLabel = 'AddressingWithIndirectTagInvalid';
+  return await testCustomBytecode(bytecode, tester, txLabel);
+}
+
 export async function pcOutOfRangeTest(tester: PublicTxSimulationTester) {
   const bytecode = encodeToBytecode([
     new Jump(/*jumpOffset=*/ 123), // Jump to out-of-range pc offset.

@@ -1,8 +1,8 @@
-import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { PublicProcessor } from '@aztec/simulator/server';

@@ -7,30 +7,57 @@
 #pragma once
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
+#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 
 namespace bb {
-class ECCVMVerifier {
-    using Flavor = ECCVMFlavor;
+
+/**
+ * @brief Unified ECCVM verifier class for both native and recursive verification
+ * @tparam Flavor Either ECCVMFlavor (native) or ECCVMRecursiveFlavor (recursive)
+ */
+template <typename Flavor> class ECCVMVerifier_ {
+  public:
     using FF = Flavor::FF;
+    using BF = Flavor::BF;
     using Curve = Flavor::Curve;
     using Commitment = Flavor::Commitment;
     using CommitmentLabels = Flavor::CommitmentLabels;
     using Transcript = Flavor::Transcript;
-    using ProvingKey = Flavor::ProvingKey;
     using VerificationKey = Flavor::VerificationKey;
     using VerifierCommitments = Flavor::VerifierCommitments;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
+    using Proof = Flavor::Proof;
     using PCS = Flavor::PCS;
-
-  public:
     using TranslatorInputData = TranslatorInputData_<FF>;
 
-    explicit ECCVMVerifier(const std::shared_ptr<Transcript>& transcript)
-        : transcript(transcript) {};
+    static constexpr bool IsRecursive = Curve::is_stdlib_type;
+    using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
 
-    bool verify_proof(const ECCVMProof& proof);
-    void compute_translation_opening_claims(
-        const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
+    // Unified constructor for both native and recursive verification
+    // For recursive case, extracts builder from proof elements via get_context()
+    ECCVMVerifier_(const std::shared_ptr<Transcript>& transcript, const Proof& proof)
+        : proof(proof)
+        , transcript(transcript)
+    {
+        // ECCVM VK is constant
+        auto native_vk = std::make_shared<ECCVMFlavor::VerificationKey>();
+        if constexpr (IsRecursive) {
+            // Extract builder from proof - safe since transcript cannot hash non-witness elements
+            builder = proof.back().get_context();
+            key = std::make_shared<VerificationKey>(builder, native_vk);
+            vk_hash = stdlib::witness_t<Builder>(builder, native_vk->hash());
+            key->fix_witness();
+            vk_hash.fix_witness();
+        } else {
+            key = native_vk;
+            vk_hash = native_vk->hash();
+        }
+    }
+
+    [[nodiscard("IPA claim should be verified/accumulated")]] OpeningClaim<Curve> verify_proof();
+
+    void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
     void compute_accumulated_result();
 
     /**
@@ -42,17 +69,23 @@ class ECCVMVerifier {
         return { evaluation_challenge_x, batching_challenge_v, accumulated_result };
     }
 
-    uint32_t circuit_size;
+    std::shared_ptr<VerificationKey> key;
+    Proof proof;
+
+    BF vk_hash;
+
+    // Builder pointer (only used for recursive, nullptr for native)
+    std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
+
     // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
     // `multivariate_to_univariate_opening_claim`
     static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
     std::array<OpeningClaim<Curve>, NUM_OPENING_CLAIMS> opening_claims;
 
-    std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
-    std::map<std::string, Commitment> commitments;
+    // Verification flags (native only, recursive uses circuit assertions)
+    bool sumcheck_verified = false;
+    bool consistency_checked = false;
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>();
-
     TranslationEvaluations_<FF> translation_evaluations;
 
     bool translation_masking_consistency_checked = false;
@@ -66,4 +99,9 @@ class ECCVMVerifier {
     // The accumulated result computed from translation evaluations, to be used by TranslatorVerifier
     FF accumulated_result;
 };
+
+// Type aliases
+using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
+using ECCVMRecursiveVerifier = ECCVMVerifier_<ECCVMRecursiveFlavor>;
+
 } // namespace bb

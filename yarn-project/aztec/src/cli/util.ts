@@ -2,7 +2,7 @@ import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { AccountManager } from '@aztec/aztec.js/wallet';
-import type { ViemClient } from '@aztec/ethereum';
+import type { ViemClient } from '@aztec/ethereum/types';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
