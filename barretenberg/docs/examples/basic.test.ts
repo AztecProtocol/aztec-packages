@@ -91,15 +91,15 @@ describe('Basic Barretenberg Example', () => {
 
       // EVM verification without ZK (keccak hash)
       const proofEvm = await backend.generateProof(witnessBuffer, { verifierTarget: 'evm-no-zk' });
-      expect(proofEvm.proof).to.have.length.greaterThan(0);
+      expect(proofEvm.proof.length).toBeGreaterThan(0);
 
       // EVM verification with ZK (keccak hash)
       const proofEvmZk = await backend.generateProof(witnessBuffer, { verifierTarget: 'evm' });
-      expect(proofEvmZk.proof).to.have.length.greaterThan(0);
+      expect(proofEvmZk.proof.length).toBeGreaterThan(0);
 
       // Recursive verification in Noir (explicit)
       const proofRecursive = await backend.generateProof(witnessBuffer, { verifierTarget: 'noir-recursive' });
-      expect(proofRecursive.proof).to.have.length.greaterThan(0);
+      expect(proofRecursive.proof.length).toBeGreaterThan(0);
       // docs:end:verifier_targets
 
     } finally {
@@ -130,8 +130,8 @@ describe('Basic Barretenberg Example', () => {
       // Test that verification keys are valid
       expect(vk).toBeInstanceOf(Uint8Array);
       expect(vk.length).toBeGreaterThan(0);
-      expect(vkKeccak).toBeInstanceOf(Uint8Array);
-      expect(vkKeccak.length).toBeGreaterThan(0);
+      expect(vkEvm).toBeInstanceOf(Uint8Array);
+      expect(vkEvm.length).toBeGreaterThan(0);
 
     } finally {
       // Always clean up
