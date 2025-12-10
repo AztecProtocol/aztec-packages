@@ -127,7 +127,7 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
     auto [proof, merge_commitments, _] = create_goblin_prover_output();
 
     auto transcript = std::make_shared<NativeTranscript>();
-    bb::GoblinVerifier verifier(transcript, proof, merge_commitments, MergeSettings::APPEND);
+    bb::GoblinVerifier verifier(transcript, proof, merge_commitments);
     auto result = verifier.verify();
 
     // Check pairing points
@@ -153,9 +153,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
 
     auto transcript = std::make_shared<Transcript>();
     GoblinStdlibProof stdlib_proof(builder, proof);
-    bb::GoblinRecursiveVerifier verifier{
-        transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
-    };
+    bb::GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments };
     auto output = verifier.verify();
 
     stdlib::recursion::honk::DefaultIO<Builder> inputs;
@@ -195,9 +193,7 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
 
         auto transcript = std::make_shared<Transcript>();
         GoblinStdlibProof stdlib_proof(builder, proof);
-        bb::GoblinRecursiveVerifier verifier{
-            transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
-        };
+        bb::GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments };
         auto output = verifier.verify();
 
         stdlib::recursion::honk::DefaultIO<Builder> inputs;
@@ -284,9 +280,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         auto transcript = std::make_shared<Transcript>();
         GoblinStdlibProof stdlib_proof(builder, proof);
-        bb::GoblinRecursiveVerifier verifier{
-            transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
-        };
+        bb::GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments };
         auto goblin_rec_verifier_output = verifier.verify();
 
         // Circuit is correct but pairing check should fail
@@ -317,9 +311,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         auto transcript = std::make_shared<Transcript>();
         GoblinStdlibProof stdlib_proof(builder, tampered_proof);
-        bb::GoblinRecursiveVerifier verifier{
-            transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
-        };
+        bb::GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments };
         [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify();
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
@@ -340,9 +332,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
 
     auto transcript = std::make_shared<Transcript>();
     GoblinStdlibProof stdlib_proof(builder, proof);
-    bb::GoblinRecursiveVerifier verifier{
-        transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
-    };
+    bb::GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments };
     [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify();
 
     EXPECT_FALSE(CircuitChecker::check(builder));
@@ -363,7 +353,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
 
         // Check natively that the proof is correct.
         auto native_transcript = std::make_shared<NativeTranscript>();
-        bb::GoblinVerifier native_verifier(native_transcript, proof, merge_commitments, MergeSettings::APPEND);
+        bb::GoblinVerifier native_verifier(native_transcript, proof, merge_commitments);
         auto native_result = native_verifier.verify();
         bool pairing_verified = native_result.pairing_points.check();
         auto ipa_transcript = std::make_shared<NativeTranscript>(native_result.ipa_proof);
@@ -389,9 +379,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
 
         auto transcript = std::make_shared<Transcript>();
         GoblinStdlibProof stdlib_proof(builder, proof);
-        bb::GoblinRecursiveVerifier verifier{
-            transcript, stdlib_proof, tampered_recursive_merge_commitments, MergeSettings::APPEND
-        };
+        bb::GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, tampered_recursive_merge_commitments };
         auto goblin_rec_verifier_output = verifier.verify();
 
         // Circuit is correct but pairing check should fail

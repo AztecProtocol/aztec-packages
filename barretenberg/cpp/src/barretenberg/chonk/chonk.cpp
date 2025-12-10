@@ -543,9 +543,9 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     TableCommitments t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Goblin verification (final merge, eccvm, translator)
-    GoblinVerifier goblin_verifier{
-        chonk_verifier_transcript, proof.goblin_proof, { t_commitments, T_prev_commitments }, MergeSettings::APPEND
-    };
+    GoblinVerifier goblin_verifier{ chonk_verifier_transcript,
+                                    proof.goblin_proof,
+                                    { t_commitments, T_prev_commitments } };
     auto goblin_result = goblin_verifier.verify();
 
     // Check pairing points

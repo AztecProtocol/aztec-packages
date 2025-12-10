@@ -37,9 +37,7 @@ ChonkRecursiveVerifier::Output ChonkRecursiveVerifier::verify(const StdlibProof&
         .T_prev_commitments = std::move(mega_output.ecc_op_tables) // Commitments to the state of the ecc op_queue as
                                                                    // computed insided the hiding kernel
     };
-    GoblinVerifier goblin_verifier{
-        chonk_rec_verifier_transcript, proof.goblin_proof, merge_commitments, MergeSettings::APPEND
-    };
+    GoblinVerifier goblin_verifier{ chonk_rec_verifier_transcript, proof.goblin_proof, merge_commitments };
     GoblinVerifier::VerificationResult goblin_output = goblin_verifier.verify();
     goblin_output.pairing_points.aggregate(mega_output.points_accumulator);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in Chonk verifiers
