@@ -570,9 +570,15 @@ void ExecutionTraceBuilder::process(
                 Operand envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
                 process_get_env_var_opcode(envvar_enum, ex_event.output, trace, row);
             } else if (*exec_opcode == ExecutionOpCode::INTERNALRETURN) {
-                trace.set(C::execution_internal_call_return_id_inv,
-                          row,
-                          ex_event.before_context_event.internal_call_return_id); // Will be inverted in batch later.
+                if (!opcode_execution_failed) {
+                    // If we have an opcode error, we don't need to compute the inverse (see internal_call.pil)
+                    trace.set(
+                        C::execution_internal_call_return_id_inv,
+                        row,
+                        ex_event.before_context_event.internal_call_return_id); // Will be inverted in batch later.
+                }
+                // We need to set the lookup gating column in case of an opcode error
+                trace.set(C::execution_sel_read_unwind_call_stack, row, opcode_execution_failed ? 0 : 1);
             } else if (*exec_opcode == ExecutionOpCode::SSTORE) {
                 uint32_t remaining_data_writes = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX -
                                                  ex_event.before_context_event.tree_states.public_data_tree.counter;

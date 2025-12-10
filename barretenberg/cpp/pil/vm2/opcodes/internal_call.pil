@@ -68,6 +68,9 @@ namespace execution;
     // Since we are already in the execution trace, we'll re-use the main execution error column from the "dispatch opcode" temporality group
     // Throw an error if we try to pop from an empty stack
     // In circuit that corresponds to calling internal_return while internal_call_return_id == 0
+    // Guard the unwind call stack lookup with sel_opcode_error (commited since it's used in the lookup)
+    pol commit sel_read_unwind_call_stack;
+    sel_execute_internal_return * ((1 - sel_opcode_error) - sel_read_unwind_call_stack) = 0;
     pol commit internal_call_return_id_inv;
     // Guard the zero check with sel_execute_internal_return so we dont compute the inverses when we dont need to
     // If we do an internal_return, we raise opcode = 1 iff internal_call_return_id = 0
@@ -90,7 +93,7 @@ namespace execution;
     // =============================
     // Retrieve the previous internal call ptr from the stack
     #[UNWIND_CALL_STACK]
-    sel_execute_internal_return {
+    sel_read_unwind_call_stack {
         context_id, internal_call_id, internal_call_id', internal_call_return_id', pc'
     } in internal_call_stack.sel {
         internal_call_stack.context_id, internal_call_stack.entered_call_id, internal_call_stack.id, internal_call_stack.return_id, internal_call_stack.return_pc
