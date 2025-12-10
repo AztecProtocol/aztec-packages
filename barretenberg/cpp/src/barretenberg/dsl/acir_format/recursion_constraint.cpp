@@ -43,26 +43,23 @@ HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
 
     HonkRecursionConstraintsOutput<MegaCircuitBuilder> output;
 
-    if (has_honk_recursion_constraints) {
-        // Add recursion constraints
-        for (const auto& [constraint, opcode_idx] : zip_view(honk_recursion_data.first, honk_recursion_data.second)) {
-            HonkRecursionConstraintOutput<MegaCircuitBuilder> honk_recursion_constraint;
+    for (const auto& [constraint, opcode_idx] : zip_view(honk_recursion_data.first, honk_recursion_data.second)) {
+        HonkRecursionConstraintOutput<MegaCircuitBuilder> honk_recursion_constraint;
 
-            if (constraint.proof_type == HONK_ZK) {
-                honk_recursion_constraint =
-                    create_honk_recursion_constraints<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>(builder, constraint);
-            } else if (constraint.proof_type == HONK) {
-                honk_recursion_constraint =
-                    create_honk_recursion_constraints<UltraRecursiveFlavor_<MegaCircuitBuilder>>(builder, constraint);
-            } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
-                bb::assert_failure("Rollup Honk proof type not supported on MegaBuilder");
-            } else {
-                bb::assert_failure("Invalid Honk proof type");
-            }
-
-            output.update(honk_recursion_constraint, /*update_ipa_data=*/false); // Update output
-            gate_counter.track_diff(gates_per_opcode, opcode_idx);               // Track gate count
+        if (constraint.proof_type == HONK_ZK) {
+            honk_recursion_constraint =
+                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>(builder, constraint);
+        } else if (constraint.proof_type == HONK) {
+            honk_recursion_constraint =
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<MegaCircuitBuilder>>(builder, constraint);
+        } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
+            bb::assert_failure("Rollup Honk proof type not supported on MegaBuilder");
+        } else {
+            bb::assert_failure("Invalid Honk proof type");
         }
+
+        output.update(honk_recursion_constraint, /*update_ipa_data=*/false); // Update output
+        gate_counter.track_diff(gates_per_opcode, opcode_idx);               // Track gate count
     }
 
     if (has_hn_recursion_constraints) {
@@ -99,59 +96,52 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
 
     HonkRecursionConstraintsOutput<UltraCircuitBuilder> output;
 
-    if (has_honk_recursion_constraints) {
-        for (const auto& [constraint, opcode_idx] : zip_view(honk_recursion_data.first, honk_recursion_data.second)) {
-            HonkRecursionConstraintOutput<UltraCircuitBuilder> honk_recursion_constraint;
+    for (const auto& [constraint, opcode_idx] : zip_view(honk_recursion_data.first, honk_recursion_data.second)) {
+        HonkRecursionConstraintOutput<UltraCircuitBuilder> honk_recursion_constraint;
 
-            if (constraint.proof_type == HONK_ZK) {
-                honk_recursion_constraint =
-                    create_honk_recursion_constraints<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>(builder,
+        if (constraint.proof_type == HONK_ZK) {
+            honk_recursion_constraint =
+                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>(builder, constraint);
+        } else if (constraint.proof_type == HONK) {
+            honk_recursion_constraint =
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>>(builder, constraint);
+        } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
+            honk_recursion_constraint =
+                create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(builder,
                                                                                                     constraint);
-            } else if (constraint.proof_type == HONK) {
-                honk_recursion_constraint =
-                    create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>>(builder, constraint);
-            } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
-                honk_recursion_constraint =
-                    create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(builder,
-                                                                                                        constraint);
-            } else {
-                bb::assert_failure("Invalid Honk proof type");
-            }
-
-            // Update output
-            output.update(honk_recursion_constraint,
-                          /*update_ipa_data=*/constraint.proof_type == ROLLUP_HONK ||
-                              constraint.proof_type == ROOT_ROLLUP_HONK);
-            output.is_root_rollup = constraint.proof_type == ROOT_ROLLUP_HONK;
-
-            gate_counter.track_diff(gates_per_opcode, opcode_idx);
+        } else {
+            bb::assert_failure("Invalid Honk proof type");
         }
-        BB_ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
-                  "Root rollup must accumulate two IPA proofs.");
+
+        // Update output
+        output.update(honk_recursion_constraint,
+                      /*update_ipa_data=*/constraint.proof_type == ROLLUP_HONK ||
+                          constraint.proof_type == ROOT_ROLLUP_HONK);
+        output.is_root_rollup = constraint.proof_type == ROOT_ROLLUP_HONK;
+
+        gate_counter.track_diff(gates_per_opcode, opcode_idx);
+    }
+    BB_ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
+              "Root rollup must accumulate two IPA proofs.");
+
+    for (const auto& [constraint, opcode_idx] : zip_view(chonk_recursion_data.first, chonk_recursion_data.second)) {
+        HonkRecursionConstraintOutput<UltraCircuitBuilder> honk_output =
+            create_chonk_recursion_constraints(builder, constraint);
+
+        // Update the output
+        output.update(honk_output, /*update_ipa_data=*/true);
+
+        gate_counter.track_diff(gates_per_opcode, opcode_idx);
     }
 
-    if (has_chonk_recursion_constraints) {
-        for (const auto& [constraint, opcode_idx] : zip_view(chonk_recursion_data.first, chonk_recursion_data.second)) {
-            HonkRecursionConstraintOutput<UltraCircuitBuilder> honk_output =
-                create_chonk_recursion_constraints(builder, constraint);
+    for (const auto& [constraint, opcode_idx] : zip_view(avm_recursion_data.first, avm_recursion_data.second)) {
+        HonkRecursionConstraintOutput<UltraCircuitBuilder> honk_output =
+            create_avm2_recursion_constraints_goblin(builder, constraint);
 
-            // Update the output
-            output.update(honk_output, /*update_ipa_data=*/true);
+        // Update the output
+        output.update(honk_output, /*update_ipa_data=*/true);
 
-            gate_counter.track_diff(gates_per_opcode, opcode_idx);
-        }
-    }
-
-    if (has_avm_recursion_constraints) {
-        for (const auto& [constraint, opcode_idx] : zip_view(avm_recursion_data.first, avm_recursion_data.second)) {
-            HonkRecursionConstraintOutput<UltraCircuitBuilder> honk_output =
-                create_avm2_recursion_constraints_goblin(builder, constraint);
-
-            // Update the output
-            output.update(honk_output, /*update_ipa_data=*/true);
-
-            gate_counter.track_diff(gates_per_opcode, opcode_idx);
-        }
+        gate_counter.track_diff(gates_per_opcode, opcode_idx);
     }
 
     return output;

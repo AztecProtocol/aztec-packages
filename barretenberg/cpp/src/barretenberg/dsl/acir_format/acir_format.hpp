@@ -69,6 +69,19 @@ struct AcirFormatOriginalOpcodeIndices {
                            AcirFormatOriginalOpcodeIndices const& rhs) = default;
 };
 
+/**
+ * @brief Barretenberg's representation of ACIR constraints
+ *
+ * @details ACIR constraints are deserialized from bytes and stored in this format before being passed to the function
+ * create_circuit, which constructs a circuit out of the constraints. An AcirFormat instance records all the constraints
+ * that have to be added, plus some metadata:
+ * 1. the maximum witness index (used in write_vk situations to fill the circuit with dummy variables)
+ * 2. the number of original acir opcodes
+ * 3. the indices of the public inputs
+ * 4. the number of gates added to the circuit by each opcode (if calculated)
+ * 5. the original indices of the opcodes (recording the order in which the opcodes were added to the struct)
+ *
+ */
 struct AcirFormat {
     uint32_t max_witness_index = 0;
     uint32_t num_acir_opcodes;
@@ -131,11 +144,25 @@ struct AcirFormat {
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };
 
+/**
+ * @brief Struct containing both the constraints to be added to the circuit and the witness vector
+ *
+ */
 struct AcirProgram {
     AcirFormat constraints;
     WitnessVector witness;
 };
 
+/**
+ * @brief Metadata required to create a circuit
+ *
+ * @details The metadata is required for three reasons:
+ * 1. When we add constraints to kernels, we need an IVC instance. The metadata contains a pointer to such
+ *    instance.
+ * 2. When we add constraints to rollup circuits, we need to know whether the circuit should propagate an IPA claim or
+ *    recursively verify it. The boolean has_ipa_claim specifies what the circuit should do with an IPA claim.
+ * 3. If we wish to collect the number of gates added by each opcode, we set collect_gates_per_opcode to true.
+ */
 struct ProgramMetadata {
     // An IVC instance; needed to construct a circuit from IVC recursion constraints
     std::shared_ptr<bb::IVCBase> ivc = nullptr;
@@ -148,10 +175,20 @@ struct ProgramMetadata {
     size_t size_hint = 0;
 };
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
+/**
+ * @brief Create a circuit out of an ACIR program and metadata
+ *
+ * @details This function instantiates the builder, adds the required witnesses to it, and then calls build_constraints
+ * to add the required constraints to the builder.
+ *
+ */
 template <typename Builder>
 Builder create_circuit(AcirProgram& program, const ProgramMetadata& metadata = ProgramMetadata{});
 
+/**
+ * @brief Add to the builder the constraints contained in an AcirFormat instance
+ *
+ */
 template <typename Builder>
 void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramMetadata& metadata);
 

@@ -97,6 +97,15 @@ struct RecursionConstraint {
  *     However, as mock protocol circuits use Chonk + AVM (mock Public Base Rollup), instead of throwing an assert we
  *     return a vinfo for the case of Chonk + AVM
  *
+ * @tparam Builder
+ * @param builder
+ * @param gate_counter
+ * @param gates_per_opcode
+ * @param ivc_base
+ * @param honk_recursion_data pair of (HonkRecursionConstraints, HonkRecursionConstraintsOriginalOpcodeIndices)
+ * @param avm_recursion_data pair of (AvmRecursionConstraints, AvmRecursionConstraintsOriginalOpcodeIndices)
+ * @param hn_recursion_data pair of (HypernovaRecursionConstraints, HypernovaRecursionConstraintsOriginalOpcodeIndices)
+ * @param chonk_recursion_data pair of (ChonkRecursionConstraints, ChonkRecursionConstraintsOriginalOpcodeIndices)
  */
 template <typename Builder>
 HonkRecursionConstraintsOutput<Builder> create_recursion_constraints(
@@ -112,6 +121,11 @@ HonkRecursionConstraintsOutput<Builder> create_recursion_constraints(
 /**
  * @brief Process HyperNova recursion constraints and complete kernel logic
  *
+ * @param builder
+ * @param gate_counter
+ * @param gates_per_opcode
+ * @param hn_recursion_data pair of (HypernovaRecursionConstraints, HypernovaRecursionConstraintsOriginalOpcodeIndices)
+ * @param ivc_base
  */
 void process_hn_recursion_constraints(
     MegaCircuitBuilder& builder,
@@ -119,25 +133,5 @@ void process_hn_recursion_constraints(
     std::vector<size_t>& gates_per_opcode,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
     const std::shared_ptr<IVCBase>& ivc_base);
-
-template <typename B> inline void read(B& buf, RecursionConstraint& constraint)
-{
-    using serialize::read;
-    read(buf, constraint.key);
-    read(buf, constraint.proof);
-    read(buf, constraint.public_inputs);
-    read(buf, constraint.key_hash);
-    read(buf, constraint.predicate);
-}
-
-template <typename B> inline void write(B& buf, RecursionConstraint const& constraint)
-{
-    using serialize::write;
-    write(buf, constraint.key);
-    write(buf, constraint.proof);
-    write(buf, constraint.public_inputs);
-    write(buf, constraint.key_hash);
-    write(buf, constraint.predicate);
-}
 
 } // namespace acir_format

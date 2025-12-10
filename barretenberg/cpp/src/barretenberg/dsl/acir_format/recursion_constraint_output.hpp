@@ -44,6 +44,15 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
     void update(const HonkRecursionConstraintsOutput<Builder>& other, bool update_ipa_data);
 
     /**
+     * @brief Finalize the output by accumulating IPA claims/proofs, performing full IPA verification, and propagating
+     * public inputs as needed
+     */
+    void finalize(Builder& builder,
+                  [[maybe_unused]] bool is_hn_recursion_constraints = false,
+                  [[maybe_unused]] bool has_ipa_claim = false);
+
+  private:
+    /**
      * @brief Accumulate the IPA claims and proofs held in this output
      */
     [[nodiscard("IPA claim should be accumulated, IPA proof should be propagated")]] std::
@@ -54,14 +63,6 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
      * @brief Perform full IPA recursive verification of the IPA claims and proofs contained in this output
      */
     void perform_full_IPA_verification(Builder& builder) const;
-
-    /**
-     * @brief Finalize the output by accumulating IPA claims/proofs, performing full IPA verification, and propagating
-     * public inputs as needed
-     */
-    void finalize(Builder& builder,
-                  [[maybe_unused]] bool is_hn_recursion_constraints = false,
-                  [[maybe_unused]] bool has_ipa_claim = false);
 };
 
 } // namespace acir_format
