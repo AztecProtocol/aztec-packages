@@ -559,7 +559,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
     const ProtocolContracts& protocol_contracts)
 {
     // For collecting hints, use the other method.
-    assert(!config.collect_hints);
+    BB_ASSERT(!config.collect_hints && "Use simulate_for_hint_collection instead");
 
     // Create PureRawMerkleDB with the provided WorldState instance
     PureRawMerkleDB raw_merkle_db(world_state_revision, ws);
@@ -577,7 +577,7 @@ TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection(
     const ProtocolContracts& protocol_contracts)
 {
     // If you are not collecting hints, don't use this method.
-    assert(config.collect_hints);
+    BB_ASSERT(config.collect_hints && "Use simulate_fast_with_existing_ws instead");
 
     // Create PureRawMerkleDB with the provided WorldState instance
     PureRawMerkleDB raw_merkle_db(world_state_revision, ws);

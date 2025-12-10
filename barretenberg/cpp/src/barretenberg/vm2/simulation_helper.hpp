@@ -19,7 +19,7 @@ class AvmSimulationHelper {
                                                       const GlobalVariables& global_variables,
                                                       const ProtocolContracts& protocol_contracts);
 
-    // Simulation to collect hints (used by the proving agent).
+    // Simulation to collect hints (used by the prover node).
     TxSimulationResult simulate_for_hint_collection(simulation::ContractDBInterface& raw_contract_db,
                                                     const world_state::WorldStateRevision& world_state_revision,
                                                     world_state::WorldState& ws,
