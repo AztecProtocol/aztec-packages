@@ -3,10 +3,6 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-//
-// Multilinear batching relations for HyperNova claim batching.
-// See: chonk/README.md#batching-claims-into-accumulator
-//
 #pragma once
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
@@ -14,7 +10,10 @@
 namespace bb {
 
 /**
- * @brief Relation for accumulator contribution to the multilinear batching sumcheck.
+ * @brief Multilinear batching relations for HyperNova claim batching.
+ * @details See: chonk/README.md#batching-claims-into-accumulator
+ *
+ * Relation for accumulator contribution to the multilinear batching sumcheck.
  *
  * @details In HyperNova, we batch polynomial evaluation claims from the accumulator and instance
  * into a new combined claim. This is done via a sumcheck that verifies:

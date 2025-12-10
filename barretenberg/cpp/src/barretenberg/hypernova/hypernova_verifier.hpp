@@ -3,10 +3,6 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-//
-// HyperNova folding verifier (native + recursive). Verifies folding proofs and maintains accumulators.
-// See: chonk/README.md#hypernova-folding-details
-//
 #pragma once
 
 #include "barretenberg/common/ref_array.hpp"
@@ -22,6 +18,10 @@
 
 namespace bb {
 
+/**
+ * @brief HyperNova folding verifier (native + recursive). Verifies folding proofs and maintains accumulators.
+ * @details See: chonk/README.md#hypernova-folding-details
+ */
 template <typename Flavor_> class HypernovaFoldingVerifier {
   public:
     using Flavor = Flavor_;
