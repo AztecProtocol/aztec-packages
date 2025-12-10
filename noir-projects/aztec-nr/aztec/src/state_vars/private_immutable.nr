@@ -117,7 +117,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
         Note: NoteType + NoteHash + Packable,
     {
         let storage_slot = self.storage_slot;
-        let retrieved_note = get_note(self.context, self.owner, storage_slot).0;
+        let retrieved_note = get_note(self.context, Option::some(self.owner), storage_slot).0;
 
         // Because the notes obtained from PrivateImmutable are not meant to be nullified and get_note(...) function
         // has already constrained the note (by pushing a read request to the context), we can return just the note
@@ -155,6 +155,6 @@ where
     where
         Note: Packable,
     {
-        view_note(self.owner, self.storage_slot).note
+        view_note(Option::some(self.owner), self.storage_slot).note
     }
 }
