@@ -36,7 +36,7 @@ fn assert_prev_block_rollups_follow_on_from_each_other(
     );
 
     assert(
-        left.end_timestamp < right.start_timestamp,
+        left.end_timestamp <= right.start_timestamp,
         "Rollup block timestamps do not follow on from each other",
     );
 
