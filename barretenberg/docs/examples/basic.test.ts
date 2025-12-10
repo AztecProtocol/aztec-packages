@@ -1,7 +1,7 @@
 // docs:start:imports
 import { UltraHonkBackend } from '@aztec/bb.js';
 // docs:end:imports
-import { Barretenberg, Fr, ProofData } from '@aztec/bb.js';
+import { Barretenberg, Fr, ProofData, VerifierTarget } from '@aztec/bb.js';
 import { readFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { expect, describe, it } from '@jest/globals';
@@ -120,7 +120,7 @@ describe('Basic Barretenberg Example', () => {
 
     try {
       // docs:start:verification_keys
-      // Get verification key as bytes (for passing to verifier)
+      // Get verification key for recursive verification (default)
       const vk = await backend.getVerificationKey();
 
       // For a solidity verifier (EVM target):
