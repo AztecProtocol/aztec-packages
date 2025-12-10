@@ -52,7 +52,7 @@ STerm STerm::Const(const bb::fr& val, Solver* slv, TermType type)
 };
 
 STerm::STerm(const std::string& t, Solver* slv, bool isconst, uint32_t base, TermType type)
-    : solver(slv)
+    : solver(slv, [](Solver*) {}) // Non-owning shared_ptr
     , type(type)
     , operations(typed_operations.at(type))
 {
@@ -205,13 +205,13 @@ STerm STerm::operator/(const STerm& other) const
         // Random value added to the name to prevent collisions. This value is MD5('Aztec')
         STerm res = Var("df8b586e3fa7a1224ec95a886e17a7da_div_" + static_cast<std::string>(*this) + "_" +
                             static_cast<std::string>(other),
-                        this->solver,
+                        this->solver.get(),
                         this->type);
         res* other == *this;
         return res;
     }
     cvc5::Term res_s = this->solver->term_manager.mkTerm(this->operations.at(OpType::DIV), { this->term, other.term });
-    return { res_s, this->solver, this->type };
+    return { res_s, this->solver.get(), this->type };
 }
 
 void STerm::operator/=(const STerm& other)
@@ -225,7 +225,7 @@ void STerm::operator/=(const STerm& other)
         // Random value added to the name to prevent collisions. This value is MD5('Aztec')
         STerm res = Var("df8b586e3fa7a1224ec95a886e17a7da_div_" + static_cast<std::string>(*this) + "_" +
                             static_cast<std::string>(other),
-                        this->solver,
+                        this->solver.get(),
                         this->type);
         res* other == *this;
         this->term = res.term;
@@ -520,7 +520,7 @@ STerm operator|(const bb::fr& lhs, const STerm& rhs)
 
 STerm operator/(const bb::fr& lhs, const STerm& rhs)
 {
-    return STerm(lhs, rhs.solver, rhs.type) / rhs;
+    return STerm(lhs, rhs.solver.get(), rhs.type) / rhs;
 }
 
 void operator==(const bb::fr& lhs, const STerm& rhs)

@@ -13,13 +13,20 @@ using namespace smt_solver;
  */
 class Bool {
   public:
-    Solver* solver;
+    std::shared_ptr<Solver> solver;
     cvc5::Term term;
     TermType type = TermType::SBool;
     bool asserted = false;
 
+    // Backward compatibility: raw pointer creates non-owning shared_ptr
     Bool(const cvc5::Term& t, Solver* slv, TermType type = TermType::SBool)
-        : solver(slv)
+        : solver(slv, [](Solver*) {}) // Non-owning shared_ptr
+        , term(t)
+        , type(type) {};
+
+    // Preferred constructor: shared_ptr for proper lifetime management
+    Bool(const cvc5::Term& t, std::shared_ptr<Solver> slv, TermType type = TermType::SBool)
+        : solver(std::move(slv))
         , term(t)
         , type(type) {};
 
@@ -28,13 +35,13 @@ class Bool {
         , term(t.normalize().term) {};
 
     explicit Bool(const std::string& name, Solver* slv)
-        : solver(slv)
+        : solver(slv, [](Solver*) {}) // Non-owning shared_ptr
     {
         this->term = this->solver->term_manager.mkConst(this->solver->term_manager.getBooleanSort(), name);
     }
 
     explicit Bool(bool t, Solver* slv)
-        : solver(slv)
+        : solver(slv, [](Solver*) {}) // Non-owning shared_ptr
     {
         term = solver->term_manager.mkBoolean(t);
     }
@@ -77,7 +84,7 @@ class Bool {
 
     friend Bool batch_or(const std::vector<Bool>& children)
     {
-        Solver* s = children[0].solver;
+        auto s = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
         cvc5::Term res = s->term_manager.mkTerm(cvc5::Kind::OR, terms);
         return { res, s };
@@ -85,7 +92,7 @@ class Bool {
 
     friend Bool batch_and(const std::vector<Bool>& children)
     {
-        Solver* s = children[0].solver;
+        auto s = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
         cvc5::Term res = s->term_manager.mkTerm(cvc5::Kind::AND, terms);
         return { res, s };

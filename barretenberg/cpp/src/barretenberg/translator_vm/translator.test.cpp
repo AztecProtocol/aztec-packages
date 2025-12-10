@@ -82,7 +82,7 @@ class TranslatorTests : public ::testing::Test {
         // clang-format off
         std::vector<std::string> wire_labels = {
             "P_X_LOW_LIMBS", "P_X_HIGH_LIMBS", "P_Y_LOW_LIMBS", "P_Y_HIGH_LIMBS",
-            "Z_LOw_LIMBS", "Z_HIGH_LIMBS",
+            "Z_LOW_LIMBS", "Z_HIGH_LIMBS",
             "ACCUMULATORS_BINARY_LIMBS_0", "ACCUMULATORS_BINARY_LIMBS_1",
             "ACCUMULATORS_BINARY_LIMBS_2", "ACCUMULATORS_BINARY_LIMBS_3",
             "QUOTIENT_LOW_BINARY_LIMBS", "QUOTIENT_HIGH_BINARY_LIMBS",

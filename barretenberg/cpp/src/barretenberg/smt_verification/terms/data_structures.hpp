@@ -15,7 +15,7 @@ using namespace smt_solver;
  */
 class STuple {
   public:
-    Solver* solver;
+    std::shared_ptr<Solver> solver;
     cvc5::Term term;
     TermType type = TermType::STuple;
 
@@ -23,8 +23,15 @@ class STuple {
         : solver(nullptr)
         , term(cvc5::Term()) {};
 
+    // Backward compatibility: raw pointer creates non-owning shared_ptr
     STuple(const cvc5::Term& term, Solver* s, TermType type = TermType::STuple)
-        : solver(s)
+        : solver(s, [](Solver*) {}) // Non-owning shared_ptr
+        , term(term)
+        , type(type) {};
+
+    // Preferred constructor: shared_ptr for proper lifetime management
+    STuple(const cvc5::Term& term, std::shared_ptr<Solver> s, TermType type = TermType::STuple)
+        : solver(std::move(s))
         , term(term)
         , type(type) {};
 
@@ -108,7 +115,7 @@ concept ConstructibleFromTerm = requires(const cvc5::Term& term, Solver* s, Term
 template <typename sym_index, ConstructibleFromTerm sym_entry> class SymArray {
   private:
   public:
-    Solver* solver;
+    std::shared_ptr<Solver> solver;
     cvc5::Term term;
 
     TermType type = TermType::SymArray;
@@ -121,8 +128,9 @@ template <typename sym_index, ConstructibleFromTerm sym_entry> class SymArray {
         , ind_type(TermType::FFTerm)
         , entry_type(TermType::FFTerm) {};
 
+    // Backward compatibility: raw pointer creates non-owning shared_ptr
     SymArray(const cvc5::Term& term, Solver* s, TermType type = TermType::SymArray)
-        : solver(s)
+        : solver(s, [](Solver*) {}) // Non-owning shared_ptr
         , term(term)
         , type(type)
     {
@@ -147,7 +155,7 @@ template <typename sym_index, ConstructibleFromTerm sym_entry> class SymArray {
              const TermType& entry_type,
              Solver* s,
              const std::string& name = "")
-        : solver(s)
+        : solver(s, [](Solver*) {}) // Non-owning shared_ptr
         , ind_type(index_type)
         , entry_type(entry_type)
     {
@@ -239,7 +247,7 @@ template <typename sym_index, ConstructibleFromTerm sym_entry> class SymArray {
         }
 
         for (size_t i = 0; i < entries.size(); i++) {
-            STerm idx = STerm::Const(i, this->solver, this->ind_type);
+            STerm idx = STerm::Const(std::to_string(i), this->solver.get(), 10, this->ind_type);
             this->term = this->solver->term_manager.mkTerm(cvc5::Kind::STORE, { this->term, idx, entries[i] });
         }
     }
@@ -289,7 +297,7 @@ template <typename sym_index, ConstructibleFromTerm sym_entry> class SymArray {
 template <ConstructibleFromTerm sym_entry> class SymSet {
   private:
   public:
-    Solver* solver;
+    std::shared_ptr<Solver> solver;
     cvc5::Term term;
 
     TermType type = TermType::SymSet;

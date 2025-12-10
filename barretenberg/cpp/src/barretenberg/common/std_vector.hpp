@@ -12,8 +12,12 @@ namespace bb {
 template <typename T> std::vector<T> concatenate(const std::vector<T>& vector, const auto&... vectors)
 {
     std::vector<T> concatenated;
-    // Reserve our final space
-    concatenated.reserve(vector.size() + (vectors.size() + ...));
+    // Reserve our final space (handle empty variadic pack)
+    if constexpr (sizeof...(vectors) == 0) {
+        concatenated.reserve(vector.size());
+    } else {
+        concatenated.reserve(vector.size() + (vectors.size() + ...));
+    }
 
     auto append = [&](const auto& vec) { std::copy(vec.begin(), vec.end(), std::back_inserter(concatenated)); };
 
