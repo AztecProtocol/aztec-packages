@@ -1,12 +1,8 @@
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { CheatCodes } from '@aztec/aztec/testing';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
-import {
-  type DeployL1ContractsReturnType,
-  GovernanceProposerContract,
-  RollupContract,
-  deployL1Contract,
-} from '@aztec/ethereum';
+import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
+import { type DeployL1ContractsReturnType, deployL1Contract } from '@aztec/ethereum/deploy-l1-contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';

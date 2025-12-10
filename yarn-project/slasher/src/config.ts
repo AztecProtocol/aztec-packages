@@ -1,4 +1,4 @@
-import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import {
   bigintConfigHelper,

@@ -1,5 +1,5 @@
 import type { Archiver } from '@aztec/archiver';
-import type { RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';

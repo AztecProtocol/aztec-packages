@@ -1,4 +1,6 @@
-import { type ExtendedViemWalletClient, type L1ContractAddresses, RollupContract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { InboxAbi } from '@aztec/l1-artifacts';
