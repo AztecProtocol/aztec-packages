@@ -32,22 +32,12 @@ using namespace bb::avm2::fuzzer;
 using namespace bb::world_state;
 using json = nlohmann::json;
 
-// Helper function to serialize bytecode, calldata, tx, and globals to JSON
-std::string serialize_simulation_request(const std::vector<uint8_t>& bytecode,
-                                         const std::vector<FF>& calldata,
-                                         const Tx& tx,
-                                         const GlobalVariables& globals)
+// Helper function to serialize tx, globals, and contract data to JSON
+std::string serialize_simulation_request(const Tx& tx,
+                                         const GlobalVariables& globals,
+                                         const FuzzerContractDB& contract_db)
 {
     json j;
-    j["bytecode"] = base64_encode(bytecode.data(), bytecode.size());
-
-    // Convert FF values to strings for JSON serialization
-    std::vector<std::string> calldata_strings;
-    calldata_strings.reserve(calldata.size());
-    for (const auto& field : calldata) {
-        calldata_strings.push_back(field_to_string(field));
-    }
-    j["inputs"] = calldata_strings;
 
     // Pass WorldState database path and configuration for TypeScript to open the same DB
     // Note: TypeScript expects the parent directory and adds "world_state/" subdirectory itself
@@ -63,6 +53,24 @@ std::string serialize_simulation_request(const std::vector<uint8_t>& bytecode,
     auto [globals_buffer, globals_size] = msgpack_encode_buffer(globals);
     j["globals"] = base64_encode(globals_buffer, globals_size);
     delete[] globals_buffer;
+
+    // Serialize contract instances as vector of pairs (address, instance) to avoid non-string map keys
+    std::vector<std::pair<AztecAddress, ContractInstance>> instances_vec;
+    for (const auto& [address, instance] : contract_db.get_contract_instances()) {
+        instances_vec.emplace_back(address, instance);
+    }
+    auto [instances_buffer, instances_size] = msgpack_encode_buffer(instances_vec);
+    j["contractInstances"] = base64_encode(instances_buffer, instances_size);
+    delete[] instances_buffer;
+
+    // Serialize contract classes as vector (id is already inside each class)
+    std::vector<ContractClass> classes_vec;
+    for (const auto& [_, contract_class] : contract_db.get_contract_classes()) {
+        classes_vec.push_back(contract_class);
+    }
+    auto [classes_buffer, classes_size] = msgpack_encode_buffer(classes_vec);
+    j["contractClasses"] = base64_encode(classes_buffer, classes_size);
+    delete[] classes_buffer;
 
     return j.dump();
 }
@@ -82,71 +90,22 @@ GlobalVariables create_default_globals()
     };
 }
 
-// Creates a default transaction that the single app logic enqueued call can be inserted into
-Tx create_default_tx(const AztecAddress& contract_address,
-                     const AztecAddress& sender_address,
-                     const std::vector<FF>& calldata,
-                     [[maybe_unused]] const FF& transaction_fee,
-                     bool is_static_call,
-                     const Gas& gas_limit)
-{
-    return Tx
-    {
-        .hash = TRANSACTION_HASH,
-        .gas_settings = GasSettings{
-            .gas_limits = gas_limit,
-            .max_fees_per_gas = GasFees{ .fee_per_da_gas = FEE_PER_DA_GAS, .fee_per_l2_gas = FEE_PER_L2_GAS },
-        },
-        .effective_gas_fees = EFFECTIVE_GAS_FEES,
-        .non_revertible_accumulated_data = AccumulatedData{
-            .note_hashes = NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES,
-            // This nullifier is needed to make the nonces for note hashes and expected by simulation_helper
-            .nullifiers = NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS,
-            .l2_to_l1_messages = NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MESSAGES,
-        },
-        .revertible_accumulated_data = AccumulatedData{
-            .note_hashes = REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES,
-            .nullifiers = REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS,
-            .l2_to_l1_messages = REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MESSAGES,
-        },
-        .setup_enqueued_calls = SETUP_ENQUEUED_CALLS,
-        .app_logic_enqueued_calls = {
-            PublicCallRequestWithCalldata{
-                .request = PublicCallRequest{
-                    .msg_sender = MSG_SENDER,
-                    .contract_address = contract_address,
-                    .is_static_call = is_static_call,
-                    .calldata_hash = 0,
-                },
-                .calldata = calldata,
-            },
-        },
-        .teardown_enqueued_call = TEARDOWN_ENQUEUED_CALLS,
-        .gas_used_by_private = GAS_USED_BY_PRIVATE,
-        .fee_payer = sender_address,
-    };
-}
-
 SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
-                                       const std::vector<uint8_t>& bytecode,
-                                       const std::vector<FF>& calldata)
+                                       fuzzer::FuzzerContractDB& contract_db,
+                                       const Tx& tx)
 {
-    FuzzerContractDB minimal_contract_db(bytecode);
-
     const PublicSimulatorConfig config{ .collect_call_metadata = true, .collect_public_inputs = true };
 
     ProtocolContracts protocol_contracts{};
 
     auto globals = create_default_globals();
 
-    Tx tx = create_default_tx(CONTRACT_ADDRESS, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-
     WorldState& ws = ws_mgr.get_world_state();
     WorldStateRevision ws_rev = ws_mgr.get_current_revision();
 
     AvmSimulationHelper helper;
     TxSimulationResult result =
-        helper.simulate_fast_with_existing_ws(minimal_contract_db, ws_rev, ws, config, tx, globals, protocol_contracts);
+        helper.simulate_fast_with_existing_ws(contract_db, ws_rev, ws, config, tx, globals, protocol_contracts);
     bool reverted = result.revert_code != RevertCode::OK;
     // Just process the top level call's output
     vinfo(
@@ -190,14 +149,12 @@ void JsSimulator::initialize(std::string& simulator_path)
 }
 
 SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateManager& ws_mgr,
-                                      const std::vector<uint8_t>& bytecode,
-                                      const std::vector<FF>& calldata)
+                                      fuzzer::FuzzerContractDB& contract_db,
+                                      const Tx& tx)
 {
-    // Create tx and globals to match C++ simulator
     auto globals = create_default_globals();
-    Tx tx = create_default_tx(CONTRACT_ADDRESS, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
 
-    std::string serialized = serialize_simulation_request(bytecode, calldata, tx, globals);
+    std::string serialized = serialize_simulation_request(tx, globals, contract_db);
     fuzz_info("Sending request to simulator: ", serialized);
 
     // Send the request
