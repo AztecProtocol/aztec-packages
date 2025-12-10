@@ -15,7 +15,6 @@ using namespace bb;
 using namespace bb::crypto;
 using namespace acir_format;
 
-// Gate count pinning test suite
 template <typename Builder> class AcirFormatTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -59,4 +58,35 @@ TYPED_TEST(AcirFormatTests, ExpressionWithCancellingCoefficientsFails)
 
     EXPECT_THROW_WITH_MESSAGE(circuit_serde_to_acir_format(circuit),
                               "acir_format::assert_zero_to_quad_constraints: produced an arithmetic zero gate.");
+}
+
+TYPED_TEST(AcirFormatTests, PublicInputs)
+{
+    // Test that public inputs are handled correctly.
+    WitnessVector witnesses = { 2, 4, 6, 8, 10, 12 };
+
+    // 8 - 6 - 2 = 0
+    Acir::Expression expr{ .linear_combinations = { { bb::fr::one().to_buffer(), Acir::Witness{ 3 } },
+                                                    { bb::fr(-1).to_buffer(), Acir::Witness{ 2 } } },
+                           .q_c = bb::fr(-2).to_buffer() };
+
+    Acir::Circuit circuit{
+        .current_witness_index = static_cast<uint32_t>(witnesses.size() - 1),
+        .opcodes = { Acir::Opcode{ Acir::Opcode::AssertZero{ .value = expr } } },
+        .public_parameters =
+            Acir::PublicInputs{ .value = { Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 } } },
+        .return_values = Acir::PublicInputs{ .value = { Acir::Witness{ .value = 4 }, Acir::Witness{ .value = 5 } } },
+    };
+
+    AcirFormat acir_format = circuit_serde_to_acir_format(circuit);
+    BB_ASSERT_EQ(acir_format.public_inputs, std::vector<uint32_t>({ 0, 1, 4, 5 }));
+
+    AcirProgram program{ acir_format, witnesses };
+    auto builder = create_circuit<TypeParam>(program, {});
+
+    for (size_t idx = 0; idx < acir_format.public_inputs.size(); ++idx) {
+        uint32_t pub_input_idx = acir_format.public_inputs[idx];
+        EXPECT_EQ(pub_input_idx, builder.public_inputs()[idx]);
+        EXPECT_EQ(witnesses[pub_input_idx], builder.get_variable(pub_input_idx));
+    }
 }
