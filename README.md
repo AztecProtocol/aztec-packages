@@ -27,6 +27,15 @@ In addition to the docs website, you can "talk" with this repo using [DeepWiki](
 
 All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://aztec.network/roadmap) section of our website.
 
+## Getting started
+
+To build or run Aztec from this monorepo, follow the official guides:
+
+- Building from source: https://docs.aztec.network/the_aztec_network/setup/building_from_source
+- Sandbox quickstart: https://docs.aztec.network/developers/getting_started_on_sandbox
+
+These docs cover required tools, setup steps, and recommended workflows.
+
 ## Debugging
 
 Logging goes through the [Logger](yarn-project/foundation/src/log/) module in Typescript. `LOG_LEVEL` controls the default log level, and one can set alternate levels for specific modules, such as `debug; warn: module1, module2; error: module3`.
