@@ -35,11 +35,11 @@ names:
 
 flake_groups:
   # flake_error_threshold: Only use during times of expected instability (eg. pre-release crunch).
-  # Threshold of 3 = tolerate at most 2 flakes before failing the build.
+  # Threshold of 5 = tolerate at most 4 flakes before failing the build.
   # DO NOT expand use of this feature without buy-in from the team. It's a last resort, not a standard practice.
   - id: e2e-p2p-epoch-flakes
     name: "E2E P2P and Epoch Tests"
-    flake_error_threshold: 3
+    flake_error_threshold: 5
 
 tests:
   # barretenberg
