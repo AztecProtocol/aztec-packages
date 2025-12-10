@@ -79,16 +79,20 @@ pub contract AppSubscription {
         assert_current_call_valid_authwit::<2>(self.context, user_address);
 
         let user_expiry_block_number = &mut 0;
-        let message = self.storage.subscriptions.at(user_address).replace(|note| {
-            assert(note.remaining_txs > 0, "you're out of txs");
-            *user_expiry_block_number = note.expiry_block_number;
+        self
+            .storage
+            .subscriptions
+            .at(user_address)
+            .replace(|note| {
+                assert(note.remaining_txs > 0, "you're out of txs");
+                *user_expiry_block_number = note.expiry_block_number;
 
-            SubscriptionNote {
-                expiry_block_number: note.expiry_block_number,
-                remaining_txs: note.remaining_txs - 1,
-            }
-        });
-        message.deliver(user_address, MessageDelivery.CONSTRAINED_ONCHAIN);
+                SubscriptionNote {
+                    expiry_block_number: note.expiry_block_number,
+                    remaining_txs: note.remaining_txs - 1,
+                }
+            })
+            .deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
 
         self.context.set_as_fee_payer();
 
@@ -159,7 +163,7 @@ pub contract AppSubscription {
             .initialize_or_replace(|_| {
                 SubscriptionNote { expiry_block_number, remaining_txs: tx_count }
             })
-            .deliver(subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
+            .deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("utility")]
