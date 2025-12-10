@@ -337,7 +337,8 @@ export class RPCTranslator {
   }
 
   async utilityGetNotes(
-    foreignOwner: ForeignCallSingle,
+    foreignOwnerIsSome: ForeignCallSingle,
+    foreignOwnerValue: ForeignCallSingle,
     foreignStorageSlot: ForeignCallSingle,
     foreignNumSelects: ForeignCallSingle,
     foreignSelectByIndexes: ForeignCallArray,
@@ -355,7 +356,10 @@ export class RPCTranslator {
     foreignMaxNotes: ForeignCallSingle,
     foreignPackedRetrievedNoteLength: ForeignCallSingle,
   ) {
-    const owner = addressFromSingle(foreignOwner);
+    // Parse Option<AztecAddress>: ownerIsSome is 0 for None, 1 for Some
+    const owner = fromSingle(foreignOwnerIsSome).toBool()
+      ? AztecAddress.fromField(fromSingle(foreignOwnerValue))
+      : undefined;
     const storageSlot = fromSingle(foreignStorageSlot);
     const numSelects = fromSingle(foreignNumSelects).toNumber();
     const selectByIndexes = fromArray(foreignSelectByIndexes).map(fr => fr.toNumber());
