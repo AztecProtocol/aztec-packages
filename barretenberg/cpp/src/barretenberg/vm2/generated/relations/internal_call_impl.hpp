@@ -97,6 +97,13 @@ void internal_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // INTERNAL_RET_ERROR
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_internal_return)) *
+                   ((FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))) -
+                    static_cast<View>(in.get(C::execution_sel_read_unwind_call_stack)));
+        std::get<9>(evals) += (tmp * scaling_factor);
+    }
+    { // INTERNAL_RET_ERROR
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_internal_return)) *
                    ((static_cast<View>(in.get(C::execution_internal_call_return_id)) *
                          (static_cast<View>(in.get(C::execution_sel_opcode_error)) *
                               (FF(1) - static_cast<View>(in.get(C::execution_internal_call_return_id_inv))) +
