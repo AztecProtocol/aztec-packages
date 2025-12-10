@@ -42,6 +42,7 @@ class AvmSimulationHelper {
                                               const GlobalVariables& global_variables,
                                               const ProtocolContracts& protocol_contracts);
 
+    template <template <typename> class DefaultEventEmitter, template <typename> class DefaultDeduplicatingEventEmitter>
     std::tuple<simulation::EventsContainer, TxSimulationResult> simulate_for_witgen_internal(
         simulation::ContractDBInterface& raw_contract_db,
         simulation::LowLevelMerkleDBInterface& raw_merkle_db,
