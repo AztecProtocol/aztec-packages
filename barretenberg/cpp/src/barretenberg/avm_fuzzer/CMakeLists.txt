@@ -29,7 +29,7 @@ if(AVM AND FUZZING)
         TEST_SOURCE_FILES ${TEST_SOURCE_FILES}
         BENCH_SOURCE_FILES ${BENCH_SOURCE_FILES}
         FUZZERS_SOURCE_FILES ${FUZZERS_SOURCE_FILES}
-        DEPENDENCIES vm2 nlohmann_json::nlohmann_json
+        DEPENDENCIES vm2
     )
 
     # Add the harness subdirectory which will create the alu_fuzzer target

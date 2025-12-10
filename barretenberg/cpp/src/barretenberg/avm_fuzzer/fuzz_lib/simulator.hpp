@@ -4,12 +4,29 @@
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/common/process.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
 
 using namespace bb::avm2::simulation;
 using namespace bb::avm2;
+
+/**
+ * Request struct for fuzzer simulation communication between C++ and TypeScript.
+ * Contains all data needed for the TS simulator to execute a transaction.
+ */
+struct FuzzerSimulationRequest {
+    std::string ws_data_dir;
+    uint64_t ws_map_size_kb;
+    Tx tx;
+    GlobalVariables globals;
+    std::vector<ContractClass> contract_classes;
+    // Having addresses here avoids doing re-work in TS.
+    std::vector<std::pair<AztecAddress, ContractInstance>> contract_instances;
+
+    MSGPACK_CAMEL_CASE_FIELDS(ws_data_dir, ws_map_size_kb, tx, globals, contract_classes, contract_instances);
+};
 
 struct SimulatorResult {
     bool reverted;
