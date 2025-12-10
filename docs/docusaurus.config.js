@@ -94,8 +94,8 @@ const config = {
               label: "Testnet (v2.1.4)",
               banner: "none",
             },
-            "v2.1.5-ignition": {
-              label: "Ignition (v2.1.5)",
+            "v2.1.9-ignition": {
+              label: "Ignition (v2.1.9)",
               banner: "none",
             },
             ...(process.env.CONTEXT !== "production" && {
