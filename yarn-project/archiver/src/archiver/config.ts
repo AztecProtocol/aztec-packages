@@ -1,11 +1,7 @@
 import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
-import {
-  type L1ContractsConfig,
-  type L1ReaderConfig,
-  l1ContractAddressesMapping,
-  l1ContractsConfigMappings,
-  l1ReaderConfigMappings,
-} from '@aztec/ethereum';
+import { type L1ContractsConfig, l1ContractsConfigMappings } from '@aztec/ethereum/config';
+import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
+import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,

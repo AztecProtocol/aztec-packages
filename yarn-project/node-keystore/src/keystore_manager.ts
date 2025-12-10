@@ -3,7 +3,7 @@
  *
  * Manages keystore configuration and delegates signing operations to appropriate signers.
  */
-import type { EthSigner } from '@aztec/ethereum';
+import type { EthSigner } from '@aztec/ethereum/eth-signer';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';

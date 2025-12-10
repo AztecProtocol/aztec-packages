@@ -1,4 +1,4 @@
-import type { ViemHeader } from '@aztec/ethereum';
+import type { ViemHeader } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';

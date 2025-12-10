@@ -1,6 +1,7 @@
 import { createLogger } from '@aztec/aztec.js/log';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
-import type { L1ContractAddresses, ViemPublicClient } from '@aztec/ethereum';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
 import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';

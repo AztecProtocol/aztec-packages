@@ -1,4 +1,4 @@
-import type { IL1TxStore, L1BlobInputs, L1TxConfig, L1TxState } from '@aztec/ethereum';
+import type { IL1TxStore, L1BlobInputs, L1TxConfig, L1TxState } from '@aztec/ethereum/l1-tx-utils';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { Logger } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';

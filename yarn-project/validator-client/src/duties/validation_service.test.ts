@@ -1,4 +1,4 @@
-import { getAddressFromPrivateKey } from '@aztec/ethereum';
+import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { makeBlockProposal } from '@aztec/stdlib/testing';

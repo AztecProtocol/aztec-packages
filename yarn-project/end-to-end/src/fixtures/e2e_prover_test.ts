@@ -13,7 +13,7 @@ import {
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
-import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
+import type { DeployL1ContractsReturnType } from '@aztec/ethereum/deploy-l1-contracts';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';

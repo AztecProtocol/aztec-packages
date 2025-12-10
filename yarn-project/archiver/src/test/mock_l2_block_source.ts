@@ -1,5 +1,5 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';

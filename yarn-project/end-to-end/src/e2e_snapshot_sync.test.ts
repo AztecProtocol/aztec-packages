@@ -2,7 +2,7 @@ import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
-import { RollupContract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto/random';
