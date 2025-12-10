@@ -23,16 +23,16 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         UltraCircuitBuilder builder;
         auto indices = add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
         for (size_t i = 0; i < indices.size(); i++) {
-            builder.create_new_range_constraint(indices[i], 8);
+            builder.create_small_range_constraint(indices[i], 8);
         }
-        builder.create_sort_constraint(indices);
+        builder.enforce_small_deltas(indices);
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
     {
         UltraCircuitBuilder builder;
         auto indices = add_variables(builder, { 3 });
         for (size_t i = 0; i < indices.size(); i++) {
-            builder.create_new_range_constraint(indices[i], 3);
+            builder.create_small_range_constraint(indices[i], 3);
         }
         builder.create_unconstrained_gates(indices);
         EXPECT_TRUE(CircuitChecker::check(builder));
@@ -41,9 +41,9 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         UltraCircuitBuilder builder;
         auto indices = add_variables(builder, { 1, 2, 3, 4, 5, 6, 8, 25 });
         for (size_t i = 0; i < indices.size(); i++) {
-            builder.create_new_range_constraint(indices[i], 8);
+            builder.create_small_range_constraint(indices[i], 8);
         }
-        builder.create_sort_constraint(indices);
+        builder.enforce_small_deltas(indices);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
     {
@@ -51,7 +51,7 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         auto indices =
             add_variables(builder, { 1, 2, 3, 4, 5, 6, 10, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 19, 51 });
         for (size_t i = 0; i < indices.size(); i++) {
-            builder.create_new_range_constraint(indices[i], 128);
+            builder.create_small_range_constraint(indices[i], 128);
         }
         builder.create_unconstrained_gates(indices);
         EXPECT_TRUE(CircuitChecker::check(builder));
@@ -61,7 +61,7 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         auto indices =
             add_variables(builder, { 1, 2, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
         for (size_t i = 0; i < indices.size(); i++) {
-            builder.create_new_range_constraint(indices[i], 79);
+            builder.create_small_range_constraint(indices[i], 79);
         }
         builder.create_unconstrained_gates(indices);
         EXPECT_FALSE(CircuitChecker::check(builder));
@@ -71,7 +71,7 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         auto indices =
             add_variables(builder, { 1, 0, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
         for (size_t i = 0; i < indices.size(); i++) {
-            builder.create_new_range_constraint(indices[i], 79);
+            builder.create_small_range_constraint(indices[i], 79);
         }
         builder.create_unconstrained_gates(indices);
         EXPECT_FALSE(CircuitChecker::check(builder));
@@ -83,7 +83,7 @@ TEST(UltraCircuitBuilder, RangeWithGates)
     UltraCircuitBuilder builder;
     auto idx = add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
     for (size_t i = 0; i < idx.size(); i++) {
-        builder.create_new_range_constraint(idx[i], 8);
+        builder.create_small_range_constraint(idx[i], 8);
     }
 
     builder.create_add_gate({ idx[0], idx[1], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -3 });
@@ -98,7 +98,7 @@ TEST(UltraCircuitBuilder, RangeWithGatesWhereRangeIsNotAPowerOfTwo)
     UltraCircuitBuilder builder;
     auto idx = add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
     for (size_t i = 0; i < idx.size(); i++) {
-        builder.create_new_range_constraint(idx[i], 12);
+        builder.create_small_range_constraint(idx[i], 12);
     }
 
     builder.create_add_gate({ idx[0], idx[1], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -3 });
@@ -117,7 +117,7 @@ TEST(UltraCircuitBuilder, ComposedRangeConstraint)
     auto e = fr(d);
     auto a_idx = builder.add_variable(fr(e));
     builder.create_add_gate({ a_idx, builder.zero_idx(), builder.zero_idx(), 1, 0, 0, -fr(e) });
-    builder.decompose_into_default_range(a_idx, 134);
+    builder.create_limbed_range_constraint(a_idx, 134);
 
     // odd num bits - divisible by 3
     auto c_1 = fr::random_element();
@@ -125,7 +125,7 @@ TEST(UltraCircuitBuilder, ComposedRangeConstraint)
     auto e_1 = fr(d_1);
     auto a_idx_1 = builder.add_variable(fr(e_1));
     builder.create_add_gate({ a_idx_1, builder.zero_idx(), builder.zero_idx(), 1, 0, 0, -fr(e_1) });
-    builder.decompose_into_default_range(a_idx_1, 127);
+    builder.create_limbed_range_constraint(a_idx_1, 127);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -143,10 +143,10 @@ TEST(UltraCircuitBuilder, RangeChecksOnDuplicates)
     builder.assert_equal(a, c);
     builder.assert_equal(a, d);
 
-    builder.create_new_range_constraint(a, 1000);
-    builder.create_new_range_constraint(b, 1001);
-    builder.create_new_range_constraint(c, 999);
-    builder.create_new_range_constraint(d, 1000);
+    builder.create_small_range_constraint(a, 1000);
+    builder.create_small_range_constraint(b, 1001);
+    builder.create_small_range_constraint(c, 999);
+    builder.create_small_range_constraint(d, 1000);
 
     builder.create_big_add_gate(
         {

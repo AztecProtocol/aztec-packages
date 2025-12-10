@@ -348,7 +348,7 @@ TYPED_TEST(UltraHonkTests, SortWidget)
     auto b_idx = circuit_builder.add_variable(b);
     auto c_idx = circuit_builder.add_variable(c);
     auto d_idx = circuit_builder.add_variable(d);
-    circuit_builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    circuit_builder.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -465,10 +465,10 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
         auto circuit_builder = UltraCircuitBuilder();
         auto indices = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
         for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_new_range_constraint(indices[i], 8);
+            circuit_builder.create_small_range_constraint(indices[i], 8);
         }
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
-        circuit_builder.create_sort_constraint(indices);
+        circuit_builder.enforce_small_deltas(indices);
 
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -478,7 +478,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
         auto circuit_builder = UltraCircuitBuilder();
         auto indices = TestFixture::add_variables(circuit_builder, { 3 });
         for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_new_range_constraint(indices[i], 3);
+            circuit_builder.create_small_range_constraint(indices[i], 3);
         }
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
         circuit_builder.create_unconstrained_gates(indices);
@@ -491,9 +491,9 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
         auto circuit_builder = UltraCircuitBuilder();
         auto indices = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 8, 25 });
         for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_new_range_constraint(indices[i], 8);
+            circuit_builder.create_small_range_constraint(indices[i], 8);
         }
-        circuit_builder.create_sort_constraint(indices);
+        circuit_builder.enforce_small_deltas(indices);
 
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -504,7 +504,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
         auto indices = TestFixture::add_variables(
             circuit_builder, { 1, 2, 3, 4, 5, 6, 10, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 19, 51 });
         for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_new_range_constraint(indices[i], 128);
+            circuit_builder.create_small_range_constraint(indices[i], 128);
         }
         circuit_builder.create_unconstrained_gates(indices);
 
@@ -517,7 +517,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
         auto indices = TestFixture::add_variables(
             circuit_builder, { 1, 2, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
         for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_new_range_constraint(indices[i], 79);
+            circuit_builder.create_small_range_constraint(indices[i], 79);
         }
         circuit_builder.create_unconstrained_gates(indices);
 
@@ -530,7 +530,7 @@ TYPED_TEST(UltraHonkTests, RangeConstraint)
         auto indices = TestFixture::add_variables(
             circuit_builder, { 1, 0, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
         for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_new_range_constraint(indices[i], 79);
+            circuit_builder.create_small_range_constraint(indices[i], 79);
         }
         circuit_builder.create_unconstrained_gates(indices);
 
@@ -545,7 +545,7 @@ TYPED_TEST(UltraHonkTests, RangeWithGates)
     auto circuit_builder = UltraCircuitBuilder();
     auto idx = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
     for (size_t i = 0; i < idx.size(); i++) {
-        circuit_builder.create_new_range_constraint(idx[i], 8);
+        circuit_builder.create_small_range_constraint(idx[i], 8);
     }
 
     circuit_builder.create_add_gate(
@@ -567,7 +567,7 @@ TYPED_TEST(UltraHonkTests, RangeWithGatesWhereRangeIsNotAPowerOfTwo)
     auto circuit_builder = UltraCircuitBuilder();
     auto idx = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
     for (size_t i = 0; i < idx.size(); i++) {
-        circuit_builder.create_new_range_constraint(idx[i], 12);
+        circuit_builder.create_small_range_constraint(idx[i], 12);
     }
 
     circuit_builder.create_add_gate(
@@ -593,7 +593,7 @@ TYPED_TEST(UltraHonkTests, SortWidgetComplex)
         std::vector<uint32_t> ind;
         for (const fr& val : a)
             ind.emplace_back(circuit_builder.add_variable(val));
-        circuit_builder.create_sort_constraint(ind);
+        circuit_builder.enforce_small_deltas(ind);
 
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -606,7 +606,7 @@ TYPED_TEST(UltraHonkTests, SortWidgetComplex)
         std::vector<uint32_t> ind;
         for (const fr& val : a)
             ind.emplace_back(circuit_builder.add_variable(val));
-        circuit_builder.create_sort_constraint(ind);
+        circuit_builder.enforce_small_deltas(ind);
 
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -626,7 +626,7 @@ TYPED_TEST(UltraHonkTests, SortWidgetNeg)
     auto b_idx = circuit_builder.add_variable(b);
     auto c_idx = circuit_builder.add_variable(c);
     auto d_idx = circuit_builder.add_variable(d);
-    circuit_builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    circuit_builder.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -641,7 +641,7 @@ TYPED_TEST(UltraHonkTests, ComposedRangeConstraint)
     auto e = fr(d);
     auto a_idx = circuit_builder.add_variable(fr(e));
     circuit_builder.create_add_gate({ a_idx, circuit_builder.zero_idx(), circuit_builder.zero_idx(), 1, 0, 0, -fr(e) });
-    circuit_builder.decompose_into_default_range(a_idx, 134);
+    circuit_builder.create_limbed_range_constraint(a_idx, 134);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -706,8 +706,8 @@ TYPED_TEST(UltraHonkTests, NonNativeFieldMultiplication)
         circuit_builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
     } else {
         // Fallback to default range checks
-        circuit_builder.decompose_into_default_range(lo_1_idx, 72);
-        circuit_builder.decompose_into_default_range(hi_1_idx, 72);
+        circuit_builder.create_limbed_range_constraint(lo_1_idx, 72);
+        circuit_builder.create_limbed_range_constraint(hi_1_idx, 72);
     }
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
@@ -728,10 +728,10 @@ TYPED_TEST(UltraHonkTests, RangeChecksOnDuplicates)
     circuit_builder.assert_equal(a, c);
     circuit_builder.assert_equal(a, d);
 
-    circuit_builder.create_new_range_constraint(a, 1000);
-    circuit_builder.create_new_range_constraint(b, 1001);
-    circuit_builder.create_new_range_constraint(c, 999);
-    circuit_builder.create_new_range_constraint(d, 1000);
+    circuit_builder.create_small_range_constraint(a, 1000);
+    circuit_builder.create_small_range_constraint(b, 1001);
+    circuit_builder.create_small_range_constraint(c, 999);
+    circuit_builder.create_small_range_constraint(d, 1000);
 
     circuit_builder.create_big_add_gate(
         {
