@@ -1,10 +1,6 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
-import {
-  type GenesisStateConfig,
-  type L1ContractAddresses,
-  genesisStateConfigMappings,
-  l1ContractAddressesMapping,
-} from '@aztec/ethereum';
+import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum/config';
+import { type L1ContractAddresses, l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';

@@ -6,7 +6,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { UpdatableContract } from '@aztec/noir-test-contracts.js/Updatable';
 import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-test-contracts.js/Updated';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

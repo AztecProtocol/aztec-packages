@@ -1,5 +1,5 @@
-import type { ViemClient } from '@aztec/ethereum';
-import { getAddressFromPrivateKey } from '@aztec/ethereum';
+import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
+import type { ViemClient } from '@aztec/ethereum/types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';

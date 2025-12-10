@@ -1,5 +1,6 @@
 import { BatchedBlob } from '@aztec/blob-lib/types';
-import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';

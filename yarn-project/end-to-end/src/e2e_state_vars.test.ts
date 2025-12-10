@@ -1,7 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { AuthContract } from '@aztec/noir-contracts.js/Auth';
 import { StateVarsContract } from '@aztec/noir-test-contracts.js/StateVars';
 import type { TestWallet } from '@aztec/test-wallet/server';

@@ -1,6 +1,7 @@
 import { BatchedBlob, getEthBlobEvaluationInputs } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
-import type { L1TxUtils, RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum';
+import type { RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum/contracts';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { makeTuple } from '@aztec/foundation/array';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { areArraysEqual } from '@aztec/foundation/collection';

@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { RollupContract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { tryStop } from '@aztec/stdlib/interfaces/server';

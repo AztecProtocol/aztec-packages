@@ -1,5 +1,7 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { RegistryContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { RegistryContract } from '@aztec/ethereum/contracts';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
 import type { LogFn } from '@aztec/foundation/log';
 
 import { createPublicClient, fallback, http } from 'viem';
