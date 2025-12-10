@@ -412,3 +412,35 @@ html[data-theme="dark"] .sidebar-divider {
 .badge {
   border-radius: unset;
 }
+
+/* ============================================
+   Unified Version Dropdown Styles
+   ============================================ */
+
+/* Section headers in the grouped version dropdown */
+.dropdown-version-section-header {
+  display: block;
+  padding: 0.4rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ifm-color-emphasis-600);
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+  margin-top: 0.25rem;
+}
+
+/* Remove border from first section header */
+.dropdown__menu > li:first-child .dropdown-version-section-header {
+  border-top: none;
+  margin-top: 0;
+}
+
+/* Wrapper item for section headers - remove default padding/hover */
+.dropdown-version-section-header-item {
+  padding: 0 !important;
+}
+
+.dropdown-version-section-header-item:hover {
+  background: none !important;
+}
