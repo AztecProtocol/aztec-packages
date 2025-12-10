@@ -1,16 +1,11 @@
 #pragma once
 
-#include <array>
-#include <cassert>
-#include <cstdint>
-#include <span>
-
-#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
-#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 #include "barretenberg/vm2/simulation/interfaces/addressing.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 

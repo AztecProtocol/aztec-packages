@@ -2,18 +2,14 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 #include "barretenberg/common/bb_bench.hpp"
-#include "barretenberg/common/log.hpp"
-#include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/common/addressing.hpp"
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/simulation/events/addressing_event.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/memory_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
-#include "barretenberg/vm2/simulation/lib/serialization.hpp"
+#include "barretenberg/vm2/common/opcodes.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -30,6 +26,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         event.resolution_info.push_back({
             .after_relative = operand,
             .resolved_operand = operand,
+            .error = std::nullopt,
         });
     }
 
@@ -67,6 +64,8 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
                 if (!base_address) {
                     base_address = memory.get(0);
                     event.base_address = *base_address;
+                    // Note that event.base_address is initialized in AddressingEvent.
+                    // So, if no relative addressing is used, we do not need to set it below.
                 }
                 // This does not produce events. We are expected to check the tag to be UINT32.
                 if (!memory.is_valid_address(*base_address)) {
@@ -115,10 +114,9 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
     }
 
     events.emit(AddressingEvent(event));
+
     // If any entry in resolution_info has an error set, throw.
-    if (std::any_of(event.resolution_info.begin(), event.resolution_info.end(), [](const auto& info) {
-            return info.error.has_value();
-        })) {
+    if (std::ranges::any_of(event.resolution_info, [](const auto& info) { return info.error.has_value(); })) {
         // Signal the error to the caller.
         // On purpose we don't give any more information than "Error resolving operands."
         throw AddressingException();
