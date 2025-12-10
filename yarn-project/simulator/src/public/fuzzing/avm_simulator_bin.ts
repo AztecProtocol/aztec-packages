@@ -1,7 +1,12 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { AvmCircuitPublicInputs, AvmTxHint, deserializeFromMessagePack } from '@aztec/stdlib/avm';
-import { GlobalVariables } from '@aztec/stdlib/tx';
+import {
+  AvmCircuitPublicInputs,
+  AvmTxHint,
+  deserializeFromMessagePack,
+  serializeWithMessagePack,
+} from '@aztec/stdlib/avm';
+import { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { writeSync } from 'fs';
@@ -101,46 +106,21 @@ async function executeFromJson(jsonLine: string): Promise<void> {
     const globals = GlobalVariables.fromPlainObject(rawGlobals);
 
     const result = await simulateWithPublicTxSimulator(input.ws_data_dir, input.ws_map_size_kb, bytecode, tx, globals);
-
-    // todo(ilyas): Would be nice to serialize entire publicInputs for comparison, but it was extremely slow.
-    // Serialize endTreeSnapshots for comparison with C++ simulator
-    const endTreeSnapshots = {
-      l1ToL2MessageTree: {
-        root: result.publicInputs.endTreeSnapshots.l1ToL2MessageTree.root.toString(),
-        nextAvailableLeafIndex: result.publicInputs.endTreeSnapshots.l1ToL2MessageTree.nextAvailableLeafIndex,
-      },
-      noteHashTree: {
-        root: result.publicInputs.endTreeSnapshots.noteHashTree.root.toString(),
-        nextAvailableLeafIndex: result.publicInputs.endTreeSnapshots.noteHashTree.nextAvailableLeafIndex,
-      },
-      nullifierTree: {
-        root: result.publicInputs.endTreeSnapshots.nullifierTree.root.toString(),
-        nextAvailableLeafIndex: result.publicInputs.endTreeSnapshots.nullifierTree.nextAvailableLeafIndex,
-      },
-      publicDataTree: {
-        root: result.publicInputs.endTreeSnapshots.publicDataTree.root.toString(),
-        nextAvailableLeafIndex: result.publicInputs.endTreeSnapshots.publicDataTree.nextAvailableLeafIndex,
-      },
-    };
-
-    writeSync(
-      process.stdout.fd,
-      JSON.stringify({
-        reverted: result.reverted,
-        output: result.output.map(v => v?.toString() ?? '0'),
-        revertReason: result.revertReason,
-        endTreeSnapshots,
-      }) + '\n',
-    );
+    const resultBuffer = serializeWithMessagePack({
+      reverted: result.reverted,
+      output: result.output,
+      revertReason: result.revertReason ?? '',
+      endTreeSnapshots: result.publicInputs.endTreeSnapshots,
+    });
+    writeSync(process.stdout.fd, resultBuffer.toString('base64') + '\n');
   } catch (error: any) {
-    writeSync(
-      process.stdout.fd,
-      JSON.stringify({
-        reverted: true,
-        output: [],
-        revertReason: error.message,
-      }) + '\n',
-    );
+    const errorResult = serializeWithMessagePack({
+      reverted: true,
+      output: [] as string[],
+      revertReason: `Unexpected Error ${error.message}`,
+      endTreeSnapshots: TreeSnapshots.empty(),
+    });
+    writeSync(process.stdout.fd, errorResult.toString('base64') + '\n');
   }
 }
 

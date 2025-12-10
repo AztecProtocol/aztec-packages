@@ -16,6 +16,8 @@ struct SimulatorResult {
     std::vector<FF> output;
     TreeSnapshots end_tree_snapshots;
     std::string revert_reason;
+
+    MSGPACK_CAMEL_CASE_FIELDS(reverted, output, end_tree_snapshots, revert_reason);
 };
 
 class Simulator {
