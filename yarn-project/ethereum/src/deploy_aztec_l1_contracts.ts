@@ -13,6 +13,7 @@ import { spawn } from 'child_process';
 import { mkdtemp, readFile, rm } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
 import type { Chain, Hex } from 'viem';
+import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
@@ -194,7 +195,7 @@ export async function deployAztecL1Contracts(
   const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
 
   // From heuristic testing. More caused issues with anvil.
-  const MAGIC_TRANSACTION_BATCH_SIZE = 12;
+  const MAGIC_ANVIL_BATCH_SIZE = 12;
   const deployWithForge = (outputPath: string): Promise<ForgeL1ContractsDeployResult> => {
     const { promise, resolve, reject } = promiseWithResolvers<ForgeL1ContractsDeployResult>();
     const forgeArgs = [
@@ -206,8 +207,8 @@ export async function deployAztecL1Contracts(
       '--rpc-url',
       rpcUrl,
       '--broadcast',
-      '--batch-size',
-      MAGIC_TRANSACTION_BATCH_SIZE.toString(),
+      // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
+      ...(chain.id === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
     ];
     const proc = spawn('forge', forgeArgs, {
       cwd: l1ContractsPath,

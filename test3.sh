@@ -21,7 +21,6 @@ time forge script script/deploy/DeployAztecL1Contracts.s.sol \
   --rpc-url "$SEPOLIA_RPC_URL" \
   --private-key "$FOUNDRY_PRIVATE_KEY" \
   --broadcast \
-  --batch-size 16 \
   -vvvv
 
 echo "Done"
