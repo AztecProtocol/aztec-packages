@@ -181,8 +181,9 @@ template <typename Builder> void Blake3s<Builder>::hasher_finalize(const blake3_
 
 template <typename Builder> byte_array<Builder> Blake3s<Builder>::hash(const byte_array_ct& input)
 {
-    BB_ASSERT(input.size() <= BLAKE3_CHUNK_LEN,
-              "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
+    BB_ASSERT_LTE(input.size(),
+                  BLAKE3_CHUNK_LEN,
+                  "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
 
     // Create zero-filled constant buffer for hasher (will be properly initialized by hasher_init)
     Builder* ctx = input.get_context();

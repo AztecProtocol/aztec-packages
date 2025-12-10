@@ -4,6 +4,7 @@
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <cstdint>
+#include <regex>
 #include <sstream>
 
 // Enable this for (VERY SLOW) stats on which asserts are hit the most. Note that the time measured will be very
@@ -68,9 +69,11 @@ struct AssertGuard {
     do {                                                                                                               \
         BB_BENCH_ASSERT("BB_ASSERT" #expression);                                                                      \
         if (!(BB_LIKELY(expression))) {                                                                                \
-            info("Assertion failed: (" #expression ")");                                                               \
-            __VA_OPT__(info("Reason   : ", __VA_ARGS__);)                                                              \
-            bb::assert_failure("");                                                                                    \
+            std::ostringstream oss;                                                                                    \
+            oss << "Assertion failed: (" #expression ")";                                                              \
+            __VA_OPT__(oss << "\nReason   : " << __VA_ARGS__;)                                                         \
+            info(oss.str());                                                                                           \
+            bb::assert_failure(oss.str());                                                                             \
         }                                                                                                              \
     } while (0)
 
@@ -169,8 +172,17 @@ struct AssertGuard {
 #ifdef BB_NO_EXCEPTIONS
 #define ASSERT_THROW_OR_ABORT(statement, matcher) ASSERT_DEATH(statement, matcher)
 #define EXPECT_THROW_OR_ABORT(statement, matcher) EXPECT_DEATH(statement, matcher)
+#define EXPECT_THROW_WITH_MESSAGE(code, expectedMessage) EXPECT_DEATH(code, expectedMessage)
 #else
 #define ASSERT_THROW_OR_ABORT(statement, matcher) ASSERT_THROW(statement, std::runtime_error)
 #define EXPECT_THROW_OR_ABORT(statement, matcher) EXPECT_THROW(statement, std::runtime_error)
+#define EXPECT_THROW_WITH_MESSAGE(code, expectedMessageRegex)                                                          \
+    try {                                                                                                              \
+        code;                                                                                                          \
+        FAIL() << "Expected exception with message matching: " << expectedMessageRegex;                                \
+    } catch (const std::exception& e) {                                                                                \
+        EXPECT_TRUE(std::regex_search(std::string(e.what()), std::regex(expectedMessageRegex)))                        \
+            << "Exception message: " << e.what() << "\nExpected to match regex: " << expectedMessageRegex;             \
+    }
 #endif // BB_NO_EXCEPTIONS
 // NOLINTEND
