@@ -29,20 +29,8 @@ using namespace stdlib;
 // Used to specify the type of recursive verifier via the proof_type specified by the RecursiveAggregation opcode from
 // ACIR
 // Keep this enum values in sync with their noir counterpart constants defined in
-// noir-protocol-circuits/crates/types/src/constants.nr
-enum PROOF_TYPE : uint8_t {
-    PLONK,
-    HONK,
-    OINK,
-    HN,
-    AVM,
-    ROLLUP_HONK,
-    ROOT_ROLLUP_HONK,
-    HONK_ZK,
-    HN_FINAL,
-    HN_TAIL,
-    CHONK
-};
+// noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
+enum PROOF_TYPE : uint8_t { HONK, OINK, HN, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, HN_FINAL, HN_TAIL, CHONK };
 
 /**
  * @brief RecursionConstraint struct contains information required to recursively verify a proof
