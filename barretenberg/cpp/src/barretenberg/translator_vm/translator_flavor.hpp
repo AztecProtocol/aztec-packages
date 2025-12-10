@@ -1016,7 +1016,7 @@ class TranslatorFlavor {
             this->relation_wide_limbs_range_constraint_0 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0";
             this->relation_wide_limbs_range_constraint_1 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1";
             this->relation_wide_limbs_range_constraint_2 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
-            this->relation_wide_limbs_range_constraint_3 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
+            this->relation_wide_limbs_range_constraint_3 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3";
             this->ordered_range_constraints_0 = "ORDERED_RANGE_CONSTRAINTS_0";
             this->ordered_range_constraints_1 = "ORDERED_RANGE_CONSTRAINTS_1";
             this->ordered_range_constraints_2 = "ORDERED_RANGE_CONSTRAINTS_2";

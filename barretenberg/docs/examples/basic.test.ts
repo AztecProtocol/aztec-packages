@@ -1,7 +1,7 @@
 // docs:start:imports
-import { UltraHonkBackend} from '@aztec/bb.js';
+import { UltraHonkBackend } from '@aztec/bb.js';
 // docs:end:imports
-import { Barretenberg, Fr, ProofData } from '@aztec/bb.js';
+import { Barretenberg, Fr, ProofData, VerifierTarget } from '@aztec/bb.js';
 import { readFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { expect, describe, it } from '@jest/globals';
@@ -33,9 +33,9 @@ describe('Basic Barretenberg Example', () => {
       const startTime = Date.now();
 
       // docs:start:prove
-      // Generate proof with Keccak for EVM verification
+      // Generate proof for EVM verification (uses keccak hash, no ZK)
       const proofData: ProofData = await backend.generateProof(witnessBuffer, {
-        keccak: true
+        verifierTarget: 'evm-no-zk',
       });
 
       const provingTime = Date.now() - startTime;
@@ -47,13 +47,13 @@ describe('Basic Barretenberg Example', () => {
       // docs:start:verify
       // Verify the proof
       console.log('Verifying proof...');
-      const isValid = await backend.verifyProof(proofData, { keccak: true });
+      const isValid = await backend.verifyProof(proofData, { verifierTarget: 'evm-no-zk' });
       console.log(`Proof verification: ${isValid ? 'SUCCESS' : 'FAILED'}`);
       // docs:end:verify
 
       // Get Solidity verifier contract
-      const vk = await backend.getVerificationKey({ keccak: true });
-      const contract = await backend.getSolidityVerifier(vk);
+      const vk = await backend.getVerificationKey({ verifierTarget: 'evm-no-zk' });
+      const contract = await backend.getSolidityVerifier(vk, { verifierTarget: 'evm-no-zk' });
 
       console.log('Solidity verifier contract generated');
 
@@ -84,19 +84,23 @@ describe('Basic Barretenberg Example', () => {
     const backend = new UltraHonkBackend(bytecode);
 
     try {
-      // docs:start:hash_variants
-      // Standard UltraHonk (uses Poseidon)
+      // docs:start:verifier_targets
+      // Default: recursive verification in Noir (poseidon2, ZK enabled)
       const proof = await backend.generateProof(witnessBuffer);
       expect(proof.proof.length).toBeGreaterThan(0);
 
-      // Keccak variant (for EVM verification)
-      const proofKeccak = await backend.generateProof(witnessBuffer, { keccak: true });
-      expect(proofKeccak.proof.length).toBeGreaterThan(0);
+      // EVM verification without ZK (keccak hash)
+      const proofEvm = await backend.generateProof(witnessBuffer, { verifierTarget: 'evm-no-zk' });
+      expect(proofEvm.proof).to.have.length.greaterThan(0);
 
-      // ZK variants for recursive proofs
-      const proofKeccakZK = await backend.generateProof(witnessBuffer, { keccakZK: true });
-      expect(proofKeccakZK.proof.length).toBeGreaterThan(0);
-      // docs:end:hash_variants
+      // EVM verification with ZK (keccak hash)
+      const proofEvmZk = await backend.generateProof(witnessBuffer, { verifierTarget: 'evm' });
+      expect(proofEvmZk.proof).to.have.length.greaterThan(0);
+
+      // Recursive verification in Noir (explicit)
+      const proofRecursive = await backend.generateProof(witnessBuffer, { verifierTarget: 'noir-recursive' });
+      expect(proofRecursive.proof).to.have.length.greaterThan(0);
+      // docs:end:verifier_targets
 
     } finally {
       // Always clean up
@@ -116,11 +120,11 @@ describe('Basic Barretenberg Example', () => {
 
     try {
       // docs:start:verification_keys
-      // Get verification key
+      // Get verification key for recursive verification (default)
       const vk = await backend.getVerificationKey();
 
-      // For a solidity verifier:
-      const vkKeccak = await backend.getVerificationKey({ keccak: true });
+      // For a solidity verifier (EVM target):
+      const vkEvm = await backend.getVerificationKey({ verifierTarget: 'evm-no-zk' });
       // docs:end:verification_keys
 
       // Test that verification keys are valid
@@ -146,12 +150,12 @@ describe('Basic Barretenberg Example', () => {
     const backend = new UltraHonkBackend(bytecode);
 
     try {
-      // Get keccak verification key first
-      const vkKeccak = await backend.getVerificationKey({ keccak: true });
+      // Get EVM verification key first
+      const vkEvm = await backend.getVerificationKey({ verifierTarget: 'evm-no-zk' });
 
       // docs:start:solidity_verifier
-      // Needs the keccak hash variant of the VK
-      const solidityContract = await backend.getSolidityVerifier(vkKeccak);
+      // Needs the EVM target VK (uses keccak hash)
+      const solidityContract = await backend.getSolidityVerifier(vkEvm, { verifierTarget: 'evm-no-zk' });
       // docs:end:solidity_verifier
 
       // Test that solidity contract is valid
