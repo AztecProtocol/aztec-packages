@@ -1,9 +1,11 @@
 #include "barretenberg/vm2/generated/relations/internal_call.hpp"
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <fuzzer/FuzzedDataProvider.h>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
@@ -14,6 +16,7 @@
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/context_provider.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
+#include "barretenberg/vm2/simulation/interfaces/execution.hpp"
 #include "barretenberg/vm2/simulation/interfaces/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 #include "barretenberg/vm2/tooling/debugger.hpp"
@@ -35,6 +38,7 @@ using internal_call_rel = bb::avm2::internal_call<FF>;
 
 const uint8_t max_flat_calls = 5;
 const uint8_t max_nested_calls = 5;
+const uint8_t max_total_calls = max_flat_calls * max_nested_calls;
 
 // Constant instructions:
 const auto call_instr =
@@ -49,12 +53,25 @@ const auto dummy_instr = bb::avm2::testing::InstructionBuilder(WireOpCode::ADD_8
                              .build();
 
 struct InternalCallFuzzerInput {
-    uint32_t start_pc;
-    uint8_t num_flat_calls;
-    uint8_t num_nested_calls;
-    bool extra_pop;
+    uint32_t start_pc = 0;
+    // Number i where we have (INTERNALCALL -> (INTERNALCALL -> INTERNALRETURN) xj -> INTERNALRETURN) xi
+    uint8_t num_flat_calls = 1;
+    // Number j where we have (INTERNALCALL -> (INTERNALCALL -> INTERNALRETURN) xj -> INTERNALRETURN) xi
+    uint8_t num_nested_calls = 0;
+    bool extra_pop = false;
 
-    std::array<uint32_t, max_flat_calls + max_nested_calls> local_pcs;
+    std::array<uint32_t, max_total_calls> local_pcs;
+
+    void print() const
+    {
+        info("start_pc: ", start_pc);
+        info("num_flat_calls: ", int(num_flat_calls));
+        info("num_nested_calls: ", int(num_nested_calls));
+        info("extra_pop: ", extra_pop);
+        for (size_t i = 0; i < local_pcs.size(); i++) {
+            info("local_pcs ", i, ": ", local_pcs[i]);
+        }
+    }
 
     void to_buffer(uint8_t* buffer) const
     {
@@ -88,8 +105,71 @@ struct InternalCallFuzzerInput {
     }
 };
 
-// TODO(MW)
-// extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max_size, unsigned int seed) {}
+extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max_size, unsigned int seed)
+{
+    if (size < sizeof(InternalCallFuzzerInput)) {
+        // Initialize with default input
+        InternalCallFuzzerInput input;
+        input.to_buffer(data);
+        return sizeof(InternalCallFuzzerInput);
+    }
+    std::mt19937 rng(seed);
+
+    // Deserialize current input
+    InternalCallFuzzerInput input = InternalCallFuzzerInput::from_buffer(data);
+
+    // Choose random mutation
+    std::uniform_int_distribution<int> mutation_dist(0, 4);
+    int mutation_choice = mutation_dist(rng);
+
+    switch (mutation_choice) {
+    case 0: {
+        // Modify number of flat internal calls
+        std::uniform_int_distribution<uint8_t> num_flat_calls_dist(1, max_flat_calls);
+        input.num_flat_calls = num_flat_calls_dist(rng);
+        break;
+    }
+    case 1: {
+        // Modify number of nested internal calls
+        std::uniform_int_distribution<uint8_t> num_nested_calls_dist(0, max_nested_calls);
+        input.num_nested_calls = num_nested_calls_dist(rng);
+        break;
+    }
+    case 2: {
+        // Modify initial context pc
+        // TODO(MW): gate by max - num_events so we don't hit the overflow case?
+        std::uniform_int_distribution<uint32_t> start_pc_dist(0, std::numeric_limits<uint32_t>::max());
+        input.start_pc = start_pc_dist(rng);
+        break;
+    }
+    case 3: {
+        // Modify a random local pc (using num_events to ensure it's used in a run)
+        size_t num_events =
+            static_cast<size_t>(input.num_flat_calls) * (input.num_nested_calls == 0 ? 1 : input.num_nested_calls);
+        std::uniform_int_distribution<size_t> index_dist(0, num_events - 1);
+        size_t value_idx = index_dist(rng);
+        // TODO(MW): gate by max - num_events so we don't hit the overflow case?
+        std::uniform_int_distribution<uint32_t> pc_dist(0, std::numeric_limits<uint32_t>::max());
+        input.local_pcs[value_idx] = pc_dist(rng);
+        break;
+    }
+    case 4: {
+        // Toggle testing error case where we try to pop off an empty stack (just for gadget coverage):
+        input.extra_pop = !input.extra_pop;
+        break;
+    }
+    default:
+        break;
+    }
+    // Serialize mutated input back to buffer
+    input.to_buffer(data);
+
+    if (max_size > sizeof(InternalCallFuzzerInput)) {
+        return sizeof(InternalCallFuzzerInput);
+    }
+
+    return sizeof(InternalCallFuzzerInput);
+}
 
 // NOTE: context->serialize_context_event() causes stack overflow :(
 ContextEvent fill_context_event(std::unique_ptr<ContextInterface>& context,
@@ -137,8 +217,23 @@ void fuzz_internal_return(std::vector<ExecutionEvent>& ex_events,
     context->set_next_pc(context->get_pc() + static_cast<uint32_t>(ret_instr.size_in_bytes()));
 
     // Execution.internal_return(context):
-    auto next_pc = internal_call_stack_manager.pop();
-    context->set_next_pc(next_pc);
+    try {
+        auto next_pc = internal_call_stack_manager.pop();
+        context->set_next_pc(next_pc);
+    } catch (const std::exception& e) {
+        // Do post-dispatch error handling from Execution.execute
+        ex_event.error = ExecutionError::OPCODE_EXECUTION;
+        context->set_gas_used(context->get_gas_limit()); // Consume all gas.
+        context->halt();
+        // In Execution.execute, we do the above then continue without throwing. Here I want to re-throw to pass
+        // the opcode error out of the loop, so repeating the post-dispatch code below (TODO(MW): cleanup):
+        // Execution.execute post-dispatch:
+        context->set_pc(context->get_next_pc());
+        ex_event.after_context_event = fill_context_event(context, internal_call_stack_manager);
+        ex_events.push_back(ex_event);
+        // Re-throw
+        throw OpcodeExecutionException("Internal return failed: " + std::string(e.what()));
+    }
 
     // Execution.execute post-dispatch:
     context->set_pc(context->get_next_pc());
@@ -150,26 +245,18 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     using bb::avm2::MemoryValue;
 
-    if (size < 64) {
+    if (size < sizeof(InternalCallFuzzerInput)) {
         return 0;
     }
 
-    FuzzedDataProvider fuzzed_data(data, size);
+    InternalCallFuzzerInput input = InternalCallFuzzerInput::from_buffer(data);
+    bool error = false;
 
     // Set up gadgets and event emitters
     GadgetFuzzerContextHelper context_helper;
     auto context = std::move(context_helper.context);
     auto& internal_call_stack_manager = context->get_internal_call_stack_manager();
-    uint32_t test_loc_pc = fuzzed_data.ConsumeIntegral<uint32_t>();
-    uint32_t test_start_pc = fuzzed_data.ConsumeIntegral<uint32_t>();
-    context->set_pc(test_start_pc);
-    // Number i where we have (INTERNALCALL -> (INTERNALCALL -> INTERNALRETURN) xj -> INTERNALRETURN) xi
-    auto num_flat_calls = 1;
-    // Number j where we have (INTERNALCALL -> (INTERNALCALL -> INTERNALRETURN) xj -> INTERNALRETURN) xi
-    auto num_nested_calls = 1;
-    // Test case where we attempt to pop off an empty stack (will just return 0, to ensure coverage of case inside
-    // gadgets/internal_call_stack_manager.cpp)
-    // bool extra_pop = false;
+    context->set_pc(input.start_pc);
 
     // TODO(MW): Can also:
     // 1. make_enqueued_context(fuzzed data) via context_helper
@@ -182,25 +269,35 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     std::vector<ExecutionEvent> ex_events;
 
     try {
-        for (auto i = 0; i < num_flat_calls; i++) {
-            fuzz_internal_call(ex_events, context, internal_call_stack_manager, test_loc_pc);
-            for (auto j = 0; j < num_nested_calls; j++) {
-                fuzz_internal_call(ex_events, context, internal_call_stack_manager, test_loc_pc);
+        size_t current_call_idx = 0;
+        for (auto i = 0; i < input.num_flat_calls; i++) {
+            fuzz_internal_call(ex_events, context, internal_call_stack_manager, input.local_pcs[current_call_idx++]);
+            for (auto j = 0; j < input.num_nested_calls; j++) {
+                fuzz_internal_call(
+                    ex_events, context, internal_call_stack_manager, input.local_pcs[current_call_idx++]);
                 fuzz_internal_return(ex_events, context, internal_call_stack_manager);
             }
             fuzz_internal_return(ex_events, context, internal_call_stack_manager);
         }
-    } catch (const std::exception& e) {
-        // If any exception occurs, we cannot proceed further.
-        return 0;
+        // Handle popping from empty stack error:
+        if (input.extra_pop) {
+            fuzz_internal_return(ex_events, context, internal_call_stack_manager);
+        }
+    } catch (const OpcodeExecutionException& e) {
+        // May be recoverable with sel_opcode_error
+        error = true;
     }
 
     assert(internal_call_stack_manager.get_current_call_stack().size() == 0);
 
-    // Ideally I would set the final row via a gadget or at least an event, but I'm not sure how these
-    // are actually set in the standard flow:
-    ex_events.push_back({ .wire_instruction = dummy_instr,
-                          .before_context_event = ex_events.at(ex_events.size() - 1).after_context_event });
+    if (!error) {
+        // Ideally I would set the final row via a gadget or at least an event, but I'm not sure how these
+        // are actually set in the standard flow:
+        ex_events.push_back({ .wire_instruction = dummy_instr,
+                              .before_context_event = fill_context_event(context, internal_call_stack_manager) });
+    } else {
+        assert(ex_events.at(ex_events.size() - 1).error == ExecutionError::OPCODE_EXECUTION);
+    }
 
     TestTraceContainer trace;
     ExecutionTraceBuilder ex_builder;
