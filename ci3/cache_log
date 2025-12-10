@@ -36,6 +36,7 @@ function live_publish_log {
   while [ -f $outfile ]; do
     if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
       publish_log
+      gzip < $outfile | cache_disk_transfer $key &
     fi
     for i in {1..5}; do
       [ ! -f $outfile ] && break

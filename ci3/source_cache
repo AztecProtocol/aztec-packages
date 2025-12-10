@@ -4,7 +4,9 @@
 
 # Transfer log to bastion via SSH (accepts gzipped data on stdin)
 # Usage: cat file.gz | cache_disk_transfer <key>
+# Runs in background if called directly for live logging
 function cache_disk_transfer {
+  [ "${CI_ENABLE_DISK_LOGS:-0}" -eq 1 ] || return 0
   local key="$1"
   local prefix="${key:0:4}"
 
@@ -41,15 +43,11 @@ function cache_persistent {
   # Write to Redis (synchronous - must complete before returning)
   cat "$tmpfile" | redis_cli -x SETEX "$key" "$expire" &>/dev/null
 
-  # Transfer to bastion disk in background (only if disk logging enabled)
-  if [ "${CI_ENABLE_DISK_LOGS:-0}" -eq 1 ]; then
-    {
-      cat "$tmpfile" | cache_disk_transfer "$key"
-      rm -f "$tmpfile"
-    } &
-  else
+  # Transfer to bastion disk in background (cache_disk_transfer checks CI_ENABLE_DISK_LOGS)
+  {
+    cat "$tmpfile" | cache_disk_transfer "$key"
     rm -f "$tmpfile"
-  fi
+  } &
 }
 
 # Export functions

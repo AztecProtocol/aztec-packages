@@ -107,6 +107,10 @@ function publish_log_final {
   cat $tmp_file 2>/dev/null | cache_persistent $log_key $expire
 }
 
+function publish_disk_live {
+  gzip < $tmp_file 2>/dev/null | cache_disk_transfer $log_key &
+}
+
 function live_publish_log {
   # Not replacing previous trap as we run this function in the background.
   trap 'kill $sleep_pid &>/dev/null; exit' SIGTERM SIGINT
@@ -115,11 +119,13 @@ function live_publish_log {
   local sleep_pid=$!
   wait $sleep_pid
   publish_log
+  publish_disk_live
   echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
   while [ -f $tmp_file ]; do
     local stat=$(stat -c %Y "$tmp_file" || echo 0)
     if [ $(( $(date +%s) - "$stat" )) -le 5 ]; then
       publish_log
+      publish_disk_live
     fi
     sleep 5 &
     sleep_pid=$!
