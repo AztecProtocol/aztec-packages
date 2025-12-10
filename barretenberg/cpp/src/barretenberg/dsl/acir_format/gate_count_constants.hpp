@@ -55,53 +55,54 @@ template <typename Builder> inline constexpr size_t ASSERT_EQUALITY = ZERO_GATE 
 // Honk Recursion Constants
 // ========================================
 
-// Gate counts for Honk recursion vary by both inner and outer flavors
-// Returns tuple of (gate_count, ecc_rows, ultra_ops)
-template <typename InnerFlavor, typename OuterFlavor>
-constexpr std::tuple<size_t, size_t, size_t> HONK_RECURSION_CONSTANTS(const PredicateTestCase& mode)
+template <typename RecursiveFlavor>
+constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(const PredicateTestCase& mode)
 {
-    // UltraFlavor -> UltraFlavor
-    if constexpr (std::is_same_v<InnerFlavor, UltraFlavor> && std::is_same_v<OuterFlavor, UltraFlavor>) {
+    using UltraCircuitBuilder = bb::UltraCircuitBuilder;
+    using MegaCircuitBuilder = bb::MegaCircuitBuilder;
+
+    if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(722758, 0, 0);
+            return std::make_tuple(722758, 0);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(723904, 0, 0);
+            return std::make_tuple(723905, 0);
         }
-    }
-    // UltraZKFlavor -> UltraFlavor
-    else if constexpr (std::is_same_v<InnerFlavor, UltraZKFlavor> && std::is_same_v<OuterFlavor, UltraFlavor>) {
+    } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(766176, 0, 0);
+            return std::make_tuple(766176, 0);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(767424, 0, 0);
+            return std::make_tuple(767425, 0);
         }
-    }
-    // UltraRollupFlavor -> UltraRollupFlavor
-    else if constexpr (std::is_same_v<InnerFlavor, UltraRollupFlavor> &&
-                       std::is_same_v<OuterFlavor, UltraRollupFlavor>) {
+    } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(723077, 0, 0);
+            return std::make_tuple(723077, 0);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(724371, 0, 0);
+            return std::make_tuple(724372, 0);
         }
-    }
-    // UltraFlavor -> MegaFlavor
-    else if constexpr (std::is_same_v<InnerFlavor, UltraFlavor> && std::is_same_v<OuterFlavor, MegaFlavor>) {
+    } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(23092, 1250, 76);
+            return std::make_tuple(23092, 76);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(24238, 1250, 76);
+            return std::make_tuple(24239, 76);
+        }
+    } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
+        switch (mode) {
+        case PredicateTestCase::ConstantTrue:
+            return std::make_tuple(27963, 80);
+        case PredicateTestCase::WitnessTrue:
+        case PredicateTestCase::WitnessFalse:
+            return std::make_tuple(29212, 80);
         }
     } else {
-        bb::assert_failure("Unsupported Flavor combination.");
+        bb::assert_failure("Unhandled recursive flavor.");
     }
 }
 

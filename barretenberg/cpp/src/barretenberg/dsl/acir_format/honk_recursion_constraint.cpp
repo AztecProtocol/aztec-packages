@@ -68,8 +68,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         // It would be optimal to hard-code these values in the selector, but due to the randomness needed to generate
         // valid ZK proofs, we cannot do that without adding a dependency of the VKs on the witness values. Note that
         // the new witnesses are used only in the recursive verification, so they don't create a soundness issue and can
-        // be filled with anything as long as they contain a valid vk, proof and vk hash.
-
+        // be filled with anything as long as they contain a valid vk, proof and vk hash.)
         for (auto [vk_witness, vk_element] : zip_view(vk_fields, honk_vk->to_field_elements())) {
             field_ct valid_vk_witness = field_ct::from_witness(&builder, vk_element);
             valid_vk_witness.unset_free_witness_tag();
@@ -82,7 +81,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
             proof_witness = field_ct::conditional_assign(predicate, proof_witness, valid_proof_witness);
         }
 
-        field_ct valid_vk_hash = field_ct(&builder, honk_vk->hash());
+        field_ct valid_vk_hash = field_ct::from_witness(&builder, honk_vk->hash());
         valid_vk_hash.unset_free_witness_tag();
         vk_hash = field_ct::conditional_assign(predicate, vk_hash, valid_vk_hash);
     }

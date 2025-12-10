@@ -670,6 +670,7 @@ template <TestBase Base_> class TestClass {
 
             // Validate the builder
             EXPECT_TRUE(CircuitChecker::check(builder));
+            EXPECT_FALSE(builder.failed());
         }
 
         std::shared_ptr<VerificationKey> vk_from_constraint;

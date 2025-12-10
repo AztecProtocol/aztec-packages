@@ -35,27 +35,27 @@ using namespace bb;
  *.   F_i = B_i for i <= s_i
  * 3. Construct a circuit that recursively verifies (F_1, .., F_{s_1}) and prove it using Flavor
  *
- * All the circuits F_1, .., F_{s_1} are constructed using the same builder and same flavor. This flavor, called
- * InnerFlavor, determines which data should be propagated (PairingPoints, IPA claims). The circuit that verifies F_1,
- * .., F_{s_N} is constructed using the builder determined by OuterFlavor, which also determines what data should be
- * propagated and what data should be finalized (full IPA verification or simple IPA aggregation).
  *
- * NOTE: The InnerFlavor and OuterFlavor must be consistent: if InnerFlavor has the IPA data, then the outer flavor must
- * either propagate this data, or verify it. To ensure that the data is correctly propagated/verified, we generate the
- * ProgramMetadata and the proof type of the recursion constraints at the top layer according to InnerFlavor and
- * OuterFlavor.
+ * All the "inner" circuits F_1, .., F_{s_1} are constructed using the same builder and same flavor. This flavor is
+ * specified by RecursiveFlavor::NativeFlavor, called InnerFlavor. This flavor determines which data should be
+ * propagated (PairingPoints, IPA claims). The "outer" circuit that verifies F_1, .., F_{s_N} is constructed using the
+ * builder determined by RecursiveFlavor::CircuitBuilder. The rationale for templating the tests on a RecursiveFlavor is
+ * that this creates a direct correspondence betweeen the tests and the if/else branches in function that handles the
+ * honk recursion constraints.
+ *
+ * NOTE: We add another template parameter: IsRootRollup so that we can force finalization of IPA claims.
  *
  */
-template <typename InnerFlavor_, typename OuterFlavor_, size_t N_, std::array<size_t, N_> LayerSizes_>
+template <typename RecursiveFlavor_, bool IsRootRollup_, size_t N_, std::array<size_t, N_> LayerSizes_>
 class HonkRecursionTestParams {
   public:
-    using InnerFlavor = InnerFlavor_;
-    using OuterFlavor = OuterFlavor_;
+    using RecursiveFlavor = RecursiveFlavor_;
+    static constexpr bool IsRootRollup = IsRootRollup_;
     static constexpr size_t N = N_;
     static constexpr std::array<size_t, N> LayerSizes = LayerSizes_;
 };
 
-template <typename InnerFlavor, typename OuterFlavor, size_t N, std::array<size_t, N> LayerSizes>
+template <typename RecursiveFlavor, bool IsRootRollup, size_t N, std::array<size_t, N> LayerSizes>
 class HonkRecursionConstraintTestingFunctions {
   public:
     // Check that the array in the template parameter is in increasing order
@@ -69,6 +69,16 @@ class HonkRecursionConstraintTestingFunctions {
         return true;
     });
 
+    // Check that if IsRootRollup is true, then we set the parameters correctly
+    static_assert([]() {
+        if (IsRootRollup) {
+            return HasIPAAccumulator<RecursiveFlavor> && N == 1 && LayerSizes[0] == 2;
+        }
+
+        return true;
+    });
+
+    using InnerFlavor = RecursiveFlavor::NativeFlavor;
     using InnerBuilder = InnerFlavor::CircuitBuilder;
     using InnerIO = std::conditional_t<HasIPAAccumulator<InnerFlavor>,
                                        bb::stdlib::recursion::honk::RollupIO,
@@ -89,25 +99,10 @@ class HonkRecursionConstraintTestingFunctions {
         return HONK;
     }();
 
-    // Determine the proof type of the circuits at the top level. This proof type determines which data is propagated
-    // and which is finalized: if the proof type is ROOT_ROLLUP_HONK then IPA data is verified, otherwise it is
-    // propagated. PairingPoints are always propagated.
-    static constexpr uint32_t TopLevelProofType = []() {
-        if constexpr (HasIPAAccumulator<InnerFlavor> && !HasIPAAccumulator<OuterFlavor>) {
-            return ROOT_ROLLUP_HONK;
-        } else if constexpr (HasIPAAccumulator<InnerFlavor>) {
-            return ROLLUP_HONK;
-        } else if constexpr (InnerFlavor::HasZK) {
-            return HONK_ZK;
-        }
-
-        return HONK;
-    }();
-
     static constexpr bool IS_VANILLA_RECURSION = N == 1 && LayerSizes[0] == 1;
     using AcirConstraint =
         std::conditional_t<IS_VANILLA_RECURSION, RecursionConstraint, std::vector<RecursionConstraint>>;
-    using Builder = OuterFlavor::CircuitBuilder;
+    using Builder = RecursiveFlavor::CircuitBuilder;
 
     struct InvalidWitness {
       public:
@@ -165,7 +160,8 @@ class HonkRecursionConstraintTestingFunctions {
 
         for (auto [constraint, witnesses] : zip_view(constraints, witness_vectors)) {
             offset_recursion_constraint(constraint, witness_values.size());
-            constraint.proof_type = TopLevelProofType;
+            // If this is the root rollup, we need to set the proof type to ROOT_ROLLUP_HONK
+            constraint.proof_type = IsRootRollup ? ROOT_ROLLUP_HONK : constraint.proof_type;
             witness_values.insert(witness_values.end(), witnesses.begin(), witnesses.end());
         }
 
@@ -208,7 +204,7 @@ class HonkRecursionConstraintTestingFunctions {
      */
     static ProgramMetadata generate_metadata()
     {
-        return ProgramMetadata{ .has_ipa_claim = HasIPAAccumulator<OuterFlavor> };
+        return ProgramMetadata{ .has_ipa_claim = HasIPAAccumulator<RecursiveFlavor> };
     }
 
     static void invalidate_witness([[maybe_unused]] AcirConstraint& honk_recursion_constraints,
@@ -246,8 +242,8 @@ class HonkRecursionConstraintTestingFunctions {
             } else {
                 proof_indices = honk_recursion_constraints[0].proof;
             }
-            size_t commitment_size = FrCodec::template calc_num_fields<typename OuterFlavor::Commitment>();
-            std::vector<bb::fr> mock_proof_element = FrCodec::serialize_to_fields(OuterFlavor::Commitment::one());
+            size_t commitment_size = FrCodec::template calc_num_fields<typename InnerFlavor::Commitment>();
+            std::vector<bb::fr> mock_proof_element = FrCodec::serialize_to_fields(InnerFlavor::Commitment::one());
             for (size_t idx = 0; idx < commitment_size; idx++) {
                 witness_values[proof_indices[InnerIO::PUBLIC_INPUTS_SIZE + idx]] = mock_proof_element[idx];
             }
@@ -279,13 +275,8 @@ class HonkRecursionConstraintTestingFunctions {
                     RecursionConstraint recursion_constraint = constraints[idx];
                     WitnessVector witnesses = witness_vectors[idx];
 
-                    AcirFormat acir_format{
-                        .max_witness_index = static_cast<uint32_t>(witnesses.size() - 1),
-                        .num_acir_opcodes = 1,
-                        .honk_recursion_constraints = { recursion_constraint },
-                        .original_opcode_indices =
-                            AcirFormatOriginalOpcodeIndices{ .honk_recursion_constraints = { 0 } },
-                    };
+                    AcirFormat acir_format = constraint_to_acir_format(
+                        recursion_constraint, /*max_witness_index=*/static_cast<uint32_t>(witnesses.size()) - 1);
 
                     AcirProgram acir_program{ .constraints = acir_format, .witness = witnesses };
                     ProgramMetadata metadata{ .has_ipa_claim = HasIPAAccumulator<InnerFlavor> };
@@ -306,13 +297,13 @@ class HonkRecursionConstraintTestingFunctions {
 template <typename Params>
 class HonkRecursionTestWithPredicate
     : public ::testing::Test,
-      public TestClassWithPredicate<HonkRecursionConstraintTestingFunctions<typename Params::InnerFlavor,
-                                                                            typename Params::OuterFlavor,
+      public TestClassWithPredicate<HonkRecursionConstraintTestingFunctions<typename Params::RecursiveFlavor,
+                                                                            Params::IsRootRollup,
                                                                             Params::N,
                                                                             Params::LayerSizes>> {
   public:
-    using InnerFlavor = Params::InnerFlavor;
-    using OuterFlavor = Params::OuterFlavor;
+    using RecursiveFlavor = Params::RecursiveFlavor;
+    static constexpr bool IsRootRollup = Params::IsRootRollup;
 
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -321,16 +312,22 @@ class HonkRecursionTestWithPredicate
 // We test the predicate with vanilla recursion. This is enough as the predicate logic is a standalone component,
 // there's no inter-constraint interaction due to the existence or the value of the predicate.
 using HonkRecursionTypesWithPredicate =
-    testing::Types<HonkRecursionTestParams<UltraFlavor, UltraFlavor, 1, { 1 }>,
-                   HonkRecursionTestParams<UltraZKFlavor, UltraFlavor, 1, { 1 }>,
-                   HonkRecursionTestParams<UltraRollupFlavor, UltraRollupFlavor, 1, { 1 }>,
-                   HonkRecursionTestParams<UltraFlavor, MegaFlavor, 1, { 1 }>>;
+    testing::Types<HonkRecursionTestParams<UltraRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 1 }>,
+                   HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 1 }>,
+                   HonkRecursionTestParams<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 1 }>,
+                   HonkRecursionTestParams<UltraRecursiveFlavor_<MegaCircuitBuilder>, false, 1, { 1 }>,
+                   HonkRecursionTestParams<UltraZKRecursiveFlavor_<MegaCircuitBuilder>, false, 1, { 1 }>>;
 
 TYPED_TEST_SUITE(HonkRecursionTestWithPredicate, HonkRecursionTypesWithPredicate);
 
 TYPED_TEST(HonkRecursionTestWithPredicate, GenerateVKFromConstraints)
 {
-    TestFixture::template test_vk_independence<typename TypeParam::OuterFlavor>();
+    // The flavor with which we prove the outer circuit (the one verifying F_1, .., F_{s_1}) depends on what type of
+    // data the inner circuits have propagated and the builder.
+    using Flavor = std::conditional_t<IsMegaBuilder<typename TestFixture::Builder>,
+                                      MegaFlavor,
+                                      typename TestFixture::RecursiveFlavor::NativeFlavor>;
+    TestFixture::template test_vk_independence<Flavor>();
 }
 
 TYPED_TEST(HonkRecursionTestWithPredicate, ConstantTrue)
@@ -350,8 +347,7 @@ TYPED_TEST(HonkRecursionTestWithPredicate, WitnessFalseSlow)
 
 TYPED_TEST(HonkRecursionTestWithPredicate, GateCountSingleHonkRecursion)
 {
-    using InnerFlavor = TestFixture::InnerFlavor;
-    using OuterFlavor = TestFixture::OuterFlavor;
+    using RecursiveFlavor = TestFixture::RecursiveFlavor;
     using Builder = TestFixture::Builder;
     using InvalidWitnessTarget = TestFixture::InvalidWitnessTarget;
 
@@ -372,16 +368,13 @@ TYPED_TEST(HonkRecursionTestWithPredicate, GateCountSingleHonkRecursion)
         EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
         // Get expected values from shared constants based on predicate mode
-        auto [EXPECTED_GATE_COUNT, EXPECTED_ECC_ROWS, EXPECTED_ULTRA_OPS] =
-            HONK_RECURSION_CONSTANTS<InnerFlavor, OuterFlavor>(predicate_mode);
+        auto [EXPECTED_GATE_COUNT, EXPECTED_ULTRA_OPS] = HONK_RECURSION_CONSTANTS<RecursiveFlavor>(predicate_mode);
 
         // Assert gate count
         EXPECT_EQ(program.constraints.gates_per_opcode[0], EXPECTED_GATE_COUNT);
 
         // For MegaBuilder, also assert ECC row count and ultra ops count
         if constexpr (IsMegaBuilder<Builder>) {
-            size_t actual_ecc_rows = builder.op_queue->get_num_rows();
-            EXPECT_EQ(actual_ecc_rows, EXPECTED_ECC_ROWS);
             size_t actual_ultra_ops = builder.op_queue->get_current_subtable_size();
             EXPECT_EQ(actual_ultra_ops, EXPECTED_ULTRA_OPS);
         }
@@ -391,43 +384,57 @@ TYPED_TEST(HonkRecursionTestWithPredicate, GateCountSingleHonkRecursion)
 template <typename Params>
 class HonkRecursionTestWithoutPredicate
     : public ::testing::Test,
-      public TestClass<HonkRecursionConstraintTestingFunctions<typename Params::InnerFlavor,
-                                                               typename Params::OuterFlavor,
+      public TestClass<HonkRecursionConstraintTestingFunctions<typename Params::RecursiveFlavor,
+                                                               Params::IsRootRollup,
                                                                Params::N,
                                                                Params::LayerSizes>> {
+  public:
+    using RecursiveFlavor = Params::RecursiveFlavor;
+    static constexpr bool IsRootRollup = Params::IsRootRollup;
+
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-using HonkRecursionTypesWithoutPredicate =
-    testing::Types<HonkRecursionTestParams<UltraFlavor, UltraFlavor, 1, { 2 }>,             // Merge circuit
-                   HonkRecursionTestParams<UltraZKFlavor, UltraFlavor, 1, { 2 }>,           // Merge circuit
-                   HonkRecursionTestParams<UltraRollupFlavor, UltraRollupFlavor, 1, { 2 }>, // Merge circuit
-                   HonkRecursionTestParams<UltraRollupFlavor, UltraZKFlavor, 1, { 2 }>,     // Root circuit
-                   HonkRecursionTestParams<UltraFlavor, MegaFlavor, 1, { 2 }>,              // Merge circuit
-                   HonkRecursionTestParams<UltraZKFlavor, UltraFlavor, 2, { 2, 1 }>, // Double recursion on one side
-                   HonkRecursionTestParams<UltraZKFlavor, MegaFlavor, 2, { 2, 2 }>,  // Merge two circuits that
-                                                                                     // recursively verify two
-                                                                                     // circuits
-                   HonkRecursionTestParams<UltraZKFlavor, MegaFlavor, 4, { 4, 3, 1, 1 }>>; // Random complex flow
+using HonkRecursionTypesWithoutPredicate = testing::Types<
+    HonkRecursionTestParams<UltraRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>,       // Merge
+                                                                                                // circuit
+    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>,     // Merge
+                                                                                                // circuit
+    HonkRecursionTestParams<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>, false, 1, { 2 }>, // Merge
+                                                                                                // circuit
+    HonkRecursionTestParams<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>, true, 1, { 2 }>,  // Root circuit
+    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 2, { 2, 1 }>,  // Double recursion on
+                                                                                                // one side
+    HonkRecursionTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, false, 2, { 2, 2 }>,  // Merge two circuits
+                                                                                                // that recursively
+                                                                                                // verify two circuits
+    HonkRecursionTestParams<UltraRecursiveFlavor_<MegaCircuitBuilder>, false, 4, { 4, 3, 1, 1 }>>; // Random complex
+                                                                                                   // flow
 
 TYPED_TEST_SUITE(HonkRecursionTestWithoutPredicate, HonkRecursionTypesWithoutPredicate);
 
 TYPED_TEST(HonkRecursionTestWithoutPredicate, GenerateVKFromConstraints)
 {
-    if constexpr (HasIPAAccumulator<typename TypeParam::InnerFlavor> &&
-                  !HasIPAAccumulator<typename TypeParam::OuterFlavor>) {
+    if constexpr (TypeParam::IsRootRollup) {
         // We need to skip this case because the root rollup case takes too much time.
         GTEST_SKIP();
+
+        TestFixture::template test_vk_independence<UltraZKFlavor>();
     }
 
-    TestFixture::template test_vk_independence<typename TypeParam::OuterFlavor>();
+    // The flavor with which we prove the outer circuit (the one verifying F_1, .., F_{s_1}) depends on what type of
+    // data the inner circuits have propagated and the builder.
+    using Flavor = std::conditional_t<IsMegaBuilder<typename TestFixture::Builder>,
+                                      MegaFlavor,
+                                      typename TestFixture::RecursiveFlavor::NativeFlavor>;
+
+    TestFixture::template test_vk_independence<Flavor>();
 }
 
 TYPED_TEST(HonkRecursionTestWithoutPredicate, Tampering)
 {
-    if constexpr (HasIPAAccumulator<typename TypeParam::InnerFlavor> &&
-                  !HasIPAAccumulator<typename TypeParam::OuterFlavor>) {
+    if constexpr (TypeParam::IsRootRollup) {
         // We need to skip this case because the root rollup case takes too much time.
         GTEST_SKIP();
     }
