@@ -1,9 +1,10 @@
 use crate::{
     note::{
-        note_getter::constrain_get_notes_internal,
+        note_getter::{constrain_get_notes_internal, constrain_view_note},
         note_getter_options::{NoteGetterOptions, PropertySelector, SortOrder},
         retrieved_note::RetrievedNote,
     },
+    oracle::random::random,
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
     utils::comparison::Comparator,
 };
@@ -17,7 +18,7 @@ unconstrained fn build_valid_retrieved_note(
     contract_address: AztecAddress,
     value: Field,
 ) -> RetrievedNote<MockNote> {
-    MockNote::new(value).contract_address(contract_address).build_retrieved_note()
+    MockNote::new(value).contract_address(contract_address).owner(owner).build_retrieved_note()
 }
 
 unconstrained fn assert_equivalent_vec_and_array<T, let N: u32>(
@@ -48,14 +49,9 @@ unconstrained fn constrain_get_notes_processes_single_note() {
         notes_to_constrain[0] =
             Option::some(build_valid_retrieved_note(context.this_address(), 13));
 
-        let options = NoteGetterOptions::new();
-        let (returned, _) = constrain_get_notes_internal(
-            context,
-            owner,
-            storage_slot,
-            notes_to_constrain,
-            options,
-        );
+        let options = NoteGetterOptions::new().set_owner(owner);
+        let (returned, _) =
+            constrain_get_notes_internal(context, storage_slot, notes_to_constrain, options);
 
         assert_equivalent_vec_and_array(returned, notes_to_constrain);
         assert_eq(context.note_hash_read_requests.len(), 1);
@@ -73,14 +69,9 @@ unconstrained fn constrain_get_notes_processes_many_notes() {
         notes_to_constrain[0] = Option::some(build_valid_retrieved_note(contract_address, 13));
         notes_to_constrain[1] = Option::some(build_valid_retrieved_note(contract_address, 19));
 
-        let options = NoteGetterOptions::new();
-        let (returned, _) = constrain_get_notes_internal(
-            context,
-            owner,
-            storage_slot,
-            notes_to_constrain,
-            options,
-        );
+        let options = NoteGetterOptions::new().set_owner(owner);
+        let (returned, _) =
+            constrain_get_notes_internal(context, storage_slot, notes_to_constrain, options);
 
         assert_equivalent_vec_and_array(returned, notes_to_constrain);
         assert_eq(context.note_hash_read_requests.len(), 2);
@@ -102,9 +93,9 @@ unconstrained fn constrain_get_notes_collapses_notes_at_the_beginning_of_the_arr
         opt_notes[8] = Option::some(build_valid_retrieved_note(contract_address, 4));
         opt_notes[13] = Option::some(build_valid_retrieved_note(contract_address, 5));
 
-        let options = NoteGetterOptions::new();
+        let options = NoteGetterOptions::new().set_owner(owner);
         let (returned, _) =
-            constrain_get_notes_internal(context, owner, storage_slot, opt_notes, options);
+            constrain_get_notes_internal(context, storage_slot, opt_notes, options);
 
         let mut expected = [Option::none(); _];
         expected[0] = Option::some(build_valid_retrieved_note(contract_address, 0));
@@ -125,9 +116,9 @@ unconstrained fn constrain_get_notes_can_return_zero_notes() {
     env.private_context(|context| {
         let opt_notes: [Option<RetrievedNote<MockNote>>; _] = [Option::none(); _];
 
-        let options = NoteGetterOptions::new();
+        let options = NoteGetterOptions::new().set_owner(owner);
         let (returned, _) =
-            constrain_get_notes_internal(context, owner, storage_slot, opt_notes, options);
+            constrain_get_notes_internal(context, storage_slot, opt_notes, options);
         assert_eq(returned.len(), 0);
     });
 }
@@ -144,9 +135,8 @@ unconstrained fn constrain_get_notes_rejects_mote_notes_than_limit() {
         opt_notes[2] = Option::some(build_valid_retrieved_note(contract_address, 1));
         opt_notes[3] = Option::some(build_valid_retrieved_note(contract_address, 2));
 
-        let mut options = NoteGetterOptions::new();
-        options = options.set_limit(2);
-        let _ = constrain_get_notes_internal(context, owner, storage_slot, opt_notes, options);
+        let options = NoteGetterOptions::new().set_limit(2).set_owner(owner);
+        let _ = constrain_get_notes_internal(context, storage_slot, opt_notes, options);
     });
 }
 
@@ -173,14 +163,9 @@ unconstrained fn constrain_get_notes_applies_filter_before_constraining() {
             selected
         };
 
-        let options = NoteGetterOptions::with_filter(filter_fn, ());
-        let (returned, _) = constrain_get_notes_internal(
-            context,
-            owner,
-            storage_slot,
-            notes_to_constrain,
-            options,
-        );
+        let options = NoteGetterOptions::with_filter(filter_fn, ()).set_owner(owner);
+        let (returned, _) =
+            constrain_get_notes_internal(context, storage_slot, notes_to_constrain, options);
 
         // Only the note with value 42 should be returned, and moved to the beginning of the array. The other notes were not
         // constrained, and hence validation did not fail.
@@ -201,8 +186,26 @@ unconstrained fn constrain_get_notes_rejects_mismatched_address() {
         let mut opt_notes = [Option::none(); _];
         opt_notes[0] = Option::some(note);
 
-        let mut options = NoteGetterOptions::new();
-        let _ = constrain_get_notes_internal(context, owner, storage_slot, opt_notes, options);
+        let options = NoteGetterOptions::new().set_owner(owner);
+        let _ = constrain_get_notes_internal(context, storage_slot, opt_notes, options);
+    });
+}
+
+#[test(should_fail_with = "Note owner mismatch.")]
+unconstrained fn constrain_get_notes_rejects_mismatched_owner() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| {
+        let different_owner = AztecAddress::from_field(random());
+        let note = MockNote::new(1)
+            .contract_address(context.this_address())
+            .owner(different_owner)
+            .build_retrieved_note();
+        let mut opt_notes = [Option::none(); _];
+        opt_notes[0] = Option::some(note);
+
+        let options = NoteGetterOptions::new().set_owner(owner);
+        let _ = constrain_get_notes_internal(context, storage_slot, opt_notes, options);
     });
 }
 
@@ -217,14 +220,13 @@ unconstrained fn constrain_get_notes_rejects_mismatched_selector() {
         let mut opt_notes = [Option::none(); _];
         opt_notes[0] = Option::some(note);
 
-        let mut options = NoteGetterOptions::new();
-        options = options.select(
+        let options = NoteGetterOptions::new().set_owner(owner).select(
             PropertySelector { index: 0, offset: 0, length: 32 },
             Comparator.EQ,
             value + 1,
         );
 
-        let _ = constrain_get_notes_internal(context, owner, storage_slot, opt_notes, options);
+        let _ = constrain_get_notes_internal(context, storage_slot, opt_notes, options);
     });
 }
 
@@ -239,10 +241,10 @@ unconstrained fn constrain_get_notes_rejects_mismatched_desc_sort_order() {
         opt_notes[0] = Option::some(build_valid_retrieved_note(contract_address, 1));
         opt_notes[1] = Option::some(build_valid_retrieved_note(contract_address, 2));
 
-        let mut options = NoteGetterOptions::new();
-        options =
-            options.sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.DESC);
-        let _ = constrain_get_notes_internal(context, owner, storage_slot, opt_notes, options);
+        let options = NoteGetterOptions::new()
+            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.DESC)
+            .set_owner(owner);
+        let _ = constrain_get_notes_internal(context, storage_slot, opt_notes, options);
     });
 }
 
@@ -257,9 +259,75 @@ unconstrained fn constrain_get_notes_rejects_mismatched_asc_sort_order() {
         opt_notes[0] = Option::some(build_valid_retrieved_note(contract_address, 2));
         opt_notes[1] = Option::some(build_valid_retrieved_note(contract_address, 1));
 
-        let mut options = NoteGetterOptions::new();
-        options =
-            options.sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
-        let _ = constrain_get_notes_internal(context, owner, storage_slot, opt_notes, options);
+        let options = NoteGetterOptions::new()
+            .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC)
+            .set_owner(owner);
+        let _ = constrain_get_notes_internal(context, storage_slot, opt_notes, options);
+    });
+}
+
+#[test]
+unconstrained fn constrain_view_note_processes_valid_note() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| {
+        let contract_address = context.this_address();
+        let note = build_valid_retrieved_note(contract_address, 13);
+
+        let (returned_note, _) =
+            constrain_view_note(context, note, Option::some(owner), storage_slot);
+
+        assert_eq(returned_note.note.value, 13);
+        assert_eq(context.note_hash_read_requests.len(), 1);
+    });
+}
+
+#[test]
+unconstrained fn constrain_view_note_processes_valid_note_when_not_filtering_by_owner() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| {
+        let contract_address = context.this_address();
+        // it doesn't matter what owner is in the following note as in the call to constrain_view_note we don't set the
+        // owner.
+        let note = build_valid_retrieved_note(contract_address, 13);
+
+        let (returned_note, _) = constrain_view_note(context, note, Option::none(), storage_slot);
+
+        assert_eq(returned_note.note.value, 13);
+        assert_eq(context.note_hash_read_requests.len(), 1);
+    });
+}
+
+#[test(should_fail_with = "Note contract address mismatch.")]
+unconstrained fn constrain_view_note_rejects_mismatched_address() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| {
+        // Create a note with a different contract address than the one in the context.
+        let different_address = AztecAddress::from_field(random());
+        let note = MockNote::new(1)
+            .contract_address(different_address)
+            .owner(owner)
+            .build_retrieved_note();
+
+        let _ = constrain_view_note(context, note, Option::some(owner), storage_slot);
+    });
+}
+
+#[test(should_fail_with = "Note owner mismatch.")]
+unconstrained fn constrain_view_note_rejects_mismatched_owner() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| {
+        let contract_address = context.this_address();
+        // Create a note with a different owner than the one in the context.
+        let different_owner = AztecAddress::from_field(random());
+        let note = MockNote::new(1)
+            .contract_address(contract_address)
+            .owner(different_owner)
+            .build_retrieved_note();
+
+        let _ = constrain_view_note(context, note, Option::some(owner), storage_slot);
     });
 }

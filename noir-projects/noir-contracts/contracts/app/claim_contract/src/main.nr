@@ -41,15 +41,18 @@ pub contract Claim {
             "Note does not correspond to the target contract",
         );
 
-        // 2) Prove that the note hash exists in the note hash tree
-        // Note: Only the msg_sender is allowed to claim a note. If the owner is incorrect, we will fail to prove note
-        // inclusion below (owner has been included in the note hash preimage).
-        let owner = self.msg_sender().unwrap();
+        // 2) Check that the note is owned by the msg_sender
+        assert(
+            proof_retrieved_note.owner == self.msg_sender().unwrap(),
+            "Note is not owned by the msg_sender",
+        );
+
+        // 3) Prove that the note hash exists in the note hash tree
         let note_storage_slot = Crowdfunding::storage_layout().donation_receipts.slot;
         let header = self.context.get_anchor_block_header();
-        header.prove_note_inclusion(proof_retrieved_note, owner, note_storage_slot);
+        header.prove_note_inclusion(proof_retrieved_note, note_storage_slot);
 
-        // 3) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
+        // 4) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
         // claimed only once with the given note.
         // Note: Only the owner of the npk_m will be able to produce the nsk_app and compute this nullifier.
         // The nullifier is unique to the note and THIS contract because the protocol siloes all nullifiers with
@@ -57,15 +60,15 @@ pub contract Claim {
         // TODO(#7775): manually computing the hash and passing it to compute_nullifier func is not great as note could
         // handle it on its own or we could make prove_note_inclusion return note_hash_for_nullification.
         let note_hash_for_nullification =
-            compute_note_hash_for_nullification(proof_retrieved_note, owner, note_storage_slot);
+            compute_note_hash_for_nullification(proof_retrieved_note, note_storage_slot);
         let nullifier = proof_retrieved_note.note.compute_nullifier(
             self.context,
-            owner,
+            proof_retrieved_note.owner,
             note_hash_for_nullification,
         );
         self.context.push_nullifier(nullifier);
 
-        // 4) Finally we mint the reward token to the sender of the transaction
+        // 5) Finally we mint the reward token to the sender of the transaction
         self.enqueue(Token::at(self.storage.reward_token.read()).mint_to_public(
             recipient,
             proof_retrieved_note.note.value,
