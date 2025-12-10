@@ -13,7 +13,7 @@ export async function createWeb3SignerKeystore(dir: string, ...privateKeys: EthP
       pk => `\
 type: file-raw
 keyType: SECP256K1
-privateKey: ${pk}`,
+privateKey: ${pk.getValue()}`,
     )
     .join('\n---\n');
 
