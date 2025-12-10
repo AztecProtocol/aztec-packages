@@ -185,14 +185,7 @@ typename TranslatorVerifier_<Flavor>::VerificationResult TranslatorVerifier_<Fla
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
     // Create padding indicator array
-    std::vector<FF> padding_indicator_array(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
-    if constexpr (IsRecursive) {
-        FF one{ 1 };
-        one.convert_constant_to_fixed_witness(builder);
-        std::ranges::fill(padding_indicator_array, one);
-    } else {
-        std::ranges::fill(padding_indicator_array, FF{ 1 });
-    }
+    std::vector<FF> padding_indicator_array(TranslatorFlavor::CONST_TRANSLATOR_LOG_N, FF(1));
 
     auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
@@ -201,7 +194,6 @@ typename TranslatorVerifier_<Flavor>::VerificationResult TranslatorVerifier_<Fla
 
     // Execute Shplemini
     bool consistency_checked = false;
-
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted_without_interleaved(),
                                  sumcheck_output.claimed_evaluations.get_unshifted_without_interleaved() },

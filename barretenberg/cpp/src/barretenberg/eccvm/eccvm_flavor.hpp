@@ -820,8 +820,8 @@ class ECCVMFlavor {
 
         // Identity point for PCS operations (Shplemini/Shplonk)
         Commitment pcs_g1_identity = []() {
-            auto temp_vk = VerifierCommitmentKey(1); // Just need the identity (first point)
-            return temp_vk.get_g1_identity();
+            auto pcs_vk = VerifierCommitmentKey(1); // Just need the identity (first point)
+            return pcs_vk.get_g1_identity();
         }();
 
         // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
