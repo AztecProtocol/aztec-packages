@@ -43,7 +43,7 @@ void Goblin::prove_eccvm()
 
     // Compute IPA proof for the opening claim
     auto ipa_transcript = std::make_shared<NativeTranscript>();
-    IPA::compute_opening_proof(eccvm_prover.key->commitment_key, opening_claim, ipa_transcript);
+    IPA_PCS::compute_opening_proof(eccvm_prover.key->commitment_key, opening_claim, ipa_transcript);
     goblin_proof.ipa_proof = ipa_transcript->export_proof();
 
     translation_batching_challenge_v = eccvm_prover.batching_challenge_v;
