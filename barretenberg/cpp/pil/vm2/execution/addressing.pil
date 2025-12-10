@@ -1,6 +1,5 @@
 include "../memory.pil";
 include "../precomputed.pil";
-include "../range_check.pil";
 include "../constants_gen.pil";
 include "../gt.pil";
 
