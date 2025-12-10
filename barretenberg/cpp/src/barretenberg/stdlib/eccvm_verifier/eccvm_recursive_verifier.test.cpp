@@ -40,6 +40,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
+
+    using PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
@@ -93,7 +95,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
 
         // Compute IPA proof
         auto ipa_transcript = std::make_shared<Transcript>();
-        ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+        PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
         HonkProof ipa_proof = ipa_transcript->export_proof();
 
         auto verification_key = std::make_shared<InnerFlavor::VerificationKey>(prover.key);
@@ -176,7 +178,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
 
         // Compute IPA proof
         auto ipa_transcript = std::make_shared<Transcript>();
-        ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+        PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
         HonkProof ipa_proof = ipa_transcript->export_proof();
 
         auto verification_key = std::make_shared<InnerFlavor::VerificationKey>(prover.key);
@@ -205,7 +207,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
 
             // Compute IPA proof
             auto ipa_transcript_prover = std::make_shared<Transcript>();
-            ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript_prover);
+            PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript_prover);
             HonkProof ipa_proof_native = ipa_transcript_prover->export_proof();
 
             // Tamper with the proof to be verified
@@ -254,7 +256,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
 
             // Compute IPA proof
             auto ipa_transcript = std::make_shared<Transcript>();
-            ECCVMFlavor::PCS::compute_opening_proof(inner_prover.key->commitment_key, opening_claim, ipa_transcript);
+            PCS::compute_opening_proof(inner_prover.key->commitment_key, opening_claim, ipa_transcript);
             HonkProof ipa_proof = ipa_transcript->export_proof();
 
             // Create a recursive verification circuit for the proof of the inner circuit

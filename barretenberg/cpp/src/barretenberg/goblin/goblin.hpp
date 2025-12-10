@@ -44,6 +44,7 @@ class Goblin {
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
     using RecursiveTranscript = MegaStdlibTranscript;
     using TranslatorInputData = TranslatorInputData_<fq>;
+    using IPA = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     CommitmentKey<curve::BN254> commitment_key;

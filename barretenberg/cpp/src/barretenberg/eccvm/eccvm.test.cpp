@@ -23,6 +23,7 @@ using FF = ECCVMFlavor::FF;
 using PK = ECCVMFlavor::ProvingKey;
 using Transcript = ECCVMFlavor::Transcript;
 using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
+using PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
 class ECCVMTests : public ::testing::Test {
   protected:
     void SetUp() override { srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
@@ -149,7 +150,7 @@ TEST_F(ECCVMTests, ZeroesCoefficients)
 
     // Compute IPA proof
     auto ipa_transcript = std::make_shared<Transcript>();
-    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
@@ -174,7 +175,7 @@ TEST_F(ECCVMTests, PointAtInfinity)
     auto [proof, opening_claim] = prover.construct_proof();
 
     auto ipa_transcript = std::make_shared<Transcript>();
-    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
@@ -209,7 +210,7 @@ TEST_F(ECCVMTests, ScalarEdgeCase)
     auto [proof, opening_claim] = prover.construct_proof();
 
     auto ipa_transcript = std::make_shared<Transcript>();
-    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
@@ -250,7 +251,7 @@ TEST_F(ECCVMTests, BaseCaseFixedSize)
     auto [proof, opening_claim] = prover.construct_proof();
 
     auto ipa_transcript = std::make_shared<Transcript>();
-    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
@@ -279,7 +280,7 @@ TEST_F(ECCVMTests, EqFailsFixedSize)
     auto [proof, opening_claim] = prover.construct_proof();
 
     auto ipa_transcript = std::make_shared<Transcript>();
-    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
@@ -378,8 +379,6 @@ TEST_F(ECCVMTests, FixedVK)
     ECCVMFlavor::VerificationKey fixed_vk{};
     // Generate a VK from PK
     ECCVMFlavor::VerificationKey vk_computed_by_prover(prover.key);
-
-    // The pcs_g1_identity is the same in both VKs (just the generator point), so no need to zero it out
 
     auto labels = verifier.key->get_labels();
     size_t index = 0;

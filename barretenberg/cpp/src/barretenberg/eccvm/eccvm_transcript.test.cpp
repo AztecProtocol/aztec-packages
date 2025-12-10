@@ -29,7 +29,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
     using FF = grumpkin::fr;
     using Flavor = ECCVMFlavor;
     using Transcript = Flavor::Transcript;
-
+    using PCS = IPA<Flavor::Curve, CONST_ECCVM_LOG_N>;
     /**
      * @brief Construct a manifest for a ECCVM Honk proof
      *
@@ -312,7 +312,7 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     // Compute IPA proof with manifest enabled
     auto ipa_transcript = std::make_shared<Transcript>();
     ipa_transcript->enable_manifest();
-    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
     auto manifest_expected = this->construct_eccvm_honk_manifest();
@@ -354,7 +354,7 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
     // Compute IPA proof with manifest enabled
     auto prover_ipa_transcript = std::make_shared<Transcript>();
     prover_ipa_transcript->enable_manifest();
-    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, prover_ipa_transcript);
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, prover_ipa_transcript);
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();

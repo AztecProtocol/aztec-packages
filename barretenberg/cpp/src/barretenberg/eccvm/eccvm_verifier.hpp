@@ -28,7 +28,7 @@ template <typename Flavor> class ECCVMVerifier_ {
     using VerifierCommitments = Flavor::VerifierCommitments;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using Proof = Flavor::Proof;
-    using PCS = Flavor::PCS;
+    using PCS = IPA<Curve, CONST_ECCVM_LOG_N>;
     using TranslatorInputData = TranslatorInputData_<FF>;
 
     static constexpr bool IsRecursive = Curve::is_stdlib_type;

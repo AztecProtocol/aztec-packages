@@ -38,7 +38,6 @@ class ECCVMFlavor {
     using CycleGroup = bb::g1;
     using Curve = curve::Grumpkin;
     using G1 = typename Curve::Group;
-    using PCS = IPA<Curve>;
     using FF = typename Curve::ScalarField;
     using BF = typename Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;

@@ -25,7 +25,6 @@ class ECCVMProver {
     using FF = Flavor::FF;
     using BF = Flavor::BF;
     using Commitment = Flavor::Commitment;
-    using PCS = Flavor::PCS;
     using CommitmentKey = Flavor::CommitmentKey;
     using ProvingKey = Flavor::ProvingKey;
     using Polynomial = Flavor::Polynomial;
