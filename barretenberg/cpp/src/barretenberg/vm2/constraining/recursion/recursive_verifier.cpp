@@ -103,8 +103,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     transcript->load_proof(stdlib_proof);
 
-    // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the add_to_hash_buffer.
-    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/16716) For now we are unsetting the free witness tags
     // to stop triggering the Origin Tag security mechanism, but the problem is that the VK is not hashed.
     for (auto& comm : key->get_all()) {
