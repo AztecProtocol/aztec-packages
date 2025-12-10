@@ -179,11 +179,12 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
 fi
 
 function track_test {
+  if [ "$CI" -eq 0 ]; then
+    return
+  fi
   # For the next branch, we track tests in merge queues only.
-  # This means that in-PR tests for other branches get into history,
-  # but it's better to have the noise than lack of data.
-  # Skip tracking for non-merge-queue PRs on next branch
-  if [ "$is_merge_queue" -eq 1 ] || [[ -n "${TARGET_BRANCH:-}" && "$TARGET_BRANCH" != "next" ]]; then
+  # For version branches, we don't assume there is a merge queue.
+  if [ "$is_merge_queue" -eq 1 ] || [[ -n "${TARGET_BRANCH:-}" && "$TARGET_BRANCH" =~ ^v[0-9] ]]; then
     local key=$1
     local line=$(pr_link "$2")
 
