@@ -20,7 +20,6 @@ pub contract PrivateToken {
     #[initializer]
     fn constructor(initial_supply: u64, owner: AztecAddress) {
         self.storage.balances.at(owner).add(initial_supply as u128).deliver(
-            owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
@@ -29,7 +28,6 @@ pub contract PrivateToken {
     #[external("private")]
     fn mint(amount: u64, owner: AztecAddress) {
         self.storage.balances.at(owner).add(amount as u128).deliver(
-            owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
@@ -38,11 +36,9 @@ pub contract PrivateToken {
     #[external("private")]
     fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress) {
         self.storage.balances.at(sender).sub(amount as u128).deliver(
-            sender,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
         self.storage.balances.at(recipient).add(amount as u128).deliver(
-            recipient,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
