@@ -85,6 +85,7 @@
 #include "barretenberg/vm2/simulation/standalone/pure_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_execution_components.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_to_radix.hpp"
@@ -397,7 +398,6 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     NoopEventEmitter<EccAddEvent> ecc_add_emitter;
     NoopEventEmitter<ScalarMulEvent> scalar_mul_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
-    NoopEventEmitter<KeccakF1600Event> keccakf1600_emitter;
     NoopEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
     NoopEventEmitter<MerkleCheckEvent> merkle_check_emitter;
     NoopEventEmitter<RangeCheckEvent> range_check_emitter;
@@ -425,7 +425,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     PureAlu alu;
     PureBitwise bitwise;
     Sha256 sha256(execution_id_manager, bitwise, greater_than, sha256_compression_emitter);
-    KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check, greater_than);
+    PureKeccakF1600 keccakf1600;
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
 
