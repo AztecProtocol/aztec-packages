@@ -270,7 +270,11 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
         execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
 
     NoopDebugLogger debug_log_component;
-    NoopCallStackMetadataCollector call_stack_metadata_collector;
+    auto call_stack_metadata_collector =
+        config.collect_call_metadata ? static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
+                                           std::make_unique<CallStackMetadataCollector>(config.collection_limits))
+                                     : static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
+                                           std::make_unique<NoopCallStackMetadataCollector>());
 
     Execution execution(alu,
                         bitwise,
@@ -291,7 +295,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
                         emit_unencrypted_log_component,
                         debug_log_component,
                         merkle_db,
-                        call_stack_metadata_collector);
+                        *call_stack_metadata_collector);
 
     TxExecution tx_execution(execution,
                              context_provider,
@@ -302,7 +306,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
                              side_effect_tracker,
                              field_gt,
                              poseidon2,
-                             call_stack_metadata_collector,
+                             *call_stack_metadata_collector,
                              tx_event_emitter);
 
     PublicInputsBuilder public_inputs_builder;
@@ -368,7 +372,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
         .gas_used = tx_execution_result.gas_used,
         .revert_code = tx_execution_result.revert_code,
         .public_tx_effect = extract_public_tx_effect(tx_execution_result, side_effect_tracker),
-        .call_stack_metadata = call_stack_metadata_collector.dump_call_stack_metadata(),
+        .call_stack_metadata = call_stack_metadata_collector->dump_call_stack_metadata(),
         .logs = debug_log_component.dump_logs(),
         .public_inputs =
             config.collect_public_inputs ? std::make_optional(public_inputs_builder.build()) : std::nullopt,
@@ -597,7 +601,7 @@ TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection(
     hinting_contract_db.dump_hints(collected_hints);
     hinting_merkle_db.dump_hints(collected_hints);
 
-    tx_result.hints = collected_hints;
+    tx_result.hints = std::move(collected_hints);
     return tx_result;
 }
 
