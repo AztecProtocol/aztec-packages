@@ -41,6 +41,7 @@ import getPort from 'get-port';
 import os from 'os';
 import path from 'path';
 import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract } from 'viem';
+import { foundry } from 'viem/chains';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
@@ -150,7 +151,7 @@ describe('e2e_p2p_add_rollup', () => {
     );
     const { rollup: newRollup } = await deployRollupForUpgrade(
       t.baseAccountPrivateKey,
-      l1TxUtils.client.chain.rpcUrls[0].http[0],
+      t.ctx.aztecNodeConfig.l1RpcUrls[0],
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       t.logger,
       {

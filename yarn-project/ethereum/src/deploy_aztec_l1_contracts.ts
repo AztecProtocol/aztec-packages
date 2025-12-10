@@ -211,7 +211,6 @@ export async function deployAztecL1Contracts(
       '--broadcast',
       '--batch-size',
       MAGIC_TRANSACTION_BATCH_SIZE.toString(),
-      '-vvvv',
     ];
     const proc = spawn('forge', forgeArgs, {
       cwd: l1ContractsPath,
@@ -265,12 +264,6 @@ export async function deployAztecL1Contracts(
 
   const rollup = new RollupContract(l1Client, result.rollupAddress);
 
-  const registryContract = new RegistryContract(l1Client, result.registryAddress);
-
-  const test = await rollup.getVersion();
-  logger.info(`Deployed rollup contract version: ${test}`);
-  console.log(await registryContract.getGovernanceAddresses());
-  console.log(EthAddress.fromString(result.governanceAddress));
   if (isAnvilTestChain(chain.id)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
     //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
