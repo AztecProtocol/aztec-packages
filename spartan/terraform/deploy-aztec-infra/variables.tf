@@ -221,7 +221,12 @@ variable "PROVER_TEST_DELAY_TYPE" {
   description = "The type of test delay to introduce in the prover (fixed, realistic)"
   type        = string
   default     = "fixed"
+}
 
+variable "PROVER_AGENT_PROOF_TYPES" {
+  description = "The types of proofs these agents will run. Default: all"
+  type        = list(string)
+  default     = []
 }
 
 variable "PROVER_PUBLISHERS_PER_PROVER" {
@@ -640,6 +645,12 @@ variable "P2P_PUBLIC_IP" {
 # Controls whether to expose P2P via NodePort instead of hostPort. Recommended true for KIND/local.
 variable "P2P_NODEPORT_ENABLED" {
   description = "Enable NodePort for P2P service (true for KIND/local, false for GKE by default)"
+  type        = bool
+  default     = false
+}
+
+variable "DEBUG_FORCE_TX_PROOF_VERIFICATION" {
+  description = "Whether to force tx proof verification. Only has an effect if real proving is turned off"
   type        = bool
   default     = false
 }

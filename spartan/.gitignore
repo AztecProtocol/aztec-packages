@@ -12,6 +12,8 @@ environments/*
 !environments/testnet.env
 !environments/testnet-canary.env
 !environments/devnet.env
+!environments/devnet-next.env
+!environments/devnet-avm-prover.env
 !environments/next-net.env
 !environments/next-scenario.env
 !environments/ignition-fisherman.env
