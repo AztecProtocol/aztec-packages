@@ -1,6 +1,6 @@
 import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { Ecdsa } from '@aztec/foundation/crypto';
-import type { Fr } from '@aztec/foundation/fields';
+import { Ecdsa } from '@aztec/foundation/crypto/ecdsa';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 

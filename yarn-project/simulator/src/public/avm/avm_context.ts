@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';

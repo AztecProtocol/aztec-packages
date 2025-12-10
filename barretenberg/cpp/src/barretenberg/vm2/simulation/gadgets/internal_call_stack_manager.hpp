@@ -1,8 +1,8 @@
 #pragma once
 
 #include <cstdint>
-#include <stack>
 #include <stdexcept>
+#include <vector>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -13,6 +13,7 @@ namespace bb::avm2::simulation {
 
 struct InternalCallPtr {
     InternalCallId return_id;
+    PC caller_pc;
     PC return_pc;
 };
 
@@ -25,11 +26,12 @@ class InternalCallStackManager : public InternalCallStackManagerInterface {
         , internal_call_stack_events(emitter)
     {}
 
-    void push(PC return_pc) override;
+    void push(PC caller_pc, PC return_pc) override;
     PC pop() override;
     InternalCallId get_next_call_id() const override;
     InternalCallId get_call_id() const override;
     InternalCallId get_return_call_id() const override;
+    std::vector<PC> get_current_call_stack() const override;
 
   private:
     InternalCallId next_internal_call_id = 2;    // dont start at 0
@@ -38,7 +40,8 @@ class InternalCallStackManager : public InternalCallStackManagerInterface {
 
     uint32_t context_id;
 
-    std::stack<InternalCallPtr> internal_call_stack;
+    // NOTE: Using vector because we need iterators.
+    std::vector<InternalCallPtr> internal_call_stack;
     EventEmitterInterface<InternalCallStackEvent>& internal_call_stack_events;
 };
 

@@ -43,11 +43,15 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
-import { Grumpkin, SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
+import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { SchnorrSignature } from '@aztec/foundation/crypto/schnorr';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable, Serializable, Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
@@ -694,7 +698,7 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
   return GlobalVariables.from({
     chainId: new Fr(seed),
     version: new Fr(seed + 1),
-    blockNumber: seed + 2,
+    blockNumber: BlockNumber(seed + 2),
     slotNumber: SlotNumber(seed + 3),
     timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
@@ -916,8 +920,8 @@ export function makeL2BlockHeader(
     overrides?.contentCommitment ?? makeContentCommitment(seed + 0x200),
     overrides?.state ?? makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
-      ...(blockNumber ? { blockNumber } : {}),
-      ...(slotNumber ? { slotNumber: SlotNumber(slotNumber) } : {}),
+      ...(blockNumber !== undefined ? { blockNumber: BlockNumber(blockNumber) } : {}),
+      ...(slotNumber !== undefined ? { slotNumber: SlotNumber(slotNumber) } : {}),
     }),
     new Fr(seed + 0x800),
     new Fr(seed + 0x900),

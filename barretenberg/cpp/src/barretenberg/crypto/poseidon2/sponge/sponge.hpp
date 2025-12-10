@@ -30,134 +30,81 @@ namespace bb::crypto {
  * @tparam Permutation
  */
 template <typename FF, size_t rate, size_t capacity, size_t t, typename Permutation> class FieldSponge {
-  public:
-    /**
-     * @brief Defines what phase of the sponge algorithm we are in.
-     *
-     *        ABSORB: 'absorbing' field elements into the sponge
-     *        SQUEEZE: compressing the sponge and extracting a field element
-     *
-     */
-    enum Mode {
-        ABSORB,
-        SQUEEZE,
-    };
-
+  private:
     // sponge state. t = rate + capacity. capacity = 1 field element (~256 bits)
-    std::array<FF, t> state;
+    std::array<FF, t> state{};
 
     // cached elements that have been absorbed.
-    std::array<FF, rate> cache;
+    std::array<FF, rate> cache{};
     size_t cache_size = 0;
-    Mode mode = Mode::ABSORB;
 
-    FieldSponge(FF domain_iv = 0)
-    {
-        for (size_t i = 0; i < rate; ++i) {
-            state[i] = 0;
-        }
-        state[rate] = domain_iv;
-    }
+    FieldSponge(FF domain_iv) { state[rate] = domain_iv; }
 
-    std::array<FF, rate> perform_duplex()
+    void perform_duplex()
     {
-        // zero-pad the cache
-        for (size_t i = cache_size; i < rate; ++i) {
-            cache[i] = 0;
-        }
-        // add the cache into sponge state
+        // Add the cache into sponge state
         for (size_t i = 0; i < rate; ++i) {
             state[i] += cache[i];
         }
+
+        // Apply permutation
         state = Permutation::permutation(state);
-        // return `rate` number of field elements from the sponge state.
-        std::array<FF, rate> output;
-        for (size_t i = 0; i < rate; ++i) {
-            output[i] = state[i];
-        }
-        return output;
+
+        // Reset the cache
+        cache = {};
     }
 
     void absorb(const FF& input)
     {
-        if (mode == Mode::ABSORB && cache_size == rate) {
-            // If we're absorbing, and the cache is full, apply the sponge permutation to compress the cache
+        if (cache_size == rate) {
+            // If the cache is full, apply the sponge permutation to compress the cache
             perform_duplex();
             cache[0] = input;
             cache_size = 1;
-        } else if (mode == Mode::ABSORB && cache_size < rate) {
-            // If we're absorbing, and the cache is not full, add the input into the cache
+        } else {
+            // If the cache is not full, add the input into the cache
             cache[cache_size] = input;
             cache_size += 1;
-        } else if (mode == Mode::SQUEEZE) {
-            // If we're in squeeze mode, switch to absorb mode and add the input into the cache.
-            // N.B. I don't think this code path can be reached?!
-            cache[0] = input;
-            cache_size = 1;
-            mode = Mode::ABSORB;
         }
     }
 
     FF squeeze()
     {
-        if (mode == Mode::SQUEEZE && cache_size == 0) {
-            // If we're in squeze mode and the cache is empty, there is nothing left to squeeze out of the sponge!
-            // Switch to absorb mode.
-            mode = Mode::ABSORB;
-            cache_size = 0;
-        }
-        if (mode == Mode::ABSORB) {
-            // If we're in absorb mode, apply sponge permutation to compress the cache, populate cache with compressed
-            // state and switch to squeeze mode. Note: this code block will execute if the previous `if` condition was
-            // matched
-            auto new_output_elements = perform_duplex();
-            mode = Mode::SQUEEZE;
-            for (size_t i = 0; i < rate; ++i) {
-                cache[i] = new_output_elements[i];
-            }
-            cache_size = rate;
-        }
-        // By this point, we should have a non-empty cache. Pop one item off the top of the cache and return it.
-        FF result = cache[0];
-        for (size_t i = 1; i < cache_size; ++i) {
-            cache[i - 1] = cache[i];
-        }
-        cache_size -= 1;
-        cache[cache_size] = 0;
-        return result;
+        perform_duplex();
+        return state[0];
+    }
+
+  public:
+    /**
+     * @brief Use the sponge to hash an input vector.
+     *
+     * @param input Field elements (a_0, ..., a_{N-1})
+     * @return Hash of the input, a single field element.
+     */
+    static FF hash_internal(std::span<const FF> input)
+    {
+        const size_t in_len = input.size();
+        const uint256_t iv = (static_cast<uint256_t>(in_len) << 64);
+        return hash_internal(input, iv);
     }
 
     /**
-     * @brief Use the sponge to hash an input string
+     * @brief Use the sponge to hash an input vector with a custom IV.
      *
-     * @tparam out_len
-     * @param input
-     * @return std::array<FF, out_len>
+     * @param input Field elements (a_0, ..., a_{N-1})
+     * @param iv Initial value for domain separation
+     * @return Hash of the input, a single field element.
      */
-    template <size_t out_len> static std::array<FF, out_len> hash_internal(std::span<const FF> input)
-    {
-        size_t in_len = input.size();
-        const uint256_t iv = (static_cast<uint256_t>(in_len) << 64) + out_len - 1;
-        return hash_internal<out_len>(input, iv);
-    }
-
-    template <size_t out_len> static std::array<FF, out_len> hash_internal(std::span<const FF> input, FF iv)
+    static FF hash_internal(std::span<const FF> input, FF iv)
     {
         FieldSponge sponge(iv);
 
-        size_t in_len = input.size();
+        const size_t in_len = input.size();
         for (size_t i = 0; i < in_len; ++i) {
             sponge.absorb(input[i]);
         }
 
-        std::array<FF, out_len> output;
-        for (size_t i = 0; i < out_len; ++i) {
-            output[i] = sponge.squeeze();
-        }
-        return output;
+        return sponge.squeeze();
     }
-
-    static FF hash_internal(std::span<const FF> input) { return hash_internal<1>(input)[0]; }
-    static FF hash_internal(std::span<const FF> input, FF iv) { return hash_internal<1>(input, iv)[0]; }
 };
 } // namespace bb::crypto

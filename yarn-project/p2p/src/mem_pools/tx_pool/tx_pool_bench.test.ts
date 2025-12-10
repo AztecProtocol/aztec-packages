@@ -1,4 +1,6 @@
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { shuffle } from '@aztec/foundation/array';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { getDefaultConfig } from '@aztec/foundation/config';
 import { Timer } from '@aztec/foundation/timer';
@@ -152,19 +154,13 @@ describe('TxPool: Benchmarks', () => {
     ws = await NativeWorldStateService.tmp();
     const l2 = mock<L2BlockSource & L1ToL2MessageSource>({
       syncImmediate: () => Promise.resolve(),
-      getProvenBlockNumber: () => Promise.resolve(0),
-      getBlockNumber: () => Promise.resolve(0),
+      getProvenBlockNumber: () => Promise.resolve(BlockNumber.ZERO),
+      getBlockNumber: () => Promise.resolve(BlockNumber.ZERO),
       getL2Tips: () =>
         Promise.resolve({
-          latest: {
-            number: 0,
-          },
-          proven: {
-            number: 0,
-          },
-          finalized: {
-            number: 0,
-          },
+          latest: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         }),
     });
     wsSync = new ServerWorldStateSynchronizer(ws, l2, getDefaultConfig(worldStateConfigMappings));

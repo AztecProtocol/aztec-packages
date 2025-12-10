@@ -4,8 +4,8 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import { RollupContract } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { logger, withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -110,13 +110,13 @@ describe('e2e_snapshot_sync', () => {
     log.warn(`New node synced`);
     await expectNodeSyncedToL2Block(node, L2_TARGET_BLOCK_NUM);
 
-    const block = await node.getBlock(L2_TARGET_BLOCK_NUM);
+    const block = await node.getBlock(BlockNumber(L2_TARGET_BLOCK_NUM));
     expect(block).toBeDefined();
     const blockHash = await block!.hash();
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>
-      node.findLeavesIndexes(L2_TARGET_BLOCK_NUM, MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
+      node.findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
     expect(await getBlockHashLeafIndex(context.aztecNode)).toBeDefined();
     expect(await getBlockHashLeafIndex(node)).toBeDefined();
 
@@ -225,13 +225,13 @@ describe('e2e_snapshot_sync', () => {
     log.warn(`New node synced with fallback logic`);
     await expectNodeSyncedToL2Block(node, L2_TARGET_BLOCK_NUM);
 
-    const block = await node.getBlock(L2_TARGET_BLOCK_NUM);
+    const block = await node.getBlock(BlockNumber(L2_TARGET_BLOCK_NUM));
     expect(block).toBeDefined();
     const blockHash = await block!.hash();
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>
-      node.findLeavesIndexes(L2_TARGET_BLOCK_NUM, MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
+      node.findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
     expect(await getBlockHashLeafIndex(context.aztecNode)).toBeDefined();
     expect(await getBlockHashLeafIndex(node)).toBeDefined();
 

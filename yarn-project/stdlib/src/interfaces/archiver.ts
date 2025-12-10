@@ -1,5 +1,5 @@
 import type { L1ContractAddresses } from '@aztec/ethereum';
-import { CheckpointNumberSchema, EpochNumberSchema } from '@aztec/foundation/branded-types';
+import { BlockNumberSchema, CheckpointNumberSchema, EpochNumberSchema } from '@aztec/foundation/branded-types';
 import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -75,24 +75,25 @@ export type ArchiverApi = Omit<
 export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getRollupAddress: z.function().args().returns(schemas.EthAddress),
   getRegistryAddress: z.function().args().returns(schemas.EthAddress),
-  getBlockNumber: z.function().args().returns(schemas.Integer),
-  getProvenBlockNumber: z.function().args().returns(schemas.Integer),
-  getBlock: z.function().args(schemas.Integer).returns(L2Block.schema.optional()),
+  getBlockNumber: z.function().args().returns(BlockNumberSchema),
+  getProvenBlockNumber: z.function().args().returns(BlockNumberSchema),
+  getBlock: z.function().args(BlockNumberSchema).returns(L2Block.schema.optional()),
   getBlockHeader: z
     .function()
-    .args(z.union([schemas.Integer, z.literal('latest')]))
+    .args(z.union([BlockNumberSchema, z.literal('latest')]))
     .returns(BlockHeader.schema.optional()),
   getBlocks: z
     .function()
-    .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
+    .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
     .returns(z.array(L2Block.schema)),
   getPublishedCheckpoints: z
     .function()
-    .args(schemas.Integer, schemas.Integer)
+    .args(CheckpointNumberSchema, schemas.Integer)
     .returns(z.array(PublishedCheckpoint.schema)),
+  getCheckpointByArchive: z.function().args(schemas.Fr).returns(Checkpoint.schema.optional()),
   getPublishedBlocks: z
     .function()
-    .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
+    .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
     .returns(z.array(PublishedL2Block.schema)),
   getPublishedBlockByHash: z.function().args(schemas.Fr).returns(PublishedL2Block.schema.optional()),
   getPublishedBlockByArchive: z.function().args(schemas.Fr).returns(PublishedL2Block.schema.optional()),
@@ -107,7 +108,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),
   isEpochComplete: z.function().args(EpochNumberSchema).returns(z.boolean()),
   getL2Tips: z.function().args().returns(L2TipsSchema),
-  getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
+  getPrivateLogs: z.function().args(BlockNumberSchema, z.number()).returns(z.array(PrivateLog.schema)),
   getLogsByTags: z
     .function()
     .args(z.array(schemas.Fr))
@@ -122,8 +123,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .returns(ContractInstanceWithAddressSchema.optional()),
   getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
   registerContractFunctionSignatures: z.function().args(z.array(z.string())).returns(z.void()),
-  getL1ToL2MessagesForCheckpoint: z.function().args(CheckpointNumberSchema).returns(z.array(schemas.Fr)),
-  getL1ToL2Messages: z.function().args(schemas.Integer).returns(z.array(schemas.Fr)),
+  getL1ToL2Messages: z.function().args(CheckpointNumberSchema).returns(z.array(schemas.Fr)),
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),
   getL1Constants: z.function().args().returns(L1RollupConstantsSchema),

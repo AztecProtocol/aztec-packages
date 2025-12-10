@@ -1,6 +1,12 @@
-import type { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  BlockNumberSchema,
+  type CheckpointNumber,
+  type EpochNumber,
+  type SlotNumber,
+} from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { Fr } from '@aztec/foundation/fields';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -36,27 +42,27 @@ export interface L2BlockSource {
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  getBlockNumber(): Promise<number>;
+  getBlockNumber(): Promise<BlockNumber>;
 
   /**
    * Gets the number of the latest L2 block proven seen by the block source implementation.
    * @returns The number of the latest L2 block proven seen by the block source implementation.
    */
-  getProvenBlockNumber(): Promise<number>;
+  getProvenBlockNumber(): Promise<BlockNumber>;
 
   /**
    * Gets an l2 block. If a negative number is passed, the block returned is the most recent.
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
    */
-  getBlock(number: number): Promise<L2Block | undefined>;
+  getBlock(number: BlockNumber): Promise<L2Block | undefined>;
 
   /**
    * Gets an l2 block header.
    * @param number - The block number to return or 'latest' for the most recent one.
    * @returns The requested L2 block header.
    */
-  getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined>;
+  getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
@@ -65,12 +71,20 @@ export interface L2BlockSource {
    * @param proven - If true, only return blocks that have been proven.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: number, limit: number, proven?: boolean): Promise<L2Block[]>;
+  getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2Block[]>;
 
-  getPublishedCheckpoints(from: number, limit: number): Promise<PublishedCheckpoint[]>;
+  getPublishedCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]>;
+
+  /**
+   * Gets a checkpoint by the archive root, which should be the root of the archive tree after the requested checkpoint
+   * is applied.
+   * @param archive - The new archive root of the checkpoint.
+   * @returns The requested checkpoint (or undefined if not found).
+   */
+  getCheckpointByArchive(archive: Fr): Promise<Checkpoint | undefined>;
 
   /** Equivalent to getBlocks but includes publish data. */
-  getPublishedBlocks(from: number, limit: number, proven?: boolean): Promise<PublishedL2Block[]>;
+  getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<PublishedL2Block[]>;
 
   /**
    * Gets a published block by its hash.
@@ -206,33 +220,26 @@ export type L2BlockTag = 'latest' | 'proven' | 'finalized';
 export type L2Tips = Record<L2BlockTag, L2BlockId>;
 
 /** Identifies a block by number and hash. */
-export type L2BlockId = z.infer<typeof L2BlockIdSchema>;
+export type L2BlockId = { number: BlockNumber; hash: string };
 
 /** Creates an L2 block id */
-export function makeL2BlockId(number: number, hash?: string): L2BlockId {
+export function makeL2BlockId(number: BlockNumber, hash?: string): L2BlockId {
   if (number !== 0 && !hash) {
     throw new Error(`Hash is required for non-genesis blocks (got block number ${number})`);
   }
   return { number, hash: hash! };
 }
 
-// TODO(palla/schemas): This package should know what is the block hash of the genesis block 0.
-const L2BlockIdSchema = z.union([
-  z.object({
-    number: z.literal(0),
-    hash: z.undefined(),
-  }),
-  z.object({
-    number: z.number(),
-    hash: z.string(),
-  }),
-]);
+const L2BlockIdSchema = z.object({
+  number: BlockNumberSchema,
+  hash: z.string(),
+});
 
 export const L2TipsSchema = z.object({
   latest: L2BlockIdSchema,
   proven: L2BlockIdSchema,
   finalized: L2BlockIdSchema,
-}) satisfies z.ZodType<L2Tips>;
+});
 
 export enum L2BlockSourceEvents {
   L2PruneDetected = 'l2PruneDetected',
@@ -242,7 +249,7 @@ export enum L2BlockSourceEvents {
 
 export type L2BlockProvenEvent = {
   type: 'l2BlockProven';
-  blockNumber: bigint;
+  blockNumber: BlockNumber;
   slotNumber: SlotNumber;
   epochNumber: EpochNumber;
 };

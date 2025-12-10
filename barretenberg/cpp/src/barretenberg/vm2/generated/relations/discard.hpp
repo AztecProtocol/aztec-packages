@@ -14,7 +14,7 @@ template <typename FF_> class discardImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 14> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 3, 3, 5, 3, 3, 5, 5, 5, 4, 5, 5 };
+    static constexpr std::array<size_t, 13> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 3, 3, 5, 3, 3, 7, 7, 4, 5, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -41,12 +41,11 @@ template <typename FF> class discard : public Relation<discardImpl<FF>> {
     static constexpr size_t SR_IS_DYING_CONTEXT_CHECK = 5;
     static constexpr size_t SR_RESOLVES_DYING_CONTEXT = 6;
     static constexpr size_t SR_NESTED_CALL_FROM_UNDISCARDED_CONTEXT = 7;
-    static constexpr size_t SR_SHOULD_PROPAGATE_DISCARD = 8;
-    static constexpr size_t SR_DISCARD_PROPAGATION = 9;
-    static constexpr size_t SR_DYING_CONTEXT_PROPAGATION = 10;
-    static constexpr size_t SR_DYING_CONTEXT_MUST_FAIL = 11;
-    static constexpr size_t SR_ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT = 12;
-    static constexpr size_t SR_DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD = 13;
+    static constexpr size_t SR_DISCARD_PROPAGATION = 8;
+    static constexpr size_t SR_DYING_CONTEXT_PROPAGATION = 9;
+    static constexpr size_t SR_DYING_CONTEXT_MUST_FAIL = 10;
+    static constexpr size_t SR_ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT = 11;
+    static constexpr size_t SR_DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD = 12;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -63,8 +62,6 @@ template <typename FF> class discard : public Relation<discardImpl<FF>> {
             return "RESOLVES_DYING_CONTEXT";
         case SR_NESTED_CALL_FROM_UNDISCARDED_CONTEXT:
             return "NESTED_CALL_FROM_UNDISCARDED_CONTEXT";
-        case SR_SHOULD_PROPAGATE_DISCARD:
-            return "SHOULD_PROPAGATE_DISCARD";
         case SR_DISCARD_PROPAGATION:
             return "DISCARD_PROPAGATION";
         case SR_DYING_CONTEXT_PROPAGATION:

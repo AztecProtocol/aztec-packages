@@ -1,8 +1,10 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { getFunctionSelector } from '../avm/fixtures/utils.js';
 
@@ -59,7 +61,7 @@ export class SimpleContractDataSource implements ContractDataSource {
 
   /////////////////////////////////////////////////////////////
   // ContractDataSource function implementations
-  getBlockNumber(): Promise<number> {
+  getBlockNumber(): Promise<BlockNumber> {
     throw new Error('Method not implemented.');
   }
 
@@ -90,19 +92,17 @@ export class SimpleContractDataSource implements ContractDataSource {
     return this.contractArtifacts.get(contractInstance!.currentContractClassId.toString());
   }
 
-  async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string> {
+  async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     const contractInstance = await this.getContract(address);
     if (!contractInstance) {
-      this.logger.warn(
-        `Couldn't get fn name for debugging. Contract not in tester's ContractDataSource. Using selector:${selector} instead...`,
-      );
-      return `selector:${selector.toString()}`;
+      this.logger.warn(`Couldn't get fn name for debugging. Contract not in tester's ContractDataSource.`);
+      return undefined;
     }
     const key = `${contractInstance.currentContractClassId.toString()}:${selector.toString()}`;
     const fnName = this.debugFunctionName.get(key);
     if (!fnName) {
-      this.logger.warn(`Couldn't get fn name for debugging. Using selector:${selector} instead...`);
-      return selector.toString();
+      this.logger.warn(`Couldn't get fn name for debugging...`);
+      return undefined;
     }
     return fnName;
   }
@@ -119,5 +119,43 @@ export class SimpleContractDataSource implements ContractDataSource {
   addContractInstance(contractInstance: ContractInstanceWithAddress): Promise<void> {
     this.contractInstances.set(contractInstance.address.toString(), contractInstance);
     return Promise.resolve();
+  }
+
+  /**
+   * FIXME: This is temporary
+   * Helper method for fuzzer: registers a contract with raw bytecode at a given address.
+   * Creates a minimal ContractClassPublic and ContractInstanceWithAddress.
+   * @param address - The contract address
+   * @param bytecode - The raw AVM bytecode
+   */
+  async addContractWithBytecode(address: AztecAddress, bytecode: Buffer): Promise<void> {
+    // Generate a deterministic class ID from the bytecode
+    const classId = Fr.fromBufferReduce(bytecode.subarray(0, 32));
+
+    // Create minimal ContractClassPublic
+    const contractClass: ContractClassPublic = {
+      id: classId,
+      version: 1 as const,
+      artifactHash: Fr.ZERO,
+      privateFunctionsRoot: Fr.ZERO,
+      privateFunctions: [],
+      utilityFunctions: [],
+      packedBytecode: bytecode,
+    };
+
+    // Create minimal ContractInstanceWithAddress
+    const contractInstance: ContractInstanceWithAddress = {
+      address,
+      version: 1 as const,
+      salt: Fr.ZERO,
+      deployer: address, // Use the contract address as deployer
+      currentContractClassId: classId,
+      originalContractClassId: classId,
+      initializationHash: Fr.ZERO,
+      publicKeys: PublicKeys.default(),
+    };
+
+    await this.addContractClass(contractClass);
+    await this.addContractInstance(contractInstance);
   }
 }

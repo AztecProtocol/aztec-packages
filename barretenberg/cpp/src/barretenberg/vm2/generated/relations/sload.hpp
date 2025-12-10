@@ -14,7 +14,7 @@ template <typename FF_> class sloadImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS = { 3, 3 };
+    static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS = { 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -36,15 +36,12 @@ template <typename FF> class sload : public Relation<sloadImpl<FF>> {
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_SLOAD_FF_OUTPUT_TAG = 0;
-    static constexpr size_t SR_SLOAD_SUCCESS = 1;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
         case SR_SLOAD_FF_OUTPUT_TAG:
             return "SLOAD_FF_OUTPUT_TAG";
-        case SR_SLOAD_SUCCESS:
-            return "SLOAD_SUCCESS";
         }
         return std::to_string(index);
     }

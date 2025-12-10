@@ -32,11 +32,11 @@ import {
   createDelayedL1TxUtilsFromViemWallet,
   startAnvil,
 } from '@aztec/ethereum/test';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -876,7 +876,7 @@ export async function registerSponsoredFPC(wallet: Wallet): Promise<void> {
   await wallet.registerContract(await getSponsoredFPCInstance(), SponsoredFPCContract.artifact);
 }
 
-export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {
+export async function waitForProvenChain(node: AztecNode, targetBlock?: BlockNumber, timeoutSec = 60, intervalSec = 1) {
   targetBlock ??= await node.getBlockNumber();
 
   await retryUntil(

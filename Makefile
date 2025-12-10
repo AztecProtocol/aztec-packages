@@ -35,11 +35,11 @@ define build
 endef
 
 # Collects the test commands from the given project
-# Writes them line-by-line (important to prevent line splitting, lines must be < 4k) to /tmp/test_cmds.
+# Writes the full output to /tmp/test_cmds atomically.
 # The test engine is expected to be running and it will read commands from this file.
 define test
 	$(call run_command,$(1),$(ROOT)/$(2),\
-	  ./bootstrap.sh test_cmds $(3) | $(ROOT)/ci3/filter_test_cmds | tee -a /tmp/test_cmds >/dev/null)
+	  ./bootstrap.sh test_cmds $(3) | $(ROOT)/ci3/filter_test_cmds | $(ROOT)/ci3/atomic_append /tmp/test_cmds)
 endef
 
 #==============================================================================

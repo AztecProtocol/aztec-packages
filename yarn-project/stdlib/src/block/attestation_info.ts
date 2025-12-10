@@ -1,4 +1,4 @@
-import { recoverAddress } from '@aztec/foundation/crypto';
+import { recoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import { ConsensusPayload } from '../p2p/consensus_payload.js';

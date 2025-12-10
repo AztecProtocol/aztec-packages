@@ -38,7 +38,7 @@ struct PhaseLengths {
 };
 
 struct TxStartupEvent {
-    TxContextEvent state;
+    Gas gas_used;
     Gas gas_limit;
     Gas teardown_gas_limit;
     PhaseLengths phase_lengths;
@@ -58,7 +58,6 @@ struct EnqueuedCallEvent {
 
 struct PrivateAppendTreeEvent {
     FF leaf_value = 0;
-    uint64_t size = 0;
 };
 
 struct PrivateEmitL2L1MessageEvent {

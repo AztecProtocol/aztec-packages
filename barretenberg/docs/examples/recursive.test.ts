@@ -70,14 +70,14 @@ describe('Recursive Aggregation Example', () => {
     const { witness: mainWitness } = await mainNoir.execute({ x: 1, y: 2 });
 
     // docs:start:proof_generation
-    // Generate proof for main circuit with keccakZK for recursive verification
+    // Generate proof for main circuit for EVM verification with ZK
     const mainProofData = await mainBackend.generateProof(mainWitness, {
-      keccakZK: true,
+      verifierTarget: 'evm',
     });
 
     // Generate verification key for main circuit
     const mainVerificationKey = await mainBackend.getVerificationKey({
-      keccakZK: true,
+      verifierTarget: 'evm',
     });
     // docs:end:proof_generation
 

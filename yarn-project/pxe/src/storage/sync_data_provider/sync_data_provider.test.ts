@@ -1,5 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { randomInt } from '@aztec/foundation/crypto';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 
@@ -14,7 +15,7 @@ describe('block header', () => {
   });
 
   it('stores and retrieves the block header', async () => {
-    const header = makeBlockHeader(randomInt(1000), { blockNumber: INITIAL_L2_BLOCK_NUM });
+    const header = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
 
     await syncDataProvider.setHeader(header);
     await expect(syncDataProvider.getBlockHeader()).resolves.toEqual(header);
