@@ -55,8 +55,6 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
         const auto public_inputs_flat = PublicInputs::columns_to_flat(public_inputs.to_columns());
 
-        // TODO(#14234)[Unconditional PIs validation]: Remove next line
-        proof.insert(proof.begin(), 0);
         return { proof, public_inputs_flat };
     }
 
