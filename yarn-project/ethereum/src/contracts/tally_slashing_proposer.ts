@@ -1,4 +1,6 @@
-import { type L1TxRequest, type ViemClient, tryExtractEvent } from '@aztec/ethereum';
+import type { L1TxRequest } from '@aztec/ethereum/l1-tx-utils';
+import type { ViemClient } from '@aztec/ethereum/types';
+import { tryExtractEvent } from '@aztec/ethereum/utils';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';

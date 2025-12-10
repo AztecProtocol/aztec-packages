@@ -2,7 +2,7 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { RollupContract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';

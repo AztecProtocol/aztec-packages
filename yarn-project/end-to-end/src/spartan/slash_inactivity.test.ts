@@ -1,6 +1,7 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';

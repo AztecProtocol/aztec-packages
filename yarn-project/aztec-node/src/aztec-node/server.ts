@@ -10,13 +10,10 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
-import {
-  type L1ContractAddresses,
-  RegistryContract,
-  RollupContract,
-  createEthereumChain,
-  getPublicClient,
-} from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { getPublicClient } from '@aztec/ethereum/client';
+import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';

@@ -1,4 +1,4 @@
-import type { EthSigner } from '@aztec/ethereum';
+import type { EthSigner } from '@aztec/ethereum/eth-signer';
 import type { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';

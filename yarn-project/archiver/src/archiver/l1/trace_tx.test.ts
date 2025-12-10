@@ -1,4 +1,4 @@
-import type { TraceTransactionResponse, ViemPublicDebugClient } from '@aztec/ethereum';
+import type { TraceTransactionResponse, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { jest } from '@jest/globals';

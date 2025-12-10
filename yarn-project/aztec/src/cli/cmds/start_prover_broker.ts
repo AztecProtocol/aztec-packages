@@ -1,5 +1,5 @@
 import { getL1Config } from '@aztec/cli/config';
-import { getPublicClient } from '@aztec/ethereum';
+import { getPublicClient } from '@aztec/ethereum/client';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import {
