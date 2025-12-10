@@ -49,8 +49,9 @@ struct AddressingException : public std::runtime_error {
 // We will store the result of the resolution in the resolved_operand field.
 // An immediate operand will never have an error and both resolved_operand
 // and after_relative will be the same as the original operand.
+// Note: after_relative does not need the tag information in trace generation
 struct OperandResolutionInfo {
-    Operand after_relative;
+    FF after_relative = FF::zero();
     Operand resolved_operand;
     std::optional<AddressingEventError> error;
 };

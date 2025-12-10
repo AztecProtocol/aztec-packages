@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -28,7 +30,7 @@ class Addressing final : public AddressingInterface {
     GreaterThanInterface& gt;
     EventEmitterInterface<AddressingEvent>& events;
 
-    bool is_address_out_of_range(const FF& address);
+    bool is_address_out_of_range(uint64_t address);
 };
 
 } // namespace bb::avm2::simulation
