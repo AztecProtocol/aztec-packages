@@ -95,7 +95,7 @@ template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<F
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
-                                               key->pcs_verification_key.get_g1_identity(),
+                                               key->pcs_g1_identity,
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
@@ -123,7 +123,7 @@ template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<F
 
     // Construct the combined opening claim
     const OpeningClaim batch_opening_claim =
-        Shplonk::reduce_verification(key->pcs_verification_key.get_g1_identity(), opening_claims, transcript);
+        Shplonk::reduce_verification(key->pcs_g1_identity, opening_claims, transcript);
 
     sumcheck_verified = sumcheck_output.verified;
     vinfo("eccvm sumcheck verified?: ", sumcheck_verified);

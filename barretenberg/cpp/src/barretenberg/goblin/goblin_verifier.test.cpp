@@ -135,8 +135,8 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 
     // Verify IPA opening
     auto ipa_transcript = std::make_shared<NativeTranscript>(result.ipa_proof);
-    auto vk = ECCVMFlavor::VerifierCommitmentKey{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(vk, result.ipa_claim, ipa_transcript);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, result.ipa_claim, ipa_transcript);
 
     EXPECT_TRUE(pairing_verified && ipa_verified);
 }
@@ -357,8 +357,8 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         auto native_result = native_verifier.verify();
         bool pairing_verified = native_result.pairing_points.check();
         auto ipa_transcript = std::make_shared<NativeTranscript>(native_result.ipa_proof);
-        bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-            ECCVMFlavor::VerifierCommitmentKey{}, native_result.ipa_claim, ipa_transcript);
+        auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+        bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, native_result.ipa_claim, ipa_transcript);
         EXPECT_TRUE(pairing_verified && ipa_verified);
 
         // Tamper with the op commitment in merge commitments (used by Translator verifier)

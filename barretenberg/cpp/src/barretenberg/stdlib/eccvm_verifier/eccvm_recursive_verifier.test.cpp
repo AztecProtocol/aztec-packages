@@ -123,8 +123,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
         // Verify IPA
         auto ipa_verify_transcript = std::make_shared<Transcript>();
         ipa_verify_transcript->load_proof(ipa_proof);
-        bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-            native_verifier.key->pcs_verification_key, native_opening_claim, ipa_verify_transcript);
+        auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+        bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, native_opening_claim, ipa_verify_transcript);
         bool native_result = ipa_verified && native_verifier.sumcheck_verified && native_verifier.consistency_checked &&
                              native_verifier.translation_masking_consistency_checked;
         EXPECT_TRUE(native_result);

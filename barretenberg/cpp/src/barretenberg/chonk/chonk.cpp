@@ -546,20 +546,15 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     GoblinVerifier goblin_verifier{ chonk_verifier_transcript,
                                     proof.goblin_proof,
                                     { t_commitments, T_prev_commitments } };
-    auto goblin_result = goblin_verifier.verify();
-
-    // Check pairing points
-    bool pairing_verified = goblin_result.pairing_points.check();
-    vinfo("Goblin pairing verified: ", pairing_verified);
+    auto [pairing_points, ipa_claim, ipa_proof, goblin_checks_passed] = goblin_verifier.verify();
 
     // Verify IPA opening
-    auto ipa_transcript = std::make_shared<Goblin::Transcript>(goblin_result.ipa_proof);
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>();
-    bool ipa_verified =
-        ECCVMFlavor::PCS::reduce_verify(eccvm_vk->pcs_verification_key, goblin_result.ipa_claim, ipa_transcript);
+    auto ipa_transcript = std::make_shared<Goblin::Transcript>(ipa_proof);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, ipa_claim, ipa_transcript);
     vinfo("Goblin IPA verified: ", ipa_verified);
 
-    bool goblin_verified = pairing_verified && ipa_verified;
+    bool goblin_verified = goblin_checks_passed && ipa_verified;
     vinfo("Goblin verified: ", goblin_verified);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in Chonk verifiers.

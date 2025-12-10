@@ -157,8 +157,8 @@ TEST_F(ECCVMTests, ZeroesCoefficients)
 
     // Verify IPA
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
-    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, verifier_opening_claim, ipa_verifier_transcript);
 
     bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
                     verifier.translation_masking_consistency_checked;
@@ -181,8 +181,8 @@ TEST_F(ECCVMTests, PointAtInfinity)
     auto verifier_opening_claim = verifier.verify_proof();
 
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
-    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, verifier_opening_claim, ipa_verifier_transcript);
 
     bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
                     verifier.translation_masking_consistency_checked;
@@ -216,8 +216,8 @@ TEST_F(ECCVMTests, ScalarEdgeCase)
     auto verifier_opening_claim = verifier.verify_proof();
 
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
-    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, verifier_opening_claim, ipa_verifier_transcript);
 
     bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
                     verifier.translation_masking_consistency_checked;
@@ -257,8 +257,8 @@ TEST_F(ECCVMTests, BaseCaseFixedSize)
     auto verifier_opening_claim = verifier.verify_proof();
 
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
-    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, verifier_opening_claim, ipa_verifier_transcript);
 
     bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
                     verifier.translation_masking_consistency_checked;
@@ -286,8 +286,8 @@ TEST_F(ECCVMTests, EqFailsFixedSize)
     auto verifier_opening_claim = verifier.verify_proof();
 
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
-    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, verifier_opening_claim, ipa_verifier_transcript);
 
     bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
                     verifier.translation_masking_consistency_checked;
@@ -379,9 +379,7 @@ TEST_F(ECCVMTests, FixedVK)
     // Generate a VK from PK
     ECCVMFlavor::VerificationKey vk_computed_by_prover(prover.key);
 
-    // Set verifier PCS key to null in both the fixed VK and the generated VK
-    fixed_vk.pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
-    vk_computed_by_prover.pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
+    // The pcs_g1_identity is the same in both VKs (just the generator point), so no need to zero it out
 
     auto labels = verifier.key->get_labels();
     size_t index = 0;
