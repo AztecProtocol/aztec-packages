@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <optional>
 #include <vector>
 
@@ -13,6 +14,19 @@
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Resolve the operands of an instruction. If the operands are non addresses, they are returned as is.
+ * If the operands are addresses, we apply relative addressing and indirection to them. We emit an event of type
+ * AddressingEvent with the resolution information.
+ *
+ * @param instruction the instruction to resolve
+ * @param memory the memory to use
+ * @return std::vector<Operand> the resolved operands
+ * @throws AddressingException if an error occurs:
+ * - BASE_ADDRESS_INVALID: the base address is invalid
+ * - RELATIVE_COMPUTATION_OOB: the relative address computation overflowed
+ * - INVALID_ADDRESS_AFTER_INDIRECTION: the address obtained after applying indirection is invalid
+ */
 std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryInterface& memory)
 {
     BB_BENCH_NAME("Addressing::resolve");
@@ -137,6 +151,13 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
     return resolved_operands;
 }
 
+/**
+ * @brief Checks if an address as uint64_t is out of range. Emit a gt event comparing the address to
+ * AVM_HIGHEST_MEM_ADDRESS.
+ *
+ * @param address as uint64_t
+ * @return true if the address is out of range, false otherwise
+ */
 bool Addressing::is_address_out_of_range(uint64_t address)
 {
     return gt.gt(address, AVM_HIGHEST_MEM_ADDRESS);
