@@ -1,9 +1,11 @@
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 
+#include <cstdint>
 #include <vector>
 
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 
 using namespace bb::avm2::simulation;
 using namespace bb::crypto::merkle_tree;
@@ -186,40 +188,31 @@ void FuzzerLowLevelDB::insert_contract_address(const AztecAddress& contract_addr
 ////////////////////////////////
 /// ContractDBInterface methods
 ////////////////////////////////
-std::optional<ContractInstance> FuzzerContractDB::get_contract_instance(
-    [[maybe_unused]] const AztecAddress& address) const
+std::optional<ContractInstance> FuzzerContractDB::get_contract_instance(const AztecAddress& address) const
 {
-    ContractInstance instance = {
-        .salt = FF(0),
-        .deployer = AztecAddress(0),
-        .current_contract_class_id = ContractClassId(0),
-        .original_contract_class_id = ContractClassId(0),
-        .initialization_hash = FF(0),
-        .public_keys = {
-            .nullifier_key = { FF(0), FF(0) },
-            .incoming_viewing_key = { FF(0), FF(0) },
-            .outgoing_viewing_key = { FF(0), FF(0) },
-            .tagging_key = { FF(0), FF(0) },
-        },
-    };
-
-    return instance;
-}
-std::optional<ContractClass> FuzzerContractDB::get_contract_class(
-    [[maybe_unused]] const ContractClassId& class_id) const
-{
-
-    ContractClass klass = {
-        .artifact_hash = FF(0),
-        .private_functions_root = FF(0),
-        .packed_bytecode = bytecode,
-    };
-    return klass;
+    if (!contract_instances.contains(address)) {
+        return std::nullopt;
+    }
+    return contract_instances.at(address);
 }
 
-std::optional<FF> FuzzerContractDB::get_bytecode_commitment([[maybe_unused]] const ContractClassId& class_id) const
+std::optional<ContractClass> FuzzerContractDB::get_contract_class(const ContractClassId& class_id) const
 {
-    return FF(0);
+    if (!contract_classes.contains(class_id)) {
+        return std::nullopt;
+    }
+    return contract_classes.at(class_id);
+}
+
+std::optional<FF> FuzzerContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
+{
+    // Return 0 might be an issue, in the pure bytecode manager we cache based on this value
+    // This might cause different classes to be treated as the same if they return 0 here.
+    // For now we just return the class_id as it should be as unique as the bytecode commitment
+    if (!contract_classes.contains(class_id)) {
+        return std::nullopt;
+    }
+    return class_id;
 }
 std::optional<std::string> FuzzerContractDB::get_debug_function_name(
     [[maybe_unused]] const AztecAddress& address, [[maybe_unused]] const FunctionSelector& selector) const
@@ -227,15 +220,111 @@ std::optional<std::string> FuzzerContractDB::get_debug_function_name(
     return std::nullopt;
 }
 
-void FuzzerContractDB::add_contracts([[maybe_unused]] const ContractDeploymentData& contract_deployment_data)
+void FuzzerContractDB::add_contracts(const ContractDeploymentData& contract_deployment_data)
 {
-    // This probably needs to store the input contract deployment data for later retrieval.
-    {};
+    // Extract ContractClasses
+    for (const auto& log : contract_deployment_data.contract_class_logs) {
+        ContractClass klass = from_logs(log);
+        contract_classes[klass.id] = klass;
+    }
+
+    // Extract ContractInstances
+    for (const auto& log : contract_deployment_data.private_logs) {
+        ContractInstance instance = from_logs(log);
+        AztecAddress contract_address = log.fields[2];
+        contract_instances[contract_address] = instance;
+    }
 }
 
-void FuzzerContractDB::create_checkpoint() {}
-void FuzzerContractDB::commit_checkpoint() {}
-void FuzzerContractDB::revert_checkpoint() {}
+void FuzzerContractDB::add_contract_class(const ContractClassId& class_id, const ContractClass& contract_class)
+{
+    contract_classes[class_id] = contract_class;
+}
+
+void FuzzerContractDB::add_contract_instance(const AztecAddress& address, const ContractInstance& contract_instance)
+{
+    contract_instances[address] = contract_instance;
+}
+
+// Based on fromLogs in yarn-project/protocol-contracts/src/class-registry/contract_class_published_event.ts
+ContractClass FuzzerContractDB::from_logs(const ContractClassLog& log) const
+{
+    // todo(ilyas): difference between log.emitted_length and log.fields.fields.length?
+    size_t offset = 1; // Tag field is at index 0 and we skip it
+    auto class_id = log.fields.fields[offset++];
+    [[maybe_unused]] auto version = static_cast<uint32_t>(log.fields.fields[offset++]);
+    auto artifact_hash = log.fields.fields[offset++];
+    auto private_functions_root = log.fields.fields[offset++];
+    // The remainder is packed_bytecode, the first element is the length
+    auto packed_bytecode_len = static_cast<uint32_t>(log.fields.fields[offset++]);
+    std::vector<uint8_t> packed_bytecode;
+    packed_bytecode.reserve(packed_bytecode_len);
+    for (size_t i = 0; i < packed_bytecode_len; ++i) {
+        // todo(ilyas): check that the bufferFromFields function in TS skips the first byte of each field's buffer
+        // (since it expects it to be zero?)
+        std::vector<uint8_t> f = to_buffer(log.fields.fields[offset + i]);
+        packed_bytecode.insert(packed_bytecode.end(), f.begin() + 1, f.end());
+    }
+
+    return ContractClass{
+        .id = class_id,
+        .artifact_hash = artifact_hash,
+        .private_functions_root = private_functions_root,
+        .packed_bytecode = packed_bytecode,
+    };
+}
+
+// Base on fromLogs in yarn-project/protocol-contracts/src/instance-registry/contract_instance_published_event.ts
+ContractInstance FuzzerContractDB::from_logs(const PrivateLog& log) const
+{
+    // We skip the following fields:
+    // - tag (index 0)
+    // - version (index 1)
+    // - contract address (index 2)
+    size_t offset = 3;
+    FF salt = log.fields[offset++];
+    FF contract_class_id = log.fields[offset++];
+    FF initialization_hash = log.fields[offset++];
+    PublicKeys public_keys = {
+        .nullifier_key = { log.fields[offset++], log.fields[offset++] },
+        .incoming_viewing_key = { log.fields[offset++], log.fields[offset++] },
+        .outgoing_viewing_key = { log.fields[offset++], log.fields[offset++] },
+        .tagging_key = { log.fields[offset++], log.fields[offset++] },
+    };
+    auto deployer = AztecAddress(log.fields[offset++]);
+    return ContractInstance{
+        .salt = salt,
+        .deployer = deployer,
+        .current_contract_class_id = contract_class_id,
+        .original_contract_class_id = contract_class_id,
+        .initialization_hash = initialization_hash,
+        .public_keys = public_keys,
+    };
+}
+
+void FuzzerContractDB::create_checkpoint()
+{
+    checkpoints.push(Checkpoint{
+        .contract_classes = contract_classes,
+        .contract_instances = contract_instances,
+    });
+}
+
+void FuzzerContractDB::commit_checkpoint()
+{
+    if (!checkpoints.empty()) {
+        checkpoints.pop();
+    }
+}
+
+void FuzzerContractDB::revert_checkpoint()
+{
+    if (!checkpoints.empty()) {
+        contract_classes = std::move(checkpoints.top().contract_classes);
+        contract_instances = std::move(checkpoints.top().contract_instances);
+        checkpoints.pop();
+    }
+}
 
 ////////////////////////////////////
 /// FuzzerWorldStateManager methods

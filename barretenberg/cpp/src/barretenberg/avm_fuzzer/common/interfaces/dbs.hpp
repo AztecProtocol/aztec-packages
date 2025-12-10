@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stack>
+
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
@@ -63,9 +65,7 @@ class FuzzerLowLevelDB : public bb::avm2::simulation::LowLevelMerkleDBInterface 
 
 class FuzzerContractDB : public simulation::ContractDBInterface {
   public:
-    FuzzerContractDB(const std::vector<uint8_t>& bytecode)
-        : bytecode(bytecode)
-    {}
+    FuzzerContractDB() = default;
 
     std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const override;
     std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
@@ -75,12 +75,33 @@ class FuzzerContractDB : public simulation::ContractDBInterface {
 
     void add_contracts(const ContractDeploymentData& contract_deployment_data) override;
 
+    // Direct methods to add contract class and instance
+    void add_contract_class(const ContractClassId& class_id, const ContractClass& contract_class);
+    void add_contract_instance(const AztecAddress& address, const ContractInstance& contract_instance);
+
     void create_checkpoint() override;
     void commit_checkpoint() override;
     void revert_checkpoint() override;
 
+    // Getters for serialization
+    const std::unordered_map<ContractClassId, ContractClass>& get_contract_classes() const { return contract_classes; }
+    const std::unordered_map<AztecAddress, ContractInstance>& get_contract_instances() const
+    {
+        return contract_instances;
+    }
+
   private:
-    std::vector<uint8_t> bytecode;
+    ContractClass from_logs(const ContractClassLog& log) const;
+    ContractInstance from_logs(const PrivateLog& log) const;
+
+    std::unordered_map<ContractClassId, ContractClass> contract_classes;
+    std::unordered_map<AztecAddress, ContractInstance> contract_instances;
+
+    struct Checkpoint {
+        std::unordered_map<ContractClassId, ContractClass> contract_classes;
+        std::unordered_map<AztecAddress, ContractInstance> contract_instances;
+    };
+    std::stack<Checkpoint> checkpoints;
 };
 
 // Set up and manage a world state for the fuzzer, the plan is to use this to set up different world states
