@@ -7,23 +7,6 @@
 
 namespace bb::avm2::constraining {
 
-namespace {
-
-// TODO: This doesn't need to be a shared_ptr, but BB requires it.
-std::shared_ptr<AvmProver::ProvingKey> create_proving_key(AvmProver::ProverPolynomials& polynomials)
-{
-    auto proving_key = std::make_shared<AvmProver::ProvingKey>();
-
-    for (auto [key_poly, prover_poly] : zip_view(proving_key->get_all(), polynomials.get_unshifted())) {
-        BB_ASSERT_EQ(flavor_get_label(*proving_key, key_poly), flavor_get_label(polynomials, prover_poly));
-        key_poly = std::move(prover_poly);
-    }
-
-    return proving_key;
-}
-
-} // namespace
-
 /**
  * @brief Test that the fixed VK commitments agree with the ones computed from precomputed columns.
  * @note If this test fails, it may be because the precomputed columns have changed and the fixed VK commitments in
@@ -37,7 +20,7 @@ TEST(AvmFixedVKTests, FixedVKCommitments)
     auto trace = tracegen_helper.generate_precomputed_columns();
 
     auto polynomials = compute_polynomials(trace);
-    auto proving_key = create_proving_key(polynomials);
+    auto proving_key = proving_key_from_polynomials(polynomials);
 
     AvmVerifier::VerificationKey vk_computed(proving_key);
     auto vk_computed_commitments = vk_computed.get_all();

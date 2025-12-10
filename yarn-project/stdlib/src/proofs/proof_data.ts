@@ -29,14 +29,17 @@ export class ProofData<T extends Bufferable, PROOF_LENGTH extends number> {
   }
 }
 
+/**
+ * Represents the data of a recursive proof for a circuit with a fixed verification key.
+ */
 export class ProofDataForFixedVk<T extends Bufferable, PROOF_LENGTH extends number> {
   constructor(
     public publicInputs: T,
-    public recursiveProof: RecursiveProof<PROOF_LENGTH>,
+    public proof: RecursiveProof<PROOF_LENGTH>,
   ) {}
 
   public toBuffer(): Buffer {
-    return serializeToBuffer(this.publicInputs, this.recursiveProof);
+    return serializeToBuffer(this.publicInputs, this.proof);
   }
 
   public static fromBuffer<T extends Bufferable, PROOF_LENGTH extends number>(

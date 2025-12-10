@@ -19,23 +19,6 @@
 
 namespace bb::avm2 {
 
-namespace {
-
-// TODO: This doesn't need to be a shared_ptr, but BB requires it.
-std::shared_ptr<AvmProver::ProvingKey> create_proving_key(AvmProver::ProverPolynomials& polynomials)
-{
-    auto proving_key = std::make_shared<AvmProver::ProvingKey>();
-
-    for (auto [key_poly, prover_poly] : zip_view(proving_key->get_all(), polynomials.get_unshifted())) {
-        BB_ASSERT_EQ(flavor_get_label(*proving_key, key_poly), flavor_get_label(polynomials, prover_poly));
-        key_poly = std::move(prover_poly);
-    }
-
-    return proving_key;
-}
-
-} // namespace
-
 // Create AvmVerifier::VerificationKey based on VkData and returns shared pointer.
 std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::create_verification_key(const VkData& vk_data)
 {
@@ -71,7 +54,8 @@ AvmProvingHelper::VkData AvmProvingHelper::get_verification_key()
 std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::prove(tracegen::TraceContainer&& trace)
 {
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
-    auto proving_key = AVM_TRACK_TIME_V("proving/prove:proving_key", create_proving_key(polynomials));
+    auto proving_key =
+        AVM_TRACK_TIME_V("proving/prove:proving_key", constraining::proving_key_from_polynomials(polynomials));
 
     auto verification_key =
         std::make_shared<AvmVerifier::VerificationKey>(constraining::AvmFixedVKCommitments::get_all());

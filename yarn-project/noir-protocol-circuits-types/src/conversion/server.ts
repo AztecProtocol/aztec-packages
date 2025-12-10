@@ -461,7 +461,7 @@ export function mapAvmProofDataToNoir(
 ): ProofDataForFixedVkNoir {
   return {
     public_inputs: mapAvmCircuitPublicInputsToNoir(proofData.publicInputs),
-    proof: mapFieldArrayToNoir(proofData.recursiveProof.proof),
+    proof: mapFieldArrayToNoir(proofData.proof.proof),
   };
 }
 

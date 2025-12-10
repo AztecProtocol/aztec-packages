@@ -131,7 +131,7 @@ class AvmGoblinRecursiveVerifier {
         // Fix the inner mega vk and vk hash to be constants in the outer circuit.
         mega_vk_and_hash->vk->fix_witness();
         mega_vk_and_hash->hash.fix_witness();
-        // TODO(#16352): Figure out how not to add hashing gates to mega recursive verifier.
+
         MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk_and_hash, transcript);
         stdlib::Proof<UltraBuilder> mega_proof(ultra_builder, inner_output.mega_proof);
         auto mega_verifier_output = mega_verifier.template verify_proof<IO>(mega_proof);
