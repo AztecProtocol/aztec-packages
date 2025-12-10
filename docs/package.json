@@ -59,7 +59,10 @@
     ],
     "files": [
       "./docs/**/{*.md,*.md?}",
-      "./versioned_docs/**/{*.md,*.md?}",
+      "./docs-developers/**/{*.md,*.md?}",
+      "./docs-network/**/{*.md,*.md?}",
+      "./developer_versioned_docs/**/{*.md,*.md?}",
+      "./network_versioned_docs/**/{*.md,*.md?}",
       "./internal_notes/**/{*.md,*.md?}",
       "./src/components/Snippets/*.js",
       "./processed-docs/**/{*.md,*.md?}"
