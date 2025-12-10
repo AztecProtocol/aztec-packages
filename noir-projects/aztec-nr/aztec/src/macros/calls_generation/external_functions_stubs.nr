@@ -157,7 +157,6 @@ pub(crate) comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
 
 // Note: Unlike for the call registry, the self-call registry stubs directly perform the call instead of returning a
 // call interface struct.
-// TODO(F-131): This ^ is confusing and should be reflected in the naming.
 
 /// Creates a stub for calling a private function (or static private function if `is_static` is true) from private
 /// context (for CallSelf<&mut PrivateContext> and CallSelfStatic<&mut PrivateContext>).
@@ -182,12 +181,6 @@ pub comptime fn create_private_self_call_stub(f: FunctionDefinition, is_static: 
         }
     }
 }
-
-// TODO(F-131): Drop the use of the Call in the following 4 functions - it doesn't make sense to not not
-// perform the call directly using the context. I tried doing this already but it became a lot of pain due to the use of
-// slices and them being illegal to return from unconstrained functions. Makes sense to tackle this when cleaning up the
-// call interface code.
-// Note: Once we get rid of the structs we will be able to merge some of the static and non-static stub functions.
 
 /// Creates a stub for calling a public function from public context (for CallSelf<PublicContext>)
 pub comptime fn create_public_self_call_stub(f: FunctionDefinition) -> Quoted {
