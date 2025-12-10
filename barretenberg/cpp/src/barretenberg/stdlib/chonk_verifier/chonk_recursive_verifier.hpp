@@ -9,7 +9,7 @@
 //
 #pragma once
 #include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
+#include "barretenberg/goblin/goblin_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
@@ -43,7 +43,7 @@ class ChonkRecursiveVerifier {
 
   public:
     using GoblinVerificationKey = Goblin::VerificationKey;
-    using Output = GoblinRecursiveVerifierOutput;
+    using Output = GoblinRecursiveVerifier::VerificationResult;
     using RecursiveVKAndHash = RecursiveVerifierInstance::VKAndHash;
     using RecursiveVK = RecursiveFlavor::VerificationKey;
 

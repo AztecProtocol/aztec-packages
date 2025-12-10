@@ -8,6 +8,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
@@ -542,8 +543,23 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     TableCommitments t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Goblin verification (final merge, eccvm, translator)
-    bool goblin_verified = Goblin::verify(
-        proof.goblin_proof, { t_commitments, T_prev_commitments }, chonk_verifier_transcript, MergeSettings::APPEND);
+    GoblinVerifier goblin_verifier{
+        chonk_verifier_transcript, proof.goblin_proof, { t_commitments, T_prev_commitments }, MergeSettings::APPEND
+    };
+    auto goblin_result = goblin_verifier.verify();
+
+    // Check pairing points
+    bool pairing_verified = goblin_result.pairing_points.check();
+    vinfo("Goblin pairing verified: ", pairing_verified);
+
+    // Verify IPA opening
+    auto ipa_transcript = std::make_shared<Goblin::Transcript>(goblin_result.ipa_proof);
+    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>();
+    bool ipa_verified =
+        ECCVMFlavor::PCS::reduce_verify(eccvm_vk->pcs_verification_key, goblin_result.ipa_claim, ipa_transcript);
+    vinfo("Goblin IPA verified: ", ipa_verified);
+
+    bool goblin_verified = pairing_verified && ipa_verified;
     vinfo("Goblin verified: ", goblin_verified);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in Chonk verifiers.

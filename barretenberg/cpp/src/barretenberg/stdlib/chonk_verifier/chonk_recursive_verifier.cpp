@@ -31,19 +31,19 @@ ChonkRecursiveVerifier::Output ChonkRecursiveVerifier::verify(const StdlibProof&
     mega_output.kernel_return_data.incomplete_assert_equal(verifier.verifier_instance->witness_commitments.calldata);
 
     // Perform Goblin recursive verification
-    GoblinVerificationKey goblin_verification_key{};
     MergeCommitments merge_commitments{
         .t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires()
                              .get_copy(), // Commitments to subtables added by the hiding kernel
         .T_prev_commitments = std::move(mega_output.ecc_op_tables) // Commitments to the state of the ecc op_queue as
                                                                    // computed insided the hiding kernel
     };
-    GoblinVerifier goblin_verifier{ builder, goblin_verification_key, chonk_rec_verifier_transcript };
-    GoblinRecursiveVerifierOutput output =
-        goblin_verifier.verify(proof.goblin_proof, merge_commitments, MergeSettings::APPEND);
-    output.points_accumulator.aggregate(mega_output.points_accumulator);
+    GoblinVerifier goblin_verifier{
+        chonk_rec_verifier_transcript, proof.goblin_proof, merge_commitments, MergeSettings::APPEND
+    };
+    GoblinVerifier::VerificationResult goblin_output = goblin_verifier.verify();
+    goblin_output.pairing_points.aggregate(mega_output.points_accumulator);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in Chonk verifiers
-    return { output };
+    return { goblin_output };
 }
 
 } // namespace bb::stdlib::recursion::honk

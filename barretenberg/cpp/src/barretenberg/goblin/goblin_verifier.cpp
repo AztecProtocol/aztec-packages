@@ -14,9 +14,7 @@ namespace bb {
  * @details Runs all three sub-verifiers and returns the verification artifacts.
  * The caller is responsible for checking the results (e.g., pairing point checks, IPA verification).
  */
-template <typename Curve>
-typename GoblinVerifier_<Curve>::VerificationResult GoblinVerifier_<Curve>::verify(
-    const GoblinProof& proof, const MergeCommitments& merge_commitments, const MergeSettings merge_settings)
+template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult GoblinVerifier_<Curve>::verify()
 {
     // Verify the merge proof
     MergeVerifier merge_verifier{ merge_settings, transcript };

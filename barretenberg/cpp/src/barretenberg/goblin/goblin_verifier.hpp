@@ -8,6 +8,7 @@
 // See: chonk/README.md#goblin-eccvm--translator
 //
 #pragma once
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
@@ -19,44 +20,6 @@
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 
 namespace bb {
-
-// Forward declarations for GoblinVerificationResult specializations
-template <typename Curve> struct GoblinVerificationResult;
-
-/**
- * @brief Output of native Goblin verification.
- */
-template <> struct GoblinVerificationResult<curve::BN254> {
-    using PairingPointsType = bb::PairingPoints<curve::BN254>;
-    using OpeningClaimType = bb::OpeningClaim<curve::Grumpkin>;
-    using IPAProof = HonkProof;
-
-    PairingPointsType pairing_points; // BN254 pairing points - verified on L1
-    OpeningClaimType ipa_claim;       // IPA opening claim from ECCVM
-    IPAProof ipa_proof;               // IPA proof for verification
-};
-
-/**
- * @brief Output of recursive Goblin verification.
- * @details Contains the deferred verification data that must be accumulated and
- * verified elsewhere (IPA claim for Grumpkin, pairing points for BN254).
- *
- * In Aztec's rollup architecture:
- *   - Pairing points: aggregated at each rollup level, verified on L1 via ecPairing precompile
- *   - IPA claims: originate from ECCVM, carried in RollupIO public inputs through rollup levels,
- *     accumulated via IPA::accumulate at each level, verified in-circuit at root via IPA::full_verify_recursive
- */
-template <typename Builder> struct GoblinVerificationResult<stdlib::bn254<Builder>> {
-    using BN254Curve = stdlib::bn254<Builder>;
-    using GrumpkinCurve = stdlib::grumpkin<Builder>;
-    using PairingPointsType = stdlib::recursion::PairingPoints<BN254Curve>;
-    using OpeningClaimType = bb::OpeningClaim<GrumpkinCurve>;
-    using IPAProof = stdlib::Proof<Builder>;
-
-    PairingPointsType pairing_points; // BN254 pairing points - aggregated, verified on L1 or accumulated in-circuit
-    OpeningClaimType ipa_claim;       // IPA opening claim from ECCVM - accumulated, verified in-circuit at root
-    IPAProof ipa_proof;               // IPA proof - used for deferred verification
-};
 
 /**
  * @brief Unified verifier for Goblin proofs (Merge + ECCVM + IPA + Translator).
@@ -73,7 +36,6 @@ template <typename Builder> struct GoblinVerificationResult<stdlib::bn254<Builde
 template <typename Curve> class GoblinVerifier_ {
   public:
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
-    using Builder = std::conditional_t<IsRecursive, typename Curve::Builder, void>;
 
     // Verifier types
     using MergeVerifier = MergeVerifier_<Curve>;
@@ -88,32 +50,46 @@ template <typename Curve> class GoblinVerifier_ {
     // Transcript type
     using Transcript = std::conditional_t<IsRecursive, UltraStdlibTranscript, NativeTranscript>;
 
+    using IPAProof = std::conditional_t<IsRecursive, stdlib::Proof<UltraCircuitBuilder>, HonkProof>;
+    using PairingPoints = MergeVerifier::PairingPoints;
+    using IPAClaim = OpeningClaim<typename ECCVMVerifier::Curve>;
+
     // Verification result
-    using VerificationResult = GoblinVerificationResult<Curve>;
+    struct VerificationResult {
+        PairingPoints pairing_points; // BN254 pairing points - aggregated, verified natively or aggregated in-circuit
+        IPAClaim ipa_claim;           // IPA opening claim from ECCVM - accumulated, verified natively by base, verified
+                                      // in-circuit at root
+        IPAProof ipa_proof;           // IPA proof - used for deferred verification
+    };
 
     /**
      * @brief Construct a Goblin verifier
      * @param transcript Shared transcript for Fiat-Shamir
+     * @param proof The complete Goblin proof containing Merge, ECCVM, IPA, and Translator proofs
+     * @param merge_commitments The input commitments for the Merge verifier (t and T_prev tables)
+     * @param merge_settings How the ecc op subtable was merged (PREPEND or APPEND)
      */
-    explicit GoblinVerifier_(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
-        : transcript(transcript)
+    GoblinVerifier_(std::shared_ptr<Transcript> transcript,
+                    const GoblinProof& proof,
+                    const MergeCommitments& merge_commitments,
+                    const MergeSettings merge_settings = MergeSettings::PREPEND)
+        : transcript(std::move(transcript))
+        , proof(proof)
+        , merge_commitments(merge_commitments)
+        , merge_settings(merge_settings)
     {}
 
     /**
      * @brief Verify a full Goblin proof (Merge, ECCVM + IPA, Translator)
-     *
-     * @param proof The complete Goblin proof containing Merge, ECCVM, IPA, and Translator proofs
-     * @param merge_commitments The input commitments for the Merge verifier (t and T_prev tables)
-     * @param merge_settings How the ecc op subtable was merged (PREPEND or APPEND)
      * @return VerificationResult containing pairing points, IPA claim, and IPA proof
      */
-    [[nodiscard("Verification result should be accumulated")]] VerificationResult verify(
-        const GoblinProof& proof,
-        const MergeCommitments& merge_commitments,
-        const MergeSettings merge_settings = MergeSettings::PREPEND);
+    [[nodiscard("Verification result must be accumulated")]] VerificationResult verify();
 
   private:
     std::shared_ptr<Transcript> transcript;
+    GoblinProof proof;
+    MergeCommitments merge_commitments;
+    MergeSettings merge_settings;
 };
 
 // Type aliases for convenience
