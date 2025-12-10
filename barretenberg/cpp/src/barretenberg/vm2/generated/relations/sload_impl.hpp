@@ -23,12 +23,6 @@ void sloadImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (CView(constants_MEM_TAG_FF) - static_cast<View>(in.get(C::execution_mem_tag_reg_1_)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    { // SLOAD_SUCCESS
-        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sload)) *
-                   static_cast<View>(in.get(C::execution_sel_opcode_error));
-        std::get<1>(evals) += (tmp * scaling_factor);
-    }
 }
 
 } // namespace bb::avm2

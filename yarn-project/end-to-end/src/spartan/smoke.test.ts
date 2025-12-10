@@ -1,5 +1,7 @@
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
-import { RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';

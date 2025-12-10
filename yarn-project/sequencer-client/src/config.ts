@@ -1,9 +1,5 @@
-import {
-  type L1ContractsConfig,
-  type L1ReaderConfig,
-  l1ContractsConfigMappings,
-  l1ReaderConfigMappings,
-} from '@aztec/ethereum';
+import { type L1ContractsConfig, l1ContractsConfigMappings } from '@aztec/ethereum/config';
+import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,

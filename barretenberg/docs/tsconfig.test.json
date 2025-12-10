@@ -10,7 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "types": ["mocha", "node"],
+    "types": ["jest", "node"],
     "baseUrl": ".",
     "outDir": "./dist"
   },

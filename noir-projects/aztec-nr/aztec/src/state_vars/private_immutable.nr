@@ -3,9 +3,9 @@ use crate::{
     keys::getters::{get_nsk_app, get_public_keys},
     note::{
         lifecycle::create_note,
-        note_emission::NoteEmission,
         note_getter::{get_note, view_note},
         note_interface::{NoteHash, NoteType},
+        note_message::NoteMessage,
     },
     oracle::notes::check_nullifier_exists,
     state_vars::owned_state_variable::OwnedStateVariable,
@@ -90,10 +90,9 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     /// This function inserts the single, permanent note for this state variable. It can only be called once per
     /// PrivateImmutable. Subsequent calls will fail because the initialization nullifier will already exist.
     ///
-    /// Unlike PrivateMutable, this note will never be nullified or replaced through the state variable interface - it
-    /// persists for the lifetime of the state variable.
-    ///
-    pub fn initialize(self, note: Note) -> NoteEmission<Note>
+    /// Unlike PrivateMutable, this note will never be nullified or replaced through the state variable interface
+    /// - it persists for the lifetime of the state variable.
+    pub fn initialize(self, note: Note) -> NoteMessage<Note>
     where
         Note: NoteType + NoteHash + Packable,
     {

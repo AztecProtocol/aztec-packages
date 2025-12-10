@@ -25,9 +25,8 @@ contract Updatable {
     #[external("private")]
     fn initialize(initial_value: Field) {
         let owner = self.msg_sender().unwrap();
-        let note = FieldNote::new(initial_value);
-        self.storage.private_value.at(owner).initialize(note).emit(
-            owner,
+        let note = FieldNote { value: initial_value };
+        self.storage.private_value.at(owner).initialize(note).deliver(
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
         self.enqueue_self.set_public_value(initial_value);
@@ -58,7 +57,7 @@ contract Updatable {
 
     #[external("utility")]
     unconstrained fn get_private_value(owner: AztecAddress) -> Field {
-        self.storage.private_value.at(owner).view_note().value()
+        self.storage.private_value.at(owner).view_note().value
     }
 
     #[external("utility")]

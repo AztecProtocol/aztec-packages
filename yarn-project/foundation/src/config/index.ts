@@ -1,4 +1,5 @@
-import { Fq, Fr } from '../fields/fields.js';
+import { Fq, Fr } from '../curves/bn254/field.js';
+import { createConsoleLogger } from '../log/console.js';
 import type { EnvVar } from './env_var.js';
 import { type NetworkNames, getActiveNetworkName } from './network_name.js';
 import { SecretValue } from './secret_value.js';
@@ -17,6 +18,11 @@ export interface ConfigMapping {
   isBoolean?: boolean;
   nested?: Record<string, ConfigMapping>;
   fallback?: EnvVar[];
+  /**
+   * List of deprecated env vars that are still supported but will log a warning.
+   * These should also be included in the fallback array for parsing.
+   */
+  deprecatedFallback?: { env: EnvVar; message?: string }[];
 }
 
 export function isBooleanConfigValue<T>(obj: T, key: keyof T): boolean {
@@ -72,12 +78,24 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
   const config = {} as T;
 
   for (const key in configMappings) {
-    const { env, parseEnv, defaultValue, nested, fallback } = configMappings[key];
+    const { env, parseEnv, defaultValue, nested, fallback, deprecatedFallback } = configMappings[key];
     if (nested) {
       (config as any)[key] = getConfigFromMappings(nested);
     } else {
       // Use the shared utility function
       (config as any)[key] = getValueFromEnvWithFallback(env, parseEnv, defaultValue, fallback);
+
+      // Check for deprecated env vars and warn if logger is set
+      if (deprecatedFallback?.length) {
+        const userLog = createConsoleLogger('[DEPRECATED]');
+        for (const { env: deprecatedEnv, message } of deprecatedFallback) {
+          if (process.env[deprecatedEnv]) {
+            const warningMessage =
+              message ?? `Environment variable ${deprecatedEnv} is deprecated. Please use ${env} instead.`;
+            userLog(warningMessage, { deprecatedEnvVar: deprecatedEnv, newEnvVar: env });
+          }
+        }
+      }
     }
   }
 

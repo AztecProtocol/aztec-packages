@@ -1,7 +1,7 @@
 import { DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ContractArtifact, encodeArguments } from '@aztec/stdlib/abi';
 import { PublicSimulatorConfig, type PublicTxResult } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -42,6 +42,7 @@ const defaultConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
   collectCallMetadata: true,
   collectDebugLogs: true,
   collectHints: false,
+  collectPublicInputs: false,
   collectStatistics: false,
 });
 

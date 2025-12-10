@@ -21,7 +21,7 @@ export async function executeAvmMinimalPublicTx(tester: PublicTxSimulationTester
 
   // Modify the protocol contracts to be all zeros
   result.hints!.protocolContracts = ProtocolContracts.empty();
-  result.publicInputs.protocolContracts = ProtocolContracts.empty();
+  result.publicInputs!.protocolContracts = ProtocolContracts.empty();
 
   return result;
 }

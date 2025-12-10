@@ -23,9 +23,6 @@ namespace acir_format {
 
 using namespace bb;
 
-template <typename Builder>
-using HonkRecursionConstraintOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
-
 /**
  * @brief Add to the builder the constraints to recursively verify a Honk proof.
  *

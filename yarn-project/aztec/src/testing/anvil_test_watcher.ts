@@ -1,5 +1,5 @@
-import type { ViemClient } from '@aztec/ethereum';
 import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
+import type { ViemClient } from '@aztec/ethereum/types';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';

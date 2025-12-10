@@ -2,7 +2,7 @@ import { SpongeBlob, computeBlobsHashFromBlobs, encodeCheckpointEndMarker, getBl
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { L2BlockNew } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -81,7 +81,8 @@ export class LightweightCheckpointBuilder {
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
     this.lastArchives.push(newArchive);
 
-    const block = new L2BlockNew(newArchive, header, body);
+    const indexWithinCheckpoint = this.blocks.length;
+    const block = new L2BlockNew(newArchive, header, body, this.checkpointNumber, indexWithinCheckpoint);
     this.blocks.push(block);
 
     await this.spongeBlob.absorb(blockBlobFields);

@@ -251,62 +251,6 @@ template <typename Builder> void cycle_group<Builder>::validate_on_curve() const
     res.assert_is_zero();
 }
 
-#ifdef FUZZING
-/**
- * @brief  Set the point to the point at infinity.
- * Depending on constant'ness of the predicate put the coordinates in an apropriate standard form.
- *
- */
-template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(const bool_t& is_infinity)
-{
-    if (is_infinity.is_constant() && this->_is_infinity.is_constant()) {
-        // Check that it's not possible to enter the case when
-        // The point is already infinity, but `is_infinity` = false
-        BB_ASSERT((this->_is_infinity.get_value() == is_infinity.get_value()) || is_infinity.get_value());
-
-        if (is_infinity.get_value()) {
-            *this = constant_infinity(this->context);
-        }
-        return;
-    }
-
-    if (is_infinity.is_constant() && !this->_is_infinity.is_constant()) {
-        if (is_infinity.get_value()) {
-            *this = constant_infinity(this->context);
-        } else {
-            this->_is_infinity.assert_equal(false);
-            this->_is_infinity = false;
-        }
-        return;
-    }
-
-    if (this->is_constant_point_at_infinity()) {
-        // I can't imagine this case happening, but still
-        is_infinity.assert_equal(true);
-
-        *this = constant_infinity(this->context);
-        return;
-    }
-
-    this->_x = field_t::conditional_assign(is_infinity, 0, this->_x).normalize();
-    this->_y = field_t::conditional_assign(is_infinity, 0, this->_y).normalize();
-
-    // We won't bump into the case where we end up with non constant coordinates
-    BB_ASSERT(!this->_x.is_constant());
-    BB_ASSERT(!this->_y.is_constant());
-
-    // We have to check this to avoid the situation, where we change the infinity
-    bool_t set_allowed = (this->_is_infinity == is_infinity) || is_infinity;
-    set_allowed.assert_equal(true);
-    this->_is_infinity = is_infinity;
-
-    // In case we set point at infinity on a constant without an existing context
-    if (this->context == nullptr) {
-        this->context = is_infinity.get_context();
-    }
-}
-#endif
-
 /**
  * @brief Convert the point to standard form.
  * @details If the point is a point at infinity, ensure the coordinates are (0,0).
@@ -1045,7 +989,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         } else if (!scalar.is_constant() && point.is_constant()) {
             if (point.get_value().is_point_at_infinity()) {
                 // oi mate, why are you creating a circuit that multiplies a known point at infinity?
-#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+#ifndef FUZZING_DISABLE_WARNINGS
                 info("Warning: Performing batch mul with constant point at infinity!");
 #endif
                 continue;

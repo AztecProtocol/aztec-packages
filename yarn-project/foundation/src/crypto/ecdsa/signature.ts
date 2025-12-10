@@ -1,6 +1,6 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { mapTuple } from '@aztec/foundation/serialize';
 
 import type { Signature } from '../signature/index.js';

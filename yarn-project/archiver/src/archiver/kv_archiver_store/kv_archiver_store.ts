@@ -1,6 +1,6 @@
-import type { L1BlockId } from '@aztec/ethereum';
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/fields';
+import type { L1BlockId } from '@aztec/ethereum/l1-types';
+import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
@@ -300,12 +300,12 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
   }
 
   /**
-   * Gets L1 to L2 message (to be) included in a given block.
-   * @param blockNumber - L2 block number to get messages for.
+   * Gets L1 to L2 message (to be) included in a given checkpoint.
+   * @param checkpointNumber - Checkpoint number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: BlockNumber): Promise<Fr[]> {
-    return this.#messageStore.getL1ToL2Messages(blockNumber);
+  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    return this.#messageStore.getL1ToL2Messages(checkpointNumber);
   }
 
   /**
@@ -401,8 +401,8 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.db.estimateSize();
   }
 
-  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: BlockNumber): Promise<void> {
-    return this.#messageStore.rollbackL1ToL2MessagesToL2Block(targetBlockNumber);
+  public rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
+    return this.#messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
   }
 
   public iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {

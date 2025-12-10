@@ -20,8 +20,9 @@ namespace execution;
     pol commit sel_enter_call;
     // The following selectors will be 0 if there is an error during execution (before the opcode execution step).
     sel_enter_call = sel_execute_call + sel_execute_static_call;
-    // CALL & precomputed.first_row are mutually exclusive
-    sel_enter_call * precomputed.first_row = 0;
+    // sel_enter_call and precomputed.first_row are mutually exclusive because
+    // `sel == 0` ==> `sel_enter_call == 0` as explained in execution.pil and `sel` has a shift and
+    // must be 0 on the first row.
 
     // sel_exit_call is used to flag if we are returning or reverting or there has been ANY error during execution
     // sel_execute_revert & sel_execute_return are mutually exclusive
@@ -113,11 +114,10 @@ namespace execution;
     pol commit num_l2_to_l1_messages;
 
     // ==== Helper columns ====
-    // TODO: These context modifiers also need to factor in when a new enqueued call occurs
     pol NOT_LAST_EXEC = sel * sel';
-    pol SWITCH_CTX = sel_enter_call + sel_exit_call; // Mutually Exclusive
-    // We default propagate the context rows if we have more execution steps and we are not exiting or entering a call
-    pol DEFAULT_CTX_ROW = (1 - SWITCH_CTX);
+    // We default propagate the context rows if we have more execution steps and we are not exiting or entering a call.
+    // Note that DEFAULT_CTX_ROW selects also the first row of an enqueued call (when `enqueued_call_start == 1`).
+    pol DEFAULT_CTX_ROW = 1 - (sel_enter_call + sel_exit_call); // sel_enter_call and sel_exit_call are mutually exclusive
 
     pol PC_JUMP = sel_execute_internal_call + sel_execute_internal_return + sel_execute_jump + sel_execute_jumpi;
 
@@ -159,6 +159,10 @@ namespace execution;
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_id' - parent_id) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (parent_id' - context_id) = 0;
 
+    // `instr_length` is from execution.pil and constrained when `sel_instruction_fetching_success == 1`.
+    #[NEXT_PC]
+    sel_instruction_fetching_success * (pc + instr_length - next_pc) = 0;
+
     // nested_exit_call = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> pc' = 0
     // internal_call    = 1 ==> pc' = resolved operand 0
@@ -167,7 +171,7 @@ namespace execution;
     #[PC_NEXT_ROW_DEFAULT]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
     #[PC_NEXT_ROW_EXT_CALL]
-    NOT_LAST_EXEC * sel_enter_call  * pc' = 0;
+    sel' * (sel_enter_call + enqueued_call_start') * pc' = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> msg_sender' = contract_address
@@ -183,8 +187,9 @@ namespace execution;
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (contract_address' - contract_address) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (contract_address' - register[2]) = 0;
 
-    // bytecode_id is set from the context stack when entering a call and propagated
-    // from row to row as we do for others, except on context change.
+    // bytecode_id is set on the first row of a context (#[BYTECODE_RETRIEVAL_RESULT]
+    // in execution.pil) and is propagated from row to row, except on context change.
+    // While exiting a context, `bytecode_id` is retrieved from the context stack.
     #[BYTECODE_ID_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (bytecode_id' - bytecode_id) = 0;
 

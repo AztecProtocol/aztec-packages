@@ -18,10 +18,9 @@
 <h2 id="crate-name"><a href="../index.html">field_note</a></h2>
 <div id="crate-version">0.0.0</div>
 <h2><a href="#struct">Struct FieldNote</a></h2>
-<h3>Methods</h3>
+<h3>Fields</h3>
 <ul class="sidebar-list">
-<li><a href="#new">new</a></li>
-<li><a href="#value">value</a></li>
+<li><a href="#structfield.value">value</a></li>
 </ul>
 <h3>Trait implementations</h3>
 <ul class="sidebar-list">
@@ -42,17 +41,13 @@
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">field_note</a>::<a href="index.html">field_note</a></div>
 <h1>Struct <span id="struct" class="struct">FieldNote</span></h1>
-<pre><code>pub struct FieldNote
-{ <span class="comment">/* private fields */</span> }
+<pre><code>pub struct FieldNote {
+    pub value: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+}
 </code></pre>
-<h2>Implementations</h2>
-<h3><code class="code-header">impl <a href="../../field_note/field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
-
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(value: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
-
-<code id="value" class="code-header">pub fn <a href="#value"><span class="fn">value</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
-
-</div><h2>Trait implementations</h2>
+<h2>Fields</h2>
+<div id="structfield.value" class="struct-field"><code class="code-header">value: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-FieldNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../field_note/field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(serialized: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 1]) -> Self</code>

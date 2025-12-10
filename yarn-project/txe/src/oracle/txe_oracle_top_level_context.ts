@@ -7,8 +7,8 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Schnorr } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Schnorr } from '@aztec/foundation/crypto/schnorr';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';

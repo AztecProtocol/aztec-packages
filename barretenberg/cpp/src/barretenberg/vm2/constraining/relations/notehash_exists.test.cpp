@@ -45,6 +45,7 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using notehash_exists = bb::avm2::notehash_exists<FF>;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+using execution = bb::avm2::execution<FF>;
 
 TEST(NoteHashExistsConstrainingTest, PositiveExists)
 {
@@ -107,8 +108,8 @@ TEST(NoteHashExistsConstrainingTest, NegativeNoteHashExistsSuccess)
         { C::execution_sel_opcode_error, 1 },
     } });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<notehash_exists>(trace, notehash_exists::SR_NOTE_HASH_EXISTS_SUCCESS),
-                              "NOTE_HASH_EXISTS_SUCCESS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_INFALLIBLE_OPCODES_SUCCESS),
+                              "INFALLIBLE_OPCODES_SUCCESS");
 }
 
 TEST(NoteHashExistsConstrainingTest, Interactions)

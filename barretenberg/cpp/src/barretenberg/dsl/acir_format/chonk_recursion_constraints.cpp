@@ -83,8 +83,8 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
     std::vector<uint32_t> proof_indices = add_public_inputs_to_proof(input.proof, input.public_inputs);
 
     // Construct field elements from witness indices
-    std::vector<field_ct> key_fields = RecursionConstraint::fields_from_witnesses(builder, input.key);
-    std::vector<field_ct> proof_fields = RecursionConstraint::fields_from_witnesses(builder, proof_indices);
+    std::vector<field_ct> key_fields = fields_from_witnesses(builder, input.key);
+    std::vector<field_ct> proof_fields = fields_from_witnesses(builder, proof_indices);
     field_ct vk_hash = field_ct::from_witness_index(&builder, input.key_hash);
 
     if (builder.is_write_vk_mode()) {

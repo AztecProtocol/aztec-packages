@@ -26,7 +26,7 @@ pub contract EcdsaRAccount {
     #[external("private")]
     #[initializer]
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
-        let pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y);
+        let pub_key_note = EcdsaPublicKeyNote { x: signing_pub_key_x, y: signing_pub_key_y };
 
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
@@ -41,8 +41,7 @@ pub contract EcdsaRAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(self.address) };
-        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).emit(
-            self.address,
+        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).deliver(
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
         // Safety: Comment from above applies here as well.
