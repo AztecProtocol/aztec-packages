@@ -2,6 +2,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import type { Logger } from '@aztec/aztec.js/log';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { executeTimeout } from '@aztec/foundation/timer';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import { jest } from '@jest/globals';
 

@@ -96,14 +96,13 @@ contract DeployAztecL1Contracts is Script, Test {
         _deployRegistry();
         _deployGovernanceProposer();
         _deployGovernance();
-        // Deploy rollup using DeployRollup helper
-        _deployRollup();
         _deployDateGatedRelayer();
-        // CHEATCODE CONTRACTS (testnets only)
+        // Testnet stuff
         _maybeDeployFeeAssetHandler();
         _maybeDeployStakingAssetHandler();
-        // POST-DEPLOY SETUP
         _maybeFundRewardDistributor();
+        // Deploy our rollup..
+        _deployRollup();
         _handoverToGovernance();
         _assertAccessControl();
     }
