@@ -78,7 +78,7 @@ fn check_notes_order<let N: u32>(
 
 pub fn get_note<Note>(
     context: &mut PrivateContext,
-    owner: AztecAddress,
+    owner: Option<AztecAddress>,
     storage_slot: Field,
 ) -> (RetrievedNote<Note>, NoteHashRead)
 where
@@ -88,6 +88,18 @@ where
     // is check that the metadata is correct, and that the note exists.
     let retrieved_note = unsafe { view_note::<Note>(owner, storage_slot) };
 
+    constrain_view_note(context, retrieved_note, owner, storage_slot)
+}
+
+fn constrain_view_note<Note>(
+    context: &mut PrivateContext,
+    retrieved_note: RetrievedNote<Note>,
+    owner: Option<AztecAddress>,
+    storage_slot: Field,
+) -> (RetrievedNote<Note>, NoteHashRead)
+where
+    Note: NoteType + NoteHash + Packable,
+{
     // For settled notes, the contract address is implicitly checked since the hash returned from
     // `compute_note_hash_read` is siloed and kernels verify the siloing during note read request
     // validation. Pending notes however are read with the unsiloed note hash, so we need to check that the contract
@@ -98,7 +110,14 @@ where
         "Note contract address mismatch.",
     );
 
-    let note_hash_read = compute_note_hash_read(retrieved_note, owner, storage_slot);
+    // If an owner was provided in the function call, we need to check that it matches the one in the note. This is
+    // necessary because if there were two valid notes that differed only by owner, the note hash read request check
+    // below would still pass even if the owner on the input would not match the one in the note.
+    if owner.is_some() {
+        assert(retrieved_note.owner.eq(owner.unwrap_unchecked()), "Note owner mismatch.");
+    }
+
+    let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
     context.push_note_hash_read_request(note_hash_read);
 
     (retrieved_note, note_hash_read)
@@ -114,7 +133,6 @@ where
 /// abstractions such as aztec-nr's state variables should be used instead.
 pub fn get_notes<Note, let M: u32, PreprocessorArgs, FilterArgs>(
     context: &mut PrivateContext,
-    owner: AztecAddress,
     storage_slot: Field,
     options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
     ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
@@ -122,11 +140,11 @@ where
     Note: NoteType + NoteHash + Eq + Packable<N = M>,
 {
     // Safety: The notes are constrained below.
-    let opt_notes = unsafe { get_notes_internal(owner, storage_slot, options) };
+    let opt_notes = unsafe { get_notes_internal(storage_slot, options) };
 
     // We apply the constraints in a separate function instead of inlining them here to make it easier to test that
     // these checks correctly reject bad notes.
-    constrain_get_notes_internal(context, owner, storage_slot, opt_notes, options)
+    constrain_get_notes_internal(context, storage_slot, opt_notes, options)
 }
 
 unconstrained fn apply_preprocessor<Note, PreprocessorArgs>(
@@ -139,7 +157,6 @@ unconstrained fn apply_preprocessor<Note, PreprocessorArgs>(
 
 fn constrain_get_notes_internal<Note, let M: u32, PreprocessorArgs, FilterArgs>(
     context: &mut PrivateContext,
-    owner: AztecAddress,
     storage_slot: Field,
     opt_notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
@@ -178,6 +195,11 @@ where
                 "Note contract address mismatch.",
             );
 
+            // If owner is provided, constrain that it matches the owner in the retrieved note.
+            if options.owner.is_some() {
+                assert(retrieved_note.owner.eq(options.owner.unwrap()), "Note owner mismatch.");
+            }
+
             let packed_note = retrieved_note.note.pack();
             check_packed_note(packed_note, options.selects);
             if i != 0 {
@@ -185,7 +207,7 @@ where
             }
             prev_packed_note = packed_note;
 
-            let note_hash_read = compute_note_hash_read(retrieved_note, owner, storage_slot);
+            let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
             context.push_note_hash_read_request(note_hash_read);
             note_hashes.push(note_hash_read);
         };
@@ -195,7 +217,7 @@ where
 }
 
 pub unconstrained fn view_note<Note>(
-    owner: AztecAddress,
+    owner: Option<AztecAddress>,
     storage_slot: Field,
 ) -> RetrievedNote<Note>
 where
@@ -223,7 +245,6 @@ where
 }
 
 unconstrained fn get_notes_internal<Note, let M: u32, PreprocessorArgs, FilterArgs>(
-    owner: AztecAddress,
     storage_slot: Field,
     options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
 ) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
@@ -235,7 +256,7 @@ where
         flatten_options(options.selects, options.sorts);
 
     let opt_notes = oracle::notes::get_notes(
-        owner,
+        options.owner,
         storage_slot,
         num_selects,
         select_by_indexes,
@@ -259,7 +280,6 @@ where
 /// content is returned, and not any of the information used when proving its existence (e.g. note nonce, note hash,
 /// etc.).
 pub unconstrained fn view_notes<Note, let M: u32>(
-    owner: AztecAddress,
     storage_slot: Field,
     options: NoteViewerOptions<Note, M>,
 ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE>
@@ -272,7 +292,7 @@ where
     // We fetch the notes from the same oracle we use in the constrained case, except we don't bother inspecting the
     // metadata in order to prove existence.
     let opt_notes = oracle::notes::get_notes(
-        owner,
+        options.owner,
         storage_slot,
         num_selects,
         select_by_indexes,

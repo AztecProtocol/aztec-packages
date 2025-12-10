@@ -75,21 +75,19 @@ where
 pub fn destroy_note<Note>(
     context: &mut PrivateContext,
     retrieved_note: RetrievedNote<Note>,
-    owner: AztecAddress,
     storage_slot: Field,
 )
 where
     Note: NoteHash,
 {
-    let note_hash_read = compute_note_hash_read(retrieved_note, owner, storage_slot);
+    let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
 
-    destroy_note_unsafe(context, retrieved_note, owner, note_hash_read)
+    destroy_note_unsafe(context, retrieved_note, note_hash_read)
 }
 
 pub fn destroy_note_unsafe<Note>(
     context: &mut PrivateContext,
     retrieved_note: RetrievedNote<Note>,
-    owner: AztecAddress,
     note_hash_read: NoteHashRead,
 )
 where
@@ -97,8 +95,11 @@ where
 {
     let note_hash_for_nullification =
         compute_note_hash_for_nullification_from_note_hash_read(retrieved_note, note_hash_read);
-    let nullifier =
-        retrieved_note.note.compute_nullifier(context, owner, note_hash_for_nullification);
+    let nullifier = retrieved_note.note.compute_nullifier(
+        context,
+        retrieved_note.owner,
+        note_hash_for_nullification,
+    );
 
     let note_hash = if retrieved_note.metadata.is_settled() {
         // Counter is zero, so we're nullifying a settled note and we don't populate the note_hash with real value.

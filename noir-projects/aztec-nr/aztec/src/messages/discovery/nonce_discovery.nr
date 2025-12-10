@@ -135,10 +135,10 @@ mod test {
                 RetrievedNote {
                     note,
                     contract_address,
+                    owner,
                     randomness,
                     metadata: SettledNoteMetadata::new(note_nonce).into(),
                 },
-                owner,
                 storage_slot,
             );
 
@@ -212,6 +212,7 @@ mod test {
 
         let retrieved_note = MockNote::new(value)
             .contract_address(CONTRACT_ADDRESS)
+            .owner(OWNER)
             .randomness(RANDOMNESS)
             .note_metadata(SettledNoteMetadata::new(note_nonce).into())
             .build_retrieved_note();
@@ -224,7 +225,7 @@ mod test {
         );
         let inner_nullifier = note.compute_nullifier_unconstrained(
             OWNER,
-            compute_note_hash_for_nullification(retrieved_note, OWNER, STORAGE_SLOT),
+            compute_note_hash_for_nullification(retrieved_note, STORAGE_SLOT),
         );
 
         NoteAndData { note, note_nonce, note_hash, unique_note_hash, inner_nullifier }

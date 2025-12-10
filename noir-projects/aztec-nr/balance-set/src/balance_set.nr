@@ -33,8 +33,9 @@ impl BalanceSet<UtilityContext> {
 
     pub unconstrained fn balance_of_with_offset(self: Self, offset: u32) -> u128 {
         let mut balance = 0 as u128;
-        let mut options = NoteViewerOptions::<UintNote, <UintNote as Packable>::N>::new();
-        let notes = self.set.view_notes(options.set_offset(offset));
+        let options =
+            NoteViewerOptions::<UintNote, <UintNote as Packable>::N>::new().set_offset(offset);
+        let notes = self.set.view_notes(options);
         for i in 0..options.limit {
             if i < notes.len() {
                 balance = balance + notes.get_unchecked(i).value;
