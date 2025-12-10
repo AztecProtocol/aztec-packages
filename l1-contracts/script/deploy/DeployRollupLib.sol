@@ -109,8 +109,9 @@ library DeployRollupLib {
         Rollup rollup,
         IRollupConfiguration config
     ) private {
-        uint256 initialFeeAssetAmount = config.getInitialFeeAssetAmount();
+        uint256 initialFeeAssetAmount = config.getFeeJuicePortalInitialBalance();
         if (initialFeeAssetAmount > 0) {
+            // NOTE(AD): This hack is mostly due to not cleaning up cases where fee juice is specified during rollup upgrades.
             try Ownable(address(input.feeAsset)).owner() returns (address owner) {
                 if (owner == input.deployer) {
                     address feeAssetPortal = address(rollup.getFeeAssetPortal());
