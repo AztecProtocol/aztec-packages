@@ -36,11 +36,12 @@ import { MeasuredCppPublicTxSimulator } from '../cpp_public_tx_simulator.js';
 import { MeasuredCppVsTsPublicTxSimulator } from '../cpp_vs_ts_public_tx_simulator.js';
 import { MeasuredPublicTxSimulator } from '../measured_public_tx_simulator.js';
 
+// TIP: Filter on "Cpp" to run tests faster (e.g., yarn test ... -t "Cpp")
+
 // Toggle this to enable Cpp vs TS sim comparisons instead of regular TS sim.
 // When true, tests also verify that out-of-gas reverts contain "gas" in the message.
 // Requires collectCallMetadata: true in the config below.
-// TIP: Filter on "Cpp" to run tests faster (e.g., yarn test ... -t "Cpp")
-const COMPARE_CPP_VS_TS = false;
+const COMPARE_CPP_VS_TS = true;
 
 // Get all spammable opcodes from config
 const allSpammableOpcodes = getSpammableOpcodes();
@@ -110,7 +111,25 @@ describe('Opcode Spammer Benchmarks', () => {
     expect(result.revertCode.isOK()).toBe(false);
     if (COMPARE_CPP_VS_TS) {
       const revertReason = result.findRevertReason();
-      expect(revertReason?.message.toLowerCase()).toContain('gas');
+      expect(revertReason?.message.toLowerCase()).toMatch(/out of gas|not enough l2gas/);
+    }
+  };
+
+  // Helper to assert nested call revert with simulator-specific expectations
+  const expectNestedCallOutOfGasRevert = (
+    result: Awaited<ReturnType<typeof testNestedCustomBytecode>>,
+    useCppSimulator: boolean,
+  ) => {
+    expect(result.revertCode.isOK()).toBe(false);
+    if (COMPARE_CPP_VS_TS) {
+      const innerRevertReason = result.findRevertReason();
+      expect(innerRevertReason?.message.toLowerCase()).toMatch(/assertion failed|out of gas|not enough l2gas/);
+      if (useCppSimulator) {
+        // haltingMessage is only available in CallStackMetadata from C++ simulator
+        // Top-level should _always_ run out of gas for these tests
+        const outerCallMetadata = result.callStackMetadata[0] as CallStackMetadata;
+        expect(outerCallMetadata.haltingMessage?.toLowerCase()).toMatch(/out of gas|not enough l2gas/);
+      }
     }
   };
 
@@ -180,15 +199,7 @@ describe('Opcode Spammer Benchmarks', () => {
       it.each(withNames(sideEffectLimitedOpcodes))('$name', async ({ opcode, name }) => {
         const { innerBytecode, createOuterBytecode } = createNestedSpamBytecode(opcode);
         const result = await testNestedCustomBytecode(innerBytecode, createOuterBytecode, tester, name);
-        expect(result.revertCode.isOK()).toBe(false);
-        if (COMPARE_CPP_VS_TS) {
-          // Inner contract does (limit-1) side effects then intentionally reverts
-          const innerRevertReason = result.findRevertReason();
-          expect(innerRevertReason?.message.toLowerCase()).toContain('assertion failed');
-          // Outer contract loops calling inner until out-of-gas
-          const outerCallMetadata = result.callStackMetadata[0] as CallStackMetadata;
-          expect(outerCallMetadata.haltingMessage?.toLowerCase()).toContain('gas');
-        }
+        expectNestedCallOutOfGasRevert(result, useCppSimulator);
       });
     });
 
@@ -205,15 +216,8 @@ describe('Opcode Spammer Benchmarks', () => {
           tester,
           'EMITUNENCRYPTEDLOG_MAXSIZE',
         );
-        expect(result.revertCode.isOK()).toBe(false);
-        if (COMPARE_CPP_VS_TS) {
-          // Inner reverts after emitting the max-size log
-          const innerRevertReason = result.findRevertReason();
-          expect(innerRevertReason?.message.toLowerCase()).toContain('assertion failed');
-          // Outer loops calling inner until out-of-gas
-          const outerCallMetadata = result.callStackMetadata[0] as CallStackMetadata;
-          expect(outerCallMetadata.haltingMessage?.toLowerCase()).toContain('gas');
-        }
+        // C++ may see inner's explicit revert
+        expectNestedCallOutOfGasRevert(result, useCppSimulator);
       });
     });
 

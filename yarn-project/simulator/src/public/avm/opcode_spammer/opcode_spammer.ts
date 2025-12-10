@@ -181,6 +181,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
       { offset: 1, value: new Field(1n) }, // constant addend
     ],
     // mem[0] = mem[0] + mem[1] → accumulates: 1, 2, 3, 4, ...
+    // Output is fed back to input
     instruction: () => new Add(0, 0, 1, 0).as(Opcode.ADD_8, Add.wireFormat8),
   },
 
@@ -189,6 +190,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
       { offset: 0, value: new Field(1000000n) }, // start high
       { offset: 1, value: new Field(1n) }, // subtract 1
     ],
+    // Output is fed back to input
     instruction: () => new Sub(0, 0, 1, 0).as(Opcode.SUB_8, Sub.wireFormat8),
   },
 
@@ -197,6 +199,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
       { offset: 0, value: new Field(2n) }, // accumulator
       { offset: 1, value: new Field(1n) }, // multiply by 1 to avoid overflow
     ],
+    // Output is fed back to input
     instruction: () => new Mul(0, 0, 1, 0).as(Opcode.MUL_8, Mul.wireFormat8),
   },
 
@@ -205,6 +208,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
       { offset: 0, value: new Uint64(1000000n) },
       { offset: 1, value: new Uint64(1n) }, // divide by 1 (identity)
     ],
+    // Output is fed back to input
     instruction: () => new Div(0, 0, 1, 0).as(Opcode.DIV_8, Div.wireFormat8),
   },
 
@@ -213,6 +217,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
       { offset: 0, value: new Field(1000000n) },
       { offset: 1, value: new Field(1n) }, // divide by 1 (identity)
     ],
+    // Output is fed back to input
     instruction: () => new FieldDiv(0, 0, 1, 0).as(Opcode.FDIV_8, FieldDiv.wireFormat8),
   },
 
@@ -251,6 +256,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
       { offset: 0, value: new Uint128(0xffffffffffffffffffffffffffffffffn) },
       { offset: 1, value: new Uint128(0xffffffffffffffffffffffffffffffffn) },
     ],
+    // Output is fed back to input
     instruction: () => new And(0, 0, 1, 0).as(Opcode.AND_8, And.wireFormat8),
   },
 
@@ -267,7 +273,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
       { offset: 0, value: new Uint128(0xdeadbeefcafebaben) },
       { offset: 1, value: new Uint128(0x1234567890abcdefn) },
     ],
-    // XOR chains: result alternates between two values
+    // Output is fed back to input
     instruction: () => new Xor(0, 0, 1, 0).as(Opcode.XOR_8, Xor.wireFormat8),
   },
 
@@ -281,7 +287,8 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
       { offset: 0, value: new Uint64(1n) },
       { offset: 1, value: new Uint64(1n) },
     ],
-    instruction: () => new Shl(0, 0, 1, 2).as(Opcode.SHL_8, Shl.wireFormat8),
+    // Output is fed back to input
+    instruction: () => new Shl(0, 0, 1, 0).as(Opcode.SHL_8, Shl.wireFormat8),
   },
 
   [Opcode.SHR_8]: {
@@ -289,7 +296,8 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
       { offset: 0, value: new Uint64(0xffffffffffffffffn) },
       { offset: 1, value: new Uint64(1n) },
     ],
-    instruction: () => new Shr(0, 0, 1, 2).as(Opcode.SHR_8, Shr.wireFormat8),
+    // Output is fed back to input
+    instruction: () => new Shr(0, 0, 1, 0).as(Opcode.SHR_8, Shr.wireFormat8),
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -482,7 +490,8 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
       offset: i,
       value: new Field(0n),
     })),
-    instruction: () => new Poseidon2(0, 0, 4),
+    // Output is fed back to input
+    instruction: () => new Poseidon2(0, 0, 0),
   },
 
   [Opcode.SHA256COMPRESSION]: {
@@ -498,7 +507,8 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
         value: new Uint32(0n),
       })),
     ],
-    instruction: () => new Sha256Compression(0, 24, 0, 8),
+    // Output is fed back to input
+    instruction: () => new Sha256Compression(0, 0, 0, 8),
   },
 
   [Opcode.KECCAKF1600]: {
@@ -506,7 +516,8 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
       offset: i,
       value: new Uint64(0n),
     })),
-    instruction: () => new KeccakF1600(0, 25, 0),
+    // Output is fed back to input
+    instruction: () => new KeccakF1600(0, 0, 0),
   },
 
   [Opcode.ECADD]: {
@@ -518,7 +529,9 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig>> = {
       { offset: 4, value: new Field(0n) }, // p2Y
       { offset: 5, value: new Uint1(1n) }, // p2IsInfinite = true
     ],
-    instruction: () => new EcAdd(0, 0, 1, 2, 3, 4, 5, 6),
+    // Output is fed back to input
+    // Output (x,y,isInf) overwrites p1 for chaining
+    instruction: () => new EcAdd(0, 0, 1, 2, 3, 4, 5, 0),
   },
 
   [Opcode.TORADIXBE]: {
@@ -967,7 +980,7 @@ export function createMaxSizeLogConfig(): SpamConfig {
       })),
     ],
     instruction: () => new EmitUnencryptedLog(0, LOG_SIZE_OFFSET, LOG_CONTENT_OFFSET),
-    limit: 2, // Only 1 max-size log fits, so limit=2 means 1 iteration
+    limit: 1, // Only 1 max-size log fits
   };
 }
 
