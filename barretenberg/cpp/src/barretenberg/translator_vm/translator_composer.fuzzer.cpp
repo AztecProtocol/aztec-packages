@@ -42,12 +42,6 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     TranslatorProver prover(proving_key, prover_transcript);
     auto proof = prover.construct_proof();
 
-    // Verify proof
-    auto verifier_transcript = std::make_shared<bb::TranslatorFlavor::Transcript>(prover_transcript->export_proof());
-    verifier_transcript->template receive_from_prover<Fq>("init");
-    auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
-    TranslatorVerifier verifier(verification_key, verifier_transcript);
-
     // Get accumulated_result from prover
     uint256_t accumulated_result = prover.get_accumulated_result();
 
@@ -61,8 +55,12 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     op_queue_commitments[3] =
         proving_key->proving_key->commitment_key.commit(proving_key->proving_key->polynomials.y_lo_z_2);
 
-    bool verified =
-        verifier.verify_proof(proof, x, translation_batching_challenge, accumulated_result, op_queue_commitments);
+    // Verify proof using unified verifier API
+    auto verifier_transcript = std::make_shared<bb::TranslatorFlavor::Transcript>();
+    TranslatorVerifier verifier(
+        verifier_transcript, proof, x, translation_batching_challenge, accumulated_result, op_queue_commitments);
+    auto verification_result = verifier.verify_proof();
+    bool verified = verification_result.sumcheck_verified && verification_result.consistency_checked;
     (void)checked;
     (void)verified;
     return 0;
