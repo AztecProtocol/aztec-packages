@@ -25,13 +25,13 @@ MultilinearBatchingProver::MultilinearBatchingProver(
     ProverPolynomials polynomials;
     size_t virtual_circuit_size = 1 << Flavor::VIRTUAL_LOG_N;
     size_t max_dyadic_size = std::max(accumulator_claim->dyadic_size, instance_claim->dyadic_size);
-    polynomials.w_non_shifted_accumulator = accumulator_claim->non_shifted_polynomial;
-    polynomials.w_shifted_accumulator = accumulator_claim->shifted_polynomial.shifted();
-    polynomials.w_non_shifted_instance = instance_claim->non_shifted_polynomial;
-    polynomials.w_shifted_instance = instance_claim->shifted_polynomial.shifted();
-    polynomials.w_evaluations_accumulator =
+    polynomials.batched_unshifted_accumulator = accumulator_claim->non_shifted_polynomial;
+    polynomials.batched_shifted_accumulator = accumulator_claim->shifted_polynomial.shifted();
+    polynomials.batched_unshifted_instance = instance_claim->non_shifted_polynomial;
+    polynomials.batched_shifted_instance = instance_claim->shifted_polynomial.shifted();
+    polynomials.eq_accumulator =
         ProverEqPolynomial<FF>::construct(accumulator_claim->challenge, bb::numeric::get_msb(max_dyadic_size));
-    polynomials.w_evaluations_instance =
+    polynomials.eq_instance =
         ProverEqPolynomial<FF>::construct(instance_claim->challenge, bb::numeric::get_msb(max_dyadic_size));
 
     polynomials.increase_polynomials_virtual_size(virtual_circuit_size);
@@ -107,8 +107,8 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
 
     // New polynomials
     auto new_non_shifted_polynomial = Polynomial(key->proving_key->circuit_size);
-    new_non_shifted_polynomial += key->proving_key->polynomials.w_non_shifted_instance;
-    new_non_shifted_polynomial.add_scaled(key->proving_key->polynomials.w_non_shifted_accumulator,
+    new_non_shifted_polynomial += key->proving_key->polynomials.batched_unshifted_instance;
+    new_non_shifted_polynomial.add_scaled(key->proving_key->polynomials.batched_unshifted_accumulator,
                                           claim_batching_challenge);
 
     auto new_shifted_polynomial = Polynomial::shiftable(key->proving_key->circuit_size);
@@ -123,10 +123,11 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
 
     // New evaluations
     FF new_non_shifted_evaluation =
-        sumcheck_output.claimed_evaluations.w_non_shifted_instance +
-        sumcheck_output.claimed_evaluations.w_non_shifted_accumulator * claim_batching_challenge;
-    FF new_shifted_evaluation = sumcheck_output.claimed_evaluations.w_shifted_instance +
-                                sumcheck_output.claimed_evaluations.w_shifted_accumulator * claim_batching_challenge;
+        sumcheck_output.claimed_evaluations.batched_unshifted_instance +
+        sumcheck_output.claimed_evaluations.batched_unshifted_accumulator * claim_batching_challenge;
+    FF new_shifted_evaluation =
+        sumcheck_output.claimed_evaluations.batched_shifted_instance +
+        sumcheck_output.claimed_evaluations.batched_shifted_accumulator * claim_batching_challenge;
 
     return MultilinearBatchingProverClaim{ .challenge = sumcheck_output.challenge,
                                            .non_shifted_evaluation = new_non_shifted_evaluation,
