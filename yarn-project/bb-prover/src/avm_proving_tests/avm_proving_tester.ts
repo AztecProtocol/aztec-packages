@@ -91,7 +91,7 @@ class InterceptingLogger implements Logger {
 // Config with collectHints enabled for proving tests
 const provingConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
   skipFeeEnforcement: false,
-  collectCallMetadata: true,
+  collectCallMetadata: true, // For results.
   collectDebugLogs: false,
   collectHints: true, // Required for proving!
   collectPublicInputs: true, // Required for proving!
