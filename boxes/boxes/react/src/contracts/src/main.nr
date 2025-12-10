@@ -21,7 +21,6 @@ contract BoxReact {
         let new_number = FieldNote { value: number };
 
         self.storage.numbers.at(owner).initialize(new_number).deliver(
-            owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
@@ -29,7 +28,6 @@ contract BoxReact {
     #[external("private")]
     fn setNumber(number: Field, owner: AztecAddress) {
         self.storage.numbers.at(owner).replace(|_old| FieldNote { value: number }).deliver(
-            owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
