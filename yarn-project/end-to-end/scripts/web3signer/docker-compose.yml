@@ -1,6 +1,6 @@
 services:
   web3signer:
-    image: consensys/web3signer:25.6.0
+    image: consensys/web3signer:25.11.0
     command:
       - --http-listen-port=9000
       - --http-host-allowlist=*
