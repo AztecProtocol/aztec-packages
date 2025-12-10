@@ -20,6 +20,6 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
 
 void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
                                      const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
-                                     std::vector<uint32_t>& key_witness_indices);
+                                     const std::vector<uint32_t>& key_witness_indices);
 
 } // namespace acir_format
