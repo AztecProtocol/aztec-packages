@@ -783,10 +783,10 @@ impl TestEnvironment {
                 RetrievedNote {
                     note,
                     contract_address,
+                    owner,
                     randomness,
                     metadata: SettledNoteMetadata::new(note_nonce).into(),
                 },
-                owner,
                 storage_slot,
             );
 

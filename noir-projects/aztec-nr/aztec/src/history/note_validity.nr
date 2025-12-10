@@ -4,7 +4,7 @@ use crate::{
     note::{note_interface::NoteHash, retrieved_note::RetrievedNote},
 };
 
-use protocol_types::{abis::block_header::BlockHeader, address::AztecAddress};
+use protocol_types::abis::block_header::BlockHeader;
 
 mod test;
 
@@ -12,7 +12,6 @@ trait ProveNoteValidity {
     fn prove_note_validity<Note>(
         header: BlockHeader,
         retrieved_note: RetrievedNote<Note>,
-        owner: AztecAddress,
         storage_slot: Field,
         context: &mut PrivateContext,
     )
@@ -24,14 +23,13 @@ impl ProveNoteValidity for BlockHeader {
     fn prove_note_validity<Note>(
         self,
         retrieved_note: RetrievedNote<Note>,
-        owner: AztecAddress,
         storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
         Note: NoteHash,
     {
-        self.prove_note_inclusion(retrieved_note, owner, storage_slot);
-        self.prove_note_not_nullified(retrieved_note, owner, storage_slot, context);
+        self.prove_note_inclusion(retrieved_note, storage_slot);
+        self.prove_note_not_nullified(retrieved_note, storage_slot, context);
     }
 }

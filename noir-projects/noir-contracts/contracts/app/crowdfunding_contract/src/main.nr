@@ -101,7 +101,7 @@ pub contract Crowdfunding {
         // type that is not returned by view_notes function. We on the other hand need this metadata because we will
         // be proving the note existence in the Claim contract.
         let opt_notes = aztec::oracle::notes::get_notes(
-            donor,
+            Option::some(donor),
             storage_slot,
             0,
             [],

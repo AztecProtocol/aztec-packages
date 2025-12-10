@@ -187,11 +187,12 @@ where
 }
 ```
 
+Signature of some functions like `destroy_note_unsafe` is unchanged:
+
 ```diff
 pub fn destroy_note_unsafe<Note>(
     context: &mut PrivateContext,
     retrieved_note: RetrievedNote<Note>,
-+    owner: AztecAddress,
     note_hash_read: NoteHashRead,
 )
 where
@@ -200,6 +201,8 @@ where
 ...
 }
 ```
+
+because `RetrievedNote` now contains owner.
 
 `PrivateImmutable`, `PrivateMutable` and `PrivateSet` got modified to directly contain the owner instead of implicitly "containing it" by including it in the storage slot via a `Map`.
 These state variables now implement a newly introduced `OwnedStateVariable` trait (see docs of `OwnedStateVariable` for explanation of what it is).

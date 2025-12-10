@@ -140,8 +140,8 @@ impl Deck<UtilityContext> {
         owner: AztecAddress,
         offset: u32,
     ) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
-        let mut options = NoteViewerOptions::new();
-        let notes = self.owned_set.at(owner).view_notes(options.set_offset(offset));
+        let options = NoteViewerOptions::new().set_offset(offset);
+        let notes = self.owned_set.at(owner).view_notes(options);
 
         notes.map(|note| Card::from_field(note.value))
     }
