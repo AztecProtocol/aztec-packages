@@ -4,13 +4,15 @@ import { UltraHonkBackend} from '@aztec/bb.js';
 import { Barretenberg, Fr, ProofData } from '@aztec/bb.js';
 import { readFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
-import { expect } from 'chai';
+import { expect, describe, it } from '@jest/globals';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe('Basic Barretenberg Example', () => {
-  it('should prove and verify a circuit', async function() {
-    // Set timeout for proof generation
-    this.timeout(60000);
+  it('should prove and verify a circuit', async () => {
 
     // docs:start:setup
     // Load circuit bytecode (from Noir compiler output)
@@ -56,10 +58,10 @@ describe('Basic Barretenberg Example', () => {
       console.log('Solidity verifier contract generated');
 
       // Assertions
-      expect(isValid).to.be.true;
-      expect(proofData.proof).to.have.length.greaterThan(0);
-      expect(contract).to.be.a('string');
-      expect(contract).to.include('contract');
+      expect(isValid).toBe(true);
+      expect(proofData.proof.length).toBeGreaterThan(0);
+      expect(typeof contract).toBe('string');
+      expect(contract).toContain('contract');
 
     } finally {
       // Always clean up
@@ -67,8 +69,7 @@ describe('Basic Barretenberg Example', () => {
     }
   });
 
-  it('should generate proofs with different hash variants', async function() {
-    this.timeout(60000);
+  it('should generate proofs with different hash variants', async () => {
 
     // Load circuit bytecode (from Noir compiler output)
     const circuitPath = path.join(__dirname, 'fixtures/main/target/program.json');
@@ -86,15 +87,15 @@ describe('Basic Barretenberg Example', () => {
       // docs:start:hash_variants
       // Standard UltraHonk (uses Poseidon)
       const proof = await backend.generateProof(witnessBuffer);
-      expect(proof.proof).to.have.length.greaterThan(0);
+      expect(proof.proof.length).toBeGreaterThan(0);
 
       // Keccak variant (for EVM verification)
       const proofKeccak = await backend.generateProof(witnessBuffer, { keccak: true });
-      expect(proofKeccak.proof).to.have.length.greaterThan(0);
+      expect(proofKeccak.proof.length).toBeGreaterThan(0);
 
       // ZK variants for recursive proofs
       const proofKeccakZK = await backend.generateProof(witnessBuffer, { keccakZK: true });
-      expect(proofKeccakZK.proof).to.have.length.greaterThan(0);
+      expect(proofKeccakZK.proof.length).toBeGreaterThan(0);
       // docs:end:hash_variants
 
     } finally {
@@ -103,8 +104,7 @@ describe('Basic Barretenberg Example', () => {
     }
   });
 
-  it('should get verification keys', async function() {
-    this.timeout(60000);
+  it('should get verification keys', async () => {
 
     // Load circuit bytecode (from Noir compiler output)
     const circuitPath = path.join(__dirname, 'fixtures/main/target/program.json');
@@ -124,10 +124,10 @@ describe('Basic Barretenberg Example', () => {
       // docs:end:verification_keys
 
       // Test that verification keys are valid
-      expect(vk).to.be.instanceOf(Uint8Array);
-      expect(vk.length).to.be.greaterThan(0);
-      expect(vkKeccak).to.be.instanceOf(Uint8Array);
-      expect(vkKeccak.length).to.be.greaterThan(0);
+      expect(vk).toBeInstanceOf(Uint8Array);
+      expect(vk.length).toBeGreaterThan(0);
+      expect(vkKeccak).toBeInstanceOf(Uint8Array);
+      expect(vkKeccak.length).toBeGreaterThan(0);
 
     } finally {
       // Always clean up
@@ -135,8 +135,7 @@ describe('Basic Barretenberg Example', () => {
     }
   });
 
-  it('should get solidity verifier contract', async function() {
-    this.timeout(60000);
+  it('should get solidity verifier contract', async () => {
 
     // Load circuit bytecode (from Noir compiler output)
     const circuitPath = path.join(__dirname, 'fixtures/main/target/program.json');
@@ -156,9 +155,9 @@ describe('Basic Barretenberg Example', () => {
       // docs:end:solidity_verifier
 
       // Test that solidity contract is valid
-      expect(solidityContract).to.be.a('string');
-      expect(solidityContract).to.include('contract');
-      expect(solidityContract).to.include('function verify');
+      expect(typeof solidityContract).toBe('string');
+      expect(solidityContract).toContain('contract');
+      expect(solidityContract).toContain('function verify');
 
     } finally {
       // Always clean up
@@ -166,8 +165,7 @@ describe('Basic Barretenberg Example', () => {
     }
   });
 
-  it('should perform low-level cryptographic operations', async function() {
-    this.timeout(60000);
+  it('should perform low-level cryptographic operations', async () => {
 
     // docs:start:low_level_api
     const api = await Barretenberg.new({ threads: 1 });
@@ -185,7 +183,7 @@ describe('Basic Barretenberg Example', () => {
     // docs:end:low_level_api
 
     // Test that operations produce valid results
-    expect(hash).to.exist;
-    expect(commitment).to.exist;
+    expect(hash).toBeDefined();
+    expect(commitment).toBeDefined();
   });
 });

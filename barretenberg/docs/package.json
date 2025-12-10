@@ -12,7 +12,7 @@
     "clear": "./scripts/clean.sh",
     "serve": "docusaurus serve",
     "typecheck": "yarn tsgo",
-    "test": "TS_NODE_PROJECT=./tsconfig.test.json mocha",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ./node_modules/.bin/jest",
     "preprocess": "node src/preprocess/index.js",
     "preprocess:clean": "node src/preprocess/index.js clean"
   },
@@ -40,18 +40,25 @@
     "@docusaurus/module-type-aliases": "3.7.0",
     "@docusaurus/tsconfig": "3.7.0",
     "@docusaurus/types": "3.7.0",
-    "@types/chai": "4",
-    "@types/expect": "^24.3.2",
-    "@types/mocha": "^10.0.10",
-    "chai": "4",
-    "mocha": "^11.7.1",
+    "@jest/globals": "^30.0.0",
+    "@swc/core": "^1.10.0",
+    "@swc/jest": "^0.2.37",
+    "@types/jest": "^30.0.0",
+    "jest": "^30.0.0",
     "netlify-cli": "^17.23.0",
     "nodemon": "^3.1.10",
-    "ts-mocha": "^11.1.0",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "~5.6.2",
     "@typescript/native-preview": "7.0.0-dev.20251126.1"
+  },
+  "jest": {
+    "testRegex": "./examples/.*\\.test\\.ts$",
+    "transform": {
+      "^.+\\.tsx?$": ["@swc/jest"]
+    },
+    "extensionsToTreatAsEsm": [".ts"],
+    "testTimeout": 120000
   },
   "browserslist": {
     "production": [
