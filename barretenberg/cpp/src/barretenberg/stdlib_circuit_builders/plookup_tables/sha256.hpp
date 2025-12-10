@@ -228,6 +228,7 @@ inline MultiTable get_witness_extension_input_table(const MultiTableId id = SHA2
     std::vector<bb::fr> column_3_coefficients{ 0, 0, 0, 0 };
     MultiTable table(column_1_coefficients, column_2_coefficients, column_3_coefficients);
     table.id = id;
+    // AUDITTODO: slice sizes should be 3, 7, 8, 14 bits respectively
     table.slice_sizes = { (1 << 3), (1 << 7), (1 << 8), (1 << 18) };
     table.basic_table_ids = { SHA256_WITNESS_SLICE_3,
                               SHA256_WITNESS_SLICE_7_ROTATE_4,

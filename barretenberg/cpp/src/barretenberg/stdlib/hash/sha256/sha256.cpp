@@ -63,6 +63,36 @@ SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const fie
     return result;
 }
 
+/**
+ * @brief Extend the 16-word message block to 64 words per SHA-256 specification
+ *
+ * SHA-256 Spec (FIPS 180-4, Section 6.2.2):
+ *   For i = 16 to 63:
+ *       W[i] = σ₁(W[i-2]) + W[i-7] + σ₀(W[i-15]) + W[i-16]  (mod 2³²)
+ *
+ *   where:
+ *       σ₀(x) = ROTR⁷(x) ⊕ ROTR¹⁸(x) ⊕ SHR³(x)
+ *       σ₁(x) = ROTR¹⁷(x) ⊕ ROTR¹⁹(x) ⊕ SHR¹⁰(x)
+ *
+ * Circuit Implementation Strategy:
+ *   Rather than computing rotations and XORs directly (expensive), we use base-16 sparse form with lookup tables:
+ *
+ *   1. For W[i-15] and W[i-2], use SHA256_WITNESS_INPUT lookup table to extract:
+ *      - Decomposition of 32-bit value into 4 sparse limbs
+ *      - Rotated limb correction terms (used in conjunction with rotation multipliers)
+ *
+ *   2. Compute σ₀ + σ₁ in sparse form:
+ *      - Scale σ₀ contribution by 4 (shifts it to upper 2 bits of each base-16 digit)
+ *      - Add σ₁ contribution (occupies lower 2 bits of each digit)
+ *      - Each digit becomes: 4*σ₀_bit + σ₁_bit ∈ {0,1,...,15}
+ *
+ *   3. Normalize via SHA256_WITNESS_OUTPUT table: Maps sparse sum to σ₀ + σ₁
+ *
+ *   4. Add σ₀(W[i-15]) + σ₁(W[i-2]) + W[i-7] + W[i-16] and reduce mod 2³²
+ *
+ * @param w_in The 16 input message words (512 bits total)
+ * @return 64 extended message schedule words
+ */
 template <typename Builder>
 std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::array<field_t<Builder>, 16>& w_in)
 {
@@ -71,13 +101,16 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
     Builder* ctx = w_in[0].get_context();
 
     std::array<SHA256<Builder>::sparse_witness_limbs, 64> w_sparse;
+
+    // Populate initial 16 words in sparse form from input
     for (size_t i = 0; i < 16; ++i) {
         w_sparse[i] = SHA256<Builder>::sparse_witness_limbs(w_in[i]);
-        if (!ctx && w_in[i].get_context()) {
+        if ((ctx == nullptr) && w_in[i].get_context()) {
             ctx = w_in[i].get_context();
         }
     }
 
+    // Compute extended words W[16..63]
     for (size_t i = 16; i < 64; ++i) {
         auto& w_left = w_sparse[i - 15];
         auto& w_right = w_sparse[i - 2];
@@ -89,6 +122,8 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             w_right = convert_witness(w_right.normal);
         }
 
+        // Compute the (partially) rotated sparse limbs for σ₀
+        // Note: remaining contributions accounted for via w_left.rotated_limb_corrections
         std::array<field_pt, 4> left{
             w_left.sparse_limbs[0] * left_multipliers[0],
             w_left.sparse_limbs[1] * left_multipliers[1],
@@ -96,6 +131,8 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             w_left.sparse_limbs[3] * left_multipliers[3],
         };
 
+        // Compute the (partially) rotated sparse limbs for σ₁
+        // Note: remaining contributions accounted for via w_right.rotated_limb_corrections
         std::array<field_pt, 4> right{
             w_right.sparse_limbs[0] * right_multipliers[0],
             w_right.sparse_limbs[1] * right_multipliers[1],
@@ -103,15 +140,15 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             w_right.sparse_limbs[3] * right_multipliers[3],
         };
 
-        // Compute σ₀ in sparse form: each sparse digit holds the sum of contributions from the three
-        // rotation/shift operations (digit value in {0,1,2,3}).
+        // Compute σ₀(w[i-15]) = (x >>> 7) ⊕ (x >>> 18) ⊕ (x >> 3) in sparse form.
+        // Each sparse digit holds the sum of contributions from the three rotation/shift operations
+        // (digit value in {0,1,2,3}).
         // The fr(4) scaling positions σ₀'s contribution in the upper 2 bits of each 4-bit digit slot:
         // when combined with σ₁ (unscaled, in lower 2 bits), each digit becomes 4*σ₀_digit + σ₁_digit ∈ [0,15].
-        // This allows the SHA256_WITNESS_OUTPUT normalization table to jointly extract XOR(σ₀, σ₁).
         const field_pt left_xor_sparse =
             left[0].add_two(left[1], left[2]).add_two(left[3], w_left.rotated_limb_corrections[1]) * fr(4);
 
-        // Combine σ₁ contributions with the scaled σ₀ result
+        // Compute σ₀(w[i-15]) + σ₁(w[i-2]) where σ₁(x) = (x >>> 17) ⊕ (x >>> 19) ⊕ (x >> 10).
         const field_pt xor_result_sparse = right[0]
                                                .add_two(right[1], right[2])
                                                .add_two(right[3], w_right.rotated_limb_corrections[2])
@@ -119,23 +156,32 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
 
         field_pt xor_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_WITNESS_OUTPUT, xor_result_sparse);
 
+        // AUDITTODO: What is this TODO referring to?
         // TODO NORMALIZE WITH RANGE CHECK
 
+        // Compute W[i] = σ₁(W[i-2]) + W[i-7] + σ₀(W[i-15]) + W[i-16]
         field_pt w_out_raw = xor_result.add_two(w_sparse[i - 16].normal, w_sparse[i - 7].normal);
+
+        // Natively compute value reduced to 32 bits per SHA-256 spec
+        const uint64_t w_out_modded = w_out_raw.get_value().from_montgomery_form().data[0] & 0xffffffffULL;
+
         field_pt w_out;
         if (w_out_raw.is_constant()) {
-            w_out = field_pt(ctx, fr(w_out_raw.get_value().from_montgomery_form().data[0] & (uint64_t)0xffffffffULL));
-
+            w_out = field_pt(ctx, fr(w_out_modded));
         } else {
-            w_out = witness_t<Builder>(
-                ctx, fr(w_out_raw.get_value().from_montgomery_form().data[0] & (uint64_t)0xffffffffULL));
+            // Establish w_out as the 32-bit reduction of w_out_raw via w_out_raw = w_out + divisor*2^32
+            w_out = witness_t<Builder>(ctx, fr(w_out_modded));
             static constexpr fr inv_pow_two = fr(2).pow(32).invert();
-            // If we multiply the field elements by constants separately and then subtract, then the divisor is
-            // going to be in a normalized state right after subtraction and the call to .normalize() won't add
-            // gates
+            // Implementation note: by multiplying the field elements by constants separately then subtracting, we
+            // ensure that the divisor is in a normalized state and subsequent call to .normalize() won't add gates
             field_pt w_out_raw_inv_pow_two = w_out_raw * inv_pow_two;
             field_pt w_out_inv_pow_two = w_out * inv_pow_two;
             field_pt divisor = w_out_raw_inv_pow_two - w_out_inv_pow_two;
+            // AUDITTODO: The exact requirement here seems to be 2, not 3. The three inputs to w_out_raw are
+            // constrained to 32 bits: xor_result from lookup table, and w[i-16]/w[i-7] from either the original
+            // input or previous iterations (where they were constrained by this same range check). Therefore
+            // their sum is at most 3*(2^32 - 1), and thus divisor <= 3*(2^32 - 1)/2^32 = 2. Confirm that a 2-bit
+            // constraint would suffice.
             divisor.create_range_constraint(3);
         }
 
@@ -283,8 +329,8 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
 
     /**
      * Initialize round variables with previous block output.
-     * Note: We avoid doing lookups here to convert `a` and `e` into their respective sparse forms because it's done as
-     * part of the majority and choose functions in the first round.
+     * Note: We delay converting `a` and `e` into their respective sparse forms because it's done as part of the
+     * majority and choose functions in the first round.
      */
     sparse_value a = sparse_value(h_init[0]); // delay conversion to maj sparse form
     auto b = map_into_maj_sparse_form(h_init[1]);
@@ -333,10 +379,10 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     output[7] = add_normalize(h.normal, h_init[7]);
 
     /**
-     * At this point, a malicilous prover could tweak the add_normalise function and the result could be
+     * At this point, a malicious prover could tweak the add_normalize function and the result could be
      * 'overflowed'. Thus, we need 32-bit range checks on the outputs. Note that we won't need range checks while
      * applying the SHA-256 compression function because the outputs of the lookup table ensures that the output is
-     * contrained to 32 bits.
+     * constrained to 32 bits.
      */
     for (size_t i = 0; i < 8; i++) {
         output[i].create_range_constraint(32);
