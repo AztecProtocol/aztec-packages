@@ -88,6 +88,7 @@
 #include "barretenberg/vm2/simulation/standalone/pure_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_sha256.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_to_radix.hpp"
 #include "barretenberg/vm2/simulation/standalone/written_public_data_slots_tree_check.hpp"
 
@@ -394,7 +395,6 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
 
     NoopEventEmitter<ExecutionEvent> execution_emitter;
     NoopEventEmitter<DataCopyEvent> data_copy_emitter;
-    NoopEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
     NoopEventEmitter<EccAddEvent> ecc_add_emitter;
     NoopEventEmitter<ScalarMulEvent> scalar_mul_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
@@ -424,7 +424,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
     PureAlu alu;
     PureBitwise bitwise;
-    Sha256 sha256(execution_id_manager, bitwise, greater_than, sha256_compression_emitter);
+    PureSha256 sha256;
     PureKeccakF1600 keccakf1600;
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
