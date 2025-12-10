@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
-#include "barretenberg/avm_fuzzer/common/interfaces/simulation_helper.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/common/base64.hpp"
@@ -22,6 +21,7 @@
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
+#include "barretenberg/vm2/simulation_helper.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 
