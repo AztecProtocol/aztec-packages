@@ -224,7 +224,8 @@ contract DeployAztecL1Contracts is Script, Test {
 
             ZkPassportConfiguration memory zkConfig = config.getZkPassportConfiguration();
             address[] memory unhinged = new address[](1);
-            unhinged[0] = 0x3b218d0F26d15B36C715cB06c949210a0d630637; // AMIN isUnhinged
+            address AMIN = 0x3b218d0F26d15B36C715cB06c949210a0d630637;
+            unhinged[0] = AMIN; // isUnhinged
 
             output.stakingAssetHandler = new StakingAssetHandler(StakingAssetHandler.StakingAssetHandlerArgs({
                 owner: deployer,

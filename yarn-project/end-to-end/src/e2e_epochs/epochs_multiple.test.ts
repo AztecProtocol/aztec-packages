@@ -31,7 +31,8 @@ describe('e2e_epochs/epochs_multiple', () => {
     const targetProvenCheckpointNumber = CheckpointNumber(targetProvenEpochs * test.epochDuration);
 
     let provenCheckpointNumber = CheckpointNumber(0);
-    let epochNumber = 0;
+    // Get the current epoch when we start - don't assume we're at epoch 0 as deployment can be multiple slots.
+    let epochNumber = Number(await rollup.getCurrentEpoch());
     logger.info(`Waiting for ${targetProvenEpochs} epochs to be proven at ${targetProvenCheckpointNumber} checkpoints`);
     while (provenCheckpointNumber < targetProvenCheckpointNumber) {
       logger.info(`Waiting for the end of epoch ${epochNumber}`);
