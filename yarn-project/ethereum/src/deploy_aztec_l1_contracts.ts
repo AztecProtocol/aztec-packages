@@ -13,7 +13,6 @@ import { spawn } from 'child_process';
 import { mkdtemp, readFile, rm } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
 import type { Chain, Hex } from 'viem';
-import { rpc } from 'viem/utils';
 
 import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
@@ -22,7 +21,6 @@ import { deployMulticall3 } from './contracts/multicall.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import type { L1TxUtilsConfig } from './l1_tx_utils/config.js';
-import { EthCheatCodes } from './test/eth_cheat_codes.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
 // Validator types for initial validator setup
@@ -168,6 +166,8 @@ export async function deployAztecL1Contracts(
   const currentDir = dirname(fileURLToPath(import.meta.url));
 
   const l1Client = createExtendedL1Client([rpcUrl], privateKey, chain);
+  // Deploy multicall3 if it does not exist in this network
+  await deployMulticall3(l1Client, logger);
 
   const rpcCall = async (method: string, params: any[]) => {
     logger.info(`Calling ${method} with params: ${JSON.stringify(params)}`);
@@ -176,14 +176,19 @@ export async function deployAztecL1Contracts(
       params,
     })) as any;
   };
-  if (isAnvilTestChain(chain.id)) {
-    await rpcCall('anvil_setAutoMine', [true]).catch(e => logger.error(`Error setting anvil auto mine: ${e}`));
-  }
-
-  // Deploy multicall3 if it does not exist in this network
-  await deployMulticall3(l1Client, logger);
 
   logger.verbose(`Deploying contracts from ${l1Client.account.address.toString()}`);
+
+  if (isAnvilTestChain(chain.id)) {
+    try {
+      // We are assuming that you are running this on a local anvil node which have 1s block times
+      // To align better with actual deployment, we update the block interval to 12s
+      await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
+      logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
+    } catch (e) {
+      logger.error(`Error setting block interval: ${e}`);
+    }
+  }
 
   // Relative location of l1-contracts in monorepo or docker image.
   const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
@@ -200,8 +205,6 @@ export async function deployAztecL1Contracts(
       outputPath,
       '--rpc-url',
       rpcUrl,
-      '--private-key',
-      privateKey,
       '--broadcast',
       '--batch-size',
       MAGIC_TRANSACTION_BATCH_SIZE.toString(),
@@ -210,6 +213,8 @@ export async function deployAztecL1Contracts(
       cwd: l1ContractsPath,
       env: {
         ...process.env,
+        // Private key passed via env var (more secure than command line)
+        FOUNDRY_PRIVATE_KEY: privateKey,
         // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
         NETWORK: getActiveNetworkName(),
         ...getDeployAztecL1ContractsEnvVars(args),
@@ -261,31 +266,23 @@ export async function deployAztecL1Contracts(
   if (isAnvilTestChain(chain.id)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
     //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
-    //        For overall consistency in testing, we move to slot 1 directly.
     try {
       // Need to get the time
-      let currentSlot = await rollup.getSlotNumber();
+      const currentSlot = await rollup.getSlotNumber();
 
-      const ts = Number(await rollup.getTimestampForSlot(SlotNumber(1)));
-      await rpcCall('evm_setNextBlockTimestamp', [ts]);
-      await rpcCall('hardhat_mine', [1]);
-      currentSlot = await rollup.getSlotNumber();
+      if (currentSlot === 0) {
+        const ts = Number(await rollup.getTimestampForSlot(SlotNumber(1)));
+        await rpcCall('evm_setNextBlockTimestamp', [ts]);
+        await rpcCall('hardhat_mine', [1]);
+        const currentSlot = await rollup.getSlotNumber();
 
-      if (currentSlot !== 1) {
-        throw new Error(`Error jumping time: current slot is ${currentSlot}`);
+        if (currentSlot !== 1) {
+          throw new Error(`Error jumping time: current slot is ${currentSlot}`);
+        }
+        logger.info(`Jumped to slot 1`);
       }
-      logger.info(`Jumped to slot 1`);
     } catch (e) {
       throw new Error(`Error jumping time: ${e}`);
-    }
-    try {
-      await rpcCall('anvil_setAutoMine', [false]);
-      // We are assuming that you are running this on a local anvil node which have 1s block times
-      // To align better with actual deployment, we update the block interval to 12s
-      await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
-      logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
-    } catch (e) {
-      logger.error(`Error setting block interval: ${e}`);
     }
   }
 
@@ -509,14 +506,14 @@ export const deployRollupForUpgrade = async (
         outputPath,
         '--rpc-url',
         rpcUrl,
-        '--private-key',
-        privateKey,
         '--broadcast',
       ],
       {
         cwd: l1ContractsPath,
         env: {
           ...process.env,
+          // Private key passed via env var (more secure than command line)
+          FOUNDRY_PRIVATE_KEY: privateKey,
           // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
           REGISTRY_ADDRESS: registryAddress.toString(),
           NETWORK: getActiveNetworkName(),
