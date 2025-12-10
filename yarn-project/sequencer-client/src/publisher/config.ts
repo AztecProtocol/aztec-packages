@@ -37,6 +37,8 @@ export type PublisherConfig = L1TxUtilsConfig &
     publisherAllowInvalidStates?: boolean;
     /** Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1 */
     fishermanMode?: boolean;
+    /** Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only) */
+    publisherForwarderAddress?: EthAddress;
   };
 
 export const getTxSenderConfigMappings: (
@@ -75,6 +77,11 @@ export const getPublisherConfigMappings: (
     description:
       'Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1',
     ...booleanConfigHelper(false),
+  },
+  publisherForwarderAddress: {
+    env: scope === `PROVER` ? `PROVER_PUBLISHER_FORWARDER_ADDRESS` : `SEQ_PUBLISHER_FORWARDER_ADDRESS`,
+    description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
+    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
   },
   ...l1TxUtilsConfigMappings,
   ...blobSinkConfigMapping,

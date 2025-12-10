@@ -22,6 +22,10 @@
 
 namespace bb {
 
+/**
+ * @brief HyperNova folding verifier (native + recursive). Verifies folding proofs and maintains accumulators.
+ * @details See: chonk/README.md#hypernova-folding-details
+ */
 template <typename Flavor_> class HypernovaFoldingVerifier {
   public:
     using Flavor = Flavor_;

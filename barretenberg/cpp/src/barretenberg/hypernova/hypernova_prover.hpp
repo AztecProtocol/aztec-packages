@@ -3,30 +3,6 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-//
-// HyperNova folding prover. Folds circuit instances into accumulators, deferring PCS verification.
-// See: chonk/README.md#hypernova-folding-details
-//
-// ## Accumulator Concept
-//
-// An Accumulator represents batched polynomial evaluation claims from one or more circuits.
-// Instead of verifying each circuit's PCS separately, we batch claims into an accumulator
-// and defer verification to a final "decider" proof. This enables efficient recursion.
-//
-// Each accumulator contains:
-//   - challenge: The evaluation point (from Sumcheck)
-//   - non_shifted_{polynomial,commitment,evaluation}: Batched claims for standard polynomials
-//   - shifted_{polynomial,commitment,evaluation}: Batched claims for shifted polynomials
-//
-// ## Shifted vs Unshifted Polynomials
-//
-// - **Unshifted**: Standard witness/selector polynomials evaluated at point r
-// - **Shifted**: Polynomials referencing the "next row" in relations. We enforce p(0) = 0,
-//   so p(X)/X is a polynomial. The shift is p(X)/X evaluated at r, i.e., p(r)/r.
-//   Same commitment works for both p and its shift (no separate commitment needed).
-//
-// The batching formula: batched = Σᵢ ρᵢ·pᵢ where ρᵢ are Fiat-Shamir challenges.
-//
 #pragma once
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -35,6 +11,30 @@
 
 namespace bb {
 
+/**
+ * @brief HyperNova folding prover. Folds circuit instances into accumulators, deferring PCS verification.
+ * @details See: chonk/README.md#hypernova-folding-details
+ *
+ * ## Accumulator Concept
+ *
+ * An Accumulator represents batched polynomial evaluation claims from one or more circuits.
+ * Instead of verifying each circuit's PCS separately, we batch claims into an accumulator
+ * and defer verification to a final "decider" proof. This enables efficient recursion.
+ *
+ * Each accumulator contains:
+ *   - challenge: The evaluation point (from Sumcheck)
+ *   - non_shifted_{polynomial,commitment,evaluation}: Batched claims for standard polynomials
+ *   - shifted_{polynomial,commitment,evaluation}: Batched claims for shifted polynomials
+ *
+ * ## Shifted vs Unshifted Polynomials
+ *
+ * - **Unshifted**: Standard witness/selector polynomials evaluated at point r
+ * - **Shifted**: Polynomials referencing the "next row" in relations. We enforce p(0) = 0,
+ *   so p(X)/X is a polynomial. The shift is p(X)/X evaluated at r, i.e., p(r)/r.
+ *   Same commitment works for both p and its shift (no separate commitment needed).
+ *
+ * The batching formula: batched = Σᵢ ρᵢ·pᵢ where ρᵢ are Fiat-Shamir challenges.
+ */
 class HypernovaFoldingProver {
   public:
     using Flavor = MegaFlavor;

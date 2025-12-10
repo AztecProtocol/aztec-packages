@@ -4,10 +4,10 @@ import { EpochNumber, EpochNumberSchema } from '../branded-types/epoch.js';
 import { SlotNumber, SlotNumberSchema } from '../branded-types/slot.js';
 import { Buffer32 } from '../buffer/buffer32.js';
 import { SecretValue } from '../config/secret_value.js';
+import { Fq, Fr } from '../curves/bn254/field.js';
+import { Point } from '../curves/grumpkin/point.js';
 import { EthAddress } from '../eth-address/index.js';
-import { Fq, Fr } from '../fields/fields.js';
-import { Point } from '../fields/point.js';
-import { isHex, withoutHexPrefix } from '../string/index.js';
+import { isHex, withHexPrefix, withoutHexPrefix } from '../string/index.js';
 import { bufferSchema, hexSchema } from './utils.js';
 
 export const schemas = {
@@ -73,6 +73,9 @@ export const schemas = {
 
   /** Hex string with an optional 0x prefix which gets removed as part of the parsing. */
   HexString: hexSchema,
+
+  /** Hex string with an optional 0x prefix which gets enforced as part of the parsing. */
+  HexStringWith0x: z.string().refine(isHex, 'Not a valid hex string').transform(withHexPrefix),
 
   /** A secret config value */
   SecretValue: SecretValue.schema,

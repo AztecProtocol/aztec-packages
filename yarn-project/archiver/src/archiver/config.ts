@@ -55,6 +55,11 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     description: 'Maximum allowed drift in seconds between the Ethereum client and current time.',
     ...numberConfigHelper(300),
   },
+  ethereumAllowNoDebugHosts: {
+    env: 'ETHEREUM_ALLOW_NO_DEBUG_HOSTS',
+    description: 'Whether to allow starting the archiver without debug/trace method support on Ethereum hosts',
+    ...booleanConfigHelper(true),
+  },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,
   viemPollingIntervalMS: {

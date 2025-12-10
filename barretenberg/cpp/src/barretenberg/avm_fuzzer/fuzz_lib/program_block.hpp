@@ -47,6 +47,12 @@ class ProgramBlock {
     // for step 4 to patch the INTERNALCALL instruction with the actual offset.
     std::map<size_t, ProgramBlock*> internal_call_instruction_indicies_to_patch;
 
+    /// @brief preprocess the memory addresses
+    /// Sets M[0] = base_offset for Relative/IndirectRelative modes
+    /// Sets M[pointer_address] = pointer_value for Indirect/IndirectRelative modes
+    void preprocess_memory_addresses(AddressRef address, uint32_t actual_address);
+    void preprocess_memory_addresses(ResultAddressRef address, uint32_t actual_address);
+
     void process_add_8_instruction(ADD_8_Instruction instruction);
     void process_sub_8_instruction(SUB_8_Instruction instruction);
     void process_mul_8_instruction(MUL_8_Instruction instruction);

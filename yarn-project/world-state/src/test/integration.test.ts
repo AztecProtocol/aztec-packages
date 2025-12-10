@@ -1,8 +1,8 @@
 import { MockPrefilledArchiver } from '@aztec/archiver/test';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -38,7 +38,7 @@ describe('world-state integration', () => {
     const fork = await db.fork(BlockNumber(0));
     log.info(`Generating ${MAX_CHECKPOINT_COUNT} mock checkpoints`);
     checkpoints = await timesAsync(MAX_CHECKPOINT_COUNT, i =>
-      mockCheckpoint(CheckpointNumber(i + 1), { startBlockNumber: BlockNumber(i + 1), fork }),
+      mockCheckpoint(CheckpointNumber(i + 1), fork, { startBlockNumber: BlockNumber(i + 1) }),
     );
     log.info(`Generated ${checkpoints.length} mock checkpoints`);
     await fork.close();
@@ -191,7 +191,7 @@ describe('world-state integration', () => {
       // Create checkpoints for an alternate chain forking off checkpoint 2
       const fork = await db.fork(BlockNumber(2));
       const newCheckpoints = await timesAsync(5, i =>
-        mockCheckpoint(CheckpointNumber(i + 3), { startBlockNumber: BlockNumber(i + 3), fork }),
+        mockCheckpoint(CheckpointNumber(i + 3), fork, { startBlockNumber: BlockNumber(i + 3) }),
       );
       await fork.close();
       archiver.setPrefilled(newCheckpoints);

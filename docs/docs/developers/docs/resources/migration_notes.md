@@ -16,6 +16,7 @@ All note struct fields are now public, and the `new()` constructor methods and g
 The motivation for this change has been enshrining of randomness which lead to the `new` method being unnecessary boilerplate.
 
 **Affected notes:**
+
 - `UintNote` - `value` is now public, `new()` and `get_value()` removed
 - `AddressNote` - `address` is now public, `new()` and `get_address()` removed
 - `FieldNote` - `value` is now public, `new()` and `value()` removed
@@ -44,11 +45,18 @@ The motivation for this change has been enshrining of randomness which lead to t
 
 ### [Aztec.nr] `emit` renamed to `deliver`
 
-Private state variable functions that created notes and returned their messages no longer return a `NoteEmission` but instead a `NoteMessage`. These messages are delivered to their recipient via `deliver` instead of `emit`. The verb 'emit' remains for things like emitting events.
+Private state variable functions that created notes and returned their messages no longer return a `NoteEmission` but instead a `NoteMessage`. These messages are delivered to their owner via `deliver` instead of `emit`. The verb 'emit' remains for things like emitting events.
 
 ```diff
 - self.storage.balances.at(owner).add(5).emit(owner);
-+ self.storage.balances.at(owner).add(5).deliver(owner);
++ self.storage.balances.at(owner).add(5).deliver();
+```
+
+To deliver a message to a different recipient, use `deliver_to`:
+
+```diff
+- self.storage.balances.at(owner).add(5).emit(other);
++ self.storage.balances.at(owner).add(5).deliver_to(other);
 ```
 
 ### [Aztec.nr] `ValueNote` renamed to `FieldNote` and `value-note` crate renamed to `field-note`
@@ -571,6 +579,7 @@ Having the recipient in the return value has been redundant as the same outcome 
 #### Changes to `getPrivateEvents`
 
 The signature of `getPrivateEvents` has changed for two reasons:
+
 1. To align it with how other query methods that include filtering by block range work (for example, `AztecNode#getPublicLogs`)
 2. To enrich the returned private events with metadata.
 
@@ -626,7 +635,6 @@ Also note we're replacing _recipient_ terminology with _scope_. While underlying
 ```
 
 Please refer to the wallet interface js-docs for further details.
-
 
 ### [CLI] Command refactor
 

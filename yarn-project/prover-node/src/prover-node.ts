@@ -2,8 +2,8 @@ import type { Archiver } from '@aztec/archiver';
 import type { RollupContract } from '@aztec/ethereum';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
-import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -342,9 +342,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   }
 
   private async gatherMessages(epochNumber: EpochNumber, checkpoints: Checkpoint[]) {
-    const messages = await Promise.all(
-      checkpoints.map(c => this.l1ToL2MessageSource.getL1ToL2MessagesForCheckpoint(c.number)),
-    );
+    const messages = await Promise.all(checkpoints.map(c => this.l1ToL2MessageSource.getL1ToL2Messages(c.number)));
     const messageCount = sum(messages.map(m => m.length));
     this.log.verbose(`Gathered all ${messageCount} messages for epoch ${epochNumber}`, { epochNumber });
     const messagesByCheckpoint: Record<CheckpointNumber, Fr[]> = {};

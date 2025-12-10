@@ -148,7 +148,7 @@ export async function createProverNode(
 
   const proofVerifier = new QueuedIVCVerifier(
     config,
-    config.realProofs
+    config.realProofs || config.debugForceTxProofVerification
       ? await BBCircuitVerifier.new(config)
       : new TestCircuitVerifier(config.proverTestVerificationDelayMs),
   );

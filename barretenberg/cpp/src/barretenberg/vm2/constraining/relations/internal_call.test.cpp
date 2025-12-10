@@ -100,7 +100,6 @@ TEST(InternalCallStackConstrainingTest, SimpleInternalCallReturn)
                                // Last Row
                                {
                                    { C::execution_sel, 0 },
-                                   { C::execution_last, 1 },
                                } });
 
     check_relation<internal_call>(trace);
@@ -143,7 +142,6 @@ TEST(InternalCallStackConstrainingTest, ReturnError)
                                // Last Row
                                {
                                    { C::execution_sel, 0 },
-                                   { C::execution_last, 1 },
                                } });
 
     check_relation<internal_call>(trace);

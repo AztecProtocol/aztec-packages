@@ -1,6 +1,8 @@
 import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT } from '@aztec/constants';
-import { poseidon2Hash, sha256ToField } from '@aztec/foundation/crypto';
-import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { sha256ToField } from '@aztec/foundation/crypto/sha256';
+import { BLS12Fr, BLS12Point } from '@aztec/foundation/curves/bls12';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { BatchedBlob } from './batched_blob.js';
 import { Blob } from './blob.js';

@@ -1,4 +1,4 @@
-import { Fq, Fr } from '../fields/fields.js';
+import { Fq, Fr } from '../curves/bn254/field.js';
 import { createConsoleLogger } from '../log/console.js';
 import type { EnvVar } from './env_var.js';
 import { type NetworkNames, getActiveNetworkName } from './network_name.js';

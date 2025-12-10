@@ -3,10 +3,6 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-//
-// HyperNova decider verifier (native + recursive). Verifies final opening proof.
-// See: chonk/README.md#final-decider
-//
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim_batcher.hpp"
@@ -16,7 +12,10 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 
 namespace bb {
-
+/**
+ * @brief HyperNova decider verifier (native + recursive). Verifies final opening proof.
+ * @details See: chonk/README.md#final-decider
+ */
 template <typename Flavor_> class HypernovaDeciderVerifier {
   public:
     using Flavor = Flavor_;

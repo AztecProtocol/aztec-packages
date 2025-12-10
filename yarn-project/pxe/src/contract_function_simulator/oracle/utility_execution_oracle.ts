@@ -1,6 +1,7 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import { Aes128 } from '@aztec/foundation/crypto';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Aes128 } from '@aztec/foundation/crypto/aes128';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';

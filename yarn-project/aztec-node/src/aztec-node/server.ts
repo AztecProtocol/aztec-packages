@@ -19,8 +19,8 @@ import {
 } from '@aztec/ethereum';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, pick } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { count } from '@aztec/foundation/string';
@@ -28,7 +28,10 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
-import { createL1TxUtilsWithBlobsFromEthSigner } from '@aztec/node-lib/factories';
+import {
+  createForwarderL1TxUtilsFromEthSigner,
+  createL1TxUtilsWithBlobsFromEthSigner,
+} from '@aztec/node-lib/factories';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
@@ -284,9 +287,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       options.prefilledPublicData,
       telemetry,
     );
-    const circuitVerifier = config.realProofs
-      ? await BBCircuitVerifier.new(config)
-      : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+    const circuitVerifier =
+      config.realProofs || config.debugForceTxProofVerification
+        ? await BBCircuitVerifier.new(config)
+        : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);
     }
@@ -422,12 +426,20 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
       await slasherClient.start();
 
-      const l1TxUtils = await createL1TxUtilsWithBlobsFromEthSigner(
-        publicClient,
-        keyStoreManager!.createAllValidatorPublisherSigners(),
-        { ...config, scope: 'sequencer' },
-        { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
-      );
+      const l1TxUtils = config.publisherForwarderAddress
+        ? await createForwarderL1TxUtilsFromEthSigner(
+            publicClient,
+            keyStoreManager!.createAllValidatorPublisherSigners(),
+            config.publisherForwarderAddress,
+            { ...config, scope: 'sequencer' },
+            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+          )
+        : await createL1TxUtilsWithBlobsFromEthSigner(
+            publicClient,
+            keyStoreManager!.createAllValidatorPublisherSigners(),
+            { ...config, scope: 'sequencer' },
+            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+          );
 
       // Create and start the sequencer client
       sequencer = await SequencerClient.new(config, {
@@ -929,7 +941,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex ? BlockNumber(InboxLeaf.l2BlockFromIndex(messageIndex)) : undefined;
+    return messageIndex
+      ? BlockNumber.fromCheckpointNumber(InboxLeaf.checkpointNumberFromIndex(messageIndex))
+      : undefined;
   }
 
   /**

@@ -3,10 +3,6 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-//
-// HyperNova decider prover. Produces final opening proof for the accumulated claim.
-// See: chonk/README.md#final-decider
-//
 #pragma once
 
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
@@ -15,6 +11,10 @@
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 
 namespace bb {
+/**
+ * @brief HyperNova decider prover. Produces final opening proof for the accumulated claim.
+ * @details See: chonk/README.md#final-decider
+ */
 class HypernovaDeciderProver {
   public:
     using Flavor = MegaFlavor;
