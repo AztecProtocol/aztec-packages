@@ -60,6 +60,7 @@ template <typename Curve> class GoblinVerifier_ {
         IPAClaim ipa_claim;           // IPA opening claim from ECCVM - accumulated, verified natively by base, verified
                                       // in-circuit at root
         IPAProof ipa_proof;           // IPA proof - used for deferred verification
+        bool all_checks_passed;
     };
 
     /**

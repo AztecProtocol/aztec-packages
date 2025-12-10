@@ -11,26 +11,34 @@ namespace bb {
 
 /**
  * @brief Verify a full Goblin proof (Merge, ECCVM, Translator)
- * @details Runs all three sub-verifiers and returns the verification artifacts.
- * The caller is responsible for checking the results (e.g., pairing point checks, IPA verification).
+ * @details Runs all three sub-verifiers and returns the verification artifacts with all consistency check results.
  */
 template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult GoblinVerifier_<Curve>::verify()
 {
     // Verify the merge proof
     MergeVerifier merge_verifier{ merge_settings, transcript };
-    auto [merge_pairing_points, merged_table_commitments, degree_check_verified, concatenation_check_passed] =
-        merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
+    auto merge_result = merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
 
-    vinfo("Merge Verifier: degree check identity passed: ", degree_check_verified);
-    vinfo("Merge Verifier: concatenation identity passed: ", concatenation_check_passed);
+    vinfo("Merge Verifier: degree check identity passed: ", merge_result.degree_check_passed);
+    vinfo("Merge Verifier: concatenation identity passed: ", merge_result.concatenation_check_passed);
+
+    bool merge_pairing_check_passed = true;
+    if constexpr (!IsRecursive) {
+        merge_pairing_check_passed = merge_result.pairing_points.check();
+        vinfo("  Merge Pairing check: ", merge_pairing_check_passed);
+        vinfo("  Merge verified: ",
+              merge_pairing_check_passed && merge_result.degree_check_passed &&
+                  merge_result.concatenation_check_passed);
+    }
 
     // Verify the ECCVM proof
     ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
     auto opening_claim = eccvm_verifier.verify_proof();
 
-    vinfo("ECCVM sumcheck verified: ", eccvm_verifier.sumcheck_verified);
-    vinfo("ECCVM consistency checked: ", eccvm_verifier.consistency_checked);
-    vinfo("ECCVM translation masking consistency checked: ", eccvm_verifier.translation_masking_consistency_checked);
+    vinfo(" ECCVM Verifier: Sumcheck verified:           ", eccvm_verifier.sumcheck_verified);
+    vinfo(" ECCVM Verifier: Libra Consistency checked:         ", eccvm_verifier.consistency_checked);
+    vinfo(" ECCVM Verifier: Translation masking consistency checked: ",
+          eccvm_verifier.translation_masking_consistency_checked);
 
     // Get translation data from ECCVM verifier
     auto translator_input = eccvm_verifier.get_translator_input_data();
@@ -42,17 +50,46 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
                                             translator_input.evaluation_challenge_x,
                                             translator_input.batching_challenge_v,
                                             translator_input.accumulated_result,
-                                            merged_table_commitments };
+                                            merge_result.merged_commitments };
     auto translator_result = translator_verifier.verify_proof();
 
-    vinfo("Translator sumcheck verified: ", translator_result.sumcheck_verified);
-    vinfo("Translator consistency checked: ", translator_result.consistency_checked);
+    vinfo(" Translator Verifier: Sumcheck verified: ", translator_result.sumcheck_verified);
+    vinfo(" Translator Verifier: Libra Consistency checked: ", translator_result.consistency_checked);
+
+    bool translator_pairing_check_passed = true;
+    if constexpr (!IsRecursive) {
+        translator_pairing_check_passed = translator_result.pairing_points.check();
+        vinfo("  Translator Pairing check:               ", translator_pairing_check_passed);
+        vinfo("  Translator verified:         ",
+              translator_pairing_check_passed && translator_result.sumcheck_verified &&
+                  translator_result.consistency_checked);
+    }
 
     // Aggregate merge pairing points into translator pairing points
-    translator_result.pairing_points.aggregate(merge_pairing_points);
+    translator_result.pairing_points.aggregate(merge_result.pairing_points);
 
-    // Return verification artifacts (pairing points, IPA claim, IPA proof)
-    return { translator_result.pairing_points, opening_claim, proof.ipa_proof };
+    // Compute aggregate verification result
+    auto all_checks_passed = [&]() {
+        bool consistency_checks = merge_result.degree_check_passed && merge_result.concatenation_check_passed &&
+                                  eccvm_verifier.sumcheck_verified && eccvm_verifier.consistency_checked &&
+                                  eccvm_verifier.translation_masking_consistency_checked &&
+                                  translator_result.sumcheck_verified && translator_result.consistency_checked;
+        if constexpr (!IsRecursive) {
+            // Native case: include pairing checks performed internally
+            consistency_checks = consistency_checks && merge_pairing_check_passed && translator_pairing_check_passed;
+        }
+        return consistency_checks;
+    };
+
+    const bool aggregate_result = all_checks_passed();
+
+    // Build and return verification result
+    VerificationResult result{ .pairing_points = std::move(translator_result.pairing_points),
+                               .ipa_claim = std::move(opening_claim),
+                               .ipa_proof = proof.ipa_proof,
+                               .all_checks_passed = aggregate_result };
+
+    return result;
 }
 
 // Explicit instantiations
