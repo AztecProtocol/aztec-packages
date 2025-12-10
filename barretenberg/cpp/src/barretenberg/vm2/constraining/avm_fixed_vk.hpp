@@ -15,7 +15,7 @@ class AvmFixedVKCommitments {
     using VerificationKey = AvmFlavor::VerificationKey;
     using Commitment = AvmFlavor::VerificationKey::Commitment;
 
-    static std::array<Commitment, VerificationKey::NUM_PRECOMPUTED_COMMITMENTS> get_all()
+    static constexpr std::array<Commitment, VerificationKey::NUM_PRECOMPUTED_COMMITMENTS> get_all()
     {
         return {
             Commitment(
