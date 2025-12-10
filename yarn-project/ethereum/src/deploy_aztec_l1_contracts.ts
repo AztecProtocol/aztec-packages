@@ -204,6 +204,8 @@ export async function deployAztecL1Contracts(
       '--sig',
       'run(string)',
       outputPath,
+      '--private-key',
+      privateKey,
       '--rpc-url',
       rpcUrl,
       '--broadcast',
@@ -214,8 +216,6 @@ export async function deployAztecL1Contracts(
       cwd: l1ContractsPath,
       env: {
         ...process.env,
-        // Private key passed via env var (more secure than command line)
-        FOUNDRY_PRIVATE_KEY: privateKey,
         // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
         NETWORK: getActiveNetworkName(),
         ...getDeployAztecL1ContractsEnvVars(args),
@@ -505,6 +505,8 @@ export const deployRollupForUpgrade = async (
         '--sig',
         'run(string)',
         outputPath,
+        '--private-key',
+        privateKey,
         '--rpc-url',
         rpcUrl,
         '--broadcast',
