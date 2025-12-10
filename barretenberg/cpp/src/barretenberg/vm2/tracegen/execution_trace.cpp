@@ -576,9 +576,8 @@ void ExecutionTraceBuilder::process(
                         C::execution_internal_call_return_id_inv,
                         row,
                         ex_event.before_context_event.internal_call_return_id); // Will be inverted in batch later.
+                    trace.set(C::execution_sel_read_unwind_call_stack, row, 1);
                 }
-                // We need to set the lookup gating column in case of an opcode error
-                trace.set(C::execution_sel_read_unwind_call_stack, row, opcode_execution_failed ? 0 : 1);
             } else if (*exec_opcode == ExecutionOpCode::SSTORE) {
                 uint32_t remaining_data_writes = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX -
                                                  ex_event.before_context_event.tree_states.public_data_tree.counter;

@@ -89,9 +89,9 @@ void internal_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_internal_return)) *
-                   ((FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))) -
-                    static_cast<View>(in.get(C::execution_sel_read_unwind_call_stack)));
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_read_unwind_call_stack)) -
+                    static_cast<View>(in.get(C::execution_sel_execute_internal_return)) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
     { // INTERNAL_RET_ERROR

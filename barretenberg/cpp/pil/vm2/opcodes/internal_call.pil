@@ -70,7 +70,7 @@ namespace execution;
     // In circuit that corresponds to calling internal_return while internal_call_return_id == 0
     // Guard the unwind call stack lookup with sel_opcode_error (commited since it's used in the lookup)
     pol commit sel_read_unwind_call_stack;
-    sel_execute_internal_return * ((1 - sel_opcode_error) - sel_read_unwind_call_stack) = 0;
+    sel_read_unwind_call_stack = sel_execute_internal_return * (1 - sel_opcode_error);
     pol commit internal_call_return_id_inv;
     // Guard the zero check with sel_execute_internal_return so we dont compute the inverses when we dont need to
     // If we do an internal_return, we raise opcode = 1 iff internal_call_return_id = 0
