@@ -7,27 +7,16 @@
 
 using namespace bb::avm2::fuzzer;
 
-void log_result(const SimulatorResult& result)
-{
-    info("Reverted: ", result.reverted);
-    info("Output: ", result.output);
-    info("Reason: ", result.revert_reason);
-}
-
 SimulatorResult fuzz(FuzzerData& fuzzer_data)
 {
-    bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
     auto control_flow = ControlFlow(fuzzer_data.instruction_blocks);
     for (const auto& cfg_instruction : fuzzer_data.cfg_instructions) {
         control_flow.process_cfg_instruction(cfg_instruction);
     }
-    if (logging_enabled) {
-        info("Fuzzer data: ", fuzzer_data);
-    }
+    fuzz_info("Fuzzer data: ", fuzzer_data);
+
     auto bytecode = control_flow.build_bytecode(fuzzer_data.return_options);
-    if (logging_enabled) {
-        info("Bytecode: ", bytecode);
-    }
+    fuzz_info("Bytecode: ", bytecode);
 
     auto cpp_simulator = CppSimulator();
     JsSimulator* js_simulator = JsSimulator::getInstance();
@@ -41,8 +30,7 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
         cpp_result = cpp_simulator.simulate(*ws_mgr, bytecode, fuzzer_data.calldata);
         ws_mgr->revert();
     } catch (const std::exception& e) {
-        info("CppSimulator failed with error: ", e.what());
-        throw std::runtime_error("Error simulating with CppSimulator");
+        throw std::runtime_error(std::string("CppSimulator threw an exception: ") + e.what());
     }
 
     ws_mgr->checkpoint();
@@ -50,15 +38,12 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
 
     // If the results does not match
     if (!compare_simulator_results(cpp_result, js_result)) {
-        info("CppSimulator result: ");
-        log_result(cpp_result);
-        info("JsSimulator result: ");
-        log_result(js_result);
+        vinfo("CppSimulator ", cpp_result);
+        vinfo("JsSimulator  ", js_result);
         throw std::runtime_error("Simulator results are different");
     }
-    if (logging_enabled) {
-        info("Simulator results match successfully");
-        log_result(cpp_result);
-    }
+    fuzz_info("Simulator results match successfully");
+    fuzz_info("CppSimulator ", cpp_result);
+    fuzz_info("JsSimulator  ", js_result);
     return cpp_result;
 }
