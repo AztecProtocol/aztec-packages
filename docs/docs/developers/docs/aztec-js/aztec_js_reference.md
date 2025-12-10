@@ -16,7 +16,7 @@ This is an auto-generated reference. For tutorials and guides, see the [Aztec.js
 
 *Package: @aztec/aztec.js*
 
-*Generated: 2025-12-08T22:00:03.010Z*
+*Generated: 2025-12-10T11:49:50.683Z*
 
 This document provides a comprehensive reference for all public APIs in the Aztec.js library.
 
@@ -25,130 +25,134 @@ Each section is organized by module, with classes, interfaces, types, and functi
 ## Table of Contents
 
 - [Account](#account)
-  - [AccountContract](#account-account-contract-accountcontract)
-  - [getAccountContractAddress](#account-account-contract-getaccountcontractaddress)
-  - [AccountWithSecretKey](#account-account-with-secret-key-accountwithsecretkey)
-  - [Account](#account-account-account)
-  - [BaseAccount](#account-account-baseaccount)
-  - [AccountInterface](#account-interface-accountinterface)
-  - [SignerlessAccount](#account-signerless-account-signerlessaccount)
+  - [AccountContract](#accountcontract)
+  - [getAccountContractAddress](#getaccountcontractaddress)
+  - [AccountWithSecretKey](#accountwithsecretkey)
+  - [Account](#account)
+  - [BaseAccount](#baseaccount)
+  - [AccountInterface](#accountinterface)
+  - [SignerlessAccount](#signerlessaccount)
 - [Authorization](#authorization)
-  - [CallAuthorizationRequest](#authorization-call-authorization-request-callauthorizationrequest)
+  - [CallAuthorizationRequest](#callauthorizationrequest)
 - [Contract](#contract)
-  - [BaseContractInteraction](#contract-base-contract-interaction-basecontractinteraction)
-  - [BatchCall](#contract-batch-call-batchcall)
-  - [abiChecker](#contract-checker-abichecker)
-  - [ContractMethod](#contract-contract-base-contractmethod)
-  - [ContractStorageLayout](#contract-contract-base-contractstoragelayout)
-  - [ContractBase](#contract-contract-base-contractbase)
-  - [ContractFunctionInteraction](#contract-contract-function-interaction-contractfunctioninteraction)
-  - [Contract](#contract-contract-contract)
-  - [RequestDeployOptions](#contract-deploy-method-requestdeployoptions)
-  - [DeployOptions](#contract-deploy-method-deployoptions)
-  - [SimulateDeployOptions](#contract-deploy-method-simulatedeployoptions)
-  - [DeployMethod](#contract-deploy-method-deploymethod)
-  - [DeployedWaitOpts](#contract-deploy-sent-tx-deployedwaitopts)
-  - [DeployTxReceipt](#contract-deploy-sent-tx-deploytxreceipt)
-  - [DeploySentTx](#contract-deploy-sent-tx-deploysenttx)
-  - [getGasLimits](#contract-get-gas-limits-getgaslimits)
-  - [FeeEstimationOptions](#contract-interaction-options-feeestimationoptions)
-  - [FeePaymentMethodOption](#contract-interaction-options-feepaymentmethodoption)
-  - [GasSettingsOption](#contract-interaction-options-gassettingsoption)
-  - [InteractionFeeOptions](#contract-interaction-options-interactionfeeoptions)
-  - [SimulationInteractionFeeOptions](#contract-interaction-options-simulationinteractionfeeoptions)
-  - [RequestInteractionOptions](#contract-interaction-options-requestinteractionoptions)
-  - [SendInteractionOptions](#contract-interaction-options-sendinteractionoptions)
-  - [SimulateInteractionOptions](#contract-interaction-options-simulateinteractionoptions)
-  - [ProfileInteractionOptions](#contract-interaction-options-profileinteractionoptions)
-  - [SimulationReturn](#contract-interaction-options-simulationreturn)
-  - [toSendOptions](#contract-interaction-options-tosendoptions)
-  - [toSimulateOptions](#contract-interaction-options-tosimulateoptions)
-  - [toProfileOptions](#contract-interaction-options-toprofileoptions)
-  - [getClassRegistryContract](#contract-protocol-contracts-getclassregistrycontract)
-  - [getInstanceRegistryContract](#contract-protocol-contracts-getinstanceregistrycontract)
-  - [getFeeJuice](#contract-protocol-contracts-getfeejuice)
-  - [WaitOpts](#contract-sent-tx-waitopts)
-  - [DefaultWaitOpts](#contract-sent-tx-defaultwaitopts)
-  - [SentTx](#contract-sent-tx-senttx)
-  - [UnsafeContract](#contract-unsafe-contract-unsafecontract)
-  - [WaitForProvenOpts](#contract-wait-for-proven-waitforprovenopts)
-  - [DefaultWaitForProvenOpts](#contract-wait-for-proven-defaultwaitforprovenopts)
-  - [waitForProven](#contract-wait-for-proven-waitforproven)
+  - [BaseContractInteraction](#basecontractinteraction)
+  - [BatchCall](#batchcall)
+  - [abiChecker](#abichecker)
+  - [ContractMethod](#contractmethod)
+  - [ContractStorageLayout](#contractstoragelayout)
+  - [ContractBase](#contractbase)
+  - [ContractFunctionInteraction](#contractfunctioninteraction)
+  - [Contract](#contract)
+  - [RequestDeployOptions](#requestdeployoptions)
+  - [DeployOptions](#deployoptions)
+  - [SimulateDeployOptions](#simulatedeployoptions)
+  - [DeployMethod](#deploymethod)
+  - [DeployedWaitOpts](#deployedwaitopts)
+  - [DeployTxReceipt](#deploytxreceipt)
+  - [DeploySentTx](#deploysenttx)
+  - [getGasLimits](#getgaslimits)
+  - [FeeEstimationOptions](#feeestimationoptions)
+  - [FeePaymentMethodOption](#feepaymentmethodoption)
+  - [GasSettingsOption](#gassettingsoption)
+  - [InteractionFeeOptions](#interactionfeeoptions)
+  - [SimulationInteractionFeeOptions](#simulationinteractionfeeoptions)
+  - [RequestInteractionOptions](#requestinteractionoptions)
+  - [SendInteractionOptions](#sendinteractionoptions)
+  - [SimulateInteractionOptions](#simulateinteractionoptions)
+  - [ProfileInteractionOptions](#profileinteractionoptions)
+  - [SimulationReturn](#simulationreturn)
+  - [toSendOptions](#tosendoptions)
+  - [toSimulateOptions](#tosimulateoptions)
+  - [toProfileOptions](#toprofileoptions)
+  - [getClassRegistryContract](#getclassregistrycontract)
+  - [getInstanceRegistryContract](#getinstanceregistrycontract)
+  - [getFeeJuice](#getfeejuice)
+  - [WaitOpts](#waitopts)
+  - [DefaultWaitOpts](#defaultwaitopts)
+  - [SentTx](#senttx)
+  - [UnsafeContract](#unsafecontract)
+  - [WaitForProvenOpts](#waitforprovenopts)
+  - [DefaultWaitForProvenOpts](#defaultwaitforprovenopts)
+  - [waitForProven](#waitforproven)
 - [Deployment](#deployment)
-  - [broadcastPrivateFunction](#deployment-broadcast-function-broadcastprivatefunction)
-  - [broadcastUtilityFunction](#deployment-broadcast-function-broadcastutilityfunction)
-  - [ContractDeployer](#deployment-contract-deployer-contractdeployer)
-  - [publishContractClass](#deployment-publish-class-publishcontractclass)
-  - [publishInstance](#deployment-publish-instance-publishinstance)
+  - [broadcastPrivateFunction](#broadcastprivatefunction)
+  - [broadcastUtilityFunction](#broadcastutilityfunction)
+  - [ContractDeployer](#contractdeployer)
+  - [publishContractClass](#publishcontractclass)
+  - [publishInstance](#publishinstance)
 - [Ethereum](#ethereum)
-  - [L2Claim](#ethereum-portal-manager-l2claim)
-  - [L2AmountClaim](#ethereum-portal-manager-l2amountclaim)
-  - [L2AmountClaimWithRecipient](#ethereum-portal-manager-l2amountclaimwithrecipient)
-  - [generateClaimSecret](#ethereum-portal-manager-generateclaimsecret)
-  - [L1TokenManager](#ethereum-portal-manager-l1tokenmanager)
-  - [L1FeeJuicePortalManager](#ethereum-portal-manager-l1feejuiceportalmanager)
-  - [L1ToL2TokenPortalManager](#ethereum-portal-manager-l1tol2tokenportalmanager)
-  - [L1TokenPortalManager](#ethereum-portal-manager-l1tokenportalmanager)
+  - [L2Claim](#l2claim)
+  - [L2AmountClaim](#l2amountclaim)
+  - [L2AmountClaimWithRecipient](#l2amountclaimwithrecipient)
+  - [generateClaimSecret](#generateclaimsecret)
+  - [L1TokenManager](#l1tokenmanager)
+  - [L1FeeJuicePortalManager](#l1feejuiceportalmanager)
+  - [L1ToL2TokenPortalManager](#l1tol2tokenportalmanager)
+  - [L1TokenPortalManager](#l1tokenportalmanager)
 - [Fee](#fee)
-  - [FeeJuicePaymentMethodWithClaim](#fee-fee-juice-payment-method-with-claim-feejuicepaymentmethodwithclaim)
-  - [FeePaymentMethod](#fee-fee-payment-method-feepaymentmethod)
-  - [PrivateFeePaymentMethod](#fee-private-fee-payment-method-privatefeepaymentmethod)
-  - [PublicFeePaymentMethod](#fee-public-fee-payment-method-publicfeepaymentmethod)
-  - [SponsoredFeePaymentMethod](#fee-sponsored-fee-payment-sponsoredfeepaymentmethod)
+  - [FeeJuicePaymentMethodWithClaim](#feejuicepaymentmethodwithclaim)
+  - [FeePaymentMethod](#feepaymentmethod)
+  - [PrivateFeePaymentMethod](#privatefeepaymentmethod)
+  - [PublicFeePaymentMethod](#publicfeepaymentmethod)
+  - [SponsoredFeePaymentMethod](#sponsoredfeepaymentmethod)
 - [Utils](#utils)
-  - [FieldLike](#utils-abi-types-fieldlike)
-  - [EthAddressLike](#utils-abi-types-ethaddresslike)
-  - [AztecAddressLike](#utils-abi-types-aztecaddresslike)
-  - [FunctionSelectorLike](#utils-abi-types-functionselectorlike)
-  - [EventSelectorLike](#utils-abi-types-eventselectorlike)
-  - [U128Like](#utils-abi-types-u128like)
-  - [WrappedFieldLike](#utils-abi-types-wrappedfieldlike)
-  - [IntentInnerHash](#utils-authwit-intentinnerhash)
-  - [CallIntent](#utils-authwit-callintent)
-  - [ContractFunctionInteractionCallIntent](#utils-authwit-contractfunctioninteractioncallintent)
-  - [computeAuthWitMessageHash](#utils-authwit-computeauthwitmessagehash)
-  - [getMessageHashFromIntent](#utils-authwit-getmessagehashfromintent)
-  - [computeInnerAuthWitHashFromAction](#utils-authwit-computeinnerauthwithashfromaction)
-  - [lookupValidity](#utils-authwit-lookupvalidity)
-  - [SetPublicAuthwitContractInteraction](#utils-authwit-setpublicauthwitcontractinteraction)
-  - [waitForL1ToL2MessageReady](#utils-cross-chain-waitforl1tol2messageready)
-  - [isL1ToL2MessageReady](#utils-cross-chain-isl1tol2messageready)
-  - [getFeeJuiceBalance](#utils-fee-juice-getfeejuicebalance)
-  - [readFieldCompressedString](#utils-field-compressed-string-readfieldcompressedstring)
-  - [waitForNode](#utils-node-waitfornode)
-  - [createAztecNodeClient](#utils-node-createaztecnodeclient)
-  - [AztecNode](#utils-node-aztecnode)
-  - [generatePublicKey](#utils-pub-key-generatepublickey)
+  - [FieldLike](#fieldlike)
+  - [EthAddressLike](#ethaddresslike)
+  - [AztecAddressLike](#aztecaddresslike)
+  - [FunctionSelectorLike](#functionselectorlike)
+  - [EventSelectorLike](#eventselectorlike)
+  - [U128Like](#u128like)
+  - [WrappedFieldLike](#wrappedfieldlike)
+  - [IntentInnerHash](#intentinnerhash)
+  - [CallIntent](#callintent)
+  - [ContractFunctionInteractionCallIntent](#contractfunctioninteractioncallintent)
+  - [computeAuthWitMessageHash](#computeauthwitmessagehash)
+  - [getMessageHashFromIntent](#getmessagehashfromintent)
+  - [computeInnerAuthWitHashFromAction](#computeinnerauthwithashfromaction)
+  - [lookupValidity](#lookupvalidity)
+  - [SetPublicAuthwitContractInteraction](#setpublicauthwitcontractinteraction)
+  - [waitForL1ToL2MessageReady](#waitforl1tol2messageready)
+  - [isL1ToL2MessageReady](#isl1tol2messageready)
+  - [getFeeJuiceBalance](#getfeejuicebalance)
+  - [readFieldCompressedString](#readfieldcompressedstring)
+  - [waitForNode](#waitfornode)
+  - [createAztecNodeClient](#createaztecnodeclient)
+  - [AztecNode](#aztecnode)
+  - [generatePublicKey](#generatepublickey)
 - [Wallet](#wallet)
-  - [AccountEntrypointMetaPaymentMethod](#wallet-account-entrypoint-meta-payment-method-accountentrypointmetapaymentmethod)
-  - [AccountManager](#wallet-account-manager-accountmanager)
-  - [RequestDeployAccountOptions](#wallet-deploy-account-method-requestdeployaccountoptions)
-  - [DeployAccountOptions](#wallet-deploy-account-method-deployaccountoptions)
-  - [SimulateDeployAccountOptions](#wallet-deploy-account-method-simulatedeployaccountoptions)
-  - [DeployAccountMethod](#wallet-deploy-account-method-deployaccountmethod)
-  - [Aliased](#wallet-wallet-aliased)
-  - [SimulateOptions](#wallet-wallet-simulateoptions)
-  - [ProfileOptions](#wallet-wallet-profileoptions)
-  - [SendOptions](#wallet-wallet-sendoptions)
-  - [BatchableMethods](#wallet-wallet-batchablemethods)
-  - [BatchedMethod](#wallet-wallet-batchedmethod)
-  - [BatchedMethodResult](#wallet-wallet-batchedmethodresult)
-  - [BatchedMethodResultWrapper](#wallet-wallet-batchedmethodresultwrapper)
-  - [BatchResults](#wallet-wallet-batchresults)
-  - [Wallet](#wallet-wallet-wallet)
-  - [FunctionCallSchema](#wallet-wallet-functioncallschema)
-  - [ExecutionPayloadSchema](#wallet-wallet-executionpayloadschema)
-  - [GasSettingsOptionSchema](#wallet-wallet-gassettingsoptionschema)
-  - [WalletSimulationFeeOptionSchema](#wallet-wallet-walletsimulationfeeoptionschema)
-  - [SendOptionsSchema](#wallet-wallet-sendoptionsschema)
-  - [SimulateOptionsSchema](#wallet-wallet-simulateoptionsschema)
-  - [ProfileOptionsSchema](#wallet-wallet-profileoptionsschema)
-  - [MessageHashOrIntentSchema](#wallet-wallet-messagehashorintentschema)
-  - [BatchedMethodSchema](#wallet-wallet-batchedmethodschema)
-  - [ContractMetadataSchema](#wallet-wallet-contractmetadataschema)
-  - [ContractClassMetadataSchema](#wallet-wallet-contractclassmetadataschema)
-  - [EventMetadataDefinitionSchema](#wallet-wallet-eventmetadatadefinitionschema)
-  - [WalletSchema](#wallet-wallet-walletschema)
+  - [AccountEntrypointMetaPaymentMethod](#accountentrypointmetapaymentmethod)
+  - [AccountManager](#accountmanager)
+  - [RequestDeployAccountOptions](#requestdeployaccountoptions)
+  - [DeployAccountOptions](#deployaccountoptions)
+  - [SimulateDeployAccountOptions](#simulatedeployaccountoptions)
+  - [DeployAccountMethod](#deployaccountmethod)
+  - [Aliased](#aliased)
+  - [SimulateOptions](#simulateoptions)
+  - [ProfileOptions](#profileoptions)
+  - [SendOptions](#sendoptions)
+  - [BatchableMethods](#batchablemethods)
+  - [BatchedMethod](#batchedmethod)
+  - [BatchedMethodResult](#batchedmethodresult)
+  - [BatchedMethodResultWrapper](#batchedmethodresultwrapper)
+  - [BatchResults](#batchresults)
+  - [PrivateEventFilter](#privateeventfilter)
+  - [PrivateEvent](#privateevent)
+  - [Wallet](#wallet)
+  - [FunctionCallSchema](#functioncallschema)
+  - [ExecutionPayloadSchema](#executionpayloadschema)
+  - [GasSettingsOptionSchema](#gassettingsoptionschema)
+  - [WalletSimulationFeeOptionSchema](#walletsimulationfeeoptionschema)
+  - [SendOptionsSchema](#sendoptionsschema)
+  - [SimulateOptionsSchema](#simulateoptionsschema)
+  - [ProfileOptionsSchema](#profileoptionsschema)
+  - [MessageHashOrIntentSchema](#messagehashorintentschema)
+  - [BatchedMethodSchema](#batchedmethodschema)
+  - [ContractMetadataSchema](#contractmetadataschema)
+  - [ContractClassMetadataSchema](#contractclassmetadataschema)
+  - [EventMetadataDefinitionSchema](#eventmetadatadefinitionschema)
+  - [PrivateEventSchema](#privateeventschema)
+  - [PrivateEventFilterSchema](#privateeventfilterschema)
+  - [WalletSchema](#walletschema)
 
 ---
 
@@ -4928,6 +4932,87 @@ export type BatchResults<T extends readonly BatchedMethod<keyof BatchableMethods
 **Value Type:** `BatchedMethodResultWrapper<T[K]>`
 
 
+#### PrivateEventFilter
+
+**Type:** Type Alias
+
+Filter options when querying private events.
+
+**Signature:**
+
+```typescript
+export type PrivateEventFilter = {
+ contractAddress: AztecAddress;
+ scopes: AztecAddress[];
+ txHash?: TxHash;
+ fromBlock?: BlockNumber;
+ toBlock?: BlockNumber;
+};
+```
+
+**Type Members:**
+
+##### contractAddress
+
+The address of the contract that emitted the events.
+
+**Type:** `AztecAddress`
+
+##### scopes
+
+Addresses of accounts that are in scope for this filter.
+
+**Type:** `AztecAddress[]`
+
+##### txHash
+
+Transaction in which the events were emitted.
+
+**Type:** `TxHash`
+
+##### fromBlock
+
+The block number from which to start fetching events (inclusive). Optional. If provided, it must be greater or equal than 1. Defaults to the initial L2 block number (INITIAL_L2_BLOCK_NUM).
+
+**Type:** `BlockNumber`
+
+##### toBlock
+
+The block number until which to fetch logs (not inclusive). Optional. If provided, it must be greater than fromBlock. Defaults to the latest known block to PXE + 1.
+
+**Type:** `BlockNumber`
+
+
+#### PrivateEvent
+
+**Type:** Type Alias
+
+An ABI decoded private event with associated metadata.
+
+**Signature:**
+
+```typescript
+export type PrivateEvent<T> = {
+ event: T;
+ metadata: InTx;
+};
+```
+
+**Type Members:**
+
+##### event
+
+The ABI decoded event
+
+**Type:** `T`
+
+##### metadata
+
+Metadata describing event context information such as tx and block
+
+**Type:** `InTx`
+
+
 #### Wallet
 
 **Type:** Type Alias
@@ -4941,12 +5026,9 @@ export type Wallet = {
  getContractClassMetadata(id: Fr, includeArtifact?: boolean): Promise<ContractClassMetadata>;
  getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
  getPrivateEvents<T>(
- contractAddress: AztecAddress,
  eventMetadata: EventMetadataDefinition,
- from: number,
- numBlocks: number,
- recipients: AztecAddress[],
- ): Promise<T[]>;
+ eventFilter: PrivateEventFilter,
+ ): Promise<PrivateEvent<T>[]>;
  getChainInfo(): Promise<ChainInfo>;
  getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
  registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
@@ -5008,25 +5090,19 @@ getContractMetadata(address: AztecAddress): Promise<ContractMetadata>
 
 ```typescript
 getPrivateEvents<T>(
-  contractAddress: AztecAddress,
   eventMetadata: EventMetadataDefinition,
-  from: number,
-  numBlocks: number,
-  recipients: AztecAddress[]
-): Promise<T[]>
+  eventFilter: PrivateEventFilter
+): Promise<PrivateEvent<T>[]>
 ```
 
 **Parameters:**
 
-- `contractAddress`: `AztecAddress`
 - `eventMetadata`: `EventMetadataDefinition`
-- `from`: `number`
-- `numBlocks`: `number`
-- `recipients`: `AztecAddress[]`
+- `eventFilter`: `PrivateEventFilter`
 
 **Returns:**
 
-`Promise<T[]>`
+`Promise<PrivateEvent<T>[]>`
 ##### getChainInfo
 
 **Signature:**
@@ -5304,6 +5380,20 @@ batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods:
 
 
 #### EventMetadataDefinitionSchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### PrivateEventSchema
+
+**Type:** Constant
+
+**Value Type:** `ZodFor<PrivateEvent<AbiDecoded>>`
+
+
+#### PrivateEventFilterSchema
 
 **Type:** Constant
 
