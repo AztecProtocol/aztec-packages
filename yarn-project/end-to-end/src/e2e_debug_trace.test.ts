@@ -1,12 +1,9 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import {
-  type ExtendedViemWalletClient,
-  FORWARDER_ABI,
-  type PublisherManager,
-  createExtendedL1Client,
-  deployForwarderProxy,
-} from '@aztec/ethereum';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { FORWARDER_ABI, deployForwarderProxy } from '@aztec/ethereum/forwarder-proxy';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';

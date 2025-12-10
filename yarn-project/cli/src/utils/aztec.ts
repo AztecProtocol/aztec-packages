@@ -6,12 +6,9 @@ import {
   loadContractArtifact,
 } from '@aztec/aztec.js/abi';
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import {
-  type DeployL1ContractsReturnType,
-  type L1ContractsConfig,
-  type Operator,
-  RollupContract,
-} from '@aztec/ethereum';
+import type { L1ContractsConfig } from '@aztec/ethereum/config';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { DeployL1ContractsReturnType, Operator } from '@aztec/ethereum/deploy-l1-contracts';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn, Logger } from '@aztec/foundation/log';
@@ -61,7 +58,8 @@ export async function deployAztecContracts(
   createVerificationJson: string | false,
   debugLogger: Logger,
 ): Promise<DeployL1ContractsReturnType> {
-  const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
+  const { createEthereumChain } = await import('@aztec/ethereum/chain');
+  const { deployL1Contracts } = await import('@aztec/ethereum/deploy-l1-contracts');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
   const account = !privateKey
@@ -111,7 +109,9 @@ export async function deployNewRollupContracts(
   createVerificationJson: string | false,
   logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
-  const { createEthereumChain, deployRollupForUpgrade, createExtendedL1Client } = await import('@aztec/ethereum');
+  const { createEthereumChain } = await import('@aztec/ethereum/chain');
+  const { createExtendedL1Client } = await import('@aztec/ethereum/client');
+  const { deployRollupForUpgrade } = await import('@aztec/ethereum/deploy-l1-contracts');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 

@@ -1,4 +1,4 @@
-import type { L1BlockId } from '@aztec/ethereum';
+import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';

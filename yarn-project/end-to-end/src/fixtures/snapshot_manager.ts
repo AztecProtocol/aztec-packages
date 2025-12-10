@@ -10,13 +10,10 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import {
-  type DeployL1ContractsArgs,
-  type DeployL1ContractsReturnType,
-  createExtendedL1Client,
-  deployMulticall3,
-  getL1ContractsConfigEnvVars,
-} from '@aztec/ethereum';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { deployMulticall3 } from '@aztec/ethereum/contracts';
+import type { DeployL1ContractsArgs, DeployL1ContractsReturnType } from '@aztec/ethereum/deploy-l1-contracts';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { SecretValue } from '@aztec/foundation/config';

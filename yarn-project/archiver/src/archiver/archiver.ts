@@ -1,16 +1,11 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import {
-  BlockTagTooOldError,
-  InboxContract,
-  type L1BlockId,
-  type L1ContractAddresses,
-  RollupContract,
-  type ViemPublicClient,
-  type ViemPublicDebugClient,
-  createEthereumChain,
-} from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { BlockTagTooOldError, InboxContract, RollupContract } from '@aztec/ethereum/contracts';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1BlockId } from '@aztec/ethereum/l1-types';
+import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';

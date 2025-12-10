@@ -1,4 +1,6 @@
-import type { L1TxUtils, PublisherManager, RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
+import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 

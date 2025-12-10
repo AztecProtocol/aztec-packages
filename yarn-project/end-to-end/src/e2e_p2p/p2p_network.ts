@@ -2,20 +2,19 @@ import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
-  type ExtendedViemWalletClient,
   GSEContract,
-  MultiAdderArtifact,
-  type Operator,
   RollupContract,
   type TallySlashingProposerContract,
-  type ViemClient,
-  createL1TxUtilsFromViemWallet,
-  deployL1Contract,
-  getL1ContractsConfigEnvVars,
-} from '@aztec/ethereum';
+} from '@aztec/ethereum/contracts';
+import type { Operator } from '@aztec/ethereum/deploy-l1-contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contracts';
+import { MultiAdderArtifact } from '@aztec/ethereum/l1-artifacts';
+import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import type { ExtendedViemWalletClient, ViemClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';

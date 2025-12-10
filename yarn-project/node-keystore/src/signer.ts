@@ -3,7 +3,7 @@
  *
  * Common interface for different signing backends (local, remote, encrypted)
  */
-import type { EthSigner } from '@aztec/ethereum';
+import type { EthSigner } from '@aztec/ethereum/eth-signer';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Secp256k1Signer, toRecoveryBit } from '@aztec/foundation/crypto/secp256k1-signer';
