@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
-#include <nlohmann/json.hpp>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
@@ -30,49 +29,36 @@ using namespace bb::avm2;
 using namespace bb::avm2::simulation;
 using namespace bb::avm2::fuzzer;
 using namespace bb::world_state;
-using json = nlohmann::json;
 
-// Helper function to serialize tx, globals, and contract data to JSON
+// Helper function to serialize simulation request via
 std::string serialize_simulation_request(const Tx& tx,
                                          const GlobalVariables& globals,
                                          const FuzzerContractDB& contract_db)
 {
-    json j;
-
-    // Pass WorldState database path and configuration for TypeScript to open the same DB
-    // Note: TypeScript expects the parent directory and adds "world_state/" subdirectory itself
-    j["ws_data_dir"] = FuzzerWorldStateManager::get_data_dir();
-    j["ws_map_size_kb"] = FuzzerWorldStateManager::get_map_size_kb();
-
-    // Serialize Tx using msgpack and base64 encode
-    auto [tx_buffer, tx_size] = msgpack_encode_buffer(tx);
-    j["tx"] = base64_encode(tx_buffer, tx_size);
-    delete[] tx_buffer;
-
-    // Serialize GlobalVariables using msgpack and base64 encode
-    auto [globals_buffer, globals_size] = msgpack_encode_buffer(globals);
-    j["globals"] = base64_encode(globals_buffer, globals_size);
-    delete[] globals_buffer;
-
-    // Serialize contract instances as vector of pairs (address, instance) to avoid non-string map keys
-    std::vector<std::pair<AztecAddress, ContractInstance>> instances_vec;
-    for (const auto& [address, instance] : contract_db.get_contract_instances()) {
-        instances_vec.emplace_back(address, instance);
-    }
-    auto [instances_buffer, instances_size] = msgpack_encode_buffer(instances_vec);
-    j["contractInstances"] = base64_encode(instances_buffer, instances_size);
-    delete[] instances_buffer;
-
-    // Serialize contract classes as vector (id is already inside each class)
+    // Build vectors from contract_db
     std::vector<ContractClass> classes_vec;
     for (const auto& [_, contract_class] : contract_db.get_contract_classes()) {
         classes_vec.push_back(contract_class);
     }
-    auto [classes_buffer, classes_size] = msgpack_encode_buffer(classes_vec);
-    j["contractClasses"] = base64_encode(classes_buffer, classes_size);
-    delete[] classes_buffer;
 
-    return j.dump();
+    std::vector<std::pair<AztecAddress, ContractInstance>> instances_vec;
+    for (const auto& [address, instance] : contract_db.get_contract_instances()) {
+        instances_vec.emplace_back(address, instance);
+    }
+
+    FuzzerSimulationRequest request{
+        .ws_data_dir = FuzzerWorldStateManager::get_data_dir(),
+        .ws_map_size_kb = FuzzerWorldStateManager::get_map_size_kb(),
+        .tx = tx,
+        .globals = globals,
+        .contract_classes = std::move(classes_vec),
+        .contract_instances = std::move(instances_vec),
+    };
+
+    auto [buffer, size] = msgpack_encode_buffer(request);
+    std::string result = base64_encode(buffer, size);
+    delete[] buffer;
+    return result;
 }
 
 // Helper function to create default global variables for testing
