@@ -213,13 +213,7 @@ export class UltraHonkBackend {
     return verified;
   }
 
-  /**
-   * Get the verification key and its hash.
-   * @internal
-   */
-  private async getVerificationKeyData(
-    options?: UltraHonkBackendOptions,
-  ): Promise<{ bytes: Uint8Array; hash: Uint8Array }> {
+  async getVerificationKey(options?: UltraHonkBackendOptions): Promise<Uint8Array> {
     const vkResult = await this.api.circuitComputeVk({
       circuit: {
         name: 'circuit',
@@ -227,48 +221,7 @@ export class UltraHonkBackend {
       },
       settings: getProofSettingsFromOptions(options),
     });
-    return { bytes: vkResult.bytes, hash: vkResult.hash };
-  }
-
-  /**
-   * Get the verification key as raw bytes.
-   */
-  async getVerificationKey(options?: UltraHonkBackendOptions): Promise<Uint8Array> {
-    const { bytes } = await this.getVerificationKeyData(options);
-    return bytes;
-  }
-
-  /**
-   * Get the verification key as an array of hex field strings.
-   * Useful for recursive verification where VK needs to be passed as circuit inputs.
-   *
-   * @example
-   * const vkFields = await backend.getVerificationKeyAsFields({ verifierTarget: 'noir-recursive' });
-   * // vkFields is string[] like ["0x1234...", "0x5678...", ...]
-   */
-  async getVerificationKeyAsFields(options?: UltraHonkBackendOptions): Promise<string[]> {
-    const { bytes } = await this.getVerificationKeyData(options);
-
-    // Convert VK bytes to field elements (32-byte chunks as hex strings)
-    const vkAsFields: string[] = [];
-    for (let i = 0; i < bytes.length; i += 32) {
-      const chunk = bytes.slice(i, i + 32);
-      vkAsFields.push(uint8ArrayToHex(chunk));
-    }
-    return vkAsFields;
-  }
-
-  /**
-   * Get the hash of the verification key.
-   * Useful for verifying that a VK matches what's expected in a recursive verification circuit.
-   *
-   * @example
-   * const vkHash = await backend.getVerificationKeyHash({ verifierTarget: 'noir-recursive' });
-   * // vkHash is a hex string like "0x1234..."
-   */
-  async getVerificationKeyHash(options?: UltraHonkBackendOptions): Promise<string> {
-    const { hash } = await this.getVerificationKeyData(options);
-    return uint8ArrayToHex(hash);
+    return vkResult.bytes;
   }
 
   /** @description Returns a solidity verifier */
@@ -281,10 +234,6 @@ export class UltraHonkBackend {
   }
 
   // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
-  /**
-   * @deprecated Use getVerificationKeyAsFields() and getVerificationKeyHash() instead.
-   * This method is kept for backwards compatibility.
-   */
   async generateRecursiveProofArtifacts(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _proof: Uint8Array,
@@ -300,14 +249,29 @@ export class UltraHonkBackend {
     // const proof = reconstructProofWithPublicInputs(proofData);
     // const proofAsFields = (await this.api.acirProofAsFieldsUltraHonk(proof)).slice(numOfPublicInputs);
 
-    const vkAsFields = await this.getVerificationKeyAsFields(options);
-    const vkHash = await this.getVerificationKeyHash(options);
+    const vkResult = await this.api.circuitComputeVk({
+      circuit: {
+        name: 'circuit',
+        bytecode: this.acirUncompressedBytecode,
+      },
+      settings: getProofSettingsFromOptions(options),
+    });
+
+    // Convert VK bytes to field elements (32-byte chunks)
+    const vkAsFields: string[] = [];
+    for (let i = 0; i < vkResult.bytes.length; i += 32) {
+      const chunk = vkResult.bytes.slice(i, i + 32);
+      vkAsFields.push(uint8ArrayToHex(chunk));
+    }
 
     return {
       // TODO(https://github.com/noir-lang/noir/issues/5661)
       proofAsFields: [],
       vkAsFields,
-      vkHash,
+      // We use an empty string for the vk hash here as it is unneeded as part of the recursive artifacts
+      // The user can be expected to hash the vk inside their circuit to check whether the vk is the circuit
+      // they expect
+      vkHash: uint8ArrayToHex(vkResult.hash),
     };
   }
 }
@@ -372,8 +336,8 @@ export class AztecClientBackend {
     const proofFields = [
       proveResult.proof.megaProof,
       proveResult.proof.goblinProof.mergeProof,
-      proveResult.proof.goblinProof.eccvmProof,
-      proveResult.proof.goblinProof.ipaProof,
+      proveResult.proof.goblinProof.eccvmProof.preIpaProof,
+      proveResult.proof.goblinProof.eccvmProof.ipaProof,
       proveResult.proof.goblinProof.translatorProof,
     ].flat();
 
@@ -422,3 +386,39 @@ function base64Decode(input: string): Uint8Array {
     throw new Error('atob is not available. Node.js 18+ or browser required.');
   }
 }
+
+/**
+ * Convert a field element (32-byte Uint8Array) to a decimal string.
+ *
+ * @param field - A 32-byte field element
+ * @returns The field value as a decimal string
+ *
+ * @example
+ * const value = fieldToDecimalString(field);
+ * // value is "12345678"
+ */
+export function fieldToDecimalString(field: Uint8Array): string {
+  let result = 0n;
+  for (const byte of field) {
+    result <<= 8n;
+    result += BigInt(byte);
+  }
+  return result.toString();
+}
+
+/**
+ * Convert an array of field elements to an array of decimal strings.
+ * Useful for passing VK fields to Noir circuits.
+ *
+ * @param fields - Array of 32-byte field elements
+ * @returns Array of decimal strings
+ *
+ * @example
+ * const vkAsFields = await barretenbergAPI.vkAsFields({ verificationKey: vk });
+ * const vkFieldStrings = fieldsToDecimalStrings(vkAsFields.fields);
+ * // vkFieldStrings is ["12345678", "87654321", ...]
+ */
+export function fieldsToDecimalStrings(fields: Uint8Array[]): string[] {
+  return fields.map(field => fieldToDecimalString(field));
+}
+

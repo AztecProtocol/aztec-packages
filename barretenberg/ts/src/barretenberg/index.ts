@@ -9,6 +9,8 @@ export {
   UltraHonkBackend,
   UltraHonkVerifierBackend,
   AztecClientBackend,
+  fieldToDecimalString,
+  fieldsToDecimalStrings,
   type UltraHonkBackendOptions,
   type VerifierTarget,
 } from './backend.js';
