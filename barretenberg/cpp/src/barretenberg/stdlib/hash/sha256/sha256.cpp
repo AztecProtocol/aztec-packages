@@ -199,8 +199,9 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
 /**
  * @brief Convert a field element to sparse form for use in the Choose function
  *
- * Performs a lookup to convert a normal 32-bit value to its base-28 sparse representation optimized for the
- * Choose function's rotation requirements.
+ * Performs a lookup to convert a normal 32-bit value to its base-28 sparse representation.
+ * Base 28 is required because the Choose lookup table index formula is `7 × rotation_sum + (e + 2f + 3g)`,
+ * where rotation_sum ranges 0-3 and the weighted sum (e + 2f + 3g) ranges 0-6, giving max index 27.
  *
  * @param input The field element to convert (expected to be a 32-bit value)
  * @return sparse_value containing both normal and sparse representations
@@ -218,8 +219,9 @@ SHA256<Builder>::sparse_value SHA256<Builder>::map_into_choose_sparse_form(const
 /**
  * @brief Convert a field element to sparse form for use in the Majority function
  *
- * Performs a lookup to convert a normal 32-bit value to its base-16 sparse representation optimized for the
- * Majority function's rotation requirements.
+ * Performs a lookup to convert a normal 32-bit value to its base-16 sparse representation.
+ * Base 16 is required because the Majority lookup table index formula is `4 × rotation_sum + (a + b + c)`,
+ * where rotation_sum ranges 0-3 and (a + b + c) ranges 0-3, giving max index 15.
  *
  * @param input The field element to convert (expected to be a 32-bit value)
  * @return sparse_value containing both normal and sparse representations
