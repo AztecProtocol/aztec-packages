@@ -14,12 +14,12 @@ use protocol_types::{address::AztecAddress, traits::Packable};
 /// A message with information about a note that has just been created. This message **MUST** be delivered to a
 /// recipient in order to not lose the private note information.
 ///
-/// Use [NewNoteMessage::deliver] to select a delivery mechanism. The same message can be delivered to multiple
+/// Use [NoteMessage::deliver] to select a delivery mechanism. The same message can be delivered to multiple
 /// recipients.
 pub struct NoteMessage<Note> {
     pub(crate) new_note: NewNote<Note>,
 
-    // NewNoteMessage is constructed when a note is created, which means that the `context` object will be in scope. By
+    // NoteMessage is constructed when a note is created, which means that the `context` object will be in scope. By
     // storing a reference to it inside this object we remove the need for its methods to receive it, resulting in a
     // cleaner end-user API.
     context: &mut PrivateContext,
@@ -33,21 +33,40 @@ where
         Self { new_note, context }
     }
 
-    /// Delivers the note message to `recipient`, providing them access to the private note information.
+    /// Delivers the note message to its owner, providing them access to the private note information.
     ///
-    /// The message is first encrypted to the recipient's public key, ensuring no other actor can read it.
+    /// The message is first encrypted to the owner's public key, ensuring no other actor can read it.
     ///
     /// The `delivery_mode` must be one of [crate::messages::message_delivery::MessageDeliveryEnum], and will inform
     /// costs (both proving time and TX fees) as well as delivery guarantees. This value must be a compile-time
     /// constant.
     ///
+    /// To deliver the message to a recipient that is not the note's owner, use [NoteMessage::deliver_to] instead.
+    ///
     /// # Invalid Recipients
     ///
-    /// If `recipient` is an invalid address, then a random public key is selected and message delivery continues as
-    /// normal. This prevents both 'king of the hill' attacks (where a sender would otherwise fail to deliver a note
+    /// If the note's owner is an invalid address, then a random public key is selected and message delivery continues
+    /// as normal. This prevents both 'king of the hill' attacks (where a sender would otherwise fail to deliver a note
     /// to an invalid recipient) and forced privacy leaks (where an invalid recipient results in a unique transaction
     /// fingerprint, e.g. one lacking the private logs that would correspond to message delivery).
-    pub fn deliver(self, recipient: AztecAddress, delivery_mode: u8) {
+    pub fn deliver(self, delivery_mode: u8) {
+        self.deliver_to(self.new_note.owner, delivery_mode);
+    }
+
+    /// Same as [NoteMessage::deliver], except the message gets delivered to an arbitrary `recipient` instead of the
+    /// note owner.
+    ///
+    /// Note that `recipient` getting the message does not let them **use** the note, it only means that thy will know
+    /// about it, including the transaction in which it was created, and prove it exists. They will also not be able to
+    /// know when or if the note is used (i.e. nullified), assuming the standard note nullifier function.
+    ///
+    /// # Use Cases
+    ///
+    /// This feature enables many design patterns that diverge in how notes are traditionally handled. For example,
+    /// an institutional contract may require to have some actor receive all notes created for compliance purposes. Or a
+    /// low value application like a game might deliver all notes offchain to a centralized server that then serves them
+    /// via the app, bypassing the need for contract sync and improving UX.
+    pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: u8) {
         // This function relies on `delivery_mode` being a constant in order to reduce circuit constraints when
         // unconstrained usage is requested. If `delivery_mode` were a runtime value the compiler would be unable to
         // perform dead-code elimination.
@@ -115,11 +134,11 @@ where
     }
 }
 
-/// Same as [NewNoteMessage], except this type also handles the possibility where the note may not have been actually
+/// Same as [NoteMessage], except this type also handles the possibility where the note may not have been actually
 /// created depending on runtime conditions (e.g. a token transfer change note is not created if there is no change).
-/// Other than that, it and [MaybeNoteMessage::delivery] behave the exact same way as [NewNoteMessage].
+/// Other than that, it and [MaybeNoteMessage::delivery] behave the exact same way as [NoteMessage].
 pub struct MaybeNoteMessage<Note> {
-    // We can't simply create an `Option` of `NewNoteMessage` because that type includes a mutable reference to the
+    // We can't simply create an `Option` of `NoteMessage` because that type includes a mutable reference to the
     // `context`. All `Option` methods (map, or, etc.) have if-else expressions in which they might return the contents,
     // and conditionally returning mutable references is disallowed by Noir. Hence, we create this type which only holds
     // `NewNote` in the `Option`, keeping the `context` out.
@@ -139,13 +158,25 @@ where
         Self { maybe_new_note, context }
     }
 
-    /// Same as [NewNoteMessage::deliver], except the message will only be delivered if it actually exists.
+    /// Same as [NoteMessage::deliver], except the message will only be delivered if it actually exists.
     ///
     /// Messages delivered using [crate::messages::message_delivery::MessageDeliveryEnum::CONSTRAINED_ONCHAIN] will pay
     /// proving costs regardless of whether the message exists or not.
-    pub fn deliver(self, recipient: AztecAddress, delivery_mode: u8) {
+    pub fn deliver(self, delivery_mode: u8) {
         if self.maybe_new_note.is_some() {
             NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver(
+                delivery_mode,
+            );
+        }
+    }
+
+    /// Same as [NoteMessage::deliver_to], except the message will only be delivered if it actually exists.
+    ///
+    /// Messages delivered using [crate::messages::message_delivery::MessageDeliveryEnum::CONSTRAINED_ONCHAIN] will pay
+    /// proving costs regardless of whether the message exists or not.
+    pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: u8) {
+        if self.maybe_new_note.is_some() {
+            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver_to(
                 recipient,
                 delivery_mode,
             );
