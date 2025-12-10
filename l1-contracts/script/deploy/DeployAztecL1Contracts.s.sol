@@ -101,7 +101,8 @@ contract DeployAztecL1Contracts is Script, Test {
         _maybeDeployFeeAssetHandler();
         _maybeDeployStakingAssetHandler();
         _maybeFundRewardDistributor();
-        // Deploy our rollup..
+        // Deploy our rollup. This needs to be last for certain e2e
+        // tests that rely on a full epoch not yet passing before operation.
         _deployRollup();
         _handoverToGovernance();
         _assertAccessControl();
