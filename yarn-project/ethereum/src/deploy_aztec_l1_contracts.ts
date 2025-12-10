@@ -168,8 +168,6 @@ export async function deployAztecL1Contracts(
   const currentDir = dirname(fileURLToPath(import.meta.url));
 
   const l1Client = createExtendedL1Client([rpcUrl], privateKey, chain);
-  // Deploy multicall3 if it does not exist in this network
-  await deployMulticall3(l1Client, logger);
 
   const rpcCall = async (method: string, params: any[]) => {
     logger.info(`Calling ${method} with params: ${JSON.stringify(params)}`);
@@ -178,15 +176,17 @@ export async function deployAztecL1Contracts(
       params,
     })) as any;
   };
+  if (isAnvilTestChain(chain.id)) {
+    await rpcCall('anvil_setAutoMine', [true]).catch(e => logger.error(`Error setting anvil auto mine: ${e}`));
+  }
+
+  // Deploy multicall3 if it does not exist in this network
+  await deployMulticall3(l1Client, logger);
 
   logger.verbose(`Deploying contracts from ${l1Client.account.address.toString()}`);
 
   // Relative location of l1-contracts in monorepo or docker image.
   const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
-
-  if (isAnvilTestChain(chain.id)) {
-    await rpcCall('anvil_setAutoMine', [true]).catch(e => logger.error(`Error setting anvil auto mine: ${e}`));
-  }
 
   // From heuristic testing. More caused issues with anvil.
   const MAGIC_TRANSACTION_BATCH_SIZE = 12;
