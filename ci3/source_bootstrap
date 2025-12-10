@@ -34,3 +34,8 @@ function default_cmd_handler {
     exit 1
   fi
 }
+
+# Build nonet if not already built.
+if [ ! -f "$ci3/nonet.so" ]; then
+  gcc -O3 -shared -fPIC $ci3/nonet.c -o $ci3/nonet.so
+fi
