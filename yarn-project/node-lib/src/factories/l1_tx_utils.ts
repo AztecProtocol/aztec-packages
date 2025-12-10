@@ -4,6 +4,8 @@ import {
 } from '@aztec/ethereum';
 import type { EthSigner, ExtendedViemWalletClient, L1TxUtilsConfig, ViemClient } from '@aztec/ethereum';
 import {
+  createForwarderL1TxUtilsFromEthSigner as createForwarderL1TxUtilsFromEthSignerBase,
+  createForwarderL1TxUtilsFromViemWallet as createForwarderL1TxUtilsFromViemWalletBase,
   createL1TxUtilsWithBlobsFromEthSigner as createL1TxUtilsWithBlobsFromEthSignerBase,
   createL1TxUtilsWithBlobsFromViemWallet as createL1TxUtilsWithBlobsFromViemWalletBase,
 } from '@aztec/ethereum/l1-tx-utils-with-blobs';
@@ -155,4 +157,54 @@ export async function createL1TxUtilsFromEthSignerWithStore(
   }
 
   return uniqueSigners.map(signer => createL1TxUtilsFromEthSignerBase(client, signer, sharedDeps, config));
+}
+
+/**
+ * Creates ForwarderL1TxUtils from multiple Viem wallets, sharing store and metrics.
+ * This wraps all transactions through a forwarder contract for testing purposes.
+ */
+export async function createForwarderL1TxUtilsFromViemWallet(
+  clients: ExtendedViemWalletClient[],
+  forwarderAddress: import('@aztec/foundation/eth-address').EthAddress,
+  config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
+  deps: {
+    telemetry: TelemetryClient;
+    logger?: ReturnType<typeof createLogger>;
+    dateProvider?: DateProvider;
+  },
+) {
+  const sharedDeps = await createSharedDeps(config, deps);
+
+  return clients.map(client =>
+    createForwarderL1TxUtilsFromViemWalletBase(client, forwarderAddress, sharedDeps, config, config.debugMaxGasLimit),
+  );
+}
+
+/**
+ * Creates ForwarderL1TxUtils from multiple EthSigners, sharing store and metrics.
+ * This wraps all transactions through a forwarder contract for testing purposes.
+ */
+export async function createForwarderL1TxUtilsFromEthSigner(
+  client: ViemClient,
+  signers: EthSigner[],
+  forwarderAddress: import('@aztec/foundation/eth-address').EthAddress,
+  config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
+  deps: {
+    telemetry: TelemetryClient;
+    logger?: ReturnType<typeof createLogger>;
+    dateProvider?: DateProvider;
+  },
+) {
+  const sharedDeps = await createSharedDeps(config, deps);
+
+  return signers.map(signer =>
+    createForwarderL1TxUtilsFromEthSignerBase(
+      client,
+      signer,
+      forwarderAddress,
+      sharedDeps,
+      config,
+      config.debugMaxGasLimit,
+    ),
+  );
 }
