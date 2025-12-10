@@ -19,6 +19,7 @@ import { createExtendedL1Client } from './client.js';
 import type { L1ContractsConfig } from './config.js';
 import { deployMulticall3 } from './contracts/multicall.js';
 import { RollupContract } from './contracts/rollup.js';
+import { RegistryContract } from './index.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import type { L1TxUtilsConfig } from './l1_tx_utils/config.js';
 import type { ExtendedViemWalletClient } from './types.js';
@@ -154,6 +155,7 @@ export async function deployAztecL1Contracts(
   chain: Chain,
   logger: Logger,
   args: DeployAztecL1ContractsArgs,
+  // TODO CLAUDE Better return type here.
 ): Promise<ForgeDeployAztecL1ContractsReturnType> {
   logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
@@ -168,8 +170,6 @@ export async function deployAztecL1Contracts(
   // Deploy multicall3 if it does not exist in this network
   await deployMulticall3(l1Client, logger);
 
-  // We are assuming that you are running this on a local anvil node which have 1s block times
-  // To align better with actual deployment, we update the block interval to 12s
   const rpcCall = async (method: string, params: any[]) => {
     logger.info(`Calling ${method} with params: ${JSON.stringify(params)}`);
     return (await l1Client.transport.request({
@@ -182,6 +182,8 @@ export async function deployAztecL1Contracts(
 
   if (isAnvilTestChain(chain.id)) {
     try {
+      // We are assuming that you are running this on a local anvil node which have 1s block times
+      // To align better with actual deployment, we update the block interval to 12s
       await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
       logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
     } catch (e) {
@@ -192,33 +194,35 @@ export async function deployAztecL1Contracts(
   // Relative location of l1-contracts in monorepo or docker image.
   const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
 
+  // From heuristic testing.
+  const MAGIC_TRANSACTION_BATCH_SIZE = 12;
   const deployWithForge = (outputPath: string): Promise<ForgeL1ContractsDeployResult> => {
     const { promise, resolve, reject } = promiseWithResolvers<ForgeL1ContractsDeployResult>();
-    const proc = spawn(
-      'forge',
-      [
-        'script',
-        'script/deploy/DeployAztecL1Contracts.s.sol',
-        '--sig',
-        'run(string)',
-        outputPath,
-        '--rpc-url',
-        rpcUrl,
-        '--private-key',
-        privateKey,
-        '--broadcast',
-      ],
-      {
-        cwd: l1ContractsPath,
-        env: {
-          ...process.env,
-          // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
-          NETWORK: getActiveNetworkName(),
-          ...getDeployAztecL1ContractsEnvVars(args),
-        },
-        stdio: ['ignore', 'pipe', 'pipe'],
+    const forgeArgs = [
+      'script',
+      'script/deploy/DeployAztecL1Contracts.s.sol',
+      '--sig',
+      'run(string)',
+      outputPath,
+      '--rpc-url',
+      rpcUrl,
+      '--private-key',
+      privateKey,
+      '--broadcast',
+      '--batch-size',
+      MAGIC_TRANSACTION_BATCH_SIZE.toString(),
+      '-vvvv',
+    ];
+    const proc = spawn('forge', forgeArgs, {
+      cwd: l1ContractsPath,
+      env: {
+        ...process.env,
+        // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
+        NETWORK: getActiveNetworkName(),
+        ...getDeployAztecL1ContractsEnvVars(args),
       },
-    );
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
     proc.stdout.on('data', data => {
       logger.info('[forge] ' + data.toString());
@@ -235,14 +239,15 @@ export async function deployAztecL1Contracts(
     proc.on('close', code => {
       if (code !== 0) {
         reject(new Error(`DeployRollupForUpgrade.s.sol exited with code ${code}. See logs for details.\n`));
-      } else {
-        (async () => {
-          // Try to parse the output file
-          // TODO(AD): should this bec a zod parse?
-          const result: ForgeL1ContractsDeployResult = JSON.parse(await readFile(outputPath, 'utf-8'));
-          resolve(result);
-        })().catch(reject);
+        return;
       }
+      (async () => {
+        // Try to parse the output file
+        // TODO(AD): should this be a zod parse?
+        const result: ForgeL1ContractsDeployResult = JSON.parse(await readFile(outputPath, 'utf-8'));
+        logger.info(`Deployed L1 contracts with L1 addresses: ${jsonStringify(result)}`);
+        resolve(result);
+      })().catch(reject);
     });
     return promise;
   };
@@ -260,6 +265,12 @@ export async function deployAztecL1Contracts(
 
   const rollup = new RollupContract(l1Client, result.rollupAddress);
 
+  const registryContract = new RegistryContract(l1Client, result.registryAddress);
+
+  const test = await rollup.getVersion();
+  logger.info(`Deployed rollup contract version: ${test}`);
+  console.log(await registryContract.getGovernanceAddresses());
+  console.log(EthAddress.fromString(result.governanceAddress));
   if (isAnvilTestChain(chain.id)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
     //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.

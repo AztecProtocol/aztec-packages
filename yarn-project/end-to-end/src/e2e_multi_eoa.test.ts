@@ -73,8 +73,6 @@ describe('e2e_multi_eoa', () => {
         accounts: [defaultAccountAddress],
         sequencer: sequencerClient,
         ethCheatCodes,
-        // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
-        // Forge deployment advances L1 time significantly, breaking tests that depend on slot timing.
       } = await setup(2, {
         archiverPollingIntervalMS: 200,
         transactionPollingIntervalMS: 200,

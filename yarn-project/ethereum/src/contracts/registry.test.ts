@@ -68,7 +68,6 @@ describe('Registry', () => {
       'dateGatedRelayerAddress',
     );
     registry = new RegistryContract(l1Client, deployedAddresses.registryAddress);
-
     const rollup = new RollupContract(l1Client, deployedAddresses.rollupAddress);
     deployedVersion = Number(await rollup.getVersion());
 

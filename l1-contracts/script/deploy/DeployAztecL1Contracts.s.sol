@@ -261,9 +261,7 @@ contract DeployAztecL1Contracts is Script, Test {
 
     /// @notice Transfer ownership of contracts to governance
     function _handoverToGovernance() internal {
-        if (output.registry.owner() == deployer) {
-            output.registry.transferOwnership(address(output.governance));
-        }
+        output.registry.transferOwnership(address(output.governance));
         output.gse.transferOwnership(address(output.governance));
 
         // If we deployed assets, set them free.
@@ -301,6 +299,8 @@ contract DeployAztecL1Contracts is Script, Test {
         assertEq(output.gse.owner(), address(output.governance), "invalid gse owner");
         assertEq(address(output.gse.getGovernance()), address(output.governance), "invalid gse governance");
         assertEq(output.registry.owner(), address(output.governance), "invalid registry owner");
+        assertEq(Governance(output.registry.getGovernance()).governanceProposer(), address(output.governanceProposer), "invalid governance proposer");
+
         assertEq(
             address(output.rewardDistributor.REGISTRY()),
             address(output.registry),

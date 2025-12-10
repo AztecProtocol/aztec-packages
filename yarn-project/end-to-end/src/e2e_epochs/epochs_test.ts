@@ -107,8 +107,6 @@ export class EpochsTestContext {
 
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
-    // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
-    // Forge deployment advances L1 time significantly, breaking tests that warp to specific epochs.
     const context = await setup(opts.numberOfAccounts ?? 0, {
       automineL1Setup: true,
       checkIntervalMs: 50,

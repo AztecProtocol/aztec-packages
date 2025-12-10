@@ -60,8 +60,6 @@ describe('e2e_block_building', () => {
         wallet,
         accounts: [ownerAddress, minterAddress],
         sequencer: sequencerClient,
-        // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
-        // Forge deployment advances L1 time significantly, breaking tests that depend on slot timing.
       } = await setup(2, {
         archiverPollingIntervalMS: 200,
         transactionPollingIntervalMS: 200,
@@ -272,8 +270,6 @@ describe('e2e_block_building', () => {
     let teardown: () => Promise<void>;
 
     beforeAll(async () => {
-      // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
-      // Forge deployment advances L1 time significantly, breaking tests that depend on slot timing.
       ({
         teardown,
         logger,
@@ -400,8 +396,6 @@ describe('e2e_block_building', () => {
     let ownerAddress: AztecAddress;
 
     beforeAll(async () => {
-      // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
-      // Forge deployment advances L1 time significantly, breaking tests that depend on slot timing.
       ({
         teardown,
         logger,
@@ -606,8 +600,6 @@ describe('e2e_block_building', () => {
     let teardown: () => Promise<void>;
 
     beforeEach(async () => {
-      // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
-      // Forge deployment advances L1 time significantly, breaking tests that depend on slot timing.
       ({
         teardown,
         aztecNode,

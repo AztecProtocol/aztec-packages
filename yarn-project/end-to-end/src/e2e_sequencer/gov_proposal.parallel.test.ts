@@ -66,8 +66,6 @@ describe('e2e_gov_proposal', () => {
     });
 
     let accounts: AztecAddress[] = [];
-    // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
-    // Forge deployment advances L1 time significantly, breaking tests that warp to specific epochs.
     const context = await setup(1, {
       anvilAccounts: 100,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,

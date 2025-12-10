@@ -3,186 +3,65 @@
 pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
+import {stdJson} from "forge-std/StdJson.sol";
 
-import {RollupBuilder, Config} from "@test/builder/RollupBuilder.sol";
-import {IRollup, GenesisState} from "@aztec/core/interfaces/IRollup.sol";
-import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
-import {TestConstants} from "../harnesses/TestConstants.sol";
-import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {DeployAztecL1Contracts} from "../../script/deploy/DeployAztecL1Contracts.s.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
+import {Governance} from "@aztec/governance/Governance.sol";
+import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
+import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 /**
- * @title DeployAztecL1ContractsTest
- * @notice Tests for the L1 contract deployment using RollupBuilder
- * @dev This test verifies that the RollupBuilder correctly deploys all L1 contracts
- *      and that they are properly configured. The DeployAztecL1Contracts.s.sol script
- *      uses the same RollupBuilder mechanism, so these tests validate the underlying
- *      deployment logic.
+ * @title DeployAztecL1ContractsScriptTest
+ * @notice Tests for the DeployAztecL1Contracts.s.sol script with env var config
+ * @dev This test validates:
+ *      1. The script deploys all contracts correctly with various env var configs
+ *      2. The JSON output file is written with correct addresses
+ *      3. Contract relationships are properly established
  *
- *      Note: We cannot directly test the forge script in unit tests due to
- *      vm.broadcast/vm.prank incompatibility. The script should be tested
- *      by running it against a local network (e.g., anvil).
+ * NOTE: Each test uses a unique output file in .deployments/ to avoid race conditions.
+ * Tests can safely run in parallel.
  */
-contract DeployAztecL1ContractsTest is Test {
-  address public deployer;
+contract DeployAztecL1ContractsScriptTest is Test {
+    using stdJson for string;
 
-  function setUp() public {
-    // Initialize time library (required for Rollup deployment)
-    TimeLib.initialize(
-      block.timestamp,
-      TestConstants.AZTEC_SLOT_DURATION,
-      TestConstants.AZTEC_EPOCH_DURATION,
-      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
-    );
+    // Get a unique output path for each test to avoid race conditions when tests run in parallel
+    function _getOutputPath() internal view returns (string memory) {
+        // Use gasleft() as a source of uniqueness per test execution
+        return string.concat(
+            vm.projectRoot(),
+            "/.deployments/test-deployment-",
+            vm.toString(block.timestamp),
+            "-",
+            vm.toString(gasleft()),
+            ".json"
+        );
+    }
 
-    deployer = address(this);
-  }
+    function test_SmokeTest() public {
+        DeployAztecL1Contracts deployScript = new DeployAztecL1Contracts();
+        string memory outputPath = _getOutputPath();
+        // Arrange: custom GSE thresholds via env vars
+        vm.setEnv("AZTEC_ACTIVATION_THRESHOLD", "200000000000000000000");
+        vm.setEnv("AZTEC_EJECTION_THRESHOLD", "50000000000000000000");
 
-  function test_DeployAllContractsWithDefaults() public {
-    // Deploy using RollupBuilder with default genesis state (same as script with no env vars)
-    GenesisState memory genesisState = GenesisState({
-      vkTreeRoot: bytes32(0),
-      protocolContractsHash: bytes32(0),
-      genesisArchiveRoot: bytes32(0)
-    });
+        // Act
+        deployScript.run(outputPath);
 
-    RollupBuilder builder = new RollupBuilder(deployer);
-    builder = builder.setGenesisState(genesisState);
-    builder = builder.deploy();
+        // Assert
+        string memory outputJson = vm.readFile(outputPath);
+        address gseAddress = outputJson.readAddress(".gseAddress");
+        assertTrue(gseAddress != address(0), "GSE should be deployed with custom thresholds");
 
-    Config memory deployedConfig = builder.getConfig();
+        GSE gse = GSE(gseAddress);
+        assertEq(gse.ACTIVATION_THRESHOLD(), 200 ether, "Activation threshold should match");
+        assertEq(gse.EJECTION_THRESHOLD(), 50 ether, "Ejection threshold should match");
+    }
 
-    // Verify all contracts are deployed (non-zero addresses)
-    assertTrue(address(deployedConfig.rollup) != address(0), "Rollup should be deployed");
-    assertTrue(address(deployedConfig.registry) != address(0), "Registry should be deployed");
-    assertTrue(address(deployedConfig.gse) != address(0), "GSE should be deployed");
-    assertTrue(address(deployedConfig.governance) != address(0), "Governance should be deployed");
-    assertTrue(address(deployedConfig.coinIssuer) != address(0), "CoinIssuer should be deployed");
-    assertTrue(address(deployedConfig.rewardDistributor) != address(0), "RewardDistributor should be deployed");
-    assertTrue(address(deployedConfig.testERC20) != address(0), "TestERC20 should be deployed");
-  }
-
-  function test_DeployWithCustomGenesisState() public {
-    // Deploy with custom genesis state (simulating script with env vars)
-    bytes32 vkTreeRoot = bytes32(uint256(0x1234));
-    bytes32 protocolContractsHash = bytes32(uint256(0x5678));
-    bytes32 genesisArchiveRoot = bytes32(uint256(0x9abc));
-
-    GenesisState memory genesisState = GenesisState({
-      vkTreeRoot: vkTreeRoot,
-      protocolContractsHash: protocolContractsHash,
-      genesisArchiveRoot: genesisArchiveRoot
-    });
-
-    RollupBuilder builder = new RollupBuilder(deployer);
-    builder = builder.setGenesisState(genesisState);
-    builder = builder.deploy();
-
-    Config memory deployedConfig = builder.getConfig();
-
-    // Verify rollup is deployed with the custom genesis state
-    IRollup rollup = IRollup(address(deployedConfig.rollup));
-    assertTrue(address(rollup) != address(0), "Rollup should be deployed");
-
-    // Note: The genesis state is used internally during deployment
-    // and affects the initial rollup state
-  }
-
-  function test_DeployedContractsAreValid() public {
-    GenesisState memory genesisState = GenesisState({
-      vkTreeRoot: bytes32(0),
-      protocolContractsHash: bytes32(0),
-      genesisArchiveRoot: bytes32(0)
-    });
-
-    RollupBuilder builder = new RollupBuilder(deployer);
-    builder = builder.setGenesisState(genesisState);
-    builder = builder.deploy();
-
-    Config memory deployedConfig = builder.getConfig();
-
-    // Verify contract relationships
-    IRollup rollup = IRollup(address(deployedConfig.rollup));
-    IRegistry registry = deployedConfig.registry;
-
-    // Registry should have the rollup as canonical
-    assertEq(
-      address(registry.getCanonicalRollup()),
-      address(rollup),
-      "Rollup should be the canonical rollup in Registry"
-    );
-
-    // Rollup should have the correct fee asset
-    assertEq(
-      address(rollup.getFeeAsset()),
-      address(deployedConfig.testERC20),
-      "Rollup should have correct fee asset"
-    );
-  }
-
-  function test_DeployedContractsHaveCorrectRelationships() public {
-    GenesisState memory genesisState = GenesisState({
-      vkTreeRoot: bytes32(0),
-      protocolContractsHash: bytes32(0),
-      genesisArchiveRoot: bytes32(0)
-    });
-
-    RollupBuilder builder = new RollupBuilder(deployer);
-    builder = builder.setGenesisState(genesisState);
-    builder = builder.deploy();
-
-    Config memory deployedConfig = builder.getConfig();
-
-    IRollup rollup = IRollup(address(deployedConfig.rollup));
-    IRegistry registry = deployedConfig.registry;
-
-    // Note: Registry.getGovernance() returns owner(), which is the deployer after ownership updates
-    // The Governance contract is deployed but Registry ownership determines what getGovernance returns
-    assertTrue(
-      address(deployedConfig.governance) != address(0),
-      "Governance contract should be deployed"
-    );
-
-    // Verify RewardDistributor is set
-    assertEq(
-      address(registry.getRewardDistributor()),
-      address(deployedConfig.rewardDistributor),
-      "Registry should have correct RewardDistributor"
-    );
-
-    // Verify the rollup can access the fee asset portal
-    assertTrue(
-      address(rollup.getFeeAssetPortal()) != address(0),
-      "Rollup should have a FeeAssetPortal"
-    );
-  }
-
-  function test_MultipleDeploymentsHaveUniqueAddresses() public {
-    GenesisState memory genesisState = GenesisState({
-      vkTreeRoot: bytes32(0),
-      protocolContractsHash: bytes32(0),
-      genesisArchiveRoot: bytes32(0)
-    });
-
-    // First deployment
-    RollupBuilder builder1 = new RollupBuilder(deployer);
-    builder1 = builder1.setGenesisState(genesisState);
-    builder1 = builder1.deploy();
-    Config memory config1 = builder1.getConfig();
-
-    // Second deployment
-    RollupBuilder builder2 = new RollupBuilder(deployer);
-    builder2 = builder2.setGenesisState(genesisState);
-    builder2 = builder2.deploy();
-    Config memory config2 = builder2.getConfig();
-
-    // Each deployment should have unique addresses
-    assertTrue(
-      address(config1.rollup) != address(config2.rollup),
-      "Each deployment should have unique Rollup address"
-    );
-    assertTrue(
-      address(config1.registry) != address(config2.registry),
-      "Each deployment should have unique Registry address"
-    );
-  }
 }

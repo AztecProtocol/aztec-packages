@@ -45,8 +45,6 @@ describe('e2e_pruned_blocks', () => {
       teardown,
       wallet,
       accounts: [admin, sender, recipient],
-      // TODO(WORKTODO): Re-enable Forge deployment once time advancement during deployment is fixed.
-      // Forge deployment advances L1 time significantly, breaking tests that depend on epoch timing.
     } = await setup(3, {
       aztecEpochDuration: EPOCH_LENGTH,
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,

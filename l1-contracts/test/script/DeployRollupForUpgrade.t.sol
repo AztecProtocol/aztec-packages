@@ -74,10 +74,7 @@ contract DeployRollupForUpgradeTest is Test {
         );
     }
 
-    /**
-     * @notice Test that upgrade deployment creates new rollup with existing infrastructure
-     */
-    function test_UpgradeDeploysNewRollup() public {
+    function test_SmokeTest() public {
         _setOutputPaths("UpgradeDeploysNewRollup");
 
         // First, deploy full L1 contracts
@@ -91,7 +88,6 @@ contract DeployRollupForUpgradeTest is Test {
         address governanceAddress = initialJson.readAddress(".governanceAddress");
         address feeAssetAddress = initialJson.readAddress(".feeAssetAddress");
         address stakingAssetAddress = initialJson.readAddress(".stakingAssetAddress");
-        address initialRollupAddress = initialJson.readAddress(".rollupAddress");
 
         // Set up environment for upgrade deployment
         vm.setEnv("REGISTRY_ADDRESS", vm.toString(registryAddress));
@@ -103,7 +99,5 @@ contract DeployRollupForUpgradeTest is Test {
         // Deploy upgrade
         upgradeScript = new DeployRollupForUpgrade();
         upgradeScript.run(upgradeOutputPath);
-
-        // TODO CLAUDE: assert useful things
     }
 }
