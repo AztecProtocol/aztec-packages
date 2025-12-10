@@ -119,6 +119,26 @@ export class NoteDao {
   }
 
   /**
+   * Returns true if this note is equal to the `other` one.
+   */
+  equals(other: NoteDao): boolean {
+    return (
+      this.note.equals(other.note) &&
+      this.contractAddress.equals(other.contractAddress) &&
+      this.owner.equals(other.owner) &&
+      this.storageSlot.equals(other.storageSlot) &&
+      this.randomness.equals(other.randomness) &&
+      this.noteNonce.equals(other.noteNonce) &&
+      this.noteHash.equals(other.noteHash) &&
+      this.siloedNullifier.equals(other.siloedNullifier) &&
+      this.txHash.equals(other.txHash) &&
+      this.l2BlockNumber === other.l2BlockNumber &&
+      this.l2BlockHash === other.l2BlockHash &&
+      this.index === other.index
+    );
+  }
+
+  /**
    * Returns the size in bytes of the Note Dao.
    * @returns - Its size in bytes.
    */
