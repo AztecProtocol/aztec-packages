@@ -1,9 +1,9 @@
 import { AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
-import { getAvmVkData, getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
+import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { ProofData } from '@aztec/stdlib/proofs';
+import { ProofData, ProofDataForFixedVk } from '@aztec/stdlib/proofs';
 import {
   type BaseRollupHints,
   PrivateBaseRollupHints,
@@ -114,10 +114,9 @@ export class TxProvingState {
 
     const publicChonkVerifierProofData = toProofData(this.publicChonkVerifier);
 
-    const avmProofData = new ProofData(
+    const avmProofData = new ProofDataForFixedVk(
       this.processedTx.avmProvingRequest.inputs.publicInputs,
       this.avm.proof,
-      getAvmVkData(),
     );
 
     return new PublicTxBaseRollupPrivateInputs(publicChonkVerifierProofData, avmProofData, this.baseRollupHints);
