@@ -65,11 +65,6 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     const Gas& teardown_gas_limit = tx.gas_settings.teardown_gas_limits;
     tx_context.gas_used = tx.gas_used_by_private;
 
-    // NOTE: This vector will be populated with one CallStackMetadata per app logic enqueued call.
-    // IMPORTANT: The nesting will only be 1 level deep! You will get one result per enqueued call
-    // but no information about nested calls. This can be added later.
-    std::vector<CallStackMetadata> app_logic_return_values;
-
     events.emit(TxStartupEvent{
         .gas_used = tx_context.gas_used,
         .gas_limit = gas_limit,
