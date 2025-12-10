@@ -6,6 +6,7 @@ pragma solidity >=0.8.27;
 import {Vm} from "forge-std/Vm.sol";
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 
 import {GenesisState, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
@@ -108,10 +109,16 @@ library DeployRollupLib {
         Rollup rollup,
         IRollupConfiguration config
     ) private {
-        uint256 initialFeeAssetAmount = config.getFeeJuicePortalInitialBalance();
+        uint256 initialFeeAssetAmount = config.getInitialFeeAssetAmount();
         if (initialFeeAssetAmount > 0) {
-            address feeAssetPortal = address(rollup.getFeeAssetPortal());
-            TestERC20(address(input.feeAsset)).mint(feeAssetPortal, initialFeeAssetAmount);
+            try Ownable(address(input.feeAsset)).owner() returns (address owner) {
+                if (owner == input.deployer) {
+                    address feeAssetPortal = address(rollup.getFeeAssetPortal());
+                    TestERC20(address(input.feeAsset)).mint(feeAssetPortal, initialFeeAssetAmount);
+                }
+            } catch {
+                // Ignore if fee asset is not mintable or ownerable
+            }
         }
     }
 

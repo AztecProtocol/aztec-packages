@@ -32,7 +32,6 @@ describe('e2e_epochs/epochs_multiple', () => {
 
     let provenCheckpointNumber = CheckpointNumber(0);
 
-    // Get the current epoch when we start - don't assume we're at epoch 0
     let epochNumber = Number(await rollup.getCurrentEpoch());
     if (epochNumber != 0) {
       throw new Error(`Test must be started at epoch 0, but started at epoch ${epochNumber}`);

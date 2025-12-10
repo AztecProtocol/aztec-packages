@@ -43,6 +43,10 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     });
     ({ sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
     ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
+
+    if (Number(await rollup.getCurrentEpoch()) != 0) {
+      throw new Error(`Test must be started at epoch 0, but started at epoch ${await rollup.getCurrentEpoch()}`);
+    }
   });
 
   afterEach(async () => {
