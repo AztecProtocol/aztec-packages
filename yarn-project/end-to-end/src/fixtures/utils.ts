@@ -449,7 +449,9 @@ export async function setup(
       config.publisherPrivateKeys = [new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const)];
     }
 
-    config.coinbase = EthAddress.fromString(publisherHdAccount.address);
+    if (config.coinbase === undefined) {
+      config.coinbase = EthAddress.fromString(publisherHdAccount.address);
+    }
 
     if (AZTEC_NODE_URL) {
       // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
