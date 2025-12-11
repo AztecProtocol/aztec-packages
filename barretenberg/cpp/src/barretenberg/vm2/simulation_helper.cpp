@@ -602,7 +602,10 @@ TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection(
     hinting_merkle_db.dump_hints(collected_hints);
 
     tx_result.hints = std::move(collected_hints);
-    return tx_result;
+
+    // Need to std::move to avoid copying (due to structured bindings).
+    // This was fixed in C++23 via http://wg21.link/P2266R3.
+    return std::move(tx_result);
 }
 
 EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints)
@@ -617,7 +620,9 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     auto [events, /* unused */ tx_result_] = simulate_for_witgen_internal<EventEmitter, DeduplicatingEventEmitter>(
         raw_contract_db, raw_merkle_db, config, hints.tx, hints.global_variables, hints.protocol_contracts);
 
-    return events;
+    // Need to std::move to avoid copying (due to structured bindings).
+    // This was fixed in C++23 via http://wg21.link/P2266R3.
+    return std::move(events);
 }
 
 TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hints)
