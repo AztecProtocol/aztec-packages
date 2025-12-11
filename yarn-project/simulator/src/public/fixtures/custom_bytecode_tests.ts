@@ -83,6 +83,38 @@ export async function addressingWithIndirectThenRelativeTagIssueTest(tester: Pub
   return await testCustomBytecode(bytecode, tester, txLabel);
 }
 
+// First instruction sets UINT32_MAX at offset 0 (base address) with tag U32.
+// Then an ADD_8 instruction uses INDIRECT_RELATIVE addressing for the first operand (offset 1)
+// and INDIRECT addressing for the second operand (offset 2). The relative addressing
+// for the first operand will overflow (UINT32_MAX + 1 >= MAX_MEMORY_SIZE), causing the instruction to fail.
+// The second operand will also fail (indirect addressing from offset 2 which is uninitialized with tag FF).
+export async function addressingWithRelativeOverflowAndIndirectTagIssueTest(tester: PublicTxSimulationTester) {
+  const addressingMode = Addressing.fromModes([
+    AddressingMode.INDIRECT_RELATIVE, // First operand (aOffset) uses both indirect and relative addressing
+    AddressingMode.INDIRECT, // Second operand (bOffset) uses indirect addressing only
+    AddressingMode.DIRECT, // Third operand (dstOffset) uses direct addressing
+  ]);
+
+  // UINT32_MAX = 2^32 - 1 = 4294967295
+  const UINT32_MAX = 0xffffffff;
+
+  const bytecode = encodeToBytecode([
+    // Set UINT32_MAX at offset 0 as base address - this will cause overflow when adding relative offset 1
+    new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ UINT32_MAX).as(
+      Opcode.SET_32,
+      Set.wireFormat32,
+    ),
+    new Add(/*indirect=*/ addressingMode.toWire(), /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 3).as(
+      Opcode.ADD_8,
+      Add.wireFormat8,
+    ),
+    new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+  ]);
+
+  const txLabel = 'AddressingWithRelativeOverflowAndIndirectTagInvalid';
+  return await testCustomBytecode(bytecode, tester, txLabel);
+}
+
 export async function pcOutOfRangeTest(tester: PublicTxSimulationTester) {
   const bytecode = encodeToBytecode([
     new Jump(/*jumpOffset=*/ 123), // Jump to out-of-range pc offset.

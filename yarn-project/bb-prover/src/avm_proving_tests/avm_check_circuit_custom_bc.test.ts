@@ -2,6 +2,7 @@ import {
   addressingWithBaseTagIssueTest,
   addressingWithIndirectTagIssueTest,
   addressingWithIndirectThenRelativeTagIssueTest,
+  addressingWithRelativeOverflowAndIndirectTagIssueTest,
   defaultGlobals,
   instructionTruncatedTest,
   invalidByteTest,
@@ -44,6 +45,11 @@ describe('AVM custom bytecodes unhappy paths', () => {
 
   it('Indirect addressing succeeds, then relative addressing fails due to wrong base tag', async () => {
     const result = await addressingWithIndirectThenRelativeTagIssueTest(tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  }, 20_000);
+
+  it('Indirect relative addressing overflows, then indirect addressing fails', async () => {
+    const result = await addressingWithRelativeOverflowAndIndirectTagIssueTest(tester);
     expect(result.revertCode.isOK()).toBe(false);
   }, 20_000);
 });
