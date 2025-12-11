@@ -110,6 +110,9 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
                 resolution_info.after_relative = FF(offset);
                 // Check whether the relative address overflows.
                 if (is_address_out_of_range(offset)) {
+                    // We need to update the default value for the resolved operand to the overflowed value.
+                    // This is required for the circuit to be on par with the behavior of immediate operands.
+                    resolution_info.resolved_operand = Operand::from_tag(ValueTag::FF, FF(offset));
                     // If this happens, it means that the relative computation overflowed. However both the base and
                     // operand addresses by themselves were valid.
                     throw AddressingEventError::RELATIVE_COMPUTATION_OOB;
