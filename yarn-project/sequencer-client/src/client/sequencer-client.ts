@@ -12,11 +12,7 @@ import type { KeystoreManager } from '@aztec/node-keystore';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import type { L2BlockSource } from '@aztec/stdlib/block';
-import type {
-  IFullNodeBlockBuilder,
-  ValidatorClientFullConfig,
-  WorldStateSynchronizer,
-} from '@aztec/stdlib/interfaces/server';
+import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { L1Metrics, type TelemetryClient } from '@aztec/telemetry-client';
@@ -25,6 +21,7 @@ import { NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-clie
 import type { SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
+import { FullNodeCheckpointsBuilder } from '../sequencer/checkpoint_builder.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
 
 /**
@@ -34,7 +31,7 @@ export class SequencerClient {
   constructor(
     protected publisherManager: PublisherManager<L1TxUtilsWithBlobs>,
     protected sequencer: Sequencer,
-    protected blockBuilder: IFullNodeBlockBuilder,
+    protected checkpointsBuilder: FullNodeCheckpointsBuilder,
     protected validatorClient?: ValidatorClient,
     private l1Metrics?: L1Metrics,
   ) {}
@@ -54,11 +51,11 @@ export class SequencerClient {
   public static async new(
     config: SequencerClientConfig,
     deps: {
-      validatorClient: ValidatorClient | undefined; // allowed to be undefined while we migrate
+      validatorClient: ValidatorClient;
       p2pClient: P2P;
       worldStateSynchronizer: WorldStateSynchronizer;
       slasherClient: SlasherClientInterface | undefined;
-      blockBuilder: IFullNodeBlockBuilder;
+      checkpointsBuilder: FullNodeCheckpointsBuilder;
       l2BlockSource: L2BlockSource;
       l1ToL2MessageSource: L1ToL2MessageSource;
       telemetry: TelemetryClient;
@@ -75,7 +72,7 @@ export class SequencerClient {
       p2pClient,
       worldStateSynchronizer,
       slasherClient,
-      blockBuilder,
+      checkpointsBuilder,
       l2BlockSource,
       l1ToL2MessageSource,
       telemetry: telemetryClient,
@@ -91,9 +88,11 @@ export class SequencerClient {
     );
     const publisherManager = new PublisherManager(l1TxUtils, config);
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
-    const [l1GenesisTime, slotDuration] = await Promise.all([
+    const [l1GenesisTime, slotDuration, rollupVersion, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
+      rollupContract.getVersion(),
+      rollupContract.getManaLimit().then(Number),
     ] as const);
 
     const governanceProposerContract = new GovernanceProposerContract(
@@ -132,33 +131,27 @@ export class SequencerClient {
         nodeKeyStore: NodeKeystoreAdapter.fromKeyStoreManager(deps.nodeKeyStore),
         logger: log,
       });
-    const globalsBuilder = new GlobalVariableBuilder(config);
 
     const ethereumSlotDuration = config.ethereumSlotDuration;
+    const l1Constants = { l1GenesisTime, slotDuration: Number(slotDuration), ethereumSlotDuration };
 
-    const rollupManaLimit = Number(await rollupContract.getManaLimit());
+    const globalsBuilder = new GlobalVariableBuilder({ ...config, ...l1Constants, rollupVersion });
+
     let sequencerManaLimit = config.maxL2BlockGas ?? rollupManaLimit;
     if (sequencerManaLimit > rollupManaLimit) {
       log.warn(
-        `Provided maxL2BlockGas of ${sequencerManaLimit} is greater than the maximum allowed by the L1 (${rollupManaLimit}), setting limit to ${rollupManaLimit}`,
+        `Provided maxL2BlockGas ${sequencerManaLimit} is greater than the max allowed by L1. Setting limit to ${rollupManaLimit}.`,
       );
       sequencerManaLimit = rollupManaLimit;
     }
 
     // When running in anvil, assume we can post a tx up until one second before the end of an L1 slot.
-    // Otherwise, assume we must have broadcasted the tx before the slot started (we use a default
-    // maxL1TxInclusionTimeIntoSlot of zero) to get the tx into that L1 slot.
+    // Otherwise, we need the full L1 slot duration for publishing to ensure inclusion.
     // In theory, the L1 slot has an initial 4s phase where the block is propagated, so we could
-    // make it with a propagation time into slot equal to 4s. However, we prefer being conservative.
+    // reduce the publishing time allowance. However, we prefer being conservative.
     // See https://www.blocknative.com/blog/anatomy-of-a-slot#7 for more info.
-    const maxInclusionBasedOnChain = isAnvilTestChain(config.l1ChainId) ? ethereumSlotDuration - 1 : 0;
-    const maxL1TxInclusionTimeIntoSlot = config.maxL1TxInclusionTimeIntoSlot ?? maxInclusionBasedOnChain;
-
-    const l1Constants = {
-      l1GenesisTime,
-      slotDuration: Number(slotDuration),
-      ethereumSlotDuration,
-    };
+    const l1PublishingTimeBasedOnChain = isAnvilTestChain(config.l1ChainId) ? 1 : ethereumSlotDuration;
+    const l1PublishingTime = config.l1PublishingTime ?? l1PublishingTimeBasedOnChain;
 
     const sequencer = new Sequencer(
       publisherFactory,
@@ -169,19 +162,19 @@ export class SequencerClient {
       slasherClient,
       l2BlockSource,
       l1ToL2MessageSource,
-      blockBuilder,
+      checkpointsBuilder,
       l1Constants,
       deps.dateProvider,
       epochCache,
       rollupContract,
-      { ...config, maxL1TxInclusionTimeIntoSlot, maxL2BlockGas: sequencerManaLimit },
+      { ...config, l1PublishingTime, maxL2BlockGas: sequencerManaLimit },
       telemetryClient,
       log,
     );
 
     await sequencer.init();
 
-    return new SequencerClient(publisherManager, sequencer, blockBuilder, validatorClient, l1Metrics);
+    return new SequencerClient(publisherManager, sequencer, checkpointsBuilder, validatorClient, l1Metrics);
   }
 
   /**
@@ -190,7 +183,7 @@ export class SequencerClient {
    */
   public updateConfig(config: SequencerConfig & Partial<ValidatorClientFullConfig>) {
     this.sequencer.updateConfig(config);
-    this.blockBuilder.updateConfig(config);
+    this.checkpointsBuilder.updateConfig(config);
     this.validatorClient?.updateConfig(config);
   }
 

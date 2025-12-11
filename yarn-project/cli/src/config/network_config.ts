@@ -137,4 +137,7 @@ export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNam
   if (networkConfig.feeAssetHandlerAddress) {
     enrichEthAddressVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', networkConfig.feeAssetHandlerAddress.toString());
   }
+  if (networkConfig.blockDurationMs !== undefined) {
+    enrichVar('SEQ_BLOCK_DURATION_MS', String(networkConfig.blockDurationMs));
+  }
 }

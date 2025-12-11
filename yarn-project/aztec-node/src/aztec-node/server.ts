@@ -38,6 +38,7 @@ import {
   type SequencerPublisher,
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
+import { CheckpointsBuilder } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
@@ -404,7 +405,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
     let slasherClient: SlasherClientInterface | undefined;
-    if (!config.disableValidator) {
+    if (!config.disableValidator && validatorClient) {
       // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
       // as they are executed when the node is selected as proposer.
       const validatorAddresses = keyStoreManager
@@ -439,6 +440,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           );
 
       // Create and start the sequencer client
+      const checkpointsBuilder = new CheckpointsBuilder(
+        { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+        archiver,
+        dateProvider,
+        telemetry,
+      );
+
       sequencer = await SequencerClient.new(config, {
         ...deps,
         epochCache,
@@ -447,7 +455,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         p2pClient,
         worldStateSynchronizer,
         slasherClient,
-        blockBuilder,
+        checkpointsBuilder,
         l2BlockSource: archiver,
         l1ToL2MessageSource: archiver,
         telemetry,
@@ -464,6 +472,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       log.warn(`Sequencer created but not started`);
     }
 
+    const globalVariableBuilder = new GlobalVariableBuilder({
+      ...config,
+      rollupVersion: BigInt(config.rollupVersion),
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+    });
+
     return new AztecNodeService(
       config,
       p2pClient,
@@ -478,7 +493,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       epochPruneWatcher,
       ethereumChain.chainInfo.id,
       config.rollupVersion,
-      new GlobalVariableBuilder(config),
+      globalVariableBuilder,
       epochCache,
       packageVersion,
       proofVerifier,

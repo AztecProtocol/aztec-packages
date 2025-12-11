@@ -5,9 +5,9 @@ import { SequencerTooSlowError } from './errors.js';
 import type { SequencerMetrics } from './metrics.js';
 import { SequencerState } from './utils.js';
 
-const MIN_EXECUTION_TIME = 1;
-const BLOCK_PREPARE_TIME = 1;
-const BLOCK_VALIDATION_TIME = 1;
+export const MIN_EXECUTION_TIME = 1;
+export const BLOCK_PREPARE_TIME = 1;
+export const BLOCK_VALIDATION_TIME = 1;
 
 export class SequencerTimetable {
   /**
@@ -22,9 +22,12 @@ export class SequencerTimetable {
    * but we'll timeout sooner to give it more time to propagate (remember we also have blobs!). Still, when working in anvil,
    * we can just post in the very last second of the L1 slot and still expect the tx to be accepted.
    */
-  public readonly l1PublishingTime;
+  public readonly l1PublishingTime: number;
 
-  /** What's the minimum time we want to leave available for execution and reexecution (used to derive init deadline) */
+  /**
+   * What's the minimum time we want to leave available for execution and reexecution (used to derive init deadline)
+   * Defaults to half of the block duration if set, otherwise a constant.
+   */
   public readonly minExecutionTime: number = MIN_EXECUTION_TIME;
 
   /** How long it takes to get ready to start building */
@@ -42,18 +45,19 @@ export class SequencerTimetable {
   /** Aztec slot duration in seconds (must be multiple of ethereum slot duration) */
   public readonly aztecSlotDuration: number;
 
-  /** How late into an L1 slot we can send a tx to make sure it gets included in the immediate next block. Complement of l1PublishingTime. */
-  public readonly maxL1TxInclusionTimeIntoSlot: number;
-
   /** Whether assertTimeLeft will throw if not enough time. */
   public readonly enforce: boolean;
+
+  /** Duration per block when building multiple blocks per slot (undefined = single block per slot) */
+  public readonly blockDuration: number | undefined;
 
   constructor(
     opts: {
       ethereumSlotDuration: number;
       aztecSlotDuration: number;
-      maxL1TxInclusionTimeIntoSlot: number;
+      l1PublishingTime: number;
       attestationPropagationTime?: number;
+      blockDurationMs?: number;
       enforce: boolean;
     },
     private readonly metrics?: SequencerMetrics,
@@ -61,9 +65,10 @@ export class SequencerTimetable {
   ) {
     this.ethereumSlotDuration = opts.ethereumSlotDuration;
     this.aztecSlotDuration = opts.aztecSlotDuration;
-    this.maxL1TxInclusionTimeIntoSlot = opts.maxL1TxInclusionTimeIntoSlot;
+    this.l1PublishingTime = opts.l1PublishingTime;
     this.attestationPropagationTime = opts.attestationPropagationTime ?? DEFAULT_ATTESTATION_PROPAGATION_TIME;
-    this.l1PublishingTime = this.ethereumSlotDuration - this.maxL1TxInclusionTimeIntoSlot;
+    this.blockDuration = opts.blockDurationMs ? opts.blockDurationMs / 1000 : undefined;
+    this.minExecutionTime = this.blockDuration ? this.blockDuration / 2 : MIN_EXECUTION_TIME;
     this.enforce = opts.enforce;
 
     // Assume zero-cost propagation time and faster runs in test environments where L1 slot duration is shortened
@@ -86,7 +91,6 @@ export class SequencerTimetable {
     this.log.verbose(`Sequencer timetable initialized (${this.enforce ? 'enforced' : 'not enforced'})`, {
       ethereumSlotDuration: this.ethereumSlotDuration,
       aztecSlotDuration: this.aztecSlotDuration,
-      maxL1TxInclusionTimeIntoSlot: this.maxL1TxInclusionTimeIntoSlot,
       l1PublishingTime: this.l1PublishingTime,
       minExecutionTime: this.minExecutionTime,
       blockPrepareTime: this.blockPrepareTime,
@@ -114,7 +118,7 @@ export class SequencerTimetable {
     const maxAllowed = this.aztecSlotDuration - this.afterBlockBuildingTimeNeededWithoutReexec;
     const available = maxAllowed - secondsIntoSlot;
     const executionTimeEnd = secondsIntoSlot + available / 2;
-    this.log.debug(`Block proposal execution time deadline is ${executionTimeEnd}`, {
+    this.log.verbose(`Block proposal execution time deadline is ${executionTimeEnd}`, {
       secondsIntoSlot,
       maxAllowed,
       available,
@@ -137,6 +141,7 @@ export class SequencerTimetable {
     return validationTimeEnd;
   }
 
+  // TODO(palla/mbps): Review these times for new states
   public getMaxAllowedTime(
     state: Extract<SequencerState, SequencerState.STOPPED | SequencerState.IDLE | SequencerState.SYNCHRONIZING>,
   ): undefined;
@@ -152,13 +157,18 @@ export class SequencerTimetable {
       case SequencerState.SYNCHRONIZING:
         return; // We don't really care about times for this states
       case SequencerState.PROPOSER_CHECK:
-      case SequencerState.INITIALIZING_PROPOSAL:
+      case SequencerState.INITIALIZING_CHECKPOINT:
         return this.initializeDeadline;
+      case SequencerState.WAITING_FOR_TXS:
       case SequencerState.CREATING_BLOCK:
         return this.initializeDeadline + this.blockPrepareTime;
+      case SequencerState.WAITING_UNTIL_NEXT_BLOCK:
+        return this.initializeDeadline + this.blockPrepareTime;
+      case SequencerState.FINALIZING_CHECKPOINT:
+        return this.aztecSlotDuration - this.l1PublishingTime - 2 * this.attestationPropagationTime;
       case SequencerState.COLLECTING_ATTESTATIONS:
         return this.aztecSlotDuration - this.l1PublishingTime - 2 * this.attestationPropagationTime;
-      case SequencerState.PUBLISHING_BLOCK:
+      case SequencerState.PUBLISHING_CHECKPOINT:
         return this.aztecSlotDuration - this.l1PublishingTime;
       default: {
         const _exhaustiveCheck: never = state;
@@ -184,5 +194,58 @@ export class SequencerTimetable {
 
     this.metrics?.recordStateTransitionBufferMs(Math.floor(bufferSeconds * 1000), newState);
     this.log.trace(`Enough time to transition to ${newState}`, { maxAllowedTime, secondsIntoSlot });
+  }
+
+  /**
+   * Get timing information for building blocks within a slot.
+   * @param secondsIntoSlot - Current seconds into the slot
+   * @returns Object containing:
+   *   - canStart: boolean - Whether there's time to start a block now
+   *   - deadline: number - Deadline (seconds into slot) for current/next block
+   *   - isLastBlock: boolean - Whether the next block would be the last
+   */
+  public canStartNextBlock(secondsIntoSlot: number): {
+    canStart: boolean;
+    deadline: number;
+    isLastBlock: boolean;
+  } {
+    const minExecutionTime = this.minExecutionTime;
+    const deadline = this.getBlockProposalExecTimeEnd(secondsIntoSlot);
+    const canStart = deadline - secondsIntoSlot >= minExecutionTime;
+
+    // Single block per slot
+    if (this.blockDuration === undefined) {
+      this.log.verbose(`${canStart ? 'Can' : 'Cannot'} start single-block checkpoint at ${secondsIntoSlot}s into slot`);
+      return { deadline, canStart, isLastBlock: true };
+    }
+
+    // Multiple blocks per slot
+    // TODO(palla/mbps): The following is most likely incorrect. When the sequencer sends the penultimate
+    // block in the slot, the attestors will finish executing it at the very end of the slot, leaving no time for
+    // yet another block, but the following logic seems like it may still allow it. Review this.
+    const timeForNextBlockEnd = secondsIntoSlot + this.blockDuration;
+    const canStartAnotherBlock =
+      this.getBlockProposalExecTimeEnd(timeForNextBlockEnd) - timeForNextBlockEnd >= minExecutionTime;
+    const effectiveDeadline = canStartAnotherBlock ? timeForNextBlockEnd : deadline;
+
+    this.log.verbose(
+      canStart
+        ? canStartAnotherBlock
+          ? `Starting new block at ${secondsIntoSlot}s into slot`
+          : `Starting last block at ${secondsIntoSlot}s into slot`
+        : `No time left for starting new block at ${secondsIntoSlot}s into slot`,
+      {
+        secondsIntoSlot,
+        blockDuration: this.blockDuration,
+        minExecutionTime,
+        deadline,
+        effectiveDeadline,
+        timeForNextBlockEnd,
+        canStartAnotherBlock,
+        canStart,
+      },
+    );
+
+    return { canStart, deadline: effectiveDeadline, isLastBlock: !canStartAnotherBlock };
   }
 }

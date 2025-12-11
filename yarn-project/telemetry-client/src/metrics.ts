@@ -87,6 +87,7 @@ export const SEQUENCER_BLOCK_PROPOSAL_FAILED_COUNT = 'aztec.sequencer.block.prop
 export const SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT = 'aztec.sequencer.block.proposal_success_count';
 export const SEQUENCER_BLOCK_PROPOSAL_PRECHECK_FAILED_COUNT = 'aztec.sequencer.block.proposal_precheck_failed_count';
 export const SEQUENCER_SLASHING_ATTEMPTS_COUNT = 'aztec.sequencer.slashing.attempts_count';
+export const SEQUENCER_CHECKPOINT_SUCCESS_COUNT = 'aztec.sequencer.checkpoint.success_count';
 
 export const VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT = 'aztec.validator.invalid_attestation_received_count';
 

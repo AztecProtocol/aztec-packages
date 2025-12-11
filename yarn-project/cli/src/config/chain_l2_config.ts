@@ -19,7 +19,7 @@ const tbMapSizeKb = 1_024 * 1_024 * 1_024; // 1 TB
 export type L2ChainConfig = Omit<L1ContractsConfig, keyof L1TxUtilsConfig> &
   Omit<SlasherConfig, 'slashValidatorsNever' | 'slashValidatorsAlways' | 'slashOverridePayload' | 'slashSelfAllowed'> &
   Pick<P2PConfig, 'bootstrapNodes' | 'p2pEnabled' | 'txPoolDeleteTxsAfterReorg'> &
-  Pick<SequencerConfig, 'minTxsPerBlock' | 'maxTxsPerBlock'> & {
+  Pick<SequencerConfig, 'buildCheckpointIfEmpty' | 'minTxsPerBlock' | 'maxTxsPerBlock' | 'blockDurationMs'> & {
     l1ChainId: number;
     testAccounts: boolean;
     sponsoredFPC: boolean;
@@ -104,6 +104,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 0,
+  buildCheckpointIfEmpty: true,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/staging-ignition/`],
   autoUpdate: 'config-and-version',
@@ -189,6 +190,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 20,
+  buildCheckpointIfEmpty: true,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/staging-public/`],
   autoUpdate: 'config-and-version',
@@ -246,6 +248,7 @@ export const nextNetL2ChainConfig: L2ChainConfig = {
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 8,
+  buildCheckpointIfEmpty: true,
   realProofs: true,
   snapshotsUrls: [],
   autoUpdate: 'config-and-version',
@@ -303,6 +306,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 0,
+  buildCheckpointIfEmpty: true,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/testnet/`],
   autoUpdate: 'config-and-version',
@@ -396,6 +400,7 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 0,
+  buildCheckpointIfEmpty: true,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/mainnet/`],
   autoUpdate: 'notify',
@@ -484,6 +489,7 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   bootstrapNodes: [],
   minTxsPerBlock: 0,
   maxTxsPerBlock: 8,
+  buildCheckpointIfEmpty: true,
   realProofs: false,
   snapshotsUrls: [],
   autoUpdate: 'config-and-version',
@@ -577,6 +583,12 @@ export function enrichEnvironmentWithChainConfig(config: L2ChainConfig) {
   enrichVar('L1_CHAIN_ID', config.l1ChainId.toString());
   enrichVar('SEQ_MIN_TX_PER_BLOCK', config.minTxsPerBlock.toString());
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.maxTxsPerBlock.toString());
+  if (config.blockDurationMs !== undefined) {
+    enrichVar('SEQ_BLOCK_DURATION_MS', config.blockDurationMs.toString());
+  }
+  if (config.buildCheckpointIfEmpty !== undefined) {
+    enrichVar('SEQ_BUILD_CHECKPOINT_IF_EMPTY', config.buildCheckpointIfEmpty.toString());
+  }
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URLS', config.snapshotsUrls.join(','));

@@ -400,6 +400,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     ]);
   }
 
+  // TODO(palla/mbps): Block proposal should not require a checkpoint proposal
   async createBlockProposal(
     blockNumber: BlockNumber,
     header: CheckpointHeader,
@@ -407,18 +408,32 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
-  ): Promise<BlockProposal | undefined> {
-    if (this.previousProposal?.slotNumber === header.slotNumber) {
-      this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
-      return Promise.resolve(undefined);
-    }
+  ): Promise<BlockProposal> {
+    // TODO(palla/mbps): Prevent double proposals properly
+    // if (this.previousProposal?.slotNumber === header.slotNumber) {
+    //   this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
+    //   return Promise.resolve(undefined);
+    // }
 
+    this.log.info(`Assembling block proposal for block ${blockNumber} slot ${header.slotNumber}`);
     const newProposal = await this.validationService.createBlockProposal(header, archive, txs, proposerAddress, {
       ...options,
       broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
     });
     this.previousProposal = newProposal;
     return newProposal;
+  }
+
+  // TODO(palla/mbps): Effectively create a checkpoint proposal different from a block proposal
+  createCheckpointProposal(
+    header: CheckpointHeader,
+    archive: Fr,
+    txs: Tx[],
+    proposerAddress: EthAddress | undefined,
+    options: BlockProposalOptions,
+  ): Promise<BlockProposal> {
+    this.log.info(`Assembling checkpoint proposal for slot ${header.slotNumber}`);
+    return this.createBlockProposal(0 as BlockNumber, header, archive, txs, proposerAddress, options);
   }
 
   async broadcastBlockProposal(proposal: BlockProposal): Promise<void> {

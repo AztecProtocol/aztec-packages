@@ -1,4 +1,5 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Prettify } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -6,12 +7,10 @@ import type { AztecAddress } from '../aztec-address/index.js';
 import { type ZodFor, schemas } from '../schemas/index.js';
 import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
 
-/**
- * The sequencer configuration.
- */
+/** Sequencer configuration */
 export interface SequencerConfig {
   /** The number of ms to wait between polling for pending txs. */
-  transactionPollingIntervalMS?: number;
+  sequencerPollingIntervalMS?: number;
   /** The maximum number of txs to include in a block. */
   maxTxsPerBlock?: number;
   /** The minimum number of txs to include in a block. */
@@ -38,8 +37,8 @@ export interface SequencerConfig {
   governanceProposerPayload?: EthAddress;
   /** Whether to enforce the time table when building blocks */
   enforceTimeTable?: boolean;
-  /** How many seconds into an L1 slot we can still send a tx and get it mined. */
-  maxL1TxInclusionTimeIntoSlot?: number;
+  /** How much time (in seconds) we allow in the slot for publishing the L1 tx. */
+  l1PublishingTime?: number;
   /** Used for testing to introduce a fake delay after processing each tx */
   fakeProcessingDelayPerTxMs?: number;
   /** How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way) */
@@ -60,10 +59,14 @@ export interface SequencerConfig {
   fishermanMode?: boolean;
   /** Shuffle attestation ordering to create invalid ordering (for testing only) */
   shuffleAttestationOrdering?: boolean;
+  /** Duration per block in milliseconds when building multiple blocks per slot (default: undefined = single block per slot) */
+  blockDurationMs?: number;
+  /** Have sequencer build and publish an empty checkpoint if there are no txs */
+  buildCheckpointIfEmpty?: boolean;
 }
 
 export const SequencerConfigSchema = z.object({
-  transactionPollingIntervalMS: z.number().optional(),
+  sequencerPollingIntervalMS: z.number().optional(),
   maxTxsPerBlock: z.number().optional(),
   minTxsPerBlock: z.number().optional(),
   maxL2BlockGas: z.number().optional(),
@@ -76,7 +79,7 @@ export const SequencerConfigSchema = z.object({
   txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
   maxBlockSizeInBytes: z.number().optional(),
   governanceProposerPayload: schemas.EthAddress.optional(),
-  maxL1TxInclusionTimeIntoSlot: z.number().optional(),
+  l1PublishingTime: z.number().optional(),
   enforceTimeTable: z.boolean().optional(),
   fakeProcessingDelayPerTxMs: z.number().optional(),
   attestationPropagationTime: z.number().optional(),
@@ -87,4 +90,21 @@ export const SequencerConfigSchema = z.object({
   injectFakeAttestation: z.boolean().optional(),
   fishermanMode: z.boolean().optional(),
   shuffleAttestationOrdering: z.boolean().optional(),
+  blockDurationMs: z.number().positive().optional(),
+  buildCheckpointIfEmpty: z.boolean().optional(),
 }) satisfies ZodFor<SequencerConfig>;
+
+type SequencerConfigOptionalKeys =
+  | 'governanceProposerPayload'
+  | 'blockDurationMs'
+  | 'coinbase'
+  | 'feeRecipient'
+  | 'acvmWorkingDirectory'
+  | 'acvmBinaryPath'
+  | 'fakeProcessingDelayPerTxMs'
+  | 'l1PublishingTime'
+  | 'txPublicSetupAllowList';
+
+export type ResolvedSequencerConfig = Prettify<
+  Required<Omit<SequencerConfig, SequencerConfigOptionalKeys>> & Pick<SequencerConfig, SequencerConfigOptionalKeys>
+>;

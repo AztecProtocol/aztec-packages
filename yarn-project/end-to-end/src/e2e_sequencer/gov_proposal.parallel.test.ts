@@ -114,7 +114,7 @@ describe('e2e_gov_proposal', () => {
     testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
     logger.warn(`Deployed test contract at ${testContract.address}`);
 
-    await cheatCodes.rollup.advanceToEpoch(EpochNumber(2));
+    await cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
   });
 
   afterEach(() => teardown());

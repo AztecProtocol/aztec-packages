@@ -286,6 +286,10 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     await this.instance.call(WorldStateMessageType.DELETE_FORK, { forkId: this.revision.forkId });
   }
 
+  async [Symbol.dispose](): Promise<void> {
+    await this.close();
+  }
+
   public async createCheckpoint(): Promise<void> {
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
     await this.instance.call(WorldStateMessageType.CREATE_CHECKPOINT, { forkId: this.revision.forkId });

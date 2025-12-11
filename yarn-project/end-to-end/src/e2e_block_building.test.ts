@@ -62,7 +62,7 @@ describe('e2e_block_building', () => {
         sequencer: sequencerClient,
       } = await setup(2, {
         archiverPollingIntervalMS: 200,
-        transactionPollingIntervalMS: 200,
+        sequencerPollingIntervalMS: 200,
         worldStateBlockCheckIntervalMS: 200,
         blockCheckIntervalMS: 200,
       }));
