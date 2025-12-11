@@ -861,18 +861,17 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     std::array<uint8_t, AVM_MAX_OPERANDS> resolved_operand_tag{};
     uint8_t num_relative_operands = 0;
 
-    bool base_address_invalid = false;
+    // The error about the base address being invalid is stored in every resolution_info member when it happens.
+    bool base_address_invalid = resolution_info_vec[0].error.has_value() &&
+                                *resolution_info_vec[0].error == AddressingEventError::BASE_ADDRESS_INVALID;
     bool do_base_check = false;
 
     // Gather operand information.
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
-        const auto& resolution_info = resolution_info_vec.at(i);
+        const auto& resolution_info = resolution_info_vec[i];
         bool op_is_address = i < ex_spec.num_addresses;
         relative_oob[i] = resolution_info.error.has_value() &&
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
-        base_address_invalid =
-            base_address_invalid ||
-            (resolution_info.error.has_value() && *resolution_info.error == AddressingEventError::BASE_ADDRESS_INVALID);
         is_indirect_effective[i] = op_is_address && is_operand_indirect(instruction.indirect, i);
         is_relative_effective[i] = op_is_address && is_operand_relative(instruction.indirect, i);
         should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i] && !base_address_invalid;
@@ -885,6 +884,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         }
     }
 
+    BB_ASSERT(do_base_check || !base_address_invalid, "Base address is invalid but we are not checking it.");
+
     // Set the operand columns.
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
         trace.set(row,
@@ -893,7 +894,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
                       { OPERAND_IS_RELATIVE_VALID_BASE_COLUMNS[i],
-                        is_relative_effective[i] && !base_address_invalid ? 1 : 0 },
+                        (is_relative_effective[i] && !base_address_invalid) ? 1 : 0 },
                       { RESOLVED_OPERAND_COLUMNS[i], resolved_operand[i] },
                       { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag[i] },
                   } });

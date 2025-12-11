@@ -52,8 +52,27 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
     // Therefore, it is not an error the circuit should be able to prove.
     assert(spec.num_addresses <= instruction.operands.size());
 
-    // We will read the base address only if we have any relative operands.
+    // Check if there is any relative address.
+    bool has_relative_address = false;
+    for (size_t i = 0; i < spec.num_addresses; ++i) {
+        if (is_operand_relative(instruction.indirect, i)) {
+            has_relative_address = true;
+            break;
+        }
+    }
+
+    // If there is a relative address, we resolve base address.
+    // We check tag of resolved base address and keep this information for later use.
+    bool base_address_invalid = false;
     std::optional<MemoryValue> base_address;
+    if (has_relative_address) {
+        base_address = memory.get(0);
+        event.base_address = *base_address;
+        // Check if the base address is valid (has the right tag).
+        if (!memory.is_valid_address(*base_address)) {
+            base_address_invalid = true;
+        }
+    }
 
     // We process each address separately.
     // Even if one fails, we continue processing the other ones. We will throw an exception after event emission.
@@ -70,24 +89,18 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
             // Guarantees by this point:
             // - original operand is a valid address IF interpreted as a MemoryAddress.
 
-            // Then, we process relative addressing for all the addresses.
+            // Check if base address is invalid. Even for non-relative addresses, we need to check this because
+            // we essentially stop any resolution if the base address is invalid and a relative address is used.
+            if (base_address_invalid) {
+                throw AddressingEventError::BASE_ADDRESS_INVALID;
+            }
+
+            // Process relative addressing if applicable.
             // That is, if relative addressing is used, after_relative[i] = base_address + operands[i].
-            // Not that the operands were stored as is, and then we'll update them if they are relative.
+            // Note that the operands were stored as is, and then we'll update them if they are relative.
             // Namely, the above initialization guarantees:
             // resolution_info.after_relative = instruction.operands[i].as_ff(); // default value if not relative.
             if (is_operand_relative(instruction.indirect, i)) {
-                // Load the base address if we haven't already.
-                if (!base_address) {
-                    base_address = memory.get(0);
-                    event.base_address = *base_address;
-                    // Note that event.base_address is initialized in AddressingEvent.
-                    // So, if no relative addressing is used, we do not need to set it below.
-                }
-                // This does not produce events. We are expected to check the tag to be UINT32.
-                if (!memory.is_valid_address(*base_address)) {
-                    throw AddressingEventError::BASE_ADDRESS_INVALID;
-                }
-
                 // We extend the address to uint64_t to avoid overflows.
                 auto offset = static_cast<uint64_t>(resolution_info.after_relative);
                 // Note: Since we know that the offset and the base address are valid, the addition fits in 33 bits.
@@ -95,6 +108,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
                 // We store the offset as FF. If the circuit needs to prove overflow, it will
                 // need the full value.
                 resolution_info.after_relative = FF(offset);
+                // Check whether the relative address overflows.
                 if (is_address_out_of_range(offset)) {
                     // If this happens, it means that the relative computation overflowed. However both the base and
                     // operand addresses by themselves were valid.
@@ -114,6 +128,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
             if (is_operand_indirect(instruction.indirect, i)) {
                 resolution_info.resolved_operand =
                     memory.get(static_cast<MemoryAddress>(resolution_info.after_relative));
+                // Check the tag of resolved operand.
                 if (!memory.is_valid_address(resolution_info.resolved_operand)) {
                     throw AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
                 }
