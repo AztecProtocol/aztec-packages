@@ -60,7 +60,9 @@ struct InternalCallFuzzerInput {
     uint8_t num_nested_calls = 0;
     bool extra_pop = false;
 
-    std::array<uint32_t, max_total_calls> local_pcs;
+    std::array<uint32_t, max_total_calls> local_pcs{};
+
+    InternalCallFuzzerInput() = default;
 
     void print() const
     {
@@ -69,7 +71,9 @@ struct InternalCallFuzzerInput {
         info("num_nested_calls: ", int(num_nested_calls));
         info("extra_pop: ", extra_pop);
         for (size_t i = 0; i < local_pcs.size(); i++) {
-            info("local_pcs ", i, ": ", local_pcs[i]);
+            if (local_pcs[i] != 0) {
+                info("local_pcs ", i, ": ", local_pcs[i]);
+            }
         }
     }
 
@@ -117,6 +121,12 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
 
     // Deserialize current input
     InternalCallFuzzerInput input = InternalCallFuzzerInput::from_buffer(data);
+
+    if (input.num_flat_calls == 0) {
+        // TODO(MW): Somehow the number of flat calls can be set as 0, todo more robustly
+        // ensure this does not happen (counter?)
+        input.num_flat_calls++;
+    }
 
     // Choose random mutation
     std::uniform_int_distribution<int> mutation_dist(0, 4);
