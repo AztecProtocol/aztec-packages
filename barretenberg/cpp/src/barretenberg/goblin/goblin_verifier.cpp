@@ -22,14 +22,16 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     vinfo("Merge Verifier: degree check identity passed: ", merge_result.degree_check_passed);
     vinfo("Merge Verifier: concatenation identity passed: ", merge_result.concatenation_check_passed);
 
-    bool merge_pairing_check_passed = false;
+#ifndef NDEBUG
+    // Debug mode: perform individual pairing check for early error detection
     if constexpr (!IsRecursive) {
-        merge_pairing_check_passed = merge_result.pairing_points.check();
-        vinfo("  Merge Pairing check: ", merge_pairing_check_passed);
-        vinfo("  Merge verified: ",
+        bool merge_pairing_check_passed = merge_result.pairing_points.check();
+        vinfo("  Merge Pairing check (debug): ", merge_pairing_check_passed);
+        vinfo("  Merge verified (debug): ",
               merge_pairing_check_passed && merge_result.degree_check_passed &&
                   merge_result.concatenation_check_passed);
     }
+#endif
 
     // Step 2: the ECCVM proof
     ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
@@ -59,33 +61,34 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     vinfo(" Translator Verifier: Sumcheck verified: ", translator_result.sumcheck_verified);
     vinfo(" Translator Verifier: Libra Consistency checked: ", translator_result.consistency_checked);
 
-    bool translator_pairing_check_passed = false;
+#ifndef NDEBUG
+    // Debug mode: perform individual pairing check for early error detection
     if constexpr (!IsRecursive) {
-        translator_pairing_check_passed = translator_result.pairing_points.check();
-        vinfo("  Translator Pairing check:               ", translator_pairing_check_passed);
-        vinfo("  Translator verified:         ",
+        bool translator_pairing_check_passed = translator_result.pairing_points.check();
+        vinfo("  Translator Pairing check (debug):               ", translator_pairing_check_passed);
+        vinfo("  Translator verified (debug):         ",
               translator_pairing_check_passed && translator_result.sumcheck_verified &&
                   translator_result.consistency_checked);
     }
+#endif
 
     // Aggregate merge pairing points into translator pairing points
     translator_result.pairing_points.aggregate(merge_result.pairing_points);
 
     // Aggregate verification result
+    // Note: Individual pairing checks are now performed only in debug mode for early error detection.
+    // Production verification relies on the aggregated pairing check in the caller (chonk_verifier).
     auto all_checks_passed = [&]() {
-        bool consistency_checks = merge_result.degree_check_passed && merge_result.concatenation_check_passed &&
-                                  eccvm_verifier.sumcheck_verified && eccvm_verifier.consistency_checked &&
-                                  eccvm_verifier.translation_masking_consistency_checked &&
-                                  translator_result.sumcheck_verified && translator_result.consistency_checked;
-        if constexpr (!IsRecursive) {
-            // Native case: include pairing checks performed internally
-            consistency_checks = consistency_checks && merge_pairing_check_passed && translator_pairing_check_passed;
-        }
-        return consistency_checks;
+        return merge_result.degree_check_passed && merge_result.concatenation_check_passed &&
+               eccvm_verifier.sumcheck_verified && eccvm_verifier.consistency_checked &&
+               eccvm_verifier.translation_masking_consistency_checked && translator_result.sumcheck_verified &&
+               translator_result.consistency_checked;
     };
 
-    // Warning: `all_checks_passed` is not conclusive both natively and in-circuit, as full native verification requires
-    // IPA verification, and the boolean flags in-circuit are designed for debugging.
+    // Warning: `all_checks_passed` excludes pairing verification. Full native verification requires:
+    // - Aggregated pairing check (performed in caller)
+    // - IPA verification (performed in caller)
+    // In-circuit, the boolean flags are designed for debugging only.
     VerificationResult result{ .pairing_points = std::move(translator_result.pairing_points),
                                .ipa_claim = std::move(opening_claim),
                                .ipa_proof = proof.ipa_proof,

@@ -554,7 +554,13 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, ipa_claim, ipa_transcript);
     vinfo("Goblin IPA verified: ", ipa_verified);
 
-    bool goblin_verified = goblin_checks_passed && ipa_verified;
+    // Verify aggregated pairing points (merge + translator)
+    // Production: single pairing check for efficiency
+    // Debug: additional check (individual checks already performed in goblin_verifier)
+    bool aggregated_pairing_check_passed = pairing_points.check();
+    vinfo("Goblin aggregated pairing check: ", aggregated_pairing_check_passed);
+
+    bool goblin_verified = goblin_checks_passed && ipa_verified && aggregated_pairing_check_passed;
     vinfo("Goblin verified: ", goblin_verified);
 
     return goblin_verified && mega_verified && databus_consistency_verified;
