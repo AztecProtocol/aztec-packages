@@ -61,14 +61,11 @@ class TxExecutionException : public std::runtime_error {
  */
 TxExecutionResult TxExecution::simulate(const Tx& tx)
 {
+    BB_BENCH_NAME("TxExecution::simulate");
+
     const Gas& gas_limit = tx.gas_settings.gas_limits;
     const Gas& teardown_gas_limit = tx.gas_settings.teardown_gas_limits;
     tx_context.gas_used = tx.gas_used_by_private;
-
-    // NOTE: This vector will be populated with one CallStackMetadata per app logic enqueued call.
-    // IMPORTANT: The nesting will only be 1 level deep! You will get one result per enqueued call
-    // but no information about nested calls. This can be added later.
-    std::vector<CallStackMetadata> app_logic_return_values;
 
     events.emit(TxStartupEvent{
         .gas_used = tx_context.gas_used,
@@ -465,6 +462,8 @@ void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Messa
  */
 void TxExecution::insert_non_revertibles(const Tx& tx)
 {
+    BB_BENCH_NAME("TxExecution::insert_non_revertibles");
+
     vinfo("[NON_REVERTIBLE] Inserting ",
           tx.non_revertible_accumulated_data.nullifiers.size(),
           " nullifiers, ",
@@ -515,6 +514,8 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
  */
 void TxExecution::insert_revertibles(const Tx& tx)
 {
+    BB_BENCH_NAME("TxExecution::insert_revertibles");
+
     vinfo("[REVERTIBLE] Inserting ",
           tx.revertible_accumulated_data.nullifiers.size(),
           " nullifiers, ",
@@ -570,6 +571,8 @@ void TxExecution::pay_fee(const AztecAddress& fee_payer,
                           const uint128_t& fee_per_da_gas,
                           const uint128_t& fee_per_l2_gas)
 {
+    BB_BENCH_NAME("TxExecution::pay_fee");
+
     if (fee_payer == 0) {
         if (skip_fee_enforcement) {
             vinfo("Fee payer is 0. Skipping fee enforcement. No one is paying the fee of ", fee);
@@ -619,6 +622,8 @@ void TxExecution::pay_fee(const AztecAddress& fee_payer,
  */
 void TxExecution::pad_trees()
 {
+    BB_BENCH_NAME("TxExecution::pad_trees");
+
     const TxContextEvent state_before = tx_context.serialize_tx_context_event();
     merkle_db.pad_trees();
     events.emit(TxPhaseEvent{ .phase = TransactionPhase::TREE_PADDING,

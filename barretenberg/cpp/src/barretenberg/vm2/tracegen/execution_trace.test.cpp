@@ -566,6 +566,7 @@ TEST(ExecutionTraceGenTest, InternalRetError)
                     // Second row is the internal call
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
                           ROW_FIELD_EQ(execution_sel_execute_internal_return, 1),
+                          ROW_FIELD_EQ(execution_sel_read_unwind_call_stack, 0),
                           ROW_FIELD_EQ(execution_next_internal_call_id, 2),
                           ROW_FIELD_EQ(execution_internal_call_id, 1),
                           ROW_FIELD_EQ(execution_internal_call_return_id, 0),
