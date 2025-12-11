@@ -384,7 +384,7 @@ describe('Archiver', () => {
       for (const block of checkpoint.blocks) {
         const blockNumber = block.number;
 
-        const privateLogs = await archiver.getPrivateLogs(blockNumber, 1);
+        const privateLogs = (await archiver.getBlock(blockNumber))!.toL2Block().getPrivateLogs();
         const expectedTotalNumPrivateLogs = block.body.txEffects.reduce(
           (acc, txEffect) => acc + txEffect.privateLogs.length,
           0,
@@ -781,7 +781,6 @@ describe('Archiver', () => {
     expect(await archiver.getTxEffect(txHash)).resolves.toBeUndefined;
     expect(await archiver.getCheckpoint(CheckpointNumber(2))).resolves.toBeUndefined;
 
-    expect(await archiver.getPrivateLogs(BlockNumber(2), 1)).toEqual([]);
     expect((await archiver.getPublicLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
     expect((await archiver.getContractClassLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
   }, 10_000);
