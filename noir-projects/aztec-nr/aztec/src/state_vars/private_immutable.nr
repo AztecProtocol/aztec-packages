@@ -35,13 +35,14 @@ use protocol_types::{
 ///
 /// The PrivateImmutable type facilitates: inserting the permanent note during initialization, and reading that note.
 ///
-/// ## Example.
+/// ## Example
 ///
-/// A contract's configuration parameters can be represented as a PrivateImmutable.
-/// Once set during contract deployment or initial setup, these parameters remain
-/// constant for the lifetime of the contract. The owner in this case would be an
-/// account with admin privileges.
-/// TODO(F-187): Update this ^
+/// A user's permanent configuration can be represented as a PrivateImmutable. For example, in a vesting contract, each
+/// user's vesting parameters (start date, total amount, etc.) could be stored as a PrivateImmutable owned by that user.
+/// Once initialized during registration, these parameters remain constant for that specific user, while different users
+/// can have their own distinct parameters.
+///
+/// Note: For contract-wide configuration (one value for the entire contract), use SinglePrivateImmutable instead.
 ///
 /// # Generic Parameters:
 ///
@@ -85,7 +86,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     }
 
     /// Initializes a PrivateImmutable state variable instance with a permanent `note` and returns a [NoteEmission] that
-    /// allows you to decide whether to encrypt and send the note to someone.
+    /// allows you to decide what method of note message delivery to use.
     ///
     /// This function inserts the single, permanent note for this state variable. It can only be called once per
     /// PrivateImmutable. Subsequent calls will fail because the initialization nullifier will already exist.
