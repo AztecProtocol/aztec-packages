@@ -117,7 +117,7 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
     // Add range constraint
     for (const auto& [constraint, opcode_idx] :
          zip_view(constraints.range_constraints, constraints.original_opcode_indices.range_constraints)) {
-        builder.create_range_constraint(constraint.witness, constraint.num_bits, "");
+        builder.create_dyadic_range_constraint(constraint.witness, constraint.num_bits, "");
         gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 

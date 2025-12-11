@@ -623,8 +623,9 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
     const uint32_t variable_index, const uint64_t num_bits, const uint64_t target_range_bitnum, std::string const& msg)
 {
     this->assert_valid_variables({ variable_index });
-
+    // make sure `num_bits` satisfies the correct bounds
     BB_ASSERT_GT(num_bits, 0U);
+    BB_ASSERT_GT(grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH, num_bits);
 
     uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
@@ -742,6 +743,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
                                                                          const uint64_t target_range,
                                                                          std::string const msg)
 {
+    // make sure `target_range` is not too big.
+    BB_ASSERT_GTE(DEFAULT_PLOOKUP_RANGE_SIZE, target_range);
     const bool is_out_of_range = (uint256_t(this->get_variable(variable_index)).data[0] > target_range);
     if (is_out_of_range && !this->failed()) {
         this->failure(msg);

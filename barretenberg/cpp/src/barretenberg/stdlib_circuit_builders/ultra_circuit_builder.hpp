@@ -47,7 +47,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
 
     static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
-    // The plookup range proof requires work linear in range size, thus cannot be used directly for
+    // The plookup-style range proof requires work linear in range size, thus cannot be used directly for
     // large ranges such as 2^64. For such ranges the element will be decomposed into smaller
     // chuncks according to the parameter below
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 14;
@@ -302,7 +302,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void fix_witness(const uint32_t witness_index, const FF& witness_value);
 
     /**
-     * @brief Low-level range constraint for small ranges. Adds variable to a RangeList for batched processing.
+     * @brief Low-level range constraint for small ranges, notably non-power-of-2. Adds variable to a RangeList for
+     * batched processing.
      * @details Constrains variable to [0, target_range]. The constraint is deferred: variables are collected
      * into RangeLists (grouped by target_range), then processed together in `process_range_lists()` which
      * creates the actual delta-range gates. This batching is efficient because multiple variables sharing
@@ -319,13 +320,16 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                                        std::string const msg = "create_small_range_constraint");
 
     /**
-     * @brief Main entry point for range constraints. Dispatches to appropriate implementation based on range size.
+     * @brief Entry point for range constraints where the upper bound is a power of 2 (i.e., dyadic). Dispatches to
+     * appropriate implementation based on range size.
      * @details
      *   - 1 bit: uses a boolean gate (x * (x - 1) = 0)
      *   - ≤ DEFAULT_PLOOKUP_RANGE_BITNUM bits: uses `create_new_range_constraint` (batched delta-range)
      *   - > DEFAULT_PLOOKUP_RANGE_BITNUM bits: uses `create_limbed_range_constraint` (first decompose into limbs)
+     * @note The upper bound of the range is specified via `num_bits`, i.e., the range-constrained constructed is for `1
+     * << num_bits -1`.
      */
-    void create_range_constraint(const uint32_t variable_index, const size_t num_bits, std::string const& msg)
+    void create_dyadic_range_constraint(const uint32_t variable_index, const size_t num_bits, std::string const& msg)
     {
         if (num_bits == 1) {
             create_bool_gate(variable_index);
