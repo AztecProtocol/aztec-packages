@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs: 
       commit: 
-        description: "Git commit SHA to build (leave empty for latest)"
+        description: "Git commit SHA to build (latest means most recent from 'next')"
         required: false
         default: "latest"
 
