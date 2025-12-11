@@ -1,3 +1,5 @@
+#include <ranges>
+
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
@@ -67,7 +69,12 @@ class ChonkTests : public ::testing::Test {
     /**
      * @brief Enum for specifying which KernelIO field to tamper with in tests
      */
-    enum class KernelIOField { ACCUMULATOR_HASH, KERNEL_RETURN_DATA, APP_RETURN_DATA, ECC_OP_TABLES };
+    enum class KernelIOField { PAIRING_INPUTS, ACCUMULATOR_HASH, KERNEL_RETURN_DATA, APP_RETURN_DATA, ECC_OP_TABLES };
+
+    /**
+     * @brief Enum for specifying which HidingKernelIO field to test for propagation consistency
+     */
+    enum class HidingKernelIOField { PAIRING_INPUTS, KERNEL_RETURN_DATA, ECC_OP_TABLES };
 
     /**
      * @brief Helper function to test tampering with KernelIO fields
@@ -101,6 +108,13 @@ class ChonkTests : public ::testing::Test {
 
                 // Tamper with the specified field
                 switch (field_to_tamper) {
+                case KernelIOField::PAIRING_INPUTS: {
+                    // Replace with valid default pairing points (different from actual accumulated values)
+                    using namespace bb::stdlib::recursion;
+                    kernel_io.pairing_inputs.P0 = Commitment(DEFAULT_PAIRING_POINTS_P0_X, DEFAULT_PAIRING_POINTS_P0_Y);
+                    kernel_io.pairing_inputs.P1 = Commitment(DEFAULT_PAIRING_POINTS_P1_X, DEFAULT_PAIRING_POINTS_P1_Y);
+                    break;
+                }
                 case KernelIOField::ACCUMULATOR_HASH:
                     kernel_io.output_hn_accum_hash += FF(1);
                     break;
@@ -121,6 +135,78 @@ class ChonkTests : public ::testing::Test {
 
         auto proof = ivc.prove();
         EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
+    }
+
+    /**
+     * @brief Helper function to test HidingKernelIO field propagation consistency
+     * @details Accumulates circuits, extracts the specified field from Tail kernel's proof,
+     * generates the final proof (which creates HidingKernel), and verifies the field
+     * propagated correctly to the HidingKernel's proof.
+     */
+    static void test_hiding_kernel_io_propagation(HidingKernelIOField field_to_test)
+    {
+        using HidingKernelIONative = bb::stdlib::recursion::honk::HidingKernelIONative;
+
+        const size_t NUM_APP_CIRCUITS = 2;
+        CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
+        const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
+        Chonk ivc{ NUM_CIRCUITS };
+        TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
+
+        // Accumulate all circuits
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, settings);
+            ivc.accumulate(circuit, vk);
+        }
+
+        // Extract field from Tail kernel's proof before prove() generates HidingKernel
+        HidingKernelIONative tail_io;
+        for (auto& it : std::ranges::reverse_view(ivc.verification_queue)) {
+            if (it.is_kernel) {
+                size_t num_public_inputs = it.honk_vk->num_public_inputs;
+                ASSERT_EQ(num_public_inputs, HidingKernelIONative::PUBLIC_INPUTS_SIZE)
+                    << "Tail kernel should use HidingKernelIO format";
+                tail_io = HidingKernelIONative::from_proof(it.proof, num_public_inputs);
+                break;
+            }
+        }
+
+        // Generate the final proof (creates HidingKernel)
+        auto proof = ivc.prove();
+        auto vk = ivc.get_vk();
+
+        // Extract field from HidingKernel's proof (final mega_proof)
+        size_t hiding_kernel_pub_inputs = vk.mega->num_public_inputs;
+        ASSERT_EQ(hiding_kernel_pub_inputs, HidingKernelIONative::PUBLIC_INPUTS_SIZE)
+            << "HidingKernel should use HidingKernelIO format";
+        HidingKernelIONative hiding_io = HidingKernelIONative::from_proof(proof.mega_proof, hiding_kernel_pub_inputs);
+
+        // Verify field propagated correctly from Tail kernel to HidingKernel
+        switch (field_to_test) {
+        case HidingKernelIOField::PAIRING_INPUTS:
+            EXPECT_EQ(tail_io.pairing_inputs.P0, hiding_io.pairing_inputs.P0)
+                << "P0 mismatch: Tail has " << tail_io.pairing_inputs.P0 << " but HidingKernel has "
+                << hiding_io.pairing_inputs.P0;
+            EXPECT_EQ(tail_io.pairing_inputs.P1, hiding_io.pairing_inputs.P1)
+                << "P1 mismatch: Tail has " << tail_io.pairing_inputs.P1 << " but HidingKernel has "
+                << hiding_io.pairing_inputs.P1;
+            break;
+        case HidingKernelIOField::KERNEL_RETURN_DATA:
+            EXPECT_EQ(tail_io.kernel_return_data, hiding_io.kernel_return_data)
+                << "kernel_return_data mismatch: Tail has " << tail_io.kernel_return_data << " but HidingKernel has "
+                << hiding_io.kernel_return_data;
+            break;
+        case HidingKernelIOField::ECC_OP_TABLES:
+            for (size_t i = 0; i < tail_io.ecc_op_tables.size(); ++i) {
+                EXPECT_EQ(tail_io.ecc_op_tables[i], hiding_io.ecc_op_tables[i])
+                    << "M_tail[" << i << "] mismatch: Tail has " << tail_io.ecc_op_tables[i] << " but HidingKernel has "
+                    << hiding_io.ecc_op_tables[i];
+            }
+            break;
+        }
+
+        // Verify the full proof still verifies
+        EXPECT_TRUE(Chonk::verify(proof, vk));
     }
 };
 
@@ -347,6 +433,17 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
 };
 
 /**
+ * @brief Test that tampering with pairing inputs causes verification to fail
+ * @details Pairing points (P0, P1) accumulate across the IVC chain through aggregation.
+ * Even if we replace them with valid pairing points, the public input binding should fail
+ * because the HonkRecursiveVerifier has bound these specific accumulated values.
+ */
+TEST_F(ChonkTests, PairingInputsTamperingFailure)
+{
+    ChonkTests::test_kernel_io_tampering(KernelIOField::PAIRING_INPUTS);
+}
+
+/**
  * @brief Verify that tampering with the accumulator hash in public inputs causes IVC verification failure
  * @details Each kernel outputs `output_hn_accum_hash` as a public input. The next kernel computes the hash of its
  * input accumulator and compares it with the hash from the previous kernel's public inputs via assert_equal.
@@ -388,57 +485,32 @@ TEST_F(ChonkTests, EccOpTablesTamperingFailure)
 }
 
 /**
+ * @brief Test that pairing points are consistently propagated from Tail kernel to HidingKernel proof
+ * @details Pairing points (P0, P1) accumulate across all circuits in the IVC chain via aggregation.
+ * The aggregated pairing points are placed in the Tail kernel's public inputs and must be
+ * propagated unchanged to the HidingKernel's public inputs.
+ */
+TEST_F(ChonkTests, PairingPointsPropagationConsistency)
+{
+    ChonkTests::test_hiding_kernel_io_propagation(HidingKernelIOField::PAIRING_INPUTS);
+}
+
+/**
+ * @brief Test that kernel_return_data is consistently propagated from Tail kernel to HidingKernel proof
+ * @details kernel_return_data commitment is placed in the Tail kernel's public inputs and must be
+ * propagated unchanged to the HidingKernel's public inputs.
+ */
+TEST_F(ChonkTests, KernelReturnDataPropagationConsistency)
+{
+    ChonkTests::test_hiding_kernel_io_propagation(HidingKernelIOField::KERNEL_RETURN_DATA);
+}
+
+/**
  * @brief Test that M_tail is consistently propagated from Tail kernel to HidingKernel proof
- * @details M_tail (ecc_op_tables) is placed in the Tail kernel's public inputs and must be
- * propagated unchanged to the HidingKernel's public inputs. This test extracts M_tail from
- * both locations and verifies they match.
+ * @details M_tail (ecc_op_tables) commitments are placed in the Tail kernel's public inputs and must be
+ * propagated unchanged to the HidingKernel's public inputs.
  */
 TEST_F(ChonkTests, MTailPropagationConsistency)
 {
-    using HidingKernelIONative = bb::stdlib::recursion::honk::HidingKernelIONative;
-
-    const size_t NUM_APP_CIRCUITS = 2;
-    CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
-    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    Chonk ivc{ NUM_CIRCUITS };
-    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-
-    // Accumulate all circuits
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, settings);
-        ivc.accumulate(circuit, vk);
-    }
-
-    // Extract M_tail from Tail kernel's proof before prove() generates HidingKernel
-    HidingKernelIONative::NativeTableCommitments tail_m_tail;
-    for (auto it = ivc.verification_queue.rbegin(); it != ivc.verification_queue.rend(); ++it) {
-        if (it->is_kernel) {
-            size_t num_public_inputs = it->honk_vk->num_public_inputs;
-            ASSERT_EQ(num_public_inputs, HidingKernelIONative::PUBLIC_INPUTS_SIZE)
-                << "Tail kernel should use HidingKernelIO format";
-            HidingKernelIONative tail_io = HidingKernelIONative::from_proof(it->proof, num_public_inputs);
-            tail_m_tail = tail_io.ecc_op_tables;
-            break;
-        }
-    }
-
-    // Generate the final proof (creates HidingKernel)
-    auto proof = ivc.prove();
-    auto vk = ivc.get_vk();
-
-    // Extract M_tail from HidingKernel's proof (final mega_proof)
-    size_t hiding_kernel_pub_inputs = vk.mega->num_public_inputs;
-    ASSERT_EQ(hiding_kernel_pub_inputs, HidingKernelIONative::PUBLIC_INPUTS_SIZE)
-        << "HidingKernel should use HidingKernelIO format";
-    HidingKernelIONative hiding_io = HidingKernelIONative::from_proof(proof.mega_proof, hiding_kernel_pub_inputs);
-
-    // Verify M_tail propagated correctly from Tail kernel to HidingKernel
-    for (size_t i = 0; i < tail_m_tail.size(); ++i) {
-        EXPECT_EQ(tail_m_tail[i], hiding_io.ecc_op_tables[i])
-            << "M_tail[" << i << "] mismatch: Tail kernel has " << tail_m_tail[i] << " but HidingKernel has "
-            << hiding_io.ecc_op_tables[i];
-    }
-
-    // Verify the full proof still verifies
-    EXPECT_TRUE(Chonk::verify(proof, vk));
+    ChonkTests::test_hiding_kernel_io_propagation(HidingKernelIOField::ECC_OP_TABLES);
 }
