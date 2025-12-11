@@ -18,4 +18,6 @@ namespace bb::avm2::fuzzing {
  */
 bb::avm2::MemoryValue read_mem_value(FuzzedDataProvider& fdp);
 
+FF read_ff(FuzzedDataProvider& fdp);
+
 } // namespace bb::avm2::fuzzing
