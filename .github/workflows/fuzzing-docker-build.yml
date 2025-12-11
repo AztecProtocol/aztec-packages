@@ -9,7 +9,7 @@ on:
       commit: 
         description: "Git commit SHA to build (leave empty for latest)"
         required: false
-        default: ""
+        default: "latest"
 
 jobs:
   build:
