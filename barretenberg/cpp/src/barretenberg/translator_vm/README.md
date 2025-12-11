@@ -162,6 +162,173 @@ Each microlimb must be $≤ 2^{14} - 1 = 16383$.
 
 ---
 
+## Witness Trace Structure
+
+The Translator circuit operates on a **2-row cycle structure**. Each EccOpQueue entry occupies exactly 2 rows:
+
+- **Row $2i$ (Even rows)**: **Computation rows** where the non-native field relation is actively checked
+- **Row $2i+1$ (Odd rows)**: **Data storage rows** that hold values accessed by the next even row via shifts
+
+This architecture exists because of how polynomial commitments work in the KZG scheme: the "shifted" polynomial at index $i$ evaluates to the polynomial at index $i+1$. Thus:
+
+- Even row $2i$ performs computation using "current" values from its own row
+- Even row $2i$ accesses "previous" values from odd row $2i+1$ via shift columns
+- Odd row $2i+1$ stores the data that will become "previous" for the next computation at row $2i+2$
+
+The Translator circuit has **81 witness columns** organized into several categories:
+
+#### 1. EccOpQueue Transcript Columns (4 columns)
+
+These columns directly represent the EccOpQueue transcript:
+
+| Column      | Even Row (2i)                     | Odd Row (2i+1)               | Description                                   |
+| ----------- | --------------------------------- | ---------------------------- | --------------------------------------------- |
+| `OP`        | $\texttt{op} \in \{0,1,2,3,4,8\}$ | 0 (no-op)                    | Opcode (the type of elliptic curve operation) |
+| `X_LO_Y_HI` | $P_{x,\text{lo}}$ (136 bits)      | $P_{y,\text{hi}}$ (118 bits) | Low 136 bits of P.x and High 118 bits of P.y  |
+| `X_HI_Z_1`  | $P_{x,\text{hi}}$ (118 bits)      | $z_1$ (128 bits)             | High 118 bits of P.x and first scalar         |
+| `Y_LO_Z_2`  | $P_{y,\text{lo}}$ (136 bits)      | $z_2$ (128 bits)             | Low 136 bits of P.y and second scalar         |
+|             |                                   |                              |                                               |
+
+**Encoding scheme**: Point coordinates $P_x$ and $P_y$ are each 254 bits, split as:
+
+- $P_x = (P_{x,\text{hi}}$ (118 bits) $\|$ $P_{x,\text{lo}}$ (136 bits) $)$
+- $P_y = (P_{y,\text{hi}}$ (118 bits) $\|$ $P_{y,\text{lo}}$ (136 bits) $)$
+
+#### 2. Limb Decomposition Columns (13 columns)
+
+These columns store finer-grained limb decompositions for non-native arithmetic:
+
+| Column Group                  | Even Row (2i)         | Odd Row (2i+1)        | Bits   | Purpose                                  |
+| ----------------------------- | --------------------- | --------------------- | ------ | ---------------------------------------- |
+| `P_X_LOW_LIMBS`               | $P_{x,0}^{\text{lo}}$ | $P_{x,1}^{\text{lo}}$ | 68     | Limbs 0 & 1 of $P_{x,\text{lo}}$         |
+| `P_X_HIGH_LIMBS`              | $P_{x,0}^{\text{hi}}$ | $P_{x,1}^{\text{hi}}$ | 68, 50 | Limbs 0 & 1 of $P_{x,\text{hi}}$         |
+| `P_Y_LOW_LIMBS`               | $P_{y,0}^{\text{lo}}$ | $P_{y,1}^{\text{lo}}$ | 68     | Limbs 0 & 1 of $P_{y,\text{lo}}$         |
+| `P_Y_HIGH_LIMBS`              | $P_{y,0}^{\text{hi}}$ | $P_{y,1}^{\text{hi}}$ | 68, 50 | Limbs 0 & 1 of $P_{y,\text{hi}}$         |
+| `Z_LOW_LIMBS`                 | $z_{1,0}$             | $z_{2,0}$             | 68     | Low limbs of $z_1$ and $z_2$             |
+| `Z_HIGH_LIMBS`                | $z_{1,1}$             | $z_{2,1}$             | 60     | High limbs of $z_1$ and $z_2$            |
+| `ACCUMULATORS_BINARY_LIMBS_0` | $a_0^{\text{curr}}$   | $a_0^{\text{prev}}$   | 68     | Limb 0 of current/previous accumulator   |
+| `ACCUMULATORS_BINARY_LIMBS_1` | $a_1^{\text{curr}}$   | $a_1^{\text{prev}}$   | 68     | Limb 1 of current/previous accumulator   |
+| `ACCUMULATORS_BINARY_LIMBS_2` | $a_2^{\text{curr}}$   | $a_2^{\text{prev}}$   | 68     | Limb 2 of current/previous accumulator   |
+| `ACCUMULATORS_BINARY_LIMBS_3` | $a_3^{\text{curr}}$   | $a_3^{\text{prev}}$   | 50     | Limb 3 of current/previous accumulator   |
+| `QUOTIENT_LOW_BINARY_LIMBS`   | $q_0$                 | $q_1$                 | 68     | Limbs 0 & 1 of quotient $\mathcal{Q}$    |
+| `QUOTIENT_HIGH_BINARY_LIMBS`  | $q_2$                 | $q_3$                 | 68, 52 | Limbs 2 & 3 of quotient $\mathcal{Q}$    |
+| `RELATION_WIDE_LIMBS`         | $c^{\text{lo}}$       | $c^{\text{hi}}$       | 84     | Carry/overflow from mod $2^{136}$ checks |
+
+**Key insight**: The accumulator columns demonstrate the shift mechanism:
+
+- Even row stores $a^{\text{curr}}$ (result of current computation)
+- Odd row stores what will become $a^{\text{prev}}$ (input to next computation)
+- Via shifts, even row $2i$ reads odd row $2i+1$ to get "previous" values
+
+#### 3. Range Constraint Microlimb Columns (64 columns)
+
+Each limb is further decomposed into **14-bit microlimbs** for range checking. Each 68-bit limb has 5 microlimbs (14 bits each) plus a "tail" microlimb that enforces tight range constraints. The columns are organized as follows:
+
+| Column Group                                   | Even Row (2i)                                            | Odd Row (2i+1)                                            |
+| ---------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------- |
+| Coordinate $P_x$ microlimbs                    |                                                          |                                                           |
+| `P_X_LOW_LIMBS_RANGE_CONSTRAINT_0`             | $P_{x,0}[0]$                                             | $P_{x,1}[0]$                                              |
+| `P_X_LOW_LIMBS_RANGE_CONSTRAINT_1`             | $P_{x,0}[1]$                                             | $P_{x,1}[1]$                                              |
+| `P_X_LOW_LIMBS_RANGE_CONSTRAINT_2`             | $P_{x,0}[2]$                                             | $P_{x,1}[2]$                                              |
+| `P_X_LOW_LIMBS_RANGE_CONSTRAINT_3`             | $P_{x,0}[3]$                                             | $P_{x,1}[3]$                                              |
+| `P_X_LOW_LIMBS_RANGE_CONSTRAINT_4`             | $P_{x,0}[4]$                                             | $P_{x,1}[4]$                                              |
+| `P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0`            | $P_{x,2}[0]$                                             | $P_{x,3}[0]$                                              |
+| `P_X_HIGH_LIMBS_RANGE_CONSTRAINT_1`            | $P_{x,2}[1]$                                             | $P_{x,3}[1]$                                              |
+| `P_X_HIGH_LIMBS_RANGE_CONSTRAINT_2`            | $P_{x,2}[2]$                                             | $P_{x,3}[2]$                                              |
+| `P_X_HIGH_LIMBS_RANGE_CONSTRAINT_3`            | $P_{x,2}[3]$                                             | $P_{x,3}[3]$                                              |
+| `P_X_HIGH_LIMBS_RANGE_CONSTRAINT_4`            | $P_{x,2}[4]$                                             | $\textcolor{yellow}{P_{x,3}[\textsf{tail}]}$ (reassigned) |
+| Coordinate $P_y$ microlimbs                    |                                                          |                                                           |
+| `P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0`             | $P_{y,0}[0]$                                             | $P_{y,1}[0]$                                              |
+| `P_Y_LOW_LIMBS_RANGE_CONSTRAINT_1`             | $P_{y,0}[1]$                                             | $P_{y,1}[1]$                                              |
+| `P_Y_LOW_LIMBS_RANGE_CONSTRAINT_2`             | $P_{y,0}[2]$                                             | $P_{y,1}[2]$                                              |
+| `P_Y_LOW_LIMBS_RANGE_CONSTRAINT_3`             | $P_{y,0}[3]$                                             | $P_{y,1}[3]$                                              |
+| `P_Y_LOW_LIMBS_RANGE_CONSTRAINT_4`             | $P_{y,0}[4]$                                             | $P_{y,1}[4]$                                              |
+| `P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0`            | $P_{y,2}[0]$                                             | $P_{y,3}[0]$                                              |
+| `P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_1`            | $P_{y,2}[1]$                                             | $P_{y,3}[1]$                                              |
+| `P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_2`            | $P_{y,2}[2]$                                             | $P_{y,3}[2]$                                              |
+| `P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_3`            | $P_{y,2}[3]$                                             | $P_{y,3}[3]$                                              |
+| `P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_4`            | $P_{y,2}[4]$                                             | $\textcolor{yellow}{P_{y,3}[\textsf{tail}]}$ (reassigned) |
+| Coordinate $z_1$ microlimbs                    |                                                          |                                                           |
+| `Z_LOW_LIMBS_RANGE_CONSTRAINT_0`               | $z_{1,0}[0]$                                             | $z_{2,0}[0]$                                              |
+| `Z_LOW_LIMBS_RANGE_CONSTRAINT_1`               | $z_{1,0}[1]$                                             | $z_{2,0}[1]$                                              |
+| `Z_LOW_LIMBS_RANGE_CONSTRAINT_2`               | $z_{1,0}[2]$                                             | $z_{2,0}[2]$                                              |
+| `Z_LOW_LIMBS_RANGE_CONSTRAINT_3`               | $z_{1,0}[3]$                                             | $z_{2,0}[3]$                                              |
+| `Z_LOW_LIMBS_RANGE_CONSTRAINT_4`               | $z_{1,0}[4]$                                             | $z_{2,0}[4]$                                              |
+| `Z_HIGH_LIMBS_RANGE_CONSTRAINT_0`              | $z_{1,1}[0]$                                             | $z_{2,1}[0]$                                              |
+| `Z_HIGH_LIMBS_RANGE_CONSTRAINT_1`              | $z_{1,1}[1]$                                             | $z_{2,1}[1]$                                              |
+| `Z_HIGH_LIMBS_RANGE_CONSTRAINT_2`              | $z_{1,1}[2]$                                             | $z_{2,1}[2]$                                              |
+| `Z_HIGH_LIMBS_RANGE_CONSTRAINT_3`              | $z_{1,1}[3]$                                             | $z_{2,1}[3]$                                              |
+| `Z_HIGH_LIMBS_RANGE_CONSTRAINT_4`              | $z_{1,1}[4]$                                             | $z_{2,1}[4]$                                              |
+| Accumulator microlimbs                         |                                                          |                                                           |
+| `ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_0`     | $a_{0}^{\text{curr}}[0]$                                 | $a_{1}^{\text{curr}}[0]$                                  |
+| `ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_1`     | $a_{0}^{\text{curr}}[1]$                                 | $a_{1}^{\text{curr}}[1]$                                  |
+| `ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_2`     | $a_{0}^{\text{curr}}[2]$                                 | $a_{1}^{\text{curr}}[2]$                                  |
+| `ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_3`     | $a_{0}^{\text{curr}}[3]$                                 | $a_{1}^{\text{curr}}[3]$                                  |
+| `ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_4`     | $a_{0}^{\text{curr}}[4]$                                 | $a_{1}^{\text{curr}}[4]$                                  |
+| `ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_0`    | $a_{2}^{\text{curr}}[0]$                                 | $a_{3}^{\text{curr}}[0]$                                  |
+| `ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_1`    | $a_{2}^{\text{curr}}[1]$                                 | $a_{3}^{\text{curr}}[1]$                                  |
+| `ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_2`    | $a_{2}^{\text{curr}}[2]$                                 | $a_{3}^{\text{curr}}[2]$                                  |
+| `ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_3`    | $a_{2}^{\text{curr}}[3]$                                 | $a_{3}^{\text{curr}}[3]$                                  |
+| `ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_4`    | $a_{2}^{\text{curr}}[4]$                                 | $\textcolor{yellow}{a_{3}[\textsf{tail}]}$ (reassigned)   |
+| Quotient microlimbs                            |                                                          |                                                           |
+| `QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_0`        | $q_{0}[0]$                                               | $q_{1}[0]$                                                |
+| `QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_1`        | $q_{0}[1]$                                               | $q_{1}[1]$                                                |
+| `QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_2`        | $q_{0}[2]$                                               | $q_{1}[2]$                                                |
+| `QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_3`        | $q_{0}[3]$                                               | $q_{1}[3]$                                                |
+| `QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_4`        | $q_{0}[4]$                                               | $q_{1}[4]$                                                |
+| `QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_0`       | $q_{2}[0]$                                               | $q_{3}[0]$                                                |
+| `QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_1`       | $q_{2}[1]$                                               | $q_{3}[1]$                                                |
+| `QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_2`       | $q_{2}[2]$                                               | $q_{3}[2]$                                                |
+| `QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_3`       | $q_{2}[3]$                                               | $q_{3}[3]$                                                |
+| `QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_4`       | $q_{2}[4]$                                               | $\textcolor{yellow}{q_{3}[\textsf{tail}]}$ (reassigned)   |
+| Carry microlimbs                               |                                                          |                                                           |
+| `RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0`       | $c^{\text{lo}}[0]$                                       | $c^{\text{hi}}[0]$                                        |
+| `RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1`       | $c^{\text{lo}}[1]$                                       | $c^{\text{hi}}[1]$                                        |
+| `RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2`       | $c^{\text{lo}}[2]$                                       | $c^{\text{hi}}[2]$                                        |
+| `RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3`       | $c^{\text{lo}}[3]$                                       | $c^{\text{hi}}[3]$                                        |
+| Tail microlimbs                                |                                                          |                                                           |
+| `P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL`          | $\textcolor{yellow}{P_{x,0}[\textsf{tail}]}$             | $\textcolor{yellow}{P_{x,1}[\textsf{tail}]}$              |
+| `P_X_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL`         | $\textcolor{yellow}{P_{x,2}[\textsf{tail}]}$             | $c^{\text{lo}}[4]$ (reassigned)                           |
+| `P_Y_LOW_LIMBS_RANGE_CONSTRAINT_TAIL`          | $\textcolor{yellow}{P_{y,0}[\textsf{tail}]}$             | $\textcolor{yellow}{P_{y,1}[\textsf{tail}]}$              |
+| `P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL`         | $\textcolor{yellow}{P_{y,2}[\textsf{tail}]}$             | $c^{\text{hi}}[4]$ (reassigned)                           |
+| `Z_LOW_LIMBS_RANGE_CONSTRAINT_TAIL`            | $\textcolor{yellow}{z_{1,0}[\textsf{tail}]}$             | $\textcolor{yellow}{z_{2,0}[\textsf{tail}]}$              |
+| `Z_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL`           | $\textcolor{yellow}{z_{1,1}[\textsf{tail}]}$             | $\textcolor{yellow}{z_{2,1}[\textsf{tail}]}$              |
+| `ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_TAIL`  | $\textcolor{yellow}{a_{0}^{\text{curr}}[\textsf{tail}]}$ | $\textcolor{yellow}{a_{1}^{\text{curr}}[\textsf{tail}]}$  |
+| `ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL` | $\textcolor{yellow}{a_{2}^{\text{curr}}[\textsf{tail}]}$ | $c^{\text{lo}}[5]$ (reassigned)                           |
+| `QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_TAIL`     | $\textcolor{yellow}{q_{0}[\textsf{tail}]}$               | $\textcolor{yellow}{q_{1}[\textsf{tail}]}$                |
+| `QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL`    | $\textcolor{yellow}{q_{2}[\textsf{tail}]}$               | $c^{\text{hi}}[5]$ (reassigned)                           |
+|                                                |                                                          |                                                           |
+
+The tail microlimbs are shown in yellow and we will explain their role in enforcing tight range constraints in the following sections.
+We reuse columns in some cases (to save space) by reassigning them to hold tail microlimbs. For example since limb $P_{x, 3}$ is only 50 bits, it only needs 4 full 14-bit microlimbs. So the odd row in the 5th microlimb column `P_X_HIGH_LIMBS_RANGE_CONSTRAINT_4` is reassigned to hold the tail microlimb for $P_{x,3}$.
+
+### Virtual Columns
+
+Some columns are "virtual" and not explicitly stored in the witness trace. Instead, they are computed on-the-fly during relation evaluation using existing columns. These include:
+
+- Interleaved columns for range constraint microlimbs (computed from the physical microlimb columns)
+- Sorted (ordered) columns for range constraint microlimbs (computed by sorting the physical microlimb columns)
+
+### Lagrange Polynomials (Precomputed)
+
+The Translator circuit uses **ZERO selector polynomials** (`NUM_SELECTORS = 0`).
+
+Instead, the circuit uses **Lagrange polynomials** to control which constraints are active:
+
+| Polynomial                     | Description                     | Active Rows                         |
+| ------------------------------ | ------------------------------- | ----------------------------------- |
+| `lagrange_even_in_minicircuit` | Even indices in mini-circuit    | $i \in {0, 2, 4, ..., 8190}$ (mini) |
+| `lagrange_odd_in_minicircuit`  | Odd indices in mini-circuit     | $i \in {1, 3, 5, ..., 8191}$ (mini) |
+| `lagrange_first`               | First row                       | $i = 0$                             |
+| `lagrange_last_in_minicircuit` | Last row in mini-circuit        | $i = 8191$ (mini)                   |
+| `lagrange_result_row`          | Row containing final result     | Specific row in trace               |
+| `lagrange_masking`             | Masking rows for zero-knowledge | Last few rows                       |
+| `lagrange_mini_masking`        | Masking within mini-circuit     | Last rows of mini-circuit           |
+
+The circuit's regularity (2-row cycles, uniform structure) allows using Lagrange polynomials, which are more efficient than custom selectors.
+
+---
+
 ## Interleaving: The Key Optimization
 
 The Translator must range-constrain approximately 64 different microlimb sets using permutation argument. The permutation argument's degree equals $1 + \text{NUM\_COLS}$, where NUM_COLS is the number of columns being permuted:
@@ -240,149 +407,6 @@ The permutation argument verifies that within each group, the interleaved values
 >
 > For polynomials $p_0, \dots, p_{15}$ of size $n$, the interleaved polynomial of size $16n$ is:
 > $$p_{\textsf{interleaved}}(x) = \sum_{i=0}^{15} x^i \cdot p_{i}(x^{16})$$
-
----
-
-## Witness Polynomials (81 Total)
-
-The Translator circuit uses **81 witness polynomials** (no selector polynomials). These can be categorized as follows:
-
-### Category 1: EccOpQueue Transcript (4 wires)
-
-These contain the raw data from the EC operation queue:
-
-| Wire         | Description                                                 | Range              |
-| ------------ | ----------------------------------------------------------- | ------------------ |
-| `OP`         | Operation code                                              | {0, 1, 2, 3, 4, 8} |
-| `X_LOW_Y_HI` | P.x_lo (136-bit) at even rows, P.y_hi (118-bit) at odd rows | < 2¹³⁶ or < 2¹¹⁸   |
-| `X_HIGH_Z_1` | P.x_hi (118-bit) at even rows, z₁ (128-bit) at odd rows     | < 2¹¹⁸ or < 2¹²⁸   |
-| `Y_LOW_Z_2`  | P.y_lo (136-bit) at even rows, z₂ (128-bit) at odd rows     | < 2¹³⁶ or < 2¹²⁸   |
-
-**Note:** The circuit operates in a 2-row cycle:
-
-- **Even rows (accumulation):** Compute new accumulator value
-- **Odd rows (copy):** Transfer accumulator to next cycle
-
-### Category 2: Binary Limb Decompositions (12 wires)
-
-These decompose coordinates and z-values into 68-bit limbs:
-
-**P.x limbs (4 wires):**
-
-- `P_X_LOW_LIMBS`: Two 68-bit limbs from P.x_lo
-- `P_X_HIGH_LIMBS`: One 68-bit + one 50-bit limb from P.x_hi
-
-**P.y limbs (4 wires):**
-
-- `P_Y_LOW_LIMBS`: Two 68-bit limbs from P.y_lo
-- `P_Y_HIGH_LIMBS`: One 68-bit + one 50-bit limb from P.y_hi
-
-**z limbs (4 wires):**
-
-- `Z_LOW_LIMBS`: 68-bit limbs of z₁ and z₂ (low parts)
-- `Z_HIGH_LIMBS`: 60-bit limbs of z₁ and z₂ (high parts)
-
-### Category 3: Accumulator Limbs (4 wires)
-
-Store current and previous accumulator values:
-
-| Wire                          | Description                 | Bits per limb |
-| ----------------------------- | --------------------------- | ------------- |
-| `ACCUMULATORS_BINARY_LIMBS_0` | Limb 0 (current & previous) | 68 bits       |
-| `ACCUMULATORS_BINARY_LIMBS_1` | Limb 1 (current & previous) | 68 bits       |
-| `ACCUMULATORS_BINARY_LIMBS_2` | Limb 2 (current & previous) | 68 bits       |
-| `ACCUMULATORS_BINARY_LIMBS_3` | Limb 3 (current & previous) | 50 bits       |
-
-**Layout:** Previous accumulator is at higher indices (row i+1) due to KZG commitment structure.
-
-### Category 4: Quotient Limbs (2 wires)
-
-The quotient from dividing by q:
-
-| Wire                         | Description                  |
-| ---------------------------- | ---------------------------- |
-| `QUOTIENT_LOW_BINARY_LIMBS`  | Lower two 68-bit limbs       |
-| `QUOTIENT_HIGH_BINARY_LIMBS` | One 68-bit + one 52-bit limb |
-
-### Category 5: Relation Wide Limbs (1 wire)
-
-Used for modulo 2²⁷² computation:
-
-| Wire                  | Description                           | Bits         |
-| --------------------- | ------------------------------------- | ------------ |
-| `RELATION_WIDE_LIMBS` | Carries for 136-bit computation steps | 84 bits each |
-
-Contains two values:
-
-- **relation_wide_lower_limb:** Carry from lower 136-bit computation
-- **relation_wide_higher_limb:** Carry from higher 136-bit computation
-
-### Category 6: Range Constraint Microlimbs (52 wires)
-
-Each limb is further decomposed into 14-bit microlimbs for tight range constraints:
-
-**Pattern for each element (P.x_lo, P.x_hi, P.y_lo, P.y_hi, z₁_lo, z₁_hi, z₂_lo, z₂_hi, acc_lo, acc_hi, quot_lo, quot_hi):**
-
-- `*_RANGE_CONSTRAINT_0` through `*_RANGE_CONSTRAINT_4`: Five 14-bit microlimbs
-- `*_RANGE_CONSTRAINT_TAIL`: Shifted highest microlimb (for stricter constraint)
-
-Examples:
-
-```
-P_X_LOW_LIMBS_RANGE_CONSTRAINT_0   // Microlimb 0 (bits 0-13)
-P_X_LOW_LIMBS_RANGE_CONSTRAINT_1   // Microlimb 1 (bits 14-27)
-...
-P_X_LOW_LIMBS_RANGE_CONSTRAINT_4   // Microlimb 4 (bits 56-69, actually 56-67)
-P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL // Microlimb 4 << 4 (for exact 68-bit constraint)
-```
-
-**Relation wide limb microlimbs (4 wires):**
-
-- `RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0` through `_3`: Four 14-bit chunks
-
-Total range constraint wires:
-
-- 10 elements × 6 microlimbs = 60 wires
-- But relation_wide_limbs only needs 4 microlimbs
-- **Total: 56 microlimb wires**
-
-### Category 7: Ordered Range Constraint Wires (5 wires)
-
-Used for the permutation argument to prove all microlimbs are ≤ 2¹⁴ - 1:
-
-| Wire                          | Description                        |
-| ----------------------------- | ---------------------------------- |
-| `ordered_range_constraints_0` | Sorted values for constraint set 0 |
-| `ordered_range_constraints_1` | Sorted values for constraint set 1 |
-| `ordered_range_constraints_2` | Sorted values for constraint set 2 |
-| `ordered_range_constraints_3` | Sorted values for constraint set 3 |
-| `ordered_range_constraints_4` | Sorted values for constraint set 4 |
-
-These are not explicit wires but are part of the interleaving structure.
-
-**Interleaving:** To handle 131,072 rows with efficient permutation, microlimbs from 16 consecutive mini-circuit rows are interleaved into single full-circuit rows.
-
----
-
-## Selector Polynomials
-
-**Critical fact:** The Translator circuit uses **ZERO selector polynomials** (`NUM_SELECTORS = 0`).
-
-Instead, the circuit uses **Lagrange polynomials** to control which constraints are active:
-
-### Lagrange Polynomials (Precomputed)
-
-| Polynomial                     | Description                     | Active Rows                     |
-| ------------------------------ | ------------------------------- | ------------------------------- |
-| `lagrange_even_in_minicircuit` | Even indices in mini-circuit    | i ∈ {0, 2, 4, ..., 8190} (mini) |
-| `lagrange_odd_in_minicircuit`  | Odd indices in mini-circuit     | i ∈ {1, 3, 5, ..., 8191} (mini) |
-| `lagrange_first`               | First row                       | i = 0                           |
-| `lagrange_last_in_minicircuit` | Last row in mini-circuit        | i = 8191 (mini)                 |
-| `lagrange_result_row`          | Row containing final result     | Specific row in trace           |
-| `lagrange_masking`             | Masking rows for zero-knowledge | Last few rows                   |
-| `lagrange_mini_masking`        | Masking within mini-circuit     | Last rows of mini-circuit       |
-
-**Why no selectors?** The circuit's regularity (2-row cycles, uniform structure) allows using Lagrange polynomials, which are more efficient than custom selectors.
 
 ---
 
