@@ -3,7 +3,7 @@
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [The Statement Being Proven](#the-statement-being-proven)
+2. [High-Level Statement](#high-level-statement)
 3. [Architecture and Constants](#architecture-and-constants)
 4. [Witness Polynomials (81 Total)](#witness-polynomials-81-total)
 5. [Selector Polynomials](#selector-polynomials)
@@ -16,65 +16,82 @@
 
 ## Overview
 
-The **Translator Circuit** is a critical component of the Goblin Plonk proving system in Aztec. It serves as a bridge between two elliptic curves:
-- **BN254** (used in Mega circuits and Ethereum)
-- **Grumpkin** (used in ECCVM for efficient EC operations)
+The **Translator Circuit** is a critical component of the Goblin Plonk proving system in Aztec. It serves as a bridge between the Mega and ECCVM circuits.
 
-### The Problem
+| Curve    | Base Field     | Scalar Field   | Usage                                     |
+| -------- | -------------- | -------------- | ----------------------------------------- |
+| BN254    | $\mathbb{F}_q$ | $\mathbb{F}_r$ | Used in Mega circuits                     |
+| Grumpkin | $\mathbb{F}_r$ | $\mathbb{F}_q$ | Used in ECCVM for efficient EC operations |
 
-When proving recursive circuits, we accumulate elliptic curve operations in an `EccOpQueue`. These operations are performed over **BN254's base field (𝔽q)**. However, the circuit itself operates in **BN254's scalar field (𝔽r)**.
+When proving recursive circuits with Mega circuit builder, we accumulate elliptic curve operations in an `EccOpQueue`. Proving these ECC operations is delegated to the ECCVM circuit, which operates over the Grumpkin curve. However, the representation of the `EccOpQueue` is different in the Mega circuit (BN254) and ECCVM (Grumpkin) circuit because:
 
-**Key challenge:** We need to prove that polynomial evaluations computed in **𝔽r** (the circuit's native field) match the evaluations that should be computed in **𝔽q** (the curve's base field).
+- Mega circuit operates over the BN254 scalar field $\mathbb{F}_r$ so elements in $\mathbb{F}_q$ are non-native (i.e., they need to decomposed into limbs in $\mathbb{F}_r$)
+- ECCVM operates over the Grumpkin scalar field $\mathbb{F}_q$ so elements in $\mathbb{F}_q$ are circuit native
 
-### The Solution
+For example, consider the operation $(z \cdot P)$ where $P$ is a point on the curve and $z$ is a scalar:
 
-The Translator circuit:
-1. **Receives** a batched polynomial evaluation problem from ECCVM (operating over Grumpkin/𝔽q)
-2. **Proves** that the evaluation is correct using non-native field arithmetic in 𝔽r
-3. **Outputs** the result for verification in the main proving system
+The ECCVM arithmetisation represents this operation (in 1 row) as:
 
-**Analogy:** Think of Translator as an interpreter between two languages (𝔽r and 𝔽q) that proves it translated correctly.
+| Opcode | $x$-coordinate | $y$-coordinate | Scalar $z_1$ | Scalar $z_2$ | Full scalar $z$ |
+| ------ | -------------- | -------------- | ------------ | ------------ | --------------- |
+| `MUL`  | $P_x$          | $P_y$          | $z_1$        | $z_2$        | $z$             |
+|        |                |                |              |              |                 |
+
+The Mega circuit arithmetisation represents the same operation (in 2 rows) as:
+
+| Column 1 | Column 2             | Column 3             | Column 4             |
+| -------- | -------------------- | -------------------- | -------------------- |
+| `MUL`    | $P_{x, \textsf{lo}}$ | $P_{x, \textsf{hi}}$ | $P_{y, \textsf{lo}}$ |
+| $0$      | $P_{y, \textsf{hi}}$ | $z_1$                | $z_2$                |
+|          |                      |                      |                      |
+
+where $P_x = (P_{x, \textsf{lo}} + 2^{136} \cdot P_{x, \textsf{hi}}), \ P_y = (P_{y, \textsf{lo}} + 2^{136} \cdot P_{y, \textsf{hi}})$ and the scalar $z = (z_1 + 2^{128} \cdot z_2)$.
+
+We need to prove that these two representations are consistent, i.e., that the polynomial evaluations computed in the ECCVM circuit (over $\mathbb{F}_q$) match those computed in the Mega circuit (over $\mathbb{F}_r$).
+
+The Translator circuit is a custom circuit designed to solve this problem. It:
+
+1. **Receives** the ECC op queue in Mega arithmetisation and the batched polynomial evaluation problem from ECCVM (operating over $\mathbb{F}_q$),
+2. **Computes** the batched polynomial evaluation using non-native field arithmetic in $\mathbb{F}_r$ and,
+3. **Verifies** that the result matches the evaluation provided by ECCVM.
 
 ---
 
-## The Statement Being Proven
-
-### High-Level Statement
+## High-Level Statement
 
 Given:
+
 - A sequence of `UltraOp` operations from the `EccOpQueue`
-- An evaluation challenge `x ∈ 𝔽q`
-- A batching challenge `v ∈ 𝔽q`
+- An evaluation challenge $x \in \mathbb{F}_q$
+- A batching challenge $v \in \mathbb{F}_q$
 
 **Prove:**
 $$\boxed{\text{accumulator}_{\text{final}} = \sum_{i=0}^{n-1} x^{n-1-i} \cdot \left( \text{op}_i + v \cdot P_x^{(i)} + v^2 \cdot P_y^{(i)} + v^3 \cdot z_1^{(i)} + v^4 \cdot z_2^{(i)} \right) \pmod{q}}$$
 
-Where:
-- `q = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47` (BN254 base field modulus)
-- Each `UltraOp` contains: `(op, P.x, P.y, z₁, z₂)`
-- The computation is performed **in integers** then reduced modulo `q`
+where:
 
-### Detailed Statement
+- each `UltraOp` contains: $(\text{op}, \ P_x, \ P_y, \ z_1, \ z_2)$,
+- the computation is performed modulo $q$.
 
-For each accumulation step (every 2 rows), prove:
+Specifically, for each accumulation step (every 2 rows), prove:
 
 $$\text{acc}_{\text{curr}} = \text{acc}_{\text{prev}} \cdot x + \text{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4 \pmod{q}$$
 
-**Method:** Prove in integers using:
+**Method:** Similar to the technique used in [bigfield](../stdlib/primitives/bigfield/README.md), we prove in integers that:
+
 $$\text{acc}_{\text{prev}} \cdot x + \text{op} + P_x \cdot v + P_y \cdot v^2 + z_1 \cdot v^3 + z_2 \cdot v^4 - \text{quotient} \cdot q - \text{acc}_{\text{curr}} = 0$$
 
 This equation must hold:
-1. **Modulo 2²⁷²** (proven via limb arithmetic)
-2. **Modulo r** (proven in native field)
-3. With proper **range constraints** (prevents overflow/underflow)
 
-**Soundness:** Since `2²⁷² · r > 2⁵¹⁴` (larger than maximum possible value), correctness in both moduli implies correctness in integers.
+1. modulo $2^{272}$ (proven via limb arithmetic)
+2. modulo $r$ (proven in native field)
+3. with appropriate range constraints (to prevent overflows/underflows)
 
----
+Then the Chinese Remainder Theorem guarantees that the equation holds modulo $q$.
 
 ## Architecture and Constants
 
-### Circuit Size Parameters
+#### Circuit Size Parameters
 
 ```cpp
 CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE = 13      // Mini-circuit: 2^13 = 8,192 rows
@@ -84,7 +101,7 @@ CONST_TRANSLATOR_LOG_N = 13 + 4 = 17             // Full circuit: 2^17 = 131,072
 
 **Why interleaving?** To reduce the degree of the permutation argument polynomial for range constraints.
 
-### Field Moduli
+#### Field Moduli
 
 ```
 BN254 Base Field (Fq):
@@ -96,9 +113,9 @@ r = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
   ≈ 2^254
 ```
 
-**Key observation:** `q ≠ r` (they differ by ~2⁴⁷), so we cannot directly compute in 𝔽q using 𝔽r arithmetic.
+**Key observation:** $q \neq r$ (they differ by $\approx 2^{47}$), so we cannot directly compute in $\mathbb{F}_q$ using $\mathbb{F}_r$ arithmetic.
 
-### Limb Decomposition Constants
+#### Limb Decomposition Constants
 
 ```cpp
 NUM_LIMB_BITS = 68                    // Each limb is 68 bits
@@ -112,24 +129,17 @@ NUM_QUOTIENT_BITS = 256               // Quotient needs 256 bits
 NUM_LAST_QUOTIENT_LIMB_BITS = 52      // 256 - 3*68 = 52 bits
 
 MICRO_LIMB_BITS = 14                  // Range constraint granularity
-NUM_MICRO_LIMBS = 6                   // 68 / 14 ≈ 5, plus 1 for shift
+NUM_MICRO_LIMBS = 6                   // 68 / 14 ≈ 5, plus 1 for tail
 ```
 
-**Limb structure for P.x, P.y, accumulator:**
-```
-Element = limb[0] + 2^68 · limb[1] + 2^136 · limb[2] + 2^204 · limb[3]
-where:
-  limb[0], limb[1], limb[2] ∈ [0, 2^68)
-  limb[3] ∈ [0, 2^50)
-```
-
-### Opcode Values
+#### Opcode Values
 
 ```cpp
 Valid opcodes: {0, 1, 2, 3, 4, 8}
 ```
 
 Encoding EC operations:
+
 - `0`: No-op / NULL
 - `1`: Add
 - `2`: Mul (scalar multiplication)
@@ -137,7 +147,7 @@ Encoding EC operations:
 - `4`: Reset accumulator
 - `8`: [Special operation]
 
-### Range Constraint Constants
+#### Range Constraint Constants
 
 ```cpp
 SORT_STEP = 3                         // Max delta between sorted values
@@ -146,7 +156,7 @@ SORTED_STEPS_COUNT = 2^14 / 3 + 1     // Number of "step" values inserted
                    = 5462 steps
 ```
 
-Each microlimb must be ≤ 2¹⁴ - 1 = 16383.
+Each microlimb must be $≤ 2^{14} - 1 = 16383$.
 
 ---
 
@@ -154,7 +164,7 @@ Each microlimb must be ≤ 2¹⁴ - 1 = 16383.
 
 ### Why Interleaving is Necessary
 
-The Translator needs to perform **range constraints on ~64 different microlimb sets** using a **permutation argument**. Without optimization, this creates a major problem with the **relation degree**.
+The Translator needs to perform range constraints on ~64 different microlimb sets using a permutation argument. Without optimization, this creates a major problem with the relation degree.
 
 **The Core Issue: Permutation Argument Degree**
 
@@ -167,6 +177,11 @@ z_perm[i] × ∏_{j=1}^{NUM_COLS} (interleaved[j] + β + γ)
 
 Degree = 1 + NUM_COLS (polynomial z_perm × product of NUM_COLS columns)
 ```
+
+$$
+z_{\textsf{perm}}[i+1] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{ordered}[j] + \beta + \gamma) =
+z_{\textsf{perm}}[i] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{interleaved}[j] + \beta + \gamma)
+$$
 
 **The Translator's Challenge:**
 
@@ -181,6 +196,7 @@ Degree = 1 + NUM_COLS (polynomial z_perm × product of NUM_COLS columns)
 
 **Naive approach:**
 If we tried to permute all ~64 active columns at once:
+
 - Degree = 1 + 64 = **65**
 - This is **prohibitively expensive** for sumcheck!
 - The relation would dominate proof generation time
@@ -189,12 +205,14 @@ If we tried to permute all ~64 active columns at once:
 **The Solution: Interleaving to Reduce Column Count**
 
 Instead of checking 64 columns in one permutation, we:
+
 1. **Group 16 logical columns together** and pack them into the circuit at different row segments
 2. **Use only 5 physical wires** for each permutation check (4 interleaved + 1 extra numerator)
 3. **Reuse these 5 wires across 16 different segments** of the circuit
 4. Each segment checks a different subset of ~4 logical columns from the original 64
 
 **Result:**
+
 - Relation degree: 1 + 5 = **6** (plus Lagrange = 7 total)
 - This is manageable for the proof system!
 - We perform 16 separate permutation checks (one per segment), each with low degree
@@ -204,6 +222,7 @@ Instead of checking 64 columns in one permutation, we:
 #### The Basic Concept
 
 **Mini-circuit vs. Full Circuit:**
+
 ```
 Mini-circuit size:  2^13 = 8,192 rows    (where actual computation happens)
 Full circuit size:  2^17 = 131,072 rows  (16× larger for interleaving)
@@ -219,10 +238,12 @@ Relationship: FULL_SIZE = MINI_SIZE × INTERLEAVING_GROUP_SIZE
 For each **set of range constraint wires** (e.g., all P.x microlimbs), we create two types of polynomials:
 
 **1. Interleaved Polynomials** (in full circuit)
+
 - Size: 131,072 (full circuit size)
 - Contains microlimbs from **multiple mini-circuit rows** packed together
 
 **2. Ordered Polynomials** (in full circuit)
+
 - Size: 131,072 (full circuit size)
 - Contains the **sorted version** of the interleaved values
 
@@ -233,6 +254,7 @@ Let's trace exactly how microlimbs from the mini-circuit map to the full circuit
 #### Example: P.x Low Limbs Range Constraint 0 (First Microlimb)
 
 **In the mini-circuit:** Each even row i ∈ {0, 2, 4, ..., 8190} generates a microlimb value:
+
 ```
 mini_row 0    → P_X_LOW_LIMBS_RANGE_CONSTRAINT_0[0]    = micro_0_0
 mini_row 2    → P_X_LOW_LIMBS_RANGE_CONSTRAINT_0[2]    = micro_0_2
@@ -256,6 +278,7 @@ Group 15: mini_rows {30, 62, 94, 126, ...}   → full_circuit rows {122880, 1228
 ```
 
 **Formula:**
+
 ```
 For mini_row = 2k (even rows only):
   group_id = k mod 16
@@ -265,6 +288,7 @@ For mini_row = 2k (even rows only):
 ```
 
 **Example calculation:**
+
 ```
 mini_row = 64 (32nd even row, so k = 32)
   group_id = 32 mod 16 = 0
@@ -319,11 +343,13 @@ Here's the exact layout of the full circuit with interleaving:
 ```
 
 **Important observation:** We only have **5 physical wires** for range constraints:
+
 - `ordered_range_constraints_0` through `ordered_range_constraints_4`
 - `interleaved_range_constraints_0` through `interleaved_range_constraints_3`
 - Plus one extra numerator wire
 
 But we need to check **many more** microlimb sets. The solution:
+
 - Each wire is **reused across different interleaving groups**
 - Within each 8,192-row segment, the wire represents a different logical microlimb set
 - The permutation argument operates **within each segment independently**
@@ -333,6 +359,7 @@ But we need to check **many more** microlimb sets. The solution:
 **The Critical Insight: Degree = Number of Columns in Product**
 
 The permutation relation has the form:
+
 ```
 z_perm[i+1] × ∏_{j=0}^{NUM_COLS-1} (ordered[j][i] + β + γ) =
 z_perm[i] × ∏_{j=0}^{NUM_COLS-1} (interleaved[j][i] + β + γ)
@@ -341,6 +368,7 @@ z_perm[i] × ∏_{j=0}^{NUM_COLS-1} (interleaved[j][i] + β + γ)
 **Degree = 1 (from z_perm) + NUM_COLS (from the products)**
 
 **Without interleaving (naive approach):**
+
 ```
 Check all ~64 logical microlimb columns in one relation:
 
@@ -358,6 +386,7 @@ This creates a degree-65 relation!
 ```
 
 **With interleaving (only 5 physical columns per check):**
+
 ```
 Group 16 logical columns together, use 5 physical wires per segment:
 
@@ -381,6 +410,7 @@ Much more manageable!
 **Degree reduction: 65 → 7 (more than 9× reduction!)**
 
 **How it works:**
+
 - **Segment 0** (rows 0-8,191): Wires represent logical columns {0, 1, 2, 3, 4}
 - **Segment 1** (rows 8,192-16,383): Same wires represent logical columns {5, 6, 7, 8, 9}
 - **Segment 2** (rows 16,384-24,575): Same wires represent logical columns {10, 11, 12, 13, 14}
@@ -423,11 +453,13 @@ For row i within segment [0, 8191]:
 Let's trace one specific microlimb through the entire system:
 
 **Setup:**
+
 - We're checking P.x_low_limbs[0] (first 68-bit limb of P.x's lower 136 bits)
 - At mini_row = 100 (even row, 50th accumulation)
 - The value of the first 14-bit microlimb is: `micro = 0x2A5F = 10847`
 
 **Step 1: Mini-circuit computation (row 100)**
+
 ```
 P_X_LOW_LIMBS[0] = limb_value = 0x1234567890ABCDEF
 Decompose into microlimbs:
@@ -437,6 +469,7 @@ Decompose into microlimbs:
 ```
 
 **Step 2: Determine interleaving group**
+
 ```
 k = 100 / 2 = 50 (since mini_row 100 is the 50th even row)
 group_id = 50 mod 16 = 2
@@ -444,6 +477,7 @@ position = 50 ÷ 16 = 3
 ```
 
 **Step 3: Map to full circuit**
+
 ```
 full_circuit_row = 2 × 8192 + 3 = 16384 + 3 = 16387
 
@@ -453,6 +487,7 @@ interleaved_range_constraints_2[16387] = 52719
 **Step 4: Sorting**
 
 All microlimbs in group 2 are collected and sorted:
+
 ```
 interleaved_2 = [52719, 36882, ..., 4096 more values from group 2 mini-rows]
 ordered_2     = sorted(interleaved_2) = [0, 0, 0, ..., 1, 1, 2, ..., 16383]
@@ -462,6 +497,7 @@ ordered_2     = sorted(interleaved_2) = [0, 0, 0, ..., 1, 1, 2, ..., 16383]
 **Step 5: Permutation check**
 
 The permutation relation verifies:
+
 ```
 For full_circuit_row ∈ [16384, 24575] (group 2 segment):
 
@@ -496,37 +532,44 @@ Row 5463:  16383  ← Last value must be exactly 16383
 ```
 
 With periodic "step" values inserted every few rows to ensure coverage of [0, 16383]. The delta range constraint relation enforces:
+
 1. Each step ∈ {0, 1, 2, 3}
 2. Final value = 16383
 
 ### Benefits of Interleaving
 
 **1. Relation Degree Reduction (Most Important):**
+
 - **From degree 65 to degree 7** (9× reduction)
 - This is the primary benefit - keeps relations efficient
 - Sumcheck complexity is dominated by max relation degree
 
 **2. Proof Size Stays Constant:**
+
 - Only need one z_perm polynomial
 - Reuse it across all 16 segments
 - Proof doesn't grow with number of groups
 
 **3. Verification Efficiency:**
+
 - Verifier checks same polynomial across segments
 - No additional cost for more interleaving groups
 
 **4. Flexibility:**
+
 - Can adjust INTERLEAVING_GROUP_SIZE based on circuit size
 - Balances polynomial degree vs. circuit size blowup
 
 ### Trade-offs
 
 **Cost of interleaving:**
+
 - Circuit size increases by 16× (from 8,192 to 131,072 rows)
 - More zero padding needed (Relation 7 ensures unused rows are zero)
 - More complex witness generation (need to correctly map mini-circuit to full circuit)
 
 **Why it's worth it:**
+
 - **Relation degree reduction** >>> circuit size increase
 - Sumcheck is dominated by max relation degree
 - Without interleaving, degree-65 relation would make the circuit impractical
@@ -537,6 +580,7 @@ With periodic "step" values inserted every few rows to ensure coverage of [0, 16
 **Interleaving is the technique that makes the Translator practical:**
 
 Without interleaving:
+
 - Permutation checks ~64 columns at once
 - **Relation degree: 65**
 - Sumcheck with degree-65 polynomials: impractical
@@ -544,6 +588,7 @@ Without interleaving:
 - Unusable in production
 
 With interleaving:
+
 - Permutation checks only 5 columns at once
 - **Relation degree: 7**
 - Circuit size: 131,072 rows (16× increase, acceptable trade-off)
@@ -562,14 +607,15 @@ The Translator circuit uses **81 witness polynomials** (no selector polynomials)
 
 These contain the raw data from the EC operation queue:
 
-| Wire | Description | Range |
-|------|-------------|-------|
-| `OP` | Operation code | {0, 1, 2, 3, 4, 8} |
-| `X_LOW_Y_HI` | P.x_lo (136-bit) at even rows, P.y_hi (118-bit) at odd rows | < 2¹³⁶ or < 2¹¹⁸ |
-| `X_HIGH_Z_1` | P.x_hi (118-bit) at even rows, z₁ (128-bit) at odd rows | < 2¹¹⁸ or < 2¹²⁸ |
-| `Y_LOW_Z_2` | P.y_lo (136-bit) at even rows, z₂ (128-bit) at odd rows | < 2¹³⁶ or < 2¹²⁸ |
+| Wire         | Description                                                 | Range              |
+| ------------ | ----------------------------------------------------------- | ------------------ |
+| `OP`         | Operation code                                              | {0, 1, 2, 3, 4, 8} |
+| `X_LOW_Y_HI` | P.x_lo (136-bit) at even rows, P.y_hi (118-bit) at odd rows | < 2¹³⁶ or < 2¹¹⁸   |
+| `X_HIGH_Z_1` | P.x_hi (118-bit) at even rows, z₁ (128-bit) at odd rows     | < 2¹¹⁸ or < 2¹²⁸   |
+| `Y_LOW_Z_2`  | P.y_lo (136-bit) at even rows, z₂ (128-bit) at odd rows     | < 2¹³⁶ or < 2¹²⁸   |
 
 **Note:** The circuit operates in a 2-row cycle:
+
 - **Even rows (accumulation):** Compute new accumulator value
 - **Odd rows (copy):** Transfer accumulator to next cycle
 
@@ -578,14 +624,17 @@ These contain the raw data from the EC operation queue:
 These decompose coordinates and z-values into 68-bit limbs:
 
 **P.x limbs (4 wires):**
+
 - `P_X_LOW_LIMBS`: Two 68-bit limbs from P.x_lo
 - `P_X_HIGH_LIMBS`: One 68-bit + one 50-bit limb from P.x_hi
 
 **P.y limbs (4 wires):**
+
 - `P_Y_LOW_LIMBS`: Two 68-bit limbs from P.y_lo
 - `P_Y_HIGH_LIMBS`: One 68-bit + one 50-bit limb from P.y_hi
 
 **z limbs (4 wires):**
+
 - `Z_LOW_LIMBS`: 68-bit limbs of z₁ and z₂ (low parts)
 - `Z_HIGH_LIMBS`: 60-bit limbs of z₁ and z₂ (high parts)
 
@@ -593,12 +642,12 @@ These decompose coordinates and z-values into 68-bit limbs:
 
 Store current and previous accumulator values:
 
-| Wire | Description | Bits per limb |
-|------|-------------|---------------|
-| `ACCUMULATORS_BINARY_LIMBS_0` | Limb 0 (current & previous) | 68 bits |
-| `ACCUMULATORS_BINARY_LIMBS_1` | Limb 1 (current & previous) | 68 bits |
-| `ACCUMULATORS_BINARY_LIMBS_2` | Limb 2 (current & previous) | 68 bits |
-| `ACCUMULATORS_BINARY_LIMBS_3` | Limb 3 (current & previous) | 50 bits |
+| Wire                          | Description                 | Bits per limb |
+| ----------------------------- | --------------------------- | ------------- |
+| `ACCUMULATORS_BINARY_LIMBS_0` | Limb 0 (current & previous) | 68 bits       |
+| `ACCUMULATORS_BINARY_LIMBS_1` | Limb 1 (current & previous) | 68 bits       |
+| `ACCUMULATORS_BINARY_LIMBS_2` | Limb 2 (current & previous) | 68 bits       |
+| `ACCUMULATORS_BINARY_LIMBS_3` | Limb 3 (current & previous) | 50 bits       |
 
 **Layout:** Previous accumulator is at higher indices (row i+1) due to KZG commitment structure.
 
@@ -606,20 +655,21 @@ Store current and previous accumulator values:
 
 The quotient from dividing by q:
 
-| Wire | Description |
-|------|-------------|
-| `QUOTIENT_LOW_BINARY_LIMBS` | Lower two 68-bit limbs |
+| Wire                         | Description                  |
+| ---------------------------- | ---------------------------- |
+| `QUOTIENT_LOW_BINARY_LIMBS`  | Lower two 68-bit limbs       |
 | `QUOTIENT_HIGH_BINARY_LIMBS` | One 68-bit + one 52-bit limb |
 
 ### Category 5: Relation Wide Limbs (1 wire)
 
 Used for modulo 2²⁷² computation:
 
-| Wire | Description | Bits |
-|------|-------------|------|
+| Wire                  | Description                           | Bits         |
+| --------------------- | ------------------------------------- | ------------ |
 | `RELATION_WIDE_LIMBS` | Carries for 136-bit computation steps | 84 bits each |
 
 Contains two values:
+
 - **relation_wide_lower_limb:** Carry from lower 136-bit computation
 - **relation_wide_higher_limb:** Carry from higher 136-bit computation
 
@@ -628,10 +678,12 @@ Contains two values:
 Each limb is further decomposed into 14-bit microlimbs for tight range constraints:
 
 **Pattern for each element (P.x_lo, P.x_hi, P.y_lo, P.y_hi, z₁_lo, z₁_hi, z₂_lo, z₂_hi, acc_lo, acc_hi, quot_lo, quot_hi):**
+
 - `*_RANGE_CONSTRAINT_0` through `*_RANGE_CONSTRAINT_4`: Five 14-bit microlimbs
 - `*_RANGE_CONSTRAINT_TAIL`: Shifted highest microlimb (for stricter constraint)
 
 Examples:
+
 ```
 P_X_LOW_LIMBS_RANGE_CONSTRAINT_0   // Microlimb 0 (bits 0-13)
 P_X_LOW_LIMBS_RANGE_CONSTRAINT_1   // Microlimb 1 (bits 14-27)
@@ -641,9 +693,11 @@ P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL // Microlimb 4 << 4 (for exact 68-bit constr
 ```
 
 **Relation wide limb microlimbs (4 wires):**
+
 - `RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0` through `_3`: Four 14-bit chunks
 
 Total range constraint wires:
+
 - 10 elements × 6 microlimbs = 60 wires
 - But relation_wide_limbs only needs 4 microlimbs
 - **Total: 56 microlimb wires**
@@ -652,8 +706,8 @@ Total range constraint wires:
 
 Used for the permutation argument to prove all microlimbs are ≤ 2¹⁴ - 1:
 
-| Wire | Description |
-|------|-------------|
+| Wire                          | Description                        |
+| ----------------------------- | ---------------------------------- |
 | `ordered_range_constraints_0` | Sorted values for constraint set 0 |
 | `ordered_range_constraints_1` | Sorted values for constraint set 1 |
 | `ordered_range_constraints_2` | Sorted values for constraint set 2 |
@@ -674,15 +728,15 @@ Instead, the circuit uses **Lagrange polynomials** to control which constraints 
 
 ### Lagrange Polynomials (Precomputed)
 
-| Polynomial | Description | Active Rows |
-|------------|-------------|-------------|
-| `lagrange_even_in_minicircuit` | Even indices in mini-circuit | i ∈ {0, 2, 4, ..., 8190} (mini) |
-| `lagrange_odd_in_minicircuit` | Odd indices in mini-circuit | i ∈ {1, 3, 5, ..., 8191} (mini) |
-| `lagrange_first` | First row | i = 0 |
-| `lagrange_last_in_minicircuit` | Last row in mini-circuit | i = 8191 (mini) |
-| `lagrange_result_row` | Row containing final result | Specific row in trace |
-| `lagrange_masking` | Masking rows for zero-knowledge | Last few rows |
-| `lagrange_mini_masking` | Masking within mini-circuit | Last rows of mini-circuit |
+| Polynomial                     | Description                     | Active Rows                     |
+| ------------------------------ | ------------------------------- | ------------------------------- |
+| `lagrange_even_in_minicircuit` | Even indices in mini-circuit    | i ∈ {0, 2, 4, ..., 8190} (mini) |
+| `lagrange_odd_in_minicircuit`  | Odd indices in mini-circuit     | i ∈ {1, 3, 5, ..., 8191} (mini) |
+| `lagrange_first`               | First row                       | i = 0                           |
+| `lagrange_last_in_minicircuit` | Last row in mini-circuit        | i = 8191 (mini)                 |
+| `lagrange_result_row`          | Row containing final result     | Specific row in trace           |
+| `lagrange_masking`             | Masking rows for zero-knowledge | Last few rows                   |
+| `lagrange_mini_masking`        | Masking within mini-circuit     | Last rows of mini-circuit       |
 
 **Why no selectors?** The circuit's regularity (2-row cycles, uniform structure) allows using Lagrange polynomials, which are more efficient than custom selectors.
 
@@ -703,6 +757,7 @@ The Translator circuit enforces correctness through **7 distinct relations** tot
 $$\boxed{(z_{\text{perm}} + L_0) \cdot \prod_{j=0}^{4} (\text{interleaved}_j + \beta \cdot L_{\text{mask}} + \gamma) = (z_{\text{perm,shift}} + L_{\text{last}}) \cdot \prod_{j=0}^{4} (\text{ordered}_j + \beta \cdot L_{\text{mask}} + \gamma)}$$
 
 Where:
+
 - **Numerator:** Product over 4 interleaved range constraint wires + 1 extra numerator
 - **Denominator:** Product over 5 ordered range constraint wires
 - **Masking:** `lagrange_masking` marks ZK rows to exclude from permutation
@@ -774,6 +829,7 @@ For standard 68-bit limbs:
 $$\boxed{L_{\text{even}} \cdot \left( \text{limb} - \sum_{k=0}^{4} 2^{14k} \cdot \text{micro}_k - 2^{68} \cdot \text{micro}_{tail} \right) = 0}$$
 
 Example for P.x limb 0:
+
 ```
 P_X_LOW_LIMBS[0] =
     P_X_LOW_LIMBS_RANGE_CONSTRAINT_0 +
@@ -820,6 +876,7 @@ Compute the formula using only limbs [0] and parts of limbs [1], check that resu
 $$\boxed{L_{\text{even}} \cdot \left( \text{LOWER\_COMPUTATION} - 2^{136} \cdot \text{relation\_wide\_lower\_limb} \right) = 0}$$
 
 Where `LOWER_COMPUTATION` includes:
+
 ```
   acc_prev[0]·x[0] + op + P_x[0]·v[0] + P_y[0]·v²[0] + z₁[0]·v³[0] + z₂[0]·v⁴[0]
 + quot[0]·(-q)[0] - acc_curr[0]
@@ -840,6 +897,7 @@ Use `relation_wide_lower_limb` as carry and compute for limbs [2], [3]:
 $$\boxed{L_{\text{even}} \cdot \left( \text{HIGHER\_COMPUTATION} - 2^{136} \cdot \text{relation\_wide\_higher\_limb} \right) = 0}$$
 
 Where `HIGHER_COMPUTATION` includes:
+
 ```
 relation_wide_lower_limb
 + combinations of limbs: (0,2), (1,1), (2,0), (0,3), (1,2), (2,1), (3,0), ...
@@ -855,6 +913,7 @@ Reconstruct full elements in 𝔽r and check directly:
 $$\boxed{L_{\text{even}} \cdot \text{NATIVE\_CHECK} = 0}$$
 
 Where:
+
 ```
 NATIVE_CHECK =
   acc_prev_native · x_native + op + P_x_native · v_native + P_y_native · v²_native
@@ -863,6 +922,7 @@ NATIVE_CHECK =
 ```
 
 And:
+
 ```
 acc_prev_native = acc_prev[0] + 2^68·acc_prev[1] + 2^136·acc_prev[2] + 2^204·acc_prev[3] (mod r)
 ```
@@ -870,6 +930,7 @@ acc_prev_native = acc_prev[0] + 2^68·acc_prev[1] + 2^136·acc_prev[2] + 2^204·
 **Degree:** 4 (lagrange × triple products like acc·x)
 
 **Soundness argument:**
+
 - If the relation holds mod 2²⁷² AND mod r
 - AND all values are properly range-constrained
 - THEN 2²⁷² · r > 2⁵¹⁴ > max_possible_value
@@ -950,6 +1011,7 @@ $$\boxed{\neg(L_{\text{in\_mini}} \lor L_{\text{mask}}) \implies \text{wire}_i =
 ### Proof System Type
 
 **TranslatorFlavor** uses:
+
 - **HyperNova-style sumcheck** with ZK (zero-knowledge)
 - **KZG polynomial commitment scheme** over BN254
 - **Libra** for ZK masking
@@ -977,6 +1039,7 @@ struct TranslatorProverInput {
 ```
 
 **Construction:**
+
 1. For each `UltraOp` in the queue, generate witness values:
    - Decompose P.x, P.y, z₁, z₂ into limbs and microlimbs
    - Compute quotient and new accumulator
@@ -1029,6 +1092,7 @@ struct TranslatorProof {
 ```
 
 The proof contains:
+
 1. Witness commitments (88 × 2 = 176 Fr elements)
 2. Libra commitments and sum (2 + 1 = 3 Fr)
 3. Sumcheck univariates (17 rounds × 8 coefficients = 136 Fr)
@@ -1085,37 +1149,38 @@ As computed in CHONK_MATH_EXPLAINED.md, the Translator proof size is:
 
 ### Detailed Breakdown
 
-| Component | Formula | Field Elements |
-|-----------|---------|----------------|
-| 1. Accumulated result (BN254 Fq) | `1 × 1` | **1** |
-| 2. Witness commitments | `88 × 2` | **176** |
-| 3. Libra concatenation commitment | `1 × 2` | **2** |
-| 4. Libra sum | `1 × 1` | **1** |
-| 5. Sumcheck univariates | `17 × 8 × 1` | **136** |
-| 6. Sumcheck evaluations | `188 × 1` | **188** |
-| 7. Libra claimed evaluation | `1 × 1` | **1** |
-| 8. Libra grand sum commitment | `1 × 2` | **2** |
-| 9. Libra quotient commitment | `1 × 2` | **2** |
-| 10. Gemini fold commitments | `16 × 2` | **32** |
-| 11. Gemini evaluations | `17 × 1` | **17** |
-| 12. Gemini P positive evaluation | `1 × 1` | **1** |
-| 13. Gemini P negative evaluation | `1 × 1` | **1** |
-| 14. SmallSubgroupIPA evals | `4 × 1` | **4** |
-| 15. Shplonk Q commitment | `1 × 2` | **2** |
-| 16. KZG opening commitment | `1 × 2` | **2** |
+| Component                         | Formula      | Field Elements |
+| --------------------------------- | ------------ | -------------- |
+| 1. Accumulated result (BN254 Fq)  | `1 × 1`      | **1**          |
+| 2. Witness commitments            | `88 × 2`     | **176**        |
+| 3. Libra concatenation commitment | `1 × 2`      | **2**          |
+| 4. Libra sum                      | `1 × 1`      | **1**          |
+| 5. Sumcheck univariates           | `17 × 8 × 1` | **136**        |
+| 6. Sumcheck evaluations           | `188 × 1`    | **188**        |
+| 7. Libra claimed evaluation       | `1 × 1`      | **1**          |
+| 8. Libra grand sum commitment     | `1 × 2`      | **2**          |
+| 9. Libra quotient commitment      | `1 × 2`      | **2**          |
+| 10. Gemini fold commitments       | `16 × 2`     | **32**         |
+| 11. Gemini evaluations            | `17 × 1`     | **17**         |
+| 12. Gemini P positive evaluation  | `1 × 1`      | **1**          |
+| 13. Gemini P negative evaluation  | `1 × 1`      | **1**          |
+| 14. SmallSubgroupIPA evals        | `4 × 1`      | **4**          |
+| 15. Shplonk Q commitment          | `1 × 2`      | **2**          |
+| 16. KZG opening commitment        | `1 × 2`      | **2**          |
 
 **Total: 568 field elements = 568 × 32 bytes = 18,176 bytes ≈ 17.8 KB**
 
 ### Comparison with Other Components
 
-| Component | Size (field elements) | Size (KB) | Percentage of Chonk |
-|-----------|----------------------|-----------|---------------------|
-| **Translator** | **568** | **17.8** | **37.6%** |
-| Mega ZK | 356 | 11.1 | 23.6% |
-| ECCVM | 488 | 15.2 | 32.3% |
-| Merge | 42 | 1.3 | 2.8% |
+| Component      | Size (field elements) | Size (KB) | Percentage of Chonk |
+| -------------- | --------------------- | --------- | ------------------- |
+| **Translator** | **568**               | **17.8**  | **37.6%**           |
+| Mega ZK        | 356                   | 11.1      | 23.6%               |
+| ECCVM          | 488                   | 15.2      | 32.3%               |
+| Merge          | 42                    | 1.3       | 2.8%                |
 
 **Insight:** Translator is the **largest single component** in the Chonk proof, primarily due to:
+
 1. 188 sumcheck evaluations (all 91 witness + 86 derived + shifts)
 2. 136 sumcheck univariates (17 rounds × 8 coefficients)
 3. 176 witness commitments (88 polynomials)
@@ -1131,14 +1196,17 @@ Ranked from most to least critical for security:
 ### 🔴 **CRITICAL (Audit First)**
 
 #### 1. Non-Native Field Relation (Relation 4)
+
 **File:** `translator_non_native_field_relation.hpp`
 
 **Why critical:**
+
 - **Core soundness:** This is the heart of the circuit. If this relation is wrong, the entire translation is invalid.
 - **Complex arithmetic:** Involves intricate modular arithmetic across two moduli with limb-based computation.
 - **Overflow risks:** If the mod 2²⁷² check is wrong, overflow could allow false proofs.
 
 **What to audit:**
+
 - Verify the limb combination formulas match the mathematical specification exactly
 - Check all powers of 2 (2⁶⁸, 2¹³⁶, etc.) are correct
 - Ensure the "wide" relation limbs correctly capture carries
@@ -1148,14 +1216,17 @@ Ranked from most to least critical for security:
 **Attack vector:** Incorrect arithmetic could allow proving wrong evaluations, breaking Goblin soundness.
 
 #### 2. Permutation Relation (Relation 1)
+
 **File:** `translator_permutation_relation.hpp`
 
 **Why critical:**
+
 - **Foundation for range constraints:** If permutation is broken, attacker can use out-of-range values.
 - **Grand product soundness:** The z_perm computation must be absolutely correct.
 - **Masking handling:** ZK rows must be properly excluded.
 
 **What to audit:**
+
 - Verify grand product formula matches the specification
 - Check initialization (z_perm[0] = 1 accounting for L_0)
 - Verify finalization (z_perm[last] = 0 accounting for L_last and masking)
@@ -1165,14 +1236,17 @@ Ranked from most to least critical for security:
 **Attack vector:** Broken permutation → use 2⁶⁸ instead of 2¹⁴ limbs → completely break non-native arithmetic.
 
 #### 3. Delta Range Constraint Relation (Relation 2)
+
 **File:** `translator_delta_range_constraint_relation.hpp`
 
 **Why critical:**
+
 - **Enforces sorted property:** Without this, permutation check is meaningless.
 - **Maximum value check:** Must ensure final value is exactly 2¹⁴ - 1.
 - **Step constraint:** Max step of 3 is necessary for coverage.
 
 **What to audit:**
+
 - Verify Δ ∈ {0,1,2,3} check is correctly implemented
 - Confirm final value check at lagrange_last is exact
 - Check masking rows are properly excluded
@@ -1183,14 +1257,17 @@ Ranked from most to least critical for security:
 ### 🟠 **HIGH PRIORITY**
 
 #### 4. Decomposition Relation (Relation 3)
+
 **File:** `translator_decomposition_relation.hpp`
 
 **Why high priority:**
+
 - **Ensures consistency:** Limbs must match original values.
 - **Many subrelations (48):** More code = more potential bugs.
 - **Tail microlimb logic:** The shift factors must be exact.
 
 **What to audit:**
+
 - Verify all 48 decomposition formulas match specification
 - Check powers of 2 are correct (2⁶⁸, 2¹⁴, etc.)
 - Confirm tail shift calculations (especially the ×4, ×16 multipliers)
@@ -1199,13 +1276,16 @@ Ranked from most to least critical for security:
 **Attack vector:** Wrong decomposition → mismatch between transcript and limbs → arbitrary values.
 
 #### 5. Opcode Constraint Relation (Relation 5)
+
 **File:** `translator_extra_relations.hpp`
 
 **Why high priority:**
+
 - **Input validation:** Invalid opcodes could inject malicious data.
 - **Relatively simple:** But critical to get right.
 
 **What to audit:**
+
 - Verify opcode set {0, 1, 2, 3, 4, 8} is complete and correct
 - Check polynomial roots match opcodes exactly
 - Ensure masking rows are handled
@@ -1215,13 +1295,16 @@ Ranked from most to least critical for security:
 ### 🟡 **MEDIUM PRIORITY**
 
 #### 6. Accumulator Transfer Relation (Relation 6)
+
 **File:** `translator_extra_relations.hpp`
 
 **Why medium priority:**
+
 - **Ensures state consistency:** But doesn't directly affect arithmetic soundness.
 - **Edge cases:** Initialization and finalization must be correct.
 
 **What to audit:**
+
 - Verify odd row copy constraint is active at all odd rows
 - Check initialization to zero at start
 - Confirm final result comparison uses correct expected value
@@ -1230,13 +1313,16 @@ Ranked from most to least critical for security:
 **Attack vector:** Wrong initialization → start with non-zero acc → offset all computations.
 
 #### 7. Zero Constraints Relation (Relation 7)
+
 **File:** `translator_extra_relations.hpp`
 
 **Why medium priority:**
+
 - **Cleanup relation:** Ensures unused rows don't pollute permutation.
 - **Many subrelations (68):** But mostly repetitive.
 
 **What to audit:**
+
 - Verify all 68 wires are covered
 - Check lagrange polynomial logic for "outside minicircuit"
 - Ensure no-op case (op = 0) is handled correctly
@@ -1246,25 +1332,31 @@ Ranked from most to least critical for security:
 ### 🟢 **LOW PRIORITY (But Still Check)**
 
 #### 8. Circuit Builder Logic
+
 **File:** `translator_circuit_builder.cpp`
 
 **Why low priority for audit:**
+
 - Prover-side only (doesn't affect verification soundness directly)
 - But bugs here could cause proof generation failures
 
 **What to check:**
+
 - Witness generation formulas match relation formulas
 - Quotient calculation is correct
 - Microlimb splitting logic matches decomposition relation
 
 #### 9. Flavor Configuration
+
 **File:** `translator_flavor.hpp`
 
 **Why low priority:**
+
 - Configuration and constants
 - But errors here (wrong NUM_LIMB_BITS) would be catastrophic
 
 **What to check:**
+
 - All constants match specification
 - Proof length formula is correct
 - Polynomial commitment configuration is sound
@@ -1276,6 +1368,7 @@ Ranked from most to least critical for security:
 Use this checklist when auditing the Translator:
 
 ### Mathematical Specification
+
 - [ ] Verify q (Fq modulus) is correct BN254 base field
 - [ ] Verify r (Fr modulus) is correct BN254 scalar field
 - [ ] Confirm 2²⁷² · r > 2⁵¹⁴ (soundness bound)
@@ -1284,6 +1377,7 @@ Use this checklist when auditing the Translator:
 - [ ] Confirm SORT_STEP = 3 is sufficient for coverage
 
 ### Non-Native Field Arithmetic
+
 - [ ] Audit all limb combination formulas in subrelation 4.1
 - [ ] Audit all limb combination formulas in subrelation 4.2
 - [ ] Verify native field reconstruction in subrelation 4.3
@@ -1292,6 +1386,7 @@ Use this checklist when auditing the Translator:
 - [ ] Test with adversarial quotients
 
 ### Range Constraints
+
 - [ ] Verify permutation grand product formula
 - [ ] Check delta constraint polynomial (degree 5 product)
 - [ ] Confirm final value = 2¹⁴ - 1 exactly
@@ -1299,12 +1394,14 @@ Use this checklist when auditing the Translator:
 - [ ] Test with values > 2¹⁴
 
 ### Decomposition
+
 - [ ] Verify all 6 binary limb decompositions
 - [ ] Verify all 44 microlimb decompositions
 - [ ] Check all 42 tail microlimb stricter constraints
 - [ ] Test with wrong decompositions
 
 ### Edge Cases
+
 - [ ] First row (initialization)
 - [ ] Last row (finalization)
 - [ ] No-op case (op = 0)
@@ -1312,6 +1409,7 @@ Use this checklist when auditing the Translator:
 - [ ] Interleaving boundary
 
 ### Implementation
+
 - [ ] Code review all relation implementations
 - [ ] Verify relation degrees match specification
 - [ ] Check lagrange polynomial usage is correct
