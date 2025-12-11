@@ -9,6 +9,15 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Private event emission API changes
+
+Private events are still emitted via the `emit` function, but this now returns an `EventMessage` type that must have `deliver_to` called on it in order to deliver the event message to the intended recipients. This allows for multiple recipients to receive the same event.
+
+```diff
+- self.emit(event, recipient, delivery_method)
++ self.emit(event).delivery(recipient, delivery_method)
+```
+
 ### [Aztec.nr] History proof functions no longer require `storage_slot` parameter
 
 The `RetrievedNote` struct now includes a `storage_slot` field, making it self-contained for proving note inclusion and validity. As a result, the history proof functions in the `aztec::history` module no longer require a separate `storage_slot` parameter.

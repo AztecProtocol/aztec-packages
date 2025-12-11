@@ -45,7 +45,7 @@ pub fn private_note_to_message_plaintext<Note>(
     owner: AztecAddress,
     storage_slot: Field,
     randomness: Field,
-) -> [Field; <Note as Packable>::N + PRIVATE_NOTE_RESERVED_FIELDS + MESSAGE_EXPANDED_METADATA_LEN]
+) -> [Field; PRIVATE_NOTE_RESERVED_FIELDS + <Note as Packable>::N + MESSAGE_EXPANDED_METADATA_LEN]
 where
     Note: NoteType + Packable,
 {
@@ -68,14 +68,12 @@ pub fn partial_note_private_content_to_message_plaintext<PartialNotePrivateConte
     owner: AztecAddress,
     storage_slot: Field,
     randomness: Field,
-    ) -> [Field; <PartialNotePrivateContent as Packable>::N + PRIVATE_NOTE_RESERVED_FIELDS + MESSAGE_EXPANDED_METADATA_LEN]
+    ) -> [Field; PRIVATE_NOTE_RESERVED_FIELDS + <PartialNotePrivateContent as Packable>::N + MESSAGE_EXPANDED_METADATA_LEN]
 where
     PartialNotePrivateContent: NoteType + Packable,
 {
     let packed_private_content = partial_note_private_content.pack();
 
-    // A partial note message's content is the storage slot, followed by the randomness,
-    // followed by the packed private content representation
     let mut msg_content =
         [0; PRIVATE_NOTE_RESERVED_FIELDS + <PartialNotePrivateContent as Packable>::N];
     msg_content[PRIVATE_NOTE_OWNER_INDEX] = owner.to_field();
