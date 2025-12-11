@@ -36,7 +36,6 @@ ExecutionEvent create_base_event(const simulation::Instruction& instruction,
                                  TransactionPhase phase)
 {
     ExecutionEvent ex_event;
-    ex_event.addressing_event.instruction = instruction;
     ex_event.wire_instruction = instruction;
     ex_event.after_context_event.id = context_id;
     ex_event.after_context_event.parent_id = parent_id;
@@ -119,7 +118,7 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
         .wire_instruction = instr,
         .inputs = { MemoryValue::from_tag(ValueTag::U16, 5), MemoryValue::from_tag(ValueTag::U16, 3) },
         .output = { MemoryValue::from_tag(ValueTag::U16, 8) },
-        .addressing_event = { .instruction = instr },
+        .addressing_event = {},
     };
 
     builder.process({ ex_event }, trace);
@@ -171,7 +170,7 @@ TEST(ExecutionTraceGenTest, Call)
                     /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(allocated_gas.da_gas),
                     /*contract_address=*/MemoryValue::from<FF>(0xdeadbeef) },
         .next_context_id = 2,
-        .addressing_event = { .instruction = call_instr,
+        .addressing_event = {
                               .resolution_info = {
                                 { .after_relative = MemoryValue::from<uint32_t>(0),
                                   .resolved_operand = MemoryValue::from<uint32_t>(0),
@@ -238,7 +237,7 @@ TEST(ExecutionTraceGenTest, Return)
         .wire_instruction = return_instr,
         .inputs = { /*rd_size=*/MemoryValue::from<uint32_t>(2) },
         .next_context_id = 2,
-        .addressing_event = { .instruction = return_instr,
+        .addressing_event = {
                               .resolution_info = {
                                 /*rd_size_offset=*/{ .after_relative = MemoryValue::from<uint32_t>(0),
                                   .resolved_operand = MemoryValue::from<uint32_t>(4),
@@ -290,7 +289,7 @@ TEST(ExecutionTraceGenTest, Gas)
         .wire_instruction = instr,
         .inputs = { MemoryValue::from_tag(ValueTag::U16, 5), MemoryValue::from_tag(ValueTag::U16, 3) },
         .output = { MemoryValue::from_tag(ValueTag::U16, 8) },
-        .addressing_event = { .instruction = instr },
+        .addressing_event = {},
     };
 
     const auto& exec_instruction_spec = get_exec_instruction_spec().at(instr.get_exec_opcode());
@@ -509,7 +508,6 @@ TEST(ExecutionTraceGenTest, InternalCall)
     ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .addressing_event = {
-            .instruction = instr,
             .resolution_info = {
                 {
                   .resolved_operand = MemoryValue::from<uint32_t>(10) },
@@ -544,18 +542,14 @@ TEST(ExecutionTraceGenTest, InternalRetError)
     // Use the instruction builder - we can make the operands more complex
     const auto instr = InstructionBuilder(WireOpCode::INTERNALRETURN).build();
 
-    simulation::ExecutionEvent ex_event = {
-        .error = simulation::ExecutionError::OPCODE_EXECUTION,
-        .wire_instruction = instr,
-        .addressing_event = {
-            .instruction = instr,
-        },
-        .before_context_event {
-        .internal_call_id = 1,
-        .internal_call_return_id = 0,
-        .next_internal_call_id = 2,
-        }
-    };
+    simulation::ExecutionEvent ex_event = { .error = simulation::ExecutionError::OPCODE_EXECUTION,
+                                            .wire_instruction = instr,
+                                            .addressing_event = {},
+                                            .before_context_event{
+                                                .internal_call_id = 1,
+                                                .internal_call_return_id = 0,
+                                                .next_internal_call_id = 2,
+                                            } };
 
     builder.process({ ex_event }, trace);
 
@@ -585,8 +579,7 @@ TEST(ExecutionTraceGenTest, Jump)
 
     ExecutionEvent ex_event_jump = {
         .wire_instruction = instr,
-        .addressing_event = { .instruction = instr,
-                              .resolution_info = { {
+        .addressing_event = { .resolution_info = { {
                                   .resolved_operand = MemoryValue::from<uint32_t>(120),
                               } } },
     };
@@ -617,8 +610,7 @@ TEST(ExecutionTraceGenTest, JumpI)
     ExecutionEvent ex_event_jumpi = {
         .wire_instruction = instr,
         .inputs = { MemoryValue::from<uint1_t>(1) }, // Conditional value
-        .addressing_event = { .instruction = instr,
-                              .resolution_info = { {
+        .addressing_event = { .resolution_info = { {
                                                        .resolved_operand = MemoryValue::from<uint32_t>(654),
                                                    },
                                                    {
@@ -659,8 +651,7 @@ TEST(ExecutionTraceGenTest, JumpiWrongTag)
     ExecutionEvent ex_event_jumpi = {
         .wire_instruction = instr,
         .inputs = { MemoryValue::from<uint8_t>(1) }, // Conditional value with tag != U1
-        .addressing_event = { .instruction = instr,
-                              .resolution_info = { {
+        .addressing_event = { .resolution_info = { {
                                                        .resolved_operand = MemoryValue::from<uint32_t>(654),
                                                    },
                                                    {
@@ -704,8 +695,7 @@ TEST(ExecutionTraceGenTest, Mov16)
         .wire_instruction = instr,
         .inputs = { MemoryValue::from<uint128_t>(100) }, // src value
         .output = MemoryValue::from<uint128_t>(100),     // dst value
-        .addressing_event = { .instruction = instr,
-                              .resolution_info = { {
+        .addressing_event = { .resolution_info = { {
                                                        .resolved_operand = MemoryValue::from<uint32_t>(1000),
                                                    },
                                                    {
@@ -749,8 +739,7 @@ TEST(ExecutionTraceGenTest, Mov8)
         .wire_instruction = instr,
         .inputs = { MemoryValue::from<uint64_t>(100) }, // src value
         .output = MemoryValue::from<uint64_t>(100),     // dst value
-        .addressing_event = { .instruction = instr,
-                              .resolution_info = { {
+        .addressing_event = { .resolution_info = { {
                                                        .resolved_operand = MemoryValue::from<uint32_t>(10),
                                                    },
                                                    {
@@ -792,7 +781,6 @@ TEST(ExecutionTraceGenTest, SuccessCopy)
         .wire_instruction = instr,
         .output = { MemoryValue::from_tag(ValueTag::U1, 1) }, // Success copy outputs true
         .addressing_event = {
-            .instruction = instr,
             .resolution_info = { { .resolved_operand = MemoryValue::from<uint8_t>(45) } }
         },
         .after_context_event = { .last_child_success = true }
@@ -826,7 +814,6 @@ TEST(ExecutionTraceGenTest, RdSize)
         .wire_instruction = instr,
         .output = { MemoryValue::from_tag(ValueTag::U32, 100) }, // RdSize output
         .addressing_event = {
-            .instruction = instr,
             .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(1234) } }
         },
 
@@ -867,8 +854,7 @@ TEST(ExecutionTraceGenTest, SLoad)
         .wire_instruction = instr,
         .inputs = { MemoryValue::from<FF>(slot) },
         .output = MemoryValue::from<FF>(dst_value),
-        .addressing_event = { .instruction = instr,
-                              .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(slot_offset) },
+        .addressing_event = { .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(slot_offset) },
                                                    { .resolved_operand = MemoryValue::from<uint16_t>(dst_offset) } } },
     };
 
@@ -906,7 +892,7 @@ TEST(ExecutionTraceGenTest, SStore)
     ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .inputs = { MemoryValue::from<FF>(value), MemoryValue::from<FF>(slot) },
-        .addressing_event = { .instruction = instr,
+        .addressing_event = {
                               .resolution_info = {
                                   { .resolved_operand = MemoryValue::from<uint16_t>(value_offset) },
                                   { .resolved_operand = MemoryValue::from<uint16_t>(slot_offset) },
@@ -968,8 +954,7 @@ TEST(ExecutionTraceGenTest, NoteHashExists)
         .wire_instruction = instr,
         .inputs = { MemoryValue::from<FF>(unique_note_hash), MemoryValue::from<uint64_t>(leaf_index) },
         .output = MemoryValue::from<uint1_t>(dst_value),
-        .addressing_event = { .instruction = instr,
-                              .resolution_info = { { .resolved_operand =
+        .addressing_event = { .resolution_info = { { .resolved_operand =
                                                          MemoryValue::from<uint16_t>(unique_note_hash_offset) },
                                                    { .resolved_operand =
                                                          MemoryValue::from<uint16_t>(leaf_index_offset) },
@@ -1014,7 +999,7 @@ TEST(ExecutionTraceGenTest, EmitNoteHash)
     ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .inputs = { MemoryValue::from<FF>(note_hash) },
-        .addressing_event = { .instruction = instr,
+        .addressing_event = {
                               .resolution_info = { { .resolved_operand =
                                                          MemoryValue::from<uint16_t>(note_hash_offset) } } },
         .before_context_event = {
@@ -1066,8 +1051,7 @@ TEST(ExecutionTraceGenTest, L1ToL2MessageExists)
         .wire_instruction = instr,
         .inputs = { MemoryValue::from<FF>(msg_hash), MemoryValue::from<uint64_t>(leaf_index) },
         .output = MemoryValue::from<uint1_t>(dst_value),
-        .addressing_event = { .instruction = instr,
-                              .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(msg_hash_offset) },
+        .addressing_event = { .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(msg_hash_offset) },
                                                    { .resolved_operand =
                                                          MemoryValue::from<uint16_t>(leaf_index_offset) },
                                                    { .resolved_operand = MemoryValue::from<uint16_t>(dst_offset) } } },
@@ -1117,8 +1101,7 @@ TEST(ExecutionTraceGenTest, NullifierExists)
         .wire_instruction = instr,
         .inputs = { MemoryValue::from_tag(ValueTag::FF, nullifier), MemoryValue::from_tag(ValueTag::FF, address) },
         .output = { MemoryValue::from_tag(ValueTag::U1, exists ? 1 : 0) }, // exists = true
-        .addressing_event = { .instruction = instr,
-                              .resolution_info = { { .resolved_operand = MemoryValue::from<FF>(nullifier) },
+        .addressing_event = { .resolution_info = { { .resolved_operand = MemoryValue::from<FF>(nullifier) },
                                                    { .resolved_operand = MemoryValue::from<FF>(address) },
                                                    { .resolved_operand =
                                                          MemoryValue::from<uint16_t>(exists_offset) } } }
@@ -1158,7 +1141,7 @@ TEST(ExecutionTraceGenTest, EmitNullifier)
     ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .inputs = { MemoryValue::from_tag(ValueTag::FF, nullifier) },
-        .addressing_event = { .instruction = instr,
+        .addressing_event = {
                               .resolution_info = { { .resolved_operand = MemoryValue::from<FF>(nullifier) } } },
         .before_context_event = {
             .tree_states = {
@@ -1205,8 +1188,7 @@ TEST(ExecutionTraceGenTest, SendL2ToL1Msg)
     ExecutionEvent ex_event = { .wire_instruction = instr,
                                 .inputs = { MemoryValue::from_tag(ValueTag::FF, recipient),
                                             MemoryValue::from_tag(ValueTag::FF, content) },
-                                .addressing_event = { .instruction = instr,
-                                                      .resolution_info = { { .resolved_operand =
+                                .addressing_event = { .resolution_info = { { .resolved_operand =
                                                                                  MemoryValue::from<FF>(recipient) },
                                                                            { .resolved_operand =
                                                                                  MemoryValue::from<FF>(content) } } },

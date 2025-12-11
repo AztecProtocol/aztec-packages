@@ -59,7 +59,6 @@ struct OperandResolutionInfo {
 // We initialize base_address so that tag and value are 0
 // in the trace when no relative addressing is used.
 struct AddressingEvent {
-    Instruction instruction; // The instruction being resolved.
     MemoryValue base_address = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0);
     std::vector<OperandResolutionInfo> resolution_info; // One entry per operand (including immediates).
 };

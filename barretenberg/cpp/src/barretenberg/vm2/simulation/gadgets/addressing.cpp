@@ -32,7 +32,6 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
     BB_BENCH_NAME("Addressing::resolve");
     // We'll be filling in the event as we progress.
     AddressingEvent event;
-    event.instruction = instruction;
     // We initialize all the phases with the original operands.
     // This is expected for non-address (i.e., immediate) operands.
     // For address operands, we'll update them as we go.
