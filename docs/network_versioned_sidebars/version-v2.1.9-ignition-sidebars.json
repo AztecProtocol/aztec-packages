@@ -36,6 +36,14 @@
       "items": [
         {
           "type": "doc",
+          "id": "operation/sequencer_management/registering_sequencer"
+        },
+        {
+          "type": "doc",
+          "id": "operation/sequencer_management/become_a_staking_provider"
+        },
+        {
+          "type": "doc",
           "id": "setup/high_availability_sequencers"
         }
       ]
@@ -138,10 +146,6 @@
         {
           "type": "doc",
           "id": "operation/sequencer_management/slashing_and_offenses"
-        },
-        {
-          "type": "doc",
-          "id": "operation/sequencer_management/become_a_staking_provider"
         },
         {
           "type": "doc",
