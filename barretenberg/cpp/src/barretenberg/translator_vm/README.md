@@ -16,7 +16,7 @@
 
 ## Overview
 
-The **Translator Circuit** is a critical component of the Goblin Plonk proving system in Aztec. It serves as a **bridge between two elliptic curves**:
+The **Translator Circuit** is a critical component of the Goblin Plonk proving system in Aztec. It serves as a bridge between two elliptic curves:
 - **BN254** (used in Mega circuits and Ethereum)
 - **Grumpkin** (used in ECCVM for efficient EC operations)
 
