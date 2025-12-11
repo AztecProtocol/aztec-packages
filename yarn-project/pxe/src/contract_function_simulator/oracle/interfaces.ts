@@ -80,7 +80,7 @@ export interface IUtilityExecutionOracle {
   utilityGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress>;
   utilityGetAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
   utilityGetNotes(
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],

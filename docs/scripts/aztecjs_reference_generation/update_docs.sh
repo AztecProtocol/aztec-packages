@@ -80,9 +80,9 @@ update_version() {
   local target_dir=""
 
   if [[ "$version" == "current" ]]; then
-    target_dir="$DOCS_ROOT/docs/developers/docs/aztec-js"
+    target_dir="$DOCS_ROOT/docs-developers/docs/aztec-js"
   else
-    target_dir="$DOCS_ROOT/versioned_docs/version-${version}/developers/docs/aztec-js"
+    target_dir="$DOCS_ROOT/developer_versioned_docs/version-${version}/docs/aztec-js"
   fi
 
   if [[ ! -d "$target_dir" ]]; then

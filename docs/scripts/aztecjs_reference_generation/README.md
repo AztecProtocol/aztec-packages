@@ -144,7 +144,7 @@ Returns exit code 0 if no errors, 1 if errors found.
 ### Generated Files
 
 Both approaches generate to:
-- `docs/developers/docs/aztec-js/aztec_js_reference.md` (Custom)
+- `docs/docs-developers/docs/aztec-js/aztec_js_reference.md` (Custom)
 
 ## Troubleshooting
 

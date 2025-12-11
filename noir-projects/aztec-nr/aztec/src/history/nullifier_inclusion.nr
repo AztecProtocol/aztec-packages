@@ -8,8 +8,7 @@ use crate::{
 };
 
 use protocol_types::{
-    abis::block_header::BlockHeader, address::AztecAddress,
-    merkle_tree::root::root_from_sibling_path, traits::Hash,
+    abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash,
 };
 
 mod test;
@@ -49,7 +48,6 @@ pub trait ProveNoteIsNullified {
     fn prove_note_is_nullified<Note>(
         header: BlockHeader,
         retrieved_note: RetrievedNote<Note>,
-        owner: AztecAddress,
         storage_slot: Field,
         context: &mut PrivateContext,
     )
@@ -61,14 +59,13 @@ impl ProveNoteIsNullified for BlockHeader {
     fn prove_note_is_nullified<Note>(
         self,
         retrieved_note: RetrievedNote<Note>,
-        owner: AztecAddress,
         storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
         Note: NoteHash,
     {
-        let nullifier = compute_siloed_note_nullifier(retrieved_note, owner, storage_slot, context);
+        let nullifier = compute_siloed_note_nullifier(retrieved_note, storage_slot, context);
 
         self.prove_nullifier_inclusion(nullifier);
     }

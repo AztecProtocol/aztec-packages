@@ -83,14 +83,15 @@ These scripts generate the documentation and deploy it to the docs directories:
 
 ```bash
 # Update specific CLI (run from repo root)
-./docs/scripts/cli_reference_generation/update_cli_docs.sh aztec [target_version]
-./docs/scripts/cli_reference_generation/update_cli_docs.sh aztec-wallet [target_version]
+./docs/scripts/cli_reference_generation/update_cli_docs.sh aztec [target_version] [output_dir]
+./docs/scripts/cli_reference_generation/update_cli_docs.sh aztec-wallet [target_version] [output_dir]
 
 # Update both CLIs at once (run from repo root)
-./docs/scripts/cli_reference_generation/update_all_cli_docs.sh [target_version]
+./docs/scripts/cli_reference_generation/update_all_cli_docs.sh [target_version] [output_dir]
 ```
 
 **Examples:**
+
 ```bash
 # Update all versions (current + all versioned docs, run from repo root)
 ./docs/scripts/cli_reference_generation/update_all_cli_docs.sh
@@ -100,7 +101,34 @@ These scripts generate the documentation and deploy it to the docs directories:
 
 # Update a specific version (run from repo root)
 ./docs/scripts/cli_reference_generation/update_all_cli_docs.sh v2.0.2
+
+# Output both CLIs to a custom directory instead of deploying to docs folders
+# Uses default filenames: cli_reference.md and cli_wallet_reference.md
+./docs/scripts/cli_reference_generation/update_all_cli_docs.sh v2.0.2 /tmp/
+
+# Output a single CLI to a custom directory
+./docs/scripts/cli_reference_generation/update_cli_docs.sh aztec v2.0.2 /tmp/
+./docs/scripts/cli_reference_generation/update_cli_docs.sh aztec-wallet v2.0.2 /tmp/
 ```
+
+#### Version Check
+
+When generating docs for a specific version (e.g., `v2.1.9`), the script verifies that your installed CLI version matches. If there's a mismatch, you'll see a warning:
+
+```text
+╔════════════════════════════════════════════════════════════════╗
+║                     VERSION MISMATCH                          ║
+╠════════════════════════════════════════════════════════════════╣
+║  Installed aztec version: 2.1.8
+║  Target documentation version: 2.1.9
+╠════════════════════════════════════════════════════════════════╣
+║  To fix, run:  aztec-up 2.1.9
+╚════════════════════════════════════════════════════════════════╝
+
+Continue anyway? (y/N):
+```
+
+This ensures the generated documentation accurately reflects the target version's CLI.
 
 ## Customization
 
@@ -272,6 +300,9 @@ python scan_cli.py --command "npm" --output npm_docs.json
 
 # Update both for current version only (run from repo root)
 ./docs/scripts/cli_reference_generation/update_all_cli_docs.sh current
+
+# Update both for a specific version to a custom directory (run from repo root)
+./docs/scripts/cli_reference_generation/update_all_cli_docs.sh v2.1.9 docs/versioned_docs/version-v2.1.9-ignition/developers/docs/reference/
 ```
 
 ## Troubleshooting
