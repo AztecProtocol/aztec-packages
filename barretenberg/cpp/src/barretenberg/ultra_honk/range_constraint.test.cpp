@@ -22,314 +22,344 @@ TYPED_TEST_SUITE(RangeTests, FlavorTypes);
 using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>;
 template <typename T> using RangeNonZKTests = UltraHonkTests<T>;
 TYPED_TEST_SUITE(RangeNonZKTests, NonZKFlavorTypes);
-TYPED_TEST(RangeTests, SortWidget)
+
+/***************************************************************************************************
+ * enforce_small_deltas tests
+ * These test the low-level delta constraint: consecutive values must differ by at most 3.
+ ***************************************************************************************************/
+
+// Basic test: sorted sequence [1,2,3,4] has deltas of 1, which is valid
+TYPED_TEST(RangeTests, EnforceSmallDeltasBasic)
 {
-    auto circuit_builder = UltraCircuitBuilder();
-    fr a = fr::one();
-    fr b = fr(2);
-    fr c = fr(3);
-    fr d = fr(4);
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 1, 2, 3, 4 });
+    builder.enforce_small_deltas(idx);
 
-    auto a_idx = circuit_builder.add_variable(a);
-    auto b_idx = circuit_builder.add_variable(b);
-    auto c_idx = circuit_builder.add_variable(c);
-    auto d_idx = circuit_builder.add_variable(d);
-    circuit_builder.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
-
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(RangeTests, SortWithEdgesGate)
+// Sequence with max delta of 3 and duplicates: all deltas in {0,1,2,3}
+TYPED_TEST(RangeTests, EnforceSmallDeltasWithDuplicatesAndMaxDelta)
 {
-    fr a = fr::one();
-    fr b = fr(2);
-    fr c = fr(3);
-    fr d = fr(4);
-    fr e = fr(5);
-    fr f = fr(6);
-    fr g = fr(7);
-    fr h = fr(8);
+    auto builder = UltraCircuitBuilder();
+    // Deltas: 2, 1, 3, 0, 1, 3, 3, 1, 0, 3, 1, 2, 0, 3, 1, 1, 1, 3, 2
+    auto idx = TestFixture::add_variables(builder,
+                                          { 1, 3, 4, 7, 7, 8, 11, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 });
+    builder.enforce_small_deltas(idx);
 
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto a_idx = circuit_builder.add_variable(a);
-        auto b_idx = circuit_builder.add_variable(b);
-        auto c_idx = circuit_builder.add_variable(c);
-        auto d_idx = circuit_builder.add_variable(d);
-        auto e_idx = circuit_builder.add_variable(e);
-        auto f_idx = circuit_builder.add_variable(f);
-        auto g_idx = circuit_builder.add_variable(g);
-        auto h_idx = circuit_builder.add_variable(h);
-        circuit_builder.create_sort_constraint_with_edges(
-            { a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, a, h);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto a_idx = circuit_builder.add_variable(a);
-        auto b_idx = circuit_builder.add_variable(b);
-        auto c_idx = circuit_builder.add_variable(c);
-        auto d_idx = circuit_builder.add_variable(d);
-        auto e_idx = circuit_builder.add_variable(e);
-        auto f_idx = circuit_builder.add_variable(f);
-        auto g_idx = circuit_builder.add_variable(g);
-        auto h_idx = circuit_builder.add_variable(h);
-        circuit_builder.create_sort_constraint_with_edges(
-            { a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, a, g);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto a_idx = circuit_builder.add_variable(a);
-        auto b_idx = circuit_builder.add_variable(b);
-        auto c_idx = circuit_builder.add_variable(c);
-        auto d_idx = circuit_builder.add_variable(d);
-        auto e_idx = circuit_builder.add_variable(e);
-        auto f_idx = circuit_builder.add_variable(f);
-        auto g_idx = circuit_builder.add_variable(g);
-        auto h_idx = circuit_builder.add_variable(h);
-        circuit_builder.create_sort_constraint_with_edges(
-            { a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, b, h);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto a_idx = circuit_builder.add_variable(a);
-        auto c_idx = circuit_builder.add_variable(c);
-        auto d_idx = circuit_builder.add_variable(d);
-        auto e_idx = circuit_builder.add_variable(e);
-        auto f_idx = circuit_builder.add_variable(f);
-        auto g_idx = circuit_builder.add_variable(g);
-        auto h_idx = circuit_builder.add_variable(h);
-        auto b2_idx = circuit_builder.add_variable(fr(15));
-        circuit_builder.create_sort_constraint_with_edges(
-            { a_idx, b2_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, b, h);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto idx =
-            TestFixture::add_variables(circuit_builder, { 1,  2,  5,  6,  7,  10, 11, 13, 16, 17, 20, 22, 22, 25,
-                                                          26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
-        circuit_builder.create_sort_constraint_with_edges(idx, 1, 45);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto idx =
-            TestFixture::add_variables(circuit_builder, { 1,  2,  5,  6,  7,  10, 11, 13, 16, 17, 20, 22, 22, 25,
-                                                          26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
-        circuit_builder.create_sort_constraint_with_edges(idx, 1, 29);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(RangeTests, RangeConstraint)
+// FAILURE: delta of 5 (from 3 to 8) exceeds maximum of 3
+TYPED_TEST(RangeTests, EnforceSmallDeltasFailsDeltaTooLarge)
 {
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto indices = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
-        for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_small_range_constraint(indices[i], 8);
-        }
-        // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
-        circuit_builder.enforce_small_deltas(indices);
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 1, 2, 3, 8 }); // delta from 3 to 8 is 5
+    builder.enforce_small_deltas(idx);
 
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto indices = TestFixture::add_variables(circuit_builder, { 3 });
-        for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_small_range_constraint(indices[i], 3);
-        }
-        // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
-        circuit_builder.create_unconstrained_gates(indices);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto indices = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 8, 25 });
-        for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_small_range_constraint(indices[i], 8);
-        }
-        circuit_builder.enforce_small_deltas(indices);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto indices = TestFixture::add_variables(
-            circuit_builder, { 1, 2, 3, 4, 5, 6, 10, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 19, 51 });
-        for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_small_range_constraint(indices[i], 128);
-        }
-        circuit_builder.create_unconstrained_gates(indices);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto indices = TestFixture::add_variables(
-            circuit_builder, { 1, 2, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
-        for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_small_range_constraint(indices[i], 79);
-        }
-        circuit_builder.create_unconstrained_gates(indices);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto indices = TestFixture::add_variables(
-            circuit_builder, { 1, 0, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
-        for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_small_range_constraint(indices[i], 79);
-        }
-        circuit_builder.create_unconstrained_gates(indices);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/false);
 }
 
-TYPED_TEST(RangeTests, RangeWithGates)
+// FAILURE: sequence not sorted (16 comes before 14)
+TYPED_TEST(RangeTests, EnforceSmallDeltasFailsNotSorted)
 {
-    auto circuit_builder = UltraCircuitBuilder();
-    auto idx = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
-    for (size_t i = 0; i < idx.size(); i++) {
-        circuit_builder.create_small_range_constraint(idx[i], 8);
-    }
+    auto builder = UltraCircuitBuilder();
+    // 16 appears before 14, causing a negative delta (wraps to large positive in field)
+    auto idx = TestFixture::add_variables(builder,
+                                          { 1, 3, 4, 7, 7, 8, 16, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 });
+    builder.enforce_small_deltas(idx);
 
-    circuit_builder.create_add_gate(
-        { idx[0], idx[1], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -3 });
-    circuit_builder.create_add_gate(
-        { idx[2], idx[3], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -7 });
-    circuit_builder.create_add_gate(
-        { idx[4], idx[5], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -11 });
-    circuit_builder.create_add_gate(
-        { idx[6], idx[7], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -15 });
-
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/false);
 }
 
-TYPED_TEST(RangeTests, RangeWithGatesWhereRangeIsNotAPowerOfTwo)
+/***************************************************************************************************
+ * create_sort_constraint_with_edges tests
+ * These test delta constraints with explicit start and end boundary checks.
+ ***************************************************************************************************/
+
+// Basic test: sequence [1..8] with start=1, end=8
+TYPED_TEST(RangeTests, SortConstraintWithEdgesBasic)
 {
-    auto circuit_builder = UltraCircuitBuilder();
-    auto idx = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
-    for (size_t i = 0; i < idx.size(); i++) {
-        circuit_builder.create_small_range_constraint(idx[i], 12);
-    }
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
+    builder.create_sort_constraint_with_edges(idx, /*start=*/1, /*end=*/8);
 
-    circuit_builder.create_add_gate(
-        { idx[0], idx[1], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -3 });
-    circuit_builder.create_add_gate(
-        { idx[2], idx[3], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -7 });
-    circuit_builder.create_add_gate(
-        { idx[4], idx[5], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -11 });
-    circuit_builder.create_add_gate(
-        { idx[6], idx[7], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -15 });
-
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(RangeTests, SortWidgetComplex)
+// Complex sequence with duplicates and varying deltas, all within bounds
+TYPED_TEST(RangeTests, SortConstraintWithEdgesComplex)
 {
-    {
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 1,  2,  5,  6,  7,  10, 11, 13, 16, 17, 20, 22, 22, 25,
+                                                     26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
+    builder.create_sort_constraint_with_edges(idx, /*start=*/1, /*end=*/45);
 
-        auto circuit_builder = UltraCircuitBuilder();
-        std::vector<fr> a = { 1, 3, 4, 7, 7, 8, 11, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 };
-        std::vector<uint32_t> ind;
-        for (const fr& val : a)
-            ind.emplace_back(circuit_builder.add_variable(val));
-        circuit_builder.enforce_small_deltas(ind);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-    {
-
-        auto circuit_builder = UltraCircuitBuilder();
-        std::vector<fr> a = { 1, 3, 4, 7, 7, 8, 16, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 };
-        std::vector<uint32_t> ind;
-        for (const fr& val : a)
-            ind.emplace_back(circuit_builder.add_variable(val));
-        circuit_builder.enforce_small_deltas(ind);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(RangeTests, SortWidgetNeg)
+// FAILURE: end constraint not satisfied (actual end is 8, but we claim end=7)
+TYPED_TEST(RangeTests, SortConstraintWithEdgesFailsWrongEnd)
 {
-    auto circuit_builder = UltraCircuitBuilder();
-    fr a = fr::one();
-    fr b = fr(2);
-    fr c = fr(3);
-    fr d = fr(8);
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
+    builder.create_sort_constraint_with_edges(idx, /*start=*/1, /*end=*/7); // actual end is 8
 
-    auto a_idx = circuit_builder.add_variable(a);
-    auto b_idx = circuit_builder.add_variable(b);
-    auto c_idx = circuit_builder.add_variable(c);
-    auto d_idx = circuit_builder.add_variable(d);
-    circuit_builder.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
-
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/false);
 }
 
-TYPED_TEST(RangeTests, ComposedRangeConstraint)
+// FAILURE: start constraint not satisfied (actual start is 1, but we claim start=2)
+TYPED_TEST(RangeTests, SortConstraintWithEdgesFailsWrongStart)
 {
-    auto circuit_builder = UltraCircuitBuilder();
-    auto c = fr::random_element();
-    auto d = uint256_t(c).slice(0, 133);
-    auto e = fr(d);
-    auto a_idx = circuit_builder.add_variable(fr(e));
-    circuit_builder.create_add_gate({ a_idx, circuit_builder.zero_idx(), circuit_builder.zero_idx(), 1, 0, 0, -fr(e) });
-    circuit_builder.create_limbed_range_constraint(a_idx, 134);
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
+    builder.create_sort_constraint_with_edges(idx, /*start=*/2, /*end=*/8); // actual start is 1
 
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/false);
+}
 
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+// FAILURE: delta too large (15 appears where small delta expected)
+TYPED_TEST(RangeTests, SortConstraintWithEdgesFailsDeltaTooLarge)
+{
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 1, 15, 3, 4, 5, 6, 7, 8 }); // 1 to 15 is delta of 14
+    builder.create_sort_constraint_with_edges(idx, /*start=*/2, /*end=*/8);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/false);
+}
+
+/***************************************************************************************************
+ * create_small_range_constraint tests
+ * Range is [0, target_range] (inclusive).
+ ***************************************************************************************************/
+
+// Basic test: values [1..8] all in range [0, 8]
+TYPED_TEST(RangeTests, SmallRangeConstraintBasic)
+{
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
+    for (auto i : idx) {
+        builder.create_small_range_constraint(i, /*target_range=*/8);
+    }
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
+}
+
+// Single value at exact boundary: 3 in range [0, 3]
+TYPED_TEST(RangeTests, SmallRangeConstraintAtBoundary)
+{
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 3 });
+    builder.create_small_range_constraint(idx[0], /*target_range=*/3);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
+}
+
+// Multiple values with various ranges, all valid
+TYPED_TEST(RangeTests, SmallRangeConstraintMultipleValues)
+{
+    auto builder = UltraCircuitBuilder();
+    auto idx =
+        TestFixture::add_variables(builder, { 1, 2, 3, 4, 5, 6, 10, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 19, 51 });
+    for (auto i : idx) {
+        builder.create_small_range_constraint(i, /*target_range=*/128);
+    }
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
+}
+
+// FAILURE: value 25 exceeds range [0, 8]
+TYPED_TEST(RangeTests, SmallRangeConstraintFailsValueTooLarge)
+{
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 1, 2, 3, 4, 5, 6, 8, 25 }); // 25 > 8
+    for (auto i : idx) {
+        builder.create_small_range_constraint(i, /*target_range=*/8);
+    }
+    builder.enforce_small_deltas(idx);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/false);
+}
+
+// FAILURE: value 80 exceeds range [0, 79]
+TYPED_TEST(RangeTests, SmallRangeConstraintFailsValueJustOverBoundary)
+{
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(
+        builder, { 1, 2, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 }); // 80 > 79
+    for (auto i : idx) {
+        builder.create_small_range_constraint(i, /*target_range=*/79);
+    }
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/false);
+}
+
+/***************************************************************************************************
+ * Range constraints combined with arithmetic gates
+ ***************************************************************************************************/
+
+// Range constraints work alongside arithmetic gates
+TYPED_TEST(RangeTests, RangeConstraintWithArithmeticGates)
+{
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
+    for (auto i : idx) {
+        builder.create_small_range_constraint(i, /*target_range=*/8);
+    }
+
+    // Add arithmetic constraints: 1+2=3, 3+4=7, 5+6=11, 7+8=15
+    builder.create_add_gate({ idx[0], idx[1], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -3 });
+    builder.create_add_gate({ idx[2], idx[3], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -7 });
+    builder.create_add_gate({ idx[4], idx[5], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -11 });
+    builder.create_add_gate({ idx[6], idx[7], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -15 });
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
+}
+
+// Non-power-of-two range works correctly
+TYPED_TEST(RangeTests, RangeConstraintNonPowerOfTwo)
+{
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
+    for (auto i : idx) {
+        builder.create_small_range_constraint(i, /*target_range=*/12); // not a power of 2
+    }
+
+    builder.create_add_gate({ idx[0], idx[1], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -3 });
+    builder.create_add_gate({ idx[2], idx[3], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -7 });
+    builder.create_add_gate({ idx[4], idx[5], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -11 });
+    builder.create_add_gate({ idx[6], idx[7], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -15 });
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
+}
+
+/***************************************************************************************************
+ * create_limbed_range_constraint tests
+ * For large ranges (> 14 bits), decompose into smaller limbs.
+ ***************************************************************************************************/
+
+// Boundary case: exactly 14 bits (single limb, at DEFAULT_PLOOKUP_RANGE_BITNUM)
+TYPED_TEST(RangeTests, LimbedRangeConstraint14Bits)
+{
+    auto builder = UltraCircuitBuilder();
+
+    // Create a value that fits in exactly 14 bits (max value = 16383 = 2^14 - 1)
+    auto value = fr(16383);
+
+    auto idx = builder.add_variable(value);
+    builder.create_add_gate({ idx, builder.zero_idx(), builder.zero_idx(), 1, 0, 0, -value });
+    builder.create_limbed_range_constraint(idx, /*num_bits=*/14);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
+}
+
+// Large range constraint using limb decomposition (133 bits)
+TYPED_TEST(RangeTests, LimbedRangeConstraint133Bits)
+{
+    auto builder = UltraCircuitBuilder();
+
+    // Create a random value that fits in 133 bits
+    auto random_field = fr::random_element();
+    auto truncated = uint256_t(random_field).slice(0, 133);
+    auto value = fr(truncated);
+
+    auto idx = builder.add_variable(value);
+    // Need an arithmetic gate to use the variable (otherwise it's an orphan)
+    builder.create_add_gate({ idx, builder.zero_idx(), builder.zero_idx(), 1, 0, 0, -value });
+    builder.create_limbed_range_constraint(idx, /*num_bits=*/133);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
+}
+
+// Large range constraint using limb decomposition (252 bits - near field size)
+TYPED_TEST(RangeTests, LimbedRangeConstraint252Bits)
+{
+    auto builder = UltraCircuitBuilder();
+
+    // Create a random value that fits in 252 bits
+    auto random_field = fr::random_element();
+    auto truncated = uint256_t(random_field).slice(0, 252);
+    auto value = fr(truncated);
+
+    auto idx = builder.add_variable(value);
+    // Need an arithmetic gate to use the variable (otherwise it's an orphan)
+    builder.create_add_gate({ idx, builder.zero_idx(), builder.zero_idx(), 1, 0, 0, -value });
+    builder.create_limbed_range_constraint(idx, /*num_bits=*/252);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
+}
+
+/***************************************************************************************************
+ * create_dyadic_range_constraint tests
+ * Main entry point that handles orphan variables by adding dummy arithmetic gates.
+ ***************************************************************************************************/
+
+/**
+ * @brief Test that a range constraint on an "orphan" variable (not used in any other gate) works.
+ * @details The `create_dyadic_range_constraint` function adds a dummy arithmetic gate to ensure the
+ * variable appears in a wire, which is required for the generalized permutation argument to work.
+ */
+TYPED_TEST(RangeTests, DyadicRangeConstraintOnOrphanVariable)
+{
+    auto builder = UltraCircuitBuilder();
+
+    // Create a variable that will ONLY be range-constrained, not used in any other gate
+    auto orphan_idx = builder.add_variable(fr(100));
+    builder.create_dyadic_range_constraint(orphan_idx, /*num_bits=*/8, "orphan range constraint");
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
+}
+
+/***************************************************************************************************
+ * Copy constraint interaction tests
+ * Tests that range constraints work correctly with assert_equal (copy constraints).
+ ***************************************************************************************************/
+
+/**
+ * @brief Test range constraints on variables linked by assert_equal.
+ * @details Multiple variables with the same value are linked via assert_equal, then each is
+ * given a different range constraint. The tightest constraint (999) should apply to all.
+ */
+TYPED_TEST(RangeTests, RangeConstraintsOnDuplicateVariables)
+{
+    auto builder = UltraCircuitBuilder();
+
+    uint32_t a = builder.add_variable(fr(100));
+    uint32_t b = builder.add_variable(fr(100));
+    uint32_t c = builder.add_variable(fr(100));
+    uint32_t d = builder.add_variable(fr(100));
+
+    // Link all variables together via copy constraints
+    builder.assert_equal(a, b);
+    builder.assert_equal(a, c);
+    builder.assert_equal(a, d);
+
+    // Apply different range constraints to each (tightest is 999)
+    builder.create_small_range_constraint(a, /*target_range=*/1000);
+    builder.create_small_range_constraint(b, /*target_range=*/1001);
+    builder.create_small_range_constraint(c, /*target_range=*/999);
+    builder.create_small_range_constraint(d, /*target_range=*/1000);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }

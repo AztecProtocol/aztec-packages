@@ -625,7 +625,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
     this->assert_valid_variables({ variable_index });
     // make sure `num_bits` satisfies the correct bounds
     BB_ASSERT_GT(num_bits, 0U);
-    BB_ASSERT_GT(grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH, num_bits);
+    BB_ASSERT_GTE(grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH, num_bits);
 
     uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
@@ -780,7 +780,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
                         // the new variable and set the tag (a.k.a. range-constraint) via a new call to
                         // `create_new_range_constraint`.
                         const uint32_t copied_witness = this->add_variable(this->get_variable(variable_index));
-                        // the following arithmetic gate copy-constrains `variable_index` and `copied_witness`
                         create_add_gate({ .a = variable_index,
                                           .b = copied_witness,
                                           .c = this->zero_idx(),
@@ -799,6 +798,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
         assign_tag(variable_index, list.range_tag);
         list.variable_indices.emplace_back(variable_index);
     }
+    // Add an unconstrained gate to ensure variable_index appears in a wire. If `variable_index` is not used in any
+    // gate, its tag would never appear in the permutation polynomials, yielding an unsatisfiable circuit: the GPA
+    // would fail because the range constraint increases the sorted set size by one while the non-sorted set
+    // (given by wire indices) would remain unchanged.
+    create_unconstrained_gate(blocks.arithmetic, variable_index, this->zero_idx(), this->zero_idx(), this->zero_idx());
 }
 
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_range_list(RangeList& list)

@@ -334,24 +334,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         if (num_bits == 1) {
             create_bool_gate(variable_index);
         } else if (num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM) {
-            /**
-             * NOTE: We add a dummy arithmetic gate for the following reason: if `variable_index` is not used in any
-             *       gate, then its tag would never appear in the permutation polynomials. This would yield an
-             *       unsatisfiable circuit, i.e., the GPA would fail: the range constraint will increase the size of the
-             *       sorted set of range-constrained integers by one, while the non-sorted set (which is given by a
-             *       subset of wire indices) would remain unchanged.
-             *
-             **/
-            create_arithmetic_gate(arithmetic_triple_<FF>{
-                .a = variable_index,
-                .b = variable_index,
-                .c = variable_index,
-                .q_m = 0,
-                .q_l = 1,
-                .q_r = -1,
-                .q_o = 0,
-                .q_c = 0,
-            });
             create_small_range_constraint(variable_index, (1ULL << num_bits) - 1, msg);
         } else {
             create_limbed_range_constraint(variable_index, num_bits, DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
