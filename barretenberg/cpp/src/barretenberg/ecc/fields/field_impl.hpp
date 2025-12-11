@@ -576,7 +576,9 @@ template <class T> constexpr field<T> field<T>::tonelli_shanks_sqrt() const noex
             }
         }
 
-        BB_ASSERT(count != table_size);
+        if (count == table_size) {
+            bb::assert_failure("Tonelli-Shanks: count == table_size");
+        }
         e_slices[table_index] = count;
     }
 

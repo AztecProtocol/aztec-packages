@@ -113,15 +113,15 @@ namespace to_radix_mem;
 
     // Use the comparison gadget to check that the max addresses are within range
     // The comparison gadget provides the ability to test GreaterThan so we check
-    // max_write_addr > max_mem_addr
-    pol commit max_mem_addr; // Needed while we don't support constants in lookups
-    start * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
+    // write_addr_upper_bound > max_mem_size
+    pol commit max_mem_size; // Needed while we don't support constants in lookups
+    start * (max_mem_size - constants.AVM_MEMORY_SIZE) = 0;
 
-    pol commit max_write_addr;
-    start * (max_write_addr - (dst_addr + num_limbs - 1)) = 0;
+    pol commit write_addr_upper_bound;
+    start * (write_addr_upper_bound - dst_addr - num_limbs) = 0;
 
     #[CHECK_DST_ADDR_IN_RANGE]
-    start { max_write_addr, max_mem_addr, sel_dst_out_of_range_err }
+    start { write_addr_upper_bound, max_mem_size, sel_dst_out_of_range_err }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 

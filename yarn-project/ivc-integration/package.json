@@ -18,7 +18,7 @@
     "generate:noir-circuits": "mkdir -p ./artifacts && cp -r ../../noir-projects/mock-protocol-circuits/target/* ./artifacts && node --no-warnings --loader @swc-node/register/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader @swc-node/register/esm src/scripts/generate_ts_from_abi.ts",
     "test": "RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests ",
     "codegen": "yarn noir-codegen",
-    "build:dev": "tsgo -b --watch",
+    "build:dev": "../scripts/tsc.sh --watch",
     "serve": "serve -n -L -p 8080 -c ../serve.mt.json dest"
   },
   "jest": {

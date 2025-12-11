@@ -62,6 +62,8 @@ export const ARCHIVER_PRUNE_COUNT = 'aztec.archiver.prune_count';
 
 export const ARCHIVER_TOTAL_TXS = 'aztec.archiver.tx_count';
 
+export const ARCHIVER_BLOCK_PROPOSAL_TX_TARGET_COUNT = 'aztec.archiver.block_proposal_tx_target_count';
+
 export const NODE_RECEIVE_TX_DURATION = 'aztec.node.receive_tx.duration';
 export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';
 
@@ -192,6 +194,7 @@ export const PROVING_AGENT_IDLE = 'aztec.proving_queue.agent.idle';
 
 export const PROVER_NODE_EXECUTION_DURATION = 'aztec.prover_node.execution.duration';
 export const PROVER_NODE_JOB_DURATION = 'aztec.prover_node.job_duration';
+export const PROVER_NODE_JOB_CHECKPOINTS = 'aztec.prover_node.job_checkpoints';
 export const PROVER_NODE_JOB_BLOCKS = 'aztec.prover_node.job_blocks';
 export const PROVER_NODE_JOB_TRANSACTIONS = 'aztec.prover_node.job_transactions';
 export const PROVER_NODE_REWARDS_TOTAL = 'aztec.prover_node.rewards_total';

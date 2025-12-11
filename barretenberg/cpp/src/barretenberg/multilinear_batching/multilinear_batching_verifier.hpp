@@ -3,7 +3,6 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-
 #pragma once
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
@@ -19,6 +18,10 @@
 
 namespace bb {
 
+/**
+ * @brief Multilinear batching verifier. Verifies claim reduction via sumcheck.
+ * @details See: chonk/README.md#batching-claims-into-accumulator
+ */
 template <typename Flavor_> class MultilinearBatchingVerifier {
   public:
     using Flavor = Flavor_;
@@ -80,6 +83,16 @@ template <typename Flavor_> class MultilinearBatchingVerifier {
                                     const Commitment& non_shifted_accumulator_commitment,
                                     const Commitment& shifted_accumulator_commitment,
                                     const FF& batching_challenge);
+
+    /**
+     * @brief Verify that the prover used the correct eq polynomials.
+     * @details The batching relation uses eq(r_acc, u) and eq(r_inst, u) to "select" the correct evaluation point.
+     * The prover provides these as evaluations of witness polynomials, but the verifier can compute them directly from
+     * the known challenges. This check ensures consistency.
+     */
+    bool check_eq_consistency(const SumcheckOutput<Flavor>& sumcheck_result,
+                              const std::vector<FF>& accumulator_challenges,
+                              const std::vector<InstanceFF>& instance_challenges);
 };
 
 } // namespace bb

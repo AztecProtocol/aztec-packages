@@ -1,6 +1,7 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import type { RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
@@ -37,20 +38,22 @@ describe('e2e_epochs/manual_rollback', () => {
     it('manually rolls back', async () => {
       logger.info(`Starting manual rollback test to unfinalized block`);
       context.sequencer?.updateConfig({ minTxsPerBlock: 0 });
-      await test.waitUntilL2BlockNumber(4, test.L2_SLOT_DURATION_IN_S * 6);
+      const targetCheckpointNumber = CheckpointNumber(4);
+      await test.waitUntilCheckpointNumber(targetCheckpointNumber, test.L2_SLOT_DURATION_IN_S * 6);
       await retryUntil(async () => await node.getBlockNumber().then(b => b >= 4), 'sync to 4', 10, 0.1);
 
-      logger.info(`Synced to block 4. Pausing syncing and rolling back the chain.`);
+      logger.info(`Synced to checkpoint 4. Pausing syncing and rolling back the chain.`);
       await context.aztecNodeAdmin!.pauseSync();
       context.sequencer?.updateConfig({ minTxsPerBlock: 100 }); // Ensure no new blocks are produced
       await context.cheatCodes.eth.reorg(2);
-      const blockAfterReorg = Number(await rollup.getCheckpointNumber());
-      expect(blockAfterReorg).toBeLessThan(4);
-      logger.info(`Rolled back to L2 block ${blockAfterReorg}.`);
+      const checkpointAfterReorg = await rollup.getCheckpointNumber();
+      expect(checkpointAfterReorg).toBeLessThan(targetCheckpointNumber);
+      logger.info(`Rolled back to checkpoint ${checkpointAfterReorg}.`);
 
-      logger.info(`Manually rolling back node to ${blockAfterReorg - 1}.`);
-      await context.aztecNodeAdmin!.rollbackTo(blockAfterReorg - 1);
-      expect(await node.getBlockNumber()).toEqual(blockAfterReorg - 1);
+      logger.info(`Manually rolling back node to ${checkpointAfterReorg - 1}.`);
+      const blockAfterReorg = Number(checkpointAfterReorg - 1);
+      await context.aztecNodeAdmin!.rollbackTo(blockAfterReorg);
+      expect(await node.getBlockNumber()).toEqual(blockAfterReorg);
 
       logger.info(`Waiting for node to re-sync to ${blockAfterReorg}.`);
       await retryUntil(async () => await node.getBlockNumber().then(b => b >= blockAfterReorg), 'resync', 10, 0.1);

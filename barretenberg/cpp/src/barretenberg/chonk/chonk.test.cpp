@@ -227,16 +227,16 @@ TEST_F(ChonkTests, WrongProofComponentFailure)
 
         tampered_proof.goblin_proof.merge_proof = chonk_proof_2.goblin_proof.merge_proof;
 
-        EXPECT_THROW_OR_ABORT(Chonk::verify(tampered_proof, chonk_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_WITH_MESSAGE(Chonk::verify(tampered_proof, chonk_vk_1), "IPA verification fails");
     }
 
     {
-        // Replace hiding circuit proof
+        // Replace Hiding kernel proof
         Chonk::Proof tampered_proof = chonk_proof_1;
 
         tampered_proof.mega_proof = chonk_proof_2.mega_proof;
 
-        EXPECT_THROW_OR_ABORT(Chonk::verify(tampered_proof, chonk_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_WITH_MESSAGE(Chonk::verify(tampered_proof, chonk_vk_1), "IPA verification fails");
     }
 
     {
@@ -245,7 +245,7 @@ TEST_F(ChonkTests, WrongProofComponentFailure)
 
         tampered_proof.goblin_proof.eccvm_proof = chonk_proof_2.goblin_proof.eccvm_proof;
 
-        EXPECT_THROW_OR_ABORT(Chonk::verify(tampered_proof, chonk_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_WITH_MESSAGE(Chonk::verify(tampered_proof, chonk_vk_1), "IPA verification fails");
     }
 
     {

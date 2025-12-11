@@ -5,18 +5,12 @@ import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { createBlobSinkServer } from '@aztec/blob-sink/server';
-import {
-  type ExtendedViemWalletClient,
-  type L1ContractAddresses,
-  L1TxUtils,
-  RegistryContract,
-  RollupContract,
-  createL1TxUtilsFromViemWallet,
-  defaultL1TxUtilsConfig,
-  deployL1Contract,
-  deployRollupForUpgrade,
-} from '@aztec/ethereum';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
+import { deployL1Contract, deployRollupForUpgrade } from '@aztec/ethereum/deploy-l1-contracts';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { L1TxUtils, createL1TxUtilsFromViemWallet, defaultL1TxUtilsConfig } from '@aztec/ethereum/l1-tx-utils';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import {
@@ -536,8 +530,8 @@ describe('e2e_p2p_add_rollup', () => {
     // wait a bit for peers to discover each other
     await sleep(4000);
 
-    // The new rollup should have no blocks
-    expect(await newRollup.getCheckpointNumber()).toBe(0n);
+    // The new rollup should have no checkpoints
+    expect(await newRollup.getCheckpointNumber()).toBe(CheckpointNumber(0));
 
     // Bridge into and out of the new rollup to ensure that it works.
     await bridging(
@@ -549,9 +543,9 @@ describe('e2e_p2p_add_rollup', () => {
       newConfig.l1RpcUrls,
     );
 
-    // Both rollups should have a block number greater than 0
-    expect(await rollup.getCheckpointNumber()).toBeGreaterThan(0n);
-    expect(await newRollup.getCheckpointNumber()).toBeGreaterThan(0n);
+    // Both rollups should have a checkpoint number greater than 0
+    expect(await rollup.getCheckpointNumber()).toBeGreaterThan(CheckpointNumber(0));
+    expect(await newRollup.getCheckpointNumber()).toBeGreaterThan(CheckpointNumber(0));
 
     await blobSink.stop();
   }, 10_000_000);

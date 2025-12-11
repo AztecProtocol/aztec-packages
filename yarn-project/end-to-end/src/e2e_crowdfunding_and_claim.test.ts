@@ -202,11 +202,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     expect(notes.len).toEqual(1n);
     const anotherDonationNote = notes.storage[0];
 
-    // 2) We try to claim the reward token via the Claim contract with the unrelated wallet
+    // 2) We try to claim the reward token via the Claim contract with the unrelated wallet - the owner check
+    // should fail because the msg_sender is not the note owner.
     // docs:start:local-tx-fails
     await expect(
       claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAddress }).wait(),
-    ).rejects.toThrow('Note does not belong to the sender');
+    ).rejects.toThrow('proof_retrieved_note.owner == self.msg_sender().unwrap()');
     // docs:end:local-tx-fails
   });
 

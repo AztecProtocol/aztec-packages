@@ -5,7 +5,7 @@ import {
   CHONK_VK_LENGTH_IN_FIELDS,
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
@@ -83,7 +83,7 @@ describe('Rollup IVC Integration', () => {
     await worldStateService.close();
     expect(avmSimulationResult.revertCode.isOK()).toBe(true);
 
-    const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs);
+    const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs!);
     ({
       vk: avmVK,
       proof: avmProof,

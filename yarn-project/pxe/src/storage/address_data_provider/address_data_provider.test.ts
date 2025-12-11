@@ -1,5 +1,5 @@
 import { timesParallel } from '@aztec/foundation/collection';
-import { Point } from '@aztec/foundation/fields';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';

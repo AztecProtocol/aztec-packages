@@ -34,7 +34,7 @@ jobs:
           # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # Fetch PR commits depth (we'll deepen by 1 in squash script if needed)
-          fetch-depth: ${{ github.event.pull_request.commits || 0 }}
+          fetch-depth: ${{ github.event.pull_request.commits || 1 }}
           persist-credentials: false
 
       - name: Run
@@ -69,9 +69,11 @@ jobs:
         run: ./.github/ci3.sh "${{ join(github.event.pull_request.labels.*.name, ',') }}"
 
       - name: Post-Actions
-        if: always()
         env:
           CI_INTERNAL: "1"
+          # For updating success cache.
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

@@ -2,9 +2,10 @@ import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
-import { RollupContract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { logger, withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -19,6 +20,7 @@ import { type EndToEndContext, createAndSyncProverNode, getPrivateKeyFromIndex, 
 
 const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
 const L2_TARGET_BLOCK_NUM = 3;
+const TARGET_CHECKPOINT_NUMBER = CheckpointNumber(3);
 
 describe('e2e_snapshot_sync', () => {
   let context: EndToEndContext;
@@ -85,11 +87,11 @@ describe('e2e_snapshot_sync', () => {
     expect(worldState.latestBlockNumber).toBeGreaterThanOrEqual(blockNumber);
   };
 
-  it('waits until a few L2 blocks have been mined and purges blobs', async () => {
-    log.warn(`Waiting for L2 blocks to be mined`);
-    await retryUntil(() => monitor.checkpointNumber > L2_TARGET_BLOCK_NUM, 'l2-blocks-mined', 90, 1);
+  it('waits until a few checkpoints have been mined and purges blobs', async () => {
+    log.warn(`Waiting for checkpoints to be mined`);
+    await retryUntil(() => monitor.checkpointNumber > TARGET_CHECKPOINT_NUMBER, 'checkpoints-mined', 90, 1);
     log.warn(
-      `L2 block height is now ${monitor.checkpointNumber}. Purging all blobs from sink so snapshot is required.`,
+      `Checkpoint height is now ${monitor.checkpointNumber}. Purging all blobs from sink so snapshot is required.`,
     );
     await context.blobSink!.clear();
   });
@@ -108,13 +110,13 @@ describe('e2e_snapshot_sync', () => {
     log.warn(`New node synced`);
     await expectNodeSyncedToL2Block(node, L2_TARGET_BLOCK_NUM);
 
-    const block = await node.getBlock(L2_TARGET_BLOCK_NUM);
+    const block = await node.getBlock(BlockNumber(L2_TARGET_BLOCK_NUM));
     expect(block).toBeDefined();
     const blockHash = await block!.hash();
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>
-      node.findLeavesIndexes(L2_TARGET_BLOCK_NUM, MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
+      node.findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
     expect(await getBlockHashLeafIndex(context.aztecNode)).toBeDefined();
     expect(await getBlockHashLeafIndex(node)).toBeDefined();
 
@@ -223,13 +225,13 @@ describe('e2e_snapshot_sync', () => {
     log.warn(`New node synced with fallback logic`);
     await expectNodeSyncedToL2Block(node, L2_TARGET_BLOCK_NUM);
 
-    const block = await node.getBlock(L2_TARGET_BLOCK_NUM);
+    const block = await node.getBlock(BlockNumber(L2_TARGET_BLOCK_NUM));
     expect(block).toBeDefined();
     const blockHash = await block!.hash();
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>
-      node.findLeavesIndexes(L2_TARGET_BLOCK_NUM, MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
+      node.findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
     expect(await getBlockHashLeafIndex(context.aztecNode)).toBeDefined();
     expect(await getBlockHashLeafIndex(node)).toBeDefined();
 

@@ -1,5 +1,7 @@
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Note } from '@aztec/stdlib/note';
@@ -17,13 +19,15 @@ export class NoteDao {
     public note: Note,
     /** The address of the contract that created the note (i.e. the address used by the kernel during siloing). */
     public contractAddress: AztecAddress,
+    /** The owner of the note - generally the account that can spend the note. */
+    public owner: AztecAddress,
     /**
      * The storage location of the note. This value is not used for anything in PXE, but we do index by storage slot
      * since contracts typically make queries based on it.
      */
     public storageSlot: Fr,
     /**
-     * The randomness injected to the note.
+     * The randomness injected to the note hash preimage.
      */
     public randomness: Fr,
     /** The nonce that was injected into the note hash preimage in order to guarantee uniqueness. */
@@ -48,7 +52,7 @@ export class NoteDao {
     public txHash: TxHash,
     /** The L2 block number in which the tx with this note was included. Used for note management while processing
      * reorgs.*/
-    public l2BlockNumber: number,
+    public l2BlockNumber: BlockNumber,
     /** The L2 block hash in which the tx with this note was included. Used for note management while processing
      * reorgs.*/
     public l2BlockHash: string,
@@ -60,6 +64,7 @@ export class NoteDao {
     return serializeToBuffer([
       this.note,
       this.contractAddress,
+      this.owner,
       this.storageSlot,
       this.randomness,
       this.noteNonce,
@@ -77,19 +82,21 @@ export class NoteDao {
 
     const note = Note.fromBuffer(reader);
     const contractAddress = AztecAddress.fromBuffer(reader);
+    const owner = AztecAddress.fromBuffer(reader);
     const storageSlot = Fr.fromBuffer(reader);
     const randomness = Fr.fromBuffer(reader);
     const noteNonce = Fr.fromBuffer(reader);
     const noteHash = Fr.fromBuffer(reader);
     const siloedNullifier = Fr.fromBuffer(reader);
     const txHash = reader.readObject(TxHash);
-    const l2BlockNumber = reader.readNumber();
+    const l2BlockNumber = BlockNumber(reader.readNumber());
     const l2BlockHash = Fr.fromBuffer(reader).toString();
     const index = toBigIntBE(reader.readBytes(32));
 
     return new NoteDao(
       note,
       contractAddress,
+      owner,
       storageSlot,
       randomness,
       noteNonce,
@@ -112,31 +119,55 @@ export class NoteDao {
   }
 
   /**
+   * Returns true if this note is equal to the `other` one.
+   */
+  equals(other: NoteDao): boolean {
+    return (
+      this.note.equals(other.note) &&
+      this.contractAddress.equals(other.contractAddress) &&
+      this.owner.equals(other.owner) &&
+      this.storageSlot.equals(other.storageSlot) &&
+      this.randomness.equals(other.randomness) &&
+      this.noteNonce.equals(other.noteNonce) &&
+      this.noteHash.equals(other.noteHash) &&
+      this.siloedNullifier.equals(other.siloedNullifier) &&
+      this.txHash.equals(other.txHash) &&
+      this.l2BlockNumber === other.l2BlockNumber &&
+      this.l2BlockHash === other.l2BlockHash &&
+      this.index === other.index
+    );
+  }
+
+  /**
    * Returns the size in bytes of the Note Dao.
    * @returns - Its size in bytes.
    */
   public getSize() {
     const indexSize = Math.ceil(Math.log2(Number(this.index)));
     const noteSize = 4 + this.note.items.length * Fr.SIZE_IN_BYTES;
-    return noteSize + AztecAddress.SIZE_IN_BYTES + Fr.SIZE_IN_BYTES * 4 + TxHash.SIZE + Point.SIZE_IN_BYTES + indexSize;
+    return (
+      noteSize + AztecAddress.SIZE_IN_BYTES * 2 + Fr.SIZE_IN_BYTES * 4 + TxHash.SIZE + Point.SIZE_IN_BYTES + indexSize
+    );
   }
 
   static async random({
     note = Note.random(),
     contractAddress = undefined,
+    owner = undefined,
     storageSlot = Fr.random(),
     randomness = Fr.random(),
     noteNonce = Fr.random(),
     noteHash = Fr.random(),
     siloedNullifier = Fr.random(),
     txHash = TxHash.random(),
-    l2BlockNumber = Math.floor(Math.random() * 1000),
+    l2BlockNumber = BlockNumber(Math.floor(Math.random() * 1000)),
     l2BlockHash = Fr.random().toString(),
     index = Fr.random().toBigInt(),
   }: Partial<NoteDao> = {}) {
     return new NoteDao(
       note,
       contractAddress ?? (await AztecAddress.random()),
+      owner ?? (await AztecAddress.random()),
       storageSlot,
       randomness,
       noteNonce,

@@ -11,6 +11,29 @@
 
 namespace bb::avm2 {
 
+/////////////////// perm_tx_read_calldata_hash ///////////////////
+
+struct perm_tx_read_calldata_hash_settings_ {
+    static constexpr std::string_view NAME = "PERM_TX_READ_CALLDATA_HASH";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t COLUMNS_PER_SET = 3;
+    static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
+    static constexpr Column DST_SELECTOR = Column::calldata_hashing_latch;
+    static constexpr Column INVERSES = Column::perm_tx_read_calldata_hash_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = { ColumnAndShifts::tx_calldata_hash,
+                                                                                  ColumnAndShifts::tx_calldata_size,
+                                                                                  ColumnAndShifts::tx_next_context_id };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::calldata_hashing_output_hash,
+        ColumnAndShifts::calldata_hashing_calldata_size,
+        ColumnAndShifts::calldata_hashing_context_id
+    };
+};
+
+using perm_tx_read_calldata_hash_settings = permutation_settings<perm_tx_read_calldata_hash_settings_>;
+template <typename FF_>
+using perm_tx_read_calldata_hash_relation = permutation_relation_base<FF_, perm_tx_read_calldata_hash_settings>;
+
 /////////////////// perm_tx_dispatch_exec_start ///////////////////
 
 struct perm_tx_dispatch_exec_start_settings_ {
@@ -87,7 +110,7 @@ using perm_tx_dispatch_exec_start_relation = permutation_relation_base<FF_, perm
 struct perm_tx_dispatch_exec_end_settings_ {
     static constexpr std::string_view NAME = "PERM_TX_DISPATCH_EXEC_END";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t COLUMNS_PER_SET = 21;
+    static constexpr size_t COLUMNS_PER_SET = 19;
     static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
     static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_end;
     static constexpr Column INVERSES = Column::perm_tx_dispatch_exec_end_inv;
@@ -95,7 +118,6 @@ struct perm_tx_dispatch_exec_end_settings_ {
         ColumnAndShifts::tx_next_context_id,
         ColumnAndShifts::tx_next_context_id_shift,
         ColumnAndShifts::tx_reverted,
-        ColumnAndShifts::tx_discard,
         ColumnAndShifts::tx_next_note_hash_tree_root,
         ColumnAndShifts::tx_next_note_hash_tree_size,
         ColumnAndShifts::tx_next_num_note_hashes_emitted,
@@ -106,7 +128,6 @@ struct perm_tx_dispatch_exec_end_settings_ {
         ColumnAndShifts::tx_next_public_data_tree_size,
         ColumnAndShifts::tx_next_written_public_data_slots_tree_root,
         ColumnAndShifts::tx_next_written_public_data_slots_tree_size,
-        ColumnAndShifts::tx_l1_l2_tree_root,
         ColumnAndShifts::tx_next_retrieved_bytecodes_tree_root,
         ColumnAndShifts::tx_next_retrieved_bytecodes_tree_size,
         ColumnAndShifts::tx_next_num_unencrypted_log_fields,
@@ -118,7 +139,6 @@ struct perm_tx_dispatch_exec_end_settings_ {
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_next_context_id,
         ColumnAndShifts::execution_sel_failure,
-        ColumnAndShifts::execution_discard,
         ColumnAndShifts::execution_note_hash_tree_root,
         ColumnAndShifts::execution_note_hash_tree_size,
         ColumnAndShifts::execution_num_note_hashes_emitted,
@@ -129,7 +149,6 @@ struct perm_tx_dispatch_exec_end_settings_ {
         ColumnAndShifts::execution_public_data_tree_size,
         ColumnAndShifts::execution_written_public_data_slots_tree_root,
         ColumnAndShifts::execution_written_public_data_slots_tree_size,
-        ColumnAndShifts::execution_l1_l2_tree_root,
         ColumnAndShifts::execution_retrieved_bytecodes_tree_root,
         ColumnAndShifts::execution_retrieved_bytecodes_tree_size,
         ColumnAndShifts::execution_num_unencrypted_log_fields,

@@ -10,8 +10,9 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
 } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -104,7 +105,7 @@ describe('LightBlockBuilder', () => {
     globalVariables = GlobalVariables.from({
       ...initialHeader.globalVariables,
       gasFees,
-      blockNumber: initialHeader.globalVariables.blockNumber + 1,
+      blockNumber: BlockNumber(initialHeader.globalVariables.blockNumber + 1),
       timestamp: initialHeader.globalVariables.timestamp + 1n,
     });
   });

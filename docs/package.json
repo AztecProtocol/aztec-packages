@@ -3,15 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "yarn clean && yarn preprocess && docusaurus start --host ${HOST:-localhost}",
-    "dev:netlify": "yarn netlify dev",
     "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && docusaurus build",
-    "serve": "docusaurus serve",
     "clean": "./scripts/clean.sh",
+    "dev:netlify": "yarn netlify dev",
+    "generate:aztec-nr-api": "./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh",
     "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js",
     "preprocess:move": "sh scripts/move_processed.sh",
+    "serve": "docusaurus serve",
     "spellcheck": "yarn cspell",
-    "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt"
+    "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt",
+    "start": "yarn clean && yarn preprocess && yarn generate:aztec-nr-api && docusaurus start --host ${HOST:-localhost}"
   },
   "dependencies": {
     "@cookbookdev/docsbot": "^4.25.15",
@@ -37,10 +38,7 @@
     "cspell": "^8.19.4",
     "docusaurus-plugin-llms": "^0.2.0",
     "dotenv": "^16.6.1",
-    "netlify-cli": "^23.7.3",
-    "typedoc": "^0.28.14",
-    "typedoc-plugin-markdown": "^4.9.0",
-    "typescript": "^5.9.3"
+    "netlify-cli": "^23.7.3"
   },
   "cspell": {
     "import": [
@@ -58,7 +56,10 @@
     ],
     "files": [
       "./docs/**/{*.md,*.md?}",
-      "./versioned_docs/**/{*.md,*.md?}",
+      "./docs-developers/**/{*.md,*.md?}",
+      "./docs-network/**/{*.md,*.md?}",
+      "./developer_versioned_docs/**/{*.md,*.md?}",
+      "./network_versioned_docs/**/{*.md,*.md?}",
       "./internal_notes/**/{*.md,*.md?}",
       "./src/components/Snippets/*.js",
       "./processed-docs/**/{*.md,*.md?}"

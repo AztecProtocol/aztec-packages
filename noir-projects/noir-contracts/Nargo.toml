@@ -24,7 +24,6 @@ members = [
     "contracts/app/token_contract",
     "contracts/app/uniswap_contract",
     "contracts/app/simple_token_contract",
-    "contracts/docs/docs_example_contract",
     "contracts/fees/fpc_contract",
     "contracts/fees/sponsored_fpc_contract",
     "contracts/protocol/auth_registry_contract",

@@ -1,21 +1,23 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
     note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
-    state_vars::private_set::PrivateSet,
+    state_vars::{owned_state_variable::OwnedStateVariable, private_set::PrivateSet},
 };
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
+use protocol_types::{address::AztecAddress, traits::FromField};
 
+global OWNER: AztecAddress = AztecAddress::from_field(50);
 global STORAGE_SLOT: Field = 17;
 global VALUE: Field = 23;
 
 unconstrained fn in_private(
     context: &mut PrivateContext,
 ) -> PrivateSet<MockNote, &mut PrivateContext> {
-    PrivateSet::new(context, STORAGE_SLOT)
+    PrivateSet::new(context, STORAGE_SLOT, OWNER)
 }
 
 unconstrained fn in_utility(context: UtilityContext) -> PrivateSet<MockNote, UtilityContext> {
-    PrivateSet::new(context, STORAGE_SLOT)
+    PrivateSet::new(context, STORAGE_SLOT, OWNER)
 }
 
 #[test]
@@ -53,13 +55,13 @@ unconstrained fn insert() {
         let value = 42;
         let new_note = MockNote::new(value).build_note();
 
-        let emission = state_var.insert(new_note);
+        let note_message = state_var.insert(new_note);
 
         // insert creates a new note
         assert_eq(state_var.context.note_hashes.len(), 1);
 
-        assert_eq(emission.content.note, new_note);
-        assert_eq(emission.content.storage_slot, state_var.storage_slot);
+        assert_eq(note_message.new_note.note, new_note);
+        assert_eq(note_message.new_note.storage_slot, state_var.storage_slot);
     });
 }
 
@@ -94,13 +96,13 @@ unconstrained fn insert_and_get_settled() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
+    let note_message = env.private_context(|context| {
         let state_var = in_private(context);
 
         state_var.insert(note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -126,13 +128,13 @@ unconstrained fn insert_and_view_settled() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
+    let note_message = env.private_context(|context| {
         let state_var = in_private(context);
 
         state_var.insert(note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.utility_context(|context| {
         let state_var = in_utility(context);
@@ -171,13 +173,13 @@ unconstrained fn insert_and_pop_settled() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
+    let note_message = env.private_context(|context| {
         let state_var = in_private(context);
 
         state_var.insert(note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -218,12 +220,12 @@ unconstrained fn insert_and_remove_settled() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
+    let note_message = env.private_context(|context| {
         let state_var = in_private(context);
         state_var.insert(note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -261,13 +263,13 @@ unconstrained fn insert_pop_and_read_again_settled() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
+    let note_message = env.private_context(|context| {
         let state_var = in_private(context);
 
         state_var.insert(note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -305,13 +307,13 @@ unconstrained fn insert_remove_and_read_again_settled() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
+    let note_message = env.private_context(|context| {
         let state_var = in_private(context);
 
         state_var.insert(note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         let state_var = in_private(context);

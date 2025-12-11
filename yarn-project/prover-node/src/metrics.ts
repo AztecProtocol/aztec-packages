@@ -1,4 +1,4 @@
-import type { RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { L1PublishProofStats, L1PublishStats } from '@aztec/stdlib/stats';
@@ -21,6 +21,7 @@ import { formatEther, formatUnits } from 'viem';
 export class ProverNodeJobMetrics {
   proverEpochExecutionDuration: Histogram;
   provingJobDuration: Histogram;
+  provingJobCheckpoints: Gauge;
   provingJobBlocks: Gauge;
   provingJobTransactions: Gauge;
 
@@ -39,6 +40,10 @@ export class ProverNodeJobMetrics {
       unit: 's',
       valueType: ValueType.DOUBLE,
     });
+    this.provingJobCheckpoints = this.meter.createGauge(Metrics.PROVER_NODE_JOB_CHECKPOINTS, {
+      description: 'Number of checkpoints in a proven epoch',
+      valueType: ValueType.INT,
+    });
     this.provingJobBlocks = this.meter.createGauge(Metrics.PROVER_NODE_JOB_BLOCKS, {
       description: 'Number of blocks in a proven epoch',
       valueType: ValueType.INT,
@@ -49,9 +54,16 @@ export class ProverNodeJobMetrics {
     });
   }
 
-  public recordProvingJob(executionTimeMs: number, totalTimeMs: number, numBlocks: number, numTxs: number) {
+  public recordProvingJob(
+    executionTimeMs: number,
+    totalTimeMs: number,
+    numCheckpoints: number,
+    numBlocks: number,
+    numTxs: number,
+  ) {
     this.proverEpochExecutionDuration.record(Math.ceil(executionTimeMs));
     this.provingJobDuration.record(totalTimeMs / 1000);
+    this.provingJobCheckpoints.record(Math.floor(numCheckpoints));
     this.provingJobBlocks.record(Math.floor(numBlocks));
     this.provingJobTransactions.record(Math.floor(numTxs));
   }

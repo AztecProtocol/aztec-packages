@@ -1,45 +1,56 @@
-use crate::{context::{PrivateContext, UtilityContext}, state_vars::private_mutable::PrivateMutable};
-use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
+use crate::{
+    context::{PrivateContext, UtilityContext},
+    state_vars::{owned_state_variable::OwnedStateVariable, private_mutable::PrivateMutable},
+    test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
+};
+use protocol_types::address::AztecAddress;
 
 global STORAGE_SLOT: Field = 17;
 global VALUE: Field = 23;
 
 unconstrained fn in_private(
     context: &mut PrivateContext,
+    owner: AztecAddress,
 ) -> PrivateMutable<MockNote, &mut PrivateContext> {
-    PrivateMutable::new(context, STORAGE_SLOT)
+    PrivateMutable::new(context, STORAGE_SLOT, owner)
 }
 
-unconstrained fn in_utility(context: UtilityContext) -> PrivateMutable<MockNote, UtilityContext> {
-    PrivateMutable::new(context, STORAGE_SLOT)
+unconstrained fn in_utility(
+    context: UtilityContext,
+    owner: AztecAddress,
+) -> PrivateMutable<MockNote, UtilityContext> {
+    PrivateMutable::new(context, STORAGE_SLOT, owner)
 }
 
 #[test(should_fail_with = "Failed to get a note")]
 unconstrained fn get_uninitialized() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context, owner);
         let _ = state_var.get_note();
     });
 }
 
 #[test(should_fail_with = "Failed to get a note")]
 unconstrained fn view_uninitialized() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     env.utility_context(|context| {
-        let state_var = in_utility(context);
+        let state_var = in_utility(context, owner);
         let _ = state_var.view_note();
     });
 }
 
 #[test(should_fail_with = "Failed to get a note")]
 unconstrained fn replace_uninitialized() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context, owner);
 
         let _ = state_var.replace(|_old_note| {
             let note = MockNote::new(VALUE).build_note();
@@ -50,34 +61,33 @@ unconstrained fn replace_uninitialized() {
 
 #[test]
 unconstrained fn initialize() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context, owner);
 
         let note = MockNote::new(VALUE).build_note();
 
-        let emission = state_var.initialize(note);
+        let note_message = state_var.initialize(note);
 
         // During initialization we both create the new note and emit the initialization nullifier
         assert_eq(context.note_hashes.len(), 1);
         assert_eq(context.nullifiers.len(), 1);
-        assert_eq(
-            context.nullifiers.get(0).inner.value,
-            state_var.compute_initialization_nullifier(),
-        );
+        assert_eq(context.nullifiers.get(0).inner.value, state_var.get_initialization_nullifier());
 
-        assert_eq(emission.content.note, note);
-        assert_eq(emission.content.storage_slot, STORAGE_SLOT);
+        assert_eq(note_message.new_note.note, note);
+        assert_eq(note_message.new_note.storage_slot, STORAGE_SLOT);
     });
 }
 
 #[test]
 unconstrained fn initialize_and_get_pending() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context, owner);
 
         let note = MockNote::new(VALUE).build_note();
 
@@ -87,10 +97,10 @@ unconstrained fn initialize_and_get_pending() {
         let nullifiers_pre_get = context.nullifiers.len();
         let note_hash_read_requests_pre_get = context.note_hash_read_requests.len();
 
-        let get_emission = state_var.get_note();
+        let get_note_message = state_var.get_note();
 
-        assert_eq(get_emission.content.note, note);
-        assert_eq(get_emission.content.storage_slot, STORAGE_SLOT);
+        assert_eq(get_note_message.new_note.note, note);
+        assert_eq(get_note_message.new_note.storage_slot, STORAGE_SLOT);
 
         // Reading a PrivateMutable results in:
         // - a read request for the read value
@@ -104,25 +114,26 @@ unconstrained fn initialize_and_get_pending() {
 
 #[test]
 unconstrained fn initialize_and_get_settled() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     let note = MockNote::new(VALUE).build_note();
 
-    let init_emission = env.private_context(|context| {
-        let state_var = in_private(context);
+    let init_note_message = env.private_context(|context| {
+        let state_var = in_private(context, owner);
 
         state_var.initialize(note)
     });
 
-    env.discover_note(init_emission);
+    env.discover_note(init_note_message);
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context, owner);
 
-        let get_emission = state_var.get_note();
+        let get_note_message = state_var.get_note();
 
-        assert_eq(get_emission.content.note, note);
-        assert_eq(get_emission.content.storage_slot, STORAGE_SLOT);
+        assert_eq(get_note_message.new_note.note, note);
+        assert_eq(get_note_message.new_note.storage_slot, STORAGE_SLOT);
 
         // Reading a PrivateMutable results in:
         // - a read request for the read value
@@ -136,20 +147,21 @@ unconstrained fn initialize_and_get_settled() {
 
 #[test]
 unconstrained fn initialize_and_view_settled() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     let note = MockNote::new(VALUE).build_note();
 
-    let init_emission = env.private_context(|context| {
-        let state_var = in_private(context);
+    let init_note_message = env.private_context(|context| {
+        let state_var = in_private(context, owner);
 
         state_var.initialize(note)
     });
 
-    env.discover_note(init_emission);
+    env.discover_note(init_note_message);
 
     env.utility_context(|context| {
-        let state_var = in_utility(context);
+        let state_var = in_utility(context, owner);
 
         assert_eq(state_var.view_note(), note);
     });
@@ -157,10 +169,11 @@ unconstrained fn initialize_and_view_settled() {
 
 #[test]
 unconstrained fn initialize_and_replace_pending() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context, owner);
 
         let note = MockNote::new(VALUE).build_note();
 
@@ -172,14 +185,14 @@ unconstrained fn initialize_and_replace_pending() {
 
         let replacement_value = VALUE + 1;
         let replacement_note = MockNote::new(replacement_value).build_note();
-        let replace_emission = state_var.replace(|current_note| {
+        let replace_note_message = state_var.replace(|current_note| {
             assert_eq(current_note, note);
 
             replacement_note
         });
 
-        assert_eq(replace_emission.content.note, replacement_note);
-        assert_eq(replace_emission.content.storage_slot, STORAGE_SLOT);
+        assert_eq(replace_note_message.new_note.note, replacement_note);
+        assert_eq(replace_note_message.new_note.storage_slot, STORAGE_SLOT);
 
         // Replacing a PrivateMutable results in:
         // - a read request for the read value
@@ -193,30 +206,31 @@ unconstrained fn initialize_and_replace_pending() {
 
 #[test]
 unconstrained fn initialize_and_replace_settled() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     let note = MockNote::new(VALUE).build_note();
 
-    let init_emission = env.private_context(|context| {
-        let state_var = in_private(context);
+    let init_note_message = env.private_context(|context| {
+        let state_var = in_private(context, owner);
 
         state_var.initialize(note)
     });
 
-    env.discover_note(init_emission);
+    env.discover_note(init_note_message);
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context, owner);
 
         let replacement_value = VALUE + 1;
         let replacement_note = MockNote::new(replacement_value).build_note();
-        let replace_emission = state_var.replace(|current_note| {
+        let replace_note_message = state_var.replace(|current_note| {
             assert_eq(current_note, note);
             replacement_note
         });
 
-        assert_eq(replace_emission.content.note, replacement_note);
-        assert_eq(replace_emission.content.storage_slot, STORAGE_SLOT);
+        assert_eq(replace_note_message.new_note.note, replacement_note);
+        assert_eq(replace_note_message.new_note.storage_slot, STORAGE_SLOT);
 
         // Replacing a PrivateMutable results in:
         // - a read request for the read value
@@ -230,38 +244,37 @@ unconstrained fn initialize_and_replace_settled() {
 
 #[test]
 unconstrained fn initialize_or_replace_uninitialized() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context, owner);
 
         let init_note = MockNote::new(VALUE).build_note();
 
-        let emission = state_var.initialize_or_replace(|opt_current_note| {
+        let note_message = state_var.initialize_or_replace(|opt_current_note| {
             assert(opt_current_note.is_none());
             init_note
         });
 
-        assert_eq(emission.content.note, init_note);
-        assert_eq(emission.content.storage_slot, STORAGE_SLOT);
+        assert_eq(note_message.new_note.note, init_note);
+        assert_eq(note_message.new_note.storage_slot, STORAGE_SLOT);
 
         // During initialization we both create the new note and emit the initialization nullifier. This will only
         // succeed if the initialization nullifier had not been already emitted.
         assert_eq(context.note_hashes.len(), 1);
         assert_eq(context.nullifiers.len(), 1);
-        assert_eq(
-            context.nullifiers.get(0).inner.value,
-            state_var.compute_initialization_nullifier(),
-        );
+        assert_eq(context.nullifiers.get(0).inner.value, state_var.get_initialization_nullifier());
     });
 }
 
 #[test]
 unconstrained fn initialize_or_replace_initialized_pending() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context, owner);
 
         let note = MockNote::new(VALUE).build_note();
         let _ = state_var.initialize(note);
@@ -271,13 +284,13 @@ unconstrained fn initialize_or_replace_initialized_pending() {
         let note_hashes_pre_replace = context.note_hashes.len();
 
         let replacement_note = MockNote::new(note.value + 1).build_note();
-        let emission = state_var.initialize_or_replace(|opt_current_note| {
+        let note_message = state_var.initialize_or_replace(|opt_current_note| {
             assert_eq(opt_current_note.unwrap(), note);
             replacement_note
         });
 
-        assert_eq(emission.content.note, replacement_note);
-        assert_eq(emission.content.storage_slot, STORAGE_SLOT);
+        assert_eq(note_message.new_note.note, replacement_note);
+        assert_eq(note_message.new_note.storage_slot, STORAGE_SLOT);
 
         // Verify context updates: read request, nullifier, and new note
         assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
@@ -288,33 +301,34 @@ unconstrained fn initialize_or_replace_initialized_pending() {
 
 #[test]
 unconstrained fn initialize_or_replace_initialized_settled() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     let note = MockNote::new(VALUE).build_note();
 
-    let init_emission = env.private_context(|context| {
-        let state_var = in_private(context);
+    let init_note_message = env.private_context(|context| {
+        let state_var = in_private(context, owner);
 
         state_var.initialize(note)
     });
 
-    env.discover_note(init_emission);
+    env.discover_note(init_note_message);
 
     env.private_context(|context| {
-        let state_var = in_private(context);
+        let state_var = in_private(context, owner);
 
         let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
         let nullifiers_pre_replace = context.nullifiers.len();
         let note_hashes_pre_replace = context.note_hashes.len();
 
         let replacement_note = MockNote::new(note.value + 1).build_note();
-        let emission = state_var.initialize_or_replace(|opt_current_note| {
+        let note_message = state_var.initialize_or_replace(|opt_current_note| {
             assert_eq(opt_current_note.unwrap(), note);
             replacement_note
         });
 
-        assert_eq(emission.content.note, replacement_note);
-        assert_eq(emission.content.storage_slot, STORAGE_SLOT);
+        assert_eq(note_message.new_note.note, replacement_note);
+        assert_eq(note_message.new_note.storage_slot, STORAGE_SLOT);
 
         // Replacing a PrivateMutable results in:
         // - a read request for the read value
@@ -325,5 +339,29 @@ unconstrained fn initialize_or_replace_initialized_settled() {
         assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
         assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
         assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
+    });
+}
+
+#[test]
+unconstrained fn get_replacement_note_has_unique_randomness() {
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_note_message = env.private_context(|context| {
+        let state_var = in_private(context, owner);
+
+        state_var.initialize(note)
+    });
+
+    env.discover_note(init_note_message);
+
+    env.private_context(|context| {
+        let state_var = in_private(context, owner);
+
+        let get_note_message = state_var.get_note();
+
+        assert(get_note_message.new_note.randomness != init_note_message.new_note.randomness);
     });
 }

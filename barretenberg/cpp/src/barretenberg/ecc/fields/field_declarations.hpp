@@ -140,7 +140,9 @@ template <class Params_> struct alignas(32) field {
     constexpr explicit operator bool() const
     {
         field out = from_montgomery_form();
-        BB_ASSERT(out.data[0] == 0 || out.data[0] == 1);
+        if (out.data[0] != 0 && out.data[0] != 1) {
+            bb::assert_failure("Cannot convert field element to bool unless it is 0 or 1");
+        }
         return static_cast<bool>(out.data[0]);
     }
 

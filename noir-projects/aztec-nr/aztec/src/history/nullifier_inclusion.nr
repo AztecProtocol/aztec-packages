@@ -1,6 +1,3 @@
-use dep::protocol_types::abis::block_header::BlockHeader;
-use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
-
 use crate::{
     context::PrivateContext,
     note::{
@@ -9,7 +6,10 @@ use crate::{
     },
     oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,
 };
-use protocol_types::traits::Hash;
+
+use protocol_types::{
+    abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash,
+};
 
 mod test;
 

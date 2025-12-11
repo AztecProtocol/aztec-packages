@@ -41,6 +41,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_eq(bool in_finalize = true);
     ecc_op_tuple queue_ecc_no_op();
     void queue_ecc_random_op();
+    void queue_ecc_hiding_op(const curve::BN254::BaseField& Px, const curve::BN254::BaseField& Py);
 
   private:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op, bool in_finalize = false);
@@ -50,8 +51,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
 
   public:
     MegaCircuitBuilder_(const size_t size_hint = 0,
-                        std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
-        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint)
+                        std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),
+                        bool is_write_vk_mode = false)
+        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint, is_write_vk_mode)
         , op_queue(std::move(op_queue_in))
     {
         BB_BENCH();
@@ -73,23 +75,22 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @param op_queue_in Op queue to which goblinized group ops will be added
      * @param witness_values witnesses values known to acir
      * @param public_inputs indices of public inputs in witness array
-     * @param varnum number of known witness
+     * @param is_write_vk_mode true if the builder is used to generate the vk of a circuit
      *
      * @note witness_values is the vector of witness values known at the time of acir generation. It is filled with
-     * witness values which are interleaved with zeros when witnesses are optimized away. Not all witness values are
-     * known at the time of acir generation. The number of values that are not known is given by varnum -
-     * witness_values.size(). For each of these witnesses with unknown value, we add to the builder a variable with
-     * value equal to zero.
+     * witness values which are interleaved with zeros when witnesses are optimized away.
      *
-     * @note varnum is in general less than total number of variables/witnesses that might be present for a circuit
-     * generated from acir, since many gates will depend on the details of the bberg implementation (or more generally
-     * on the backend used to process acir).
+     * @note The length of the witness vector is in general less than total number of variables/witnesses that might be
+     * present for a circuit generated from acir, since many gates will depend on the details of the bberg
+     * implementation (or more generally on the backend used to process acir).
+     *
      */
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
                         const std::vector<FF>& witness_values,
                         const std::vector<uint32_t>& public_inputs,
-                        size_t varnum)
-        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
+                        const bool is_write_vk_mode)
+        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(
+              /*size_hint=*/0, witness_values, public_inputs, is_write_vk_mode)
         , op_queue(std::move(op_queue_in))
     {
         // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate

@@ -1,7 +1,10 @@
 import { createLogger } from '@aztec/aztec.js/log';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
-import type { L1ContractAddresses, ViemPublicClient } from '@aztec/ethereum';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
+import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { schemas } from '@aztec/foundation/schemas';
 import { sleep } from '@aztec/foundation/sleep';
@@ -160,9 +163,42 @@ export async function startPortForward({
   return { process, port };
 }
 
-export function startPortForwardForRPC(namespace: string, resourceType = 'services', index = 0) {
+export function getExternalIP(namespace: string, serviceName: string): Promise<string> {
+  const { promise, resolve, reject } = promiseWithResolvers<string>();
+  const process = spawn(
+    'kubectl',
+    [
+      'get',
+      'service',
+      '-n',
+      namespace,
+      `${namespace}-${serviceName}`,
+      '--output',
+      "jsonpath='{.status.loadBalancer.ingress[0].ip}'",
+    ],
+    {
+      stdio: 'pipe',
+    },
+  );
+
+  let ip = '';
+  process.stdout.on('data', data => {
+    ip += data;
+  });
+  process.on('error', err => {
+    reject(err);
+  });
+  process.on('exit', () => {
+    // kubectl prints JSON. Remove the quotes
+    resolve(ip.replace(/"|'/g, ''));
+  });
+
+  return promise;
+}
+
+export function startPortForwardForRPC(namespace: string, index = 0) {
   return startPortForward({
-    resource: `${resourceType}/${namespace}-rpc-aztec-node-${index}`,
+    resource: `pod/${namespace}-rpc-aztec-node-${index}`,
     namespace,
     containerPort: 8080,
   });
@@ -295,6 +331,32 @@ async function execHelmCommand(args: Parameters<typeof createHelmCommand>[0]) {
   return stdout;
 }
 
+export async function cleanHelm(instanceName: string, namespace: string, logger: Logger) {
+  // uninstall the helm chart if it exists
+  logger.info(`Uninstalling helm chart ${instanceName}`);
+  await execAsync(`helm uninstall ${instanceName} --namespace ${namespace} --wait --ignore-not-found`);
+  // and delete the chaos-mesh resources created by this release
+  const deleteByLabel = async (resource: string) => {
+    const args = {
+      resource,
+      namespace: namespace,
+      label: `app.kubernetes.io/instance=${instanceName}`,
+    } as const;
+    logger.info(`Deleting ${resource} resources for release ${instanceName}`);
+    await deleteResourceByLabel(args).catch(e => {
+      logger.error(`Error deleting ${resource}: ${e}`);
+      logger.info(`Force deleting ${resource}`);
+      return deleteResourceByLabel({ ...args, force: true });
+    });
+  };
+
+  await deleteByLabel('podchaos');
+  await deleteByLabel('networkchaos');
+  await deleteByLabel('podnetworkchaos');
+  await deleteByLabel('workflows');
+  await deleteByLabel('workflownodes');
+}
+
 /**
  * Installs a Helm chart with the given parameters.
  * @param instanceName - The name of the Helm chart instance.
@@ -317,7 +379,6 @@ export async function installChaosMeshChart({
   targetNamespace,
   valuesFile,
   helmChartDir,
-  chaosMeshNamespace = 'chaos-mesh',
   timeout = '10m',
   clean = true,
   values = {},
@@ -334,32 +395,13 @@ export async function installChaosMeshChart({
   logger: Logger;
 }) {
   if (clean) {
-    // uninstall the helm chart if it exists
-    logger.info(`Uninstalling helm chart ${instanceName}`);
-    await execAsync(`helm uninstall ${instanceName} --namespace ${chaosMeshNamespace} --wait --ignore-not-found`);
-    // and delete the chaos-mesh resources created by this release
-    const deleteByLabel = async (resource: string) => {
-      const args = {
-        resource,
-        namespace: chaosMeshNamespace,
-        label: `app.kubernetes.io/instance=${instanceName}`,
-      } as const;
-      logger.info(`Deleting ${resource} resources for release ${instanceName}`);
-      await deleteResourceByLabel(args).catch(e => {
-        logger.error(`Error deleting ${resource}: ${e}`);
-        logger.info(`Force deleting ${resource}`);
-        return deleteResourceByLabel({ ...args, force: true });
-      });
-    };
-
-    await deleteByLabel('podchaos');
-    await deleteByLabel('networkchaos');
+    await cleanHelm(instanceName, targetNamespace, logger);
   }
 
   return execHelmCommand({
     instanceName,
     helmChartDir,
-    namespace: chaosMeshNamespace,
+    namespace: targetNamespace,
     valuesFile,
     timeout,
     values: { ...values, 'global.targetNamespace': targetNamespace },
@@ -491,24 +533,24 @@ export function applyNetworkShaping({
   });
 }
 
-export async function awaitL2BlockNumber(
+export async function awaitCheckpointNumber(
   rollupCheatCodes: RollupCheatCodes,
-  blockNumber: bigint,
+  checkpointNumber: CheckpointNumber,
   timeoutSeconds: number,
   logger: Logger,
 ) {
-  logger.info(`Waiting for L2 Block ${blockNumber}`);
+  logger.info(`Waiting for checkpoint ${checkpointNumber}`);
   let tips = await rollupCheatCodes.getTips();
   const endTime = Date.now() + timeoutSeconds * 1000;
-  while (tips.pending < blockNumber && Date.now() < endTime) {
-    logger.info(`At L2 Block ${tips.pending}`);
+  while (tips.pending < checkpointNumber && Date.now() < endTime) {
+    logger.info(`At checkpoint ${tips.pending}`);
     await sleep(1000);
     tips = await rollupCheatCodes.getTips();
   }
-  if (tips.pending < blockNumber) {
-    throw new Error(`Timeout waiting for L2 Block ${blockNumber}, only reached ${tips.pending}`);
+  if (tips.pending < checkpointNumber) {
+    throw new Error(`Timeout waiting for checkpoint ${checkpointNumber}, only reached ${tips.pending}`);
   } else {
-    logger.info(`Reached L2 Block ${tips.pending}`);
+    logger.info(`Reached checkpoint ${tips.pending}`);
   }
 }
 

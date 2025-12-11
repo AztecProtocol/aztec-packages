@@ -13,7 +13,11 @@ use crate::{
     utils::{array, comparison::compare},
 };
 
-use protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::{Packable, ToField}};
+use protocol_types::{
+    address::AztecAddress,
+    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    traits::{Packable, ToField},
+};
 
 pub use crate::note::constants::MAX_NOTES_PER_PAGE;
 
@@ -74,6 +78,7 @@ fn check_notes_order<let N: u32>(
 
 pub fn get_note<Note>(
     context: &mut PrivateContext,
+    owner: Option<AztecAddress>,
     storage_slot: Field,
 ) -> (RetrievedNote<Note>, NoteHashRead)
 where
@@ -81,8 +86,20 @@ where
 {
     // Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
     // is check that the metadata is correct, and that the note exists.
-    let retrieved_note = unsafe { view_note::<Note>(storage_slot) };
+    let retrieved_note = unsafe { view_note::<Note>(owner, storage_slot) };
 
+    constrain_view_note(context, retrieved_note, owner, storage_slot)
+}
+
+fn constrain_view_note<Note>(
+    context: &mut PrivateContext,
+    retrieved_note: RetrievedNote<Note>,
+    owner: Option<AztecAddress>,
+    storage_slot: Field,
+) -> (RetrievedNote<Note>, NoteHashRead)
+where
+    Note: NoteType + NoteHash + Packable,
+{
     // For settled notes, the contract address is implicitly checked since the hash returned from
     // `compute_note_hash_read` is siloed and kernels verify the siloing during note read request
     // validation. Pending notes however are read with the unsiloed note hash, so we need to check that the contract
@@ -92,6 +109,13 @@ where
         retrieved_note.contract_address.eq(context.this_address()),
         "Note contract address mismatch.",
     );
+
+    // If an owner was provided in the function call, we need to check that it matches the one in the note. This is
+    // necessary because if there were two valid notes that differed only by owner, the note hash read request check
+    // below would still pass even if the owner on the input would not match the one in the note.
+    if owner.is_some() {
+        assert(retrieved_note.owner.eq(owner.unwrap_unchecked()), "Note owner mismatch.");
+    }
 
     let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
     context.push_note_hash_read_request(note_hash_read);
@@ -171,6 +195,11 @@ where
                 "Note contract address mismatch.",
             );
 
+            // If owner is provided, constrain that it matches the owner in the retrieved note.
+            if options.owner.is_some() {
+                assert(retrieved_note.owner.eq(options.owner.unwrap()), "Note owner mismatch.");
+            }
+
             let packed_note = retrieved_note.note.pack();
             check_packed_note(packed_note, options.selects);
             if i != 0 {
@@ -187,11 +216,15 @@ where
     (notes, note_hashes)
 }
 
-pub unconstrained fn view_note<Note>(storage_slot: Field) -> RetrievedNote<Note>
+pub unconstrained fn view_note<Note>(
+    owner: Option<AztecAddress>,
+    storage_slot: Field,
+) -> RetrievedNote<Note>
 where
     Note: NoteType + Packable,
 {
     let opt_notes: [_; 1] = oracle::notes::get_notes(
+        owner,
         storage_slot,
         0,
         [],
@@ -223,6 +256,7 @@ where
         flatten_options(options.selects, options.sorts);
 
     let opt_notes = oracle::notes::get_notes(
+        options.owner,
         storage_slot,
         num_selects,
         select_by_indexes,
@@ -258,6 +292,7 @@ where
     // We fetch the notes from the same oracle we use in the constrained case, except we don't bother inspecting the
     // metadata in order to prove existence.
     let opt_notes = oracle::notes::get_notes(
+        options.owner,
         storage_slot,
         num_selects,
         select_by_indexes,

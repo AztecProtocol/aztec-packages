@@ -11,7 +11,7 @@ use dep::protocol_types::{
     address::AztecAddress,
     constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
     hash::poseidon2_hash_with_separator,
-    traits::Packable,
+    traits::{Packable, ToField},
 };
 
 #[derive(Eq, Packable)]
@@ -27,14 +27,20 @@ impl NoteType for MockNote {
 }
 
 impl NoteHash for MockNote {
-    fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field {
-        let input = self.pack().concat([storage_slot, randomness]);
+    fn compute_note_hash(
+        self,
+        owner: AztecAddress,
+        storage_slot: Field,
+        randomness: Field,
+    ) -> Field {
+        let input = self.pack().concat([owner.to_field(), storage_slot, randomness]);
         poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
     }
 
     fn compute_nullifier(
         _self: Self,
         _context: &mut PrivateContext,
+        _owner: AztecAddress,
         note_hash_for_nullification: Field,
     ) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
@@ -47,6 +53,7 @@ impl NoteHash for MockNote {
 
     unconstrained fn compute_nullifier_unconstrained(
         self,
+        _owner: AztecAddress,
         note_hash_for_nullification: Field,
     ) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
@@ -61,6 +68,7 @@ impl NoteHash for MockNote {
 pub(crate) struct MockNoteBuilder {
     value: Field,
     contract_address: Option<AztecAddress>,
+    owner: Option<AztecAddress>,
     randomness: Option<Field>,
     note_metadata: Option<NoteMetadata>,
 }
@@ -70,6 +78,7 @@ impl MockNoteBuilder {
         MockNoteBuilder {
             value,
             contract_address: Option::none(),
+            owner: Option::none(),
             randomness: Option::none(),
             note_metadata: Option::none(),
         }
@@ -77,6 +86,11 @@ impl MockNoteBuilder {
 
     pub(crate) fn contract_address(&mut self, contract_address: AztecAddress) -> &mut Self {
         self.contract_address = Option::some(contract_address);
+        self
+    }
+
+    pub(crate) fn owner(&mut self, owner: AztecAddress) -> &mut Self {
+        self.owner = Option::some(owner);
         self
     }
 
@@ -98,6 +112,7 @@ impl MockNoteBuilder {
         RetrievedNote {
             note: MockNote { value: self.value },
             contract_address: self.contract_address.unwrap_or(AztecAddress::zero()),
+            owner: self.owner.unwrap_or(AztecAddress::zero()),
             randomness: self.randomness.unwrap_or(0),
             // If the option is `None` for self.note_metadata, we fill it with invalid note metadata, which would result in the kernel
             // failing to prove note existence. Because our tests don't interact with the kernel this is not a problem.

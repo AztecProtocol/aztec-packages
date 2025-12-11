@@ -71,25 +71,23 @@ template <typename Builder> field_t<Builder> add_normalize(const field_t<Builder
  * Inputs: - A pointer to a 16-word `state`,
  *         - indices a, b, c, d,
  *         - addition messages x and y
- *         - boolean `last_update` to make sure addition is normalised only in
- *           last update of the state
  *
  * Gate costs per call to function G in lookup case:
  *
  * Read sequence from table = 6 gates per read => 6 * 4 = 24
- * Addition gates = 4 gates
+ * Addition gates = 2 gates
  * Range gates = 2 gates
  * Addition gate for correct output of XOR rotate 12 = 1 gate
  * Normalizing scaling factors = 2 gates
  *
- * Subtotal = 33 gates
+ * Subtotal = 31 gates
  * Outside rounds, each of Blake2s and Blake3s needs 20 and 24 lookup reads respectively.
  *
  * +-----------+--------------+-----------------------+---------------------------+--------------+
  * |           |  calls to G  | gate count for rounds | gate count outside rounds |    total     |
  * |-----------|--------------|-----------------------|---------------------------|--------------|
- * |  Blake2s  |      80      |        80 * 33        |          20 * 6           |     2760     |
- * |  Blake3s  |      56      |        56 * 33        |          24 * 6           |     1992     |
+ * |  Blake2s  |      80      |        80 * 31        |          20 * 6           |     2600     |
+ * |  Blake3s  |      56      |        56 * 31        |          24 * 6           |     1880     |
  * +-----------+--------------+-----------------------+---------------------------+--------------+
  *
  * P.S. This doesn't include some more addition gates required after the rounds.
@@ -109,6 +107,7 @@ template <typename Builder> field_t<Builder> add_normalize(const field_t<Builder
  *
  *
  **/
+
 template <typename Builder>
 void g(field_t<Builder> state[BLAKE_STATE_SIZE],
        size_t a,
@@ -116,8 +115,7 @@ void g(field_t<Builder> state[BLAKE_STATE_SIZE],
        size_t c,
        size_t d,
        field_t<Builder> x,
-       field_t<Builder> y,
-       const bool last_update = false)
+       field_t<Builder> y)
 {
     typedef field_t<Builder> field_pt;
 
@@ -161,11 +159,7 @@ void g(field_t<Builder> state[BLAKE_STATE_SIZE],
     state[b] = lookup_output;
 
     // a = a + b + y
-    if (!last_update) {
-        state[a] = state[a].add_two(state[b], y);
-    } else {
-        state[a] = add_normalize(state[a], state[b] + y);
-    }
+    state[a] = add_normalize(state[a], state[b] + y);
 
     // d = (d ^ a).ror(8)
     // Get the lookup accumulator where `lookup_3[ColumnIdx::C3][0]` contains the
@@ -177,11 +171,7 @@ void g(field_t<Builder> state[BLAKE_STATE_SIZE],
     state[d] = lookup_3[ColumnIdx::C3][0] * scaling_factor_3;
 
     // c = c + d
-    if (!last_update) {
-        state[c] = state[c] + state[d];
-    } else {
-        state[c] = add_normalize(state[c], state[d]);
-    }
+    state[c] = add_normalize(state[c], state[d]);
 
     // b = (b ^ c).ror(7)
     // Get the lookup accumulator where `lookup_4[ColumnIdx::C3][0]` contains the
@@ -197,7 +187,7 @@ void g(field_t<Builder> state[BLAKE_STATE_SIZE],
  * This is the round function used in Blake2s and Blake3s for Ultra.
  * Inputs: - 16-word state
  *         - 16-word msg
- *         - round numbe
+ *         - round number
  *         - which_blake to choose Blake2 or Blake3 (false -> Blake2)
  */
 template <typename Builder>
@@ -216,10 +206,10 @@ void round_fn(field_t<Builder> state[BLAKE_STATE_SIZE],
     g<Builder>(state, 3, 7, 11, 15, msg[schedule[6]], msg[schedule[7]]);
 
     // Mix the rows.
-    g<Builder>(state, 0, 5, 10, 15, msg[schedule[8]], msg[schedule[9]], true);
-    g<Builder>(state, 1, 6, 11, 12, msg[schedule[10]], msg[schedule[11]], true);
-    g<Builder>(state, 2, 7, 8, 13, msg[schedule[12]], msg[schedule[13]], true);
-    g<Builder>(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]], true);
+    g<Builder>(state, 0, 5, 10, 15, msg[schedule[8]], msg[schedule[9]]);
+    g<Builder>(state, 1, 6, 11, 12, msg[schedule[10]], msg[schedule[11]]);
+    g<Builder>(state, 2, 7, 8, 13, msg[schedule[12]], msg[schedule[13]]);
+    g<Builder>(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]]);
 }
 
 } // namespace bb::stdlib::blake_util

@@ -1,10 +1,6 @@
 import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
-import {
-  type L1ReaderConfig,
-  type L1TxUtilsConfig,
-  l1ReaderConfigMappings,
-  l1TxUtilsConfigMappings,
-} from '@aztec/ethereum';
+import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
+import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from '@aztec/ethereum/l1-tx-utils';
 import {
   type ConfigMappingsType,
   SecretValue,
@@ -37,6 +33,8 @@ export type PublisherConfig = L1TxUtilsConfig &
     publisherAllowInvalidStates?: boolean;
     /** Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1 */
     fishermanMode?: boolean;
+    /** Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only) */
+    publisherForwarderAddress?: EthAddress;
   };
 
 export const getTxSenderConfigMappings: (
@@ -75,6 +73,11 @@ export const getPublisherConfigMappings: (
     description:
       'Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1',
     ...booleanConfigHelper(false),
+  },
+  publisherForwarderAddress: {
+    env: scope === `PROVER` ? `PROVER_PUBLISHER_FORWARDER_ADDRESS` : `SEQ_PUBLISHER_FORWARDER_ADDRESS`,
+    description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
+    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
   },
   ...l1TxUtilsConfigMappings,
   ...blobSinkConfigMapping,

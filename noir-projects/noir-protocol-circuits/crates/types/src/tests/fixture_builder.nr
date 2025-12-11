@@ -519,8 +519,9 @@ impl FixtureBuilder {
     }
 
     pub fn to_private_call_data(mut self) -> PrivateCallData {
+        let public_inputs = self.to_private_circuit_public_inputs();
         PrivateCallData {
-            public_inputs: self.to_private_circuit_public_inputs(),
+            public_inputs,
             vk: self.vk,
             verification_key_hints: self.to_private_verification_key_hints(),
         }
@@ -1209,8 +1210,8 @@ impl FixtureBuilder {
     }
 
     pub fn end_setup(&mut self) {
-        self.min_revertible_side_effect_counter = self.counter;
-        self.claimed_revertible_counter = self.counter;
+        self.min_revertible_side_effect_counter = self.next_counter();
+        self.claimed_revertible_counter = self.min_revertible_side_effect_counter;
     }
 
     fn get_split_side_effects<T, let N: u32>(

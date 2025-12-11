@@ -131,7 +131,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         if TransientDataSquashingAmount == 0 {
             // The following check is unnecessary if there is transient data to be squashed
             // (i.e. `TransientDataSquashingAmount` != 0),
-            // because `validate_transient_data -> validate_squashed_transient_data` will be called,
+            // because `transient_data/validate_log_squashing` will be called,
             // and it ensures that each note log is either:
             // - linked to a note hash being squashed, or
             // - linked to one that is being kept.
@@ -156,27 +156,12 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
     }
 
     fn validate_unchanged_data(self) {
-        assert_eq(self.output.is_private_only, self.previous_kernel.is_private_only);
-        assert_eq(
-            self.output.claimed_first_nullifier,
-            self.previous_kernel.claimed_first_nullifier,
-        );
         assert_eq(self.output.constants, self.previous_kernel.constants);
 
         assert_eq(
             self.output.min_revertible_side_effect_counter,
             self.previous_kernel.min_revertible_side_effect_counter,
         );
-
-        assert_eq(
-            self.output.public_teardown_call_request,
-            self.previous_kernel.public_teardown_call_request,
-        );
-
-        assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer);
-
-        // Reset doesn't mutate include_by_timestamp
-        assert_eq(self.output.include_by_timestamp, self.previous_kernel.include_by_timestamp);
 
         // accumulated_data
         assert_eq(self.output.end.l2_to_l1_msgs, self.previous_kernel.end.l2_to_l1_msgs);
@@ -189,7 +174,22 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             self.previous_kernel.end.public_call_requests,
         );
         assert_eq(self.output.end.private_call_stack, self.previous_kernel.end.private_call_stack);
+        assert_eq(
+            self.output.public_teardown_call_request,
+            self.previous_kernel.public_teardown_call_request,
+        );
 
+        assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer);
+
+        // Reset doesn't mutate include_by_timestamp
+        assert_eq(self.output.include_by_timestamp, self.previous_kernel.include_by_timestamp);
+
+        assert_eq(self.output.is_private_only, self.previous_kernel.is_private_only);
+
+        assert_eq(
+            self.output.claimed_first_nullifier,
+            self.previous_kernel.claimed_first_nullifier,
+        );
         assert_eq(
             self.output.claimed_revertible_counter,
             self.previous_kernel.claimed_revertible_counter,
@@ -342,6 +342,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         // Q: Why are we computing these scoped padded note hashes, when we already
         // computed them in reset_output_composer.nr?
         // They're already a part of `output.end.note_hashes`
+        // A: So we can verify that they have been correctly siloed below.
         let padded_scoped_note_hashes = padded_note_hash_hints.map(|value| {
             let (counter, contract_address) = if value != 0 {
                 (MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS)
@@ -369,9 +370,10 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
                     index,
                     self.output.claimed_first_nullifier,
                     self.output.is_private_only,
-                    self.output.min_revertible_side_effect_counter,
+                    self.output.claimed_revertible_counter,
                 );
                 assert(out.contract_address.is_zero());
+                // counter is checked in assert_sorted_padded_transformed_array_capped_size
             },
         );
     }

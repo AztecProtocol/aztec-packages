@@ -97,7 +97,7 @@ void ChonkAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing Chonk vk in directory ", output_dir);
-        // write CHONK vk using the bytecode of the hiding circuit (the last step of the execution)
+        // write CHONK vk using the bytecode of the Hiding kernel (the last step of the execution)
         write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir);
     }
 }

@@ -19,6 +19,9 @@ export type SharedNodeConfig = {
   web3SignerUrl?: string;
   /** Whether to run in fisherman mode */
   fishermanMode?: boolean;
+
+  /** Force verification of tx Chonk proofs. Only used for testnet */
+  debugForceTxProofVerification: boolean;
 };
 
 export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
@@ -66,6 +69,11 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
   fishermanMode: {
     env: 'FISHERMAN_MODE',
     description: 'Whether to run in fisherman mode.',
+    ...booleanConfigHelper(false),
+  },
+  debugForceTxProofVerification: {
+    env: 'DEBUG_FORCE_TX_PROOF_VERIFICATION',
+    description: 'Whether to force tx proof verification. Only has an effect if real proving is turned off',
     ...booleanConfigHelper(false),
   },
 };

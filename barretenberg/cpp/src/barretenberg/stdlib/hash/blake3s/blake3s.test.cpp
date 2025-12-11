@@ -70,8 +70,8 @@ TEST(stdlib_blake3s, test_too_large_input)
     std::vector<uint8_t> input_v(1025, 0);
 
     byte_array_ct input_arr(&builder, input_v);
-    EXPECT_THROW_OR_ABORT(stdlib::Blake3s<UltraBuilder>::hash(input_arr),
-                          "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
+    EXPECT_THROW_WITH_MESSAGE(stdlib::Blake3s<UltraBuilder>::hash(input_arr),
+                              "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
 }
 
 TEST(stdlib_blake3s, test_witness_and_constant)
@@ -113,6 +113,34 @@ TEST(stdlib_blake3s, test_witness_and_constant)
     EXPECT_EQ(proof_result, true);
 }
 
+TEST(stdlib_blake3s, test_constant_only)
+{
+    UltraBuilder builder;
+    size_t len = 65;
+
+    // create a byte array that is a circuit constant
+    byte_array_ct input_arr = byte_array_ct::constant_padding(&builder, len, '1');
+
+    // create expected input vector
+    std::vector<uint8_t> input_v(len, '1');
+
+    // Verify the circuit input matches the expected input
+    EXPECT_EQ(input_arr.get_value(), input_v);
+
+    // hash the byte array
+    byte_array_ct output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
+
+    // compute expected hash
+    auto expected = blake3::blake3s(input_v);
+
+    EXPECT_EQ(output.get_value(), std::vector<uint8_t>(expected.begin(), expected.end()));
+
+    info("builder gates = ", builder.get_num_finalized_gates_inefficient());
+
+    bool proof_result = CircuitChecker::check(builder);
+    EXPECT_EQ(proof_result, true);
+}
+
 TEST(stdlib_blake3s, test_multiple_sized_blocks)
 {
     int i = 0;
@@ -134,4 +162,32 @@ TEST(stdlib_blake3s, test_multiple_sized_blocks)
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
+}
+
+// Previously, certain inputs were pushing the addition overflows in `g` to beyond 3 bits (where `add_normalize` can
+// tolerate up to 3 bits of overflow), causing failures. This has been addressed by calling `add_normalize` in the
+// second half of every call to `g` to ensure that the overflow doesn't go beyond 3 bits. The edge case that caused
+// addition overflow issues in Blake is tested here. See https://hackmd.io/@aztec-network/SyTHLkAWZx for a detailed
+// description of the addition overflow issue.
+TEST(stdlib_blake3s, test_edge_case_addition_overflow)
+{
+    std::array<uint8_t, 34> v = { 0xC3, 0x2B, 0xC3, 0x91, 0x23, 0xFF, 0xFF, 0xFF, 0xFF, 0xC3, 0xFF, 0xFF,
+                                  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                  0xFF, 0xFF, 0xFF, 0xFF, 0xC3, 0x03, 0x83, 0x83, 0x83, 0x40 };
+
+    UltraBuilder builder;
+
+    std::vector<uint8_t> input_v(v.begin(), v.end());
+
+    byte_array_ct input_arr(&builder, input_v);
+    byte_array_ct output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
+
+    auto expected = blake3::blake3s(input_v);
+
+    EXPECT_EQ(output.get_value(), std::vector<uint8_t>(expected.begin(), expected.end()));
+
+    info(".: builder gates = ", builder.get_num_finalized_gates_inefficient());
+
+    bool proof_result = CircuitChecker::check(builder);
+    EXPECT_EQ(proof_result, true);
 }

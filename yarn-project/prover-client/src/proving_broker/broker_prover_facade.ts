@@ -5,8 +5,8 @@ import type {
   RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { sha256 } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { truncate } from '@aztec/foundation/string';

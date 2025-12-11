@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+set -uo pipefail
+IFS=$'\n\t'
+
 umask 000
 
 fuzzer=''
@@ -9,132 +12,148 @@ mode='fuzzing'
 jobs_='4'
 workers='0'
 asm='on'
+show_only=0
+avm='off'
+
+set_main_fuzzer() {
+	main_fuzzer=''
+	if [[ "$avm" == "on" ]]; then
+		main_fuzzer="./build-fuzzing-avm/bin"
+	else
+		case "$asm" in
+		on)
+			main_fuzzer="./build-fuzzing/bin"
+			;;
+		off)
+			main_fuzzer="./build-fuzzing-noasm/bin"
+			;;
+		*)
+			log "Unexpected asm flag value: $asm. Expecting on/off"
+			exit 1
+			;;
+		esac
+	fi
+
+	post_fuzzer="./build-fuzzing-asan/bin"
+	cov_fuzzer="./build-fuzzing-cov/bin" # TODO(defkit): implement cov fuzzer for AVM
+}
 
 show_fuzzers() {
-    echo "The following fuzzers are available:"
-    echo
-    if compgen -G "$main_fuzzer/*"* &> /dev/null; then
-        for f in "$main_fuzzer/"*; do
-            basename "$f";
-        done;
-    fi
+	echo "The following fuzzers are available:"
+	echo
+	if compgen -G "$main_fuzzer/*"* &>/dev/null; then
+		for f in "$main_fuzzer/"*; do
+			basename "$f"
+		done
+	fi
 }
 
 show_help() {
-    echo "Usage: $0 [options]"
-    echo ""
-    echo "Options:"
-    echo "  -v, --verbose               Enable fuzzer's verbose mode (default: $timeout)"
-    echo "  -f, --fuzzer <fuzzer_name>  Specify the fuzzer to use"
-    echo "  -t, --timeout <timeout>     Set the maximum total time for fuzzing in seconds (default: $timeout - 1 month)"
-    echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs_)"
-    echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
-    echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage or regress-only) (default: $mode)"
-    echo "  -a, --asm <mode>            Set the flag to enable/disable asm instrucitons (on/off) (default: $asm)"
-    echo "  -h, --help                  Display this help and exit"
-    echo "  --show-fuzzers              Display the available fuzzers"
-    echo ""
-    echo "This script handles fuzzing testing with specified parameters, managing crash reports,"
-    echo "and coverage testing based on the mode specified."
-    echo
-    show_fuzzers;
+	echo "Usage: $0 [options]"
+	echo ""
+	echo "Options:"
+	echo "  -v, --verbosity <verbosity> Enable fuzzer's verbose mode (default: $verbosity)"
+	echo "  -f, --fuzzer <fuzzer_name>  Specify the fuzzer to use"
+	echo "  -t, --timeout <timeout>     Set the maximum total time for fuzzing in seconds (default: $timeout - 1 month)"
+	echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs_)"
+	echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
+	echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage or regress-only) (default: $mode)"
+	echo "  -a, --asm <mode>            Set the flag to enable/disable asm instructions (on/off) (default: $asm)"
+	echo "  -A, --avm <mode>            Enable AVM fuzzing mode (uses build-fuzzing-avm) (on/off) (default: $avm)"
+	echo "  -h, --help                  Display this help and exit"
+	echo "  --show-fuzzers              Display the available fuzzers"
+	echo ""
+	echo "This script handles fuzzing testing with specified parameters, managing crash reports,"
+	echo "and coverage testing based on the mode specified."
+	echo
+}
+
+log() {
+	echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
 }
 
 while [[ $# -gt 0 ]]; do
-    case "$1" in
-        -v|--verbose)
-            verbosity='1'
-            shift
-            ;;
-        -f|--fuzzer)
-            fuzzer="$2"
-            shift 2
-            ;;
-        --show-fuzzers)
-            show_fuzzers
-            exit 0;
-            ;;
-        -t|--timeout)
-            timeout="$2"
-            shift 2
-            ;;
-        -w|--workers)
-            workers="$2"
-            shift 2
-            ;;
-        -j|--jobs)
-            jobs_="$2"
-            shift 2
-            ;;
-        -m|--mode)
-            mode="$2";
-            shift 2;
-            ;;
-        -a|--asm)
-            asm="$2";
-            shift 2;
-            ;;
-        -h|--help)
-            show_help;
-            exit 0;
-            ;;
-        --)
-            shift
-            break
-            ;;
-        -*)
-            echo "Error: Unsupported flag $1" >&2
-            exit 1
-            ;;
-        *) 
-            break
-            ;;
-    esac
+	case "$1" in
+	-v | --verbosity)
+		verbosity="$2"
+		shift 2
+		;;
+
+	-f | --fuzzer)
+		fuzzer="$2"
+		shift 2
+		;;
+	--show-fuzzers)
+		show_only=1
+		shift
+		;;
+	-t | --timeout)
+		timeout="$2"
+		shift 2
+		;;
+	-w | --workers)
+		workers="$2"
+		shift 2
+		;;
+	-j | --jobs)
+		jobs_="$2"
+		shift 2
+		;;
+	-m | --mode)
+		mode="$2"
+		shift 2
+		;;
+	-a | --asm)
+		asm="$2"
+		shift 2
+		;;
+	-A | --avm)
+		avm="$2"
+		shift 2
+		;;
+	-h | --help)
+		show_help
+		exit 0
+		;;
+	--)
+		shift
+		break
+		;;
+	-*)
+		log "Error: Unsupported flag $1"
+		exit 1
+		;;
+	*)
+		break
+		;;
+	esac
 done
 
-log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
-}
+set_main_fuzzer
 
-main_fuzzer=''
-if [[ "$asm" == "on" ]]; then
-    main_fuzzer="./build-fuzzing/bin"
-elif [[ "$asm" == "off" ]]; then
-    main_fuzzer="./build-fuzzing-noasm/bin"
-else
-    echo "Unexpected asm flag value: $asm. Expecting on/off";
-    exit 1;
+if [[ "$show_only" -eq 1 ]]; then
+	show_fuzzers
+	exit 0
 fi
-post_fuzzer="./build-fuzzing-asan/bin"
-cov_fuzzer="./build-fuzzing-cov/bin"
 
 workdir="/home/fuzzer"
 
 CRASHES="$workdir/crash-reports"
-[[ -d "$CRASHES" ]] ||  mkdir "$CRASHES" 2> /dev/null
 UNSORTED_CRASHES="$CRASHES/unsorted"
-[[ -d "$UNSORTED_CRASHES" ]] || mkdir "$UNSORTED_CRASHES" 2> /dev/null
-
 CORPUS="$workdir/corpus"
-[[ -d "$CORPUS" ]] || mkdir "$CORPUS" 2> /dev/null
-
 OUTPUT="$workdir/output"
-[[ -d "$OUTPUT" ]] || mkdir "$OUTPUT" 2> /dev/null
-
 COVERAGE="$workdir/coverage"
-[[ -d "$COVERAGE" ]] || mkdir "$COVERAGE" 2> /dev/null
-
 RAWCOV="$COVERAGE/raw"
-[[ -d "$RAWCOV" ]] || mkdir "$RAWCOV" 2> /dev/null
+mkdir -p "$CRASHES" "$UNSORTED_CRASHES" "$CORPUS" "$OUTPUT" "$COVERAGE" "$RAWCOV"
 
 if [ -z "${fuzzer}" ]; then
-    log "No fuzzer was provided";
-    show_help;
-    exit 1;
+	log "No fuzzer was provided"
+	show_help
+	exit 1
 elif [ ! -e "$main_fuzzer/$fuzzer" ]; then
-    log "$main_fuzzer/$fuzzer does not exist";
-    show_help;
-    exit 1;
+	log "$main_fuzzer/$fuzzer does not exist"
+	show_help
+	exit 1
 fi
 
 main_fuzzer="$main_fuzzer/$fuzzer"
@@ -142,145 +161,141 @@ post_fuzzer="$post_fuzzer/$fuzzer"
 cov_fuzzer="$cov_fuzzer/$fuzzer"
 
 if [[ "$asm" == "off" ]]; then
-    fuzzer="$fuzzer"_noasm
+	fuzzer="$fuzzer"_noasm
 fi
 
 CRASHES="$CRASHES/$fuzzer"
-[[ -d "$CRASHES" ]] || mkdir "$CRASHES"
-
 OUTPUT="$OUTPUT/$fuzzer"
-[[ -d "$OUTPUT" ]] || mkdir "$OUTPUT"
-
 CORPUS="$CORPUS/$fuzzer"
-[[ -d "$CORPUS" ]] || mkdir "$CORPUS"
-
 COVERAGE="$COVERAGE/$fuzzer"
-[[ -d "$COVERAGE" ]] || mkdir "$COVERAGE"
-
 RAWCOV="$RAWCOV/$fuzzer"
-[[ -d "$RAWCOV" ]] || mkdir "$RAWCOV"
 
-if compgen -G "$OUTPUT/*"* &> /dev/null; then
-    dirs_=("$OUTPUT/"*)
-    dirnum="${#dirs_[@]}"
-    OUTPUT="$OUTPUT/$dirnum"
+if compgen -G "$OUTPUT/*"* &>/dev/null; then
+	dirs_=("$OUTPUT/"*)
+	dirnum="${#dirs_[@]}"
+	OUTPUT="$OUTPUT/$dirnum"
 else
-    OUTPUT="$OUTPUT/0"
+	OUTPUT="$OUTPUT/0"
 fi
-[[ -d "$OUTPUT" ]] || mkdir "$OUTPUT"
-log "Output directory is: $OUTPUT";
+
+mkdir -p "$CRASHES" "$CORPUS" "$OUTPUT" "$COVERAGE" "$RAWCOV"
+
+log "Output directory is: $OUTPUT"
 
 regress() {
-    src="$1"
-    log "Entering $src...";
-    if compgen -G "$src/*" &> /dev/null; then
-        for x in "$src"/*; do
-            "$main_fuzzer" "$x" &> /dev/null;
-            status=$?;
-            if [[ "$status" -ne 0 ]]; then
-                "$post_fuzzer" "$x" &> "$OUTPUT"/result.txt;
-                cp "$x" "$OUTPUT";
-                cp "$x" "$CRASHES" 2>/dev/null;
-                log "Existing $x resulted in exit status $status";
-                exit 1;
-            fi
-        done;
-    log "Leaving $src..."
-fi
+	src="$1"
+	log "Entering $src..."
+	if compgen -G "$src/*" &>/dev/null; then
+		for x in "$src"/*; do
+			"$main_fuzzer" "$x" &>/dev/null
+			status=$?
+			if [[ "$status" -ne 0 ]]; then
+				"$post_fuzzer" "$x" &>"$OUTPUT"/result.txt
+				cp "$x" "$OUTPUT"
+				cp "$x" "$CRASHES" 2>/dev/null
+				log "Existing $x resulted in exit status $status"
+				exit 1
+			fi
+		done
+	fi
+	log "Leaving $src..."
 }
 
 log "Start regression testing"
-regress "$CRASHES";
-regress "$UNSORTED_CRASHES";
+regress "$CRASHES"
+regress "$UNSORTED_CRASHES"
 log "End of regression"
 
 fuzz() {
-    TMPOUT="$(mktemp -d)"
-    MINDIR=""
-    trap 'rm -rf "$TMPOUT" "$MINDIR" 2>/dev/null' EXIT
+	TMPOUT="$(mktemp -d)"
+	MINDIR=""
+	trap 'rm -rf "$TMPOUT"' EXIT
 
-    [[ -d "$TMPOUT" ]] || mkdir "$TMPOUT"
-    log "Start $fuzzer with: max_total_time: $timeout, $jobs_ jobs and $workers workers"
-    "$main_fuzzer" -max_total_time="$timeout" -verbosity="$verbosity" -artifact_prefix="$TMPOUT/" -jobs="$jobs_" -workers="$workers"  -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 "$CORPUS" &> "$TMPOUT/session.log";
-    status=$?;
+	log "Start $fuzzer with: max_total_time: $timeout, $jobs_ jobs and $workers workers"
+	"$main_fuzzer" -max_total_time="$timeout" -verbosity="$verbosity" -artifact_prefix="$TMPOUT/" -jobs="$jobs_" -workers="$workers" -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 "$CORPUS" &>"$TMPOUT/session.log"
+	status=$?
 
-    log "Fuzzer stopped"
+	log "Fuzzer stopped"
 
-    files=("$TMPOUT"/crash-*)
-    timeout_files=("$TMPOUT"/timeout-*)
-    
-    exit_code=0
-    if [ ${#files[@]} -eq 0 ] || [ ! -e "${files[0]}" ]; then
-        if [[ "$status" -ne 0 ]] && [ ! ${#timeout_files[@]} -eq "$workers" ];  then
-            log "Something wrong with $fuzzer. Not related to fuzzing. Exit status: $status";
-            exit_code=1;
-        else
-            log "No crashes occurred";
-        fi
-    else 
-        log "Start minimization"
-        for crash in "${files[@]}"; do
-            crash_name=$(basename "$crash")
-            log "Minimizing $crash_name: $(wc -c < $crash)B"
+	files=("$TMPOUT"/crash-*)
+	timeout_files=("$TMPOUT"/timeout-*)
 
-            MINDIR=$(mktemp -d)
-            mv "$TMPOUT/$crash_name" "$MINDIR";
-            "$main_fuzzer" -minimize_crash=1 -runs=10000 -artifact_prefix="$MINDIR/" "$MINDIR/$crash_name" &>> "$TMPOUT/minimize.log"
+	exit_code=0
+	if [ ${#files[@]} -eq 0 ] || [ ! -e "${files[0]}" ]; then
+		if [[ "$status" -ne 0 ]] && [ ! ${#timeout_files[@]} -eq "$workers" ]; then
+			log "Something wrong with $fuzzer. Not related to fuzzing. Exit status: $status"
+			exit_code=1
+		else
+			log "No crashes occurred"
+		fi
+	else
+		log "Start minimization"
+		for crash in "${files[@]}"; do
+			crash_name=$(basename "$crash")
+			log "Minimizing $crash_name: $(wc -c <$crash)B"
 
-            smallest_crash=$(ls -S "$MINDIR/" | tail -n 1);
-            log "Minimized  $smallest_crash: $(wc -c < $MINDIR/$smallest_crash)B"
+			MINDIR=$(mktemp -d)
+			mv "$TMPOUT/$crash_name" "$MINDIR"
+			"$main_fuzzer" -minimize_crash=1 -runs=10000 -artifact_prefix="$MINDIR/" "$MINDIR/$crash_name" &>>"$TMPOUT/minimize.log"
 
-            cp "$MINDIR/$smallest_crash" "$OUTPUT"
-            "$post_fuzzer" "$MINDIR/$smallest_crash" &> "$OUTPUT/$smallest_crash"_result.txt
+			smallest_crash=$(ls -S "$MINDIR/" | tail -n 1)
+			log "Minimized  $smallest_crash: $(wc -c <$MINDIR/$smallest_crash)B"
 
-            mv "$MINDIR/"* "$CRASHES";
-            rm -rf "$MINDIR"
-        done
-        exit_code=1
-    fi
+			cp "$MINDIR/$smallest_crash" "$OUTPUT"
+			"$post_fuzzer" "$MINDIR/$smallest_crash" &>"$OUTPUT/$smallest_crash"_result.txt
 
-    log "Minimizing the corpus of size $(find "$CORPUS" -type f | wc -l)...";
-    MINCORP="$TMPOUT/corpus";
-    [[ -d $MINCORP ]] || mkdir "$MINCORP";
+			mv "$MINDIR/"* "$CRASHES"
+			rm -rf "$MINDIR"
+		done
+		exit_code=1
+	fi
 
-    "$main_fuzzer" -merge=1 -jobs="$jobs_" -workers="$workers" "$MINCORP" "$CORPUS" 
-    rm -rf "$CORPUS"
-    mv "$MINCORP" "$CORPUS"
-    log "Minimized the corpus to size $(find "$CORPUS" -type f | wc -l)";
+	log "Minimizing the corpus of size $(find "$CORPUS" -type f | wc -l)..."
+	MINCORP="$TMPOUT/corpus"
+	mkdir -p "$MINCORP"
 
-    cp -r fuzz-*.log "$OUTPUT";
+	"$main_fuzzer" -merge=1 -jobs="$jobs_" -workers="$workers" "$MINCORP" "$CORPUS"
+	rm -rf "$CORPUS"
+	mv "$MINCORP" "$CORPUS"
+	log "Minimized the corpus to size $(find "$CORPUS" -type f | wc -l)"
 
-    mv "$TMPOUT/"* "$OUTPUT";
-    rmdir "$TMPOUT"
-    exit "$exit_code"
+	cp -r fuzz-*.log "$OUTPUT" 2>/dev/null || true
+
+	mv "$TMPOUT/"* "$OUTPUT"
+	rmdir "$TMPOUT"
+	exit "$exit_code"
 }
 
 cov() {
-    TMPOUT="$(mktemp -d)"
-    trap 'rm -rf "$TMPOUT" 2>/dev/null' EXIT
+	if ! compgen -G "$CORPUS/*" >/dev/null; then
+		log "Corpus is empty, nothing to collect coverage from."
+		return 0
+	fi
+	TMPOUT="$(mktemp -d)"
+	trap 'rm -rf "$TMPOUT" 2>/dev/null' EXIT
 
-    TS=$(date +%Y%m%dT%H%M%S)
-    LLVM_PROFILE_FILE="$RAWCOV/${TS}-%p.profraw" "$cov_fuzzer" -merge=1 "$TMPOUT" "$CORPUS/"
+	TS=$(date +%Y%m%dT%H%M%S)
+	LLVM_PROFILE_FILE="$RAWCOV/${TS}-%p.profraw" "$cov_fuzzer" -merge=1 "$TMPOUT" "$CORPUS/"
 
-    llvm-profdata-18 merge -sparse "$RAWCOV/"*.profraw -o "$COVERAGE/fuzz.profdata"
+	llvm-profdata-18 merge -sparse "$RAWCOV/"*.profraw -o "$COVERAGE/fuzz.profdata"
 
-    llvm-cov-18 show "$cov_fuzzer"               \
-        -instr-profile="$COVERAGE/fuzz.profdata" \
-        -format=html                             \
-        -output-dir="$COVERAGE/cov-html"         \
-        -show-line-counts-or-regions             \
-        --show-branches=percent                  \
-        --show-directory-coverage
+	llvm-cov-18 show "$cov_fuzzer" \
+		-instr-profile="$COVERAGE/fuzz.profdata" \
+		-format=html \
+		-output-dir="$COVERAGE/cov-html" \
+		-show-line-counts-or-regions \
+		--show-branches=percent \
+		--show-directory-coverage
 }
 
 case "$mode" in
-    fuzzing)
-        fuzz;
-        ;;
-    coverage)
-        cov;
-        ;;
-    regress-only)
-        log "Regression only mode finished.";
-        ;;
+fuzzing)
+	fuzz
+	;;
+coverage)
+	cov
+	;;
+regress-only)
+	log "Regression only mode finished."
+	;;
 esac

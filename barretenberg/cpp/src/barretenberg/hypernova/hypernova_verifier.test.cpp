@@ -93,6 +93,96 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         }
     };
 
+    /**
+     * @brief Build the expected transcript manifest for HyperNova folding
+     * @details The manifest has 50 rounds total:
+     * - Oink (rounds 0-2): vk_hash, public inputs, wires, ECC ops, databus, lookup, inverses
+     * - Main sumcheck (rounds 3-25): gate_challenge, univariates, evaluations + batching challenges
+     * - Batching challenges (round 26): shifted challenges
+     * - MLB data (round 27): accumulator commitments/challenges/evaluations
+     * - MLB sumcheck (rounds 28-49): univariates, final evaluations + claim_batching_challenge
+     */
+    static TranscriptManifest build_expected_folding_manifest()
+    {
+        TranscriptManifest manifest;
+        constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
+        constexpr size_t NUM_SUMCHECK_UNIVARIATES = NativeFlavor::VIRTUAL_LOG_N; // 21
+
+        // Round 0: Oink preamble + wires + ECC ops + databus
+        manifest.add_entry(0, "vk_hash", 1);
+        for (size_t i = 0; i < 4; ++i) {
+            manifest.add_entry(0, "public_input_" + std::to_string(i), 1);
+        }
+        for (const auto& wire : { "W_L", "W_R", "W_O" }) {
+            manifest.add_entry(0, wire, frs_per_G);
+        }
+        for (const auto& wire : { "ECC_OP_WIRE_1", "ECC_OP_WIRE_2", "ECC_OP_WIRE_3", "ECC_OP_WIRE_4" }) {
+            manifest.add_entry(0, wire, frs_per_G);
+        }
+        for (const auto& bus : { "CALLDATA", "SECONDARY_CALLDATA", "RETURN_DATA" }) {
+            manifest.add_entry(0, bus, frs_per_G);
+            manifest.add_entry(0, std::string(bus) + "_READ_COUNTS", frs_per_G);
+            manifest.add_entry(0, std::string(bus) + "_READ_TAGS", frs_per_G);
+        }
+        manifest.add_challenge(0, std::array{ "eta", "eta_two", "eta_three" });
+
+        // Round 1: lookup + w_4
+        manifest.add_entry(1, "LOOKUP_READ_COUNTS", frs_per_G);
+        manifest.add_entry(1, "LOOKUP_READ_TAGS", frs_per_G);
+        manifest.add_entry(1, "W_4", frs_per_G);
+        manifest.add_challenge(1, std::array{ "beta", "gamma" });
+
+        // Round 2: inverses + z_perm
+        manifest.add_entry(2, "LOOKUP_INVERSES", frs_per_G);
+        manifest.add_entry(2, "CALLDATA_INVERSES", frs_per_G);
+        manifest.add_entry(2, "SECONDARY_CALLDATA_INVERSES", frs_per_G);
+        manifest.add_entry(2, "RETURN_DATA_INVERSES", frs_per_G);
+        manifest.add_entry(2, "Z_PERM", frs_per_G);
+        manifest.add_challenge(2, "alpha");
+
+        // Round 3: gate challenge
+        manifest.add_challenge(3, "HypernovaFoldingProver:gate_challenge");
+
+        // Rounds 4-24: main sumcheck univariates
+        for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
+            manifest.add_entry(4 + i, "Sumcheck:univariate_" + std::to_string(i), 8);
+            manifest.add_challenge(4 + i, "Sumcheck:u_" + std::to_string(i));
+        }
+
+        // Round 25: evaluations + unshifted batching challenges
+        manifest.add_entry(25, "Sumcheck:evaluations", 60);
+        for (size_t i = 0; i < 55; ++i) {
+            manifest.add_challenge(25, "unshifted_challenge_" + std::to_string(i));
+        }
+
+        // Round 26: shifted batching challenges
+        for (size_t i = 0; i < 5; ++i) {
+            manifest.add_challenge(26, "shifted_challenge_" + std::to_string(i));
+        }
+
+        // Round 27: MLB accumulator data
+        manifest.add_entry(27, "non_shifted_accumulator_commitment", frs_per_G);
+        manifest.add_entry(27, "shifted_accumulator_commitment", frs_per_G);
+        for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
+            manifest.add_entry(27, "accumulator_challenge_" + std::to_string(i), 1);
+        }
+        manifest.add_entry(27, "accumulator_evaluation_0", 1);
+        manifest.add_entry(27, "accumulator_evaluation_1", 1);
+        manifest.add_challenge(27, "Sumcheck:alpha");
+
+        // Rounds 28-48: MLB sumcheck univariates
+        for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
+            manifest.add_entry(28 + i, "Sumcheck:univariate_" + std::to_string(i), 4);
+            manifest.add_challenge(28 + i, "Sumcheck:u_" + std::to_string(i));
+        }
+
+        // Round 49: final evaluations + claim_batching_challenge
+        manifest.add_entry(49, "Sumcheck:evaluations", 6);
+        manifest.add_challenge(49, "claim_batching_challenge");
+
+        return manifest;
+    }
+
     static void test_folding(const TamperingMode& mode)
     {
         // Generate accumulator
@@ -112,8 +202,9 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         HypernovaFoldingProver folding_prover(folding_transcript);
         auto [folding_proof, folded_accumulator] = folding_prover.fold(accumulator, incoming_instance);
 
-        // Natively verify the folding
+        // Natively verify the folding (with manifest tracking)
         auto native_verifier_transcript = std::make_shared<NativeTranscript>();
+        native_verifier_transcript->enable_manifest();
         NativeHypernovaVerifier native_verifier(native_verifier_transcript);
         auto [first_sumcheck_native, second_sumcheck_native, folded_verifier_accumulator_native] =
             native_verifier.verify_folding_proof(incoming_verifier_instance, folding_proof);
@@ -138,6 +229,13 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         EXPECT_EQ(second_sumcheck_recursive, second_sumcheck_native);
         EXPECT_TRUE(compare_prover_verifier_accumulators(
             folded_accumulator, folded_verifier_accumulator.get_value<NativeVerifierAccumulator>()));
+
+        // Pin the folding transcript manifest (only check when not tampering)
+        if (mode == TamperingMode::None) {
+            auto expected_manifest = build_expected_folding_manifest();
+            auto verifier_manifest = native_verifier_transcript->get_manifest();
+            EXPECT_EQ(verifier_manifest, expected_manifest);
+        }
     }
 };
 
