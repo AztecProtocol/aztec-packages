@@ -1,4 +1,4 @@
-# Translator Non-Native Field Relation: Complete Mathematical Derivation
+# Translator Relations
 
 ## Document Purpose
 

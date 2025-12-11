@@ -1,4 +1,6 @@
-# The Translator Circuit: Complete Technical Specification
+# The Translator Circuit
+
+> $\textcolor{orange}{\textsf{Warning}}$: This document provides a technical overview of the Translator Circuit used in the Goblin Plonk proving system. It is intended for understanding the design and optimizations. The code is the source of truth for implementation specifics.
 
 ## Table of Contents
 
@@ -162,440 +164,82 @@ Each microlimb must be $≤ 2^{14} - 1 = 16383$.
 
 ## Interleaving: The Key Optimization
 
-### Why Interleaving is Necessary
-
-The Translator needs to perform range constraints on ~64 different microlimb sets using a permutation argument. Without optimization, this creates a major problem with the relation degree.
-
-**The Core Issue: Permutation Argument Degree**
-
-In a permutation argument, the degree of the relation is determined by **how many columns** are being permuted simultaneously:
-
-```
-Grand product relation:
-z_perm[i+1] × ∏_{j=1}^{NUM_COLS} (ordered[j] + β + γ) =
-z_perm[i] × ∏_{j=1}^{NUM_COLS} (interleaved[j] + β + γ)
-
-Degree = 1 + NUM_COLS (polynomial z_perm × product of NUM_COLS columns)
-```
+The Translator must range-constrain approximately 64 different microlimb sets using permutation argument. The permutation argument's degree equals $1 + \text{NUM\_COLS}$, where NUM_COLS is the number of columns being permuted:
 
 $$
 z_{\textsf{perm}}[i+1] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{ordered}[j] + \beta + \gamma) =
 z_{\textsf{perm}}[i] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{interleaved}[j] + \beta + \gamma)
 $$
 
-**The Translator's Challenge:**
+**The Problem:** Permuting all ~64 microlimb columns simultaneously yields degree $1 + 64 = 65$, making sumcheck impractical.
 
-- We have **~64 different logical microlimb columns** that need range constraints:
-  - P.x: 4 limbs × 6 microlimbs each = 24 microlimb columns
-  - P.y: 4 limbs × 6 microlimbs each = 24 microlimb columns
-  - z₁, z₂: 4 limbs × 6 microlimbs each = 24 microlimb columns
-  - Accumulator: 4 limbs × 6 microlimbs each = 24 microlimb columns
-  - Quotient: 4 limbs × 6 microlimbs each = 24 microlimb columns
-  - Relation wide limbs: 2 × 6 microlimbs = 12 microlimb columns
-  - **Total: ~130 logical microlimb columns** (many reuse physical wires)
+**The Solution:** Interleave 16 logical column groups into the same 5 physical wires across 16 circuit segments. Each segment performs an independent permutation check with degree $1 + 5 = 6$ (or 7 with Lagrange selector). This reduces the relation degree by 9×.
 
-**Naive approach:**
-If we tried to permute all ~64 active columns at once:
-
-- Degree = 1 + 64 = **65**
-- This is **prohibitively expensive** for sumcheck!
-- The relation would dominate proof generation time
-- Higher degree = more FFT operations, more commitment cost
-
-**The Solution: Interleaving to Reduce Column Count**
-
-Instead of checking 64 columns in one permutation, we:
-
-1. **Group 16 logical columns together** and pack them into the circuit at different row segments
-2. **Use only 5 physical wires** for each permutation check (4 interleaved + 1 extra numerator)
-3. **Reuse these 5 wires across 16 different segments** of the circuit
-4. Each segment checks a different subset of ~4 logical columns from the original 64
-
-**Result:**
-
-- Relation degree: 1 + 5 = **6** (plus Lagrange = 7 total)
-- This is manageable for the proof system!
-- We perform 16 separate permutation checks (one per segment), each with low degree
-
-### How Interleaving Works
-
-#### The Basic Concept
-
-**Mini-circuit vs. Full Circuit:**
+### Circuit Structure
 
 ```
-Mini-circuit size:  2^13 = 8,192 rows    (where actual computation happens)
+Mini-circuit size:  2^13 = 8,192 rows    (actual computation)
 Full circuit size:  2^17 = 131,072 rows  (16× larger for interleaving)
-
-Relationship: FULL_SIZE = MINI_SIZE × INTERLEAVING_GROUP_SIZE
-             131,072    = 8,192      × 16
+FULL_SIZE = MINI_SIZE × INTERLEAVING_GROUP_SIZE = 8,192 × 16
 ```
 
-**Key idea:** Instead of 64+ columns in one permutation check (degree 65+), we group logical columns together and reuse 5 physical columns across 16 circuit segments (degree 7).
-
-#### The Interleaving Structure
-
-For each **set of range constraint wires** (e.g., all P.x microlimbs), we create two types of polynomials:
-
-**1. Interleaved Polynomials** (in full circuit)
-
-- Size: 131,072 (full circuit size)
-- Contains microlimbs from **multiple mini-circuit rows** packed together
-
-**2. Ordered Polynomials** (in full circuit)
-
-- Size: 131,072 (full circuit size)
-- Contains the **sorted version** of the interleaved values
-
-### Detailed Interleaving Mapping
-
-Let's trace exactly how microlimbs from the mini-circuit map to the full circuit:
-
-#### Example: P.x Low Limbs Range Constraint 0 (First Microlimb)
-
-**In the mini-circuit:** Each even row i ∈ {0, 2, 4, ..., 8190} generates a microlimb value:
-
-```
-mini_row 0    → P_X_LOW_LIMBS_RANGE_CONSTRAINT_0[0]    = micro_0_0
-mini_row 2    → P_X_LOW_LIMBS_RANGE_CONSTRAINT_0[2]    = micro_0_2
-mini_row 4    → P_X_LOW_LIMBS_RANGE_CONSTRAINT_0[4]    = micro_0_4
-...
-mini_row 8190 → P_X_LOW_LIMBS_RANGE_CONSTRAINT_0[8190] = micro_0_8190
-```
-
-Total: ~4,096 microlimbs (half of 8,192 rows, since only even rows are active).
-
-**Interleaving into full circuit:**
-
-These 4,096 values are **interleaved** into 16 groups:
-
-```
-Group 0:  mini_rows {0, 32, 64, 96, ...}     → full_circuit rows {0, 1, 2, 3, ...}
-Group 1:  mini_rows {2, 34, 66, 98, ...}     → full_circuit rows {8192, 8193, 8194, ...}
-Group 2:  mini_rows {4, 36, 68, 100, ...}    → full_circuit rows {16384, 16385, 16386, ...}
-...
-Group 15: mini_rows {30, 62, 94, 126, ...}   → full_circuit rows {122880, 122881, 122882, ...}
-```
-
-**Formula:**
-
-```
-For mini_row = 2k (even rows only):
-  group_id = k mod 16
-  position_in_group = k ÷ 16
-
-  full_circuit_row = group_id × 8192 + position_in_group
-```
-
-**Example calculation:**
-
-```
-mini_row = 64 (32nd even row, so k = 32)
-  group_id = 32 mod 16 = 0
-  position = 32 ÷ 16 = 2
-  full_circuit_row = 0 × 8192 + 2 = 2
-
-mini_row = 66 (33rd even row, so k = 33)
-  group_id = 33 mod 16 = 1
-  position = 33 ÷ 16 = 2
-  full_circuit_row = 1 × 8192 + 2 = 8194
-```
-
-### The Complete Circuit Trace Structure
-
-Here's the exact layout of the full circuit with interleaving:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    FULL CIRCUIT (2^17 = 131,072 rows)           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  INTERLEAVED GROUP 0                           Rows 0-8191     │
-│  ├─ Contains values from mini_rows: 0, 32, 64, 96, ...        │
-│  ├─ interleaved_range_constraints_0[i] for i ∈ [0, 8191]      │
-│  └─ ordered_range_constraints_0[i] = sorted version            │
-│                                                                 │
-│  INTERLEAVED GROUP 1                           Rows 8192-16383  │
-│  ├─ Contains values from mini_rows: 2, 34, 66, 98, ...        │
-│  ├─ interleaved_range_constraints_1[i]                         │
-│  └─ ordered_range_constraints_1[i] = sorted version            │
-│                                                                 │
-│  INTERLEAVED GROUP 2                           Rows 16384-24575 │
-│  ├─ Contains values from mini_rows: 4, 36, 68, 100, ...       │
-│  ├─ interleaved_range_constraints_2[i]                         │
-│  └─ ordered_range_constraints_2[i] = sorted version            │
-│                                                                 │
-│  INTERLEAVED GROUP 3                           Rows 24576-32767 │
-│  ├─ Contains values from mini_rows: 6, 38, 70, 102, ...       │
-│  ├─ interleaved_range_constraints_3[i]                         │
-│  └─ ordered_range_constraints_3[i] = sorted version            │
-│                                                                 │
-│  ...                                                            │
-│  (Groups 4-14 follow same pattern)                             │
-│  ...                                                            │
-│                                                                 │
-│  INTERLEAVED GROUP 15                          Rows 122880-131071│
-│  ├─ Contains values from mini_rows: 30, 62, 94, 126, ...      │
-│  ├─ interleaved_range_constraints_4[i] (reuses wire 4)        │
-│  └─ ordered_range_constraints_4[i] = sorted version            │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Important observation:** We only have **5 physical wires** for range constraints:
-
-- `ordered_range_constraints_0` through `ordered_range_constraints_4`
-- `interleaved_range_constraints_0` through `interleaved_range_constraints_3`
-- Plus one extra numerator wire
-
-But we need to check **many more** microlimb sets. The solution:
-
-- Each wire is **reused across different interleaving groups**
-- Within each 8,192-row segment, the wire represents a different logical microlimb set
-- The permutation argument operates **within each segment independently**
-
-### Why Interleaving Reduces Relation Degree
-
-**The Critical Insight: Degree = Number of Columns in Product**
-
-The permutation relation has the form:
-
-```
-z_perm[i+1] × ∏_{j=0}^{NUM_COLS-1} (ordered[j][i] + β + γ) =
-z_perm[i] × ∏_{j=0}^{NUM_COLS-1} (interleaved[j][i] + β + γ)
-```
-
-**Degree = 1 (from z_perm) + NUM_COLS (from the products)**
-
-**Without interleaving (naive approach):**
-
-```
-Check all ~64 logical microlimb columns in one relation:
-
-Relation:
-  z_perm[i+1] × ∏_{j=0}^{63} (ordered[j][i] + β + γ) =
-  z_perm[i] × ∏_{j=0}^{63} (interleaved[j][i] + β + γ)
-
-DEGREE = 1 + 64 = 65
-
-This creates a degree-65 relation!
-- Sumcheck round complexity: 65 univariate polynomials per round
-- FFT operations: O(n · 65)
-- Prover time: dominated by high-degree relation
-- **Completely impractical!**
-```
-
-**With interleaving (only 5 physical columns per check):**
-
-```
-Group 16 logical columns together, use 5 physical wires per segment:
-
-Relation (same for all 16 segments):
-  z_perm[i+1] × (ordered_0[i] + β + γ)
-               × (ordered_1[i] + β + γ)
-               × (ordered_2[i] + β + γ)
-               × (ordered_3[i] + β + γ)
-               × (ordered_4[i] + β + γ)
-             = z_perm[i] × (interleaved_0[i] + β + γ)
-                          × (interleaved_1[i] + β + γ)
-                          × (interleaved_2[i] + β + γ)
-                          × (interleaved_3[i] + β + γ)
-                          × (extra_numerator[i] + β + γ)
-
-DEGREE = 1 + 5 = 6 (or 7 with Lagrange selector)
-
-Much more manageable!
-```
-
-**Degree reduction: 65 → 7 (more than 9× reduction!)**
-
-**How it works:**
-
-- **Segment 0** (rows 0-8,191): Wires represent logical columns {0, 1, 2, 3, 4}
-- **Segment 1** (rows 8,192-16,383): Same wires represent logical columns {5, 6, 7, 8, 9}
-- **Segment 2** (rows 16,384-24,575): Same wires represent logical columns {10, 11, 12, 13, 14}
-- ... and so on for 16 segments
-
-Each segment checks a different subset of logical columns, but all use the **same low-degree relation**!
-
-### The Permutation Check with Interleaving
-
-The permutation relation operates **within each 8,192-row segment**:
-
-**For segment s ∈ {0, 1, ..., 15}:**
-
-```
-Base row index: base = s × 8,192
-
-For row i within segment [0, 8191]:
-  full_row = base + i
-
-  z_perm[full_row + 1] × DENOMINATOR = z_perm[full_row] × NUMERATOR
-
-  Where:
-    NUMERATOR = (interleaved_0[full_row] + β·L_mask + γ)
-              × (interleaved_1[full_row] + β·L_mask + γ)
-              × (interleaved_2[full_row] + β·L_mask + γ)
-              × (interleaved_3[full_row] + β·L_mask + γ)
-              × (extra_numerator[full_row] + β·L_mask + γ)
-
-    DENOMINATOR = (ordered_0[full_row] + β·L_mask + γ)
-                × (ordered_1[full_row] + β·L_mask + γ)
-                × (ordered_2[full_row] + β·L_mask + γ)
-                × (ordered_3[full_row] + β·L_mask + γ)
-                × (ordered_4[full_row] + β·L_mask + γ)
-```
-
-**Key insight:** The permutation argument doesn't know or care that these values came from different mini-circuit rows. It just checks that within each 8,192-row segment, the interleaved values are a permutation of the ordered values.
-
-### Concrete Example: Tracing One Microlimb
-
-Let's trace one specific microlimb through the entire system:
-
-**Setup:**
-
-- We're checking P.x_low_limbs[0] (first 68-bit limb of P.x's lower 136 bits)
-- At mini_row = 100 (even row, 50th accumulation)
-- The value of the first 14-bit microlimb is: `micro = 0x2A5F = 10847`
-
-**Step 1: Mini-circuit computation (row 100)**
-
-```
-P_X_LOW_LIMBS[0] = limb_value = 0x1234567890ABCDEF
-Decompose into microlimbs:
-  P_X_LOW_LIMBS_RANGE_CONSTRAINT_0[100] = 0xCDEF = 52719
-  P_X_LOW_LIMBS_RANGE_CONSTRAINT_1[100] = 0x9012 = 36882
-  ...
-```
-
-**Step 2: Determine interleaving group**
-
-```
-k = 100 / 2 = 50 (since mini_row 100 is the 50th even row)
-group_id = 50 mod 16 = 2
-position = 50 ÷ 16 = 3
-```
-
-**Step 3: Map to full circuit**
-
-```
-full_circuit_row = 2 × 8192 + 3 = 16384 + 3 = 16387
-
-interleaved_range_constraints_2[16387] = 52719
-```
-
-**Step 4: Sorting**
-
-All microlimbs in group 2 are collected and sorted:
-
-```
-interleaved_2 = [52719, 36882, ..., 4096 more values from group 2 mini-rows]
-ordered_2     = sorted(interleaved_2) = [0, 0, 0, ..., 1, 1, 2, ..., 16383]
-                                           ↑ with step values inserted
-```
-
-**Step 5: Permutation check**
-
-The permutation relation verifies:
-
-```
-For full_circuit_row ∈ [16384, 24575] (group 2 segment):
-
-  Accumulate in z_perm:
-    z_perm[16384] = 1
-    z_perm[16385] = z_perm[16384] × (interleaved_2[16384] + ...) / (ordered_2[16384] + ...)
-    ...
-    z_perm[16387] = ... includes our value 52719 ...
-    ...
-    z_perm[24575] should equal 1 (modulo public input delta)
-```
-
-If the permutation is valid, our microlimb `52719` is proven to be ≤ 16383. ✓
-
-### The Sorted Array Structure
-
-Each `ordered_range_constraints_j` polynomial contains:
-
-```
-Row 0:     0
-Row 1:     0      (possible duplicate)
-Row 2:     0      (possible duplicate)
-Row 3:     1      (step by 0 or 1 or 2 or 3)
-Row 4:     3      (step by 2)
-Row 5:     4      (step by 1)
-Row 6:     7      (step by 3)
-Row 7:     7      (possible duplicate, step by 0)
-...
-Row 5461:  16380  (step by 3)
-Row 5462:  16383  (step by 3)
-Row 5463:  16383  ← Last value must be exactly 16383
-```
-
-With periodic "step" values inserted every few rows to ensure coverage of [0, 16383]. The delta range constraint relation enforces:
-
-1. Each step ∈ {0, 1, 2, 3}
-2. Final value = 16383
-
-### Benefits of Interleaving
-
-**1. Relation Degree Reduction (Most Important):**
-
-- **From degree 65 to degree 7** (9× reduction)
-- This is the primary benefit - keeps relations efficient
-- Sumcheck complexity is dominated by max relation degree
-
-**2. Proof Size Stays Constant:**
-
-- Only need one z_perm polynomial
-- Reuse it across all 16 segments
-- Proof doesn't grow with number of groups
-
-**3. Verification Efficiency:**
-
-- Verifier checks same polynomial across segments
-- No additional cost for more interleaving groups
-
-**4. Flexibility:**
-
-- Can adjust INTERLEAVING_GROUP_SIZE based on circuit size
-- Balances polynomial degree vs. circuit size blowup
-
-### Trade-offs
-
-**Cost of interleaving:**
-
-- Circuit size increases by 16× (from 8,192 to 131,072 rows)
-- More zero padding needed (Relation 7 ensures unused rows are zero)
-- More complex witness generation (need to correctly map mini-circuit to full circuit)
-
-**Why it's worth it:**
-
-- **Relation degree reduction** >>> circuit size increase
-- Sumcheck is dominated by max relation degree
-- Without interleaving, degree-65 relation would make the circuit impractical
-- With interleaving, degree-7 is manageable for production use
-
-### Summary
-
-**Interleaving is the technique that makes the Translator practical:**
-
-Without interleaving:
-
-- Permutation checks ~64 columns at once
-- **Relation degree: 65**
-- Sumcheck with degree-65 polynomials: impractical
-- Prover time: hours (if even feasible)
-- Unusable in production
-
-With interleaving:
-
-- Permutation checks only 5 columns at once
-- **Relation degree: 7**
-- Circuit size: 131,072 rows (16× increase, acceptable trade-off)
-- Prover time: minutes
-- **Production-ready! ✓**
-
-**The key insight:** Interleaving trades circuit size (cheap to increase) for relation degree (expensive if high). By grouping 16 logical columns together and reusing 5 physical wires across 16 circuit segments, we keep the relation degree low while still checking all necessary columns.
+To compute the interleaved polynomials, we group 16 polynomials together and interleave their coefficients. Consider the following 16 polynomials each of size $n=2^{13}$ in the mini-circuit:
+
+$$
+\newcommand{\arraystretch}{1.2}
+\begin{array}{|c|c|c|c|c|c|}
+\hline
+\textsf{index} & \textsf{poly 1} & \textsf{poly 2} & \textsf{poly 3} & \ldots & \textsf{poly 16} \\
+\hline
+0 & \textcolor{skyblue}{a_0} & \textcolor{orange}{b_0} & \textcolor{lightgreen}{c_0} & \quad \ldots \quad & \textcolor{firebrick}{p_0} \\
+1 & \textcolor{skyblue}{a_1} & \textcolor{orange}{b_1} & \textcolor{lightgreen}{c_1} & \quad \ldots \quad & \textcolor{firebrick}{p_1} \\
+2 & \textcolor{skyblue}{a_2} & \textcolor{orange}{b_2} & \textcolor{lightgreen}{c_2} & \quad \ldots \quad & \textcolor{firebrick}{p_2} \\
+3 & \textcolor{skyblue}{a_3} & \textcolor{orange}{b_3} & \textcolor{lightgreen}{c_3} & \quad \ldots \quad & \textcolor{firebrick}{p_3} \\[5pt]
+\vdots & \vdots & \vdots & \vdots & \ddots & \vdots \\[5pt]
+n-1 & \textcolor{skyblue}{a_{n-1}} & \textcolor{orange}{b_{n-1}} & \textcolor{lightgreen}{c_{n-1}} & \quad \ldots \quad & \textcolor{firebrick}{p_{n-1}} \\
+\hline
+\end{array}
+\quad \longrightarrow \quad
+\begin{array}{|c|c|c|}
+\hline
+\textsf{group} & \textsf{index} & \textsf{interleaved} \\
+\hline
+0 & 0 & \textcolor{skyblue}{a_0} \\
+0 & 1 & \textcolor{orange}{b_0} \\
+0 & 2 & \textcolor{lightgreen}{c_0} \\
+\vdots & \vdots & \vdots \\[3pt]
+1 & 15 & \textcolor{firebrick}{p_0} \\ \hline
+1 & 4 & \textcolor{skyblue}{a_1} \\
+1 & 5 & \textcolor{orange}{b_1} \\
+1 & 6 & \textcolor{lightgreen}{c_1} \\
+\vdots & \vdots & \vdots \\[3pt]
+1 & 7 & \textcolor{firebrick}{p_1} \\ \hline
+\vdots & \vdots & \vdots \\[5pt]
+\vdots & \vdots & \vdots \\ \hline
+n-1 & 4n-4 & \textcolor{skyblue}{a_{n-1}} \\
+n-1 & 4n-3 & \textcolor{orange}{b_{n-1}} \\
+n-1 & 4n-2 & \textcolor{lightgreen}{c_{n-1}} \\
+\vdots & \vdots & \vdots \\[3pt]
+n-1 & 4n-1 & \textcolor{firebrick}{p_{n-1}} \\
+\hline
+\end{array}
+$$
+
+The resulting interleaved polynomial has size $16n = 2^{17}$.
+For 64 microlimb columns, we have 4 groups of 16 columns each, resulting in four interleaved polynomials. Note that the interleaved polynomials are "physical" wires in the circuit trace: we refer to them as virtual polynomials. Each of these groups performs an independent permutation check:
+
+- **Numerator:** 4 interleaved wires + 1 extra = 5 terms
+- **Denominator:** 5 ordered wires = 5 terms
+- **Degree:** $1 + 5 = 6$ (or 7 with Lagrange)
+
+The permutation argument verifies that within each group, the interleaved values are a permutation of the ordered (sorted) values. Due to interleaving, the total circuit size increases 16×, requiring more zero-padding (enforced by Relation 7). Interleaving trades circuit size (inexpensive) for relation degree (expensive). The 16× size increase is acceptable given the 9× degree reduction.
+
+> $\textcolor{orange}{\textsf{Effect on Commitment Scheme}}$: The interleaved polynomials do not require separate commitments. During proving key construction, the prover computes them for use in sumcheck. In the Gemini PCS phase, the prover sends only **two additional field element evaluations** $P_+(r^{16})$ and $P_-(r^{16})$ where $r$ is the Gemini challenge:
+> $$P_{\pm}(x) = \sum_{i=0}^{15} (\pm r)^i \cdot p_{i}(x)$$
+> The verifier reconstructs full batched polynomial evaluations as $A_0(r) = A_{0+}(r) + P_+(r^{16})$ and $A_0(-r) = A_{0-}(-r) + P_-(r^{16})$. Since $P_{\pm}(r^{16})$ relates to evaluations $p_i(r^{16})$ already in the Gemini protocol, no additional commitments are needed. The PCS proof grows by only **2 field elements**.
+>
+> For polynomials $p_0, \dots, p_{15}$ of size $n$, the interleaved polynomial of size $16n$ is:
+> $$p_{\textsf{interleaved}}(x) = \sum_{i=0}^{15} x^i \cdot p_{i}(x^{16})$$
 
 ---
 
