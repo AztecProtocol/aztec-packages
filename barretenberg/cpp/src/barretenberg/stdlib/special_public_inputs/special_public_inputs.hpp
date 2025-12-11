@@ -4,24 +4,13 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 //
-// Special public inputs that propagate cross-circuit consistency data in Chonk.
+// Special public inputs designed propagate data between Chonk and Rollup circuits.
 //
 // These structures are binding several Chonk components:
 //   - KernelIO:        Standard kernel outputs (pairing points, databus, ecc_op_tables, accum hash)
 //   - HidingKernelIO:  Final kernel outputs (no accum hash since folding terminates)
 //   - AppIO/DefaultIO: App circuit outputs (just pairing points)
 //   - RollupIO:        Rollup circuit outputs (pairing points + IPA claim)
-//
-// SECURITY CRITICAL (see chonk.test.cpp for tampering tests):
-//   - `output_hn_accum_hash`: Binds the folded accumulator to the next kernel's verification.
-//       Tampering causes folding verification to fail. [Test: AccumulatorHashTamperingFailure]
-//   - `kernel_return_data`: Commitment to kernel's return data, must match calldata of next circuit.
-//       Tampering causes databus consistency check to fail. [Test: KernelReturnDataTamperingFailure]
-//   - `app_return_data`: Commitment to app's return data, must match secondary_calldata of next circuit.
-//       Tampering causes databus consistency check to fail. [Test: AppReturnDataTamperingFailure]
-//   - `ecc_op_tables`: Commitments to merged ECC op tables (T_prev). Propagated from Tail to Chonk Verifier.
-//       Tampering causes recursive merge verification to fail. [Test: EccOpTablesTamperingFailure]
-//   - `empty_ecc_op_tables()`: Constrains initial T_prev to point-at-infinity (verified via BB_ASSERT)
 //
 #pragma once
 
