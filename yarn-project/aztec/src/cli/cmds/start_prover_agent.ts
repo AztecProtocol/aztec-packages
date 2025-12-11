@@ -53,7 +53,7 @@ export async function startProverAgent(
   );
   const broker = createProvingJobBrokerClient(config.proverBrokerUrl, getVersions(), fetch);
 
-  const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
+  const telemetry = await initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
   const prover = await buildServerCircuitProver(config, telemetry);
   const proofStore = new InlineProofStore();
   const agents = times(

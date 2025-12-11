@@ -7,8 +7,7 @@ import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
-import { UpdateChecker } from '@aztec/stdlib/update-checker';
-import { getTelemetryClient } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client/start';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
 import chalk from 'chalk';
@@ -312,6 +311,7 @@ export async function setupUpdateMonitor(
   updateNodeConfig?: (config: object) => Promise<void>,
 ) {
   const logger = createLogger('update-check');
+  const { UpdateChecker } = await import('@aztec/stdlib/update-checker');
   const checker = await UpdateChecker.new({
     baseURL: updatesLocation,
     publicClient,
