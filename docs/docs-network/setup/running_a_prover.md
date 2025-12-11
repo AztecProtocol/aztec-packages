@@ -3,6 +3,7 @@ id: running_a_prover
 sidebar_position: 4
 title: Running a Prover
 description: A comprehensive guide on how to run an Aztec prover on the network using Docker Compose in a distributed configuration.
+references: ["yarn-project/aztec/src/cli/cmds/start_prover_node.ts"]
 ---
 
 ## Overview

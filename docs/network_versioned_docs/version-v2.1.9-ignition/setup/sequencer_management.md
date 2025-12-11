@@ -3,6 +3,7 @@ id: sequencer_management
 sidebar_position: 1
 title: Running a Sequencer
 description: Learn how to manage your sequencer on the Aztec network, including registration, keystore configuration, stake management, and status monitoring.
+references: ["yarn-project/node-keystore/src/config.ts"]
 ---
 
 ## Overview

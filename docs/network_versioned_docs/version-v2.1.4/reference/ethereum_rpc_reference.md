@@ -3,6 +3,7 @@ id: ethereum_rpc_reference
 sidebar_position: 3
 title: Ethereum RPC call reference
 description: A comprehensive reference of Ethereum RPC calls used by different Aztec node components, including archiver, sequencer, prover, and slasher nodes.
+references: ["yarn-project/ethereum/src/client.ts", "yarn-project/sequencer-client/src/publisher/sequencer-publisher.ts"]
 ---
 
 This guide provides a comprehensive reference of Ethereum RPC calls used by different Aztec node components. Understanding these calls helps with infrastructure planning, monitoring, and debugging.

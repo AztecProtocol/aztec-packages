@@ -3,6 +3,7 @@ id: glossary
 sidebar_position: 4
 title: Glossary
 description: A comprehensive glossary of terms used throughout the Aztec network documentation, covering node operations, consensus, cryptography, and infrastructure concepts.
+references: ["yarn-project/stdlib/src/interfaces/aztec-node.ts", "yarn-project/archiver/src/archiver/archiver.ts", "yarn-project/sequencer-client/src/sequencer/sequencer.ts", "yarn-project/prover-node/src/prover-node.ts"]
 ---
 
 This glossary defines key terms used throughout the Aztec network documentation. Terms are organized alphabetically with cross-references to related concepts.
