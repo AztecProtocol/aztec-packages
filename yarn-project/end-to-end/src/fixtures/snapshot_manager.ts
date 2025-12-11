@@ -393,7 +393,7 @@ async function setupFromFresh(
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
-  const telemetry = getEndToEndTestTelemetryClient(opts.metricsPort);
+  const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort);
 
   // Setup blob sink service
   const blobSink = await createBlobSinkServer(
@@ -523,7 +523,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   );
   await watcher.start();
 
-  const telemetry = initTelemetryClient(getTelemetryConfig());
+  const telemetry = await initTelemetryClient(getTelemetryConfig());
   const blobSink = await createBlobSinkServer(
     {
       l1ChainId: aztecNodeConfig.l1ChainId,
