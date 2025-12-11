@@ -16,11 +16,13 @@ function download_solc {
 
   # Use forge's built-in svm to download solc (handles all platforms including arm64)
   echo_stderr "Downloading solc $solc_version via svm..."
+  # svm-rs always uses ~/.svm if it exists. Make sure it does for a consistent path across OS/architecture.
+  mkdir -p "$HOME/.svm"
   # We build a minimal file to trigger svm download of solc.
   forge build --use "$solc_version" src/core/libraries/ConstantsGen.sol 2>/dev/null
 
   # Copy from svm cache to local path
-  local svm_path="$HOME/.local/share/svm/$solc_version/solc-$solc_version"
+  local svm_path="$HOME/.svm/$solc_version/solc-$solc_version"
   if [ ! -f "$svm_path" ]; then
     echo_stderr "ERROR: svm failed to download solc $solc_version"
     exit 1
