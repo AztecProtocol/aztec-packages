@@ -144,7 +144,8 @@ CORPUS="$workdir/corpus"
 OUTPUT="$workdir/output"
 COVERAGE="$workdir/coverage"
 RAWCOV="$COVERAGE/raw"
-mkdir -p "$CRASHES" "$UNSORTED_CRASHES" "$CORPUS" "$OUTPUT" "$COVERAGE" "$RAWCOV"
+ARTIFACTS="$workdir/artifacts"
+mkdir -p "$CRASHES" "$UNSORTED_CRASHES" "$CORPUS" "$OUTPUT" "$COVERAGE" "$RAWCOV" "$ARTIFACTS"
 
 if [ -z "${fuzzer}" ]; then
 	log "No fuzzer was provided"
@@ -263,6 +264,17 @@ fuzz() {
 
 	mv "$TMPOUT/"* "$OUTPUT"
 	rmdir "$TMPOUT"
+
+	ARCHIVE_NAME="${fuzzer}.tar.gz"
+	if compgen -G "$CORPUS/*" >/dev/null || compgen -G "$CRASHES/*" >/dev/null; then
+		log "Packing corpus & crashes into $ARTIFACTS/$ARCHIVE_NAME"
+		tar -czf "$ARTIFACTS/$ARCHIVE_NAME" \
+			-C "$CORPUS" . \
+			-C "$CRASHES" .
+	else
+		log "Corpus & crashes are empty, skipping packing"
+	fi
+
 	exit "$exit_code"
 }
 
@@ -271,14 +283,26 @@ cov() {
 		log "Corpus is empty, nothing to collect coverage from."
 		return 0
 	fi
+
+	log "Cleaning previous coverage data in $RAWCOV and $COVERAGE..."
+	rm -f "$RAWCOV"/*.profraw 2>/dev/null || true
+	rm -f "$COVERAGE/fuzz.profdata" 2>/dev/null || true
+	rm -rf "$COVERAGE/cov-html" 2>/dev/null || true
+
 	TMPOUT="$(mktemp -d)"
 	trap 'rm -rf "$TMPOUT" 2>/dev/null' EXIT
 
 	TS=$(date +%Y%m%dT%H%M%S)
-	LLVM_PROFILE_FILE="$RAWCOV/${TS}-%p.profraw" "$cov_fuzzer" -merge=1 "$TMPOUT" "$CORPUS/"
 
-	llvm-profdata-18 merge -sparse "$RAWCOV/"*.profraw -o "$COVERAGE/fuzz.profdata"
+	log "Collecting coverage data on corpus..."
+	LLVM_PROFILE_FILE="$RAWCOV/${TS}-%p.profraw" \
+		"$cov_fuzzer" -merge=1 "$TMPOUT" "$CORPUS/"
 
+	log "Merging coverage data..."
+	llvm-profdata-18 merge -sparse "$RAWCOV/"*.profraw \
+		-o "$COVERAGE/fuzz.profdata"
+
+	log "Assembling HTML report..."
 	llvm-cov-18 show "$cov_fuzzer" \
 		-instr-profile="$COVERAGE/fuzz.profdata" \
 		-format=html \
@@ -286,6 +310,8 @@ cov() {
 		-show-line-counts-or-regions \
 		--show-branches=percent \
 		--show-directory-coverage
+
+	log "Coverage HTML written to $COVERAGE/cov-html"
 }
 
 case "$mode" in
