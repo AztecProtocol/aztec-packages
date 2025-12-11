@@ -11,28 +11,45 @@ export class AztecClientBackendError extends Error {
 }
 
 /**
+ * Target verification environment for proof generation.
+ * This determines the hash function used and whether zero-knowledge is enabled.
+ */
+export type VerifierTarget =
+  | 'evm' // Ethereum/Solidity verification (keccak, ZK enabled)
+  | 'evm-no-zk' // Ethereum/Solidity without zero-knowledge
+  | 'noir-recursive' // Recursive verification in Noir circuits (poseidon2, ZK enabled)
+  | 'noir-recursive-no-zk' // Recursive verification without ZK
+  | 'noir-rollup' // Rollup circuits with IPA accumulation (poseidon2, ZK enabled)
+  | 'noir-rollup-no-zk' // Rollup circuits without ZK
+  | 'starknet' // Starknet verification via Garaga (ZK enabled)
+  | 'starknet-no-zk'; // Starknet without zero-knowledge
+
+/**
  * Options for the UltraHonkBackend.
  */
 export type UltraHonkBackendOptions = {
-  /** Selecting this option will use the keccak hash function instead of poseidon
-   * when generating challenges in the proof.
-   * Use this when you want to verify the created proof on an EVM chain.
+  /**
+   * Target verification environment. Determines hash function and ZK settings.
+   * This is the recommended way to configure proof generation.
+   *
+   * @example
+   * // For EVM/Solidity verification
+   * backend.generateProof(witness, { verifierTarget: 'evm' });
+   *
+   * // For recursive verification in Noir
+   * backend.generateProof(witness, { verifierTarget: 'noir-recursive' });
    */
+  verifierTarget?: VerifierTarget;
+
+  // Legacy options - prefer using verifierTarget instead
+
+  /** @deprecated Use verifierTarget: 'evm-no-zk' instead */
   keccak?: boolean;
-  /** Selecting this option will use the keccak hash function instead of poseidon
-   * when generating challenges in the proof.
-   * Use this when you want to verify the created proof on an EVM chain.
-   */
+  /** @deprecated Use verifierTarget: 'evm' instead */
   keccakZK?: boolean;
-  /** Selecting this option will use the poseidon/stark252 hash function instead of poseidon
-   * when generating challenges in the proof.
-   * Use this when you want to verify the created proof on an Starknet chain with Garaga.
-   */
+  /** @deprecated Use verifierTarget: 'starknet-no-zk' instead */
   starknet?: boolean;
-  /** Selecting this option will use the poseidon/stark252 hash function instead of poseidon
-   * when generating challenges in the proof.
-   * Use this when you want to verify the created proof on an Starknet chain with Garaga.
-   */
+  /** @deprecated Use verifierTarget: 'starknet' instead */
   starknetZK?: boolean;
 };
 
@@ -42,6 +59,67 @@ function getProofSettingsFromOptions(options?: UltraHonkBackendOptions): {
   disableZk: boolean;
   optimizedSolidityVerifier: boolean;
 } {
+  // Check for conflicting options - verifierTarget should not be combined with legacy options
+  if (options?.verifierTarget) {
+    const legacyOptions = [options.keccak, options.keccakZK, options.starknet, options.starknetZK].filter(Boolean);
+    if (legacyOptions.length > 0) {
+      throw new Error(
+        'Cannot use verifierTarget with legacy options (keccak, keccakZK, starknet, starknetZK). ' +
+          'Use verifierTarget alone.',
+      );
+    }
+
+    switch (options.verifierTarget) {
+      case 'evm':
+        return { ipaAccumulation: false, oracleHashType: 'keccak', disableZk: false, optimizedSolidityVerifier: false };
+      case 'evm-no-zk':
+        return { ipaAccumulation: false, oracleHashType: 'keccak', disableZk: true, optimizedSolidityVerifier: false };
+      case 'noir-recursive':
+        return {
+          ipaAccumulation: false,
+          oracleHashType: 'poseidon2',
+          disableZk: false,
+          optimizedSolidityVerifier: false,
+        };
+      case 'noir-recursive-no-zk':
+        return {
+          ipaAccumulation: false,
+          oracleHashType: 'poseidon2',
+          disableZk: true,
+          optimizedSolidityVerifier: false,
+        };
+      case 'noir-rollup':
+        return {
+          ipaAccumulation: true,
+          oracleHashType: 'poseidon2',
+          disableZk: false,
+          optimizedSolidityVerifier: false,
+        };
+      case 'noir-rollup-no-zk':
+        return {
+          ipaAccumulation: true,
+          oracleHashType: 'poseidon2',
+          disableZk: true,
+          optimizedSolidityVerifier: false,
+        };
+      case 'starknet':
+        return {
+          ipaAccumulation: false,
+          oracleHashType: 'starknet',
+          disableZk: false,
+          optimizedSolidityVerifier: false,
+        };
+      case 'starknet-no-zk':
+        return {
+          ipaAccumulation: false,
+          oracleHashType: 'starknet',
+          disableZk: true,
+          optimizedSolidityVerifier: false,
+        };
+    }
+  }
+
+  // Legacy options support (deprecated)
   return {
     ipaAccumulation: false,
     oracleHashType:
@@ -50,7 +128,6 @@ function getProofSettingsFromOptions(options?: UltraHonkBackendOptions): {
         : options?.starknet || options?.starknetZK
           ? 'starknet'
           : 'poseidon2',
-    // TODO no current way to target non-zk poseidon2 hash
     disableZk: options?.keccak || options?.starknet ? true : false,
     optimizedSolidityVerifier: false,
   };

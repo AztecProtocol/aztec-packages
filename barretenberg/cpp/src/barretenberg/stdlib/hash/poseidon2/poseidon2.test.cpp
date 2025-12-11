@@ -136,7 +136,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         }
 
         native_poseidon2::hash(inputs);
-        EXPECT_THROW_OR_ABORT(poseidon2::hash(witness_inputs), ".*Sponge inputs should not be stdlib constants.*");
+        EXPECT_THROW_WITH_MESSAGE(poseidon2::hash(witness_inputs), "Sponge inputs should not be stdlib constants");
     }
 
     static void test_padding_collisions()
