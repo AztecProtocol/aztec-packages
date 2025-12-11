@@ -744,7 +744,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
                                                                          std::string const msg)
 {
     // make sure `target_range` is not too big.
-    BB_ASSERT_GTE(DEFAULT_PLOOKUP_RANGE_SIZE, target_range);
+    BB_ASSERT_GTE(MAX_SMALL_RANGE_CONSTRAINT_VAL, target_range);
     const bool is_out_of_range = (uint256_t(this->get_variable(variable_index)).data[0] > target_range);
     if (is_out_of_range && !this->failed()) {
         this->failure(msg);

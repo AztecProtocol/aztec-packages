@@ -54,7 +54,12 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_STEP_SIZE = 3;
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_SIZE = (1 << DEFAULT_PLOOKUP_RANGE_BITNUM) - 1;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = 68;
-    static constexpr size_t MAX_NUM_BITS_RANGE_CONSTRAINT = 254;
+    // We offer two types of range constraints: small (which can be non-dyadic) and general. The below constants
+    // determine their max values.
+    static constexpr size_t MAX_SMALL_RANGE_CONSTRAINT_VAL = (1 << 16) - 1;
+    static constexpr size_t MAX_NUM_BITS_RANGE_CONSTRAINT =
+        253; // AUDITTODO: should be the same as `grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH`, which is currently 252.
+             // latter needs to be bumped up by 1.
     enum MEMORY_SELECTORS {
         MEM_NONE,
         RAM_CONSISTENCY_CHECK,
@@ -304,10 +309,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * @brief Low-level range constraint for small ranges, notably non-power-of-2. Adds variable to a RangeList for
      * batched processing.
-     * @details Constrains variable to [0, target_range]. The constraint is deferred: variables are collected
-     * into RangeLists (grouped by target_range), then processed together in `process_range_lists()` which
-     * creates the actual delta-range gates. This batching is efficient because multiple variables sharing
-     * the same range can share the "staircase" of multiples-of-3 values.
+     * @details Constrains variable to [0, target_range], where `target_range < 2^14`. The constraint is deferred:
+     * variables are collected into RangeLists (grouped by target_range), then processed together in
+     * `process_range_lists()` which creates the actual delta-range gates. This batching is efficient because multiple
+     * variables sharing the same range can share the "staircase" of multiples-of-3 values.
      * @warning This will yield an UNSATISFIABLE CIRCUIT if `variable_index` does not appear in any of the wires. If
      * `variable_index` is not used in any gate, its tag would never appear in the permutation polynomials, yielding an
      * unsatisfiable circuit: the GPA would fail because the range constraint increases the sorted set size by one while
@@ -339,11 +344,11 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         if (num_bits == 1) {
             create_bool_gate(variable_index);
         } else if (num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM) {
-            create_small_range_constraint(variable_index, (1ULL << num_bits) - 1, msg);
             // Add an unconstrained gate to ensure variable_index appears in a wire. (See warning in
             // `create_small_range_constraint` for more details.)
             create_unconstrained_gate(
                 blocks.arithmetic, variable_index, this->zero_idx(), this->zero_idx(), this->zero_idx());
+            create_small_range_constraint(variable_index, (1ULL << num_bits) - 1, msg);
         } else {
             create_limbed_range_constraint(variable_index, num_bits, DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
         }
