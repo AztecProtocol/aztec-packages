@@ -28,6 +28,9 @@ on:
         required: false
         type: string
         default: next-scenario.env
+  schedule:
+    # Run every night at 4:00 AM UTC, to mirror next-net nightly deploy
+    - cron: "0 4 * * *"
 
 concurrency:
   group: test-network-scenarios-${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_sha) || (github.event_name == 'workflow_dispatch' && inputs.ref) || github.sha }}
@@ -64,7 +67,8 @@ jobs:
     if: |
       always() &&
       ((github.event_name == 'workflow_run' && needs.check-should-run.outputs.should_run == 'true') ||
-      (github.event_name == 'workflow_dispatch'))
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'schedule'))
     runs-on: ubuntu-latest
     env:
       NETWORK_ENV_FILE: /tmp/network.env
@@ -87,6 +91,13 @@ jobs:
           ref: ${{ inputs.ref }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Checkout (schedule)
+        if: github.event_name == 'schedule'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: next
+          fetch-depth: 0
+          persist-credentials: false
       - name: Determine semver from tag
         if: github.event_name == 'workflow_run'
         run: |
@@ -106,6 +117,26 @@ jobs:
           namespace_id=$(echo "${{ inputs.namespace }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
           echo "DOCKER_IMAGE=$docker_image" >> $GITHUB_ENV
           echo "NAMESPACE_ID=$namespace_id" >> $GITHUB_ENV
+      - name: Determine nightly image and namespace (schedule)
+        if: github.event_name == 'schedule'
+        run: |
+          # Determine the latest nightly image for today's date and set namespace
+          current_version=$(jq -r '."."' .release-please-manifest.json)
+          if [ -z "$current_version" ] || [ "$current_version" = "null" ]; then
+            echo "Error: Could not determine current version from .release-please-manifest.json"
+            exit 1
+          fi
+          major_version="${current_version%%.*}"
+          nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)-amd64"
+          echo "Computed nightly tag: $nightly_tag"
+          # Verify the tag exists on Docker Hub
+          TAGS=$(curl -s "https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags/$nightly_tag")
+          if echo "$TAGS" | grep -qi "not found"; then
+            echo "Error: Tag $nightly_tag not published to Docker Hub"
+            exit 1
+          fi
+          echo "DOCKER_IMAGE=aztecprotocol/aztec:${nightly_tag}" >> $GITHUB_ENV
+          echo "NAMESPACE_ID=v${major_version}-scenario" >> $GITHUB_ENV
 
       - name: Setup
         if: env.SEMVER != '' || env.DOCKER_IMAGE != ''

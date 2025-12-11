@@ -78,6 +78,11 @@ function network_test_cmds {
   echo $prefix $run_test_script simple src/spartan/smoke.test.ts
   echo $prefix $run_test_script simple src/spartan/transfer.test.ts
   echo $prefix $run_test_script simple src/spartan/slash_inactivity.test.ts
+  echo $prefix $run_test_script simple src/spartan/proving.test.ts
+  echo $prefix $run_test_script simple src/spartan/gating_passive.test.ts
+  echo $prefix $run_test_script simple src/spartan/prover-node.test.ts
+  echo $prefix $run_test_script simple src/spartan/upgrade_governance.test.ts
+  echo $prefix $run_test_script simple src/spartan/reorg.test.ts
 }
 
 function single_test {
