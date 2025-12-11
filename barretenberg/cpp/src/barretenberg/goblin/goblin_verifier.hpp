@@ -72,10 +72,12 @@ template <typename Curve> class GoblinVerifier_ {
      */
     GoblinVerifier_(std::shared_ptr<Transcript> transcript,
                     const GoblinProof& proof,
-                    const MergeCommitments& merge_commitments)
+                    const MergeCommitments& merge_commitments,
+                    MergeSettings merge_settings)
         : transcript(std::move(transcript))
         , proof(proof)
         , merge_commitments(merge_commitments)
+        , merge_settings(merge_settings)
     {}
 
     /**
@@ -88,7 +90,7 @@ template <typename Curve> class GoblinVerifier_ {
     std::shared_ptr<Transcript> transcript;
     GoblinProof proof;
     MergeCommitments merge_commitments;
-    static constexpr MergeSettings merge_settings = MergeSettings::APPEND;
+    MergeSettings merge_settings;
 };
 
 // Type aliases for convenience

@@ -152,7 +152,9 @@ class AvmGoblinRecursiveVerifier {
                 ultra_builder) // Empty ecc op tables because there is only one layer of Goblin
         };
         GoblinStdlibProof stdlib_goblin_proof(ultra_builder, inner_output.goblin_proof);
-        GoblinRecursiveVerifier goblin_verifier{ transcript, stdlib_goblin_proof, merge_commitments };
+        GoblinRecursiveVerifier goblin_verifier{
+            transcript, stdlib_goblin_proof, merge_commitments, MergeSettings::PREPEND
+        };
         GoblinRecursiveVerifier::VerificationResult goblin_verifier_output = goblin_verifier.verify();
         goblin_verifier_output.pairing_points.aggregate(mega_verifier_output.points_accumulator);
 

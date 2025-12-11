@@ -85,7 +85,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 
     auto transcript = std::make_shared<GoblinRecursiveVerifier::Transcript>();
     GoblinStdlibProof stdlib_proof(builder, proof);
-    GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments };
+    GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND };
     GoblinRecursiveVerifier::VerificationResult output = verifier.verify();
 
     stdlib::recursion::honk::DefaultIO<Builder> inputs;
