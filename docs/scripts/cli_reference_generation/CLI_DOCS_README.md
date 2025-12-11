@@ -103,7 +103,7 @@ These scripts generate the documentation and deploy it to the docs directories:
 ./docs/scripts/cli_reference_generation/update_all_cli_docs.sh v2.0.2
 
 # Output both CLIs to a custom directory instead of deploying to docs folders
-# Uses default filenames: cli_reference_autogen.md and cli_wallet_reference_autogen.md
+# Uses default filenames: cli_reference.md and cli_wallet_reference.md
 ./docs/scripts/cli_reference_generation/update_all_cli_docs.sh v2.0.2 /tmp/
 
 # Output a single CLI to a custom directory
