@@ -82,7 +82,7 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogFilter, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
@@ -655,16 +655,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.contractDataSource.getContract(address);
-  }
-
-  /**
-   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
-   * @param from - The block number from which to begin retrieving logs.
-   * @param limit - The maximum number of blocks to retrieve logs from.
-   * @returns An array of private logs from the specified range of blocks.
-   */
-  public getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]> {
-    return this.logsSource.getPrivateLogs(from, limit);
   }
 
   /**
