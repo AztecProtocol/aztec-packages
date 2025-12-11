@@ -820,7 +820,7 @@ describe('sequencer', () => {
 
     it('should use committee member when invalidating as committee member', async () => {
       // Set time past the committee member threshold
-      const timePastThreshold = 2; // seconds
+      const timePastThreshold = 3; // seconds
       dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
 
       sequencer.updateConfig({
