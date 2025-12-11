@@ -625,7 +625,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
     this->assert_valid_variables({ variable_index });
     // make sure `num_bits` satisfies the correct bounds
     BB_ASSERT_GT(num_bits, 0U);
-    BB_ASSERT_GTE(grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH, num_bits);
+    BB_ASSERT_GTE(MAX_NUM_BITS_RANGE_CONSTRAINT, num_bits);
 
     uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
