@@ -203,10 +203,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
                 input.current_value, input.leaf_index, input.trimmed_sibling_path(), input.root);
         }
     } catch (std::exception& e) {
-        if (will_throw) {
-            return 0;
+        if (!will_throw) {
+            // Unexpected throw
+            throw e;
         }
-        throw e;
+        // We can't continue executing since the gadget threw
+        return 0;
     }
 
     if (will_throw) {
