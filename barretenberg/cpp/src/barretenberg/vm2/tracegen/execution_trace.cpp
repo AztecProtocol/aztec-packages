@@ -849,6 +849,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                                    // This is the default we want: both tag and value 0.
                                    .after_relative = FF::zero(),
                                    .resolved_operand = Operand::from_tag(static_cast<ValueTag>(0), 0),
+                                   .error = std::nullopt,
                                });
 
     std::array<bool, AVM_MAX_OPERANDS> should_apply_indirection{};
