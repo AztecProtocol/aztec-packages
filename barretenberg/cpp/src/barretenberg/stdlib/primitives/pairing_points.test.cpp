@@ -150,21 +150,19 @@ TYPED_TEST(PairingPointsTests, TaggingMechanismFails)
     EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 
     // Create a ProverInstance, expect failure because pairing points have not been aggregated
-    EXPECT_THROW_OR_ABORT(
+    EXPECT_THROW_WITH_MESSAGE(
         ProverInstance prover_instance(builder),
-        ::testing::HasSubstr(
-            "Pairing points must all be aggregated together. Either no pairing points should be created, or all "
-            "created pairing points must be aggregated into a single pairing point. Found 2 different pairing "
-            "points."));
+        "Pairing points must all be aggregated together. Either no pairing points should be created, or "
+        "all created pairing points must be aggregated into a single pairing point. Found 2 different "
+        "pairing points");
 
     // Aggregate pairing points
     pp_one.aggregate(pp_three);
 
     // Create a ProverInstance, expect failure because pairing points have not been set to public
-    EXPECT_THROW_OR_ABORT(
+    EXPECT_THROW_WITH_MESSAGE(
         ProverInstance prover_instance(builder),
-        ::testing::HasSubstr(
-            "Pairing points must be set to public in the circuit before constructing the ProverInstance."));
+        "Pairing points must be set to public in the circuit before constructing the ProverInstance.");
 
     stdlib::recursion::honk::DefaultIO<Builder> inputs;
     inputs.pairing_inputs = pp_one;

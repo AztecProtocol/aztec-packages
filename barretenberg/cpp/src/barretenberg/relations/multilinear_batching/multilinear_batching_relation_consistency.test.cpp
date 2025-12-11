@@ -12,12 +12,12 @@ using FF = fr;
 namespace {
 
 struct InputElements {
-    FF w_non_shifted_accumulator;
-    FF w_non_shifted_instance;
-    FF w_evaluations_accumulator;
-    FF w_evaluations_instance;
-    FF w_shifted_accumulator;
-    FF w_shifted_instance;
+    FF batched_unshifted_accumulator;
+    FF batched_unshifted_instance;
+    FF eq_accumulator;
+    FF eq_instance;
+    FF batched_shifted_accumulator;
+    FF batched_shifted_instance;
 
     static InputElements special() { return { FF(1), FF(2), FF(3), FF(4), FF(5), FF(6) }; }
 
@@ -48,8 +48,8 @@ TEST_F(MultilinearBatchingAccumulatorRelationConsistency, AccumulateMatchesDirec
         SumcheckArrayOfValuesOverSubrelations accumulator = seed;
         SumcheckArrayOfValuesOverSubrelations expected = seed;
 
-        expected[0] += inputs.w_non_shifted_accumulator * inputs.w_evaluations_accumulator;
-        expected[1] += inputs.w_shifted_accumulator * inputs.w_evaluations_accumulator;
+        expected[0] += inputs.batched_unshifted_accumulator * inputs.eq_accumulator;
+        expected[1] += inputs.batched_shifted_accumulator * inputs.eq_accumulator;
 
         Relation::accumulate(accumulator, inputs);
 
@@ -69,8 +69,8 @@ TEST_F(MultilinearBatchingInstanceRelationConsistency, AccumulateMatchesDirectCo
         SumcheckArrayOfValuesOverSubrelations accumulator = seed;
         SumcheckArrayOfValuesOverSubrelations expected = seed;
 
-        expected[0] += inputs.w_non_shifted_instance * inputs.w_evaluations_instance;
-        expected[1] += inputs.w_shifted_instance * inputs.w_evaluations_instance;
+        expected[0] += inputs.batched_unshifted_instance * inputs.eq_instance;
+        expected[1] += inputs.batched_shifted_instance * inputs.eq_instance;
 
         // const auto parameters = RelationParameters<FF>::get_random();
         Relation::accumulate(accumulator, inputs);
@@ -87,94 +87,94 @@ TEST_F(MultilinearBatchingInstanceRelationConsistency, AccumulateMatchesDirectCo
 
 TEST_F(MultilinearBatchingAccumulatorRelationConsistency, SkipLogic)
 {
-    // Test case 1: w_evaluations_accumulator is zero -> should skip
-    InputElements zero_evaluations;
-    zero_evaluations.w_non_shifted_accumulator = FF::random_element();
-    zero_evaluations.w_non_shifted_instance = FF::random_element();
-    zero_evaluations.w_shifted_accumulator = FF::random_element();
-    zero_evaluations.w_shifted_instance = FF::random_element();
-    zero_evaluations.w_evaluations_accumulator = FF(0);
-    zero_evaluations.w_evaluations_instance = FF::random_element();
+    // Test case 1: eq_accumulator is zero -> should skip
+    InputElements zero_eq;
+    zero_eq.batched_unshifted_accumulator = FF::random_element();
+    zero_eq.batched_unshifted_instance = FF::random_element();
+    zero_eq.batched_shifted_accumulator = FF::random_element();
+    zero_eq.batched_shifted_instance = FF::random_element();
+    zero_eq.eq_accumulator = FF(0);
+    zero_eq.eq_instance = FF::random_element();
 
-    EXPECT_TRUE(Relation::skip(zero_evaluations));
+    EXPECT_TRUE(Relation::skip(zero_eq));
 
-    // Test case 2: both w_non_shifted_accumulator and w_shifted_accumulator are zero -> should skip
+    // Test case 2: both batched_unshifted_accumulator and batched_shifted_accumulator are zero -> should skip
     InputElements zero_accumulators;
-    zero_accumulators.w_non_shifted_accumulator = FF(0);
-    zero_accumulators.w_non_shifted_instance = FF::random_element();
-    zero_accumulators.w_shifted_accumulator = FF(0);
-    zero_accumulators.w_shifted_instance = FF::random_element();
-    zero_accumulators.w_evaluations_accumulator = FF::random_element();
-    zero_accumulators.w_evaluations_instance = FF::random_element();
+    zero_accumulators.batched_unshifted_accumulator = FF(0);
+    zero_accumulators.batched_unshifted_instance = FF::random_element();
+    zero_accumulators.batched_shifted_accumulator = FF(0);
+    zero_accumulators.batched_shifted_instance = FF::random_element();
+    zero_accumulators.eq_accumulator = FF::random_element();
+    zero_accumulators.eq_instance = FF::random_element();
 
     EXPECT_TRUE(Relation::skip(zero_accumulators));
 
-    // Test case 3: w_non_shifted_accumulator is non-zero, w_evaluations_accumulator is non-zero -> should not skip
+    // Test case 3: batched_unshifted_accumulator is non-zero, eq_accumulator is non-zero -> should not skip
     InputElements non_zero_case;
-    non_zero_case.w_non_shifted_accumulator = FF(1);
-    non_zero_case.w_non_shifted_instance = FF::random_element();
-    non_zero_case.w_shifted_accumulator = FF::random_element();
-    non_zero_case.w_shifted_instance = FF::random_element();
-    non_zero_case.w_evaluations_accumulator = FF(1);
-    non_zero_case.w_evaluations_instance = FF::random_element();
+    non_zero_case.batched_unshifted_accumulator = FF(1);
+    non_zero_case.batched_unshifted_instance = FF::random_element();
+    non_zero_case.batched_shifted_accumulator = FF::random_element();
+    non_zero_case.batched_shifted_instance = FF::random_element();
+    non_zero_case.eq_accumulator = FF(1);
+    non_zero_case.eq_instance = FF::random_element();
 
     EXPECT_FALSE(Relation::skip(non_zero_case));
 }
 
 TEST_F(MultilinearBatchingInstanceRelationConsistency, SkipLogic)
 {
-    // Test case 1: both w_evaluations_accumulator and w_evaluations_instance are zero -> should skip
-    InputElements zero_evaluations;
-    zero_evaluations.w_non_shifted_accumulator = FF::random_element();
-    zero_evaluations.w_non_shifted_instance = FF::random_element();
-    zero_evaluations.w_shifted_accumulator = FF::random_element();
-    zero_evaluations.w_shifted_instance = FF::random_element();
-    zero_evaluations.w_evaluations_accumulator = FF(0);
-    zero_evaluations.w_evaluations_instance = FF(0);
+    // Test case 1: both eq_accumulator and eq_instance are zero -> should skip
+    InputElements zero_eq;
+    zero_eq.batched_unshifted_accumulator = FF::random_element();
+    zero_eq.batched_unshifted_instance = FF::random_element();
+    zero_eq.batched_shifted_accumulator = FF::random_element();
+    zero_eq.batched_shifted_instance = FF::random_element();
+    zero_eq.eq_accumulator = FF(0);
+    zero_eq.eq_instance = FF(0);
 
-    EXPECT_TRUE(Relation::skip(zero_evaluations));
+    EXPECT_TRUE(Relation::skip(zero_eq));
 
     // Test case 2: all shifted/non-shifted fields are zero -> should skip
-    InputElements zero_all_shifted;
-    zero_all_shifted.w_non_shifted_accumulator = FF(0);
-    zero_all_shifted.w_non_shifted_instance = FF(0);
-    zero_all_shifted.w_shifted_accumulator = FF(0);
-    zero_all_shifted.w_shifted_instance = FF(0);
-    zero_all_shifted.w_evaluations_accumulator = FF::random_element();
-    zero_all_shifted.w_evaluations_instance = FF::random_element();
+    InputElements zero_all_batched;
+    zero_all_batched.batched_unshifted_accumulator = FF(0);
+    zero_all_batched.batched_unshifted_instance = FF(0);
+    zero_all_batched.batched_shifted_accumulator = FF(0);
+    zero_all_batched.batched_shifted_instance = FF(0);
+    zero_all_batched.eq_accumulator = FF::random_element();
+    zero_all_batched.eq_instance = FF::random_element();
 
-    EXPECT_TRUE(Relation::skip(zero_all_shifted));
+    EXPECT_TRUE(Relation::skip(zero_all_batched));
 
-    // Test case 3: w_evaluations_accumulator is zero but w_evaluations_instance is non-zero -> should not skip
-    InputElements accumulator_eval_zero;
-    accumulator_eval_zero.w_non_shifted_accumulator = FF::random_element();
-    accumulator_eval_zero.w_non_shifted_instance = FF::random_element();
-    accumulator_eval_zero.w_shifted_accumulator = FF::random_element();
-    accumulator_eval_zero.w_shifted_instance = FF::random_element();
-    accumulator_eval_zero.w_evaluations_accumulator = FF(0);
-    accumulator_eval_zero.w_evaluations_instance = FF(1);
+    // Test case 3: eq_accumulator is zero but eq_instance is non-zero -> should not skip
+    InputElements accumulator_eq_zero;
+    accumulator_eq_zero.batched_unshifted_accumulator = FF::random_element();
+    accumulator_eq_zero.batched_unshifted_instance = FF::random_element();
+    accumulator_eq_zero.batched_shifted_accumulator = FF::random_element();
+    accumulator_eq_zero.batched_shifted_instance = FF::random_element();
+    accumulator_eq_zero.eq_accumulator = FF(0);
+    accumulator_eq_zero.eq_instance = FF(1);
 
-    EXPECT_FALSE(Relation::skip(accumulator_eval_zero));
+    EXPECT_FALSE(Relation::skip(accumulator_eq_zero));
 
-    // Test case 4: w_evaluations_instance is zero but w_evaluations_accumulator is non-zero -> should not skip
-    InputElements instance_eval_zero;
-    instance_eval_zero.w_non_shifted_accumulator = FF::random_element();
-    instance_eval_zero.w_non_shifted_instance = FF::random_element();
-    instance_eval_zero.w_shifted_accumulator = FF::random_element();
-    instance_eval_zero.w_shifted_instance = FF::random_element();
-    instance_eval_zero.w_evaluations_accumulator = FF(1);
-    instance_eval_zero.w_evaluations_instance = FF(0);
+    // Test case 4: eq_instance is zero but eq_accumulator is non-zero -> should not skip
+    InputElements instance_eq_zero;
+    instance_eq_zero.batched_unshifted_accumulator = FF::random_element();
+    instance_eq_zero.batched_unshifted_instance = FF::random_element();
+    instance_eq_zero.batched_shifted_accumulator = FF::random_element();
+    instance_eq_zero.batched_shifted_instance = FF::random_element();
+    instance_eq_zero.eq_accumulator = FF(1);
+    instance_eq_zero.eq_instance = FF(0);
 
-    EXPECT_FALSE(Relation::skip(instance_eval_zero));
+    EXPECT_FALSE(Relation::skip(instance_eq_zero));
 
     // Test case 5: all non-zero -> should not skip
     InputElements all_non_zero;
-    all_non_zero.w_non_shifted_accumulator = FF(1);
-    all_non_zero.w_non_shifted_instance = FF(1);
-    all_non_zero.w_shifted_accumulator = FF(1);
-    all_non_zero.w_shifted_instance = FF(1);
-    all_non_zero.w_evaluations_accumulator = FF(1);
-    all_non_zero.w_evaluations_instance = FF(1);
+    all_non_zero.batched_unshifted_accumulator = FF(1);
+    all_non_zero.batched_unshifted_instance = FF(1);
+    all_non_zero.batched_shifted_accumulator = FF(1);
+    all_non_zero.batched_shifted_instance = FF(1);
+    all_non_zero.eq_accumulator = FF(1);
+    all_non_zero.eq_instance = FF(1);
 
     EXPECT_FALSE(Relation::skip(all_non_zero));
 }
