@@ -454,7 +454,7 @@ void ExecutionTraceBuilder::process(
                             ex_event.before_context_event.pc + ex_event.wire_instruction.size_in_bytes() },
                       } });
 
-            // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
+            // Along this function we need to set the info we get from the #[EXEC_SPEC_READ] lookup.
             process_execution_spec(ex_event, trace, row);
 
             process_addressing(ex_event.addressing_event, ex_event.wire_instruction, trace, row);
@@ -785,7 +785,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
                       { REGISTER_IS_WRITE_COLUMNS[i], register_info.is_write(i) ? 1 : 0 },
                       { REGISTER_MEM_OP_COLUMNS[i], register_info.is_active(i) ? 1 : 0 },
                       { REGISTER_EXPECTED_TAG_COLUMNS[i],
-                        register_info.need_tag_check(i) ? static_cast<uint32_t>(*register_info.expected_tag(i)) : 0 },
+                        register_info.need_tag_check(i) ? static_cast<uint32_t>(*(register_info.expected_tag(i))) : 0 },
                       { REGISTER_TAG_CHECK_COLUMNS[i], register_info.need_tag_check(i) ? 1 : 0 },
                   } });
     }
