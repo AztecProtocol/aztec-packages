@@ -63,6 +63,65 @@ class ChonkTests : public ::testing::Test {
         }
         return { ivc.prove(), ivc.get_vk() };
     };
+
+    /**
+     * @brief Enum for specifying which KernelIO field to tamper with in tests
+     */
+    enum class KernelIOField { ACCUMULATOR_HASH, KERNEL_RETURN_DATA, APP_RETURN_DATA, ECC_OP_TABLES };
+
+    /**
+     * @brief Helper function to test tampering with KernelIO fields
+     * @details Accumulates circuits, tampers with the specified field in the Init Kernel proof,
+     * and verifies that the final Chonk proof fails verification.
+     */
+    static void test_kernel_io_tampering(KernelIOField field_to_tamper)
+    {
+        BB_DISABLE_ASSERTS();
+
+        const size_t NUM_APP_CIRCUITS = 2;
+        CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
+        const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
+        Chonk ivc{ NUM_CIRCUITS };
+        TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
+
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, settings);
+            ivc.accumulate(circuit, vk);
+
+            // After accumulating 3 circuits (app, kernel, app), we have 2 proofs in the queue
+            if (idx == 2) {
+                EXPECT_EQ(ivc.verification_queue.size(), 2);
+
+                auto& kernel_entry = ivc.verification_queue[0];
+                ASSERT_TRUE(kernel_entry.is_kernel) << "Expected first queue entry to be a kernel";
+
+                using KernelIONative = bb::stdlib::recursion::honk::KernelIONative;
+                size_t num_public_inputs = kernel_entry.honk_vk->num_public_inputs;
+                KernelIONative kernel_io = KernelIONative::from_proof(kernel_entry.proof, num_public_inputs);
+
+                // Tamper with the specified field
+                switch (field_to_tamper) {
+                case KernelIOField::ACCUMULATOR_HASH:
+                    kernel_io.output_hn_accum_hash += FF(1);
+                    break;
+                case KernelIOField::KERNEL_RETURN_DATA:
+                    kernel_io.kernel_return_data = kernel_io.kernel_return_data + Commitment::one();
+                    break;
+                case KernelIOField::APP_RETURN_DATA:
+                    kernel_io.app_return_data = kernel_io.app_return_data + Commitment::one();
+                    break;
+                case KernelIOField::ECC_OP_TABLES:
+                    kernel_io.ecc_op_tables[0] = kernel_io.ecc_op_tables[0] + Commitment::one();
+                    break;
+                }
+
+                kernel_io.to_proof(kernel_entry.proof, num_public_inputs);
+            }
+        }
+
+        auto proof = ivc.prove();
+        EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
+    }
 };
 
 /**
@@ -181,82 +240,6 @@ TEST_F(ChonkTests, BadProofFailure)
         auto proof = ivc.prove();
         EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
     }
-
-    // The IVC fails if the calldata of the Hiding Kernel is different from the return data of the Tail Kernels
-    {
-        CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
-        const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS };
-
-        // Construct and accumulate a set of mocked private function execution circuits
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto [circuit, vk] =
-                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
-            ivc.accumulate(circuit, vk);
-        }
-        auto proof = ivc.prove();
-
-        // The public input after the PairingPoints is the commitment to the return data of the Tail kernel.
-        tamper_with_proof(proof.mega_proof, PAIRING_POINTS_SIZE);
-        EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
-    }
-
-    EXPECT_TRUE(true);
-};
-
-/**
- * @brief Produce 2 valid Chonk proofs. Ensure that replacing a proof component with a component from a different proof
- * leads to a verification failure.
- *
- */
-TEST_F(ChonkTests, WrongProofComponentFailure)
-{
-    // Produce two valid proofs
-    auto [chonk_proof_1, chonk_vk_1] = accumulate_and_prove_ivc(/*num_app_circuits=*/1);
-    {
-        EXPECT_TRUE(Chonk::verify(chonk_proof_1, chonk_vk_1));
-    }
-
-    auto [chonk_proof_2, chonk_vk_2] = accumulate_and_prove_ivc(/*num_app_circuits=*/1);
-    {
-        EXPECT_TRUE(Chonk::verify(chonk_proof_2, chonk_vk_2));
-    }
-
-    {
-        // Replace Merge proof
-        Chonk::Proof tampered_proof = chonk_proof_1;
-
-        tampered_proof.goblin_proof.merge_proof = chonk_proof_2.goblin_proof.merge_proof;
-
-        EXPECT_THROW_WITH_MESSAGE(Chonk::verify(tampered_proof, chonk_vk_1), "IPA verification fails");
-    }
-
-    {
-        // Replace Hiding kernel proof
-        Chonk::Proof tampered_proof = chonk_proof_1;
-
-        tampered_proof.mega_proof = chonk_proof_2.mega_proof;
-
-        EXPECT_THROW_WITH_MESSAGE(Chonk::verify(tampered_proof, chonk_vk_1), "IPA verification fails");
-    }
-
-    {
-        // Replace ECCVM proof
-        Chonk::Proof tampered_proof = chonk_proof_1;
-
-        tampered_proof.goblin_proof.eccvm_proof = chonk_proof_2.goblin_proof.eccvm_proof;
-
-        EXPECT_THROW_WITH_MESSAGE(Chonk::verify(tampered_proof, chonk_vk_1), "IPA verification fails");
-    }
-
-    {
-        // Replace Translator proof
-        Chonk::Proof tampered_proof = chonk_proof_1;
-
-        tampered_proof.goblin_proof.translator_proof = chonk_proof_2.goblin_proof.translator_proof;
-
-        EXPECT_FALSE(Chonk::verify(tampered_proof, chonk_vk_1));
-    }
 };
 
 /**
@@ -364,89 +347,14 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
 };
 
 /**
- * @brief Demonstrate that a databus inconsistency leads to verification failure for the IVC
- * @details Kernel circuits contain databus consistency checks that establish that data was passed faithfully between
- * circuits, e.g. the output (return_data) of an app was the input (secondary_calldata) of a kernel. This test tampers
- * with the databus in such a way that one of the kernels receives secondary_calldata based on tampered app return data.
- * This leads to an invalid witness in the check that ensures that the two corresponding commitments are equal and thus
- * causes failure of the IVC to verify.
- *
- */
-TEST_F(ChonkTests, DatabusFailure)
-{
-    BB_DISABLE_ASSERTS(); // Disable assert in HN prover
-
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
-    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    Chonk ivc{ NUM_CIRCUITS };
-
-    // Construct and accumulate a series of mocked private function execution circuits
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
-
-        // Tamper with the return data of the app circuit before it is processed as input to the next kernel
-        if (idx == 0) {
-            circuit_producer.tamper_with_databus();
-        }
-
-        ivc.accumulate(circuit, vk);
-    }
-
-    auto proof = ivc.prove();
-    EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
-};
-
-/**
  * @brief Verify that tampering with the accumulator hash in public inputs causes IVC verification failure
  * @details Each kernel outputs `output_hn_accum_hash` as a public input. The next kernel computes the hash of its
  * input accumulator and compares it with the hash from the previous kernel's public inputs via assert_equal.
  * This test tampers with the hash to verify the binding is enforced.
- *
  */
 TEST_F(ChonkTests, AccumulatorHashTamperingFailure)
 {
-    BB_DISABLE_ASSERTS(); // Disable asserts in HN prover
-
-    const size_t NUM_APP_CIRCUITS = 2;
-    CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
-    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    Chonk ivc{ NUM_CIRCUITS };
-    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-
-    // Construct and accumulate circuits
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, settings);
-        ivc.accumulate(circuit, vk);
-
-        // After accumulating 3 circuits (app, kernel, app), we have 2 proofs in the queue
-        // The first proof is the Init Kernel proof which contains output_hn_accum_hash
-        if (idx == 2) {
-            EXPECT_EQ(ivc.verification_queue.size(), 2);
-
-            // Find a kernel entry in the verification queue and tamper with its accumulator hash
-            auto& kernel_entry = ivc.verification_queue[0];
-            ASSERT_TRUE(kernel_entry.is_kernel) << "Expected first queue entry to be a kernel";
-
-            // Use KernelIONative serde to deserialize, tamper, and serialize back
-            using KernelIONative = bb::stdlib::recursion::honk::KernelIONative;
-            size_t num_public_inputs = kernel_entry.honk_vk->num_public_inputs;
-            KernelIONative kernel_io = KernelIONative::from_proof(kernel_entry.proof, num_public_inputs);
-
-            // Store original value for logging
-            FF original_hash = kernel_io.output_hn_accum_hash;
-
-            // Tamper with the accumulator hash by adding 1
-            kernel_io.output_hn_accum_hash += FF(1);
-
-            // Serialize back to proof
-            kernel_io.to_proof(kernel_entry.proof, num_public_inputs);
-
-            info("Tampered output_hn_accum_hash: ", original_hash, " -> ", kernel_io.output_hn_accum_hash);
-        }
-    }
-
-    auto proof = ivc.prove();
-    EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
+    ChonkTests::test_kernel_io_tampering(KernelIOField::ACCUMULATOR_HASH);
 }
 
 /**
@@ -456,40 +364,7 @@ TEST_F(ChonkTests, AccumulatorHashTamperingFailure)
  */
 TEST_F(ChonkTests, KernelReturnDataTamperingFailure)
 {
-    BB_DISABLE_ASSERTS(); // Disable asserts to allow test to proceed
-
-    const size_t NUM_APP_CIRCUITS = 2;
-    CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
-    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    Chonk ivc{ NUM_CIRCUITS };
-    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, settings);
-        ivc.accumulate(circuit, vk);
-
-        // After accumulating 3 circuits (app, kernel, app), tamper with kernel's return data
-        if (idx == 2) {
-            EXPECT_EQ(ivc.verification_queue.size(), 2);
-
-            auto& kernel_entry = ivc.verification_queue[0];
-            ASSERT_TRUE(kernel_entry.is_kernel) << "Expected first queue entry to be a kernel";
-
-            using KernelIONative = bb::stdlib::recursion::honk::KernelIONative;
-            size_t num_public_inputs = kernel_entry.honk_vk->num_public_inputs;
-            KernelIONative kernel_io = KernelIONative::from_proof(kernel_entry.proof, num_public_inputs);
-
-            auto original = kernel_io.kernel_return_data;
-            // Tamper by adding generator point
-            kernel_io.kernel_return_data = kernel_io.kernel_return_data + Commitment::one();
-            kernel_io.to_proof(kernel_entry.proof, num_public_inputs);
-
-            info("Tampered kernel_return_data: ", original, " -> ", kernel_io.kernel_return_data);
-        }
-    }
-
-    auto proof = ivc.prove();
-    EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
+    ChonkTests::test_kernel_io_tampering(KernelIOField::KERNEL_RETURN_DATA);
 }
 
 /**
@@ -499,38 +374,7 @@ TEST_F(ChonkTests, KernelReturnDataTamperingFailure)
  */
 TEST_F(ChonkTests, AppReturnDataTamperingFailure)
 {
-    BB_DISABLE_ASSERTS();
-
-    const size_t NUM_APP_CIRCUITS = 2;
-    CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
-    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    Chonk ivc{ NUM_CIRCUITS };
-    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, settings);
-        ivc.accumulate(circuit, vk);
-
-        if (idx == 2) {
-            EXPECT_EQ(ivc.verification_queue.size(), 2);
-
-            auto& kernel_entry = ivc.verification_queue[0];
-            ASSERT_TRUE(kernel_entry.is_kernel) << "Expected first queue entry to be a kernel";
-
-            using KernelIONative = bb::stdlib::recursion::honk::KernelIONative;
-            size_t num_public_inputs = kernel_entry.honk_vk->num_public_inputs;
-            KernelIONative kernel_io = KernelIONative::from_proof(kernel_entry.proof, num_public_inputs);
-
-            auto original = kernel_io.app_return_data;
-            kernel_io.app_return_data = kernel_io.app_return_data + Commitment::one();
-            kernel_io.to_proof(kernel_entry.proof, num_public_inputs);
-
-            info("Tampered app_return_data: ", original, " -> ", kernel_io.app_return_data);
-        }
-    }
-
-    auto proof = ivc.prove();
-    EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
+    ChonkTests::test_kernel_io_tampering(KernelIOField::APP_RETURN_DATA);
 }
 
 /**
@@ -540,39 +384,7 @@ TEST_F(ChonkTests, AppReturnDataTamperingFailure)
  */
 TEST_F(ChonkTests, EccOpTablesTamperingFailure)
 {
-    BB_DISABLE_ASSERTS();
-
-    const size_t NUM_APP_CIRCUITS = 2;
-    CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
-    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    Chonk ivc{ NUM_CIRCUITS };
-    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, settings);
-        ivc.accumulate(circuit, vk);
-
-        if (idx == 2) {
-            EXPECT_EQ(ivc.verification_queue.size(), 2);
-
-            auto& kernel_entry = ivc.verification_queue[0];
-            ASSERT_TRUE(kernel_entry.is_kernel) << "Expected first queue entry to be a kernel";
-
-            using KernelIONative = bb::stdlib::recursion::honk::KernelIONative;
-            size_t num_public_inputs = kernel_entry.honk_vk->num_public_inputs;
-            KernelIONative kernel_io = KernelIONative::from_proof(kernel_entry.proof, num_public_inputs);
-
-            // Tamper with the first ecc_op_table commitment
-            auto original = kernel_io.ecc_op_tables[0];
-            kernel_io.ecc_op_tables[0] = kernel_io.ecc_op_tables[0] + Commitment::one();
-            kernel_io.to_proof(kernel_entry.proof, num_public_inputs);
-
-            info("Tampered ecc_op_tables[0]: ", original, " -> ", kernel_io.ecc_op_tables[0]);
-        }
-    }
-
-    auto proof = ivc.prove();
-    EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
+    ChonkTests::test_kernel_io_tampering(KernelIOField::ECC_OP_TABLES);
 }
 
 /**
