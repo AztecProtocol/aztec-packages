@@ -236,10 +236,46 @@ SHA256<Builder>::sparse_value SHA256<Builder>::map_into_maj_sparse_form(const fi
     return result;
 }
 
+/**
+ * @brief Compute Ch(e,f,g) + Σ₁(e) for SHA-256 compression rounds.
+ *
+ * This function combines two SHA-256 operations into one efficient computation:
+ *   - Ch(e,f,g) = (e & f) ^ (~e & g)     [Choose: if e then f else g]
+ *   - Σ₁(e) = (e >>> 6) ^ (e >>> 11) ^ (e >>> 25)  [Big sigma rotation sum]
+ *
+ * ## Sparse Form Technique
+ *
+ * In base-28 sparse representation, XOR becomes arithmetic addition and the combined
+ * operation can be expressed as:
+ *     [e + 2*f + 3*g] + 7*[(e >>> 6) + (e >>> 11) + (e >>> 25)]
+ *
+ * The first term is a sparse encoding of the Choose function via coefficients 1, 2, 3 on e, f, g. The factor 7 on the
+ * rotation terms is a bit packing scalar needed to position the Σ₁ contributions in the upper bits of each base-28
+ * digit.
+ *
+ * ## Lookup Table Structure (SHA256_CH_INPUT)
+ *
+ * The input lookup decomposes e.normal (32 bits) into three 11/11/10-bit limbs and returns:
+ *   - Column C2[0]: Full sparse accumulator of e (stored in e.sparse as side effect)
+ *   - Column C2[2]: Third sparse limb (sparse_limb_3, needed for rotation correction)
+ *   - Column C3[0]: Rotation accumulator encoding partial Σ₁(e) computation
+ *
+ * The rotation_coefficients correct for limb boundary effects when combining rotations.
+ *
+ * ## Output Normalization (SHA256_CH_OUTPUT)
+ *
+ * The sparse result is normalized back to a 32-bit value via lookup table that maps
+ * each sparse digit to its corresponding Ch + Σ₁ output bit.
+ *
+ * @param e Input/output: e.normal is read, e.sparse is populated as SIDE EFFECT
+ * @param f Input: must have .sparse already populated
+ * @param g Input: must have .sparse already populated
+ * @return Ch(e,f,g) + Σ₁(e) as a constrained 32-bit field element
+ */
 template <typename Builder>
-field_t<Builder> SHA256<Builder>::choose(sparse_value& e, const sparse_value& f, const sparse_value& g)
+field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const sparse_value& f, const sparse_value& g)
 {
-    typedef field_t<Builder> field_pt;
+    using field_pt = field_t<Builder>;
 
     const auto lookup = plookup_read<Builder>::get_lookup_accumulators(SHA256_CH_INPUT, e.normal);
     const auto rotation_coefficients = sha256_tables::get_choose_rotation_multipliers();
@@ -263,9 +299,9 @@ field_t<Builder> SHA256<Builder>::choose(sparse_value& e, const sparse_value& f,
 }
 
 template <typename Builder>
-field_t<Builder> SHA256<Builder>::majority(sparse_value& a, const sparse_value& b, const sparse_value& c)
+field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sparse_value& b, const sparse_value& c)
 {
-    typedef field_t<Builder> field_pt;
+    using field_pt = field_t<Builder>;
 
     const auto lookup = plookup_read<Builder>::get_lookup_accumulators(SHA256_MAJ_INPUT, a.normal);
     const auto rotation_coefficients = sha256_tables::get_majority_rotation_multipliers();
@@ -344,26 +380,49 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     sparse_value h = sparse_value(h_init[7]);
 
     /**
-     * Extend witness
+     * Extend the 16-word message block to 64 words per SHA-256 specification
      **/
-    const auto w = extend_witness(input);
+    const std::array<field_t<Builder>, 64> w = extend_witness(input);
 
     /**
-     * Apply SHA-256 compression function to the message schedule
-     **/
-    // As opposed to standard sha description - Maj and Choose functions also include required rotations for round
+     * Apply SHA-256 compression function to the message schedule.
+     *
+     * Standard SHA-256 round:
+     *   T1 = h + Σ1(e) + Ch(e,f,g) + K[i] + W[i]
+     *   T2 = Σ0(a) + Maj(a,b,c)
+     *   h,g,f,e,d,c,b,a = g,f,e,d+T1,c,b,a,T1+T2
+     *
+     * In this implementation, choose_with_sigma1() returns Ch(e,f,g) + Σ1(e) and majority_with_sigma0() returns
+     * Maj(a,b,c) + Σ0(a), so the rotation sums are bundled into the nonlinear functions.
+     *
+     * AUDITODO(critical-invariant): choose_with_sigma1() and majority_with_sigma0() have SIDE EFFECTS - they
+     * populate the .sparse field of their first argument (e and a respectively). The correctness of this loop
+     * depends on:
+     *   1. choose_with_sigma1(e,...) computes e.sparse before e is shuffled to f
+     *   2. majority_with_sigma0(a,...) computes a.sparse before a is shuffled to b
+     *   3. The shuffle (h=g, g=f, ...) copies the FULL sparse_value (including .sparse)
+     *   4. The e.normal and a.normal assignments only update .normal, leaving .sparse stale
+     *   5. The stale .sparse is OK because next iteration's choose_with_sigma1/majority_with_sigma0 will recompute it
+     * Any refactoring must preserve this ordering or explicitly manage sparse form computation.
+     */
     for (size_t i = 0; i < 64; ++i) {
-        auto ch = choose(e, f, g);
-        auto maj = majority(a, b, c);
+        // AUDITODO(side-effect): choose_with_sigma1() populates e.sparse as a side effect via lookup table
+        auto ch = choose_with_sigma1(e, f, g);
+        // AUDITODO(side-effect): majority_with_sigma0() populates a.sparse as a side effect via lookup table
+        auto maj = majority_with_sigma0(a, b, c);
+        // T1 = Ch + Σ1 + h + K[i] + W[i] (ch already contains Ch + Σ1)
         auto temp1 = ch.add_two(h.normal, w[i] + fr(round_constants[i]));
 
+        // Shuffle working variables - copies full sparse_value structs (both .normal and .sparse)
         h = g;
         g = f;
-        f = e;
+        f = e; // f gets e's .sparse (computed by choose_with_sigma1() above) - this ordering is critical
+        // AUDITODO(stale-sparse): e.sparse becomes stale here; relies on next iteration's choose_with_sigma1() to fix
         e.normal = add_normalize(d.normal, temp1);
         d = c;
         c = b;
-        b = a;
+        b = a; // b gets a's .sparse (computed by majority_with_sigma0() above) - this ordering is critical
+        // AUDITODO(stale-sparse): a.sparse becomes stale here; relies on next iteration's majority_with_sigma0() to fix
         a.normal = add_normalize(temp1, maj);
     }
 

@@ -97,6 +97,82 @@ static constexpr uint64_t witness_extension_normalization_table[16]{
     2,
 };
 
+/**
+ * Rotation coefficients for Choose function: Σ₁(e) = (e>>>6) ^ (e>>>11) ^ (e>>>25)
+ *
+ * There are three outcomes to consider when a limb is rotated:
+ *   - It stays contiguous: can be represented via multiplication by coefficient = base^(new_bit_position)
+ *   - It splits across the bit-31/0 boundary: must be handled via lookup table correction
+ *   - It lands exactly in bit 0: can be handled via sparse limb base table
+ *
+ * Limb structure: L0 = bits 0-10, L1 = bits 11-21, L2 = bits 22-31
+ */
+static constexpr bb::fr choose_base{ 28 };
+
+static constexpr bb::fr HANDLED_VIA_TABLE{ 0 }; // indicates handling via lookup table instead of scalar multiplier
+
+static constexpr std::array<bb::fr, 3> choose_rot6_coefficients{
+    HANDLED_VIA_TABLE,       // splits across boundary
+    choose_base.pow(11 - 6), // lands at bit 5
+    choose_base.pow(22 - 6), // lands at bit 16
+};
+
+static constexpr std::array<bb::fr, 3> choose_rot11_coefficients{
+    choose_base.pow(32 - 11), // lands at bit 21
+    HANDLED_VIA_TABLE,        // lands at bit 0 can be handled using sparse limb base table
+    choose_base.pow(22 - 11), // lands at bit 11
+};
+
+static constexpr std::array<bb::fr, 3> choose_rot25_coefficients{
+    choose_base.pow(32 - 25),      // lands at bit 7
+    choose_base.pow(32 - 25 + 11), // lands at bit 18
+    HANDLED_VIA_TABLE,             // splits across boundary
+};
+
+// Combined per-limb rotation coefficients
+static constexpr std::array<bb::fr, 3> choose_rotation_coefficients{
+    choose_rot6_coefficients[0] + choose_rot11_coefficients[0] + choose_rot25_coefficients[0],
+    choose_rot6_coefficients[1] + choose_rot11_coefficients[1] + choose_rot25_coefficients[1],
+    choose_rot6_coefficients[2] + choose_rot11_coefficients[2] + choose_rot25_coefficients[2],
+};
+
+/**
+ * Rotation coefficients for Majority function: Σ₀(a) = (a>>>2) ^ (a>>>13) ^ (a>>>22)
+ *
+ * There are three outcomes to consider when a limb is rotated:
+ *   - It stays contiguous: can be represented via multiplication by coefficient = base^(new_bit_position)
+ *   - It splits across the bit-31/0 boundary: must be handled via lookup table correction
+ *   - It lands exactly in bit 0: can be handled via sparse limb base table
+ *
+ * Limb structure: L0 = bits 0-10, L1 = bits 11-21, L2 = bits 22-31
+ */
+static constexpr bb::fr majority_base{ 16 };
+
+static constexpr std::array<bb::fr, 3> majority_rot2_coefficients{
+    HANDLED_VIA_TABLE,         // splits across boundary
+    majority_base.pow(11 - 2), // lands at bit 9
+    majority_base.pow(22 - 2), // lands at bit 20
+};
+
+static constexpr std::array<bb::fr, 3> majority_rot13_coefficients{
+    majority_base.pow(32 - 13), // lands at bit 19
+    HANDLED_VIA_TABLE,          // splits across boundary
+    majority_base.pow(22 - 13), // lands at bit 9
+};
+
+static constexpr std::array<bb::fr, 3> majority_rot22_coefficients{
+    majority_base.pow(32 - 22),      // lands at bit 10
+    majority_base.pow(32 - 22 + 11), // lands at bit 21
+    HANDLED_VIA_TABLE,               // lands at bit 0, handled via sparse limb base table
+};
+
+// Combined per-limb rotation coefficients
+static constexpr std::array<bb::fr, 3> majority_rotation_coefficients{
+    majority_rot2_coefficients[0] + majority_rot13_coefficients[0] + majority_rot22_coefficients[0],
+    majority_rot2_coefficients[1] + majority_rot13_coefficients[1] + majority_rot22_coefficients[1],
+    majority_rot2_coefficients[2] + majority_rot13_coefficients[2] + majority_rot22_coefficients[2],
+};
+
 inline plookup::BasicTable generate_witness_extension_normalization_table(BasicTableId id, const size_t table_index)
 {
     return sparse_tables::generate_sparse_normalization_table<16, 3, witness_extension_normalization_table>(
@@ -163,62 +239,23 @@ inline MultiTable get_majority_output_table(const MultiTableId id = SHA256_MAJ_O
 
 inline std::array<bb::fr, 3> get_majority_rotation_multipliers()
 {
-    constexpr uint64_t base_temp = 16;
-    auto base = bb::fr(base_temp);
-    // scaling factors applied to a's sparse limbs, excluding the rotated limb
-    const std::array<bb::fr, 3> rot2_coefficients{ 0, base.pow(11 - 2), base.pow(22 - 2) };
-    const std::array<bb::fr, 3> rot13_coefficients{ base.pow(32 - 13), 0, base.pow(22 - 13) };
-    const std::array<bb::fr, 3> rot22_coefficients{ base.pow(32 - 22), base.pow(32 - 22 + 11), 0 };
+    // L1 correction: coefficients[1] - 16^11 * coefficients[0]
+    // Needed because multiplying a.sparse by coefficients[0] gives L1 the coefficient 16^11 * coefficients[0],
+    // but we need coefficients[1]
+    bb::fr limb1_correction =
+        majority_rotation_coefficients[1] - majority_base.pow(11) * majority_rotation_coefficients[0];
 
-    // these are the coefficients that we want
-    const std::array<bb::fr, 3> target_rotation_coefficients{
-        rot2_coefficients[0] + rot13_coefficients[0] + rot22_coefficients[0],
-        rot2_coefficients[1] + rot13_coefficients[1] + rot22_coefficients[1],
-        rot2_coefficients[2] + rot13_coefficients[2] + rot22_coefficients[2],
-    };
-
-    bb::fr column_2_row_1_multiplier = target_rotation_coefficients[0];
-    bb::fr column_2_row_2_multiplier =
-        target_rotation_coefficients[0] * (-bb::fr(base).pow(11)) + target_rotation_coefficients[1];
-
-    std::array<bb::fr, 3> rotation_multipliers = { column_2_row_1_multiplier, column_2_row_2_multiplier, bb::fr(0) };
-    return rotation_multipliers;
+    return { majority_rotation_coefficients[0], limb1_correction, bb::fr(0) /*unused*/ };
 }
 
-// template <uint64_t rot_a, uint64_t rot_b, uint64_t rot_c>
 inline std::array<bb::fr, 3> get_choose_rotation_multipliers()
 {
-    const std::array<bb::fr, 3> column_2_row_3_coefficients{
-        bb::fr(1),
-        bb::fr(28).pow(11),
-        bb::fr(28).pow(22),
-    };
+    // L2 correction: coefficients[2] - 28^22 * coefficients[0]
+    // Needed because multiplying e.sparse by coefficients[0] gives L2 the coefficient 28^22 * coefficients[0],
+    // but we need coefficients[2]
+    bb::fr limb2_correction = choose_rotation_coefficients[2] - choose_base.pow(22) * choose_rotation_coefficients[0];
 
-    // scaling factors applied to a's sparse limbs, excluding the rotated limb
-    const std::array<bb::fr, 3> rot6_coefficients{ bb::fr(0), bb::fr(28).pow(11 - 6), bb::fr(28).pow(22 - 6) };
-    const std::array<bb::fr, 3> rot11_coefficients{ bb::fr(28).pow(32 - 11), bb::fr(0), bb::fr(28).pow(22 - 11) };
-    const std::array<bb::fr, 3> rot25_coefficients{ bb::fr(28).pow(32 - 25), bb::fr(28).pow(32 - 25 + 11), bb::fr(0) };
-
-    // these are the coefficients that we want
-    const std::array<bb::fr, 3> target_rotation_coefficients{
-        rot6_coefficients[0] + rot11_coefficients[0] + rot25_coefficients[0],
-        rot6_coefficients[1] + rot11_coefficients[1] + rot25_coefficients[1],
-        rot6_coefficients[2] + rot11_coefficients[2] + rot25_coefficients[2],
-    };
-
-    bb::fr column_2_row_1_multiplier = bb::fr(1) * target_rotation_coefficients[0]; // why multiply by one?
-
-    // this gives us the correct scaling factor for a0's 1st limb
-    std::array<bb::fr, 3> current_coefficients{
-        column_2_row_3_coefficients[0] * column_2_row_1_multiplier,
-        column_2_row_3_coefficients[1] * column_2_row_1_multiplier,
-        column_2_row_3_coefficients[2] * column_2_row_1_multiplier,
-    };
-
-    bb::fr column_2_row_3_multiplier = -(current_coefficients[2]) + target_rotation_coefficients[2];
-
-    std::array<bb::fr, 3> rotation_multipliers = { column_2_row_1_multiplier, bb::fr(0), column_2_row_3_multiplier };
-    return rotation_multipliers;
+    return { choose_rotation_coefficients[0], bb::fr(0) /*unused*/, limb2_correction };
 }
 
 inline MultiTable get_witness_extension_input_table(const MultiTableId id = SHA256_WITNESS_INPUT)
@@ -248,7 +285,7 @@ inline MultiTable get_choose_input_table(const MultiTableId id = SHA256_CH_INPUT
 {
     /**
      * When reading from our lookup tables, we can read from the differences between adjacent rows in program memory,
-     *instead of taking absolute values
+     * instead of taking absolute values
      *
      * For example, if our layout in memory is:
      *
@@ -258,73 +295,57 @@ inline MultiTable get_choose_input_table(const MultiTableId id = SHA256_CH_INPUT
      * | a_2 | b_2 | c_2 |
      * | ... | ... | ... |
      *
-     * We can valdiate that (a_1 + q_0 * a_2) is a table key and (c_1 + q_1 * c_2), (b_1 + q_2 * b_2) are table values,
+     * We can validate that (a_1 + q_0 * a_2) is a table key and (c_1 + q_1 * c_2), (b_1 + q_2 * b_2) are table values,
      * where q_0, q_1, q_2 are precomputed constants
      *
      * This allows us to assemble accumulating sums out of multiple table reads, without requiring extra addition gates.
      *
      * We can also use this feature to evaluate our sha256 rotations more efficiently, when converting into sparse form.
      *
-     * Let column 1 represents our 'normal' scalar, column 2 represents our scalar in sparse form
+     * Let column 1 represent our 'normal' scalar, and column 2 represent our scalar in sparse form
      *
      * It's simple enough to make columns 1 and 2 track the accumulating sum of our scalar in normal and sparse form.
      *
      * Column 3 contains terms we can combine with our accumulated sparse scalar, to obtain our rotated scalar.
      *
      * Each lookup table will be of size 2^11. as that allows us to decompose a 32-bit scalar into sparse form in 3
-     *reads (2^16 is too expensive for small circuits)
+     * reads (2^16 is too expensive for small circuits)
      *
-     * For example, if we want to rotate `a` by 6 bits, we make the first lookup access the table that rotates `b` by 6
-     *bits. Subsequent table reads do not need to be rotated, as the 11-bit limbs will not cross 32-bit boundary and can
-     *be scaled by constants
+     * For example, if we want to rotate `e` by 6 bits, we make the first lookup access the table that rotates the
+     * first limb by 6 bits. Subsequent table reads do not need to be rotated, as the 11-bit limbs will not cross
+     * the 32-bit boundary and can be scaled by constants.
      *
-     * With this in mind, we want to tackle the SHA256 `ch` sub-algorithm
+     * With this in mind, we want to tackle the SHA256 `Ch` (choose) sub-algorithm.
      *
-     * This requires us to compute ((a >>> 6) ^ (a >>> 11) ^ (a >>> 25)) + ((a ^ b) ^ (~a ^ c))
+     * This requires us to compute Σ₁(e) + Ch(e,f,g) where:
+     *   - Σ₁(e) = (e >>> 6) ^ (e >>> 11) ^ (e >>> 25)
+     *   - Ch(e,f,g) = (e & f) ^ (~e & g)
      *
      * In sparse form, we can represent this as:
      *
-     *      7 * (a >>> 6) + (a >>> 11) + (a >>> 25) + (a + 2 * b + 3 * c)
+     *      [e + 2*f + 3*g] + 7*[(e >>> 6) + (e >>> 11) + (e >>> 25)]
      *
-     * When decomposing a into sparse form, we would therefore like to obtain the following:
+     * When decomposing e into sparse form, we would therefore like to obtain the following:
      *
-     *      7 * (a >>> 6) + (a >>> 11) + (a >>> 25) + (a)
+     *      e + 7*[(e >>> 6) + (e >>> 11) + (e >>> 25)]
      *
      * We need to determine the values of the constants (q_1, q_2, q_3) that we will be scaling our lookup values by,
-     *when assembling our accumulated sums.
+     * when assembling our accumulated sums.
      *
-     * We need the sparse representation of `a` elsewhere in the algorithm, so the constants in columns 1 and 2 are
-     *fixed.
+     * We need the sparse representation of `e` elsewhere in the algorithm, so the constants in columns 1 and 2 are
+     * fixed.
      *
-     **/
+     */
 
-    // scaling factors applied to a's sparse limbs, excluding the rotated limb
-    const std::array<bb::fr, 3> rot6_coefficients{ bb::fr(0), bb::fr(28).pow(11 - 6), bb::fr(28).pow(22 - 6) };
-    const std::array<bb::fr, 3> rot11_coefficients{ bb::fr(28).pow(32 - 11), bb::fr(0), bb::fr(28).pow(22 - 11) };
-    const std::array<bb::fr, 3> rot25_coefficients{ bb::fr(28).pow(32 - 25), bb::fr(28).pow(32 - 25 + 11), bb::fr(0) };
-
-    // these are the coefficients that we want
-    const std::array<bb::fr, 3> target_rotation_coefficients{
-        rot6_coefficients[0] + rot11_coefficients[0] + rot25_coefficients[0],
-        rot6_coefficients[1] + rot11_coefficients[1] + rot25_coefficients[1],
-        rot6_coefficients[2] + rot11_coefficients[2] + rot25_coefficients[2],
-    };
-
-    bb::fr column_2_row_1_multiplier = target_rotation_coefficients[0];
-
-    // this gives us the correct scaling factor for a0's 1st limb
-    std::array<bb::fr, 3> current_coefficients{
-        column_2_row_1_multiplier,
-        bb::fr(28).pow(11) * column_2_row_1_multiplier,
-        bb::fr(28).pow(22) * column_2_row_1_multiplier,
-    };
-
-    // bb::fr column_2_row_3_multiplier = -(current_coefficients[2]) + target_rotation_coefficients[2];
-    bb::fr column_3_row_2_multiplier = -(current_coefficients[1]) + target_rotation_coefficients[1];
+    // L1 correction: baked into column_3_coefficients[1]
+    // Multiplying e.sparse by coefficients[0] gives L1 the coefficient 28^11 * coefficients[0],
+    // but we need coefficients[1]
+    bb::fr limb1_table_correction =
+        choose_rotation_coefficients[1] - choose_base.pow(11) * choose_rotation_coefficients[0];
 
     std::vector<bb::fr> column_1_coefficients{ bb::fr(1), bb::fr(1 << 11), bb::fr(1 << 22) };
-    std::vector<bb::fr> column_2_coefficients{ bb::fr(1), bb::fr(28).pow(11), bb::fr(28).pow(22) };
-    std::vector<bb::fr> column_3_coefficients{ bb::fr(1), column_3_row_2_multiplier + bb::fr(1), bb::fr(1) };
+    std::vector<bb::fr> column_2_coefficients{ bb::fr(1), choose_base.pow(11), choose_base.pow(22) };
+    std::vector<bb::fr> column_3_coefficients{ bb::fr(1), bb::fr(1) + limb1_table_correction, bb::fr(1) };
     MultiTable table(column_1_coefficients, column_2_coefficients, column_3_coefficients);
     table.id = id;
     table.slice_sizes = { (1 << 11), (1 << 11), (1 << 10) };
@@ -333,56 +354,36 @@ inline MultiTable get_choose_input_table(const MultiTableId id = SHA256_CH_INPUT
     table.get_table_values.push_back(&sparse_tables::get_sparse_table_with_rotation_values<28, 6>);
     table.get_table_values.push_back(&sparse_tables::get_sparse_table_with_rotation_values<28, 0>);
     table.get_table_values.push_back(&sparse_tables::get_sparse_table_with_rotation_values<28, 3>);
-    // table.get_table_values = std::vector<MultiTable::table_out (*)(MultiTable::table_in)>{
 
-    //     &get_sha256_sparse_map_values<28, 0, 0>,
-    //     &get_sha256_sparse_map_values<28, 3, 0>,
-    // };
     return table;
 }
 
-// This table (at third row and column) returns the sum of roations that "non-trivially wrap"
+// This table (at third row and column) returns the sum of rotations that "non-trivially wrap"
 inline MultiTable get_majority_input_table(const MultiTableId id = SHA256_MAJ_INPUT)
 {
     /**
      * We want to tackle the SHA256 `maj` sub-algorithm
      *
-     * This requires us to compute ((a >>> 2) ^ (a >>> 13) ^ (a >>> 22)) + ((a & b) ^ (a & c) ^ (b & c))
+     * This requires us to compute Σ₀(a) + Maj(a,b,c) where:
+     *   - Σ₀(a) = (a >>> 2) ^ (a >>> 13) ^ (a >>> 22)
+     *   - Maj(a,b,c) = (a & b) ^ (a & c) ^ (b & c)
      *
      * In sparse form, we can represent this as:
      *
-     *      4 * (a >>> 2) + (a >>> 13) + (a >>> 22) +  (a + b + c)
-     *
-     *
-     * We need to determine the values of the constants (q_1, q_2, q_3) that we will be scaling our lookup values by,
-     *when assembling our accumulated sums.
+     *      4 * [(a >>> 2) + (a >>> 13) + (a >>> 22)] + (a + b + c)
      *
      * We need the sparse representation of `a` elsewhere in the algorithm, so the constants in columns 1 and 2 are
-     *fixed.
-     *
-     **/
-    constexpr uint64_t base = 16;
+     * fixed.
+     */
 
-    // scaling factors applied to a's sparse limbs, excluding the rotated limb
-    const std::array<bb::fr, 3> rot2_coefficients{ bb::fr(0), bb::fr(base).pow(11 - 2), bb::fr(base).pow(22 - 2) };
-    const std::array<bb::fr, 3> rot13_coefficients{ bb::fr(base).pow(32 - 13), bb::fr(0), bb::fr(base).pow(22 - 13) };
-    const std::array<bb::fr, 3> rot22_coefficients{ bb::fr(base).pow(32 - 22),
-                                                    bb::fr(base).pow(32 - 22 + 11),
-                                                    bb::fr(0) };
-
-    // these are the coefficients that we want
-    const std::array<bb::fr, 3> target_rotation_coefficients{
-        rot2_coefficients[0] + rot13_coefficients[0] + rot22_coefficients[0],
-        rot2_coefficients[1] + rot13_coefficients[1] + rot22_coefficients[1],
-        rot2_coefficients[2] + rot13_coefficients[2] + rot22_coefficients[2],
-    };
-
-    bb::fr column_2_row_3_multiplier =
-        target_rotation_coefficients[1] * (-bb::fr(base).pow(11)) + target_rotation_coefficients[2];
+    // L2 correction: baked into column_3_coefficients[2]
+    // The formula accounts for how L2's contribution propagates through the accumulator structure
+    bb::fr limb2_table_correction =
+        majority_rotation_coefficients[2] - majority_base.pow(11) * majority_rotation_coefficients[1];
 
     std::vector<bb::fr> column_1_coefficients{ bb::fr(1), bb::fr(1 << 11), bb::fr(1 << 22) };
-    std::vector<bb::fr> column_2_coefficients{ bb::fr(1), bb::fr(base).pow(11), bb::fr(base).pow(22) };
-    std::vector<bb::fr> column_3_coefficients{ bb::fr(1), bb::fr(1), bb::fr(1) + column_2_row_3_multiplier };
+    std::vector<bb::fr> column_2_coefficients{ bb::fr(1), majority_base.pow(11), majority_base.pow(22) };
+    std::vector<bb::fr> column_3_coefficients{ bb::fr(1), bb::fr(1), bb::fr(1) + limb2_table_correction };
 
     MultiTable table(column_1_coefficients, column_2_coefficients, column_3_coefficients);
     table.id = id;
