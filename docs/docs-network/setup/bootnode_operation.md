@@ -3,6 +3,7 @@ id: bootnode_operation
 sidebar_position: 3
 title: Using and running a bootnode
 description: Learn how to connect to and operate bootnodes for peer discovery in the Aztec network.
+references: ["yarn-project/aztec/src/cli/cmds/start_p2p_bootstrap.ts"]
 ---
 
 ## Overview

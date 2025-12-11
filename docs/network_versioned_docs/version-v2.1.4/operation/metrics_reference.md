@@ -1,6 +1,7 @@
 ---
 title: Key Metrics Reference
 description: Comprehensive guide to understanding and using the metrics exposed by your Aztec node for monitoring and observability.
+references: ["yarn-project/aztec-node/src/aztec-node/node_metrics.ts", "yarn-project/sequencer-client/src/sequencer/metrics.ts", "yarn-project/prover-node/src/metrics.ts", "yarn-project/archiver/src/archiver/instrumentation.ts"]
 ---
 
 ## Overview
