@@ -12,18 +12,10 @@ import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 
 import {
-  ARITHMETIC_TYPE_VARIANTS,
-  BITWISE_TYPE_VARIANTS,
-  SPAM_CONFIGS,
-  createMaxSizeLogNestedBytecode,
-  createNestedSpamBytecode,
-  createSpamBytecode,
+  createNestedSpamBytecodeFromConfig,
   createSpamBytecodeFromConfig,
-  expandTypeVariants,
-  getSpammableOpcodes,
-  isSideEffectLimited,
+  getAllSpamTestCases,
 } from '../../avm/opcode_spammer/opcode_spammer.js';
-import { Opcode } from '../../avm/serialization/instruction_serialization.js';
 import { testCustomBytecode, testNestedCustomBytecode } from '../../fixtures/custom_bytecode_tester.js';
 import {
   type MeasuredSimulatorFactory,
@@ -43,50 +35,8 @@ import { MeasuredPublicTxSimulator } from '../measured_public_tx_simulator.js';
 // Requires collectCallMetadata: true in the config below.
 const COMPARE_CPP_VS_TS = true;
 
-// Get all spammable opcodes from config
-const allSpammableOpcodes = getSpammableOpcodes();
-
-// Opcodes tested with type variants (excluded from gas-limited section)
-const typeVariantOpcodes = new Set([
-  // Arithmetic
-  Opcode.ADD_8,
-  Opcode.SUB_8,
-  Opcode.MUL_8,
-  Opcode.DIV_8,
-  // Bitwise
-  Opcode.AND_8,
-  Opcode.OR_8,
-  Opcode.XOR_8,
-  Opcode.NOT_8,
-  // Shift
-  Opcode.SHL_8,
-  Opcode.SHR_8,
-  // Comparison
-  Opcode.EQ_8,
-  Opcode.LT_8,
-  Opcode.LTE_8,
-  // Memory
-  Opcode.CAST_8,
-  Opcode.MOV_8,
-]);
-
-// Opcodes that only work with integer types (not FIELD)
-const integerOnlyOpcodes = new Set([
-  Opcode.DIV_8,
-  Opcode.AND_8,
-  Opcode.OR_8,
-  Opcode.XOR_8,
-  Opcode.NOT_8,
-  Opcode.SHL_8,
-  Opcode.SHR_8,
-]);
-
-// Separate into gas-limited (excluding type-variant opcodes) and side-effect-limited
-const gasLimitedOpcodes = allSpammableOpcodes.filter(op => !isSideEffectLimited(op) && !typeVariantOpcodes.has(op));
-const sideEffectLimitedOpcodes = allSpammableOpcodes.filter(op => isSideEffectLimited(op));
-
-// Helper to create test case objects with opcode names
-const withNames = (opcodes: Opcode[]) => opcodes.map(op => ({ opcode: op, name: Opcode[op] }));
+// Get all test cases from the spammer config (hierarchical by opcode)
+const allTestCases = getAllSpamTestCases();
 
 describe('Opcode Spammer Benchmarks', () => {
   const logger = createLogger('opcode-spam-bench');
@@ -123,6 +73,7 @@ describe('Opcode Spammer Benchmarks', () => {
     expect(result.revertCode.isOK()).toBe(false);
     if (COMPARE_CPP_VS_TS) {
       const innerRevertReason = result.findRevertReason();
+      // Nested call will either explicitly REVERT or run out of gas.
       expect(innerRevertReason?.message.toLowerCase()).toMatch(/assertion failed|out of gas|not enough l2gas/);
       if (useCppSimulator) {
         // haltingMessage is only available in CallStackMetadata from C++ simulator
@@ -178,71 +129,20 @@ describe('Opcode Spammer Benchmarks', () => {
       await worldStateService.close();
     });
 
-    // =========================================================================
-    // All gas-limited opcodes (run until out-of-gas)
-    // Each opcode tested exactly once with default config
-    // =========================================================================
-    describe('Gas-limited opcodes', () => {
-      it.each(withNames(gasLimitedOpcodes))('$name', async ({ opcode, name }) => {
-        const { bytecode } = createSpamBytecode(opcode);
-        const result = await testCustomBytecode(bytecode, tester, name);
-        expectOutOfGasRevert(result);
-      });
-    });
-
-    // =========================================================================
-    // Side-effect-limited opcodes using nested call pattern
-    // Outer contract loops calling inner contract (which does limit-1 side effects + reverts)
-    // This allows thousands of iterations until out-of-gas
-    // =========================================================================
-    describe('Side-effect-limited opcodes (nested calls)', () => {
-      it.each(withNames(sideEffectLimitedOpcodes))('$name', async ({ opcode, name }) => {
-        const { innerBytecode, createOuterBytecode } = createNestedSpamBytecode(opcode);
-        const result = await testNestedCustomBytecode(innerBytecode, createOuterBytecode, tester, name);
-        expectNestedCallOutOfGasRevert(result, useCppSimulator);
-      });
-    });
-
-    // =========================================================================
-    // EMITUNENCRYPTEDLOG with max-size log
-    // Emits a single log that takes up the entire log payload limit per inner call.
-    // =========================================================================
-    describe('EMITUNENCRYPTEDLOG max-size log (nested calls)', () => {
-      it('EMITUNENCRYPTEDLOG_MAXSIZE', async () => {
-        const { innerBytecode, createOuterBytecode } = createMaxSizeLogNestedBytecode();
-        const result = await testNestedCustomBytecode(
-          innerBytecode,
-          createOuterBytecode,
-          tester,
-          'EMITUNENCRYPTEDLOG_MAXSIZE',
-        );
-        // C++ may see inner's explicit revert
-        expectNestedCallOutOfGasRevert(result, useCppSimulator);
-      });
-    });
-
-    // =========================================================================
-    // Type variants - test opcodes with different input types
-    // =========================================================================
-    describe('Gas-limited opcodes operating on varying types', () => {
-      for (const opcode of typeVariantOpcodes) {
-        if (!SPAM_CONFIGS[opcode]) {
-          continue;
+    // Unified test loop - handles both gas-limited and side-effect-limited opcodes
+    describe.each(allTestCases)('$opcode', ({ opcode, cases }) => {
+      it.each(cases.map(c => ({ ...c, opcode })))('$variant', async ({ opcode, variant, config, isNested }) => {
+        const label = variant !== opcode ? `${opcode}/${variant}` : opcode;
+        if (isNested) {
+          const { innerBytecode, createOuterBytecode } = createNestedSpamBytecodeFromConfig(config);
+          const result = await testNestedCustomBytecode(innerBytecode, createOuterBytecode, tester, label);
+          expectNestedCallOutOfGasRevert(result, useCppSimulator);
+        } else {
+          const { bytecode } = createSpamBytecodeFromConfig(config);
+          const result = await testCustomBytecode(bytecode, tester, label);
+          expectOutOfGasRevert(result);
         }
-
-        // Use integer-only variants for opcodes that don't support FIELD
-        const variants = integerOnlyOpcodes.has(opcode)
-          ? expandTypeVariants(opcode, BITWISE_TYPE_VARIANTS)
-          : expandTypeVariants(opcode, ARITHMETIC_TYPE_VARIANTS);
-
-        describe(Opcode[opcode], () => {
-          it.each(variants)('%s', async (label, variantConfig) => {
-            const { bytecode } = createSpamBytecodeFromConfig(variantConfig);
-            const result = await testCustomBytecode(bytecode, tester, label);
-            expectOutOfGasRevert(result);
-          });
-        });
-      }
+      });
     });
   });
 });
