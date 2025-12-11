@@ -9,6 +9,13 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec node, archiver] Deprecated `getPrivateLogs`
+
+Aztec node no longer offers a `getPrivateLogs` method. If you need to process the logs of a block, you can instead use `getBlock` and call `getPrivateLogs` on an `L2BlockNew` instance. See the diff below for before/after equivalent code samples.
+
+```diff
+-  const logs = await aztecNode.getPrivateLogs(blockNumber, 1);
++  const logs = (await aztecNode.getBlock(blockNumber))?.toL2Block().getPrivateLogs();
 ### [Aztec.nr] Private event emission API changes
 
 Private events are still emitted via the `emit` function, but this now returns an `EventMessage` type that must have `deliver_to` called on it in order to deliver the event message to the intended recipients. This allows for multiple recipients to receive the same event.

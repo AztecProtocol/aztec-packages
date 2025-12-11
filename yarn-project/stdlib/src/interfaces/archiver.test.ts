@@ -27,7 +27,6 @@ import { PublicKeys } from '../keys/public_keys.js';
 import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import type { LogFilter } from '../logs/log_filter.js';
-import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { BlockHeader } from '../tx/block_header.js';
@@ -193,11 +192,6 @@ describe('ArchiverApiSchema', () => {
       proven: { number: 1, hash: `0x01` },
       finalized: { number: 1, hash: `0x01` },
     });
-  });
-
-  it('getPrivateLogs', async () => {
-    const result = await context.client.getPrivateLogs(BlockNumber(1), BlockNumber(1));
-    expect(result).toEqual([expect.any(PrivateLog)]);
   });
 
   it('getLogsByTags', async () => {
@@ -433,9 +427,6 @@ class MockArchiver implements ArchiverApi {
   getL2BlockHash(blockNumber: BlockNumber): Promise<string | undefined> {
     expect(blockNumber).toEqual(BlockNumber(1));
     return Promise.resolve(`0x01`);
-  }
-  getPrivateLogs(_from: BlockNumber, _limit: number): Promise<PrivateLog[]> {
-    return Promise.resolve([PrivateLog.random()]);
   }
   async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags[0]).toBeInstanceOf(Fr);
