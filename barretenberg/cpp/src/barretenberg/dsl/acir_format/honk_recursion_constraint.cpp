@@ -5,7 +5,6 @@
 // =====================
 
 #include "honk_recursion_constraint.hpp"
-#include "barretenberg/dsl/acir_format/utils.hpp"
 
 #include <cstddef>
 
