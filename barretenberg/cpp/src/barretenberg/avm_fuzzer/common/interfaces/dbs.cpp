@@ -160,12 +160,10 @@ simulation::SequentialInsertionResult<NullifierLeafValue> FuzzerLowLevelDB::inse
     return {};
 }
 
-std::vector<AppendLeafResult> FuzzerLowLevelDB::append_leaves([[maybe_unused]] MerkleTreeId tree_id,
-                                                              std::span<const FF> leaves)
+void FuzzerLowLevelDB::append_leaves([[maybe_unused]] MerkleTreeId tree_id, std::span<const FF> leaves)
 {
     note_hash_leaves.insert(note_hash_leaves.end(), leaves.begin(), leaves.end());
     next_available_note_hash_index += leaves.size();
-    return {};
 }
 void FuzzerLowLevelDB::pad_tree([[maybe_unused]] MerkleTreeId tree_id, [[maybe_unused]] size_t num_leaves) {}
 

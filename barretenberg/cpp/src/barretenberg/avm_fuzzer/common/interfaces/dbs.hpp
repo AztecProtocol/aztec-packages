@@ -33,8 +33,7 @@ class FuzzerLowLevelDB : public bb::avm2::simulation::LowLevelMerkleDBInterface 
     simulation::SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
         const NullifierLeafValue& leaf_value) override;
 
-    std::vector<simulation::AppendLeafResult> append_leaves(simulation::MerkleTreeId tree_id,
-                                                            std::span<const FF> leaves) override;
+    void append_leaves(simulation::MerkleTreeId tree_id, std::span<const FF> leaves) override;
 
     void pad_tree(simulation::MerkleTreeId tree_id, size_t num_leaves) override;
     void create_checkpoint() override;
