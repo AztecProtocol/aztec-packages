@@ -563,6 +563,13 @@ case "$cmd" in
     build
     spartan/bootstrap.sh network_tests $NETWORK_ENV_FILE
     ;;
+  "ci-network-bench")
+    export CI=1
+    build
+    spartan/bootstrap.sh network_bench $NETWORK_ENV_FILE
+    bench_merge
+    cache_upload spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    ;;
   "ci-release")
     export CI=1
     export USE_TEST_CACHE=1
