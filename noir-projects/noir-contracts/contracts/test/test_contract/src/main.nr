@@ -326,7 +326,7 @@ pub contract Test {
             value4: fields[4],
         };
 
-        self.emit(event, owner, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.emit(event).deliver_to(owner, MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
