@@ -1,5 +1,4 @@
 import {
-  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -8,9 +7,9 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { AvmTxHint } from '@aztec/stdlib/avm';
+import { AvmTxHint, type PublicTxResult } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { contractClassPublicFromPlainObject, contractInstanceWithAddressFromPlainObject } from '@aztec/stdlib/contract';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
@@ -20,29 +19,49 @@ import {
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
-import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
-import { BlockHeader, HashedValues, Tx, TxConstantData, TxContext, TxHash } from '@aztec/stdlib/tx';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
+import { BlockHeader, GlobalVariables, HashedValues, Tx, TxConstantData, TxContext, TxHash } from '@aztec/stdlib/tx';
+import type { NativeWorldStateService } from '@aztec/world-state';
 
-// Registers a contract by inserting its address nullifier into the nullifier tree
-export async function registerContract(
-  merkleTrees: MerkleTreeWriteOperations,
-  contractAddress: AztecAddress,
-): Promise<void> {
-  const contractAddressNullifier = await siloNullifier(
-    AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
-    contractAddress.toField(),
-  );
-  await merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()]);
+import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
+import { SimpleContractDataSource } from '../fixtures/simple_contract_data_source.js';
+import { PublicContractsDB } from '../public_db_sources.js';
+import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
+
+/**
+ * Request structure for fuzzer simulation communication from C++.
+ * Matches the C++ FuzzerSimulationRequest struct
+ */
+export class FuzzerSimulationRequest {
+  constructor(
+    public readonly wsDataDir: string,
+    public readonly wsMapSizeKb: number,
+    public readonly tx: AvmTxHint,
+    public readonly globals: GlobalVariables,
+    public readonly contractClasses: any[], // Raw, processed by addContractClassFromCpp
+    public readonly contractInstances: [any, any][], // Raw pairs [address, instance]
+  ) {}
+
+  static fromPlainObject(obj: any): FuzzerSimulationRequest {
+    if (obj instanceof FuzzerSimulationRequest) {
+      return obj;
+    }
+    return new FuzzerSimulationRequest(
+      obj.wsDataDir,
+      obj.wsMapSizeKb,
+      AvmTxHint.fromPlainObject(obj.tx),
+      GlobalVariables.fromPlainObject(obj.globals),
+      obj.contractClasses,
+      obj.contractInstances,
+    );
+  }
 }
 
 /**
  * Creates a TypeScript Tx object from a deserialized C++ Tx (AvmTxHint-like structure).
  * This allows using PublicTxSimulator.simulate() with fuzzer-generated transactions.
- *
- * @param cppTx - Deserialized C++ Tx from msgpack (matches AvmTxHint structure)
- * @returns A TypeScript Tx suitable for PublicTxSimulator
  */
-export async function createFuzzerTx(cppTx: AvmTxHint): Promise<Tx> {
+async function createTxFromHint(cppTx: AvmTxHint): Promise<Tx> {
   // Create TxHash from the C++ tx hash string
   if (!cppTx.hash) {
     throw new Error(`cppTx.hash is undefined. Keys: ${Object.keys(cppTx || {}).join(', ')}`);
@@ -116,8 +135,6 @@ export async function createFuzzerTx(cppTx: AvmTxHint): Promise<Tx> {
     undefined, // forRollup - not needed for public simulation
   );
 
-  // todo(ilyas): I don't think we need to construct this, but keeping for now - the hashing could get costly with
-  // large number of enqueued calls or large calldata so keep an eye on this!
   // Build publicFunctionCalldata from all enqueued calls
   // Calldata is already Fr[] after AvmTxHint.fromPlainObject
   const publicFunctionCalldata: HashedValues[] = [];
@@ -151,4 +168,66 @@ export async function createFuzzerTx(cppTx: AvmTxHint): Promise<Tx> {
     contractClassLogFields,
     publicFunctionCalldata,
   );
+}
+
+/**
+ * A simulator class for the AVM fuzzer that extends BaseAvmSimulationTester.
+ * It provides methods for registering contracts from C++ msgpack data and simulating transactions.
+ */
+export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
+  private simulator: PublicTxSimulator;
+
+  constructor(
+    merkleTrees: MerkleTreeWriteOperations,
+    contractDataSource: SimpleContractDataSource,
+    globals: GlobalVariables,
+  ) {
+    super(contractDataSource, merkleTrees);
+    const contractsDb = new PublicContractsDB(contractDataSource);
+    this.simulator = new PublicTxSimulator(merkleTrees, contractsDb, globals, {
+      skipFeeEnforcement: true,
+      collectDebugLogs: false,
+      collectHints: false,
+      collectStatistics: false,
+      collectCallMetadata: false,
+    });
+  }
+
+  /**
+   * Static factory method to create an AvmFuzzerSimulator.
+   */
+  public static async create(
+    worldStateService: NativeWorldStateService,
+    globals: GlobalVariables,
+  ): Promise<AvmFuzzerSimulator> {
+    const contractDataSource = new SimpleContractDataSource();
+    const merkleTrees = await worldStateService.fork();
+    return new AvmFuzzerSimulator(merkleTrees, contractDataSource, globals);
+  }
+
+  /**
+   * Simulate a transaction from a C++ AvmTxHint.
+   */
+  public async simulate(txHint: AvmTxHint): Promise<PublicTxResult> {
+    const tx = await createTxFromHint(txHint);
+    return await this.simulator.simulate(tx);
+  }
+
+  /**
+   * Add a contract class from C++ raw msgpack data.
+   */
+  public async addContractClassFromCpp(rawClass: any): Promise<void> {
+    const contractClass = contractClassPublicFromPlainObject(rawClass);
+    await this.contractDataSource.addContractClass(contractClass);
+  }
+
+  /**
+   * Add a contract instance from C++ raw msgpack data.
+   * This also inserts the contract address nullifier into the nullifier tree.
+   */
+  public async addContractInstanceFromCpp(rawAddress: any, rawInstance: any): Promise<void> {
+    const address = AztecAddress.fromPlainObject(rawAddress);
+    const instance = contractInstanceWithAddressFromPlainObject(address, rawInstance);
+    await this.addContractInstance(instance);
+  }
 }
