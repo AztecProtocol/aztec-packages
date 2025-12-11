@@ -620,11 +620,14 @@ TEST(AddressingConstrainingTest, IndirectGatingIfBaseAddressIsInvalid)
             { C::execution_sel_op_is_address_0_, 1 },
             { C::execution_sel_op_is_address_1_, 1 },
             { C::execution_sel_op_is_address_2_, 1 },
-            { C::execution_sel_op_is_address_3_, 1 },
+            { C::execution_sel_op_is_address_3_, 0 }, // Disable indirect check
             { C::execution_sel_op_is_address_4_, 1 },
             { C::execution_sel_op_is_address_5_, 1 },
             { C::execution_sel_op_is_address_6_, 0 },
             // From relative step.
+            // These selectors are mutually exclusive
+            // with base address failure. We can toggle _2 and _3
+            // because "_2" is not indirect and "_3" not an address.
             { C::execution_sel_relative_overflow_0_, 0 },
             { C::execution_sel_relative_overflow_1_, 0 },
             { C::execution_sel_relative_overflow_2_, 1 },
