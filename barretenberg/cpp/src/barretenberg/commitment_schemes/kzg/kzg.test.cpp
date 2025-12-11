@@ -74,6 +74,25 @@ TEST_F(KZGTest, ZeroEvaluation)
     prove_and_verify({ challenge, Fr::zero() }, witness);
 }
 
+TEST_F(KZGTest, WrongEvaluationFails)
+{
+    auto witness = bb::Polynomial<Fr>::random(n);
+    const Fr challenge = Fr::random_element();
+    const Fr evaluation = witness.evaluate(challenge);
+    const Fr wrong_evaluation = evaluation + Fr::random_element();
+    // Prove with the wrong evaluation
+    Commitment commitment = ck.commit(witness);
+    auto prover_transcript = NativeTranscript::prover_init_empty();
+    PCS::compute_opening_proof(ck, { witness, { challenge, wrong_evaluation } }, prover_transcript);
+
+    auto opening_claim = OpeningClaim<Curve>{ { challenge, wrong_evaluation }, commitment };
+    // Run the verifier
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto pairing_point = PCS::reduce_verify(opening_claim, verifier_transcript);
+    // Make sure that the pairing check fails
+    EXPECT_EQ(vk.pairing_check(pairing_point[0], pairing_point[1]), false);
+}
+
 TEST_F(KZGTest, ZeroPolynomial)
 {
     static constexpr size_t POLY_SIZE = 10;
@@ -89,6 +108,15 @@ TEST_F(KZGTest, ZeroPolynomial)
     const Fr evaluation = zero.evaluate(challenge);
 
     prove_and_verify({ challenge, evaluation }, zero);
+}
+
+TEST_F(KZGTest, EvalAtZero)
+{
+    // Check that the evaluation at zero matched the constant term
+    auto witness = bb::Polynomial<Fr>::random(n);
+    auto constant_term = witness.at(0);
+    const Fr challenge = Fr::zero();
+    prove_and_verify({ challenge, constant_term }, witness);
 }
 
 TEST_F(KZGTest, ConstantPolynomial)
@@ -107,6 +135,23 @@ TEST_F(KZGTest, EmptyPolynomial)
     const Fr evaluation = empty_poly.evaluate(challenge);
 
     prove_and_verify({ challenge, evaluation }, empty_poly);
+}
+
+TEST_F(KZGTest, TranscriptConsistency)
+{
+    auto witness = bb::Polynomial<Fr>::random(n);
+    const Fr challenge = Fr::random_element();
+    const Fr evaluation = witness.evaluate(challenge);
+    const Commitment commitment = ck.commit(witness);
+
+    auto prover_transcript = NativeTranscript::prover_init_empty();
+    PCS::compute_opening_proof(ck, { witness, { challenge, evaluation } }, prover_transcript);
+
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto opening_claim = OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
+    PCS::reduce_verify(opening_claim, verifier_transcript);
+
+    EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
 }
 
 /**
