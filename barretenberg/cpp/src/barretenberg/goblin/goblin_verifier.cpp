@@ -18,6 +18,7 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     // Step 1: Verify the merge proof
     MergeVerifier merge_verifier{ merge_settings, transcript };
     auto merge_result = merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
+    vinfo("Goblin: Merge verified: ", merge_result.verified);
 
     if constexpr (!IsRecursive) {
         if (!merge_result.verified) {
@@ -33,10 +34,11 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
 
     // Step 2: Verify the ECCVM proof
     ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
-    auto opening_claim = eccvm_verifier.verify_proof();
+    auto eccvm_result = eccvm_verifier.verify_proof();
+    vinfo("Goblin: ECCVM verified: ", eccvm_result.verified);
 
     if constexpr (!IsRecursive) {
-        if (!eccvm_verifier.verified()) {
+        if (!eccvm_result.verified) {
             info("Goblin verification failed at ECCVM step");
             return VerificationResult();
         }
@@ -55,6 +57,7 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
                                             translator_input.accumulated_result,
                                             merge_result.merged_commitments };
     auto translator_result = translator_verifier.verify_proof();
+    vinfo("Goblin: Translator verified: ", translator_result.verified);
 
     if constexpr (!IsRecursive) {
         if (!translator_result.verified) {
@@ -74,14 +77,14 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     // Combine all check results
     // Recursive: must evaluate all booleans (circuit structure must be fixed)
     // Native: redundant check (already returned early on failure), but kept for consistency
-    bool all_checks_passed = merge_result.verified && eccvm_verifier.verified() && translator_result.verified;
+    bool all_checks_passed = merge_result.verified && eccvm_result.verified && translator_result.verified;
 
     // Warning: `all_checks_passed` excludes pairing verification. Full native verification requires:
     // - Aggregated pairing check (performed in caller)
     // - IPA verification (performed in caller)
     // In-circuit, the boolean flags are designed for debugging only.
     VerificationResult result{ .pairing_points = std::move(translator_result.pairing_points),
-                               .ipa_claim = std::move(opening_claim),
+                               .ipa_claim = std::move(eccvm_result.ipa_claim),
                                .ipa_proof = proof.ipa_proof,
                                .all_checks_passed = all_checks_passed };
 
