@@ -172,7 +172,7 @@ FUZZER_CMD=(./bin/$FUZZER_TYPE)
 
 if [ "$COMMAND" = "coverage" ]; then
     # When running with coverage, use simplified command
-    FUZZER_CMD+=("$CORPUS_DIR" "$SYNC_CORPUS_DIR" -runs=0)
+    FUZZER_CMD+=("$CORPUS_DIR" "$SYNC_CORPUS_DIR" -runs=1)
 else
     # Normal fuzzing with full parameters
     FUZZER_CMD+=(
