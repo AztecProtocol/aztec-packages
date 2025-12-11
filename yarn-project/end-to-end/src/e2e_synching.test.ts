@@ -605,7 +605,6 @@ describe('e2e_synching', () => {
           }
 
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
-          expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);
           expect(
             await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
           ).not.toEqual([]);
@@ -630,7 +629,6 @@ describe('e2e_synching', () => {
           );
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
-          expect(await archiver.getPrivateLogs(blockTip.number, 1)).toEqual([]);
           expect(await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 })).toEqual(
             [],
           );
