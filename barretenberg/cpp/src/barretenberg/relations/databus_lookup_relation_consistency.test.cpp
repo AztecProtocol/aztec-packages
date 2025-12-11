@@ -122,8 +122,7 @@ class DatabusLookupRelationConsistency : public testing::Test {
                                             const DatabusInputElements& input_elements,
                                             const RelationParameters<FF>& parameters)
     {
-        std::array<FF, NUM_SUBRELATIONS> accumulator;
-        std::fill(accumulator.begin(), accumulator.end(), FF(0));
+        std::array<FF, NUM_SUBRELATIONS> accumulator{};
         Relation::accumulate(accumulator, input_elements, parameters, FF(1));
         EXPECT_EQ(accumulator, expected_values);
     }
@@ -214,8 +213,7 @@ TEST_F(DatabusLookupRelationConsistency, BooleanReadTagsPass)
         in.secondary_calldata_read_tags = FF(0);
         in.return_data_read_tags = FF(0);
 
-        std::array<FF, NUM_SUBRELATIONS> accumulator;
-        std::fill(accumulator.begin(), accumulator.end(), FF(0));
+        std::array<FF, NUM_SUBRELATIONS> accumulator{};
         Relation::accumulate(accumulator, in, parameters, FF(1));
 
         // Boolean check subrelations should be 0
@@ -296,8 +294,7 @@ TEST_F(DatabusLookupRelationConsistency, InactiveGates)
     in.calldata = FF(42);
     in.calldata_inverses = FF(0); // inverse should be 0 when inactive
 
-    std::array<FF, NUM_SUBRELATIONS> accumulator;
-    std::fill(accumulator.begin(), accumulator.end(), FF(0));
+    std::array<FF, NUM_SUBRELATIONS> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
     // When inactive (is_read_gate=0, read_tag=0), inverse_exists=0
@@ -362,8 +359,8 @@ TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
     in.return_data_read_counts = FF(0);
     in.return_data_inverses = FF(0);
 
-    std::array<FF, NUM_SUBRELATIONS> accumulator;
-    std::fill(accumulator.begin(), accumulator.end(), FF(0));
+    std::array<FF, NUM_SUBRELATIONS> accumulator{};
+
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
     // Inverse correctness subrelation should be 0 (satisfied)
@@ -426,8 +423,8 @@ TEST_F(DatabusLookupRelationConsistency, MismatchedReadWriteTerms)
     in.return_data_read_counts = FF(0);
     in.return_data_inverses = FF(0);
 
-    std::array<FF, NUM_SUBRELATIONS> accumulator;
-    std::fill(accumulator.begin(), accumulator.end(), FF(0));
+    std::array<FF, NUM_SUBRELATIONS> accumulator{};
+
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
     // Inverse correctness subrelation should still be 0 (inverse is computed correctly for these terms)
