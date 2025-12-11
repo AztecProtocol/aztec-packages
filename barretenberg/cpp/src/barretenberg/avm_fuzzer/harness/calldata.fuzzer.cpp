@@ -160,6 +160,40 @@ struct CalldataFuzzerInput {
     }
 };
 
+// Mutate a single random calldata instance
+void mutate_calldata_instance(CalldataFuzzerInput& input, std::mt19937 rng)
+{
+    // Modify a random calldata instance (using num_events to ensure it's used in a run)
+    std::uniform_int_distribution<size_t> index_dist(0, input.num_events_input - 1);
+    size_t value_idx = index_dist(rng);
+    std::uniform_int_distribution<int> inner_mutation_dist(0, 2);
+    int inner_mutation_choice = inner_mutation_dist(rng);
+    switch (inner_mutation_choice) {
+    case 0: {
+        // Set mutation choice for calldata fields (see generate_calldata_values)
+        std::uniform_int_distribution<int> choice_dist(0, 2);
+        input.calldata_instances[value_idx].mutation = static_cast<uint8_t>(choice_dist(rng));
+        break;
+    }
+    case 1: {
+        // Set the number of fields
+        std::uniform_int_distribution<uint8_t> num_fields_dist(0, max_calldata_fields);
+        input.calldata_instances[value_idx].num_fields = num_fields_dist(rng);
+        break;
+    }
+    case 2: {
+        // Set selection encoding:
+        // TODO(MW): Use mutate_calldata_vec (modify BASIC_VEC_MUTATION_CONFIGURATION for this fuzzer?)
+        std::uniform_int_distribution<size_t> entry_dist(0, input.calldata_instances[value_idx].num_fields - 1);
+        size_t entry_idx = entry_dist(rng);
+        input.calldata_instances[value_idx].selection_encoding ^= (1ULL << entry_idx);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 // TODO(MW): Use mutate_calldata_vec (modify BASIC_VEC_MUTATION_CONFIGURATION for this fuzzer?)
 std::vector<std::vector<FF>> generate_calldata_values(const CalldataFuzzerInput& input)
 {
@@ -276,35 +310,8 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
         break;
     }
     case 3: {
-        // Modify a random calldata instance (using num_events to ensure it's used in a run)
-        std::uniform_int_distribution<size_t> index_dist(0, input.num_events_input - 1);
-        size_t value_idx = index_dist(rng);
-        std::uniform_int_distribution<int> inner_mutation_dist(0, 2);
-        int inner_mutation_choice = inner_mutation_dist(rng);
-        switch (inner_mutation_choice) {
-        case 0: {
-            // Set mutation choice for calldata fields (see generate_calldata_values)
-            std::uniform_int_distribution<int> choice_dist(0, 2);
-            input.calldata_instances[value_idx].mutation = uint8_t(choice_dist(rng));
-            break;
-        }
-        case 1: {
-            // Set the number of fields
-            std::uniform_int_distribution<uint8_t> num_fields_dist(0, max_calldata_fields);
-            input.calldata_instances[value_idx].num_fields = num_fields_dist(rng);
-            break;
-        }
-        case 2: {
-            // Set selection encoding:
-            // TODO(MW): Use mutate_calldata_vec (modify BASIC_VEC_MUTATION_CONFIGURATION for this fuzzer?)
-            std::uniform_int_distribution<size_t> entry_dist(0, input.calldata_instances[value_idx].num_fields - 1);
-            size_t entry_idx = entry_dist(rng);
-            input.calldata_instances[value_idx].selection_encoding ^= (1ULL << entry_idx);
-            break;
-        }
-        default:
-            break;
-        }
+        // Modify a random calldata instance
+        mutate_calldata_instance(input, rng);
         break;
     }
     default:
