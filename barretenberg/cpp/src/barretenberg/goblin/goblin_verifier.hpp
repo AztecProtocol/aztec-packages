@@ -19,16 +19,14 @@ namespace bb {
 
 /**
  * @brief Unified Goblin verifier for both native and recursive verification.
- * @details See: chonk/README.md#goblin-eccvm--translator
  *
- * Unified verifier for Goblin proofs (Merge + ECCVM + IPA + Translator).
- * @details Creates a circuit verifying a Goblin proof. The verification is split into:
- *   1. Merge verification - checks ECC op queue commitment consistency
- *   2. ECCVM verification - verifies the correctness of ECC operations, outputs an IPA opening claim
- *   3. Translator verification - links ECCVM to BN254, outputs KZG pairing points
- *
- * The output contains deferred verification data (IPA claim + pairing points) that must be
- * accumulated and verified elsewhere.
+ * @details The verification is split into:
+ *   1. Merge verification - See MERGE_PROTOCOL.md
+ *   2. ECCVM verification - Verify the correctness of ECC operations, outputs a claim to be opened by IPA.
+ *   3. Translator verification -  Establish the consistency between fq/bigfield and fr/field_t representations of the
+ * op queue.
+ * The output contains deferred verification data (IPA claim + pairing points) that must be accumulated and
+ * verified elsewhere.
  *
  * @tparam Curve The BN254 curve type (either curve::BN254 for native or stdlib::bn254<Builder> for recursive)
  */
