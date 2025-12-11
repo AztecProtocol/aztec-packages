@@ -77,6 +77,48 @@ class ChonkTests : public ::testing::Test {
     enum class HidingKernelIOField { PAIRING_INPUTS, KERNEL_RETURN_DATA, ECC_OP_TABLES };
 
     /**
+     * @brief Helper function to test tampering with AppIO pairing inputs
+     * @details Accumulates circuits, doubles the app pairing points (creating valid but different points),
+     * and verifies that the final Chonk proof fails verification.
+     */
+    static void test_app_io_tampering()
+    {
+        BB_DISABLE_ASSERTS();
+
+        const size_t NUM_APP_CIRCUITS = 2;
+        CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
+        const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
+        Chonk ivc{ NUM_CIRCUITS };
+        TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
+
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, settings);
+            ivc.accumulate(circuit, vk);
+
+            // After accumulating 3 circuits (app, kernel, app), we have 2 proofs in the queue
+            if (idx == 2) {
+                EXPECT_EQ(ivc.verification_queue.size(), 2);
+
+                auto& app_entry = ivc.verification_queue[1];
+                ASSERT_FALSE(app_entry.is_kernel) << "Expected second queue entry to be an app";
+
+                using AppIOSerde = bb::stdlib::recursion::honk::AppIOSerde;
+                size_t num_public_inputs = app_entry.honk_vk->num_public_inputs;
+                AppIOSerde app_io = AppIOSerde::from_proof(app_entry.proof, num_public_inputs);
+
+                // Double the pairing points (multiply by 2) - creates valid but different points
+                app_io.pairing_inputs.P0 = app_io.pairing_inputs.P0 + app_io.pairing_inputs.P0;
+                app_io.pairing_inputs.P1 = app_io.pairing_inputs.P1 + app_io.pairing_inputs.P1;
+
+                app_io.to_proof(app_entry.proof, num_public_inputs);
+            }
+        }
+
+        auto proof = ivc.prove();
+        EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
+    }
+
+    /**
      * @brief Helper function to test tampering with KernelIO fields
      * @details Accumulates circuits, tampers with the specified field in the Init Kernel proof,
      * and verifies that the final Chonk proof fails verification.
@@ -102,9 +144,9 @@ class ChonkTests : public ::testing::Test {
                 auto& kernel_entry = ivc.verification_queue[0];
                 ASSERT_TRUE(kernel_entry.is_kernel) << "Expected first queue entry to be a kernel";
 
-                using KernelIONative = bb::stdlib::recursion::honk::KernelIONative;
+                using KernelIOSerde = bb::stdlib::recursion::honk::KernelIOSerde;
                 size_t num_public_inputs = kernel_entry.honk_vk->num_public_inputs;
-                KernelIONative kernel_io = KernelIONative::from_proof(kernel_entry.proof, num_public_inputs);
+                KernelIOSerde kernel_io = KernelIOSerde::from_proof(kernel_entry.proof, num_public_inputs);
 
                 // Tamper with the specified field
                 switch (field_to_tamper) {
@@ -145,7 +187,7 @@ class ChonkTests : public ::testing::Test {
      */
     static void test_hiding_kernel_io_propagation(HidingKernelIOField field_to_test)
     {
-        using HidingKernelIONative = bb::stdlib::recursion::honk::HidingKernelIONative;
+        using HidingKernelIOSerde = bb::stdlib::recursion::honk::HidingKernelIOSerde;
 
         const size_t NUM_APP_CIRCUITS = 2;
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
@@ -160,13 +202,13 @@ class ChonkTests : public ::testing::Test {
         }
 
         // Extract field from Tail kernel's proof before prove() generates HidingKernel
-        HidingKernelIONative tail_io;
+        HidingKernelIOSerde tail_io;
         for (auto& it : std::ranges::reverse_view(ivc.verification_queue)) {
             if (it.is_kernel) {
                 size_t num_public_inputs = it.honk_vk->num_public_inputs;
-                ASSERT_EQ(num_public_inputs, HidingKernelIONative::PUBLIC_INPUTS_SIZE)
+                ASSERT_EQ(num_public_inputs, HidingKernelIOSerde::PUBLIC_INPUTS_SIZE)
                     << "Tail kernel should use HidingKernelIO format";
-                tail_io = HidingKernelIONative::from_proof(it.proof, num_public_inputs);
+                tail_io = HidingKernelIOSerde::from_proof(it.proof, num_public_inputs);
                 break;
             }
         }
@@ -177,9 +219,9 @@ class ChonkTests : public ::testing::Test {
 
         // Extract field from HidingKernel's proof (final mega_proof)
         size_t hiding_kernel_pub_inputs = vk.mega->num_public_inputs;
-        ASSERT_EQ(hiding_kernel_pub_inputs, HidingKernelIONative::PUBLIC_INPUTS_SIZE)
+        ASSERT_EQ(hiding_kernel_pub_inputs, HidingKernelIOSerde::PUBLIC_INPUTS_SIZE)
             << "HidingKernel should use HidingKernelIO format";
-        HidingKernelIONative hiding_io = HidingKernelIONative::from_proof(proof.mega_proof, hiding_kernel_pub_inputs);
+        HidingKernelIOSerde hiding_io = HidingKernelIOSerde::from_proof(proof.mega_proof, hiding_kernel_pub_inputs);
 
         // Verify field propagated correctly from Tail kernel to HidingKernel
         switch (field_to_test) {
@@ -433,14 +475,25 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
 };
 
 /**
- * @brief Test that tampering with pairing inputs causes verification to fail
+ * @brief Test that tampering with kernel pairing inputs causes verification to fail
  * @details Pairing points (P0, P1) accumulate across the IVC chain through aggregation.
  * Even if we replace them with valid pairing points, the public input binding should fail
  * because the HonkRecursiveVerifier has bound these specific accumulated values.
  */
-TEST_F(ChonkTests, PairingInputsTamperingFailure)
+TEST_F(ChonkTests, KernelPairingInputsTamperingFailure)
 {
     ChonkTests::test_kernel_io_tampering(KernelIOField::PAIRING_INPUTS);
+}
+
+/**
+ * @brief Test that tampering with app pairing inputs causes verification to fail
+ * @details App circuits also output pairing points (AppIO) from their decider proof verification.
+ * This test doubles the pairing points to create valid but different points, verifying that
+ * the public input binding detects the tampering.
+ */
+TEST_F(ChonkTests, AppPairingInputsTamperingFailure)
+{
+    ChonkTests::test_app_io_tampering();
 }
 
 /**
