@@ -254,7 +254,7 @@ pub contract Test {
 
         let header = self.context.get_anchor_block_header();
 
-        header.prove_note_inclusion(retrieved_notes.get(0), storage_slot);
+        header.prove_note_inclusion(retrieved_notes.get(0));
     }
 
     #[external("private")]
