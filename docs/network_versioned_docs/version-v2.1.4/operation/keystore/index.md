@@ -3,6 +3,7 @@ id: advanced_keystore_guide
 sidebar_position: 2
 title: Advanced Keystore Usage
 description: Learn how to configure keystores with remote signers, mnemonics, JSON V3 keystores, and multiple publishers for enhanced security and flexibility.
+references: ["yarn-project/node-keystore/src/config.ts", "yarn-project/node-keystore/src/schemas.ts"]
 ---
 
 ## Overview
