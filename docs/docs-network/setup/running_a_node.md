@@ -3,6 +3,7 @@ id: running_a_node
 sidebar_position: 2
 title: Running a Full Node
 description: A comprehensive guide on how to run a full node on the Aztec network using Docker Compose.
+references: ["yarn-project/aztec/src/cli/cmds/start_node.ts"]
 ---
 
 ## Overview

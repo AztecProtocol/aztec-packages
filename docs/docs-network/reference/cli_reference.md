@@ -2,6 +2,7 @@
 sidebar_position: 1
 title: Cli Reference
 description: A reference of the --help output when running aztec start.
+references: ["yarn-project/aztec/src/cli/aztec_start_options.ts", "yarn-project/aztec/src/cli/cli.ts"]
 keywords:
   [
     aztec,

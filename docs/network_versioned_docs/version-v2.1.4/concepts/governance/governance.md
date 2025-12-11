@@ -3,6 +3,7 @@ id: governance
 sidebar_position: 3
 title: Governance Overview
 description: Learn about the governance process on the Aztec network.
+references: ["l1-contracts/src/governance/Governance.sol", "l1-contracts/src/governance/interfaces/IGovernance.sol"]
 ---
 
 import Image from "@theme/IdealImage";
