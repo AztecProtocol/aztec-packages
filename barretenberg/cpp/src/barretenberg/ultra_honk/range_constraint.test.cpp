@@ -150,6 +150,7 @@ TYPED_TEST(RangeTests, SmallRangeConstraintBasic)
     for (auto i : idx) {
         builder.create_small_range_constraint(i, /*target_range=*/8);
     }
+    builder.create_unconstrained_gates(idx);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     TestFixture::prove_and_verify(builder, /*expected_result=*/true);
@@ -161,6 +162,7 @@ TYPED_TEST(RangeTests, SmallRangeConstraintAtBoundary)
     auto builder = UltraCircuitBuilder();
     auto idx = TestFixture::add_variables(builder, { 3 });
     builder.create_small_range_constraint(idx[0], /*target_range=*/3);
+    builder.create_unconstrained_gates(idx);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     TestFixture::prove_and_verify(builder, /*expected_result=*/true);
@@ -175,6 +177,7 @@ TYPED_TEST(RangeTests, SmallRangeConstraintMultipleValues)
     for (auto i : idx) {
         builder.create_small_range_constraint(i, /*target_range=*/128);
     }
+    builder.create_unconstrained_gates(idx);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     TestFixture::prove_and_verify(builder, /*expected_result=*/true);
@@ -203,6 +206,7 @@ TYPED_TEST(RangeTests, SmallRangeConstraintFailsValueJustOverBoundary)
     for (auto i : idx) {
         builder.create_small_range_constraint(i, /*target_range=*/79);
     }
+    builder.create_unconstrained_gates(idx);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     TestFixture::prove_and_verify(builder, /*expected_result=*/false);
@@ -359,6 +363,8 @@ TYPED_TEST(RangeTests, RangeConstraintsOnDuplicateVariables)
     builder.create_small_range_constraint(b, /*target_range=*/1001);
     builder.create_small_range_constraint(c, /*target_range=*/999);
     builder.create_small_range_constraint(d, /*target_range=*/1000);
+
+    builder.create_unconstrained_gates({ a, b, c, d });
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     TestFixture::prove_and_verify(builder, /*expected_result=*/true);

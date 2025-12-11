@@ -308,7 +308,12 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * into RangeLists (grouped by target_range), then processed together in `process_range_lists()` which
      * creates the actual delta-range gates. This batching is efficient because multiple variables sharing
      * the same range can share the "staircase" of multiples-of-3 values.
-     *
+     * @warning This will yield an UNSATISFIABLE CIRCUIT if `variable_index` does not appear in any of the wires. If
+     * `variable_index` is not used in any gate, its tag would never appear in the permutation polynomials, yielding an
+     * unsatisfiable circuit: the GPA would fail because the range constraint increases the sorted set size by one while
+     * the non-sorted set (given by wire indices) would remain unchanged. If `variable_index` has not been used
+     * elsewhere, must add a dummy gate, e.g. `create_unconstrained_gate(blocks.arithmetic, variable_index,
+     * this->zero_idx(), this->zero_idx(), this->zero_idx());`
      * @note Only suitable for small ranges (≤ DEFAULT_PLOOKUP_RANGE_SIZE). For larger ranges, use
      * `create_limbed_range_constraint` which decomposes into smaller limbs.
      * @note The tag of `variable_index` is `DUMMY_TAG` if it has never been range-constrained and a non-trivial value
@@ -335,6 +340,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             create_bool_gate(variable_index);
         } else if (num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM) {
             create_small_range_constraint(variable_index, (1ULL << num_bits) - 1, msg);
+            // Add an unconstrained gate to ensure variable_index appears in a wire. (See warning in
+            // `create_small_range_constraint` for more details.)
+            create_unconstrained_gate(
+                blocks.arithmetic, variable_index, this->zero_idx(), this->zero_idx(), this->zero_idx());
         } else {
             create_limbed_range_constraint(variable_index, num_bits, DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
         }

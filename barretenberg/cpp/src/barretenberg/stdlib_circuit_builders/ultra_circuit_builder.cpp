@@ -798,11 +798,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
         assign_tag(variable_index, list.range_tag);
         list.variable_indices.emplace_back(variable_index);
     }
-    // Add an unconstrained gate to ensure variable_index appears in a wire. If `variable_index` is not used in any
-    // gate, its tag would never appear in the permutation polynomials, yielding an unsatisfiable circuit: the GPA
-    // would fail because the range constraint increases the sorted set size by one while the non-sorted set
-    // (given by wire indices) would remain unchanged.
-    create_unconstrained_gate(blocks.arithmetic, variable_index, this->zero_idx(), this->zero_idx(), this->zero_idx());
 }
 
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_range_list(RangeList& list)
