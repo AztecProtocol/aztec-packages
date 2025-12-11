@@ -1,5 +1,6 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { L1FeeAnalysisResult } from '@aztec/ethereum/l1-fee-analysis';
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import {
   Attributes,
@@ -41,6 +42,16 @@ export class SequencerMetrics {
   private blockProposalSuccess: UpDownCounter;
   private blockProposalPrecheckFailed: UpDownCounter;
   private slashingAttempts: UpDownCounter;
+
+  // Fisherman fee analysis metrics
+  private fishermanWouldBeIncluded: UpDownCounter;
+  private fishermanTimeBeforeBlock: Histogram;
+  private fishermanPendingBlobTxCount: Histogram;
+  private fishermanIncludedBlobTxCount: Histogram;
+  private fishermanCalculatedPriorityFee: Histogram;
+  private fishermanPriorityFeeDelta: Histogram;
+  private fishermanEstimatedCost: Histogram;
+  private fishermanEstimatedOverpayment: Histogram;
 
   private lastSeenSlot?: SlotNumber;
 
@@ -150,6 +161,64 @@ export class SequencerMetrics {
       valueType: ValueType.INT,
       description: 'The number of slashing action attempts',
     });
+
+    // Fisherman fee analysis metrics
+    this.fishermanWouldBeIncluded = this.meter.createUpDownCounter(Metrics.FISHERMAN_FEE_ANALYSIS_WOULD_BE_INCLUDED, {
+      valueType: ValueType.INT,
+      description: 'Whether the transaction would have been included in the block',
+    });
+
+    this.fishermanTimeBeforeBlock = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_TIME_BEFORE_BLOCK, {
+      unit: 'ms',
+      description: 'Time in ms between fee analysis and block being mined',
+      valueType: ValueType.INT,
+    });
+
+    this.fishermanPendingBlobTxCount = this.meter.createHistogram(
+      Metrics.FISHERMAN_FEE_ANALYSIS_PENDING_BLOB_TX_COUNT,
+      {
+        description: 'Number of blob transactions seen in the pending block',
+        valueType: ValueType.INT,
+      },
+    );
+
+    this.fishermanIncludedBlobTxCount = this.meter.createHistogram(
+      Metrics.FISHERMAN_FEE_ANALYSIS_INCLUDED_BLOB_TX_COUNT,
+      {
+        description: 'Number of blob transactions that got included in the mined block',
+        valueType: ValueType.INT,
+      },
+    );
+
+    this.fishermanCalculatedPriorityFee = this.meter.createHistogram(
+      Metrics.FISHERMAN_FEE_ANALYSIS_CALCULATED_PRIORITY_FEE,
+      {
+        unit: 'gwei',
+        description: 'Priority fee calculated by each strategy',
+        valueType: ValueType.DOUBLE,
+      },
+    );
+
+    this.fishermanPriorityFeeDelta = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_PRIORITY_FEE_DELTA, {
+      unit: 'gwei',
+      description: 'Difference between our priority fee and minimum included priority fee',
+      valueType: ValueType.DOUBLE,
+    });
+
+    this.fishermanEstimatedCost = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_ESTIMATED_COST, {
+      unit: 'eth',
+      description: 'Estimated total cost in ETH for the transaction with this strategy',
+      valueType: ValueType.DOUBLE,
+    });
+
+    this.fishermanEstimatedOverpayment = this.meter.createHistogram(
+      Metrics.FISHERMAN_FEE_ANALYSIS_ESTIMATED_OVERPAYMENT,
+      {
+        unit: 'eth',
+        description: 'Estimated overpayment in ETH vs minimum required for inclusion',
+        valueType: ValueType.DOUBLE,
+      },
+    );
   }
 
   public recordRequiredAttestations(requiredAttestationsCount: number, allowanceMs: number) {
@@ -236,5 +305,73 @@ export class SequencerMetrics {
 
   recordSlashingAttempt(actionCount: number) {
     this.slashingAttempts.add(actionCount);
+  }
+
+  /**
+   * Records metrics for a completed fisherman fee analysis
+   * @param analysis - The completed fee analysis result
+   */
+  recordFishermanFeeAnalysis(analysis: L1FeeAnalysisResult) {
+    // In fisherman mode, we should always have strategy results
+    if (!analysis.computedPrices.strategyResults || analysis.computedPrices.strategyResults.length === 0) {
+      // This should never happen in fisherman mode - log an error
+      // We don't record metrics without strategy IDs as that defeats the purpose
+      throw new Error(
+        `No strategy results found in fisherman fee analysis ${analysis.id}. This indicates a bug in the fee analysis.`,
+      );
+    }
+
+    // Record metrics for each strategy separately
+    for (const strategyResult of analysis.computedPrices.strategyResults) {
+      const strategyAttributes = {
+        [Attributes.FISHERMAN_FEE_STRATEGY_ID]: strategyResult.strategyId,
+      };
+
+      // Record pending block snapshot data (once per strategy for comparison)
+      this.fishermanPendingBlobTxCount.record(analysis.pendingSnapshot.pendingBlobTxCount, strategyAttributes);
+
+      // Record mined block data if available
+      if (analysis.minedBlock) {
+        this.fishermanIncludedBlobTxCount.record(analysis.minedBlock.includedBlobTxCount, strategyAttributes);
+      }
+
+      // Record the calculated priority fee for this strategy
+      const calculatedPriorityFeeGwei = Number(strategyResult.calculatedPriorityFee) / 1e9;
+      this.fishermanCalculatedPriorityFee.record(calculatedPriorityFeeGwei, strategyAttributes);
+
+      // Record analysis results if available
+      if (analysis.analysis) {
+        this.fishermanTimeBeforeBlock.record(Math.ceil(analysis.analysis.timeBeforeBlockMs), strategyAttributes);
+
+        // Record strategy-specific inclusion result
+        if (strategyResult.wouldBeIncluded !== undefined) {
+          if (strategyResult.wouldBeIncluded) {
+            this.fishermanWouldBeIncluded.add(1, { ...strategyAttributes, [Attributes.OK]: true });
+          } else {
+            this.fishermanWouldBeIncluded.add(1, {
+              ...strategyAttributes,
+              [Attributes.OK]: false,
+              ...(strategyResult.exclusionReason && { [Attributes.ERROR_TYPE]: strategyResult.exclusionReason }),
+            });
+          }
+        }
+
+        // Record strategy-specific priority fee delta
+        if (strategyResult.priorityFeeDelta !== undefined) {
+          const priorityFeeDeltaGwei = Number(strategyResult.priorityFeeDelta) / 1e9;
+          this.fishermanPriorityFeeDelta.record(priorityFeeDeltaGwei, strategyAttributes);
+        }
+
+        // Record estimated cost if available
+        if (strategyResult.estimatedCostEth !== undefined) {
+          this.fishermanEstimatedCost.record(strategyResult.estimatedCostEth, strategyAttributes);
+        }
+
+        // Record estimated overpayment if available
+        if (strategyResult.estimatedOverpaymentEth !== undefined) {
+          this.fishermanEstimatedOverpayment.record(strategyResult.estimatedOverpaymentEth, strategyAttributes);
+        }
+      }
+    }
   }
 }
