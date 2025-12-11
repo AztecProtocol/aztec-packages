@@ -785,9 +785,9 @@ impl TestEnvironment {
                     contract_address,
                     owner,
                     randomness,
+                    storage_slot,
                     metadata: SettledNoteMetadata::new(note_nonce).into(),
                 },
-                storage_slot,
             );
 
             let inner_nullifier =
