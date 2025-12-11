@@ -1,8 +1,8 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -11,7 +11,8 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
-import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockNew, L2BlockSource } from '@aztec/stdlib/block';
+import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import {
   type EpochProver,
   type EpochProvingJobState,
@@ -91,8 +92,8 @@ export class EpochProvingJob implements Traceable {
     return this.data.epochNumber;
   }
 
-  private get blocks() {
-    return this.data.blocks;
+  private get checkpoints() {
+    return this.data.checkpoints;
   }
 
   private get txs() {
@@ -117,13 +118,21 @@ export class EpochProvingJob implements Traceable {
 
     const attestations = this.attestations.map(attestation => attestation.toViem());
     const epochNumber = this.epochNumber;
-    const epochSizeBlocks = this.blocks.length;
-    const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.txEffects.length, 0);
-    const [fromBlock, toBlock] = [this.blocks[0].number, this.blocks.at(-1)!.number];
-    this.log.info(`Starting epoch ${epochNumber} proving job with blocks ${fromBlock} to ${toBlock}`, {
+    const epochSizeCheckpoints = this.checkpoints.length;
+    const epochSizeBlocks = this.checkpoints.reduce((accum, checkpoint) => accum + checkpoint.blocks.length, 0);
+    const epochSizeTxs = this.checkpoints.reduce(
+      (accum, checkpoint) =>
+        accum + checkpoint.blocks.reduce((accumC, block) => accumC + block.body.txEffects.length, 0),
+      0,
+    );
+    const fromCheckpoint = this.checkpoints[0].number;
+    const toCheckpoint = this.checkpoints.at(-1)!.number;
+    const fromBlock = this.checkpoints[0].blocks[0].number;
+    const toBlock = this.checkpoints.at(-1)!.blocks.at(-1)!.number;
+    this.log.info(`Starting epoch ${epochNumber} proving job with checkpoints ${fromCheckpoint} to ${toCheckpoint}`, {
       fromBlock,
       toBlock,
-      epochSizeBlocks,
+      epochSizeTxs,
       epochNumber,
       uuid: this.uuid,
     });
@@ -134,86 +143,93 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      const blobFieldsPerCheckpoint = this.blocks.map(block => block.getCheckpointBlobFields());
+      const blobFieldsPerCheckpoint = this.checkpoints.map(checkpoint => checkpoint.toBlobFields());
       const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
 
-      // TODO(#17027): Enable multiple blocks per checkpoint.
-      // Total number of checkpoints equals number of blocks because we currently build a checkpoint with only one block.
-      const totalNumCheckpoints = epochSizeBlocks;
-
-      this.prover.startNewEpoch(epochNumber, totalNumCheckpoints, finalBlobBatchingChallenges);
+      this.prover.startNewEpoch(epochNumber, epochSizeCheckpoints, finalBlobBatchingChallenges);
       await this.prover.startChonkVerifierCircuits(Array.from(this.txs.values()));
 
-      await asyncPool(this.config.parallelBlockLimit ?? 32, this.blocks, async block => {
+      // Everything in the epoch should have the same chainId and version.
+      const { chainId, version } = this.checkpoints[0].blocks[0].header.globalVariables;
+
+      const previousBlockHeaders = this.gatherPreviousBlockHeaders();
+
+      await asyncPool(this.config.parallelBlockLimit ?? 32, this.checkpoints, async checkpoint => {
         this.checkState();
 
-        const globalVariables = block.header.globalVariables;
-        const txs = this.getTxs(block);
-        const l1ToL2Messages = this.getL1ToL2Messages(block);
-        const previousHeader = this.getBlockHeader(block.number - 1)!;
-
-        this.log.verbose(`Starting processing block ${block.number}`, {
-          number: block.number,
-          blockHash: (await block.hash()).toString(),
-          lastArchive: block.header.lastArchive.root,
-          noteHashTreeRoot: block.header.state.partial.noteHashTree.root,
-          nullifierTreeRoot: block.header.state.partial.nullifierTree.root,
-          publicDataTreeRoot: block.header.state.partial.publicDataTree.root,
-          previousHeader: previousHeader.hash(),
-          uuid: this.uuid,
-          ...globalVariables,
-        });
-
+        const checkpointIndex = checkpoint.number - fromCheckpoint;
         const checkpointConstants = CheckpointConstantData.from({
-          chainId: globalVariables.chainId,
-          version: globalVariables.version,
+          chainId,
+          version,
           vkTreeRoot: getVKTreeRoot(),
           protocolContractsHash: protocolContractsHash,
           proverId: this.prover.getProverId().toField(),
-          slotNumber: globalVariables.slotNumber,
-          coinbase: globalVariables.coinbase,
-          feeRecipient: globalVariables.feeRecipient,
-          gasFees: globalVariables.gasFees,
+          slotNumber: checkpoint.header.slotNumber,
+          coinbase: checkpoint.header.coinbase,
+          feeRecipient: checkpoint.header.feeRecipient,
+          gasFees: checkpoint.header.gasFees,
+        });
+        const previousHeader = previousBlockHeaders[checkpointIndex];
+        const l1ToL2Messages = this.getL1ToL2Messages(checkpoint);
+
+        this.log.verbose(`Starting processing checkpoint ${checkpoint.number}`, {
+          number: checkpoint.number,
+          checkpointHash: checkpoint.hash().toString(),
+          lastArchive: checkpoint.header.lastArchiveRoot,
+          previousHeader: previousHeader.hash(),
+          uuid: this.uuid,
         });
 
-        // TODO(#17027): Enable multiple blocks per checkpoint.
-        // Each checkpoint has only one block.
-        const totalNumBlocks = 1;
-        const checkpointIndex = block.number - fromBlock;
         await this.prover.startNewCheckpoint(
           checkpointIndex,
           checkpointConstants,
           l1ToL2Messages,
-          totalNumBlocks,
+          checkpoint.blocks.length,
           previousHeader,
         );
 
-        // Start block proving
-        await this.prover.startNewBlock(block.number, globalVariables.timestamp, txs.length);
+        for (const block of checkpoint.blocks) {
+          const globalVariables = block.header.globalVariables;
+          const txs = this.getTxs(block);
 
-        // Process public fns
-        const db = await this.createFork(block.number - 1, l1ToL2Messages);
-        const config = PublicSimulatorConfig.from({
-          proverId: this.prover.getProverId().toField(),
-          skipFeeEnforcement: false,
-          collectDebugLogs: false,
-          collectHints: true,
-          maxDebugLogMemoryReads: 0,
-          collectStatistics: false,
-        });
-        const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, config);
-        const processed = await this.processTxs(publicProcessor, txs);
-        await this.prover.addTxs(processed);
-        await db.close();
-        this.log.verbose(`Processed all ${txs.length} txs for block ${block.number}`, {
-          blockNumber: block.number,
-          blockHash: (await block.hash()).toString(),
-          uuid: this.uuid,
-        });
+          this.log.verbose(`Starting processing block ${block.number}`, {
+            number: block.number,
+            blockHash: (await block.hash()).toString(),
+            lastArchive: block.header.lastArchive.root,
+            noteHashTreeRoot: block.header.state.partial.noteHashTree.root,
+            nullifierTreeRoot: block.header.state.partial.nullifierTree.root,
+            publicDataTreeRoot: block.header.state.partial.publicDataTree.root,
+            ...globalVariables,
+            numTxs: txs.length,
+          });
 
-        // Mark block as completed to pad it
-        const expectedBlockHeader = block.getBlockHeader();
-        await this.prover.setBlockCompleted(block.number, expectedBlockHeader);
+          // Start block proving
+          await this.prover.startNewBlock(block.number, globalVariables.timestamp, txs.length);
+
+          // Process public fns
+          const db = await this.createFork(BlockNumber(block.number - 1), l1ToL2Messages);
+          const config = PublicSimulatorConfig.from({
+            proverId: this.prover.getProverId().toField(),
+            skipFeeEnforcement: false,
+            collectDebugLogs: false,
+            collectHints: true,
+            collectPublicInputs: true,
+            collectStatistics: false,
+          });
+          const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, config);
+          const processed = await this.processTxs(publicProcessor, txs);
+          await this.prover.addTxs(processed);
+          await db.close();
+          this.log.verbose(`Processed all ${txs.length} txs for block ${block.number}`, {
+            blockNumber: block.number,
+            blockHash: (await block.hash()).toString(),
+            uuid: this.uuid,
+          });
+
+          // Mark block as completed to pad it
+          const expectedBlockHeader = block.header;
+          await this.prover.setBlockCompleted(block.number, expectedBlockHeader);
+        }
       });
 
       const executionTime = timer.ms();
@@ -226,16 +242,16 @@ export class EpochProvingJob implements Traceable {
 
       if (this.config.skipSubmitProof) {
         this.log.info(
-          `Proof publishing is disabled. Dropping valid proof for epoch ${epochNumber} (blocks ${fromBlock} to ${toBlock})`,
+          `Proof publishing is disabled. Dropping valid proof for epoch ${epochNumber} (checkpoints ${fromCheckpoint} to ${toCheckpoint})`,
         );
         this.state = 'completed';
-        this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeBlocks, epochSizeTxs);
+        this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeCheckpoints, epochSizeBlocks, epochSizeTxs);
         return;
       }
 
       const success = await this.publisher.submitEpochProof({
-        fromBlock,
-        toBlock,
+        fromCheckpoint,
+        toCheckpoint,
         epochNumber,
         publicInputs,
         proof,
@@ -246,12 +262,12 @@ export class EpochProvingJob implements Traceable {
         throw new Error('Failed to submit epoch proof to L1');
       }
 
-      this.log.info(`Submitted proof for epoch ${epochNumber} (blocks ${fromBlock} to ${toBlock})`, {
+      this.log.info(`Submitted proof for epoch ${epochNumber} (checkpoints ${fromCheckpoint} to ${toCheckpoint})`, {
         epochNumber,
         uuid: this.uuid,
       });
       this.state = 'completed';
-      this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeBlocks, epochSizeTxs);
+      this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeCheckpoints, epochSizeBlocks, epochSizeTxs);
     } catch (err: any) {
       if (err && err.name === 'HaltExecutionError') {
         this.log.warn(`Halted execution of epoch ${epochNumber} prover job`, {
@@ -277,7 +293,7 @@ export class EpochProvingJob implements Traceable {
    * Create a new db fork for tx processing, inserting all L1 to L2.
    * REFACTOR: The prover already spawns a db fork of its own for each block, so we may be able to do away with just one fork.
    */
-  private async createFork(blockNumber: number, l1ToL2Messages: Fr[]) {
+  private async createFork(blockNumber: BlockNumber, l1ToL2Messages: Fr[]) {
     const db = await this.dbProvider.fork(blockNumber);
     const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
       l1ToL2Messages,
@@ -348,11 +364,9 @@ export class EpochProvingJob implements Traceable {
       async () => {
         const blocks = await l2BlockSource.getBlockHeadersForEpoch(this.epochNumber);
         const blockHashes = await Promise.all(blocks.map(block => block.hash()));
-        const thisBlockHashes = await Promise.all(this.blocks.map(block => block.hash()));
-        if (
-          blocks.length !== this.blocks.length ||
-          !blockHashes.every((block, i) => block.equals(thisBlockHashes[i]))
-        ) {
+        const thisBlocks = this.checkpoints.flatMap(checkpoint => checkpoint.blocks);
+        const thisBlockHashes = await Promise.all(thisBlocks.map(block => block.hash()));
+        if (blocks.length !== thisBlocks.length || !blockHashes.every((block, i) => block.equals(thisBlockHashes[i]))) {
           this.log.warn('Epoch blocks changed underfoot', {
             uuid: this.uuid,
             epochNumber: this.epochNumber,
@@ -368,30 +382,18 @@ export class EpochProvingJob implements Traceable {
     this.log.verbose(`Scheduled epoch check for epoch ${this.epochNumber} every ${intervalMs}ms`);
   }
 
-  /* Returns the header for the given block number based on the epoch proving job data. */
-  private getBlockHeader(blockNumber: number) {
-    const block = this.blocks.find(b => b.number === blockNumber);
-    if (block) {
-      return block.getBlockHeader();
-    }
-
-    if (blockNumber === Number(this.data.previousBlockHeader.getBlockNumber())) {
-      return this.data.previousBlockHeader;
-    }
-
-    throw new Error(
-      `Block header not found for block number ${blockNumber} (got ${this.blocks
-        .map(b => b.number)
-        .join(', ')} and previous header ${this.data.previousBlockHeader.getBlockNumber()})`,
-    );
+  /* Returns the last block header in the previous checkpoint for all checkpoints in the epoch */
+  private gatherPreviousBlockHeaders() {
+    const lastBlocks = this.checkpoints.map(checkpoint => checkpoint.blocks.at(-1)!);
+    return [this.data.previousBlockHeader, ...lastBlocks.map(block => block.header).slice(0, -1)];
   }
 
-  private getTxs(block: L2Block): Tx[] {
+  private getTxs(block: L2BlockNew): Tx[] {
     return block.body.txEffects.map(txEffect => this.txs.get(txEffect.txHash.toString())!);
   }
 
-  private getL1ToL2Messages(block: L2Block) {
-    return this.data.l1ToL2Messages[block.number];
+  private getL1ToL2Messages(checkpoint: Checkpoint) {
+    return this.data.l1ToL2Messages[checkpoint.number];
   }
 
   private async processTxs(publicProcessor: PublicProcessor, txs: Tx[]): Promise<ProcessedTx[]> {

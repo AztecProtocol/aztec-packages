@@ -187,25 +187,26 @@ class TranslatorFlavor {
 
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /* 1. accumulated_result */ (num_frs_fq) +
-        /* 2. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES - 3) * num_frs_comm) +
-        /* 3. Libra concatenation commitment*/ (num_frs_comm) +
-        /* 4. Libra sum */ (num_frs_fr) +
-        /* 5. CONST_TRANSLATOR_LOG_N sumcheck univariates */
+        /* 1. NUM_WITNESS_ENTITIES commitments (minus gemini_masking_poly sent separately, z_perm sent separately,
+              and 4 op queue wires passed by merge protocol) */
+        ((NUM_WITNESS_ENTITIES - 3 - TranslatorFlavor::NUM_OP_QUEUE_WIRES) * num_frs_comm) +
+        /* 2. Libra concatenation commitment*/ (num_frs_comm) +
+        /* 3. Libra sum */ (num_frs_fr) +
+        /* 4. CONST_TRANSLATOR_LOG_N sumcheck univariates */
         (CONST_TRANSLATOR_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-        /* 6. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
-        /* 7. Libra claimed evaluation */ (num_frs_fr) +
-        /* 8. Libra grand sum commitment */ (num_frs_comm) +
-        /* 9. Libra quotient commitment */ (num_frs_comm) +
-        /* 10. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
+        /* 5. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
+        /* 6. Libra claimed evaluation */ (num_frs_fr) +
+        /* 7. Libra grand sum commitment */ (num_frs_comm) +
+        /* 8. Libra quotient commitment */ (num_frs_comm) +
+        /* 9. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
         ((CONST_TRANSLATOR_LOG_N - 1) * num_frs_comm) +
-        /* 11. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
+        /* 10. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
         (CONST_TRANSLATOR_LOG_N * num_frs_fr) +
-        /* 12. Gemini P pos evaluation */ (num_frs_fr) +
-        /* 13. Gemini P neg evaluation */ (num_frs_fr) +
-        /* 14. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
-        /* 15. Shplonk Q commitment */ (num_frs_comm) +
-        /* 16. KZG W commitment */ (num_frs_comm);
+        /* 11. Gemini P pos evaluation */ (num_frs_fr) +
+        /* 12. Gemini P neg evaluation */ (num_frs_fr) +
+        /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
+        /* 14. Shplonk Q commitment */ (num_frs_comm) +
+        /* 15. KZG W commitment */ (num_frs_comm);
 
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
@@ -238,13 +239,13 @@ class TranslatorFlavor {
                               interleaved_range_constraints_2, // column 2
                               interleaved_range_constraints_3) // column 3
     };
-    template <typename DataType> class WireToBeShiftedEntities {
+    /**
+     * @brief Non-op-queue wires that need to be shifted
+     */
+    template <typename DataType> class NonOpQueueWiresToBeShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              x_lo_y_hi,                                    // column 0
-                              x_hi_z_1,                                     // column 1
-                              y_lo_z_2,                                     // column 2
-                              p_x_low_limbs,                                // column 3
+                              p_x_low_limbs,                                // column 0
                               p_x_high_limbs,                               // column 4
                               p_y_low_limbs,                                // column 5
                               p_y_high_limbs,                               // column 6
@@ -322,6 +323,28 @@ class TranslatorFlavor {
                               relation_wide_limbs_range_constraint_2,       // column 78
                               relation_wide_limbs_range_constraint_3);      // column 79
     };
+
+    /**
+     * @brief Op queue wires (to be shifted): first 3 wires of the to-be-shifted group
+     */
+    template <typename DataType> class OpQueueWiresToBeShiftedEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              x_lo_y_hi, // column 0
+                              x_hi_z_1,  // column 1
+                              y_lo_z_2)  // column 2
+    };
+
+    /**
+     * @brief All wires to be shifted (op queue + non-op-queue)
+     */
+    template <typename DataType>
+    class WireToBeShiftedEntities : public OpQueueWiresToBeShiftedEntities<DataType>,
+                                    public NonOpQueueWiresToBeShiftedEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(OpQueueWiresToBeShiftedEntities<DataType>, NonOpQueueWiresToBeShiftedEntities<DataType>)
+    };
+
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/907)
     // Note: These are technically derived from wires but do not depend on challenges (like z_perm). They are committed
     // to in the wires commitment round.
@@ -335,12 +358,24 @@ class TranslatorFlavor {
                               ordered_range_constraints_4); // column 4
     };
 
-    template <typename DataType> class WireNonshiftedEntities {
+    /**
+     * @brief Op queue wires (non-shifted): these represent the op queue and are provided by the merge protocol
+     */
+    template <typename DataType> class OpQueueWireNonshiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               op // column 0
         );
     };
+
+    /**
+     * @brief All wire entities that are not shifted (currently just the op queue wire)
+     */
+    template <typename DataType> class WireNonshiftedEntities : public OpQueueWireNonshiftedEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(OpQueueWireNonshiftedEntities<DataType>)
+    };
+
     template <typename DataType> class DerivedWitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
@@ -373,12 +408,30 @@ class TranslatorFlavor {
         };
 
         /**
+         * @brief Get only the op queue wires (provided by merge protocol, not committed to in translator)
+         */
+        auto get_op_queue_wires()
+        {
+            return concatenate(OpQueueWireNonshiftedEntities<DataType>::get_all(),
+                               OpQueueWiresToBeShiftedEntities<DataType>::get_all());
+        };
+
+        /**
          * @brief Witness Entities to which the prover commits and do not require challenges (i.e. not derived).
          */
         auto get_wires_and_ordered_range_constraints()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
                                WireToBeShiftedEntities<DataType>::get_all(),
+                               OrderedRangeConstraints<DataType>::get_all());
+        };
+
+        /**
+         * @brief Non-op-queue wires and ordered range constraints (committed to by translator prover)
+         */
+        auto get_non_opqueue_wires_and_ordered_range_constraints()
+        {
+            return concatenate(NonOpQueueWiresToBeShiftedEntities<DataType>::get_all(),
                                OrderedRangeConstraints<DataType>::get_all());
         };
 
@@ -963,7 +1016,7 @@ class TranslatorFlavor {
             this->relation_wide_limbs_range_constraint_0 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0";
             this->relation_wide_limbs_range_constraint_1 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1";
             this->relation_wide_limbs_range_constraint_2 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
-            this->relation_wide_limbs_range_constraint_3 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
+            this->relation_wide_limbs_range_constraint_3 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3";
             this->ordered_range_constraints_0 = "ORDERED_RANGE_CONSTRAINTS_0";
             this->ordered_range_constraints_1 = "ORDERED_RANGE_CONSTRAINTS_1";
             this->ordered_range_constraints_2 = "ORDERED_RANGE_CONSTRAINTS_2";

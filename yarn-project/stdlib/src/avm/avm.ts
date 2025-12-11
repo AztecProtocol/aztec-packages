@@ -1,9 +1,10 @@
 import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { z } from 'zod';
 
+import { FunctionSelector } from '../abi/index.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { AllContractDeploymentData, ContractDeploymentData } from '../contract/index.js';
 import { SimulationError } from '../errors/simulation_error.js';
@@ -14,6 +15,7 @@ import { GasSettings } from '../gas/gas_settings.js';
 import { GasUsed } from '../gas/gas_used.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { DebugLog } from '../logs/debug_log.js';
+import { PublicLog } from '../logs/public_log.js';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { NullishToUndefined, type ZodFor, schemas } from '../schemas/schemas.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
@@ -28,9 +30,11 @@ import {
   TreeSnapshots,
   type Tx,
 } from '../tx/index.js';
+import { TxExecutionPhase } from '../tx/processed_tx.js';
 import { WorldStateRevision } from '../world-state/world_state_revision.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
+import { PublicDataWrite } from './public_data_write.js';
 import { RevertCode } from './revert_code.js';
 
 ////////////////////////////////////////////////////////////////////////////
@@ -1042,21 +1046,217 @@ export class AvmCircuitInputs {
   }
 }
 
+// Metadata about a given (enqueued or external) call.
+export class CallStackMetadata {
+  constructor(
+    public phase: TxExecutionPhase,
+    public contractAddress: Fr,
+    public callerPc: number,
+    public calldata: Fr[],
+    public isStaticCall: boolean,
+    public gasLimit: Gas,
+    public output: Fr[], // returndata or revertdata.
+    public internalCallStackAtExit: number[], // At return/revert time. Last one is exit PC.
+    public haltingMessage: string | undefined,
+    public reverted: boolean,
+    public nested: CallStackMetadata[],
+    public numNestedCalls: number, // This will be different from the size of the nested vector if we went past some limit.
+  ) {}
+
+  static get schema(): ZodFor<CallStackMetadata> {
+    return z
+      .object({
+        phase: z.nativeEnum(TxExecutionPhase),
+        contractAddress: Fr.schema,
+        callerPc: z.number(),
+        calldata: Fr.schema.array(),
+        isStaticCall: z.boolean(),
+        gasLimit: Gas.schema,
+        output: Fr.schema.array(),
+        internalCallStackAtExit: z.number().array(),
+        haltingMessage: NullishToUndefined(z.string()),
+        reverted: z.boolean(),
+        nested: CallStackMetadata.schema.array(),
+        numNestedCalls: z.number(),
+      })
+      .transform(
+        ({
+          phase,
+          contractAddress,
+          callerPc,
+          calldata,
+          isStaticCall,
+          gasLimit,
+          output,
+          internalCallStackAtExit,
+          haltingMessage,
+          reverted,
+          nested,
+          numNestedCalls,
+        }) =>
+          new CallStackMetadata(
+            phase,
+            contractAddress,
+            callerPc,
+            calldata,
+            isStaticCall,
+            gasLimit,
+            output,
+            internalCallStackAtExit,
+            haltingMessage,
+            reverted,
+            nested,
+            numNestedCalls,
+          ),
+      );
+  }
+
+  /**
+   * Creates a CallStackMetadata from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing CallStackMetadata fields
+   * @returns A CallStackMetadata instance
+   */
+  static fromPlainObject(obj: any): CallStackMetadata {
+    if (obj instanceof CallStackMetadata) {
+      return obj;
+    }
+    return new CallStackMetadata(
+      obj.phase,
+      Fr.fromPlainObject(obj.contractAddress),
+      obj.callerPc,
+      obj.calldata.map((f: any) => Fr.fromPlainObject(f)),
+      obj.isStaticCall,
+      Gas.fromPlainObject(obj.gasLimit),
+      obj.output.map((f: any) => Fr.fromPlainObject(f)),
+      obj.internalCallStackAtExit.map((p: any) => Number(p)),
+      obj.haltingMessage,
+      obj.reverted,
+      obj.nested.map((n: any) => CallStackMetadata.fromPlainObject(n)),
+      obj.numNestedCalls,
+    );
+  }
+
+  public getRevertReason(): SimulationError | undefined {
+    const failingCall = this.findDeepestRevert([this]);
+
+    if (!failingCall) {
+      return undefined;
+    }
+
+    const { stack, leaf } = failingCall;
+    const aztecCallStack = stack.map(call => ({
+      contractAddress: AztecAddress.fromField(call.contractAddress),
+      functionSelector: call.calldata.length > 0 ? FunctionSelector.fromField(call.calldata[0]) : undefined,
+    }));
+
+    // The Noir call stack is the internal call stack at exit of the failing call
+    const noirCallStack = leaf.internalCallStackAtExit.map(pc => `0.${pc}`);
+
+    return new SimulationError(
+      leaf.haltingMessage ?? 'Transaction reverted',
+      aztecCallStack,
+      leaf.output,
+      noirCallStack,
+    );
+  }
+
+  private findDeepestRevert(
+    calls: CallStackMetadata[],
+    parentStack: CallStackMetadata[] = [],
+  ): { stack: CallStackMetadata[]; leaf: CallStackMetadata } | undefined {
+    for (const call of calls) {
+      if (call.reverted) {
+        const nested = this.findDeepestRevert(call.nested, [...parentStack, call]);
+        return nested || { stack: [...parentStack, call], leaf: call };
+      }
+    }
+    return undefined;
+  }
+}
+
+export class PublicTxEffect {
+  constructor(
+    public transactionFee: Fr,
+    public noteHashes: Fr[],
+    public nullifiers: Fr[],
+    public l2ToL1Msgs: ScopedL2ToL1Message[],
+    public publicLogs: PublicLog[],
+    public publicDataWrites: PublicDataWrite[],
+  ) {}
+
+  static empty() {
+    return new PublicTxEffect(Fr.ZERO, [], [], [], [], []);
+  }
+
+  static get schema(): ZodFor<PublicTxEffect> {
+    return z
+      .object({
+        transactionFee: Fr.schema,
+        noteHashes: Fr.schema.array(),
+        nullifiers: Fr.schema.array(),
+        l2ToL1Msgs: ScopedL2ToL1Message.schema.array(),
+        publicLogs: PublicLog.schema.array(),
+        publicDataWrites: PublicDataWrite.schema.array(),
+      })
+      .transform(PublicTxEffect.from);
+  }
+
+  static from(obj: any): PublicTxEffect {
+    return new PublicTxEffect(
+      obj.transactionFee,
+      obj.noteHashes,
+      obj.nullifiers,
+      obj.l2ToL1Msgs,
+      obj.publicLogs,
+      obj.publicDataWrites,
+    );
+  }
+
+  static fromPlainObject(obj: any): PublicTxEffect {
+    return new PublicTxEffect(
+      Fr.fromPlainObject(obj.transactionFee),
+      obj.noteHashes.map((h: any) => Fr.fromPlainObject(h)),
+      obj.nullifiers.map((n: any) => Fr.fromPlainObject(n)),
+      obj.l2ToL1Msgs.map((m: any) => ScopedL2ToL1Message.fromPlainObject(m)),
+      obj.publicLogs.map((l: any) => PublicLog.fromPlainObject(l)),
+      obj.publicDataWrites.map((w: any) => PublicDataWrite.fromPlainObject(w)),
+    );
+  }
+
+  equals(other: PublicTxEffect): boolean {
+    return (
+      this.transactionFee.equals(other.transactionFee) &&
+      this.noteHashes.length === other.noteHashes.length &&
+      this.noteHashes.every((h, i) => h.equals(other.noteHashes[i])) &&
+      this.nullifiers.length === other.nullifiers.length &&
+      this.nullifiers.every((h, i) => h.equals(other.nullifiers[i])) &&
+      this.l2ToL1Msgs.length === other.l2ToL1Msgs.length &&
+      this.l2ToL1Msgs.every((m, i) => m.equals(other.l2ToL1Msgs[i])) &&
+      this.publicLogs.length === other.publicLogs.length &&
+      this.publicLogs.every((l, i) => l.equals(other.publicLogs[i])) &&
+      this.publicDataWrites.length === other.publicDataWrites.length &&
+      this.publicDataWrites.every((w, i) => w.equals(other.publicDataWrites[i]))
+    );
+  }
+}
+
 export class PublicTxResult {
   constructor(
     // Simulation result.
     public gasUsed: GasUsed,
     public revertCode: RevertCode,
-    public revertReason: SimulationError | undefined, // Revert reason, if any
+    public publicTxEffect: PublicTxEffect,
     // These are only guaranteed to be present if the simulator is configured to collect them.
-    // NOTE: This list will be populated with one NestedProcessReturnValues per app logic enqueued call.
-    // IMPORTANT: The nesting will only be 1 level deep! You will get one result per enqueued call
-    // but no information about nested calls. This can be added later.
-    public appLogicReturnValues: NestedProcessReturnValues[], // One per enqueued call.
+    // TODO(fcarreiro): Remove NestedProcessReturnValues[] once we migrate to the C++ simulator.
+    public callStackMetadata:
+      | CallStackMetadata[] // One per enqueued call. All phases.
+      | NestedProcessReturnValues[], // One per enqueued call. App logic only.
     public logs: DebugLog[] | undefined,
     // For the proving request.
     public hints: AvmExecutionHints | undefined,
-    public publicInputs: AvmCircuitPublicInputs,
+    public publicInputs: AvmCircuitPublicInputs | undefined,
   ) {}
 
   static empty() {
@@ -1068,8 +1268,8 @@ export class PublicTxResult {
         billedGas: Gas.empty(),
       },
       RevertCode.OK,
-      /*revertReason=*/ undefined,
-      /*appLogicReturnValues=*/ [],
+      PublicTxEffect.empty(),
+      /*callStackMetadata=*/ [] as CallStackMetadata[],
       /*logs=*/ [],
       /*hints=*/ AvmExecutionHints.empty(),
       /*publicInputs=*/ AvmCircuitPublicInputs.empty(),
@@ -1082,19 +1282,20 @@ export class PublicTxResult {
         gasUsed: schemas.GasUsed,
         revertCode: RevertCode.schema,
         revertReason: NullishToUndefined(SimulationError.schema),
-        appLogicReturnValues: NestedProcessReturnValues.schema.array(),
+        publicTxEffect: PublicTxEffect.schema,
+        callStackMetadata: z.union([CallStackMetadata.schema.array(), NestedProcessReturnValues.schema.array()]),
         logs: NullishToUndefined(DebugLog.schema.array()),
         // For the proving request.
-        publicInputs: AvmCircuitPublicInputs.schema,
+        publicInputs: NullishToUndefined(AvmCircuitPublicInputs.schema),
         hints: NullishToUndefined(AvmExecutionHints.schema),
       })
       .transform(
-        ({ gasUsed, revertCode, revertReason, appLogicReturnValues, logs, hints, publicInputs }) =>
+        ({ gasUsed, revertCode, publicTxEffect, callStackMetadata, logs, hints, publicInputs }) =>
           new PublicTxResult(
             gasUsed,
             revertCode as RevertCode,
-            revertReason,
-            appLogicReturnValues,
+            publicTxEffect,
+            callStackMetadata,
             logs,
             hints,
             publicInputs,
@@ -1102,16 +1303,110 @@ export class PublicTxResult {
       );
   }
 
+  /**
+   * Creates a PublicTxResult from a plain object without Zod validation.
+   * This method is optimized for performance and skips validation, making it suitable
+   * for deserializing trusted data (e.g., from C++ via MessagePack).
+   * @param obj - Plain object containing PublicTxResult fields
+   * @returns A PublicTxResult instance
+   */
   static fromPlainObject(obj: any): PublicTxResult {
     return new PublicTxResult(
       GasUsed.fromPlainObject(obj.gasUsed),
       RevertCode.fromPlainObject(obj.revertCode),
-      /*revertReason=*/ undefined, // TODO(fcarreiro/mwood): add.
-      /*appLogicReturnValues=*/ obj.appLogicReturnValues.map(NestedProcessReturnValues.fromPlainObject),
+      PublicTxEffect.fromPlainObject(obj.publicTxEffect),
+      obj.callStackMetadata.map(CallStackMetadata.fromPlainObject), // Always CallStackMetadata[] from MessagePack.
       obj.logs?.map(DebugLog.fromPlainObject),
       obj.hints ? AvmExecutionHints.fromPlainObject(obj.hints) : undefined,
-      AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs),
+      obj.publicInputs ? AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs) : undefined,
     );
+  }
+
+  /** Returns one level of return values for the app logic phase, one per enqueued call. */
+  public getAppLogicReturnValues(): NestedProcessReturnValues[] {
+    if (this.callStackMetadata.every(metadata => metadata instanceof CallStackMetadata)) {
+      return this.callStackMetadata
+        .filter(metadata => metadata.phase === TxExecutionPhase.APP_LOGIC)
+        .map(metadata => new NestedProcessReturnValues(metadata.output));
+    } else {
+      return (this.callStackMetadata as NestedProcessReturnValues[]).map(
+        metadata => new NestedProcessReturnValues(metadata.values, metadata.nested),
+      );
+    }
+  }
+
+  public findRevertReason(): SimulationError | undefined {
+    if (this.revertCode.isOK()) {
+      return undefined;
+    }
+
+    const callStackMetadata = this.callStackMetadata;
+    // TODO(fcarreiro): Remove this after migration to the C++ simulator.
+    // If the "stack" comes from TS, it will have this field.
+    if ((callStackMetadata as any).revertReason !== undefined) {
+      return (callStackMetadata as any).revertReason;
+    }
+
+    // Handle CallStackMetadata[].
+    let revertReason: SimulationError | undefined = undefined;
+    for (const call of callStackMetadata) {
+      revertReason = (call as CallStackMetadata).getRevertReason();
+      if (revertReason) {
+        break;
+      }
+    }
+    return revertReason;
+  }
+}
+
+export class CollectionLimitsConfig {
+  constructor(
+    public readonly maxDebugLogMemoryReads: number,
+    public readonly maxCalldataSizeInFields: number,
+    public readonly maxReturndataSizeInFields: number,
+    public readonly maxCallStackDepth: number,
+    public readonly maxCallStackItems: number,
+  ) {}
+
+  static from(obj: Partial<CollectionLimitsConfig>): CollectionLimitsConfig {
+    return new CollectionLimitsConfig(
+      obj.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
+      obj.maxCalldataSizeInFields ?? 300,
+      obj.maxReturndataSizeInFields ?? 300,
+      obj.maxCallStackDepth ?? 5,
+      obj.maxCallStackItems ?? 100,
+    );
+  }
+
+  static empty() {
+    return CollectionLimitsConfig.from({});
+  }
+
+  static get schema() {
+    return z
+      .object({
+        maxDebugLogMemoryReads: z.number(),
+        maxCalldataSizeInFields: z.number(),
+        maxReturndataSizeInFields: z.number(),
+        maxCallStackDepth: z.number(),
+        maxCallStackItems: z.number(),
+      })
+      .transform(
+        ({
+          maxDebugLogMemoryReads,
+          maxCalldataSizeInFields,
+          maxReturndataSizeInFields,
+          maxCallStackDepth,
+          maxCallStackItems,
+        }) =>
+          new CollectionLimitsConfig(
+            maxDebugLogMemoryReads,
+            maxCalldataSizeInFields,
+            maxReturndataSizeInFields,
+            maxCallStackDepth,
+            maxCallStackItems,
+          ),
+      );
   }
 }
 
@@ -1121,9 +1416,10 @@ export class PublicSimulatorConfig {
     public readonly skipFeeEnforcement: boolean,
     public readonly collectCallMetadata: boolean, // appLogicReturnValues.
     public readonly collectHints: boolean, // hints.
+    public readonly collectPublicInputs: boolean, // public inputs.
     public readonly collectDebugLogs: boolean, // logs.
-    public readonly maxDebugLogMemoryReads: number,
     public readonly collectStatistics: boolean, // timings etc.
+    public readonly collectionLimits: CollectionLimitsConfig,
   ) {}
 
   static from(obj: Partial<PublicSimulatorConfig>): PublicSimulatorConfig {
@@ -1132,9 +1428,10 @@ export class PublicSimulatorConfig {
       obj.skipFeeEnforcement ?? false,
       obj.collectCallMetadata ?? false,
       obj.collectHints ?? false,
+      obj.collectPublicInputs ?? false,
       obj.collectDebugLogs ?? false,
-      obj.maxDebugLogMemoryReads ?? DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
       obj.collectStatistics ?? false,
+      obj.collectionLimits ?? CollectionLimitsConfig.empty(),
     );
   }
 
@@ -1149,9 +1446,10 @@ export class PublicSimulatorConfig {
         skipFeeEnforcement: z.boolean(),
         collectCallMetadata: z.boolean(),
         collectHints: z.boolean(),
+        collectPublicInputs: z.boolean(),
         collectDebugLogs: z.boolean(),
-        maxDebugLogMemoryReads: z.number(),
         collectStatistics: z.boolean(),
+        collectionLimits: CollectionLimitsConfig.schema,
       })
       .transform(PublicSimulatorConfig.from);
   }

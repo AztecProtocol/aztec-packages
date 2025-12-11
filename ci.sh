@@ -26,7 +26,6 @@ function print_usage {
   echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
   echo_cmd "network-deploy" "Spin up an EC2 instance to deploy a network."
   echo_cmd "network-tests"  "Spin up an EC2 instance to run tests on a network."
-  echo_cmd "nightly"        "Spin up an EC2 instance and run bootstrap nightly."
   echo_cmd "release"        "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"      "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"          "Drop into a shell in the current running build instance container."
@@ -43,6 +42,8 @@ function print_usage {
   echo_cmd "ready"          "Mark the current PR as ready (enable automatic CI runs when pushing)."
   echo_cmd "pr-url"         "Print the URL of the current PR associated with the branch."
   echo_cmd "last-run-url"   "Print the URL of the last GA run for the current branch PR."
+  echo_cmd "avm-inputs-collection" "Nightly: run e2e tests, dump AVM circuit inputs, upload to cache."
+  echo_cmd "avm-check-circuit" "Nightly: download cached AVM inputs, run check-circuit on each."
   echo_cmd "help"           "Display this help message."
 }
 
@@ -82,7 +83,7 @@ function prep_vars {
 }
 
 case "$cmd" in
-  fast|full|full-no-test-cache|full-no-test-cache-makefile|docs|barretenberg)
+  fast|full|full-no-test-cache|full-no-test-cache-makefile|docs|barretenberg|avm-inputs-collection|avm-check-circuit)
     export JOB_ID="x1-$cmd"
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;

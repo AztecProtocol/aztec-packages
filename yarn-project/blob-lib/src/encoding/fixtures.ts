@@ -9,7 +9,8 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { BlockBlobData, BlockEndBlobData } from './block_blob_data.js';
 import type { BlockEndMarker } from './block_end_marker.js';
@@ -109,7 +110,7 @@ export function makeBlockEndMarker({
 }: { seed?: number } & Partial<BlockEndMarker> = {}): BlockEndMarker {
   return {
     numTxs: seed,
-    blockNumber: seed + 1,
+    blockNumber: BlockNumber(seed + 1),
     timestamp: BigInt(seed + 2),
     ...overrides,
   };

@@ -1,19 +1,17 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import {
-  BlockTagTooOldError,
-  InboxContract,
-  type L1BlockId,
-  RollupContract,
-  type ViemPublicClient,
-  createEthereumChain,
-} from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { BlockTagTooOldError, InboxContract, RollupContract } from '@aztec/ethereum/contracts';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1BlockId } from '@aztec/ethereum/l1-types';
+import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { maxBigint } from '@aztec/foundation/bigint';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { merge, pick } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
@@ -35,7 +33,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ArchiverEmitter,
   L2Block,
-  type L2BlockId,
   type L2BlockSource,
   L2BlockSourceEvents,
   type L2Tips,
@@ -63,7 +60,7 @@ import {
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { type BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -81,14 +78,15 @@ import { type GetContractReturnType, type Hex, createPublicClient, fallback, htt
 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
 import type { ArchiverConfig } from './config.js';
+import { InitialBlockNumberNotSequentialError, NoBlobBodiesFoundError } from './errors.js';
+import { ArchiverInstrumentation } from './instrumentation.js';
 import {
   retrieveCheckpointsFromRollup,
   retrieveL1ToL2Message,
   retrieveL1ToL2Messages,
   retrievedToPublishedCheckpoint,
-} from './data_retrieval.js';
-import { InitialBlockNumberNotSequentialError, NoBlobBodiesFoundError } from './errors.js';
-import { ArchiverInstrumentation } from './instrumentation.js';
+} from './l1/data_retrieval.js';
+import { validateAndLogTraceAvailability } from './l1/validate_trace.js';
 import type { InboxMessage } from './structs/inbox_message.js';
 import { type ValidateBlockResult, validateCheckpointAttestations } from './validation.js';
 
@@ -110,13 +108,14 @@ function mapArchiverConfig(config: Partial<ArchiverConfig>) {
     batchSize: config.archiverBatchSize,
     skipValidateBlockAttestations: config.skipValidateBlockAttestations,
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
+    ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
   };
 }
 
 type RollupStatus = {
-  provenCheckpointNumber: number;
+  provenCheckpointNumber: CheckpointNumber;
   provenArchive: Hex;
-  pendingCheckpointNumber: number;
+  pendingCheckpointNumber: CheckpointNumber;
   pendingArchive: Hex;
   validationResult: ValidateBlockResult | undefined;
   lastRetrievedCheckpoint?: PublishedCheckpoint;
@@ -147,6 +146,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
+   * @param debugClient - A client for interacting with the Ethereum node for debug/trace methods.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param inboxAddress - Ethereum address of the inbox contract.
    * @param registryAddress - Ethereum address of the registry contract.
@@ -156,13 +156,18 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    */
   constructor(
     private readonly publicClient: ViemPublicClient,
-    private readonly l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
+    private readonly debugClient: ViemPublicDebugClient,
+    private readonly l1Addresses: Pick<
+      L1ContractAddresses,
+      'rollupAddress' | 'inboxAddress' | 'registryAddress' | 'governanceProposerAddress' | 'slashFactoryAddress'
+    > & { slashingProposerAddress: EthAddress },
     readonly dataStore: ArchiverDataStore,
     private config: {
       pollingIntervalMs: number;
       batchSize: number;
       skipValidateBlockAttestations?: boolean;
       maxAllowedEthClientDriftSeconds: number;
+      ethereumAllowNoDebugHosts?: boolean;
     },
     private readonly blobSinkClient: BlobSinkClientInterface,
     private readonly epochCache: EpochCache,
@@ -210,14 +215,24 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       pollingInterval: config.viemPollingIntervalMS,
     });
 
+    // Create debug client using debug RPC URLs if available, otherwise fall back to regular RPC URLs
+    const debugRpcUrls = config.l1DebugRpcUrls.length > 0 ? config.l1DebugRpcUrls : config.l1RpcUrls;
+    const debugClient = createPublicClient({
+      chain: chain.chainInfo,
+      transport: fallback(debugRpcUrls.map(url => http(url))),
+      pollingInterval: config.viemPollingIntervalMS,
+    }) as ViemPublicDebugClient;
+
     const rollup = new RollupContract(publicClient, config.l1Contracts.rollupAddress);
 
-    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, genesisArchiveRoot] = await Promise.all([
-      rollup.getL1StartBlock(),
-      rollup.getL1GenesisTime(),
-      rollup.getProofSubmissionEpochs(),
-      rollup.getGenesisArchiveTreeRoot(),
-    ] as const);
+    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, genesisArchiveRoot, slashingProposerAddress] =
+      await Promise.all([
+        rollup.getL1StartBlock(),
+        rollup.getL1GenesisTime(),
+        rollup.getProofSubmissionEpochs(),
+        rollup.getGenesisArchiveTreeRoot(),
+        rollup.getSlashingProposerAddress(),
+      ] as const);
 
     const l1StartBlockHash = await publicClient
       .getBlock({ blockNumber: l1StartBlock, includeTransactions: false })
@@ -237,7 +252,12 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     };
 
     const opts = merge(
-      { pollingIntervalMs: 10_000, batchSize: 100, maxAllowedEthClientDriftSeconds: 300 },
+      {
+        pollingIntervalMs: 10_000,
+        batchSize: 100,
+        maxAllowedEthClientDriftSeconds: 300,
+        ethereumAllowNoDebugHosts: false,
+      },
       mapArchiverConfig(config),
     );
 
@@ -246,7 +266,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     const archiver = new Archiver(
       publicClient,
-      config.l1Contracts,
+      debugClient,
+      { ...config.l1Contracts, slashingProposerAddress },
       archiverStore,
       opts,
       deps.blobSinkClient,
@@ -275,6 +296,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     await this.blobSinkClient.testSources();
     await this.testEthereumNodeSynced();
+    await validateAndLogTraceAvailability(this.debugClient, this.config.ethereumAllowNoDebugHosts ?? false);
 
     // Log initial state for the archiver
     const { l1StartBlock } = this.l1constants;
@@ -455,7 +477,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   /** Checks if there'd be a reorg for the next checkpoint submission and start pruning now. */
   private async handleEpochPrune(
-    provenCheckpointNumber: number,
+    provenCheckpointNumber: CheckpointNumber,
     currentL1BlockNumber: bigint,
     currentL1Timestamp: bigint,
   ) {
@@ -465,9 +487,9 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     if (canPrune) {
       const timer = new Timer();
-      const pruneFrom = provenCheckpointNumber + 1;
+      const pruneFrom = CheckpointNumber(provenCheckpointNumber + 1);
 
-      const header = await this.getCheckpointHeader(Number(pruneFrom));
+      const header = await this.getCheckpointHeader(pruneFrom);
       if (header === undefined) {
         throw new Error(`Missing checkpoint header ${pruneFrom}`);
       }
@@ -477,7 +499,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
       const checkpointsToUnwind = localPendingCheckpointNumber - provenCheckpointNumber;
 
-      const checkpoints = await this.getCheckpoints(Number(provenCheckpointNumber) + 1, Number(checkpointsToUnwind));
+      const checkpoints = await this.getCheckpoints(pruneFrom, checkpointsToUnwind);
 
       // Emit an event for listening services to react to the chain prune
       this.emit(L2BlockSourceEvents.L2PruneDetected, {
@@ -594,7 +616,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     // Log stats for messages retrieved (if any).
     if (messageCount > 0) {
       this.log.info(
-        `Retrieved ${messageCount} new L1 to L2 messages up to message with index ${lastMessage?.index} for L2 block ${lastMessage?.l2BlockNumber}`,
+        `Retrieved ${messageCount} new L1 to L2 messages up to message with index ${lastMessage?.index} for checkpoint ${lastMessage?.checkpointNumber}`,
         { lastMessage, messageCount },
       );
     }
@@ -681,9 +703,9 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       rollupPendingCheckpointNumber,
       pendingArchive,
       archiveForLocalPendingCheckpointNumber,
-    ] = await this.rollup.status(BigInt(localPendingCheckpointNumber), { blockNumber: currentL1BlockNumber });
-    const provenCheckpointNumber = Number(rollupProvenCheckpointNumber);
-    const pendingCheckpointNumber = Number(rollupPendingCheckpointNumber);
+    ] = await this.rollup.status(localPendingCheckpointNumber, { blockNumber: currentL1BlockNumber });
+    const provenCheckpointNumber = CheckpointNumber.fromBigInt(rollupProvenCheckpointNumber);
+    const pendingCheckpointNumber = CheckpointNumber.fromBigInt(rollupPendingCheckpointNumber);
     const rollupStatus = {
       provenCheckpointNumber,
       provenArchive,
@@ -747,7 +769,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
           this.emit(L2BlockSourceEvents.L2BlockProven, {
             type: L2BlockSourceEvents.L2BlockProven,
-            blockNumber: BigInt(lastProvenBlockNumber),
+            blockNumber: lastProvenBlockNumber,
             slotNumber: provenSlotNumber,
             epochNumber: provenEpochNumber,
           });
@@ -812,7 +834,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
             break;
           }
 
-          const archiveAtContract = await this.rollup.archiveAt(BigInt(candidateCheckpoint.number));
+          const archiveAtContract = await this.rollup.archiveAt(candidateCheckpoint.number);
           this.log.trace(
             `Checking local checkpoint ${candidateCheckpoint.number} with archive ${candidateCheckpoint.archive.root}`,
             {
@@ -853,9 +875,12 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       const retrievedCheckpoints = await retrieveCheckpointsFromRollup(
         this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
         this.publicClient,
+        this.debugClient,
         this.blobSinkClient,
         searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
         searchEndBlock,
+        this.l1Addresses,
+        this.instrumentation,
         this.log,
       );
 
@@ -916,6 +941,25 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
           continue;
         }
 
+        // Check the inHash of the checkpoint against the l1->l2 messages.
+        // The messages should've been synced up to the currentL1BlockNumber and must be available for the published
+        // checkpoints we just retrieved.
+        const l1ToL2Messages = await this.getL1ToL2Messages(published.checkpoint.number);
+        const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
+        const publishedInHash = published.checkpoint.header.contentCommitment.inHash;
+        if (!computedInHash.equals(publishedInHash)) {
+          this.log.fatal(`Mismatch inHash for checkpoint ${published.checkpoint.number}`, {
+            checkpointHash: published.checkpoint.hash(),
+            l1BlockNumber: published.l1.blockNumber,
+            computedInHash,
+            publishedInHash,
+          });
+          // Throwing an error since this is most likely caused by a bug.
+          throw new Error(
+            `Mismatch inHash for checkpoint ${published.checkpoint.number}. Expected ${computedInHash} but got ${publishedInHash}`,
+          );
+        }
+
         validCheckpoints.push(published);
         this.log.debug(
           `Ingesting new checkpoint ${published.checkpoint.number} with ${published.checkpoint.blocks.length} blocks`,
@@ -940,7 +984,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         if (err instanceof InitialBlockNumberNotSequentialError) {
           const { previousBlockNumber, newBlockNumber } = err;
           const previousBlock = previousBlockNumber
-            ? await this.store.getPublishedBlock(previousBlockNumber)
+            ? await this.store.getPublishedBlock(BlockNumber(previousBlockNumber))
             : undefined;
           const updatedL1SyncPoint = previousBlock?.l1.blockNumber ?? this.l1constants.l1StartBlock;
           await this.store.setBlockSynchedL1BlockNumber(updatedL1SyncPoint);
@@ -969,7 +1013,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         });
       }
       lastRetrievedCheckpoint = validCheckpoints.at(-1) ?? lastRetrievedCheckpoint;
-      lastL1BlockWithCheckpoint = publishedCheckpoints.at(-1)?.l1.blockNumber ?? lastL1BlockWithCheckpoint;
+      lastL1BlockWithCheckpoint = retrievedCheckpoints.at(-1)?.l1.blockNumber ?? lastL1BlockWithCheckpoint;
     } while (searchEndBlock < currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.
@@ -1094,7 +1138,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       if (slot(block) <= end) {
         blocks.push(block);
       }
-      block = await this.getBlock(block.number - 1);
+      block = await this.getBlock(BlockNumber(block.number - 1));
     }
 
     return blocks.reverse();
@@ -1113,7 +1157,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       if (slot(header) <= end) {
         blocks.push(header);
       }
-      header = await this.getBlockHeader(--number);
+      number = BlockNumber(number - 1);
+      header = await this.getBlockHeader(number);
     }
     return blocks.reverse();
   }
@@ -1151,17 +1196,27 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return this.initialSyncComplete;
   }
 
-  public async getPublishedCheckpoints(from: number, limit: number, proven?: boolean): Promise<PublishedCheckpoint[]> {
-    const blocks = await this.getPublishedBlocks(from, limit, proven);
+  public async getPublishedCheckpoints(
+    from: CheckpointNumber,
+    limit: number,
+    proven?: boolean,
+  ): Promise<PublishedCheckpoint[]> {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
+    const blocks = await this.getPublishedBlocks(BlockNumber(from), limit, proven);
     return blocks.map(b => b.toPublishedCheckpoint());
   }
 
-  public async getCheckpoints(from: number, limit: number, proven?: boolean): Promise<Checkpoint[]> {
+  public async getCheckpointByArchive(archive: Fr): Promise<Checkpoint | undefined> {
+    // TODO: Implement this properly. This only works when we have one block per checkpoint.
+    return (await this.getPublishedBlockByArchive(archive))?.block.toCheckpoint();
+  }
+
+  public async getCheckpoints(from: CheckpointNumber, limit: number, proven?: boolean): Promise<Checkpoint[]> {
     const published = await this.getPublishedCheckpoints(from, limit, proven);
     return published.map(p => p.checkpoint);
   }
 
-  public async getCheckpoint(number: number): Promise<Checkpoint | undefined> {
+  public async getCheckpoint(number: CheckpointNumber): Promise<Checkpoint | undefined> {
     if (number < 0) {
       number = await this.getSynchedCheckpointNumber();
     }
@@ -1172,7 +1227,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return published[0]?.checkpoint;
   }
 
-  public async getCheckpointHeader(number: number | 'latest'): Promise<CheckpointHeader | undefined> {
+  public async getCheckpointHeader(number: CheckpointNumber | 'latest'): Promise<CheckpointHeader | undefined> {
     if (number === 'latest') {
       number = await this.getSynchedCheckpointNumber();
     }
@@ -1183,43 +1238,57 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return checkpoint?.header;
   }
 
-  public getCheckpointNumber(): Promise<number> {
+  public getCheckpointNumber(): Promise<CheckpointNumber> {
     return this.getSynchedCheckpointNumber();
   }
 
-  public getSynchedCheckpointNumber(): Promise<number> {
-    // TODO: Checkpoint number will no longer be the same as the block number once we support multiple blocks per checkpoint.
-    return this.store.getSynchedL2BlockNumber();
+  public async getSynchedCheckpointNumber(): Promise<CheckpointNumber> {
+    // TODO: Create store and apis for checkpoints.
+    // Checkpoint number will no longer be the same as the block number once we support multiple blocks per checkpoint.
+    return CheckpointNumber(await this.store.getSynchedL2BlockNumber());
   }
 
-  public getProvenCheckpointNumber(): Promise<number> {
-    // TODO: Proven checkpoint number will no longer be the same as the proven block number once we support multiple blocks per checkpoint.
-    return this.store.getProvenL2BlockNumber();
+  public async getProvenCheckpointNumber(): Promise<CheckpointNumber> {
+    // TODO: Create store and apis for checkpoints.
+    // Proven checkpoint number will no longer be the same as the proven block number once we support multiple blocks per checkpoint.
+    return CheckpointNumber(await this.store.getProvenL2BlockNumber());
   }
 
-  public setProvenCheckpointNumber(checkpointNumber: number): Promise<void> {
-    // TODO: Proven checkpoint number will no longer be the same as the proven block number once we support multiple blocks per checkpoint.
-    return this.store.setProvenL2BlockNumber(checkpointNumber);
+  public setProvenCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
+    // TODO: Create store and apis for checkpoints.
+    // Proven checkpoint number will no longer be the same as the proven block number once we support multiple blocks per checkpoint.
+    return this.store.setProvenL2BlockNumber(BlockNumber.fromCheckpointNumber(checkpointNumber));
   }
 
-  public unwindCheckpoints(from: number, checkpointsToUnwind: number): Promise<boolean> {
-    // TODO: This only works if we have one block per checkpoint.
-    return this.store.unwindBlocks(from, checkpointsToUnwind);
+  public unwindCheckpoints(from: CheckpointNumber, checkpointsToUnwind: number): Promise<boolean> {
+    // TODO: Create store and apis for checkpoints.
+    // This only works when we have one block per checkpoint.
+    return this.store.unwindBlocks(BlockNumber.fromCheckpointNumber(from), checkpointsToUnwind);
   }
 
-  public getLastBlockNumberInCheckpoint(checkpointNumber: number): Promise<number> {
-    // TODO: Checkpoint number will no longer be the same as the block number once we support multiple blocks per checkpoint.
-    return Promise.resolve(checkpointNumber);
+  public getLastBlockNumberInCheckpoint(checkpointNumber: CheckpointNumber): Promise<BlockNumber> {
+    // TODO: Create store and apis for checkpoints.
+    // Checkpoint number will no longer be the same as the block number once we support multiple blocks per checkpoint.
+    return Promise.resolve(BlockNumber.fromCheckpointNumber(checkpointNumber));
   }
 
   public addCheckpoints(
     checkpoints: PublishedCheckpoint[],
     pendingChainValidationStatus?: ValidateBlockResult,
   ): Promise<boolean> {
+    // TODO: Create store and apis for checkpoints.
+    // This only works when we have one block per checkpoint.
     return this.store.addBlocks(
       checkpoints.map(p => PublishedL2Block.fromPublishedCheckpoint(p)),
       pendingChainValidationStatus,
     );
+  }
+
+  public async getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
+    // TODO: Create store and apis for checkpoints.
+    // This only works when we have one block per checkpoint.
+    const blocks = await this.getBlocksForEpoch(epochNumber);
+    return blocks.map(b => b.toCheckpoint());
   }
 
   /**
@@ -1229,12 +1298,12 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * @param proven - If true, only return blocks that have been proven.
    * @returns The requested L2 blocks.
    */
-  public getBlocks(from: number, limit: number, proven?: boolean): Promise<L2Block[]> {
+  public getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2Block[]> {
     return this.getPublishedBlocks(from, limit, proven).then(blocks => blocks.map(b => b.block));
   }
 
   /** Equivalent to getBlocks but includes publish data. */
-  public async getPublishedBlocks(from: number, limit: number, proven?: boolean): Promise<PublishedL2Block[]> {
+  public async getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<PublishedL2Block[]> {
     const limitWithProven = proven
       ? Math.min(limit, Math.max((await this.store.getProvenL2BlockNumber()) - from + 1, 0))
       : limit;
@@ -1262,7 +1331,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * @param number - The block number to return.
    * @returns The requested L2 block.
    */
-  public async getBlock(number: number): Promise<L2Block | undefined> {
+  public async getBlock(number: BlockNumber): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
       number = await this.store.getSynchedL2BlockNumber();
@@ -1274,7 +1343,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return publishedBlock?.block;
   }
 
-  public async getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
+  public async getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
     if (number === 'latest') {
       number = await this.store.getSynchedL2BlockNumber();
     }
@@ -1299,7 +1368,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * @param limit - The maximum number of blocks to retrieve logs from.
    * @returns An array of private logs from the specified range of blocks.
    */
-  public getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
+  public getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]> {
     return this.store.getPrivateLogs(from, limit);
   }
 
@@ -1335,16 +1404,16 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  public getBlockNumber(): Promise<number> {
+  public getBlockNumber(): Promise<BlockNumber> {
     return this.store.getSynchedL2BlockNumber();
   }
 
-  public getProvenBlockNumber(): Promise<number> {
+  public getProvenBlockNumber(): Promise<BlockNumber> {
     return this.store.getProvenL2BlockNumber();
   }
 
   /** Forcefully updates the last proven block number. Use for testing. */
-  public setProvenBlockNumber(blockNumber: number): Promise<void> {
+  public setProvenBlockNumber(blockNumber: BlockNumber): Promise<void> {
     return this.store.setProvenL2BlockNumber(blockNumber);
   }
 
@@ -1373,12 +1442,12 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   }
 
   /**
-   * Gets L1 to L2 message (to be) included in a given block.
-   * @param blockNumber - L2 block number to get messages for.
+   * Gets L1 to L2 message (to be) included in a given checkpoint.
+   * @param checkpointNumber - Checkpoint number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
-    return this.store.getL1ToL2Messages(blockNumber);
+  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    return this.store.getL1ToL2Messages(checkpointNumber);
   }
 
   /**
@@ -1419,7 +1488,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     // TODO(#13569): Compute proper finalized block number based on L1 finalized block.
     // We just force it 2 epochs worth of proven data for now.
     // NOTE: update end-to-end/src/e2e_epochs/epochs_empty_blocks.test.ts as that uses finalized blocks in computations
-    const finalizedBlockNumber = Math.max(provenBlockNumber - this.l1constants.epochDuration * 2, 0);
+    const finalizedBlockNumber = BlockNumber(Math.max(provenBlockNumber - this.l1constants.epochDuration * 2, 0));
 
     const [latestBlockHeader, provenBlockHeader, finalizedBlockHeader] = await Promise.all([
       latestBlockNumber > 0 ? this.getBlockHeader(latestBlockNumber) : undefined,
@@ -1443,27 +1512,18 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       );
     }
 
-    const latestBlockHeaderHash = await latestBlockHeader?.hash();
-    const provenBlockHeaderHash = await provenBlockHeader?.hash();
-    const finalizedBlockHeaderHash = await finalizedBlockHeader?.hash();
+    const latestBlockHeaderHash = (await latestBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
+    const provenBlockHeaderHash = (await provenBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
+    const finalizedBlockHeaderHash = (await finalizedBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
 
     return {
-      latest: {
-        number: latestBlockNumber,
-        hash: latestBlockHeaderHash?.toString(),
-      } as L2BlockId,
-      proven: {
-        number: provenBlockNumber,
-        hash: provenBlockHeaderHash?.toString(),
-      } as L2BlockId,
-      finalized: {
-        number: finalizedBlockNumber,
-        hash: finalizedBlockHeaderHash?.toString(),
-      } as L2BlockId,
+      latest: { number: latestBlockNumber, hash: latestBlockHeaderHash.toString() },
+      proven: { number: provenBlockNumber, hash: provenBlockHeaderHash.toString() },
+      finalized: { number: finalizedBlockNumber, hash: finalizedBlockHeaderHash.toString() },
     };
   }
 
-  public async rollbackTo(targetL2BlockNumber: number): Promise<void> {
+  public async rollbackTo(targetL2BlockNumber: BlockNumber): Promise<void> {
     const currentBlocks = await this.getL2Tips();
     const currentL2Block = currentBlocks.latest.number;
     const currentProvenBlock = currentBlocks.proven.number;
@@ -1478,17 +1538,18 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       throw new Error(`Target L2 block ${targetL2BlockNumber} not found`);
     }
     const targetL1BlockNumber = targetL2Block.l1.blockNumber;
+    const targetCheckpointNumber = CheckpointNumber.fromBlockNumber(targetL2BlockNumber);
     const targetL1BlockHash = await this.getL1BlockHash(targetL1BlockNumber);
     this.log.info(`Unwinding ${blocksToUnwind} blocks from L2 block ${currentL2Block}`);
-    await this.store.unwindBlocks(currentL2Block, blocksToUnwind);
-    this.log.info(`Unwinding L1 to L2 messages to ${targetL2BlockNumber}`);
-    await this.store.rollbackL1ToL2MessagesToL2Block(targetL2BlockNumber);
+    await this.store.unwindBlocks(BlockNumber(currentL2Block), blocksToUnwind);
+    this.log.info(`Unwinding L1 to L2 messages to checkpoint ${targetCheckpointNumber}`);
+    await this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
     await this.store.setBlockSynchedL1BlockNumber(targetL1BlockNumber);
     await this.store.setMessageSynchedL1Block({ l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash });
     if (targetL2BlockNumber < currentProvenBlock) {
       this.log.info(`Clearing proven L2 block number`);
-      await this.store.setProvenL2BlockNumber(0);
+      await this.store.setProvenL2BlockNumber(BlockNumber.ZERO);
     }
     // TODO(palla/reorg): Set the finalized block when we add support for it.
     // if (targetL2BlockNumber < currentFinalizedBlock) {
@@ -1536,7 +1597,7 @@ export class ArchiverStoreHelper
    * Extracts and stores contract classes out of ContractClassPublished events emitted by the class registry contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
-  async #updatePublishedContractClasses(allLogs: ContractClassLog[], blockNum: number, operation: Operation) {
+  async #updatePublishedContractClasses(allLogs: ContractClassLog[], blockNum: BlockNumber, operation: Operation) {
     const contractClassPublishedEvents = allLogs
       .filter(log => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
       .map(log => ContractClassPublishedEvent.fromLog(log));
@@ -1561,7 +1622,7 @@ export class ArchiverStoreHelper
    * Extracts and stores contract instances out of ContractInstancePublished events emitted by the canonical deployer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
-  async #updateDeployedContractInstances(allLogs: PrivateLog[], blockNum: number, operation: Operation) {
+  async #updateDeployedContractInstances(allLogs: PrivateLog[], blockNum: BlockNumber, operation: Operation) {
     const contractInstances = allLogs
       .filter(log => ContractInstancePublishedEvent.isContractInstancePublishedEvent(log))
       .map(log => ContractInstancePublishedEvent.fromLog(log))
@@ -1614,7 +1675,7 @@ export class ArchiverStoreHelper
    * @param _blockNum - The block number
    * @returns
    */
-  async #storeBroadcastedIndividualFunctions(allLogs: ContractClassLog[], _blockNum: number) {
+  async #storeBroadcastedIndividualFunctions(allLogs: ContractClassLog[], _blockNum: BlockNumber) {
     // Filter out private and utility function broadcast events
     const privateFnEvents = allLogs
       .filter(log => PrivateFunctionBroadcastedEvent.isPrivateFunctionBroadcastedEvent(log))
@@ -1704,7 +1765,7 @@ export class ArchiverStoreHelper
     });
   }
 
-  public async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
+  public async unwindBlocks(from: BlockNumber, blocksToUnwind: number): Promise<boolean> {
     const last = await this.getSynchedL2BlockNumber();
     if (from != last) {
       throw new Error(`Cannot unwind blocks from block ${from} when the last block is ${last}`);
@@ -1714,7 +1775,7 @@ export class ArchiverStoreHelper
     }
 
     // from - blocksToUnwind = the new head, so + 1 for what we need to remove
-    const blocks = await this.getPublishedBlocks(from - blocksToUnwind + 1, blocksToUnwind);
+    const blocks = await this.getPublishedBlocks(BlockNumber(from - blocksToUnwind + 1), blocksToUnwind);
 
     const opResults = await Promise.all([
       // Prune rolls back to the last proven block, which is by definition valid
@@ -1746,10 +1807,10 @@ export class ArchiverStoreHelper
     return opResults.every(Boolean);
   }
 
-  getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
+  getPublishedBlocks(from: BlockNumber, limit: number): Promise<PublishedL2Block[]> {
     return this.store.getPublishedBlocks(from, limit);
   }
-  getPublishedBlock(number: number): Promise<PublishedL2Block | undefined> {
+  getPublishedBlock(number: BlockNumber): Promise<PublishedL2Block | undefined> {
     return this.store.getPublishedBlock(number);
   }
   getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
@@ -1758,7 +1819,7 @@ export class ArchiverStoreHelper
   getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
     return this.store.getPublishedBlockByArchive(archive);
   }
-  getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
+  getBlockHeaders(from: BlockNumber, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);
   }
   getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
@@ -1776,13 +1837,13 @@ export class ArchiverStoreHelper
   addL1ToL2Messages(messages: InboxMessage[]): Promise<void> {
     return this.store.addL1ToL2Messages(messages);
   }
-  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
-    return this.store.getL1ToL2Messages(blockNumber);
+  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    return this.store.getL1ToL2Messages(checkpointNumber);
   }
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
-  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
+  getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]> {
     return this.store.getPrivateLogs(from, limit);
   }
   getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
@@ -1794,13 +1855,13 @@ export class ArchiverStoreHelper
   getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     return this.store.getContractClassLogs(filter);
   }
-  getSynchedL2BlockNumber(): Promise<number> {
+  getSynchedL2BlockNumber(): Promise<BlockNumber> {
     return this.store.getSynchedL2BlockNumber();
   }
-  getProvenL2BlockNumber(): Promise<number> {
+  getProvenL2BlockNumber(): Promise<BlockNumber> {
     return this.store.getProvenL2BlockNumber();
   }
-  setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
+  setProvenL2BlockNumber(l2BlockNumber: BlockNumber): Promise<void> {
     return this.store.setProvenL2BlockNumber(l2BlockNumber);
   }
   setBlockSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void> {
@@ -1836,8 +1897,8 @@ export class ArchiverStoreHelper
   estimateSize(): Promise<{ mappingSize: number; physicalFileSize: number; actualSize: number; numItems: number }> {
     return this.store.estimateSize();
   }
-  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number): Promise<void> {
-    return this.store.rollbackL1ToL2MessagesToL2Block(targetBlockNumber);
+  rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
+    return this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
   }
   iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {
     return this.store.iterateL1ToL2Messages(range);

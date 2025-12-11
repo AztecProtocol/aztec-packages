@@ -14,7 +14,7 @@ template <typename FF_> class internal_callImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 7, 3, 3, 7, 3, 7, 5 };
+    static constexpr std::array<size_t, 11> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 7, 3, 3, 7, 3, 7, 3, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -44,7 +44,7 @@ template <typename FF> class internal_call : public Relation<internal_callImpl<F
     static constexpr size_t SR_DEFAULT_PROPAGATE_RET_ID = 6;
     static constexpr size_t SR_NEXT_CALL_ID_STARTS_TWO = 7;
     static constexpr size_t SR_INCR_NEXT_INT_CALL_ID = 8;
-    static constexpr size_t SR_INTERNAL_RET_ERROR = 9;
+    static constexpr size_t SR_INTERNAL_RET_ERROR = 10;
 
     static std::string get_subrelation_label(size_t index)
     {

@@ -1,4 +1,5 @@
 #include "barretenberg/vm2/simulation/gadgets/tx_execution.hpp"
+#include "barretenberg/vm2/simulation/lib/call_stack_metadata_collector.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
@@ -36,6 +37,7 @@ class TxExecutionTest : public ::testing::Test {
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> written_public_data_slots_tree_check;
     NiceMock<MockRetrievedBytecodesTreeCheck> retrieved_bytecodes_tree_check;
     SideEffectTracker side_effect_tracker; // Using the real thing.
+    NoopCallStackMetadataCollector call_stack_metadata_collector;
     TxExecution tx_execution = TxExecution(execution,
                                            context_provider,
                                            contract_db,
@@ -45,6 +47,7 @@ class TxExecutionTest : public ::testing::Test {
                                            side_effect_tracker,
                                            field_gt,
                                            poseidon2,
+                                           call_stack_metadata_collector,
                                            tx_event_emitter);
 };
 
@@ -98,7 +101,7 @@ TEST_F(TxExecutionTest, simulateTx)
     EnqueuedCallResult successful_result = {
         .success = true, // This is the key - mark execution as successful
         .gas_used = Gas{ 100, 100 },
-        .output = std::nullopt, // The gadgets do not need to return data.
+
     };
 
     ON_CALL(execution, execute(_)).WillByDefault(Return(successful_result));

@@ -124,8 +124,8 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         EXPECT_EQ(builder.get_num_finalized_gates_inefficient() - num_gates_start, 0);
 
         // Out-of-circuit failure when witness points to a non-bool value.
-        EXPECT_THROW_OR_ABORT(bool_witness = bool_ct::from_witness_index_unsafe(&builder, non_bool_witness_idx),
-                              "bool_t: creating a witness bool from a non-boolean value");
+        EXPECT_THROW_WITH_MESSAGE(bool_witness = bool_ct::from_witness_index_unsafe(&builder, non_bool_witness_idx),
+                                  "bool_t: creating a witness bool from a non-boolean value");
     }
     void test_construct_from_witness()
     {
@@ -147,8 +147,8 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         uint256_t random_value(engine.get_random_uint256());
 
         if (random_value * random_value - random_value != 0) {
-            EXPECT_THROW_OR_ABORT(a_incorrect = witness_ct(&builder, random_value),
-                                  "((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()))");
+            EXPECT_THROW_WITH_MESSAGE(a_incorrect = witness_ct(&builder, random_value),
+                                      "bool_t: witness value is not 0 or 1");
         };
     }
 
@@ -185,8 +185,8 @@ template <class Builder_> class BoolTest : public ::testing::Test {
 
         // Failure test
         Builder builder = Builder();
-        EXPECT_THROW_OR_ABORT(auto new_bool = bool_ct(witness_ct(&builder, 2), use_range_constraint),
-                              "bool_t: witness value is not 0 or 1");
+        EXPECT_THROW_WITH_MESSAGE(auto new_bool = bool_ct(witness_ct(&builder, 2), use_range_constraint),
+                                  "bool_t: witness value is not 0 or 1");
     }
     void test_AND()
     {
@@ -245,7 +245,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                 bool_ct b = create_bool_ct(rhs, &builder);
 
                 if (a.is_constant() && b.is_constant() && !(!a.get_value() || b.get_value())) {
-                    EXPECT_THROW_OR_ABORT(a.must_imply(b), R"(\(lhs\.get_value\(\) == rhs\.get_value\(\)\))");
+                    EXPECT_THROW_WITH_MESSAGE(a.must_imply(b), "bool_t::assert_equal: constants are not equal");
                 } else {
                     bool result_is_constant = (!a || b).is_constant();
 
@@ -448,7 +448,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                     EXPECT_EQ(CircuitChecker::check(builder), !failed);
                 } else {
                     if (failed) {
-                        EXPECT_THROW_OR_ABORT(a.assert_equal(b), R"(\(lhs\.get_value\(\) == rhs\.get_value\(\)\))");
+                        EXPECT_THROW_WITH_MESSAGE(a.assert_equal(b), "bool_t::assert_equal: constants are not equal");
                     }
                 }
             }

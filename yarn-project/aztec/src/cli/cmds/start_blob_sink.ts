@@ -35,7 +35,7 @@ export async function startBlobSink(options: any, signalHandlers: (() => Promise
     throw new Error('L1_CHAIN_ID');
   }
 
-  const telemetry = initTelemetryClient(getTelemetryClientConfig());
+  const telemetry = await initTelemetryClient(getTelemetryClientConfig());
 
   const { config: chainConfig, addresses } = await getL1Config(
     blobSinkConfig.l1Contracts.registryAddress,

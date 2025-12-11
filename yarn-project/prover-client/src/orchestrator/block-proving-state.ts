@@ -6,7 +6,8 @@ import {
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
@@ -62,7 +63,7 @@ export class BlockProvingState {
 
   constructor(
     public readonly index: number,
-    public readonly blockNumber: number,
+    public readonly blockNumber: BlockNumber,
     public readonly totalNumTxs: number,
     private readonly constants: CheckpointConstantData,
     private readonly timestamp: UInt64,

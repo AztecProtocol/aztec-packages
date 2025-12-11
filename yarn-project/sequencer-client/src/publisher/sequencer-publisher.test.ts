@@ -2,20 +2,17 @@ import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/
 import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { type L1ContractsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
-  FormattedViemError,
-  type GasPrice,
   type GovernanceProposerContract,
-  type L1ContractsConfig,
-  type L1TxUtilsConfig,
   Multicall3,
-  RollupContract,
-  defaultL1TxUtilsConfig,
-  getL1ContractsConfigEnvVars,
-} from '@aztec/ethereum';
+  type RollupContract,
+} from '@aztec/ethereum/contracts';
+import { type GasPrice, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from '@aztec/ethereum/l1-tx-utils';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { FormattedViemError } from '@aztec/ethereum/utils';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -91,7 +88,7 @@ describe('SequencerPublisher', () => {
     mockBlobSinkServer = undefined;
     blobSinkClient = new HttpBlobSinkClient({ blobSinkUrl: BLOB_SINK_URL });
 
-    l2Block = await L2Block.random(42);
+    l2Block = await L2Block.random(BlockNumber(42));
 
     header = l2Block.getCheckpointHeader();
     archive = l2Block.archive.root.toBuffer();
@@ -173,7 +170,7 @@ describe('SequencerPublisher', () => {
 
     const currentL2Slot = publisher.getCurrentL2Slot();
 
-    l2Block = await L2Block.random(42, undefined, undefined, undefined, undefined, Number(currentL2Slot));
+    l2Block = await L2Block.random(BlockNumber(42), undefined, undefined, undefined, undefined, Number(currentL2Slot));
 
     header = l2Block.getCheckpointHeader();
     archive = l2Block.archive.root.toBuffer();

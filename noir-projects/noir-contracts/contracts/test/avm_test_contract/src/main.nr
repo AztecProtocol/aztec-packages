@@ -39,7 +39,7 @@ pub contract AvmTest {
     };
     use dep::aztec::state_vars::Map;
     use dep::aztec::state_vars::PublicMutable;
-    use dep::aztec::state_vars::storage::HasStorageSlot;
+    use dep::aztec::state_vars::state_variable::StateVariable;
     use dep::compressed_string::CompressedString;
     use aztec::protocol_types::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
@@ -941,7 +941,7 @@ pub contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("keccak_hash");
         let _ = keccak256::keccak256(args_u8, args_u8.len());
         dep::aztec::oracle::debug_log::debug_log("sha256_hash");
-        let _ = sha256::sha256_var(args_u8, args_u8.len() as u64);
+        let _ = sha256::sha256_var(args_u8, args_u8.len());
         dep::aztec::oracle::debug_log::debug_log("poseidon2_hash");
         let _ = poseidon::poseidon2::Poseidon2::hash(args_field, args_field.len());
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash");

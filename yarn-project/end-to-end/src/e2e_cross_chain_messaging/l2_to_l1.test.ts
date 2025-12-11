@@ -2,7 +2,8 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { RollupContract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
@@ -335,7 +336,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   }
 
   function consumeMessage(
-    blockNumber: number,
+    blockNumber: BlockNumber,
     msg: ReturnType<typeof makeL2ToL1Message>,
     witness: L2ToL1MembershipWitness,
   ) {
@@ -353,7 +354,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   }
 
   async function expectConsumeMessageToSucceed(
-    blockNumber: number,
+    blockNumber: BlockNumber,
     msg: ReturnType<typeof makeL2ToL1Message>,
     witness?: L2ToL1MembershipWitness,
   ) {
@@ -400,7 +401,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   }
 
   async function expectConsumeMessageToFail(
-    blockNumber: number,
+    blockNumber: BlockNumber,
     msg: ReturnType<typeof makeL2ToL1Message>,
     witness?: L2ToL1MembershipWitness,
   ) {

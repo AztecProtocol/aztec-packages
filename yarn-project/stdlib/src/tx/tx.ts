@@ -1,6 +1,6 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -300,8 +300,9 @@ export class Tx extends Gossipable {
   }
 
   /** Recomputes the tx hash. Used for testing purposes only when a property of the tx was mutated. */
-  public async recomputeHash() {
+  public async recomputeHash(): Promise<TxHash> {
     (this as any).txHash = await Tx.computeTxHash(this);
+    return this.txHash;
   }
 
   #combinePublicCallRequestWithCallData(request: PublicCallRequest) {

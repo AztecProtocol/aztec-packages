@@ -4,7 +4,7 @@ import {
   CHONK_PROOF_LENGTH,
   CHONK_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
@@ -122,7 +122,7 @@ describe('AVM Integration', () => {
   it('Should generate and verify an ultra honk proof from an AVM verification of the bulk test', async () => {
     const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
     expect(avmSimulationResult.revertCode.isOK()).toBe(true);
-    const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs);
+    const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs!);
 
     await proveMockPublicBaseRollup(avmCircuitInputs, bbWorkingDirectory, bbBinaryPath, chonkPublicInputs, chonkProof);
   }, 240_000);
@@ -132,7 +132,7 @@ describe('AVM Integration', () => {
     expect(result.revertCode.isOK()).toBe(true);
 
     await proveMockPublicBaseRollup(
-      new AvmCircuitInputs(result.hints!, result.publicInputs),
+      new AvmCircuitInputs(result.hints!, result.publicInputs!),
       bbWorkingDirectory,
       bbBinaryPath,
       chonkPublicInputs,

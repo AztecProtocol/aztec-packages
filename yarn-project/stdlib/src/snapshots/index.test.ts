@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
@@ -84,7 +85,7 @@ describe('snapshots', () => {
       );
 
       const expectedSnapshot: SnapshotMetadata = {
-        ...makeSnapshotMetadata(1),
+        ...makeSnapshotMetadata(BlockNumber(1)),
         dataUrls: makeExpectedDataPaths(),
         timestamp: expect.any(Number),
       };

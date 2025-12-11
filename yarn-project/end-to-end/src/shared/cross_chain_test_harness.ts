@@ -13,7 +13,10 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { SiblingPath } from '@aztec/aztec.js/trees';
 import type { TxReceipt } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { type ExtendedViemWalletClient, type L1ContractAddresses, deployL1Contract } from '@aztec/ethereum';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contracts';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
@@ -321,7 +324,7 @@ export class CrossChainTestHarness {
 
   withdrawFundsFromBridgeOnL1(
     amount: bigint,
-    blockNumber: number | bigint,
+    blockNumber: BlockNumber,
     messageIndex: bigint,
     siblingPath: SiblingPath<number>,
   ) {

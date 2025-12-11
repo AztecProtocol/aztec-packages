@@ -1,5 +1,7 @@
-import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -75,7 +77,7 @@ describe('invalidate blocks test', () => {
     const unsubscribe = rollup.listenToCheckpointInvalidated(data => {
       logger.warn(`Checkpoint ${data.checkpointNumber} has been invalidated`, data);
       unsubscribe();
-      promise.resolve({ checkpointNumber: data.checkpointNumber });
+      promise.resolve({ checkpointNumber: BigInt(data.checkpointNumber) });
     });
 
     return Promise.race([promise.promise, timeoutPromise(timeoutSeconds * 1000)]);
@@ -89,7 +91,7 @@ describe('invalidate blocks test', () => {
     origSlashProposeInvalidAttestationsPenalty = first?.slashProposeInvalidAttestationsPenalty;
     origSlashAttestDescendantOfInvalidPenalty = first?.slashAttestDescendantOfInvalidPenalty;
 
-    const initialBlockNumber = (await monitor.run()).checkpointNumber;
+    const initialCheckpointNumber = (await monitor.run()).checkpointNumber;
 
     // Update configs so next block is posted with invalid attestations, and we avoid slashing so we do not kick
     // people of the validator set with this test.
@@ -106,16 +108,17 @@ describe('invalidate blocks test', () => {
     // Restore sequencer configs to normal
     await updateSequencersConfig(config, { skipCollectingAttestations: false });
 
-    // Wait until a few more blocks have been mined to ensure the chain can progress after the invalid block
+    // Wait until a few more checkpoints have been mined to ensure the chain can progress after the invalid checkpoint
     // Note that we should expect more invalidations depending on when the patched config hits
-    const targetBlockNumber = initialBlockNumber + 4;
-    logger.warn(`Waiting until block ${targetBlockNumber} has been mined to ensure the chain can progress`);
+    const targetCheckpointNumber = CheckpointNumber(initialCheckpointNumber + 4);
+    logger.warn(`Waiting until checkpoint ${targetCheckpointNumber} has been mined to ensure the chain can progress`);
     await Promise.race([
-      monitor.waitUntilCheckpoint(targetBlockNumber),
-      timeoutPromise(constants.slotDuration * 8 * 1000, `Timeout waiting for ${targetBlockNumber} L2 block`),
+      monitor.waitUntilCheckpoint(targetCheckpointNumber),
+      timeoutPromise(constants.slotDuration * 8 * 1000, `Timeout waiting for checkpoint ${targetCheckpointNumber}`),
     ]);
 
     // Ensure the nodes also sync to this block
+    const targetBlockNumber = Number(targetCheckpointNumber);
     await retryUntil(async () => {
       const block = await node.getBlockNumber();
       logger.info(`L2 block number in node is ${block}`);

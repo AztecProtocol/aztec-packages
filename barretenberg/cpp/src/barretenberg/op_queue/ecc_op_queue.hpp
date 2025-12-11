@@ -105,11 +105,17 @@ class ECCOpQueue {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops
     // getters more memory efficient
 
-    // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already
+    // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already.
+    // The hiding op (set via append_hiding_op) is always prepended at index 0.
     std::vector<ECCVMOperation>& get_eccvm_ops()
     {
         if (eccvm_ops_reconstructed.empty()) {
             construct_full_eccvm_ops_table();
+            // Prepend the hiding op at index 0 (required for ZK)
+            if (!has_hiding_op) {
+                throw_or_abort("Hiding op must be set before calling get_eccvm_ops()");
+            }
+            eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), hiding_op_for_eccvm);
         }
         return eccvm_ops_reconstructed;
     }
@@ -216,8 +222,7 @@ class ECCOpQueue {
     /**
      * @brief Writes a no op (i.e. two zero rows) to the ultra ops table but adds no eccvm operations.
      *
-     * @details We want to be able to add zero rows (and, eventually, random rows
-     * https://github.com/AztecProtocol/barretenberg/issues/1360) to the ultra ops table without affecting the
+     * @details We want to be able to add zero rows to the ultra ops table without affecting the
      * operations in the ECCVM.
      */
     UltraOp no_op_ultra_only()
@@ -267,7 +272,72 @@ class ECCOpQueue {
         return construct_and_populate_ultra_ops(op_code, expected);
     }
 
+    /**
+     * @brief Add a hiding op with random Px, Py values to both ECCVM and Ultra ops tables.
+     *
+     * @details The hiding op contributes random Px, Py field elements to both ECCVM transcript polynomials
+     * and Translator's accumulated_result, providing statistical hiding.
+     *
+     * In ECCVM: stored separately and prepended to eccvm_ops_reconstructed at index 0 during get_eccvm_ops().
+     * This places it at row 1 in the ECCVM transcript table (row 0 is the zero row for shifts),
+     * where lagrange_second = 1. The eq and on-curve constraints are gated by (1 - lagrange_second) so they
+     * don't apply to this row. The transcript relation enforces q_eq = 1 and q_reset = 1 at this row, ensuring
+     * the accumulator is reset so that is_accumulator_empty = 1 at row 2 (the first real op row).
+     *
+     * In Ultra/Translator: appended to current subtable through normal flow, landing in the accumulation range.
+     *
+     * The hiding op uses opcode q_eq = 1, q_reset = 1 (value = 3) to preserve the Px, Py values in the
+     * transcript. The eq constraint is gated by (1 - lagrange_second) so it doesn't actually check equality. The
+     * on-curve check is similarly gated. q_reset = 1 is required for Translator compatibility (only opcodes {0,3,4,8}
+     * are allowed).
+     *
+     * This method should be called ONCE per IVC in the tail kernel, after the random non-ops.
+     *
+     * @param Px Random field element (not necessarily a valid x-coordinate on BN254)
+     * @param Py Random field element (not necessarily a valid y-coordinate on BN254)
+     * @return The UltraOp that was pushed to the table (for use by circuit builder to add gates)
+     */
+    UltraOp append_hiding_op(const Fq& Px, const Fq& Py)
+    {
+        // Create an ECCVM operation with q_eq = 1, q_reset = 1 (opcode = 3) and the random Px, Py values.
+        // We construct the base_point directly with the raw coordinates - it may not be on the curve.
+        // Note: reset = true is required for Translator compatibility (only opcodes {0,3,4,8} are allowed)
+        EccOpCode op_code{ .eq = true, .reset = true }; // q_eq = 1, q_reset = 1
+        Point base_point;
+        base_point.x = Px;
+        base_point.y = Py;
+        // Note: We don't call is_point_at_infinity() or any curve operations on this point
+
+        // Store the hiding op for ECCVM - it will be prepended to the front during reconstruction (index 0 -> row 1)
+        hiding_op_for_eccvm = ECCVMOperation{ .op_code = op_code, .base_point = base_point };
+        has_hiding_op = true;
+
+        // Push to Ultra ops through normal flow (appends to current subtable)
+        // Decompose Px, Py (Fq) into hi-lo chunks (Fr)
+        const size_t CHUNK_SIZE = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+        uint256_t x_256(Px);
+        uint256_t y_256(Py);
+        UltraOp ultra_op{
+            .op_code = op_code,
+            .x_lo = Fr(x_256.slice(0, CHUNK_SIZE)),
+            .x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
+            .y_lo = Fr(y_256.slice(0, CHUNK_SIZE)),
+            .y_hi = Fr(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
+            .z_1 = Fr(0),
+            .z_2 = Fr(0),
+            .return_is_infinity = false,
+        };
+        ultra_ops_table.push(ultra_op);
+
+        // Do NOT update the accumulator - the hiding op doesn't perform any actual EC computation
+        return ultra_op;
+    }
+
   private:
+    // Storage for the hiding op (prepended to eccvm ops during reconstruction)
+    ECCVMOperation hiding_op_for_eccvm;
+    bool has_hiding_op = false;
+
     /**
      * @brief Append an eccvm operation to the eccvm ops table; update the eccvm row tracker
      *

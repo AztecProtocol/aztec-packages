@@ -1,5 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
@@ -158,7 +159,7 @@ export class BlockStore {
    * @param blocksToUnwind - The number of blocks we are to unwind
    * @returns True if the operation is successful
    */
-  async unwindBlocks(from: number, blocksToUnwind: number) {
+  async unwindBlocks(from: BlockNumber, blocksToUnwind: number) {
     return await this.db.transactionAsync(async () => {
       const last = await this.getSynchedL2BlockNumber();
       if (from !== last) {
@@ -167,12 +168,12 @@ export class BlockStore {
 
       const proven = await this.getProvenL2BlockNumber();
       if (from - blocksToUnwind < proven) {
-        await this.setProvenL2BlockNumber(from - blocksToUnwind);
+        await this.setProvenL2BlockNumber(BlockNumber(from - blocksToUnwind));
       }
 
       for (let i = 0; i < blocksToUnwind; i++) {
         const blockNumber = from - i;
-        const block = await this.getBlock(blockNumber);
+        const block = await this.getBlock(BlockNumber(blockNumber));
 
         if (block === undefined) {
           this.#log.warn(`Cannot remove block ${blockNumber} from the store since we don't have it`);
@@ -200,7 +201,7 @@ export class BlockStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  async *getBlocks(start: number, limit: number): AsyncIterableIterator<PublishedL2Block> {
+  async *getBlocks(start: BlockNumber, limit: number): AsyncIterableIterator<PublishedL2Block> {
     for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
       const block = await this.getBlockFromBlockStorage(blockNumber, blockStorage);
       if (block) {
@@ -214,7 +215,7 @@ export class BlockStore {
    * @param blockNumber - The number of the block to return.
    * @returns The requested L2 block.
    */
-  async getBlock(blockNumber: number): Promise<PublishedL2Block | undefined> {
+  async getBlock(blockNumber: BlockNumber): Promise<PublishedL2Block | undefined> {
     const blockStorage = await this.#blocks.getAsync(blockNumber);
     if (!blockStorage || !blockStorage.header) {
       return Promise.resolve(undefined);
@@ -232,7 +233,7 @@ export class BlockStore {
     if (blockNumber === undefined) {
       return undefined;
     }
-    return this.getBlock(blockNumber);
+    return this.getBlock(BlockNumber(blockNumber));
   }
 
   /**
@@ -245,7 +246,7 @@ export class BlockStore {
     if (blockNumber === undefined) {
       return undefined;
     }
-    return this.getBlock(blockNumber);
+    return this.getBlock(BlockNumber(blockNumber));
   }
 
   /**
@@ -288,7 +289,7 @@ export class BlockStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 block headers
    */
-  async *getBlockHeaders(start: number, limit: number): AsyncIterableIterator<BlockHeader> {
+  async *getBlockHeaders(start: BlockNumber, limit: number): AsyncIterableIterator<BlockHeader> {
     for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
       const header = L2BlockHeader.fromBuffer(blockStorage.header).toBlockHeader();
       if (header.getBlockNumber() !== blockNumber) {
@@ -300,7 +301,7 @@ export class BlockStore {
     }
   }
 
-  private async *getBlockStorages(start: number, limit: number) {
+  private async *getBlockStorages(start: BlockNumber, limit: number) {
     let expectedBlockNumber = start;
     for await (const [blockNumber, blockStorage] of this.#blocks.entriesAsync(this.#computeBlockRange(start, limit))) {
       if (blockNumber !== expectedBlockNumber) {
@@ -382,7 +383,7 @@ export class BlockStore {
       '',
       txEffect.data.transactionFee.toBigInt(),
       txEffect.l2BlockHash,
-      txEffect.l2BlockNumber,
+      BlockNumber(txEffect.l2BlockNumber),
     );
   }
 
@@ -413,9 +414,9 @@ export class BlockStore {
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
-  async getSynchedL2BlockNumber(): Promise<number> {
+  async getSynchedL2BlockNumber(): Promise<BlockNumber> {
     const [lastBlockNumber] = await toArray(this.#blocks.keysAsync({ reverse: true, limit: 1 }));
-    return typeof lastBlockNumber === 'number' ? lastBlockNumber : INITIAL_L2_BLOCK_NUM - 1;
+    return typeof lastBlockNumber === 'number' ? BlockNumber(lastBlockNumber) : BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
   }
 
   /**
@@ -430,19 +431,19 @@ export class BlockStore {
     return this.#lastSynchedL1Block.set(l1BlockNumber);
   }
 
-  async getProvenL2BlockNumber(): Promise<number> {
+  async getProvenL2BlockNumber(): Promise<BlockNumber> {
     const [latestBlockNumber, provenBlockNumber] = await Promise.all([
       this.getSynchedL2BlockNumber(),
       this.#lastProvenL2Block.getAsync(),
     ]);
-    return (provenBlockNumber ?? 0) > latestBlockNumber ? latestBlockNumber : (provenBlockNumber ?? 0);
+    return (provenBlockNumber ?? 0) > latestBlockNumber ? latestBlockNumber : BlockNumber(provenBlockNumber ?? 0);
   }
 
-  setProvenL2BlockNumber(blockNumber: number) {
+  setProvenL2BlockNumber(blockNumber: BlockNumber) {
     return this.#lastProvenL2Block.set(blockNumber);
   }
 
-  #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'limit'>> {
+  #computeBlockRange(start: BlockNumber, limit: number): Required<Pick<Range<number>, 'start' | 'limit'>> {
     if (limit < 1) {
       throw new Error(`Invalid limit: ${limit}`);
     }

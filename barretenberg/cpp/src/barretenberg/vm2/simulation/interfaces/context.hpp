@@ -23,6 +23,7 @@ class ContextInterface {
 
     // Machine state.
     virtual MemoryInterface& get_memory() = 0;
+    virtual const MemoryInterface& get_memory() const = 0;
     virtual BytecodeManagerInterface& get_bytecode_manager() = 0;
     virtual InternalCallStackManagerInterface& get_internal_call_stack_manager() = 0;
     virtual uint32_t get_pc() const = 0;
@@ -48,8 +49,9 @@ class ContextInterface {
     virtual TransactionPhase get_phase() const = 0;
 
     virtual std::vector<MemoryValue> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
-    virtual std::vector<MemoryValue> get_returndata(uint32_t rd_addr, uint32_t rd_size) = 0;
+    virtual std::vector<MemoryValue> get_returndata(uint32_t rd_addr, uint32_t rd_size) const = 0;
     virtual ContextInterface& get_child_context() = 0;
+    virtual const ContextInterface& get_child_context() const = 0;
     // The child context needs to be accessible by this context in order to access the child
     // memory for returndata. We own it so that it's lifetime is as long as decided by this context
     // (i.e. if it is replaced by another child OR this parent context falls out of scope)

@@ -25,7 +25,7 @@ pub contract SchnorrAccount {
             notes::{get_sender_for_tags, set_sender_for_tags},
         },
         protocol_types::address::AztecAddress,
-        state_vars::PrivateImmutable,
+        state_vars::{Owned, PrivateImmutable},
     };
 
     use crate::public_key_note::PublicKeyNote;
@@ -33,7 +33,7 @@ pub contract SchnorrAccount {
     #[storage]
     struct Storage<Context> {
         // docs:start:public_key
-        signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
+        signing_public_key: Owned<PrivateImmutable<PublicKeyNote, Context>, Context>,
         // docs:end:public_key
     }
 
@@ -41,7 +41,7 @@ pub contract SchnorrAccount {
     #[external("private")]
     #[initializer]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
-        let pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, self.address);
+        let pub_key_note = PublicKeyNote { x: signing_pub_key_x, y: signing_pub_key_y };
 
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
@@ -56,8 +56,7 @@ pub contract SchnorrAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(self.address) };
-        self.storage.signing_public_key.initialize(pub_key_note).emit(
-            self.address,
+        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).deliver(
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
         // Safety: Comment from above applies here as well.
@@ -92,7 +91,7 @@ pub contract SchnorrAccount {
         // docs:start:is_valid_impl
         // Load public key from storage
         let storage = Storage::init(context);
-        let public_key = storage.signing_public_key.get_note();
+        let public_key = storage.signing_public_key.at(context.this_address()).get_note();
 
         // Load auth witness
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
@@ -121,7 +120,7 @@ pub contract SchnorrAccount {
     */
     #[external("utility")]
     unconstrained fn lookup_validity(consumer: AztecAddress, inner_hash: Field) -> bool {
-        let public_key = self.storage.signing_public_key.view_note();
+        let public_key = self.storage.signing_public_key.at(self.address).view_note();
 
         let message_hash = compute_authwit_message_hash(
             consumer,

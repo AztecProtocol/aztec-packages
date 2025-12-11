@@ -1,10 +1,11 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { LogFn } from '@aztec/foundation/log';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 export async function inspectBlock(
   aztecNode: AztecNode,
-  blockNumber: number,
+  blockNumber: BlockNumber,
   log: LogFn,
   opts: { showTxs?: boolean } = {},
 ) {

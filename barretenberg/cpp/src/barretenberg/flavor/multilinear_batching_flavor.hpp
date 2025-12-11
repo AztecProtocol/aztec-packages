@@ -29,9 +29,9 @@ class MultilinearBatchingFlavor {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using Transcript = NativeTranscript;
 
-    // An upper bound on the size of the MultilinearBatching-circuits. `CONST_PG_LOG_N` bounds the log circuit sizes in
-    // the Chonk context. `MEGA_AVM_LOG_N` is determined by the size of the AVMRecursiveVerifier.
-    static constexpr size_t VIRTUAL_LOG_N = std::max(CONST_PG_LOG_N, MEGA_AVM_LOG_N);
+    // An upper bound on the size of the MultilinearBatching-circuits. `CONST_FOLDING_LOG_N` bounds the log circuit
+    // sizes in the Chonk context. `MEGA_AVM_LOG_N` is determined by the size of the AVMRecursiveVerifier.
+    static constexpr size_t VIRTUAL_LOG_N = std::max(CONST_FOLDING_LOG_N, MEGA_AVM_LOG_N);
     static constexpr bool USE_SHORT_MONOMIALS = false;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
@@ -86,10 +86,10 @@ class MultilinearBatchingFlavor {
     template <typename DataType> class WireEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              w_non_shifted_accumulator, // column 0
-                              w_non_shifted_instance,    // column 1
-                              w_evaluations_accumulator, // column 2, eq(Sumcheck::alpha, accumulator_challenge)
-                              w_evaluations_instance);   // column 3, eq(Sumcheck::alpha, instance_challenge)
+                              batched_unshifted_accumulator, // column 0: batched unshifted poly for accumulator
+                              batched_unshifted_instance,    // column 1: batched unshifted poly for instance
+                              eq_accumulator,                // column 2: eq(u, r_acc) - selects accumulator eval point
+                              eq_instance);                  // column 3: eq(u, r_inst) - selects instance eval point
     };
 
     /**
@@ -100,15 +100,15 @@ class MultilinearBatchingFlavor {
     template <typename DataType> class WitnessEntities : public WireEntities<DataType> {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              w_non_shifted_accumulator, // column 0
-                              w_non_shifted_instance,    // column 1
-                              w_evaluations_accumulator, // column 2, eq(Sumcheck::alpha, accumulator_challenge)
-                              w_evaluations_instance);   // column 3, eq(Sumcheck::alpha, instance_challenge)
+                              batched_unshifted_accumulator, // column 0: batched unshifted poly for accumulator
+                              batched_unshifted_instance,    // column 1: batched unshifted poly for instance
+                              eq_accumulator,                // column 2: eq(u, r_acc) - selects accumulator eval point
+                              eq_instance);                  // column 3: eq(u, r_inst) - selects instance eval point
 
-        MSGPACK_FIELDS(this->w_non_shifted_accumulator,
-                       this->w_non_shifted_instance,
-                       this->w_evaluations_accumulator,
-                       this->w_evaluations_instance);
+        MSGPACK_FIELDS(this->batched_unshifted_accumulator,
+                       this->batched_unshifted_instance,
+                       this->eq_accumulator,
+                       this->eq_instance);
     };
 
     /**
@@ -117,10 +117,10 @@ class MultilinearBatchingFlavor {
     template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              w_shifted_accumulator, // column 0
-                              w_shifted_instance     // column 1
+                              batched_shifted_accumulator, // column 0: batched shifted poly for accumulator
+                              batched_shifted_instance     // column 1: batched shifted poly for instance
         );
-        auto get_shifted() { return RefArray{ w_shifted_accumulator, w_shifted_instance }; };
+        auto get_shifted() { return RefArray{ batched_shifted_accumulator, batched_shifted_instance }; };
     };
 
     /**
@@ -177,7 +177,7 @@ class MultilinearBatchingFlavor {
                 poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ 1 << VIRTUAL_LOG_N };
             }
         }
-        [[nodiscard]] size_t get_polynomial_size() const { return w_non_shifted_accumulator.size(); }
+        [[nodiscard]] size_t get_polynomial_size() const { return batched_unshifted_accumulator.size(); }
         void increase_polynomials_virtual_size(const size_t size_in)
         {
             for (auto& polynomial : this->get_all()) {
@@ -255,12 +255,12 @@ class MultilinearBatchingFlavor {
       public:
         CommitmentLabels()
         {
-            w_non_shifted_accumulator = "W_NON_SHIFTED_ACCUMULATOR";
-            w_non_shifted_instance = "W_NON_SHIFTED_INSTANCE";
-            w_evaluations_accumulator = "W_EVALUATIONS_ACCUMULATOR";
-            w_evaluations_instance = "W_EVALUATIONS_INSTANCE";
-            w_shifted_accumulator = "W_SHIFTED_ACCUMULATOR";
-            w_shifted_instance = "W_SHIFTED_INSTANCE";
+            batched_unshifted_accumulator = "BATCHED_UNSHIFTED_ACCUMULATOR";
+            batched_unshifted_instance = "BATCHED_UNSHIFTED_INSTANCE";
+            eq_accumulator = "EQ_ACCUMULATOR";
+            eq_instance = "EQ_INSTANCE";
+            batched_shifted_accumulator = "BATCHED_SHIFTED_ACCUMULATOR";
+            batched_shifted_instance = "BATCHED_SHIFTED_INSTANCE";
         };
     };
 };

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Trait ProveNoteIsNullified documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ProveNoteIsNullified</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait ProveNoteIsNullified</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#prove_note_is_nullified">prove_note_is_nullified</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-ProveNoteIsNullified-for-BlockHeader">BlockHeader</a></li>
+</ul>
+<h2>In module nullifier_inclusion</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.ProveNoteIsNullified.html">ProveNoteIsNullified</a></div></li>
+<li><a href="trait.ProveNullifierInclusion.html">ProveNullifierInclusion</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">history</a>::<a href="index.html">nullifier_inclusion</a></div>
+<h1>Trait <span id="trait" class="trait">ProveNoteIsNullified</span></h1>
+<pre><code>pub trait ProveNoteIsNullified {
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#prove_note_is_nullified"><span class="fn">prove_note_is_nullified</span></a>&lt;Note&gt;(
+        header: <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
+        retrieved_note: <a href="../../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;,
+        storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+        context: &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
+    )
+<div class="where-clause">    where
+        Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div>;
+}</code></pre>
+
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="prove_note_is_nullified" class="code-header">pub fn <a href="#prove_note_is_nullified"><span class="fn">prove_note_is_nullified</span></a>&lt;Note&gt;(
+    header: <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
+    retrieved_note: <a href="../../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;,
+    storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    context: &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
+)
+<div class="where-clause">where
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code>
+
+</div><h2>Implementors</h2>
+<h3 id="impl-ProveNoteIsNullified-for-BlockHeader"><code class="code-header">impl <a href="../../../noir_aztec/history/nullifier_inclusion/trait.ProveNoteIsNullified.html" class="trait">ProveNoteIsNullified</a> for <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></h3>
+
+</main>
+</span>
+</body>
+</html>

@@ -1,11 +1,7 @@
 pub(crate) mod find_index_of_first_fully_revertible_private_call_request;
 mod validate_contract_address;
-mod validate_min_revertible_side_effect_counter;
+pub(crate) mod validate_side_effect_counters;
 
-use crate::accumulated_data::{
-    validate_incrementing_call_request_counters_within_range,
-    validate_incrementing_counters_within_range,
-};
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
@@ -14,9 +10,10 @@ use dep::types::{
         public_call_request::PublicCallRequest, transaction::tx_request::TxRequest,
     },
     constants::NULL_MSG_SENDER_CONTRACT_ADDRESS,
+    traits::Empty,
 };
 use validate_contract_address::validate_contract_address;
-use validate_min_revertible_side_effect_counter::validate_no_phase_change_within_child_calls;
+use validate_side_effect_counters::validate_unique_and_within_bounds_side_effect_counters;
 
 pub struct PrivateCallDataValidator {
     data: PrivateCallData,
@@ -39,15 +36,13 @@ impl PrivateCallDataValidator {
         // Validate that the vk exists within the called contract address:
         validate_contract_address(self.data, protocol_contracts);
 
-        self.validate_min_revertible_counter_within_range();
-
         self.restrict_side_effects();
         self.validate_claimed_lengths();
 
         self.validate_private_call_requests();
         self.validate_public_call_requests();
 
-        self.validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds();
+        validate_unique_and_within_bounds_side_effect_counters(self.data.public_inputs);
     }
 
     /// For Init only.
@@ -249,12 +244,6 @@ impl PrivateCallDataValidator {
                 }
             }
         }
-
-        let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        validate_no_phase_change_within_child_calls(
-            min_revertible_side_effect_counter,
-            public_inputs.private_call_requests,
-        );
     }
 
     fn validate_public_call_requests(self) {
@@ -265,7 +254,7 @@ impl PrivateCallDataValidator {
         });
 
         // We also process the enqueued teardown call request:
-        if !public_inputs.public_teardown_call_request.contract_address.is_zero() {
+        if !public_inputs.public_teardown_call_request.is_empty() {
             self.validate_public_call_request(public_inputs.public_teardown_call_request);
         }
     }
@@ -297,63 +286,6 @@ impl PrivateCallDataValidator {
         }
     }
 
-    // Tested with validate_counters.nr
-    fn validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds(self) {
-        let public_inputs = self.data.public_inputs;
-        let counter_start = public_inputs.start_side_effect_counter;
-        let counter_end = public_inputs.end_side_effect_counter;
-
-        assert(counter_start < counter_end, "private call has incorrect counter range");
-
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.note_hash_read_requests,
-        );
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.nullifier_read_requests,
-        );
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.note_hashes,
-        );
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.nullifiers,
-        );
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.l2_to_l1_msgs,
-        );
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.private_logs,
-        );
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.contract_class_logs_hashes,
-        );
-        validate_incrementing_call_request_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.private_call_requests,
-        );
-
-        // Validate the public call requests by checking their start counters only, as their end counters are unknown.
-        validate_incrementing_counters_within_range(
-            counter_start,
-            counter_end,
-            public_inputs.public_call_requests,
-        );
-    }
-
     fn validate_expected_counters(self, claimed_revertible_counter: u32) {
         let expected_non_revertible_side_effect_counter =
             self.data.public_inputs.expected_non_revertible_side_effect_counter;
@@ -374,22 +306,6 @@ impl PrivateCallDataValidator {
                     & (expected_revertible_side_effect_counter >= claimed_revertible_counter),
                 "Failed to validate expected revertible side effect counter",
             )
-        }
-    }
-
-    fn validate_min_revertible_counter_within_range(self) {
-        let public_inputs = self.data.public_inputs;
-        let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        if min_revertible_side_effect_counter != 0 {
-            // Validate that the min revertible side effect counter is within the range of the call.
-            assert(
-                min_revertible_side_effect_counter >= public_inputs.start_side_effect_counter,
-                "min_revertible_side_effect_counter must be greater than or equal to start_side_effect_counter",
-            );
-            assert(
-                min_revertible_side_effect_counter <= public_inputs.end_side_effect_counter,
-                "min_revertible_side_effect_counter must be less than or equal to end_side_effect_counter",
-            );
         }
     }
 }

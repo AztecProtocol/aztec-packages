@@ -1,11 +1,7 @@
 import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
-import {
-  type L1ContractsConfig,
-  type L1ReaderConfig,
-  l1ContractAddressesMapping,
-  l1ContractsConfigMappings,
-  l1ReaderConfigMappings,
-} from '@aztec/ethereum';
+import { type L1ContractsConfig, l1ContractsConfigMappings } from '@aztec/ethereum/config';
+import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
+import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -54,6 +50,11 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     env: 'MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS',
     description: 'Maximum allowed drift in seconds between the Ethereum client and current time.',
     ...numberConfigHelper(300),
+  },
+  ethereumAllowNoDebugHosts: {
+    env: 'ETHEREUM_ALLOW_NO_DEBUG_HOSTS',
+    description: 'Whether to allow starting the archiver without debug/trace method support on Ethereum hosts',
+    ...booleanConfigHelper(true),
   },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,

@@ -1,6 +1,6 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
-import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum';
+import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,

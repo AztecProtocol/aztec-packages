@@ -12,15 +12,15 @@ pub contract StatefulTest {
     };
     use aztec::{
         messages::message_delivery::MessageDelivery,
-        note::note_getter_options::NoteGetterOptions,
+        note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        state_vars::{Map, PrivateSet, PublicMutable},
+        state_vars::{Map, Owned, PrivateSet, PublicMutable},
     };
-    use value_note::{balance_utils, value_note::ValueNote};
+    use field_note::field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {
-        notes: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
+        notes: Owned<PrivateSet<FieldNote, Context>, Context>,
         public_values: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
     }
 
@@ -46,9 +46,8 @@ pub contract StatefulTest {
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
         if (value != 0) {
-            let loc = self.storage.notes.at(owner);
-            let note = ValueNote::new(value, owner);
-            loc.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+            let note = FieldNote { value };
+            self.storage.notes.at(owner).insert(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }
 
@@ -56,9 +55,8 @@ pub contract StatefulTest {
     #[noinitcheck]
     fn create_note_no_init_check(owner: AztecAddress, value: Field) {
         if (value != 0) {
-            let loc = self.storage.notes.at(owner);
-            let note = ValueNote::new(value, owner);
-            loc.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+            let note = FieldNote { value };
+            self.storage.notes.at(owner).insert(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }
 
@@ -67,11 +65,9 @@ pub contract StatefulTest {
         assert_is_initialized_private(self.context);
         let sender = self.msg_sender().unwrap();
 
-        let sender_notes = self.storage.notes.at(sender);
-        let _ = sender_notes.pop_notes(NoteGetterOptions::new().set_limit(2));
+        let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 
-        self.storage.notes.at(recipient).insert(ValueNote::new(92, recipient)).emit(
-            recipient,
+        self.storage.notes.at(recipient).insert(FieldNote { value: 92 }).deliver(
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
@@ -81,11 +77,9 @@ pub contract StatefulTest {
     fn destroy_and_create_no_init_check(recipient: AztecAddress) {
         let sender = self.msg_sender().unwrap();
 
-        let sender_notes = self.storage.notes.at(sender);
-        let _ = sender_notes.pop_notes(NoteGetterOptions::new().set_limit(2));
+        let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 
-        self.storage.notes.at(recipient).insert(ValueNote::new(92, recipient)).emit(
-            recipient,
+        self.storage.notes.at(recipient).insert(FieldNote { value: 92 }).deliver(
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
@@ -104,11 +98,30 @@ pub contract StatefulTest {
     }
 
     #[external("utility")]
-    unconstrained fn summed_values(owner: AztecAddress) -> Field {
-        let owner_balance = self.storage.notes.at(owner);
-
+    unconstrained fn summed_values(owner: AztecAddress) -> pub Field {
         // Return the sum of all notes in the set.
-        balance_utils::get_balance(owner_balance)
+        get_balance_with_offset(self.storage.notes.at(owner), 0)
+    }
+
+    #[contract_library_method]
+    unconstrained fn get_balance_with_offset(
+        set: PrivateSet<FieldNote, aztec::context::UtilityContext>,
+        offset: u32,
+    ) -> Field {
+        let mut balance = 0;
+        let options = NoteViewerOptions::new().set_offset(offset);
+        let notes = set.view_notes(options);
+        for i in 0..options.limit {
+            if i < notes.len() {
+                balance += notes.get_unchecked(i).value;
+            }
+        }
+
+        if (notes.len() == options.limit) {
+            balance += get_balance_with_offset(set, offset + options.limit);
+        }
+
+        balance
     }
 
     #[external("public")]

@@ -157,6 +157,11 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
+      - name: Install Noir toolchain
+        uses: noir-lang/noirup@v0.1.4
+        with:
+          toolchain: nightly
+
       - name: Query new version
         id: version
         run: |
@@ -168,20 +173,37 @@ jobs:
 
           echo "semver=$AZTEC_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Cut Aztec Docs version
+      - name: Generate Aztec.nr API documentation
+        working-directory: ./docs
+        run: |
+          ./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh ${{ steps.version.outputs.semver }}
+          echo "Generated Aztec.nr API docs for: ${{ steps.version.outputs.semver }}"
+
+      - name: Cut Aztec Developer Docs version
         working-directory: ./docs
         run: |
           COMMIT_TAG=${{ steps.version.outputs.semver }}
-          # need to specify at least one version in versions.json for it to build
-          echo "[ \"$(./scripts/get_current_version.sh)\" ]" > versions.json
           yarn
           COMMIT_TAG=$COMMIT_TAG yarn build
-          COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
+          # Create versioned docs for Developer docs instance
+          COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version:developer ${{ steps.version.outputs.semver }}
 
-      - name: Update Aztec Docs versions.json with new version
+      - name: Update Aztec Developer Docs versions with new version
         working-directory: ./docs/scripts
         run: |
-          ./update_versions.sh
+          ./update_docs_versions.sh developer
+
+      - name: Cut Aztec Network Docs version
+        working-directory: ./docs
+        run: |
+          COMMIT_TAG=${{ steps.version.outputs.semver }}
+          # Create versioned docs for Network docs instance
+          COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version:network ${{ steps.version.outputs.semver }}
+
+      - name: Update Aztec Network Docs versions with new version
+        working-directory: ./docs/scripts
+        run: |
+          ./update_docs_versions.sh network
 
       - name: Commit new Aztec Docs version
         run: |

@@ -23,12 +23,6 @@ void nullifier_existsImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (CView(constants_MEM_TAG_U1) - static_cast<View>(in.get(C::execution_mem_tag_reg_2_)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    { // NULLIFIER_EXISTS_SUCCESS
-        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_opcode_error)) *
-                   static_cast<View>(in.get(C::execution_sel_execute_nullifier_exists));
-        std::get<1>(evals) += (tmp * scaling_factor);
-    }
 }
 
 } // namespace bb::avm2

@@ -1,6 +1,6 @@
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
-import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
+import { BlockNumber, CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -19,7 +19,7 @@ export class Checkpoint {
     /** L2 blocks in the checkpoint. */
     public blocks: L2BlockNew[],
     /** Number of the checkpoint. */
-    public number: number,
+    public number: CheckpointNumber,
   ) {}
 
   static get schema() {
@@ -28,7 +28,7 @@ export class Checkpoint {
         archive: AppendOnlyTreeSnapshot.schema,
         header: CheckpointHeader.schema,
         blocks: z.array(L2BlockNew.schema),
-        number: schemas.UInt32,
+        number: CheckpointNumberSchema,
       })
       .transform(({ archive, header, blocks, number }) => new Checkpoint(archive, header, blocks, number));
   }
@@ -47,7 +47,7 @@ export class Checkpoint {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(CheckpointHeader),
       reader.readVector(L2BlockNew),
-      reader.readNumber(),
+      CheckpointNumber(reader.readNumber()),
     );
   }
 
@@ -56,7 +56,7 @@ export class Checkpoint {
   }
 
   public toBlobFields(): Fr[] {
-    const blocks = this.blocks.map((block, i) => block.toBlockBlobData(i === 0));
+    const blocks = this.blocks.map(block => block.toBlockBlobData());
     return encodeCheckpointBlobDataFromBlocks(blocks);
   }
 
@@ -69,18 +69,18 @@ export class Checkpoint {
   }
 
   static async random(
-    checkpointNumber = 1,
+    checkpointNumber = CheckpointNumber(1),
     {
       numBlocks = 1,
       startBlockNumber = 1,
       ...options
-    }: { numBlocks?: number; startBlockNumber?: number } & Partial<FieldsOf<CheckpointHeader>> &
+    }: { numBlocks?: number; startBlockNumber?: number } & Partial<Parameters<typeof CheckpointHeader.random>[0]> &
       Partial<Parameters<typeof L2BlockNew.random>[1]> = {},
   ) {
     const header = CheckpointHeader.random(options);
 
     const blocks = await Promise.all(
-      Array.from({ length: numBlocks }, (_, i) => L2BlockNew.random(startBlockNumber + i, options)),
+      Array.from({ length: numBlocks }, (_, i) => L2BlockNew.random(BlockNumber(startBlockNumber + i), options)),
     );
 
     return new Checkpoint(AppendOnlyTreeSnapshot.random(), header, blocks, checkpointNumber);

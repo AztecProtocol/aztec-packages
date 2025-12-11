@@ -26,11 +26,13 @@
 namespace acir_format {
 
 using namespace bb;
+
+namespace {
+
+using Builder = bb::UltraCircuitBuilder;
 using field_ct = stdlib::field_t<Builder>;
 using bn254 = stdlib::bn254<Builder>;
 using PairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
-
-namespace {
 /**
  * @brief Creates a dummy vkey and proof object.
  * @details Populates the key and proof vectors with dummy values in the write_vk case when we do not have a valid
@@ -124,20 +126,19 @@ void create_dummy_vkey_and_proof(Builder& builder,
  * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
  */
 HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(Builder& builder,
-                                                                                const RecursionConstraint& input,
-                                                                                bool has_valid_witness_assignments)
+                                                                                const RecursionConstraint& input)
 {
     using RecursiveVerifier = avm2::AvmGoblinRecursiveVerifier;
 
     BB_ASSERT_EQ(input.proof_type, AVM);
 
     // Construct in-circuit representations of the verification key, proof and public inputs
-    const auto key_fields = RecursionConstraint::fields_from_witnesses(builder, input.key);
-    const auto proof_fields = RecursionConstraint::fields_from_witnesses(builder, input.proof);
-    const auto public_inputs_flattened = RecursionConstraint::fields_from_witnesses(builder, input.public_inputs);
+    const auto key_fields = fields_from_witnesses(builder, input.key);
+    const auto proof_fields = fields_from_witnesses(builder, input.proof);
+    const auto public_inputs_flattened = fields_from_witnesses(builder, input.public_inputs);
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
-    if (!has_valid_witness_assignments) {
+    if (builder.is_write_vk_mode()) {
         create_dummy_vkey_and_proof(builder, input.proof.size(), key_fields, proof_fields);
     }
 

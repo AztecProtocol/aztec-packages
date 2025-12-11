@@ -3,61 +3,66 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-
+//
+// Recursive Goblin verifier for in-circuit verification.
+// See: chonk/README.md#goblin-eccvm--translator
+//
 #pragma once
+#include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
-#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
+/**
+ * @brief Output of recursive Goblin verification.
+ * @details Contains the deferred verification data that must be accumulated and
+ * verified later (IPA claim for Grumpkin, pairing points for BN254).
+ *
+ * In Aztec's rollup architecture:
+ *   - Pairing points: aggregated at each rollup level, verified on L1 via ecPairing precompile
+ *   - IPA claims: originate from ECCVM, carried in RollupIO public inputs through rollup levels,
+ *     accumulated via IPA::accumulate at each level, verified in-circuit at root via IPA::full_verify_recursive
+ */
 struct GoblinRecursiveVerifierOutput {
     using Builder = UltraCircuitBuilder;
     using Curve = grumpkin<Builder>;
     using BN254Curve = bn254<Builder>;
     using PairingAccumulator = PairingPoints<BN254Curve>;
-    PairingAccumulator points_accumulator;
-    OpeningClaim<Curve> opening_claim;
-    stdlib::Proof<Builder> ipa_proof;
+    PairingAccumulator points_accumulator; // BN254 pairing points - accumulated, verified on L1
+    OpeningClaim<Curve> opening_claim;     // IPA opening claim from ECCVM - accumulated, verified in-circuit at root
+    stdlib::Proof<Builder> ipa_proof;      // IPA proof - used in root rollup's in-circuit verification
 };
 
+/**
+ * @brief Recursive verifier for Goblin proofs (Merge + ECCVM + IPA + Translator).
+ * @details Creates a circuit verifying a Goblin proof. The verification is split into:
+ *   1. Merge verification - checks ECC op queue commitment consistency
+ *   2. ECCVM verification - verifies the correctness of ECC operations, outputs an IPA opening claim
+ *   3. Translator verification - links ECCVM to BN254, outputs KZG pairing points
+ *
+ * The output contains deferred verification data (IPA claim + pairing points) that must be
+ * accumulated and verified elsewhere.
+ *
+ * Uses Ultra arithmetization, as all ECC ops have to be performed in-circuit at this stage.
+ */
 class GoblinRecursiveVerifier {
   public:
     // Goblin Recursive Verifier circuit is using Ultra arithmetisation
     using Builder = UltraCircuitBuilder;
     using MergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier<Builder>;
     using Transcript = UltraStdlibTranscript;
-
     using TranslatorFlavor = TranslatorRecursiveFlavor;
     using TranslatorVerifier = TranslatorRecursiveVerifier;
     using TranslationEvaluations = TranslatorVerifier::TranslationEvaluations;
-
-    using ECCVMVerifier = ECCVMRecursiveVerifier;
+    using TranslatorInputData = TranslatorInputData_<TranslatorRecursiveVerifier::BF>;
 
     // ECCVM and Translator verification keys
     using VerificationKey = Goblin::VerificationKey;
 
     // Merge commitments
     using MergeCommitments = MergeVerifier::InputCommitments;
-
-    struct StdlibProof {
-        using StdlibHonkProof = bb::stdlib::Proof<Builder>;
-        using StdlibEccvmProof = ECCVMVerifier::StdlibProof;
-
-        StdlibHonkProof merge_proof;
-        StdlibEccvmProof eccvm_proof; // contains pre-IPA and IPA proofs
-        StdlibHonkProof translator_proof;
-
-        StdlibProof() = default;
-
-        StdlibProof(Builder& builder, const GoblinProof& goblin_proof)
-            : merge_proof(builder, goblin_proof.merge_proof)
-            , eccvm_proof(builder,
-                          ECCVMProof{ goblin_proof.eccvm_proof.pre_ipa_proof, goblin_proof.eccvm_proof.ipa_proof })
-            , translator_proof(builder, goblin_proof.translator_proof)
-        {}
-    };
 
     GoblinRecursiveVerifier(Builder* builder,
                             const VerificationKey& verification_keys,
@@ -67,11 +72,7 @@ class GoblinRecursiveVerifier {
         , transcript(transcript) {};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const GoblinProof&,
-        const MergeCommitments& merge_commitments,
-        const MergeSettings merge_settings = MergeSettings::PREPEND);
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const StdlibProof&,
+        const GoblinStdlibProof&,
         const MergeCommitments& merge_commitments,
         const MergeSettings merge_settings = MergeSettings::PREPEND);
 

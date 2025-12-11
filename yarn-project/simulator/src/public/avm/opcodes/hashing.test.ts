@@ -1,4 +1,5 @@
-import { keccakf1600, sha256Compression } from '@aztec/foundation/crypto';
+import { keccakf1600 } from '@aztec/foundation/crypto/keccak';
+import { sha256Compression } from '@aztec/foundation/crypto/sha256';
 
 import type { AvmContext } from '../avm_context.js';
 import { Field, TaggedMemory, Uint32, Uint64 } from '../avm_memory_types.js';

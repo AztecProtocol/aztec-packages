@@ -1,12 +1,12 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
-import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto';
+import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import type { Hex } from '@aztec/foundation/string';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
@@ -223,7 +223,7 @@ describe('ValidatorClient', () => {
 
   describe('attestToProposal', () => {
     let proposal: BlockProposal;
-    let blockNumber: number;
+    let blockNumber: BlockNumber;
     let sender: PeerId;
     let blockBuildResult: BuildBlockResult;
 
@@ -238,7 +238,7 @@ describe('ValidatorClient', () => {
       const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
       const blockHeader = makeL2BlockHeader(1, 100, 100, { contentCommitment });
-      blockNumber = blockHeader.getBlockNumber();
+      blockNumber = BlockNumber(blockHeader.getBlockNumber());
       proposal = makeBlockProposal({ header: blockHeader });
       // Set the current time to the start of the slot of the proposal
       const genesisTime = 1n;
@@ -269,7 +269,7 @@ describe('ValidatorClient', () => {
       // Return parent block when requested
       blockSource.getBlockHeaderByArchive.mockResolvedValue({
         getBlockNumber: () => blockNumber - 1,
-        getSlot: () => blockHeader.getSlot() - SlotNumber(1),
+        getSlot: () => SlotNumber(blockHeader.getSlot() - 1),
       } as BlockHeader);
 
       blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });

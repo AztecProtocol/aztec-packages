@@ -46,7 +46,7 @@ include "public_data_squash.pil";
  * };
  *
  * Write usage:
- * sel {
+ * sel_XXX {
  *   value,
  *   address,
  *   slot,
@@ -67,6 +67,8 @@ include "public_data_squash.pil";
  *   public_data_check.tree_size_after_write,
  *   public_data_check.clk
  * };
+ *
+ * where sel_XXX = `protocol_write` or `non_protocol_write`.
  *
 **/
 namespace public_data_check;

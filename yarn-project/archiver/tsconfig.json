@@ -43,5 +43,5 @@
       "path": "../telemetry-client"
     }
   ],
-  "include": ["src"]
+  "include": ["src", "src/**/*.json"]
 }

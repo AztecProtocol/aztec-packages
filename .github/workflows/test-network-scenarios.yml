@@ -197,7 +197,7 @@ jobs:
       # Benchmarks
       #############
       - name: Download deploy benchmarks
-        if: (env.SEMVER != '' || env.DOCKER_IMAGE != '') && (steps.ci_cache.outputs.cache-hit != 'true' || github.event_name == 'workflow_dispatch')
+        if: always()
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -207,7 +207,7 @@ jobs:
           fi
 
       - name: Upload deploy benchmarks
-        if: env.ENABLE_DEPLOY_BENCH == '1'
+        if: always() && env.ENABLE_DEPLOY_BENCH == '1'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: CI Benchmarks

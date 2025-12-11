@@ -6,12 +6,12 @@ use crate::{
     },
     oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness,
 };
-use dep::protocol_types::{
+use protocol_types::{
     abis::block_header::BlockHeader,
+    merkle_tree::root::root_from_sibling_path,
+    traits::Hash,
     utils::field::{full_field_greater_than, full_field_less_than},
 };
-use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
-use protocol_types::traits::Hash;
 
 mod test;
 

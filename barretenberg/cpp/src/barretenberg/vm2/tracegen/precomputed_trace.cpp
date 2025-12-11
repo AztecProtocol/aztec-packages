@@ -343,31 +343,26 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 {
     using C = Column;
 
-    for (const auto& [_, spec] : get_tx_phase_spec_map()) {
+    for (const auto& [phase_value, spec] : get_tx_phase_spec_map()) {
 
-        const uint32_t row = static_cast<uint32_t>(spec.phase_value);
+        const uint32_t row = static_cast<uint32_t>(phase_value);
         // Populate all columns that are part of the #[READ_PHASE_SPEC] lookup in tx.pil.
         std::vector<std::pair<Column, FF>> row_data = {
             { C::precomputed_sel_phase, 1 },
-            { C::precomputed_is_public_call_request, spec.is_public_call_request },
-            { C::precomputed_is_teardown, spec.is_teardown },
-            { C::precomputed_is_collect_fee, spec.is_collect_fee },
-            { C::precomputed_is_tree_padding, spec.is_tree_padding },
-            { C::precomputed_is_cleanup, spec.is_cleanup },
-            { C::precomputed_is_revertible, spec.is_revertible },
+            { C::precomputed_is_public_call_request, spec.is_public_call_request ? 1 : 0 },
+            { C::precomputed_is_teardown, spec.is_teardown ? 1 : 0 },
+            { C::precomputed_is_collect_fee, spec.is_collect_fee ? 1 : 0 },
+            { C::precomputed_is_tree_padding, spec.is_tree_padding ? 1 : 0 },
+            { C::precomputed_is_cleanup, spec.is_cleanup ? 1 : 0 },
+            { C::precomputed_is_revertible, spec.is_revertible ? 1 : 0 },
             { C::precomputed_read_pi_start_offset, spec.read_pi_start_offset },
             { C::precomputed_read_pi_length_offset, spec.read_pi_length_offset },
-            { C::precomputed_sel_non_revertible_append_note_hash, spec.non_revertible_append_note_hash },
-            { C::precomputed_sel_non_revertible_append_nullifier, spec.non_revertible_append_nullifier },
-            { C::precomputed_sel_non_revertible_append_l2_l1_msg, spec.non_revertible_append_l2_l1_msg },
-            { C::precomputed_sel_revertible_append_note_hash, spec.revertible_append_note_hash },
-            { C::precomputed_sel_revertible_append_nullifier, spec.revertible_append_nullifier },
-            { C::precomputed_sel_revertible_append_l2_l1_msg, spec.revertible_append_l2_l1_msg },
-            { C::precomputed_sel_can_emit_note_hash, spec.can_emit_note_hash },
-            { C::precomputed_sel_can_emit_nullifier, spec.can_emit_nullifier },
-            { C::precomputed_sel_can_write_public_data, spec.can_write_public_data },
-            { C::precomputed_sel_can_emit_unencrypted_log, spec.can_emit_unencrypted_log },
-            { C::precomputed_sel_can_emit_l2_l1_msg, spec.can_emit_l2_l1_msg },
+            { C::precomputed_sel_non_revertible_append_note_hash, spec.non_revertible_append_note_hash ? 1 : 0 },
+            { C::precomputed_sel_non_revertible_append_nullifier, spec.non_revertible_append_nullifier ? 1 : 0 },
+            { C::precomputed_sel_non_revertible_append_l2_l1_msg, spec.non_revertible_append_l2_l1_msg ? 1 : 0 },
+            { C::precomputed_sel_revertible_append_note_hash, spec.revertible_append_note_hash ? 1 : 0 },
+            { C::precomputed_sel_revertible_append_nullifier, spec.revertible_append_nullifier ? 1 : 0 },
+            { C::precomputed_sel_revertible_append_l2_l1_msg, spec.revertible_append_l2_l1_msg ? 1 : 0 },
             { C::precomputed_next_phase_on_revert, spec.next_phase_on_revert },
         };
 

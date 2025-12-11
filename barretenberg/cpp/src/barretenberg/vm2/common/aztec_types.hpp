@@ -273,6 +273,22 @@ struct PublicLogs {
         return public_logs;
     }
 
+    std::vector<PublicLog> to_logs() const
+    {
+        std::vector<PublicLog> logs;
+        for (uint32_t i = 0; i < length;) {
+            uint32_t log_length = static_cast<uint32_t>(payload[i]);
+            AztecAddress contract_address = payload[i + 1];
+            std::vector<FF> fields;
+            for (uint32_t j = 0; j < log_length; ++j) {
+                fields.push_back(payload[i + 2 + j]);
+            }
+            logs.push_back(PublicLog{ .fields = fields, .contract_address = contract_address });
+            i += log_length + PUBLIC_LOG_HEADER_LENGTH;
+        }
+        return logs;
+    }
+
     MSGPACK_FIELDS(length, payload);
 };
 

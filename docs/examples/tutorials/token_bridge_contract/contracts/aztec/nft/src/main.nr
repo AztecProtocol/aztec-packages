@@ -19,7 +19,7 @@ pub contract NFTPunk {
         admin: PublicImmutable<AztecAddress, Context>,
         minter: PublicImmutable<AztecAddress, Context>,
         nfts: Map<Field, DelayedPublicMutable<bool, 2, Context>, Context>,
-        owners: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
+        owners: PrivateSet<NFTNote, Context>,
     }
     #[external("public")]
     #[initializer]
@@ -50,8 +50,8 @@ pub contract NFTPunk {
         assert(self.storage.minter.read().eq(self.msg_sender().unwrap()), "caller is not the authorized minter");
 
         // we create an NFT note and insert it to the PrivateSet - a collection of notes meant to be read in private
-        let new_nft = NFTNote::new(to, token_id);
-        self.storage.owners.at(to).insert(new_nft).emit( to, MessageDelivery.CONSTRAINED_ONCHAIN);
+        let new_nft = NFTNote { token_id };
+        self.storage.owners.at(to).insert(new_nft).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
 
         // calling the internal public function above to indicate that the NFT is taken
         self.enqueue_self._mark_nft_exists(token_id, true);

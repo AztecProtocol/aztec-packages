@@ -7,6 +7,7 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
@@ -143,8 +144,6 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         vinfo("Recursively verifying accumulation of the tail kernel.");
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
 
-        hide_op_queue_accumulation_result(circuit);
-
         auto [_first_verified, _second_verified, final_verifier_accumulator] =
             folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
 
@@ -253,6 +252,9 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Add randomness at the begining of the tail kernel (whose ecc ops fall at the beginning of the op queue table)
         // to ensure the CHONK proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_tail(circuit);
+
+        // Add the hiding op with random (non-curve) Px, Py values for statistical hiding of accumulated_result.
+        hide_op_queue_accumulation_result(circuit);
     }
     circuit.queue_ecc_eq();
 
@@ -447,68 +449,25 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 }
 
 /**
- * @brief Add a valid operation with random data to the op queue to prevent information leakage in Translator
- * proof.
+ * @brief Add a hiding op with fully random Px, Py field elements to prevent information leakage in Translator proof.
  *
  * @details The Translator circuit builder evaluates a batched polynomial (representing the four op queue polynomials
  * in UltraOp format) at a random challenge x. This evaluation result (called accumulated_result in translator) is
  * included in the translator proof and verified against the equivalent computation performed by ECCVM (in
- * verify_translation, establishing equivalence between ECCVM and UltraOp format). To ensure the accumulated_result
- * doesn't reveal information about actual ecc operations in the transaction, when the proof is sent to the rollup, we
- * add a random yet valid operation to the op queue. This guarantees the batched polynomial over Grumpkin contains at
- * least one random coefficient.
+ * verify_translation, establishing equivalence between ECCVM and UltraOp format).
+ *
  */
 void Chonk::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 {
-    Point random_point = Point::random_element();
-    FF random_scalar = FF::random_element();
-    circuit.queue_ecc_mul_accum(random_point, random_scalar);
-    circuit.queue_ecc_eq();
+    // Use random Fq field elements as Px and Py.
+    using Fq = curve::Grumpkin::ScalarField; // Same as BN254::BaseField
+    circuit.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
 }
 
 /**
- * @brief Adds three random ops to the tail kernel.
+ * @brief Adds three random non-ops to the tail kernel for zero-knowledge.
  *
- * @note The explanation below does not serve as a proof of zero-knowledge but rather as intuition for why the number
- * of random ops and their position in the op queue.
- *
- * @details The Chonk proof is sent to the rollup and so it has to be zero-knowledge. In turn, this implies
- * that commitments and evaluations to the op queue, when regarded as 4 polynomials in UltraOp format (op, x_lo_y_hi,
- * x_hi_z_1, y_lo_z_2), should not leak information about the actual content of the op queue with provenance from
- * circuit operations that have been accumulated in CHONK. Since the op queue is used across several provers,
- * randomising these polynomials has to be handled in a special way. Normally, to hide a witness we'd add random
- * coefficients at proving time when populating ProverPolynomials. However, due to the consistency checks present
- * throughout CHONK, to ensure all components use the same op queue data (Merge and Translator on the entire op queue
- * table and Merge and Oink on each subtable), randomness has to be added in a common place, this place naturally
- * being Chonk. ECCVM is not affected by the concerns above, randomness being added to wires at proving time
- * as per usual, because the consistency of ECCVMOps processing and UltraOps processing between Translator and ECCVM is
- * achieved via the translation evaluation check and avoiding an information leak there is ensured by
- * `Chonk::hide_op_queue_accumulation_result()` and SmallSubgroupIPA in ECCVM.
- *
- * We need each op queue polynomial to have 9 random coefficients (so the op queue needs to contain 5 random ops, every
- * UltraOp adding two coefficients to each of the 4 polynomials).
- *
- * For the last subtable of ecc ops belonging to the hiding kernel, merged via appended to the full op queue, its data
- * appears as the ecc_op_wires in the MegaZK proof, wires that are not going to be shifted, so the proof contains,
- * for each wire, its commitment and evaluation to the Sumcheck challenge. As at least 3 random coefficients are
- * needed in each op queue polynomial, we add 2 random ops to the hiding kernel.
- *
- * The op queue state previous to the append of the last subtable, is the `left_table` in the merge protocol, so for
- * the degree check, we construct its inverse polynomial `left_table_inverse`. The MergeProof will contain the
- * commitment to the `left_table_inverse` plus its evaluation at Merge protocol challenge κ. Also for the degree check,
- * prover needs to send the evaluation of the `left_table` at κ⁻¹. We need to ensure random coefficients are added to
- * one of the kernels as not to affect Apps verification keys so the best choice is to add them to the beginning of the
- * tail kernel as to not complicate Translator relations. The above advises that another 4 random coefficients are
- * needed in the `left_table` (so, 2 random ops).
- *
- * Finally, the 4 polynomials representing the full ecc op queue table are committed to (in fact, in both Merge
- * protocol and Translator but they are commitments to the same data). `x_lo_y_hi`, `x_hi_z_1` and `x_lo_z_2` are
- * shifted polynomials in Translator so the Translator proof will contain their evaluation and evaluation of their
- * shifts at the Sumcheck challenge. On top of that, the Shplonk proof sent in the last iteration of Merge also
- * ascertains the opening of partially_evaluated_difference = left_table + κ^{shift -1 } * right_table - merged_table
- * at κ is 0, so a batched quotient commitment is sent in the Merge proof. In total, for each op queue polynomial (or
- * parts of its data), there are 4 commitments and 5 evaluations across the CHONK proof so the sweet spot is 5 random
- * ops.
+ * @details See MERGE_PROTOCOL.md (ZK Considerations) for detailed analysis.
  */
 void Chonk::hide_op_queue_content_in_tail(ClientCircuit& circuit)
 {
@@ -518,12 +477,9 @@ void Chonk::hide_op_queue_content_in_tail(ClientCircuit& circuit)
 }
 
 /**
- * @brief Adds two random ops to the hiding kernel.
+ * @brief Adds two random non-ops to the hiding kernel for zero-knowledge.
  *
- * @details For the last subtable of ecc ops belonging to the hiding kernel, merged via appended to the full op
- * queue, its data appears as the ecc_op_wires in the MegaZK proof, wires that are not going to be shifted, so the proof
- * containts, for each wire, its commitment and evaluation to the Sumcheck challenge. As at least 3 random coefficients
- * are needed in each op queue polynomial, we add 2 random ops. More details in `hide_op_queue_content_in_tail`.
+ * @details See MERGE_PROTOCOL.md (ZK Considerations) for detailed analysis.
  */
 void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 {
@@ -532,7 +488,7 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 }
 
 /**
- * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding,
+ * @brief Construct a zero-knowledge proof for the Hiding kernel, which recursively verifies the last folding,
  * merge and decider proof.
  */
 HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
@@ -540,7 +496,7 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
 
-    // Hiding circuit is proven by a MegaZKProver
+    // Hiding kernel is proven by a MegaZKProver
     MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
     HonkProof proof = prover.construct_proof();
 
@@ -558,11 +514,11 @@ Chonk::Proof Chonk::prove()
     prover_accumulator = ProverAccumulator();
     auto mega_proof = verification_queue.front().proof;
 
-    // A transcript is shared between the Hiding circuit prover and the Goblin prover
+    // A transcript is shared between the Hiding kernel prover and the Goblin prover
     goblin.transcript = transcript;
 
-    // Returns a proof for the hiding circuit and the Goblin proof. The latter consists of Translator and ECCVM proof
-    // for the whole ecc op table and the merge proof for appending the subtable coming from the hiding circuit. The
+    // Returns a proof for the Hiding kernel and the Goblin proof. The latter consists of Translator and ECCVM proof
+    // for the whole ecc op table and the merge proof for appending the subtable coming from the Hiding kernel. The
     // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
     // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
     // evaluations of both the previous table and the incoming subtable.
@@ -574,7 +530,7 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     using TableCommitments = Goblin::TableCommitments;
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
     std::shared_ptr<Goblin::Transcript> chonk_verifier_transcript = std::make_shared<Goblin::Transcript>();
-    // Verify the hiding circuit proof
+    // Verify the Hiding kernel proof
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, chonk_verifier_transcript };
     auto [mega_verified, kernel_return_data, T_prev_commitments] =
         verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
@@ -606,9 +562,8 @@ std::vector<Chonk::FF> Chonk::Proof::to_field_elements() const
 
     proof.insert(proof.end(), mega_proof.begin(), mega_proof.end());
     proof.insert(proof.end(), goblin_proof.merge_proof.begin(), goblin_proof.merge_proof.end());
-    proof.insert(
-        proof.end(), goblin_proof.eccvm_proof.pre_ipa_proof.begin(), goblin_proof.eccvm_proof.pre_ipa_proof.end());
-    proof.insert(proof.end(), goblin_proof.eccvm_proof.ipa_proof.begin(), goblin_proof.eccvm_proof.ipa_proof.end());
+    proof.insert(proof.end(), goblin_proof.eccvm_proof.begin(), goblin_proof.eccvm_proof.end());
+    proof.insert(proof.end(), goblin_proof.ipa_proof.begin(), goblin_proof.ipa_proof.end());
     proof.insert(proof.end(), goblin_proof.translator_proof.begin(), goblin_proof.translator_proof.end());
     return proof;
 };
@@ -632,15 +587,15 @@ Chonk::Proof Chonk::Proof::from_field_elements(const std::vector<Chonk::FF>& fie
     end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
     goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), start_idx, end_idx);
 
-    // ECCVM pre-ipa proof
+    // ECCVM proof
     start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
-    goblin_proof.eccvm_proof.pre_ipa_proof.insert(goblin_proof.eccvm_proof.pre_ipa_proof.end(), start_idx, end_idx);
+    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), start_idx, end_idx);
 
-    // ECCVM ipa proof
+    // IPA proof
     start_idx = end_idx;
     end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
-    goblin_proof.eccvm_proof.ipa_proof.insert(goblin_proof.eccvm_proof.ipa_proof.end(), start_idx, end_idx);
+    goblin_proof.ipa_proof.insert(goblin_proof.ipa_proof.end(), start_idx, end_idx);
 
     // Translator proof
     start_idx = end_idx;

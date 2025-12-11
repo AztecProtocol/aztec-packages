@@ -1,13 +1,15 @@
 import { L2Block } from '@aztec/aztec.js/block';
+import { getKzg } from '@aztec/blob-lib';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
+import { FormattedViemError } from '@aztec/ethereum/utils';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { omit, pick } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
@@ -73,7 +75,7 @@ export type SequencerEvents = {
     sentActions?: Action[];
     expiredActions?: Action[];
   }) => void;
-  ['block-published']: (args: { blockNumber: number; slot: number }) => void;
+  ['block-published']: (args: { blockNumber: BlockNumber; slot: number }) => void;
 };
 
 /**
@@ -220,6 +222,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   public async init() {
+    // Takes ~3s to precompute some tables.
+    getKzg();
     this.publisher = (await this.publisherFactory.create(undefined)).publisher;
   }
 
@@ -281,7 +285,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     const chainTipArchive = syncedTo.archive;
-    const newBlockNumber = syncedTo.blockNumber + 1;
+    const newBlockNumber = BlockNumber(syncedTo.blockNumber + 1);
 
     const syncLogData = {
       now,
@@ -377,7 +381,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch' });
       this.metrics.recordBlockProposalPrecheckFailed('slot_mismatch');
       return;
-    } else if (canProposeCheck.checkpointNumber !== BigInt(newBlockNumber)) {
+    } else if (canProposeCheck.checkpointNumber !== CheckpointNumber.fromBlockNumber(newBlockNumber)) {
       this.log.warn(
         `Cannot propose block due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected block ${newBlockNumber} but got ${canProposeCheck.checkpointNumber}.`,
         { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
@@ -468,7 +472,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private async tryBuildBlockAndEnqueuePublish(
     slot: SlotNumber,
     proposer: EthAddress | undefined,
-    newBlockNumber: number,
+    newBlockNumber: BlockNumber,
     publisher: SequencerPublisher,
     newGlobalVariables: GlobalVariables,
     chainTipArchive: Fr,
@@ -644,8 +648,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     await publisher.validateBlockHeader(proposalHeader, invalidateBlock);
 
     const blockNumber = newGlobalVariables.blockNumber;
+    const checkpointNumber = CheckpointNumber.fromBlockNumber(blockNumber);
     const slot = proposalHeader.slotNumber;
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
 
     const workTimer = new Timer();
     this.setState(SequencerState.CREATING_BLOCK, slot);
@@ -924,7 +929,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   protected async checkSync(args: { ts: bigint; slot: SlotNumber }): Promise<
     | {
         block?: L2Block;
-        blockNumber: number;
+        blockNumber: BlockNumber;
         archive: Fr;
         l1Timestamp: bigint;
         pendingChainValidationStatus: ValidateBlockResult;
@@ -958,14 +963,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const [worldState, l2BlockSource, p2p, l1ToL2MessageSource, pendingChainValidationStatus] = syncedBlocks;
 
-    // The archiver reports 'undefined' hash for the genesis block
-    // because it doesn't have access to world state to compute it (facepalm)
+    // Handle zero as a special case, since the block hash won't match across services if we're changing the prefilled data for the genesis block,
+    // as the world state can compute the new genesis block hash, but other components use the hardcoded constant.
     const result =
-      l2BlockSource.hash === undefined
-        ? worldState.number === 0 && p2p.number === 0 && l1ToL2MessageSource.number === 0
-        : worldState.hash === l2BlockSource.hash &&
-          p2p.hash === l2BlockSource.hash &&
-          l1ToL2MessageSource.hash === l2BlockSource.hash;
+      (l2BlockSource.number === 0 && worldState.number === 0 && p2p.number === 0 && l1ToL2MessageSource.number === 0) ||
+      (worldState.hash === l2BlockSource.hash &&
+        p2p.hash === l2BlockSource.hash &&
+        l1ToL2MessageSource.hash === l2BlockSource.hash);
 
     if (!result) {
       this.log.debug(`Sequencer sync check failed`, { worldState, l2BlockSource, p2p, l1ToL2MessageSource });
@@ -976,7 +980,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const blockNumber = worldState.number;
     if (blockNumber < INITIAL_L2_BLOCK_NUM) {
       const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
-      return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive, l1Timestamp, pendingChainValidationStatus };
+      return { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM - 1), archive, l1Timestamp, pendingChainValidationStatus };
     }
 
     const block = await this.l2BlockSource.getBlock(blockNumber);

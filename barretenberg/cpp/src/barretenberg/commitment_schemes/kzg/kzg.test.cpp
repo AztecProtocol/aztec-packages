@@ -14,10 +14,8 @@ class KZGTest : public CommitmentTest<Curve> {
     using Commitment = typename Curve::AffineElement;
     using PCS = KZG<curve::BN254>;
 
-    using ShplonkProver = ShplonkProver_<Curve>;
-    using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using GeminiProver = GeminiProver_<Curve>;
-    using GeminiVerifier = GeminiVerifier_<Curve>;
+    using ShplonkProver = ShplonkProver_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
 
     static constexpr size_t n = 16;
@@ -144,67 +142,6 @@ TEST_F(KZGTest, SingleInLagrangeBasis)
 
     EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
 }
-/**
- * @brief Test full PCS protocol: Gemini, Shplonk, KZG and pairing check
- * @details Demonstrates the full PCS protocol as it is used in the construction and verification
- * of a single Honk proof. (Expository comments included throughout).
- *
- */
-TEST_F(KZGTest, GeminiShplonkKzgWithShift)
-{
-
-    // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
-    // point.
-    std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
-
-    MockClaimGenerator mock_claims(n,
-                                   /*num_polynomials*/ 2,
-                                   /*num_to_be_shifted*/ 1,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
-                                   mle_opening_point,
-                                   ck);
-
-    auto prover_transcript = NativeTranscript::prover_init_empty();
-
-    // Run the full prover PCS protocol:
-
-    // Compute:
-    // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
-    // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims =
-        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
-
-    // Shplonk prover output:
-    // - opening pair: (z_challenge, 0)
-    // - witness: polynomial Q - Q_z
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
-
-    // KZG prover:
-    // - Adds commitment [W] to transcript
-    PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
-
-    // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
-
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
-
-    // Gemini verifier output:
-    // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    auto gemini_verifier_claim =
-        GeminiVerifier::reduce_verification(mle_opening_point, mock_claims.claim_batcher, verifier_transcript);
-
-    // Shplonk verifier claim: commitment [Q] - [Q_z], opening point (z_challenge, 0)
-    const auto shplonk_verifier_claim =
-        ShplonkVerifier::reduce_verification(vk.get_g1_identity(), gemini_verifier_claim, verifier_transcript);
-
-    // KZG verifier:
-    // aggregates inputs [Q] - [Q_z] and [W] into an 'accumulator' (can perform pairing check on result)
-    auto pairing_points = PCS::reduce_verify(shplonk_verifier_claim, verifier_transcript);
-
-    // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
-
-    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
-}
-
 TEST_F(KZGTest, ShpleminiKzgWithShift)
 {
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
@@ -214,7 +151,6 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 2,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck);
 
@@ -246,13 +182,14 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     std::array<Fr, log_n> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, Fr{ 1 });
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                                    mock_claims.claim_batcher,
-                                                                                    mle_opening_point,
-                                                                                    vk.get_g1_identity(),
-                                                                                    verifier_transcript);
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                                              mock_claims.claim_batcher,
+                                                                              mle_opening_point,
+                                                                              vk.get_g1_identity(),
+                                                                              verifier_transcript);
 
-    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+    const auto pairing_points =
+        PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
     EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
@@ -266,11 +203,10 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 2,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck,
-                                   3,
-                                   2);
+                                   /*num_interleaved*/ 3,
+                                   /*num_to_be_interleaved*/ 2);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -300,19 +236,20 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
     std::array<Fr, log_n> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, Fr{ 1 });
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                                    mock_claims.claim_batcher,
-                                                                                    mle_opening_point,
-                                                                                    vk.get_g1_identity(),
-                                                                                    verifier_transcript,
-                                                                                    /* repeated commitments= */ {},
-                                                                                    /* has zk = */ {},
-                                                                                    nullptr,
-                                                                                    /* libra commitments = */ {},
-                                                                                    /* libra evaluations = */ {},
-                                                                                    {},
-                                                                                    {});
-    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                                              mock_claims.claim_batcher,
+                                                                              mle_opening_point,
+                                                                              vk.get_g1_identity(),
+                                                                              verifier_transcript,
+                                                                              /* repeated commitments= */ {},
+                                                                              /* has zk = */ {},
+                                                                              nullptr,
+                                                                              /* libra commitments = */ {},
+                                                                              /* libra evaluations = */ {},
+                                                                              {},
+                                                                              {});
+    const auto pairing_points =
+        PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
     EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
@@ -325,7 +262,6 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 2,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck);
 
@@ -370,14 +306,15 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     std::array<Fr, log_n> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, Fr{ 1 });
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                                    mock_claims.claim_batcher,
-                                                                                    mle_opening_point,
-                                                                                    vk.get_g1_identity(),
-                                                                                    verifier_transcript,
-                                                                                    repeated_commitments);
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                                              mock_claims.claim_batcher,
+                                                                              mle_opening_point,
+                                                                              vk.get_g1_identity(),
+                                                                              verifier_transcript,
+                                                                              repeated_commitments);
 
-    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+    const auto pairing_points =
+        PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
 
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
     EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);

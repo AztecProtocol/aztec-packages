@@ -1,5 +1,4 @@
-use dep::protocol_types::abis::block_header::BlockHeader;
-use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
+use protocol_types::{abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path};
 
 use crate::{
     note::{

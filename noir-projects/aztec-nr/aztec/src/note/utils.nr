@@ -3,7 +3,7 @@ use crate::{
     note::{note_interface::NoteHash, retrieved_note::RetrievedNote},
 };
 
-use dep::protocol_types::hash::{
+use protocol_types::hash::{
     compute_siloed_note_hash, compute_siloed_nullifier, compute_unique_note_hash,
 };
 
@@ -15,7 +15,11 @@ pub fn compute_note_hash_read<Note>(
 where
     Note: NoteHash,
 {
-    let note_hash = retrieved_note.note.compute_note_hash(storage_slot, retrieved_note.randomness);
+    let note_hash = retrieved_note.note.compute_note_hash(
+        retrieved_note.owner,
+        storage_slot,
+        retrieved_note.randomness,
+    );
 
     if retrieved_note.metadata.is_settled() {
         // Settled notes are read by siloing with contract address and nonce (resulting in the final unique note hash,
@@ -87,8 +91,11 @@ where
 {
     let note_hash_for_nullification =
         compute_note_hash_for_nullification(retrieved_note, storage_slot);
-    let inner_nullifier =
-        retrieved_note.note.compute_nullifier(context, note_hash_for_nullification);
+    let inner_nullifier = retrieved_note.note.compute_nullifier(
+        context,
+        retrieved_note.owner,
+        note_hash_for_nullification,
+    );
 
     compute_siloed_nullifier(retrieved_note.contract_address, inner_nullifier)
 }

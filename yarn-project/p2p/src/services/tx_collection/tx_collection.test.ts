@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { getDefaultConfig } from '@aztec/foundation/config';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -51,7 +52,7 @@ describe('TxCollection', () => {
   };
 
   const makeL2Block = (blockNumber = 1, slotNumber?: number) =>
-    L2Block.random(blockNumber, 0, 0, 0, undefined, slotNumber ?? blockNumber);
+    L2Block.random(BlockNumber(blockNumber), 0, 0, 0, undefined, slotNumber ?? blockNumber);
 
   const setNodeTxs = (node: MockProxy<TxSource>, txs: Tx[]) => {
     node.getTxsByHash.mockImplementation(async hashes => {
@@ -326,12 +327,12 @@ describe('TxCollection', () => {
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
 
       jest.clearAllMocks();
-      txCollection.stopCollectingForBlocksUpTo(1);
+      txCollection.stopCollectingForBlocksUpTo(BlockNumber(1));
       await txCollection.trigger();
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1], txHashes[2]]);
 
       jest.clearAllMocks();
-      txCollection.stopCollectingForBlocksAfter(2);
+      txCollection.stopCollectingForBlocksAfter(BlockNumber(2));
       await txCollection.trigger();
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1]]);
     });

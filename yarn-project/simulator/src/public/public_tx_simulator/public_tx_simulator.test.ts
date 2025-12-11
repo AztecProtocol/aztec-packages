@@ -7,14 +7,14 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import { PublicDataWrite, PublicSimulatorConfig, type PublicTxResult, RevertCode } from '@aztec/stdlib/avm';
+import { PublicDataWrite, PublicSimulatorConfig, PublicTxResult, RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
@@ -179,7 +179,7 @@ describe('public_tx_simulator', () => {
   };
 
   const checkNullifierRoot = async (txResult: PublicTxResult) => {
-    const siloedNullifiers = txResult.publicInputs.accumulatedData.nullifiers;
+    const siloedNullifiers = txResult.publicInputs!.accumulatedData.nullifiers;
     // Loop helpful for debugging so you can see root progression
     //for (const nullifier of siloedNullifiers) {
     //  await db.batchInsert(
@@ -197,7 +197,7 @@ describe('public_tx_simulator', () => {
     );
     const expectedRoot = new Fr((await merkleTrees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root);
     const gotRoot = new Fr((await merkleTrees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root);
-    const gotRootPublicInputs = txResult.publicInputs.endTreeSnapshots.nullifierTree.root;
+    const gotRootPublicInputs = txResult.publicInputs!.endTreeSnapshots.nullifierTree.root;
     expect(gotRoot).toEqual(expectedRoot);
     expect(gotRootPublicInputs).toEqual(expectedRoot);
   };
@@ -310,7 +310,7 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
-    expect(txResult.revertReason).toBe(undefined);
+    expect(txResult.findRevertReason()).toBeUndefined();
 
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(2); // For 2 setup calls.
     const expectedTotalGas = privateGasUsed.add(expectedPublicGasUsed);
@@ -329,11 +329,11 @@ describe('public_tx_simulator', () => {
 
     const expectedGasUsedForFee = expectedTotalGas;
     const expectedTxFee = expectedTotalGas.computeFee(gasFees);
-    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
-    expect(output.transactionFee).toEqual(expectedTxFee);
+    expect(output!.endGasUsed).toEqual(expectedGasUsedForFee);
+    expect(output!.transactionFee).toEqual(expectedTxFee);
 
     // We keep all data.
-    expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(3);
+    expect(countAccumulatedItems(output!.accumulatedData.nullifiers)).toBe(3);
   });
 
   it('runs a tx with enqueued public calls in app logic phase only', async () => {
@@ -344,7 +344,7 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
-    expect(txResult.revertReason).toBe(undefined);
+    expect(txResult.findRevertReason()).toBeUndefined();
 
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(2); // For 2 app logic calls.
     const expectedTotalGas = privateGasUsed.add(expectedPublicGasUsed);
@@ -363,11 +363,11 @@ describe('public_tx_simulator', () => {
 
     const expectedGasUsedForFee = expectedTotalGas;
     const expectedTxFee = expectedTotalGas.computeFee(gasFees);
-    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
-    expect(output.transactionFee).toEqual(expectedTxFee);
+    expect(output!.endGasUsed).toEqual(expectedGasUsedForFee);
+    expect(output!.transactionFee).toEqual(expectedTxFee);
 
     // We keep all data.
-    expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(3);
+    expect(countAccumulatedItems(output!.accumulatedData.nullifiers)).toBe(3);
   });
 
   it('runs a tx with enqueued public calls in teardown phase only', async () => {
@@ -378,7 +378,7 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
-    expect(txResult.revertReason).toBe(undefined);
+    expect(txResult.findRevertReason()).toBeUndefined();
 
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
     const expectedTotalGas = privateGasUsed.add(expectedTeardownGasUsed);
@@ -396,11 +396,11 @@ describe('public_tx_simulator', () => {
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
-    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
-    expect(output.transactionFee).toEqual(expectedTxFee);
+    expect(output!.endGasUsed).toEqual(expectedGasUsedForFee);
+    expect(output!.transactionFee).toEqual(expectedTxFee);
 
     // We keep all data.
-    expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(3);
+    expect(countAccumulatedItems(output!.accumulatedData.nullifiers)).toBe(3);
   });
 
   it('runs a tx with all phases', async () => {
@@ -413,7 +413,7 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
-    expect(txResult.revertReason).toBe(undefined);
+    expect(txResult.findRevertReason()).toBeUndefined();
 
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(3); // 2 for setup and 1 for app logic.
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
@@ -442,11 +442,11 @@ describe('public_tx_simulator', () => {
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
-    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
-    expect(output.transactionFee).toEqual(expectedTxFee);
+    expect(output!.endGasUsed).toEqual(expectedGasUsedForFee);
+    expect(output!.transactionFee).toEqual(expectedTxFee);
 
     // We keep all data.
-    expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(3);
+    expect(countAccumulatedItems(output!.accumulatedData.nullifiers)).toBe(3);
   });
 
   it('deduplicates public data writes', async function () {
@@ -493,8 +493,8 @@ describe('public_tx_simulator', () => {
     const output = txResult.publicInputs;
 
     const numPublicDataWrites = 3;
-    expect(countAccumulatedItems(output.accumulatedData.publicDataWrites)).toBe(numPublicDataWrites);
-    expect(output.accumulatedData.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
+    expect(countAccumulatedItems(output!.accumulatedData.publicDataWrites)).toBe(numPublicDataWrites);
+    expect(output!.accumulatedData.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
       new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)), // 0x101 replaced with 0x103
       new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotB), fr(0x151)),
       new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)), // 0x201 replaced with 0x102 and then 0x152
@@ -591,7 +591,7 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
-    expect(txResult.revertReason).toBeUndefined();
+    expect(txResult.findRevertReason()).toBeUndefined();
 
     const expectedSetupGas = enqueuedCallGasUsed;
     const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
@@ -619,13 +619,13 @@ describe('public_tx_simulator', () => {
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
-    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
-    expect(output.transactionFee).toEqual(expectedTxFee);
+    expect(output!.endGasUsed).toEqual(expectedGasUsedForFee);
+    expect(output!.transactionFee).toEqual(expectedTxFee);
 
     // We keep all side effects
-    expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(8);
-    expect(countAccumulatedItems(output.accumulatedData.noteHashes)).toBe(8);
-    expect(countAccumulatedItems(output.accumulatedData.l2ToL1Msgs)).toBe(8);
+    expect(countAccumulatedItems(output!.accumulatedData.nullifiers)).toBe(8);
+    expect(countAccumulatedItems(output!.accumulatedData.noteHashes)).toBe(8);
+    expect(countAccumulatedItems(output!.accumulatedData.l2ToL1Msgs)).toBe(8);
 
     // Verify that the actual side effects are as expected and in the right order.
     const includedSiloedNullifiers = [
@@ -636,14 +636,14 @@ describe('public_tx_simulator', () => {
       // teardown
       siloedNullifiers[4],
     ];
-    expect(output.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
+    expect(output!.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
 
     const includedNoteHashes = [
       ...tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(n => !n.isZero()),
       noteHashes[0],
       // Cannot use actual revertible note hashes because the AVM will silo them and make them unique.
       // So we'd have to do so here to actually compare. For now, we just check that the correct number
-      // of nonzero revertible notes end up in the output.
+      // of nonzero revertible notes end up in the output!.
       //...tx.data.forPublic!.revertibleAccumulatedData.noteHashes.filter(n => !n.isZero()),
       ...Array.from(
         { length: tx.data.forPublic!.revertibleAccumulatedData.noteHashes.filter(n => !n.isZero()).length },
@@ -653,7 +653,7 @@ describe('public_tx_simulator', () => {
       // Teardown
       noteHashes[4],
     ];
-    expect(output.accumulatedData.noteHashes.filter(n => !n.isZero())).toEqual(includedNoteHashes);
+    expect(output!.accumulatedData.noteHashes.filter(n => !n.isZero())).toEqual(includedNoteHashes);
 
     const includedL2ToL1Messages = [
       ...tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty()),
@@ -663,7 +663,7 @@ describe('public_tx_simulator', () => {
       // Teardown
       l2ToL1Messages[4],
     ];
-    expect(output.accumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty())).toEqual(includedL2ToL1Messages);
+    expect(output!.accumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty())).toEqual(includedL2ToL1Messages);
 
     await checkNullifierRoot(txResult);
   });
@@ -722,7 +722,7 @@ describe('public_tx_simulator', () => {
 
     expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
     // tx reports app logic failure
-    expect(txResult.revertReason).toBe(appLogicFailure);
+    expect(txResult.findRevertReason()).toEqual(appLogicFailure);
 
     const expectedSetupGas = enqueuedCallGasUsed;
     const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
@@ -750,13 +750,13 @@ describe('public_tx_simulator', () => {
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
-    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
-    expect(output.transactionFee).toEqual(expectedTxFee);
+    expect(output!.endGasUsed).toEqual(expectedGasUsedForFee);
+    expect(output!.transactionFee).toEqual(expectedTxFee);
 
     // We keep only the non-revertible data and setup
-    expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(4);
-    expect(countAccumulatedItems(output.accumulatedData.noteHashes)).toBe(4);
-    expect(countAccumulatedItems(output.accumulatedData.l2ToL1Msgs)).toBe(4);
+    expect(countAccumulatedItems(output!.accumulatedData.nullifiers)).toBe(4);
+    expect(countAccumulatedItems(output!.accumulatedData.noteHashes)).toBe(4);
+    expect(countAccumulatedItems(output!.accumulatedData.l2ToL1Msgs)).toBe(4);
 
     // Verify that the actual side effects are as expected and in the right order.
     const includedSiloedNullifiers = [
@@ -768,7 +768,7 @@ describe('public_tx_simulator', () => {
       // teardown
       siloedNullifiers[4],
     ];
-    expect(output.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
+    expect(output!.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
 
     const includedNoteHashes = [
       ...tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(n => !n.isZero()),
@@ -776,7 +776,7 @@ describe('public_tx_simulator', () => {
       // Teardown
       noteHashes[4],
     ];
-    expect(output.accumulatedData.noteHashes.filter(n => !n.isZero())).toEqual(includedNoteHashes);
+    expect(output!.accumulatedData.noteHashes.filter(n => !n.isZero())).toEqual(includedNoteHashes);
 
     const includedL2ToL1Messages = [
       ...tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty()),
@@ -784,7 +784,7 @@ describe('public_tx_simulator', () => {
       // Teardown
       l2ToL1Messages[4],
     ];
-    expect(output.accumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty())).toEqual(includedL2ToL1Messages);
+    expect(output!.accumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty())).toEqual(includedL2ToL1Messages);
 
     await checkNullifierRoot(txResult);
   });
@@ -842,7 +842,7 @@ describe('public_tx_simulator', () => {
     const txResult = await simulator.simulate(tx);
 
     expect(txResult.revertCode).toEqual(RevertCode.TEARDOWN_REVERTED);
-    expect(txResult.revertReason).toBe(teardownFailure);
+    expect(txResult.findRevertReason()).toEqual(teardownFailure);
 
     const expectedSetupGas = enqueuedCallGasUsed;
     const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
@@ -871,13 +871,13 @@ describe('public_tx_simulator', () => {
     // Should still charge the full teardownGasLimits for fee even though teardown reverted.
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
-    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
-    expect(output.transactionFee).toEqual(expectedTxFee);
+    expect(output!.endGasUsed).toEqual(expectedGasUsedForFee);
+    expect(output!.transactionFee).toEqual(expectedTxFee);
 
     // We keep only the non-revertible data and setup
-    expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(3);
-    expect(countAccumulatedItems(output.accumulatedData.noteHashes)).toBe(3);
-    expect(countAccumulatedItems(output.accumulatedData.l2ToL1Msgs)).toBe(3);
+    expect(countAccumulatedItems(output!.accumulatedData.nullifiers)).toBe(3);
+    expect(countAccumulatedItems(output!.accumulatedData.noteHashes)).toBe(3);
+    expect(countAccumulatedItems(output!.accumulatedData.l2ToL1Msgs)).toBe(3);
 
     // Verify that the actual side effects are as expected and in the right order.
     const includedSiloedNullifiers = [
@@ -887,19 +887,19 @@ describe('public_tx_simulator', () => {
       //...tx.data.forPublic!.revertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
       //..siloedNullifiers[1...4]
     ];
-    expect(output.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
+    expect(output!.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
 
     const includedNoteHashes = [
       ...tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(n => !n.isZero()),
       noteHashes[0],
     ];
-    expect(output.accumulatedData.noteHashes.filter(n => !n.isZero())).toEqual(includedNoteHashes);
+    expect(output!.accumulatedData.noteHashes.filter(n => !n.isZero())).toEqual(includedNoteHashes);
 
     const includedL2ToL1Messages = [
       ...tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty()),
       l2ToL1Messages[0],
     ];
-    expect(output.accumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty())).toEqual(includedL2ToL1Messages);
+    expect(output!.accumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty())).toEqual(includedL2ToL1Messages);
     await checkNullifierRoot(txResult);
   });
 
@@ -952,7 +952,7 @@ describe('public_tx_simulator', () => {
 
     expect(txResult.revertCode).toEqual(RevertCode.BOTH_REVERTED);
     // tx reports app logic failure
-    expect(txResult.revertReason).toBe(appLogicFailure);
+    expect(txResult.findRevertReason()).toEqual(appLogicFailure);
 
     const expectedSetupGas = enqueuedCallGasUsed;
     const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
@@ -981,13 +981,13 @@ describe('public_tx_simulator', () => {
     // Should still charge the full teardownGasLimits for fee even though teardown reverted.
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
     const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
-    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
-    expect(output.transactionFee).toEqual(expectedTxFee);
+    expect(output!.endGasUsed).toEqual(expectedGasUsedForFee);
+    expect(output!.transactionFee).toEqual(expectedTxFee);
 
     // We keep only the non-revertible data and setup
-    expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(3);
-    expect(countAccumulatedItems(output.accumulatedData.noteHashes)).toBe(3);
-    expect(countAccumulatedItems(output.accumulatedData.l2ToL1Msgs)).toBe(3);
+    expect(countAccumulatedItems(output!.accumulatedData.nullifiers)).toBe(3);
+    expect(countAccumulatedItems(output!.accumulatedData.noteHashes)).toBe(3);
+    expect(countAccumulatedItems(output!.accumulatedData.l2ToL1Msgs)).toBe(3);
 
     const includedSiloedNullifiers = [
       ...tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
@@ -996,7 +996,7 @@ describe('public_tx_simulator', () => {
       //...tx.data.forPublic!.revertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
       //..siloedNullifiers[1...4]
     ];
-    expect(output.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
+    expect(output!.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
     await checkNullifierRoot(txResult);
   });
 
@@ -1047,6 +1047,7 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
     expect(txResult.revertCode).toEqual(RevertCode.OK);
+    expect(txResult.findRevertReason()).toBeUndefined();
 
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(2); // 1 for setup and 1 for app logic.
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
@@ -1062,11 +1063,11 @@ describe('public_tx_simulator', () => {
     const output = txResult.publicInputs;
 
     const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
-    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
+    expect(output!.endGasUsed).toEqual(expectedGasUsedForFee);
 
     const totalFees = new GasFees(2 + 5, 3 + 7);
     const expectedTxFee = expectedGasUsedForFee.computeFee(totalFees);
-    expect(output.transactionFee).toEqual(expectedTxFee);
+    expect(output!.transactionFee).toEqual(expectedTxFee);
   });
 
   describe('fees', () => {
@@ -1084,6 +1085,7 @@ describe('public_tx_simulator', () => {
 
       const txResult = await simulator.simulate(tx);
       expect(txResult.revertCode).toEqual(RevertCode.OK);
+      expect(txResult.findRevertReason()).toBeUndefined();
     });
 
     it('fails if fee payer cant pay for the tx', async () => {
@@ -1115,6 +1117,7 @@ describe('public_tx_simulator', () => {
         }),
       );
       expect(txResult.revertCode).toEqual(RevertCode.OK);
+      expect(txResult.findRevertReason()).toBeUndefined();
     });
   });
 
@@ -1137,8 +1140,9 @@ describe('public_tx_simulator', () => {
     expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
 
     // Verify that the SimulationError contains information about the nullifier collision
-    const simulationError = txResult.revertReason as SimulationError;
-    expect(simulationError.getOriginalMessage()).toContain('Nullifier collision');
+    const revertReason = txResult.findRevertReason();
+    expect(revertReason).toBeDefined();
+    expect(revertReason?.getOriginalMessage()).toContain('Nullifier collision');
   });
 
   describe('prover id', () => {
@@ -1149,7 +1153,7 @@ describe('public_tx_simulator', () => {
 
       const txResult = await simulator.simulate(tx);
 
-      expect(txResult.publicInputs.proverId).toEqual(Fr.ZERO);
+      expect(txResult.publicInputs?.proverId).toEqual(Fr.ZERO);
     });
 
     it('exposes the prover id in public inputs', async () => {
@@ -1163,7 +1167,7 @@ describe('public_tx_simulator', () => {
 
       const txResult = await simulator.simulate(tx);
 
-      expect(txResult.publicInputs.proverId).toEqual(proverId);
+      expect(txResult.publicInputs?.proverId).toEqual(proverId);
     });
   });
 
@@ -1280,7 +1284,9 @@ describe('public_tx_simulator', () => {
 
       const txResult = await simulator.simulate(tx);
       expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
-      expect(txResult.revertReason?.message).toContain(new NullifierLimitReachedError().message);
+      const revertReason = txResult.findRevertReason();
+      expect(revertReason).toBeDefined();
+      expect(revertReason?.getOriginalMessage()).toContain(new NullifierLimitReachedError().message);
     });
 
     it('"Checked" error during revertible note hash insertion should be caught', async () => {
@@ -1301,7 +1307,9 @@ describe('public_tx_simulator', () => {
       });
       const txResult = await simulator.simulate(tx);
       expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
-      expect(txResult.revertReason?.message).toContain(new NoteHashLimitReachedError().message);
+      const revertReason = txResult.findRevertReason();
+      expect(revertReason).toBeDefined();
+      expect(revertReason?.getOriginalMessage()).toContain(new NoteHashLimitReachedError().message);
     });
 
     it('"Checked" error during revertible l2 to l1 message insertion should be caught', async () => {
@@ -1326,7 +1334,9 @@ describe('public_tx_simulator', () => {
 
       const txResult = await simulator.simulate(tx);
       expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
-      expect(txResult.revertReason?.message).toContain(new L2ToL1MessageLimitReachedError().message);
+      const revertReason = txResult.findRevertReason();
+      expect(revertReason).toBeDefined();
+      expect(revertReason?.getOriginalMessage()).toContain(new L2ToL1MessageLimitReachedError().message);
     });
   });
 
