@@ -54,13 +54,13 @@ template <typename Curve> class MergeVerifier_ {
 
     /**
      * @brief Result of merge verification
-     * @details Contains pairing points for KZG verification, merged table commitments, and degree check status
+     * @details Contains pairing points for KZG verification, merged table commitments, and aggregate check status.
+     * Individual check results are logged internally by the verifier.
      */
     struct VerificationResult {
         PairingPoints pairing_points;
         TableCommitments merged_commitments;
-        bool degree_check_passed;
-        bool concatenation_check_passed;
+        bool verified = false; // Aggregate of degree and concatenation checks
     };
 
     MergeSettings settings;

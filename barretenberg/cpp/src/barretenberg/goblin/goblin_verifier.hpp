@@ -56,8 +56,9 @@ template <typename Curve> class GoblinVerifier_ {
         IPAClaim ipa_claim;           // IPA opening claim from ECCVM - accumulated, verified natively by base, verified
                                       // in-circuit at root
         IPAProof ipa_proof;           // IPA proof - used for deferred verification
-        bool all_checks_passed; // Responsible for all native checks except for IPA verification, tracks the results of
-                                // several identity checks in-circuit (should be viewed as debug info)
+        bool all_checks_passed = false; // Responsible for all native checks except for IPA verification, tracks the
+                                        // results of several identity checks in-circuit (should be viewed as debug
+                                        // info). Defaults to false for fail-fast early returns.
     };
 
     /**

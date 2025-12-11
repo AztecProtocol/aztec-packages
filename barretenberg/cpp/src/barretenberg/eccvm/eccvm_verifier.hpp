@@ -85,10 +85,15 @@ template <typename Flavor> class ECCVMVerifier_ {
     // Verification flags (native only, recursive uses circuit assertions)
     bool sumcheck_verified = false;
     bool consistency_checked = false;
+    bool translation_masking_consistency_checked = false;
     std::shared_ptr<Transcript> transcript;
     TranslationEvaluations_<FF> translation_evaluations;
 
-    bool translation_masking_consistency_checked = false;
+    // Aggregate check for fail-fast
+    [[nodiscard]] bool verified() const
+    {
+        return sumcheck_verified && consistency_checked && translation_masking_consistency_checked;
+    }
 
   private:
     // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier

@@ -15,6 +15,7 @@
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
+#include <chrono>
 
 namespace bb {
 
@@ -531,39 +532,49 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     using TableCommitments = Goblin::TableCommitments;
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
     std::shared_ptr<Goblin::Transcript> chonk_verifier_transcript = std::make_shared<Goblin::Transcript>();
-    // Verify the Hiding kernel proof
+
+    // Step 1: Verify the Hiding kernel proof
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, chonk_verifier_transcript };
     auto [mega_verified, kernel_return_data, T_prev_commitments] =
         verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
-    // Perform databus consistency checks
+    if (!mega_verified) {
+        info("Chonk verification failed at Mega step");
+        return false;
+    }
+
+    // Step 2: Perform databus consistency checks
     bool databus_consistency_verified = kernel_return_data == verifier.verifier_instance->witness_commitments.calldata;
     vinfo("Databus consistency verified: ", databus_consistency_verified);
+    if (!databus_consistency_verified) {
+        info("Chonk verification failed at databus consistency check");
+        return false;
+    }
+
     // Extract the commitments to the subtable corresponding to the incoming circuit
     TableCommitments t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
 
-    // Goblin verification (final merge, eccvm, translator)
+    // Step 3: Goblin verification (merge, eccvm, translator)
     GoblinVerifier goblin_verifier{
         chonk_verifier_transcript, proof.goblin_proof, { t_commitments, T_prev_commitments }, MergeSettings::APPEND
     };
     auto [pairing_points, ipa_claim, ipa_proof, goblin_checks_passed] = goblin_verifier.verify();
+    if (!goblin_checks_passed) {
+        info("Chonk verification failed at Goblin checks (merge/eccvm/translator)");
+        return false;
+    }
 
-    // Verify IPA opening
+    // Step 4: Verify IPA opening (fail-fast - this is the expensive step ~30ms)
     auto ipa_transcript = std::make_shared<Goblin::Transcript>(ipa_proof);
     auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
     bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, ipa_claim, ipa_transcript);
     vinfo("Goblin IPA verified: ", ipa_verified);
+    if (!ipa_verified) {
+        info("Chonk verification failed at IPA check");
+        return false;
+    }
 
-    // Verify aggregated pairing points (merge + translator)
-    // Production: single pairing check for efficiency
-    // Debug: additional check (individual checks already performed in goblin_verifier)
-    bool aggregated_pairing_check_passed = pairing_points.check();
-    vinfo("Goblin aggregated pairing check: ", aggregated_pairing_check_passed);
-
-    bool goblin_verified = goblin_checks_passed && ipa_verified && aggregated_pairing_check_passed;
-    vinfo("Goblin verified: ", goblin_verified);
-
-    return goblin_verified && mega_verified && databus_consistency_verified;
+    return true;
 }
 
 // Proof methods

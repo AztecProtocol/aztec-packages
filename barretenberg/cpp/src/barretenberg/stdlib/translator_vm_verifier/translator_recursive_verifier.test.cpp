@@ -199,8 +199,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
                                       recursive_inputs.accumulated_result_native,
                                       recursive_inputs.native_op_queue_commitments);
         auto native_result = native_verifier.verify_proof();
-        bool native_verified = native_result.pairing_points.check() && native_result.sumcheck_verified &&
-                               native_result.consistency_checked;
+        bool native_verified = native_result.pairing_points.check() && native_result.verified;
 
         NativeVerifierCommitmentKey pcs_vkey{};
         auto recursive_verified = pcs_vkey.pairing_check(recursive_result.pairing_points.P0.get_value(),

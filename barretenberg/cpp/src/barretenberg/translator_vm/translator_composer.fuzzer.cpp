@@ -60,7 +60,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     TranslatorVerifier verifier(
         verifier_transcript, proof, x, translation_batching_challenge, accumulated_result, op_queue_commitments);
     auto verification_result = verifier.verify_proof();
-    bool verified = verification_result.sumcheck_verified && verification_result.consistency_checked;
+    bool verified = verification_result.verified;
     (void)checked;
     (void)verified;
     return 0;

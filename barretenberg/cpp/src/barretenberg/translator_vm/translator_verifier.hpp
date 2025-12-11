@@ -44,12 +44,12 @@ template <typename Flavor> class TranslatorVerifier_ {
 
     /**
      * @brief Result of translator verification
-     * @details Contains pairing points for KZG verification and status of verification checks
+     * @details Contains pairing points for KZG verification and aggregate check status.
+     * Individual check results are logged internally by the verifier.
      */
     struct VerificationResult {
         PairingPoints pairing_points;
-        bool sumcheck_verified;
-        bool consistency_checked;
+        bool verified = false; // Aggregate of sumcheck and consistency checks
     };
 
     /**

@@ -106,7 +106,7 @@ class TranslatorTests : public ::testing::Test {
 
         // Verify proof: get verification result and check all components
         auto result = verifier.verify_proof();
-        return result.pairing_points.check() && result.sumcheck_verified && result.consistency_checked;
+        return result.pairing_points.check() && result.verified;
     }
 };
 

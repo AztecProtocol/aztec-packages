@@ -238,7 +238,10 @@ typename TranslatorVerifier_<Flavor>::VerificationResult TranslatorVerifier_<Fla
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 
-    return { pairing_points, sumcheck_output.verified, consistency_checked };
+    vinfo("Translator Verifier: sumcheck verified: ", sumcheck_output.verified);
+    vinfo("Translator Verifier: consistency checked: ", consistency_checked);
+
+    return { pairing_points, sumcheck_output.verified && consistency_checked };
 }
 
 // Explicit instantiations

@@ -6,6 +6,7 @@
 
 #include "merge_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 
@@ -209,7 +210,10 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     // KZG verifier - returns PairingPoints directly
     PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), transcript);
 
-    return { pairing_points, merged_table_commitments, degree_check_verified, concatenation_verified };
+    vinfo("Merge Verifier: degree check passed: ", degree_check_verified);
+    vinfo("Merge Verifier: concatenation check passed: ", concatenation_verified);
+
+    return { pairing_points, merged_table_commitments, degree_check_verified && concatenation_verified };
 }
 
 // Explicit template instantiations
