@@ -925,8 +925,9 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     if (some_final_check_failed) {
         FF power_of_2 = 1;
         for (size_t i = 0; i < AVM_MAX_OPERANDS; ++i) {
-            batched_tags_diff +=
-                FF(is_indirect_effective[i] ? 1 : 0) * power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
+            if (should_apply_indirection[i]) {
+                batched_tags_diff += power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
+            }
             power_of_2 *= 8; // 2^3
         }
     }
