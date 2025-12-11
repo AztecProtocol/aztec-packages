@@ -49,9 +49,9 @@ echo ""
 echo "Files updated:"
 for cli in "${CLIS[@]}"; do
   if [[ "$cli" == "aztec" ]]; then
-    filename="cli_reference_autogen.md"
+    filename="cli_reference.md"
   else
-    filename="cli_wallet_reference_autogen.md"
+    filename="cli_wallet_reference.md"
   fi
   if [[ -n "$OUTPUT_DIR" ]]; then
     echo "  - $OUTPUT_DIR/$filename"

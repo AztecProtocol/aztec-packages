@@ -6,7 +6,7 @@
 #   ./scripts/cli_reference_generation/update_cli_docs.sh aztec                    # Updates aztec CLI, all versions
 #   ./scripts/cli_reference_generation/update_cli_docs.sh aztec-wallet current     # Updates aztec-wallet CLI, current only
 #   ./scripts/cli_reference_generation/update_cli_docs.sh aztec v2.0.2             # Updates aztec CLI, v2.0.2 only
-#   ./scripts/cli_reference_generation/update_cli_docs.sh aztec v2.0.2 /tmp/       # Outputs to /tmp/cli_reference_autogen.md
+#   ./scripts/cli_reference_generation/update_cli_docs.sh aztec v2.0.2 /tmp/       # Outputs to /tmp/cli_reference.md
 
 set -euo pipefail  # Added 'u' for undefined variable check, 'o pipefail' for pipe failures
 
@@ -107,14 +107,14 @@ case "$CLI_NAME" in
   aztec)
     DISPLAY_NAME="Aztec CLI"
     TITLE="Aztec CLI Reference"
-    OUTPUT_FILE="cli_reference_autogen.md"
+    OUTPUT_FILE="cli_reference.md"
     SIDEBAR_POSITION="3"
     COMMAND="aztec"
     ;;
   aztec-wallet)
     DISPLAY_NAME="Aztec Wallet CLI"
-    TITLE="Aztec Wallet CLI Reference"
-    OUTPUT_FILE="cli_wallet_reference_autogen.md"
+    TITLE="Reference"
+    OUTPUT_FILE="cli_wallet_reference.md"
     SIDEBAR_POSITION="10"
     COMMAND="aztec-wallet"
     ;;
@@ -144,7 +144,7 @@ TAGS+="]"
 
 cat > "$TEMP_WITH_FRONTMATTER" << EOF
 ---
-title: ${TITLE} (Auto-generated)
+title: ${TITLE}
 description: Comprehensive auto-generated reference for the ${DISPLAY_NAME} command-line interface with all commands and options.
 tags: ${TAGS}
 sidebar_position: ${SIDEBAR_POSITION}
@@ -196,9 +196,9 @@ update_version() {
   esac
 
   if [[ "$version" == "current" ]]; then
-    target_dir="$DOCS_ROOT/docs/developers/docs/${cli_dir}"
+    target_dir="$DOCS_ROOT/docs-developers/docs/${cli_dir}"
   else
-    target_dir="$DOCS_ROOT/versioned_docs/version-${version}/developers/docs/${cli_dir}"
+    target_dir="$DOCS_ROOT/developer_versioned_docs/version-${version}/docs/${cli_dir}"
   fi
 
   if [[ ! -d "$target_dir" ]]; then
