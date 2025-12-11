@@ -181,7 +181,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     await watcher.start();
   }
 
-  const telemetry = initTelemetryClient(getTelemetryClientConfig());
+  const telemetry = await initTelemetryClient(getTelemetryClientConfig());
   // Create a local blob sink client inside the local network, no http connectivity
   const blobSinkClient = createBlobSinkClient();
   const node = await createAztecNode(
