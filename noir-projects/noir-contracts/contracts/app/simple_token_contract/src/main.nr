@@ -136,7 +136,10 @@ pub contract SimpleToken {
         self.storage.balances.at(from).add(change).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
         self.storage.balances.at(to).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
-        self.emit(Transfer { from, to, amount }, to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.emit(Transfer { from, to, amount }).deliver_to(
+            to,
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
     }
 
     #[authorize_once("from", "authwit_nonce")]
