@@ -7,8 +7,8 @@ export {
   UltraHonkVerifierBackend,
   UltraHonkBackend,
   AztecClientBackend,
-  fieldToDecimalString,
-  fieldsToDecimalStrings,
+  fieldToString,
+  fieldsToStrings,
   type UltraHonkBackendOptions,
   type VerifierTarget,
 } from './barretenberg/index.js';

@@ -388,37 +388,39 @@ function base64Decode(input: string): Uint8Array {
 }
 
 /**
- * Convert a field element (32-byte Uint8Array) to a decimal string.
+ * Convert a field element (32-byte Uint8Array) to a string.
  *
  * @param field - A 32-byte field element
- * @returns The field value as a decimal string
+ * @param radix - The radix for string conversion (2-36), defaults to 10 (decimal)
+ * @returns The field value as a string in the specified radix
  *
  * @example
- * const value = fieldToDecimalString(field);
- * // value is "12345678"
+ * const decimal = fieldToString(field);        // "12345678"
+ * const hex = fieldToString(field, 16);        // "bc614e"
  */
-export function fieldToDecimalString(field: Uint8Array): string {
+export function fieldToString(field: Uint8Array, radix: number = 10): string {
   let result = 0n;
   for (const byte of field) {
     result <<= 8n;
     result += BigInt(byte);
   }
-  return result.toString();
+  return result.toString(radix);
 }
 
 /**
- * Convert an array of field elements to an array of decimal strings.
+ * Convert an array of field elements to an array of strings.
  * Useful for passing VK fields to Noir circuits.
  *
  * @param fields - Array of 32-byte field elements
- * @returns Array of decimal strings
+ * @param radix - The radix for string conversion (2-36), defaults to 10 (decimal)
+ * @returns Array of strings in the specified radix
  *
  * @example
  * const vkAsFields = await barretenbergAPI.vkAsFields({ verificationKey: vk });
- * const vkFieldStrings = fieldsToDecimalStrings(vkAsFields.fields);
- * // vkFieldStrings is ["12345678", "87654321", ...]
+ * const vkDecimalStrings = fieldsToStrings(vkAsFields.fields);      // ["12345678", "87654321", ...]
+ * const vkHexStrings = fieldsToStrings(vkAsFields.fields, 16);      // ["bc614e", "5397fb1", ...]
  */
-export function fieldsToDecimalStrings(fields: Uint8Array[]): string[] {
-  return fields.map(field => fieldToDecimalString(field));
+export function fieldsToStrings(fields: Uint8Array[], radix: number = 10): string[] {
+  return fields.map(field => fieldToString(field, radix));
 }
 
