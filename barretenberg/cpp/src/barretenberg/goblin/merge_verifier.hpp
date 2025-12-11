@@ -3,10 +3,7 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-//
-// Merge protocol verifier (native + recursive). Verifies op queue table merging.
-// See: goblin/MERGE_PROTOCOL.md
-//
+
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
@@ -20,7 +17,7 @@ namespace bb {
 
 /**
  * @brief Unified verifier class for the Goblin ECC op queue transcript merge protocol
- * @details Works for both native verification and recursive (in-circuit) verification
+ * @details Verifies op queue table merging. See: goblin/MERGE_PROTOCOL.md
  * @tparam Curve The curve type (native curve::BN254 or stdlib bn254<Builder>)
  */
 template <typename Curve> class MergeVerifier_ {

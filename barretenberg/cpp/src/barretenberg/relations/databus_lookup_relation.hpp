@@ -3,10 +3,7 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-//
-// Databus lookup relation for inter-circuit data passing.
-// See: chonk/README.md#databus
-//
+
 #pragma once
 #include <array>
 #include <tuple>
