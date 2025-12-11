@@ -12,14 +12,14 @@ pub contract EcdsaRAccount {
         },
         messages::message_delivery::MessageDelivery,
         oracle::{auth_witness::get_auth_witness, notes::{get_sender_for_tags, set_sender_for_tags}},
-        state_vars::{Owned, PrivateImmutable},
+        state_vars::SinglePrivateImmutable,
     };
 
     use dep::ecdsa_public_key_note::EcdsaPublicKeyNote;
 
     #[storage]
     struct Storage<Context> {
-        signing_public_key: Owned<PrivateImmutable<EcdsaPublicKeyNote, Context>, Context>,
+        signing_public_key: SinglePrivateImmutable<EcdsaPublicKeyNote, Context>,
     }
 
     // Creates a new account out of an ECDSA public key to use for signature verification
@@ -41,7 +41,9 @@ pub contract EcdsaRAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(self.address) };
-        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).deliver(
+        // The note message gets delivered to the note owner which is set by the SinglePrivateImmutable to be this
+        // contract.
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
         // Safety: Comment from above applies here as well.
@@ -75,7 +77,7 @@ pub contract EcdsaRAccount {
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Load public key from storage
         let storage = Storage::init(context);
-        let public_key = storage.signing_public_key.at(context.this_address()).get_note();
+        let public_key = storage.signing_public_key.get_note();
 
         // Load auth witness
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.

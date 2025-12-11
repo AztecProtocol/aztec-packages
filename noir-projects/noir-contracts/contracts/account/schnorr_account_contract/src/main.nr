@@ -25,7 +25,7 @@ pub contract SchnorrAccount {
             notes::{get_sender_for_tags, set_sender_for_tags},
         },
         protocol_types::address::AztecAddress,
-        state_vars::{Owned, PrivateImmutable},
+        state_vars::SinglePrivateImmutable,
     };
 
     use crate::public_key_note::PublicKeyNote;
@@ -33,7 +33,7 @@ pub contract SchnorrAccount {
     #[storage]
     struct Storage<Context> {
         // docs:start:public_key
-        signing_public_key: Owned<PrivateImmutable<PublicKeyNote, Context>, Context>,
+        signing_public_key: SinglePrivateImmutable<PublicKeyNote, Context>,
         // docs:end:public_key
     }
 
@@ -56,7 +56,9 @@ pub contract SchnorrAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(self.address) };
-        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).deliver(
+        // The note message gets delivered to the note owner which is set by the SinglePrivateImmutable to be this
+        // contract.
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
         // Safety: Comment from above applies here as well.
@@ -91,7 +93,7 @@ pub contract SchnorrAccount {
         // docs:start:is_valid_impl
         // Load public key from storage
         let storage = Storage::init(context);
-        let public_key = storage.signing_public_key.at(context.this_address()).get_note();
+        let public_key = storage.signing_public_key.get_note();
 
         // Load auth witness
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
@@ -120,7 +122,7 @@ pub contract SchnorrAccount {
     */
     #[external("utility")]
     unconstrained fn lookup_validity(consumer: AztecAddress, inner_hash: Field) -> bool {
-        let public_key = self.storage.signing_public_key.at(self.address).view_note();
+        let public_key = self.storage.signing_public_key.view_note();
 
         let message_hash = compute_authwit_message_hash(
             consumer,
