@@ -69,18 +69,28 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
     using BF = typename Flavor::BF;
 
     const auto compute_four_limbs = [](const BF& in) {
-        return std::array<FF, 4>{ FF(in.binary_basis_limbs[0].element),
-                                  FF(in.binary_basis_limbs[1].element),
-                                  FF(in.binary_basis_limbs[2].element),
-                                  FF(in.binary_basis_limbs[3].element) };
+        auto result = std::array<FF, 4>{ FF(in.binary_basis_limbs[0].element),
+                                         FF(in.binary_basis_limbs[1].element),
+                                         FF(in.binary_basis_limbs[2].element),
+                                         FF(in.binary_basis_limbs[3].element) };
+        // Ensure extracted limbs are witnesses, not constants
+        for (const auto& limb : result) {
+            BB_ASSERT(!limb.is_constant());
+        }
+        return result;
     };
 
     const auto compute_five_limbs = [](const BF& in) {
-        return std::array<FF, 5>{ FF(in.binary_basis_limbs[0].element),
-                                  FF(in.binary_basis_limbs[1].element),
-                                  FF(in.binary_basis_limbs[2].element),
-                                  FF(in.binary_basis_limbs[3].element),
-                                  FF(in.prime_basis_limb) };
+        auto result = std::array<FF, 5>{ FF(in.binary_basis_limbs[0].element),
+                                         FF(in.binary_basis_limbs[1].element),
+                                         FF(in.binary_basis_limbs[2].element),
+                                         FF(in.binary_basis_limbs[3].element),
+                                         FF(in.prime_basis_limb) };
+        // Ensure extracted limbs are witnesses, not constants
+        for (const auto& limb : result) {
+            BB_ASSERT(!limb.is_constant());
+        }
+        return result;
     };
 
     relation_parameters.evaluation_input_x = compute_five_limbs(evaluation_input_x);
@@ -93,8 +103,15 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
 
     relation_parameters.accumulated_result = compute_four_limbs(accumulated_result);
 
-    // OriginTag: The accumulated result limbs are evaluation claims that will be checked by
-    // `TranslatorAccumulatorTransferRelationImpl`.
+    // OriginTag: The accumulated_result limbs originate from ECCVM verifier (different protocol phase)
+    // and are used directly in Translator relations without challenge-batching, which normally triggers
+    // a round provenance mismatch. This cross-protocol usage is sound because:
+    // 1. ECCVM proves correctness of translation evaluations via its own sumcheck + IPA
+    // 2. ECCVM computes accumulated_result = (op + v·Px + v²·Py + v³·z1 + v⁴·z2 - masking) / x
+    // 3. Translator re-computes the same accumulator non-natively in its circuit
+    // 4. TranslatorAccumulatorTransferRelationImpl enforces exact equality at the final row:
+    //    accumulators_binary_limbs_i == accumulated_result[i] for i ∈ {0,1,2,3}
+    // This binds the two protocols - Translator output must match ECCVM claim.
     for (auto& limb : relation_parameters.accumulated_result) {
         limb.clear_round_provenance();
     }

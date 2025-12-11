@@ -126,7 +126,10 @@ template <typename Flavor> class TranslatorVerifier_ {
 
     /**
      * @brief Populate relation parameters with translation data from ECCVM verifier
-     * @details Converts the translation challenges and accumulated result into limbs for use in Translator relations.
+     * @details Converts the translation challenges and accumulated result into limbs.
+     * - evaluation_input_x and batching_challenge_v: 5 limbs (4 binary + 1 prime), see TranslatorNonNativeFieldRelation
+     * - accumulated_result: 4 binary limbs only as they are sufficient for equality checking, see
+     * TranslatorAccumulatorTransferRelationImpl
      * Native uses uint256_t::slice, recursive uses BF::binary_basis_limbs.
      */
     void put_translation_data_in_relation_parameters();

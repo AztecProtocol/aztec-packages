@@ -22,7 +22,7 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     vinfo("Merge Verifier: degree check identity passed: ", merge_result.degree_check_passed);
     vinfo("Merge Verifier: concatenation identity passed: ", merge_result.concatenation_check_passed);
 
-    bool merge_pairing_check_passed = true;
+    bool merge_pairing_check_passed = false;
     if constexpr (!IsRecursive) {
         merge_pairing_check_passed = merge_result.pairing_points.check();
         vinfo("  Merge Pairing check: ", merge_pairing_check_passed);
@@ -59,7 +59,7 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     vinfo(" Translator Verifier: Sumcheck verified: ", translator_result.sumcheck_verified);
     vinfo(" Translator Verifier: Libra Consistency checked: ", translator_result.consistency_checked);
 
-    bool translator_pairing_check_passed = true;
+    bool translator_pairing_check_passed = false;
     if constexpr (!IsRecursive) {
         translator_pairing_check_passed = translator_result.pairing_points.check();
         vinfo("  Translator Pairing check:               ", translator_pairing_check_passed);

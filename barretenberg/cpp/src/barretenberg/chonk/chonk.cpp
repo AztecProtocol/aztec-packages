@@ -557,7 +557,6 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     bool goblin_verified = goblin_checks_passed && ipa_verified;
     vinfo("Goblin verified: ", goblin_verified);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in Chonk verifiers.
     return goblin_verified && mega_verified && databus_consistency_verified;
 }
 
