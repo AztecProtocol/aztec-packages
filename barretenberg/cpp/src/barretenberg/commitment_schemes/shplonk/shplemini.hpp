@@ -161,30 +161,6 @@ template <typename Curve> class ShpleminiProver_ {
  * method of a chosen PCS. However, it would be less efficient than ShpleminiVerifier in terms of group and field
  * operations.
  *
- * \subsection Implementation
- *
- * The method \ref compute_batch_opening_claim receives commitments to all prover polynomials, their claimed
- * evaluations, the sumcheck challenge, the group element \f$ [1]_1 \f$, and a pointer to the transcript. Its logic
- * could be divided into several steps:
- *
- * 1. Receive most of the challenges and prover data.
- * 2. Run the \ref batch_multivariate_opening_claims method corresponding to step 1 above.
- * 3. Corresponding to step 2 above:
- *    - Run the \ref batch_gemini_claims_received_from_prover method.
- *    - Compute the evaluation of the Gemini batched univariate.
- * 4. Output a \ref bb::BatchOpeningClaim<Curve> "batch opening claim", which is a atriple \f$ (\text{commitments},
- * \text{scalars}, \text{shplonk_evaluation_point}) \f$ that satisfies the following: \f[ \text{batch_mul}
- * (\text{commitments},\ \text{scalars}) = \text{shplonk_opening_claim}.\text{point} \f] and the sizes of 'commitments'
- * and 'scalars' are equal to: \f[
- * \#\text{claimed_evaluations} + \text{log_n} + 2
- * \f]
- *
- * The output triple is either fed to the corresponding \ref bb::KZG< Curve_ >::reduce_verify_batch_opening_claim
- * "KZG method" or \ref bb::IPA< Curve_ >::reduce_verify_batch_opening_claim "IPA method". In the case of KZG, we reduce
- * \f$ 6 \f$ batch_mul calls needed for the verification of the multivariate evaluation claims to the single batch_mul
- * described above. In the case of IPA, the total number of batch_mul calls needed to verify the multivariate evaluation
- * claims is reduced by \f$ 5 \f$.
- *
  */
 
 template <typename Curve> class ShpleminiVerifier_ {
@@ -198,8 +174,28 @@ template <typename Curve> class ShpleminiVerifier_ {
 
   public:
     /**
-     * @brief Non-padding version of \ref compute_batch_opening_claim. Used by all native verifiers and by recursive
-     * Translator and ECCVM verifiers.
+     * @brief This method receives commitments to all prover polynomials, their claimed
+     * evaluations, the sumcheck challenge, the group element \f$ [1]_1 \f$, and a pointer to the transcript.
+     * @details The logic of this method could be divided into several steps:
+     *
+     * 1. Receive most of the challenges and prover data.
+     * 2. Run the \ref batch_multivariate_opening_claims method corresponding to step 1 above.
+     * 3. Corresponding to step 2 above:
+     *    - Run the \ref batch_gemini_claims_received_from_prover method.
+     *    - Compute the evaluation of the Gemini batched univariate.
+     * 4. Output a \ref bb::BatchOpeningClaim<Curve> "batch opening claim", which is a atriple \f$ (\text{commitments},
+     * \text{scalars}, \text{shplonk_evaluation_point}) \f$ that satisfies the following: \f[ \text{batch_mul}
+     * (\text{commitments},\ \text{scalars}) = \text{shplonk_opening_claim}.\text{point} \f] and the sizes of
+     * 'commitments' and 'scalars' are equal to: \f[
+     * \#\text{claimed_evaluations} + \text{log_n} + 2
+     * \f]
+     *
+     * The output triple is either fed to the corresponding \ref bb::KZG< Curve_ >::reduce_verify_batch_opening_claim
+     * "KZG method" or \ref bb::IPA< Curve_ >::reduce_verify_batch_opening_claim "IPA method". In the case of KZG, we
+     * reduce
+     * \f$ 6 \f$ batch_mul calls needed for the verification of the multivariate evaluation claims to the single
+     * batch_mul described above. In the case of IPA, the total number of batch_mul calls needed to verify the
+     * multivariate evaluation claims is reduced by \f$ 5 \f$.
      *
      */
     template <typename Transcript>
@@ -211,16 +207,13 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::shared_ptr<Transcript>& transcript,
         const RepeatedCommitmentsData& repeated_commitments = {},
         const bool has_zk = false,
-        bool* consistency_checked = nullptr, // TODO(https://github.com/AztecProtocol/barretenberg/issues/1191).
-                                             // Shplemini Refactoring: Remove bool pointer
+        bool* consistency_checked = nullptr,
         const std::array<Commitment, NUM_LIBRA_COMMITMENTS>& libra_commitments = {},
         const Fr& libra_univariate_evaluation = Fr{ 0 },
         const std::vector<Commitment>& sumcheck_round_commitments = {},
         const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations = {})
 
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1463): Investigate whether this function can be
-        // simplified using the new Shplonk api
         const size_t virtual_log_n = multivariate_challenge.size();
 
         const bool committed_sumcheck = !sumcheck_round_evaluations.empty();
@@ -234,10 +227,11 @@ template <typename Curve> class ShpleminiVerifier_ {
         // - Get Gemini commitments (com(A₁), com(A₂), … , com(Aₙ₋₁))
         const std::vector<Commitment> fold_commitments =
             GeminiVerifier::get_fold_commitments(virtual_log_n, transcript);
-        // - Get Gemini evaluation challenge for Aᵢ, i = 0, … , d−1
+        // - Get Gemini evaluation challenge r, that is used to open the Gemini fold polynomials Aᵢ, i = 0, … , d−1 on
+        // r^{2^i}
         const Fr gemini_evaluation_challenge = transcript->template get_challenge<Fr>("Gemini:r");
 
-        // - Get evaluations (A₀(−r), A₁(−r²), ... , Aₙ₋₁(−r²⁽ⁿ⁻¹⁾))
+        // - Get negative fold evaluations (A₀(−r), A₁(−r²), ... , Aₙ₋₁(−r²⁽ⁿ⁻¹⁾))
         const std::vector<Fr> gemini_fold_neg_evaluations =
             GeminiVerifier::get_gemini_evaluations(virtual_log_n, transcript);
 
@@ -254,6 +248,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             gemini::powers_of_evaluation_challenge(gemini_evaluation_challenge, virtual_log_n);
 
         std::array<Fr, NUM_SMALL_IPA_EVALUATIONS> libra_evaluations;
+        // In case of ZK, get the evaluations of Libra univariates from the transcript
         if (has_zk) {
             libra_evaluations[0] = transcript->template receive_from_prover<Fr>("Libra:concatenation_eval");
             libra_evaluations[1] = transcript->template receive_from_prover<Fr>("Libra:shifted_grand_sum_eval");
@@ -302,6 +297,8 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Compute the additional factors to be multiplied with unshifted and shifted commitments when lazily
         // reconstructing the commitment of Q_z
+        // For unshifted values, the scalar is computed as (1/(z−r) + ν/(z+r))
+        // For shifted values, the scalar is computed as r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
         claim_batcher.compute_scalars_for_each_batch(
             inverse_vanishing_evals, shplonk_batching_challenge, gemini_evaluation_challenge);
 
@@ -311,25 +308,26 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Compute the Shplonk batching power for the interleaved claims. This is \nu^{d+1} where d = log_n as the
         // interleaved claims are sent after the rest of Gemini fold claims. Add the evaluations of (P₊(rˢ) ⋅ ν^{d+1}) /
         // (z − r^s) and (P₋(rˢ) ⋅ ν^{d+2})/(z − r^s) to the constant term accumulator
-        Fr shplonk_batching_pos = Fr{ 0 };
-        Fr shplonk_batching_neg = Fr{ 0 };
+        Fr shplonk_interleaving_batching_pos = Fr{ 0 };
+        Fr shplonk_interleaving_batching_neg = Fr{ 0 };
         if (claim_batcher.interleaved) {
             // Currently, the prover places the Interleaving claims before the Gemini dummy claims.
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving.
             const size_t interleaved_pos_index = 2 * virtual_log_n;
             const size_t interleaved_neg_index = interleaved_pos_index + 1;
-            shplonk_batching_pos = shplonk_batching_challenge_powers[interleaved_pos_index];
-            shplonk_batching_neg = shplonk_batching_challenge_powers[interleaved_neg_index];
-            constant_term_accumulator += claim_batcher.interleaved->shplonk_denominator *
-                                         (p_pos * shplonk_batching_pos + p_neg * shplonk_batching_neg);
+            shplonk_interleaving_batching_pos = shplonk_batching_challenge_powers[interleaved_pos_index];
+            shplonk_interleaving_batching_neg = shplonk_batching_challenge_powers[interleaved_neg_index];
+            constant_term_accumulator +=
+                claim_batcher.interleaved->shplonk_denominator *
+                (p_pos * shplonk_interleaving_batching_pos + p_neg * shplonk_interleaving_batching_neg);
         }
         // Update the commitments and scalars vectors as well as the batched evaluation given the present batches
         claim_batcher.update_batch_mul_inputs_and_batched_evaluation(commitments,
                                                                      scalars,
                                                                      batched_evaluation,
                                                                      gemini_batching_challenge,
-                                                                     shplonk_batching_pos,
-                                                                     shplonk_batching_neg);
+                                                                     shplonk_interleaving_batching_pos,
+                                                                     shplonk_interleaving_batching_neg);
 
         // Reconstruct Aᵢ(r²ⁱ) for i=0, ..., d - 1 from the batched evaluation of the multilinear polynomials and
         // Aᵢ(−r²ⁱ) for i = 0, ..., d - 1. In the case of interleaving, we compute A₀(r) as A₀₊(r) + P₊(r^s).
@@ -462,7 +460,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             // The index of 1/ (z - r^{2^{j}}) in the vector of inverted Gemini denominators
             const size_t pos_index = 2 * j;
             // The index of 1/ (z + r^{2^{j}}) in the vector of inverted Gemini denominators
-            const size_t neg_index = 2 * j + 1;
+            const size_t neg_index = (2 * j) + 1;
 
             // Compute the "positive" scaling factor  (ν^{2j}) / (z - r^{2^{j}})
             Fr scaling_factor_pos = shplonk_batching_challenge_powers[pos_index] * inverse_vanishing_evals[pos_index];
