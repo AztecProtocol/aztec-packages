@@ -11,21 +11,17 @@ use crate::{
 mod test;
 
 pub trait ProveNoteInclusion {
-    fn prove_note_inclusion<Note>(
-        header: BlockHeader,
-        retrieved_note: RetrievedNote<Note>,
-        storage_slot: Field,
-    )
+    fn prove_note_inclusion<Note>(header: BlockHeader, retrieved_note: RetrievedNote<Note>)
     where
         Note: NoteHash;
 }
 
 impl ProveNoteInclusion for BlockHeader {
-    fn prove_note_inclusion<Note>(self, retrieved_note: RetrievedNote<Note>, storage_slot: Field)
+    fn prove_note_inclusion<Note>(self, retrieved_note: RetrievedNote<Note>)
     where
         Note: NoteHash,
     {
-        let note_hash = compute_note_hash_for_nullification(retrieved_note, storage_slot);
+        let note_hash = compute_note_hash_for_nullification(retrieved_note);
 
         // Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
         let witness = unsafe {

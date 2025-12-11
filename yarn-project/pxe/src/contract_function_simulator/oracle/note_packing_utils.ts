@@ -26,6 +26,7 @@ function fromRawData(nonzeroNoteHashCounter: boolean, maybeNoteNonce: Fr): { sta
  * @param contractAddress - The address of the contract that owns the note
  * @param owner - The owner of the note
  * @param randomness - The randomness injected into the note to get the hiding property of commitments
+ * @param storageSlot - The storage slot of the note
  * @param noteNonce - The nonce injected into the note hash preimage by kernels.
  * @param index - Optional index in the note hash tree. If undefined, indicates a transient note
  * @param note - The note content containing the actual note data
@@ -35,6 +36,7 @@ export function packAsRetrievedNote({
   contractAddress,
   owner,
   randomness,
+  storageSlot,
   noteNonce,
   index,
   note,
@@ -42,6 +44,7 @@ export function packAsRetrievedNote({
   contractAddress: AztecAddress;
   owner: AztecAddress;
   randomness: Fr;
+  storageSlot: Fr;
   noteNonce: Fr;
   index?: bigint;
   note: Note;
@@ -52,6 +55,14 @@ export function packAsRetrievedNote({
   // To pack the note as retrieved note we first need to reconstruct the note metadata.
   const noteMetadata = fromRawData(nonzeroNoteHashCounter, noteNonce);
 
-  // Pack in order: note, contract_address, owner, randomness, metadata (stage, maybe_note_nonce)
-  return [...note.items, contractAddress, owner, randomness, new Fr(noteMetadata.stage), noteMetadata.maybeNoteNonce];
+  // Pack in order: note, contract_address, owner, randomness, storage_slot, metadata (stage, maybe_note_nonce)
+  return [
+    ...note.items,
+    contractAddress,
+    owner,
+    randomness,
+    storageSlot,
+    new Fr(noteMetadata.stage),
+    noteMetadata.maybeNoteNonce,
+  ];
 }
