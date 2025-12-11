@@ -34,14 +34,11 @@ impl<let O: u32> ContractDeployment<O> {
     ///     MyContract::interface().init_fn(owner)
     ///   );
     /// }
-    pub unconstrained fn with_private_initializer<let M: u32, let N: u32, T>(
+    pub unconstrained fn with_private_initializer<let M: u32, let N: u32>(
         self,
         from: AztecAddress,
-        initializer_call: PrivateCall<M, N, T>,
-    ) -> AztecAddress
-    where
-        T: Deserialize,
-    {
+        initializer_call: PrivateCall<M, N>,
+    ) -> AztecAddress {
         let name = initializer_call.name;
         let selector = initializer_call.selector;
         let args = initializer_call.args;
@@ -52,7 +49,8 @@ impl<let O: u32> ContractDeployment<O> {
         // a contract at an unknown address. Now that we've deployed the contract We can crate a new call interface with
         // the address and perform the call.
         // We probably want to introduce an intermediate struct to represent this, if we're going to keep this API.
-        let _ = self.env.call_private::<_, _, T>(
+        // Note: T is always () for initializers since the return value is discarded
+        let _: () = self.env.call_private::<_, _, ()>(
             from,
             PrivateCall::new(instance.to_address(), selector, name, args),
         );
@@ -78,14 +76,11 @@ impl<let O: u32> ContractDeployment<O> {
     ///     MyContract::interface().init_fn(owner)
     ///   );
     /// }
-    pub unconstrained fn with_public_initializer<let M: u32, let N: u32, T>(
+    pub unconstrained fn with_public_initializer<let M: u32, let N: u32>(
         self,
         from: AztecAddress,
-        initializer_call: PublicCall<M, N, T>,
-    ) -> AztecAddress
-    where
-        T: Deserialize,
-    {
+        initializer_call: PublicCall<M, N>,
+    ) -> AztecAddress {
         let name = initializer_call.name;
         let selector = initializer_call.selector;
         let args = initializer_call.args;
@@ -96,7 +91,8 @@ impl<let O: u32> ContractDeployment<O> {
         // a contract at an unknown address. Now that we've deployed the contract We can crate a new call interface with
         // the address and perform the call.
         // We probably want to introduce an intermediate struct to represent this, if we're going to keep this API.
-        let _ = self.env.call_public::<_, _, T>(
+        // Note: T is always () for initializers since the return value is discarded
+        let _: () = self.env.call_public::<_, _, ()>(
             from,
             PublicCall::new(instance.to_address(), selector, name, args),
         );

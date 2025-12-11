@@ -10,11 +10,11 @@ use protocol_types::{
     constants::CANONICAL_AUTH_REGISTRY_ADDRESS, traits::ToField,
 };
 
-pub unconstrained fn add_private_authwit_from_call<let M: u32, let N: u32, T>(
+pub unconstrained fn add_private_authwit_from_call<let M: u32, let N: u32>(
     env: TestEnvironment,
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
-    call: PrivateCall<M, N, T>,
+    call: PrivateCall<M, N>,
 ) {
     // The creation of this utility context results in the TXE session needing to keep track of authwits over its
     // lifetime, as we'd otherwise be unable to store more than one authwit due to them getting reset when restoring the
@@ -33,11 +33,11 @@ pub unconstrained fn add_private_authwit_from_call<let M: u32, let N: u32, T>(
     txe_oracles::add_authwit(on_behalf_of, message_hash);
 }
 
-pub unconstrained fn add_public_authwit_from_call<let M: u32, let N: u32, T>(
+pub unconstrained fn add_public_authwit_from_call<let M: u32, let N: u32>(
     env: TestEnvironment,
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
-    call: PublicCall<M, N, T>,
+    call: PublicCall<M, N>,
 ) {
     let (chain_id, version) =
         env.utility_context(|context| (context.chain_id(), context.version()));
@@ -50,9 +50,9 @@ pub unconstrained fn add_public_authwit_from_call<let M: u32, let N: u32, T>(
         compute_inner_authwit_hash([caller.to_field(), selector.to_field(), args_hash]);
     let message_hash = compute_authwit_message_hash(target, chain_id, version, inner_hash);
 
-    env.call_public(
+    env.call_public::<_, _, ()>(
         on_behalf_of,
-        PublicCall::<_, _, ()>::new(
+        PublicCall::new(
             CANONICAL_AUTH_REGISTRY_ADDRESS,
             comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
             "set_authorized",

@@ -402,9 +402,9 @@ impl TestEnvironment {
         let test_account = txe_oracles::add_account(self.contract_account_secret.next());
         let address = test_account.address;
 
-        let _ = self.call_private(
+        let _: () = self.call_private::<_, _, ()>(
             AztecAddress::zero(),
-            PrivateCall::<_, _, ()>::new(
+            PrivateCall::<_, _>::new(
                 address,
                 comptime { FunctionSelector::from_signature("constructor(Field,Field)") },
                 "constructor",
@@ -503,7 +503,7 @@ impl TestEnvironment {
     pub unconstrained fn call_private<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call: PrivateCall<M, N, T>,
+        call: PrivateCall<M, N>,
     ) -> T
     where
         T: Deserialize,
@@ -526,7 +526,7 @@ impl TestEnvironment {
     /// executable in a static context, and these produce no side effects).
     pub unconstrained fn view_private<let M: u32, let N: u32, T>(
         _self: Self,
-        call: PrivateStaticCall<M, N, T>,
+        call: PrivateStaticCall<M, N>,
     ) -> T
     where
         T: Deserialize,
@@ -554,7 +554,7 @@ impl TestEnvironment {
     /// ```
     pub unconstrained fn simulate_utility<let M: u32, let N: u32, T>(
         _self: Self,
-        call: UtilityCall<M, N, T>,
+        call: UtilityCall<M, N>,
     ) -> T
     where
         T: Deserialize,
@@ -586,7 +586,7 @@ impl TestEnvironment {
     pub unconstrained fn call_public<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call: PublicCall<M, N, T>,
+        call: PublicCall<M, N>,
     ) -> T
     where
         T: Deserialize,
@@ -607,7 +607,7 @@ impl TestEnvironment {
     pub unconstrained fn call_public_incognito<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call: PublicCall<M, N, T>,
+        call: PublicCall<M, N>,
     ) -> T
     where
         T: Deserialize,
@@ -629,7 +629,7 @@ impl TestEnvironment {
     /// executable in a static context, and these produce no side effects).
     pub unconstrained fn view_public<let M: u32, let N: u32, T>(
         _self: Self,
-        call: PublicStaticCall<M, N, T>,
+        call: PublicStaticCall<M, N>,
     ) -> T
     where
         T: Deserialize,
@@ -651,7 +651,7 @@ impl TestEnvironment {
     /// executable in a static context, and these produce no side effects).
     pub unconstrained fn view_public_incognito<let M: u32, let N: u32, T>(
         _self: Self,
-        call: PublicStaticCall<M, N, T>,
+        call: PublicStaticCall<M, N>,
     ) -> T
     where
         T: Deserialize,

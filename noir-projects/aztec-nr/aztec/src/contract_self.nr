@@ -276,7 +276,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// * Side effects from the called function are included in this transaction
     /// * The call inherits the current transaction's context and gas limits
     ///
-    pub fn call<let M: u32, let N: u32, T>(&mut self, call: PrivateCall<M, N, T>) -> T
+    pub fn call<let M: u32, let N: u32, T>(&mut self, call: PrivateCall<M, N>) -> T
     where
         T: Deserialize,
     {
@@ -299,7 +299,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// ```noir
     /// self.view(Token::at(address).balance_of_private(recipient));
     /// ```
-    pub fn view<let M: u32, let N: u32, T>(&mut self, call: PrivateStaticCall<M, N, T>) -> T
+    pub fn view<let M: u32, let N: u32, T>(&mut self, call: PrivateStaticCall<M, N>) -> T
     where
         T: Deserialize,
     {
@@ -334,13 +334,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// # Arguments
     /// * `call` - The interface representing the public function to enqueue.
     ///
-    /// TODO(F-131): We should drop T from here because it is strange as there
-    /// is no return value. The PublicCall type seems to be defined
-    /// incorrectly.
-    pub fn enqueue<let M: u32, let N: u32, T>(&mut self, call: PublicCall<M, N, T>)
-    where
-        T: Deserialize,
-    {
+    pub fn enqueue<let M: u32, let N: u32>(&mut self, call: PublicCall<M, N>) {
         call.enqueue(self.context)
     }
 
@@ -358,13 +352,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// self.enqueue_view(MyContract::at(address).assert_timestamp_less_than(timestamp));
     /// ```
     ///
-    /// TODO(F-131): We should drop T from here because it is strange as there
-    /// is no return value. The PublicCall type seems to be defined
-    /// incorrectly.
-    pub fn enqueue_view<let M: u32, let N: u32, T>(&mut self, call: PublicStaticCall<M, N, T>)
-    where
-        T: Deserialize,
-    {
+    pub fn enqueue_view<let M: u32, let N: u32>(&mut self, call: PublicStaticCall<M, N>) {
         call.enqueue_view(self.context)
     }
 
@@ -411,13 +399,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     ///   aztec-nr will translate NULL_MSG_SENDER_CONTRACT_ADDRESS into
     ///   `Option<AztecAddress>::none` for familiarity to devs.
     ///
-    /// TODO(F-131): We should drop T from here because it is strange as there
-    /// is no return value. The PublicCall type seems to be defined
-    /// incorrectly.
-    pub fn enqueue_incognito<let M: u32, let N: u32, T>(&mut self, call: PublicCall<M, N, T>)
-    where
-        T: Deserialize,
-    {
+    pub fn enqueue_incognito<let M: u32, let N: u32>(&mut self, call: PublicCall<M, N>) {
         call.enqueue_incognito(self.context)
     }
 
@@ -436,16 +418,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// self.enqueue_view_incognito(MyContract::at(address).assert_timestamp_less_than(timestamp));
     /// ```
     ///
-    /// TODO(F-131): We should drop T from here because it is strange as there
-    /// is no return value. The PublicCall type seems to be defined
-    /// incorrectly.
-    pub fn enqueue_view_incognito<let M: u32, let N: u32, T>(
-        &mut self,
-        call: PublicStaticCall<M, N, T>,
-    )
-    where
-        T: Deserialize,
-    {
+    pub fn enqueue_view_incognito<let M: u32, let N: u32>(&mut self, call: PublicStaticCall<M, N>) {
         call.enqueue_view_incognito(self.context)
     }
 
@@ -478,13 +451,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     /// # Arguments
     /// * `call` - The object representing the public function to designate as teardown.
     ///
-    /// TODO(F-131): We should drop T from here because it is strange as there
-    /// is no return value. The PublicCall type seems to be defined
-    /// incorrectly.
-    pub fn set_as_teardown<let M: u32, let N: u32, T>(&mut self, call: PublicCall<M, N, T>)
-    where
-        T: Deserialize,
-    {
+    pub fn set_as_teardown<let M: u32, let N: u32>(&mut self, call: PublicCall<M, N>) {
         call.set_as_teardown(self.context)
     }
 
@@ -497,16 +464,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     ///
     /// See `enqueue_incognito` for more details relating to hiding msg_sender.
     ///
-    /// TODO(F-131): We should drop T from here because it is strange as there
-    /// is no return value. The PublicCall type seems to be defined
-    /// incorrectly.
-    pub fn set_as_teardown_incognito<let M: u32, let N: u32, T>(
-        &mut self,
-        call: PublicCall<M, N, T>,
-    )
-    where
-        T: Deserialize,
-    {
+    pub fn set_as_teardown_incognito<let M: u32, let N: u32>(&mut self, call: PublicCall<M, N>) {
         call.set_as_teardown_incognito(self.context)
     }
 }
@@ -610,7 +568,7 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelf<PublicContext
     /// self.call(Token::at(address).transfer_in_public(recipient, amount));
     /// ```
     ///
-    pub unconstrained fn call<let M: u32, let N: u32, T>(self, call: PublicCall<M, N, T>) -> T
+    pub unconstrained fn call<let M: u32, let N: u32, T>(self, call: PublicCall<M, N>) -> T
     where
         T: Deserialize,
     {
@@ -636,7 +594,7 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelf<PublicContext
     /// self.view(Token::at(address).balance_of_public(recipient));
     /// ```
     ///
-    pub unconstrained fn view<let M: u32, let N: u32, T>(self, call: PublicStaticCall<M, N, T>) -> T
+    pub unconstrained fn view<let M: u32, let N: u32, T>(self, call: PublicStaticCall<M, N>) -> T
     where
         T: Deserialize,
     {

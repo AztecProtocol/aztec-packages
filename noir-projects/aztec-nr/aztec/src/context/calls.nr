@@ -11,16 +11,15 @@ use crate::oracle::execution_cache;
 // PrivateCall
 
 #[must_use = "Your private call needs to be passed into the `self.call(...)` method to be executed (e.g. `self.call(MyContract::at(address).my_private_function(...args))`"]
-pub struct PrivateCall<let M: u32, let N: u32, T> {
+pub struct PrivateCall<let M: u32, let N: u32> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,
     pub name: str<M>,
     args_hash: Field,
     pub args: [Field; N],
-    return_type: T,
 }
 
-impl<let M: u32, let N: u32, T> PrivateCall<M, N, T> {
+impl<let M: u32, let N: u32> PrivateCall<M, N> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -28,19 +27,19 @@ impl<let M: u32, let N: u32, T> PrivateCall<M, N, T> {
         args: [Field; N],
     ) -> Self {
         let args_hash = hash_args(args);
-        Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }
+        Self { target_contract, selector, name, args_hash, args }
     }
 }
 
-impl<let M: u32, let N: u32, T> PrivateCall<M, N, T>
-where
-    T: Deserialize,
-{
+impl<let M: u32, let N: u32> PrivateCall<M, N> {
     /// **[DEPRECATED]**
     /// This function is deprecated. Please use the new contract API:
     /// `self.call(MyContract::at(address).my_private_function(...args))`
     /// instead of manually constructing and calling `PrivateCall`.
-    pub fn call(self, context: &mut PrivateContext) -> T {
+    pub fn call<T>(self, context: &mut PrivateContext) -> T
+    where
+        T: Deserialize,
+    {
         execution_cache::store(self.args, self.args_hash);
         let returns_hash = context.call_private_function_with_args_hash(
             self.target_contract,
@@ -58,16 +57,15 @@ where
 // PrivateStaticCall
 
 #[must_use = "Your private static call needs to be passed into the `self.view(...)` method to be executed (e.g. `self.view(MyContract::at(address).my_private_static_function(...args))`"]
-pub struct PrivateStaticCall<let M: u32, let N: u32, T> {
+pub struct PrivateStaticCall<let M: u32, let N: u32> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,
     pub name: str<M>,
     args_hash: Field,
     pub args: [Field; N],
-    return_type: T,
 }
 
-impl<let M: u32, let N: u32, T> PrivateStaticCall<M, N, T> {
+impl<let M: u32, let N: u32> PrivateStaticCall<M, N> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -75,14 +73,14 @@ impl<let M: u32, let N: u32, T> PrivateStaticCall<M, N, T> {
         args: [Field; N],
     ) -> Self {
         let args_hash = hash_args(args);
-        Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }
+        Self { target_contract, selector, name, args_hash, args }
     }
 
     /// **[DEPRECATED]**
     /// This function is deprecated. Please use the new contract API:
     /// `self.view(MyContract::at(address).my_private_static_function(...args))`
     /// instead of manually constructing and calling `PrivateCall`.
-    pub fn view(self, context: &mut PrivateContext) -> T
+    pub fn view<T>(self, context: &mut PrivateContext) -> T
     where
         T: Deserialize,
     {
@@ -100,30 +98,22 @@ impl<let M: u32, let N: u32, T> PrivateStaticCall<M, N, T> {
 // PublicCall
 
 #[must_use = "Your public call needs to be passed into the `self.call(...)`, `self.enqueue(...)` or `self.enqueue_incognito(...)` method to be executed (e.g. `self.call(MyContract::at(address).my_public_function(...args))`"]
-pub struct PublicCall<let M: u32, let N: u32, T> {
+pub struct PublicCall<let M: u32, let N: u32> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,
     pub name: str<M>,
     pub args: [Field; N],
     gas_opts: GasOpts,
-    return_type: T,
 }
 
-impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
+impl<let M: u32, let N: u32> PublicCall<M, N> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
         name: str<M>,
         args: [Field; N],
     ) -> Self {
-        Self {
-            target_contract,
-            selector,
-            name,
-            args,
-            gas_opts: GasOpts::default(),
-            return_type: std::mem::zeroed(),
-        }
+        Self { target_contract, selector, name, args, gas_opts: GasOpts::default() }
     }
 
     pub fn with_gas(mut self, gas_opts: GasOpts) -> Self {
@@ -135,7 +125,7 @@ impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
     /// This function is deprecated. Please use the new contract API:
     /// `self.call(MyContract::at(address).my_public_function(...args))`
     /// instead of manually constructing and calling `PublicCall`.
-    pub unconstrained fn call(self, context: PublicContext) -> T
+    pub unconstrained fn call<T>(self, context: PublicContext) -> T
     where
         T: Deserialize,
     {
@@ -215,30 +205,22 @@ impl<let M: u32, let N: u32, T> PublicCall<M, N, T> {
 // PublicStaticCall
 
 #[must_use = "Your public static call needs to be passed into the `self.view(...)`, `self.enqueue_view(...)` or `self.enqueue_view_incognito(...)` method to be executed (e.g. `self.view(MyContract::at(address).my_public_static_function(...args))`"]
-pub struct PublicStaticCall<let M: u32, let N: u32, T> {
+pub struct PublicStaticCall<let M: u32, let N: u32> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,
     pub name: str<M>,
     pub args: [Field; N],
-    return_type: T,
     gas_opts: GasOpts,
 }
 
-impl<let M: u32, let N: u32, T> PublicStaticCall<M, N, T> {
+impl<let M: u32, let N: u32> PublicStaticCall<M, N> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
         name: str<M>,
         args: [Field; N],
     ) -> Self {
-        Self {
-            target_contract,
-            selector,
-            name,
-            args,
-            return_type: std::mem::zeroed(),
-            gas_opts: GasOpts::default(),
-        }
+        Self { target_contract, selector, name, args, gas_opts: GasOpts::default() }
     }
 
     pub fn with_gas(mut self, gas_opts: GasOpts) -> Self {
@@ -250,7 +232,7 @@ impl<let M: u32, let N: u32, T> PublicStaticCall<M, N, T> {
     /// This function is deprecated. Please use the new contract API:
     /// `self.view(MyContract::at(address).my_public_static_function(...args))`
     /// instead of manually constructing and calling `PublicStaticCall`.
-    pub unconstrained fn view(self, context: PublicContext) -> T
+    pub unconstrained fn view<T>(self, context: PublicContext) -> T
     where
         T: Deserialize,
     {
@@ -300,16 +282,15 @@ impl<let M: u32, let N: u32, T> PublicStaticCall<M, N, T> {
 
 // UtilityCall
 
-pub struct UtilityCall<let M: u32, let N: u32, T> {
+pub struct UtilityCall<let M: u32, let N: u32> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,
     pub name: str<M>,
     args_hash: Field,
     pub args: [Field; N],
-    return_type: T,
 }
 
-impl<let M: u32, let N: u32, T> UtilityCall<M, N, T> {
+impl<let M: u32, let N: u32> UtilityCall<M, N> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -317,6 +298,6 @@ impl<let M: u32, let N: u32, T> UtilityCall<M, N, T> {
         args: [Field; N],
     ) -> Self {
         let args_hash = hash_args(args);
-        Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }
+        Self { target_contract, selector, name, args_hash, args }
     }
 }

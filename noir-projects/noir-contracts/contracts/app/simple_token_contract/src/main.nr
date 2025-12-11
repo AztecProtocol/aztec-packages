@@ -290,7 +290,7 @@ pub contract SimpleToken {
         context: PrivateContext,
         account: AztecAddress,
         remaining: u128,
-    ) -> PrivateCall<25, 2, u128> {
+    ) -> PrivateCall<25, 2> {
         SimpleToken::at(context.this_address())._recurse_subtract_balance(account, remaining)
     }
 
