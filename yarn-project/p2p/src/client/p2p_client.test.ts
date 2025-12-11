@@ -470,12 +470,15 @@ describe('P2P Client', () => {
     it('triggers tx collection for missing txs from mined blocks', async () => {
       await client.start();
       const block = await L2Block.random(BlockNumber(101), 3);
+      const newBlock = block.toL2Block();
+      // Compute the block hash since it gets cached when the p2p client logs it
+      await newBlock.hash();
 
       txPool.hasTxs.mockResolvedValue([true, false, true]);
       blockSource.addBlocks([block]);
       await client.sync();
 
-      expect(txCollection.startCollecting).toHaveBeenCalledWith(block, [block.body.txEffects[1].txHash]);
+      expect(txCollection.startCollecting).toHaveBeenCalledWith(newBlock, [block.body.txEffects[1].txHash]);
     });
   });
 });
