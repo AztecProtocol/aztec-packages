@@ -53,13 +53,4 @@ MemoryValue read_mem_value(FuzzedDataProvider& fdp)
     return MemoryValue::from_tag_truncating(MemoryTag::FF, FF(0));
 }
 
-FF read_ff(FuzzedDataProvider& fdp)
-{
-    uint64_t limb0 = fdp.ConsumeIntegral<uint64_t>();
-    uint64_t limb1 = fdp.ConsumeIntegral<uint64_t>();
-    uint64_t limb2 = fdp.ConsumeIntegral<uint64_t>();
-    uint64_t limb3 = fdp.ConsumeIntegral<uint64_t>();
-    return FF(limb0, limb1, limb2, limb3);
-}
-
 } // namespace bb::avm2::fuzzing
