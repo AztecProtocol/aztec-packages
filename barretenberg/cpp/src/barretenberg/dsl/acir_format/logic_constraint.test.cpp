@@ -245,13 +245,12 @@ TYPED_TEST(LogicConstraintTestsBothConstant, Tampering)
     }
 
     {
-        EXPECT_THROW_OR_ABORT(TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::Input1BitSize),
-                              ::testing::HasSubstr("field_t: Left operand in logic gate exceeds specified bit length"));
+        EXPECT_THROW_WITH_MESSAGE(TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::Input1BitSize),
+                                  "field_t: Left operand in logic gate exceeds specified bit length");
     }
 
     {
-        EXPECT_THROW_OR_ABORT(
-            TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::Input2BitSize),
-            ::testing::HasSubstr("field_t: Right operand in logic gate exceeds specified bit length"));
+        EXPECT_THROW_WITH_MESSAGE(TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::Input2BitSize),
+                                  "field_t: Right operand in logic gate exceeds specified bit length");
     }
 }

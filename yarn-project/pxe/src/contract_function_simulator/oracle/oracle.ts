@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import {
   type ACIRCallback,
   type ACVMField,
@@ -239,7 +240,8 @@ export class Oracle {
   }
 
   async utilityGetNotes(
-    [owner]: ACVMField[],
+    [ownerSome]: ACVMField[],
+    [ownerValue]: ACVMField[],
     [storageSlot]: ACVMField[],
     [numSelects]: ACVMField[],
     selectByIndexes: ACVMField[],
@@ -257,8 +259,10 @@ export class Oracle {
     [maxNotes]: ACVMField[],
     [packedRetrievedNoteLength]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
+    // Parse Option<AztecAddress>: ownerSome is 0 for None, 1 for Some
+    const owner = Fr.fromString(ownerSome).toNumber() === 1 ? AztecAddress.fromString(ownerValue) : undefined;
     const noteDatas = await this.handlerAsUtility().utilityGetNotes(
-      AztecAddress.fromString(owner),
+      owner,
       Fr.fromString(storageSlot),
       +numSelects,
       selectByIndexes.map(s => +s),

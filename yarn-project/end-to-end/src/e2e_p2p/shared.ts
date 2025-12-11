@@ -6,7 +6,11 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { Tx, TxStatus } from '@aztec/aztec.js/tx';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
-import type { EmpireSlashingProposerContract, RollupContract, TallySlashingProposerContract } from '@aztec/ethereum';
+import type {
+  EmpireSlashingProposerContract,
+  RollupContract,
+  TallySlashingProposerContract,
+} from '@aztec/ethereum/contracts';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync, unique } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';

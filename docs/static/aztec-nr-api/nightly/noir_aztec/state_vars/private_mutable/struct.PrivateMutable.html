@@ -83,18 +83,45 @@ its nullifier.</p>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, note: Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
+<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, note: Note) -> <a href="../../../noir_aztec/note/note_message/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Initializes a PrivateMutable state variable instance with its first <code>note</code> and returns a <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html">NoteEmission</a> that
-allows you to decide whether to encrypt and send the note to someone.</p>
-<p>This function can only be called once per PrivateMutable. Subsequent calls will fail because the initialization
-nullifier will already exist.</p></div>
-</div><code id="replace" class="code-header">pub fn <a href="#replace"><span class="fn">replace</span></a>&lt;Env&gt;(self, f: fn[Env](Note) -> Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
+<p>Initializes a PrivateMutable state variable instance with its first <code>note</code>.</p>
+<p>This function creates the very first note for this state variable. It can
+only be called once per PrivateMutable. Subsequent calls will fail because
+the initialization nullifier will already exist.</p>
+<p>This is conceptually similar to setting an initial value for a variable in
+Ethereum smart contracts under a user's address in a mapping, except that in Aztec
+the &quot;value&quot; is represented as a private note.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>note</code> - The initial note to store in this PrivateMutable. This note
+becomes the &quot;current value&quot; of the state variable.</li>
+</ul>
+<h4>Returns</h4>
+<ul>
+<li><code>NoteMessage&lt;Note&gt;</code> - A type-safe wrapper that requires you to decide
+whether to encrypt and send the note to someone.
+You can call <code>.deliver()</code> on it to encrypt and deliver the note. See NoteMessage for more details.</li>
+</ul>
+<h4>Advanced</h4>
+<p>This function performs the following operations:</p>
+<ul>
+<li>Creates and emits an initialization nullifier to mark this storage slot
+as initialized. This prevents double-initialization.</li>
+<li>Inserts the provided note into the protocol's Note Hash Tree.</li>
+<li>Returns a NoteMessage type that allows the caller to decide how to encrypt
+and deliver the note to its intended recipient.</li>
+</ul>
+<p>The initialization nullifier is deterministically computed from the storage
+slot and can leak privacy information (see <code>compute_initialization_nullifier</code>
+documentation).</p>
+</div>
+</div><code id="replace" class="code-header">pub fn <a href="#replace"><span class="fn">replace</span></a>&lt;Env&gt;(self, f: fn[Env](Note) -> Note) -> <a href="../../../noir_aztec/note/note_message/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
@@ -117,11 +144,11 @@ will replace it and become the &quot;current value&quot;.</li>
 </ul>
 <h4>Returns</h4>
 <ul>
-<li><code>NoteEmission&lt;Note&gt;</code> - A type-safe wrapper that requires you to decide
+<li><code>NoteMessage&lt;Note&gt;</code> - A type-safe wrapper that requires you to decide
 whether to encrypt and send the note to someone.
-You can call <code>.emit()</code> on it to encrypt and log
-the note, or <code>.discard()</code> to skip emission.
-See NoteEmission documentation for more details.</li>
+You can call <code>.deliver()</code> on it to encrypt and log
+the note.
+See NoteMessage documentation for more details.</li>
 </ul>
 <h4>Advanced</h4>
 <p>This function performs the following operations:</p>
@@ -131,7 +158,7 @@ See NoteEmission documentation for more details.</li>
 <li>Computes the nullifier for the current note and pushes it to the context</li>
 <li>Calls the user-provided function <code>f</code> to produce a new note</li>
 <li>Inserts the resulting <code>new_note</code> into the Note Hash Tree using 'create_note'</li>
-<li>Returns a NoteEmission type for the <code>new_note</code>, that allows the caller to
+<li>Returns a NoteMessage type for the <code>new_note</code>, that allows the caller to
 decide how to encrypt and deliver this note to its intended recipient.</li>
 </ul>
 <p>The nullification of the previous note ensures that it cannot be used again,
@@ -140,7 +167,7 @@ maintaining the invariant that a PrivateMutable has exactly one current note.</p
 </div><code id="initialize_or_replace" class="code-header">pub fn <a href="#initialize_or_replace"><span class="fn">initialize_or_replace</span></a>&lt;Env&gt;(
     self,
     f: fn[Env](<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;Note&gt;) -> Note,
-) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
+) -> <a href="../../../noir_aztec/note/note_message/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
@@ -161,14 +188,14 @@ was not initialized.</p>
 </ul>
 <h4>Returns</h4>
 <ul>
-<li><code>NoteEmission&lt;Note&gt;</code> - A type-safe wrapper that requires you to decide
+<li><code>NoteMessage&lt;Note&gt;</code> - A type-safe wrapper that requires you to decide
 whether to encrypt and send the note to someone.
-You can call <code>.emit()</code> on it to encrypt and log
-the note, or <code>.discard()</code> to skip emission.
-See NoteEmission documentation for more details.</li>
+You can call <code>.deliver()</code> on it to encrypt and log
+the note.
+See NoteMessage documentation for more details.</li>
 </ul>
 </div>
-</div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
+</div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> <a href="../../../noir_aztec/note/note_message/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
@@ -190,11 +217,11 @@ randomness.</p>
 newly-created note.</p>
 <h4>Returns</h4>
 <ul>
-<li><code>NoteEmission&lt;Note&gt;</code> - A type-safe wrapper containing the newly-created note.
+<li><code>NoteMessage&lt;Note&gt;</code> - A type-safe wrapper containing the newly-created note.
 You still need to decide whether to encrypt and send
-the note to someone. You can call <code>.emit()</code> on it to
-encrypt and log the note, or <code>.discard()</code> to skip
-emission. See NoteEmission documentation for more details.</li>
+the note to someone. You can call <code>.deliver()</code> on it to
+encrypt and log the note. See NoteMessage
+documentation for more details.</li>
 </ul>
 <h4>Advanced</h4>
 <p>This function performs the &quot;nullify-and-recreate&quot; pattern:</p>
@@ -204,7 +231,7 @@ emission. See NoteEmission documentation for more details.</li>
 storage slot</li>
 <li>Nullifies the current note to ensure that it is indeed current</li>
 <li>Creates a new note with identical content but with fresh randomness</li>
-<li>Returns a NoteEmission for the new note</li>
+<li>Returns a NoteMessage for the new note</li>
 </ul>
 <p>This pattern ensures that:</p>
 <ul>
@@ -217,9 +244,7 @@ the new note will have a different nullifier, allowing it to be consumed in
 the future.</p>
 <p>docs:start:get_note</p>
 </div>
-</div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, Context&gt;</code></h3>
-
-<div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
 <div class="where-clause">where
@@ -257,7 +282,9 @@ the state. This makes it suitable for read-only operations.</p>
 </ul>
 <p>docs:start:view_note</p>
 </div>
-</div></div><h2>Trait implementations</h2>
+</div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, Context&gt;</code></h3>
+
+<div class="padded-methods"></div><h2>Trait implementations</h2>
 <h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-PrivateMutable<Note, Context>"><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/owned_state_variable/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, Context&gt;</code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>

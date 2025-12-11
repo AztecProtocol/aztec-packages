@@ -49,7 +49,7 @@ bot:
           echo "Aztec Node is ready"
 
           echo "Waiting for block production to start..."
-          TIMEOUT=300
+          TIMEOUT=4200
           ELAPSED=0
           while [ $ELAPSED -lt $TIMEOUT ]; do
             BLOCK_NUMBER=$(curl -s -X POST -H 'Content-Type: application/json' \

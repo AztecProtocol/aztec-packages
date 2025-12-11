@@ -1,6 +1,6 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { withoutHexPrefix } from '@aztec/foundation/string';
 

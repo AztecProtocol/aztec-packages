@@ -1,5 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { NoCommitteeError } from '@aztec/ethereum';
+import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type BlockAttestation, type P2PValidator, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 

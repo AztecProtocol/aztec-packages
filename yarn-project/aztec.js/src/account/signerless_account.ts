@@ -1,6 +1,6 @@
 import type { ChainInfo, EntrypointInterface } from '@aztec/entrypoints/interfaces';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';

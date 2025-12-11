@@ -6,6 +6,18 @@
 
 #include "acir_format.hpp"
 
-acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indices();
+namespace acir_format {
 
-void mock_opcode_indices(acir_format::AcirFormat& constraint_system);
+/**
+ * @brief Create a empty instance of the AcirFormatOriginalOpcodeIndices struct. Used for testing purposes.
+ */
+AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indices();
+
+/**
+ * @brief Mock the opcode indices of the constraints in an AcirFormat. Used for testing purposes.
+ *
+ * @param constraint_system
+ */
+void mock_opcode_indices(AcirFormat& constraint_system);
+
+} // namespace acir_format

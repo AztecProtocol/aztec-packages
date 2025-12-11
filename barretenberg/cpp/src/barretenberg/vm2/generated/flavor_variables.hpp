@@ -143,10 +143,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 124;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3068;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3065;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 343;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3535;
+    static constexpr size_t NUM_ALL_ENTITIES = 3532;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -291,7 +291,6 @@ struct AvmFlavorVariables {
         lookup_execution_dispatch_to_alu_relation<FF_>,
         lookup_execution_dispatch_to_bitwise_relation<FF_>,
         lookup_execution_dispatch_to_cast_relation<FF_>,
-        lookup_execution_dispatch_to_emit_unencrypted_log_relation<FF_>,
         lookup_execution_dispatch_to_set_relation<FF_>,
         lookup_execution_dyn_l2_factor_bitwise_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
@@ -644,6 +643,7 @@ struct AvmFlavorVariables {
         perm_emit_unencrypted_log_read_mem_relation<FF_>,
         perm_execution_dispatch_to_cd_copy_relation<FF_>,
         perm_execution_dispatch_to_ecc_add_relation<FF_>,
+        perm_execution_dispatch_to_emit_unencrypted_log_relation<FF_>,
         perm_execution_dispatch_to_get_contract_instance_relation<FF_>,
         perm_execution_dispatch_to_keccakf1600_relation<FF_>,
         perm_execution_dispatch_to_poseidon2_perm_relation<FF_>,

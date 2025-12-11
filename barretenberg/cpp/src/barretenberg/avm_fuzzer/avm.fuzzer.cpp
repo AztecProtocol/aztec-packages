@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
@@ -12,18 +13,19 @@
 #include "barretenberg/serialize/msgpack_impl.hpp"
 
 using FuzzInstruction = ::FuzzInstruction;
+using namespace bb::avm2::fuzzer;
 
-/// Initializes the typescript simulator process
+/// Initializes the typescript simulator process and the world state manager
 /// See yarn-project/simulator/scripts/fuzzing/
 extern "C" int LLVMFuzzerInitialize(int*, char***)
 {
-
     const char* simulator_path = std::getenv("AVM_SIMULATOR_BIN");
     if (simulator_path == nullptr) {
         throw std::runtime_error("AVM_SIMULATOR_BIN is not set");
     }
     std::string simulator_path_str(simulator_path);
     JsSimulator::initialize(simulator_path_str);
+    FuzzerWorldStateManager::initialize();
     return 0;
 }
 
@@ -35,7 +37,11 @@ SimulatorResult fuzz(const uint8_t* buffer, size_t size)
     } catch (const std::exception& e) {
         deserialized_data = FuzzerData();
     }
+
+    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
+    ws_mgr->fork();
     auto res = fuzz(deserialized_data);
+    ws_mgr->reset_world_state();
 
     return res;
 }

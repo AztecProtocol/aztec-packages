@@ -3,13 +3,13 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
-  type ExtendedViemWalletClient,
-  createExtendedL1Client,
   deployL1Contract,
-} from '@aztec/ethereum';
+} from '@aztec/ethereum/deploy-l1-contracts';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { InboxAbi, OutboxAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';

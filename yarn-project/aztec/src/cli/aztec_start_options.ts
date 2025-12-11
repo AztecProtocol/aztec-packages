@@ -2,7 +2,9 @@ import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/con
 import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
 import { blobSinkConfigMappings } from '@aztec/blob-sink/server';
 import { botConfigMappings } from '@aztec/bot/config';
-import { l1ContractAddressesMapping, l1ContractsConfigMappings, l1ReaderConfigMappings } from '@aztec/ethereum';
+import { l1ContractsConfigMappings } from '@aztec/ethereum/config';
+import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
+import { l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import { getKeys } from '@aztec/foundation/collection';
 import {
   type ConfigMapping,

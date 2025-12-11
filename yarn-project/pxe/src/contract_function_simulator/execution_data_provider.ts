@@ -1,6 +1,7 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import type { Fr, Point } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
@@ -75,7 +76,7 @@ export interface ExecutionDataProvider {
    * Returns an object containing an array of note data.
    *
    * @param contractAddress - The contract address of the notes.
-   * @param owner - The owner of the notes.
+   * @param owner - The owner of the notes. If undefined, returns notes for all owners.
    * @param storageSlot - The storage slot of the notes.
    * @param status - The status of notes to fetch.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
@@ -83,7 +84,7 @@ export interface ExecutionDataProvider {
    */
   getNotes(
     contractAddress: AztecAddress,
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     status: NoteStatus,
     scopes?: AztecAddress[],

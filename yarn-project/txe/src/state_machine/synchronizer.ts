@@ -1,6 +1,6 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockNew } from '@aztec/stdlib/block';
 import type {
   MerkleTreeReadOperations,
@@ -27,7 +27,6 @@ export class TXESynchronizer implements WorldStateSynchronizer {
     await this.nativeWorldStateService.handleL2BlockAndMessages(
       block,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero),
-      true,
     );
 
     this.blockNumber = block.header.globalVariables.blockNumber;

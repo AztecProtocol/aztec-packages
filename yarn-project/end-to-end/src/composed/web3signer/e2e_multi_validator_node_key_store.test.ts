@@ -5,12 +5,10 @@ import { ContractDeployer } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import {
-  type DeployL1ContractsReturnType,
-  RollupContract,
-  getAddressFromPrivateKey,
-  getL1ContractsConfigEnvVars,
-} from '@aztec/ethereum';
+import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { DeployL1ContractsReturnType } from '@aztec/ethereum/deploy-l1-contracts';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';

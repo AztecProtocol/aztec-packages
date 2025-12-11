@@ -10,7 +10,7 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { BlockBlobData, BlockEndBlobData } from './block_blob_data.js';
 import type { BlockEndMarker } from './block_end_marker.js';

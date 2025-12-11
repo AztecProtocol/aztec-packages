@@ -1,5 +1,5 @@
 import { TX_CONTEXT_LENGTH } from '@aztec/constants';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 

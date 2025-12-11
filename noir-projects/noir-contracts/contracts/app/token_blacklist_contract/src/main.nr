@@ -114,7 +114,7 @@ pub contract TokenBlacklist {
         let caller_roles = self.storage.roles.at(self.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
-        let note = TransparentNote::new(amount, secret_hash);
+        let note = TransparentNote { amount, secret_hash };
         let supply = self.storage.total_supply.read().add(amount);
 
         self.storage.total_supply.write(supply);
@@ -139,7 +139,7 @@ pub contract TokenBlacklist {
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
         let from_balance = self.storage.public_balances.at(from).read().sub(amount);
-        let note = TransparentNote::new(amount, secret_hash);
+        let note = TransparentNote { amount, secret_hash };
 
         self.storage.public_balances.at(from).write(from_balance);
 
@@ -193,8 +193,7 @@ pub contract TokenBlacklist {
 
         // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
         // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
-        let mut options = NoteGetterOptions::new();
-        options = options
+        let options = NoteGetterOptions::new()
             .select(TransparentNote::properties().amount, Comparator.EQ, amount)
             .select(TransparentNote::properties().secret_hash, Comparator.EQ, secret_hash)
             .set_limit(1);
@@ -205,7 +204,7 @@ pub contract TokenBlacklist {
         assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
-        self.storage.balances.at(to).add(amount).deliver(to, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -216,7 +215,7 @@ pub contract TokenBlacklist {
         let to_roles = self.storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        self.storage.balances.at(from).sub(amount).deliver(from, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
 
         self.enqueue_self._increase_public_balance(to, amount);
     }
@@ -230,11 +229,8 @@ pub contract TokenBlacklist {
         let to_roles = self.storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        self.storage.balances.at(from).sub(amount).deliver(
-            from,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
-        );
-        self.storage.balances.at(to).add(amount).deliver(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -243,7 +239,7 @@ pub contract TokenBlacklist {
         let from_roles = self.storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
-        self.storage.balances.at(from).sub(amount).deliver(from, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
 
         self.enqueue_self._reduce_total_supply(amount);
     }
@@ -282,7 +278,7 @@ pub contract TokenBlacklist {
         first_nullifier_in_tx: Field,
         recipient: AztecAddress,
     ) {
-        let note = TransparentNote::new(amount, secret_hash);
+        let note = TransparentNote { amount, secret_hash };
         let storage_slot = TokenBlacklist::storage_layout().pending_shields.slot;
         let note_type_id = TransparentNote::get_id();
         let packed_note = BoundedVec::from_array(note.pack());
