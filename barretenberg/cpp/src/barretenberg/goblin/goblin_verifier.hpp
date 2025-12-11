@@ -49,12 +49,11 @@ template <typename Curve> class GoblinVerifier_ {
     // Transcript type
     using Transcript = std::conditional_t<IsRecursive, UltraStdlibTranscript, NativeTranscript>;
 
-    using IPAProof = std::conditional_t<IsRecursive, stdlib::Proof<UltraCircuitBuilder>, HonkProof>;
-    using PairingPoints = MergeVerifier::PairingPoints;
-    using IPAClaim = OpeningClaim<typename ECCVMVerifier::Curve>;
-
-    // Verification result
     struct VerificationResult {
+        using PairingPoints = MergeVerifier::PairingPoints;
+        using IPAClaim = OpeningClaim<typename ECCVMVerifier::Curve>;
+        using IPAProof = std::conditional_t<IsRecursive, stdlib::Proof<UltraCircuitBuilder>, HonkProof>;
+
         PairingPoints pairing_points; // BN254 pairing points - aggregated, verified natively or aggregated in-circuit
         IPAClaim ipa_claim;           // IPA opening claim from ECCVM - accumulated, verified natively by base, verified
                                       // in-circuit at root

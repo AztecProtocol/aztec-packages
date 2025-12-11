@@ -6,16 +6,14 @@
 
 #include "./translator_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/transcript/origin_tag.hpp"
-#include "barretenberg/transcript/transcript.hpp"
-
-// Relation implementations for recursive instantiation
 #include "barretenberg/relations/translator_vm/translator_decomposition_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
 
@@ -222,9 +220,6 @@ typename TranslatorVerifier_<Flavor>::VerificationResult TranslatorVerifier_<Fla
                                                                 sumcheck_output.claimed_libra_evaluation);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
-
-    vinfo("translator sumcheck verified?: ", sumcheck_output.verified);
-    vinfo("translator consistency check verified?: ", consistency_checked);
 
     return { pairing_points, sumcheck_output.verified, consistency_checked };
 }

@@ -15,7 +15,7 @@ namespace bb {
  */
 template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult GoblinVerifier_<Curve>::verify()
 {
-    // Verify the merge proof
+    // Step 1: Verify the merge proof
     MergeVerifier merge_verifier{ merge_settings, transcript };
     auto merge_result = merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
 
@@ -31,7 +31,7 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
                   merge_result.concatenation_check_passed);
     }
 
-    // Verify the ECCVM proof
+    // Step 2: the ECCVM proof
     ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
     auto opening_claim = eccvm_verifier.verify_proof();
 
@@ -43,8 +43,11 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     // Get translation data from ECCVM verifier
     auto translator_input = eccvm_verifier.get_translator_input_data();
 
-    // Verify the Translator proof
-    // Pass merged_table_commitments as op queue wire commitments (they represent the same data)
+    // Step 3: Verify the Translator proof and establish the consistency between Goblin components
+    // - Pass   `merged_table_commitments` as op queue wire commitments to bind Translator and Merge to the same
+    // op_queue
+    // - `accumulated_result` and corresponding challenges are used by the translator relation ensuring that the batched
+    // bigfield evaluation computed non-natively matches the native result verified by ECCVM.
     TranslatorVerifier translator_verifier{ transcript,
                                             proof.translator_proof,
                                             translator_input.evaluation_challenge_x,
@@ -68,7 +71,7 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     // Aggregate merge pairing points into translator pairing points
     translator_result.pairing_points.aggregate(merge_result.pairing_points);
 
-    // Compute aggregate verification result
+    // Aggregate verification result
     auto all_checks_passed = [&]() {
         bool consistency_checks = merge_result.degree_check_passed && merge_result.concatenation_check_passed &&
                                   eccvm_verifier.sumcheck_verified && eccvm_verifier.consistency_checked &&
@@ -81,13 +84,12 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
         return consistency_checks;
     };
 
-    const bool aggregate_result = all_checks_passed();
-
-    // Build and return verification result
+    // Warning: `all_checks_passed` is not conclusive both natively and in-circuit, as full native verification requires
+    // IPA verification, and the boolean flags in-circuit are designed for debugging.
     VerificationResult result{ .pairing_points = std::move(translator_result.pairing_points),
                                .ipa_claim = std::move(opening_claim),
                                .ipa_proof = proof.ipa_proof,
-                               .all_checks_passed = aggregate_result };
+                               .all_checks_passed = all_checks_passed() };
 
     return result;
 }
