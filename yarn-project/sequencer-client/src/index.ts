@@ -3,6 +3,8 @@ export * from './config.js';
 export * from './publisher/index.js';
 export {
   FullNodeBlockBuilder as BlockBuilder,
+  FullNodeCheckpointsBuilder as CheckpointsBuilder,
+  CheckpointBuilder,
   Sequencer,
   SequencerState,
   type SequencerEvents,

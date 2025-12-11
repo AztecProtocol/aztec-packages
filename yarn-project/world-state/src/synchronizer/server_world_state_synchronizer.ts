@@ -79,8 +79,8 @@ export class ServerWorldStateSynchronizer
     return this.merkleTreeDb.getSnapshot(blockNumber);
   }
 
-  public fork(blockNumber?: BlockNumber): Promise<MerkleTreeWriteOperations> {
-    return this.merkleTreeDb.fork(blockNumber);
+  public fork(blockNumber?: BlockNumber, opts?: { closeDelayMs?: number }): Promise<MerkleTreeWriteOperations> {
+    return this.merkleTreeDb.fork(blockNumber, opts);
   }
 
   public backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>> {

@@ -7,10 +7,10 @@
   },
   "references": [
     {
-      "path": "../blob-lib"
+      "path": "../blob-client"
     },
     {
-      "path": "../blob-client"
+      "path": "../blob-lib"
     },
     {
       "path": "../constants"

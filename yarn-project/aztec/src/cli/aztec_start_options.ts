@@ -202,6 +202,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       'sequencer',
       omitConfigMappings(sequencerClientConfigMappings, [
         'fakeProcessingDelayPerTxMs',
+        'fakeThrowAfterProcessingTxCount',
         'skipCollectingAttestations',
         'skipInvalidateBlockAsProposer',
         'blobSinkMapSizeKb',

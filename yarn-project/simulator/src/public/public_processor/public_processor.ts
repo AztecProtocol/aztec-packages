@@ -126,7 +126,7 @@ export class PublicProcessor implements Traceable {
     private dateProvider: DateProvider,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     private log = createLogger('simulator:public-processor'),
-    private opts: Pick<SequencerConfig, 'fakeProcessingDelayPerTxMs'> = {},
+    private opts: Pick<SequencerConfig, 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'> = {},
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
   }
@@ -232,6 +232,12 @@ export class PublicProcessor implements Traceable {
 
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
+
+        // Inject a fake processing failure after N txs if requested
+        const fakeThrowAfter = this.opts.fakeThrowAfterProcessingTxCount;
+        if (fakeThrowAfter !== undefined && result.length + failed.length + 1 >= fakeThrowAfter) {
+          throw new Error(`Fake error after processing ${fakeThrowAfter} txs`);
+        }
 
         const txBlobFields = processedTx.txEffect.getNumBlobFields();
 

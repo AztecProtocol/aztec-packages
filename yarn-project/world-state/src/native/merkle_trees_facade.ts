@@ -1,6 +1,8 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { sleep } from '@aztec/foundation/sleep';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type {
   BatchInsertionResult,
@@ -204,7 +206,14 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
 }
 
 export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTreeWriteOperations {
-  constructor(instance: NativeWorldStateInstance, initialHeader: BlockHeader, revision: WorldStateRevision) {
+  private log = createLogger('world-state:merkle-trees-fork-facade');
+
+  constructor(
+    instance: NativeWorldStateInstance,
+    initialHeader: BlockHeader,
+    revision: WorldStateRevision,
+    private opts: { closeDelayMs?: number },
+  ) {
     assert.notEqual(revision.forkId, 0, 'Fork ID must be set');
     assert.equal(revision.includeUncommitted, true, 'Fork must include uncommitted data');
     super(instance, initialHeader, revision);
@@ -284,6 +293,21 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
   public async close(): Promise<void> {
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
     await this.instance.call(WorldStateMessageType.DELETE_FORK, { forkId: this.revision.forkId });
+  }
+
+  async [Symbol.dispose](): Promise<void> {
+    if (this.opts.closeDelayMs) {
+      void sleep(this.opts.closeDelayMs)
+        .then(() => this.close())
+        .catch(err => {
+          if (err && 'message' in err && err.message === 'Native instance is closed') {
+            return; // Ignore errors due to native instance being closed
+          }
+          this.log.warn('Error closing MerkleTreesForkFacade after delay', { err });
+        });
+    } else {
+      await this.close();
+    }
   }
 
   public async createCheckpoint(): Promise<void> {
