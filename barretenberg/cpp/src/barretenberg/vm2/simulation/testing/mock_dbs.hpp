@@ -58,10 +58,7 @@ class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
                 insert_indexed_leaves_nullifier_tree,
                 (const NullifierLeafValue& leaf_value),
                 (override));
-    MOCK_METHOD(std::vector<AppendLeafResult>,
-                append_leaves,
-                (MerkleTreeId tree_id, std::span<const FF> leaves),
-                (override));
+    MOCK_METHOD(void, append_leaves, (MerkleTreeId tree_id, std::span<const FF> leaves), (override));
     MOCK_METHOD(void, pad_tree, (MerkleTreeId tree_id, size_t num_leaves), (override));
     MOCK_METHOD(void, create_checkpoint, (), (override));
     MOCK_METHOD(void, commit_checkpoint, (), (override));

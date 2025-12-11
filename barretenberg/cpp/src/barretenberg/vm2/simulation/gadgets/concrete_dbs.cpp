@@ -238,11 +238,12 @@ void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& n
     FF siloed_note_hash = unconstrained_silo_note_hash(contract_address, note_hash);
     FF unique_note_hash = unconstrained_make_unique_note_hash(
         siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
-    auto append_result =
-        raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
 
-    AppendOnlyTreeSnapshot snapshot_after = note_hash_tree_check.append_note_hash(
-        note_hash, contract_address, note_hash_counter, append_result.path, snapshot_before);
+    raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash });
+    SiblingPath path =
+        raw_merkle_db.get_sibling_path(MerkleTreeId::NOTE_HASH_TREE, snapshot_before.next_available_leaf_index);
+    AppendOnlyTreeSnapshot snapshot_after =
+        note_hash_tree_check.append_note_hash(note_hash, contract_address, note_hash_counter, path, snapshot_before);
 
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
@@ -259,10 +260,12 @@ void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
     // The siloing and uniqueness will later be constrained in the note hash tree check gadget.
     FF unique_note_hash = unconstrained_make_unique_note_hash(
         siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
-    auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
 
+    raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash });
+    SiblingPath path =
+        raw_merkle_db.get_sibling_path(MerkleTreeId::NOTE_HASH_TREE, snapshot_before.next_available_leaf_index);
     AppendOnlyTreeSnapshot snapshot_after =
-        note_hash_tree_check.append_siloed_note_hash(siloed_note_hash, note_hash_counter, hint.path, snapshot_before);
+        note_hash_tree_check.append_siloed_note_hash(siloed_note_hash, note_hash_counter, path, snapshot_before);
 
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
@@ -275,10 +278,12 @@ void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
 {
     uint32_t note_hash_counter = tree_counters_stack.top().note_hash_counter;
     AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().note_hash_tree;
-    auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
 
+    raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash });
+    SiblingPath path =
+        raw_merkle_db.get_sibling_path(MerkleTreeId::NOTE_HASH_TREE, snapshot_before.next_available_leaf_index);
     AppendOnlyTreeSnapshot snapshot_after =
-        note_hash_tree_check.append_unique_note_hash(unique_note_hash, note_hash_counter, hint.path, snapshot_before);
+        note_hash_tree_check.append_unique_note_hash(unique_note_hash, note_hash_counter, path, snapshot_before);
 
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
