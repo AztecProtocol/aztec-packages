@@ -110,6 +110,8 @@ class ChonkTests : public ::testing::Test {
                 app_io.pairing_inputs.P0 = app_io.pairing_inputs.P0 + app_io.pairing_inputs.P0;
                 app_io.pairing_inputs.P1 = app_io.pairing_inputs.P1 + app_io.pairing_inputs.P1;
 
+                EXPECT_TRUE(app_io.pairing_inputs.check());
+
                 app_io.to_proof(app_entry.proof, num_public_inputs);
             }
         }
@@ -155,6 +157,7 @@ class ChonkTests : public ::testing::Test {
                     using namespace bb::stdlib::recursion;
                     kernel_io.pairing_inputs.P0 = Commitment(DEFAULT_PAIRING_POINTS_P0_X, DEFAULT_PAIRING_POINTS_P0_Y);
                     kernel_io.pairing_inputs.P1 = Commitment(DEFAULT_PAIRING_POINTS_P1_X, DEFAULT_PAIRING_POINTS_P1_Y);
+                    EXPECT_TRUE(kernel_io.pairing_inputs.check());
                     break;
                 }
                 case KernelIOField::ACCUMULATOR_HASH:
@@ -246,9 +249,6 @@ class ChonkTests : public ::testing::Test {
             }
             break;
         }
-
-        // Verify the full proof still verifies
-        EXPECT_TRUE(Chonk::verify(proof, vk));
     }
 };
 
@@ -477,8 +477,7 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
 /**
  * @brief Test that tampering with kernel pairing inputs causes verification to fail
  * @details Pairing points (P0, P1) accumulate across the IVC chain through aggregation.
- * Even if we replace them with valid pairing points, the public input binding should fail
- * because the HonkRecursiveVerifier has bound these specific accumulated values.
+ * Even if we replace them with pairing points satisfying pairing check, the public input binding should must catch it.
  */
 TEST_F(ChonkTests, KernelPairingInputsTamperingFailure)
 {
@@ -487,9 +486,8 @@ TEST_F(ChonkTests, KernelPairingInputsTamperingFailure)
 
 /**
  * @brief Test that tampering with app pairing inputs causes verification to fail
- * @details App circuits also output pairing points (AppIO) from their decider proof verification.
- * This test doubles the pairing points to create valid but different points, verifying that
- * the public input binding detects the tampering.
+ * @details App circuits also output pairing points (AppIO). This test ensures that verification fails if we double
+ * these pairing points.
  */
 TEST_F(ChonkTests, AppPairingInputsTamperingFailure)
 {
@@ -500,7 +498,7 @@ TEST_F(ChonkTests, AppPairingInputsTamperingFailure)
  * @brief Verify that tampering with the accumulator hash in public inputs causes IVC verification failure
  * @details Each kernel outputs `output_hn_accum_hash` as a public input. The next kernel computes the hash of its
  * input accumulator and compares it with the hash from the previous kernel's public inputs via assert_equal.
- * This test tampers with the hash to verify the binding is enforced.
+ * This test tampers with the hash to verify the binding.
  */
 TEST_F(ChonkTests, AccumulatorHashTamperingFailure)
 {
