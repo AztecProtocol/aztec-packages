@@ -12,12 +12,16 @@
 //   - AppIO/DefaultIO: App circuit outputs (just pairing points)
 //   - RollupIO:        Rollup circuit outputs (pairing points + IPA claim)
 //
-// SECURITY CRITICAL:
-//   - `output_hn_accum_hash`: Binds the folded accumulator to the next kernel's verification
-//   - `ecc_op_tables`: Used to propagate commitments to merged tables, in particular [M_tail] is propagated from Tail
-//   all the way to Chonk Verifier.
-//   - `kernel_return_data`/`calldata`: Enables databus consistency checks between circuits
-//   - `empty_ecc_op_tables()`: Constrains initial T_prev to point-at-infinity
+// SECURITY CRITICAL (see chonk.test.cpp for tampering tests):
+//   - `output_hn_accum_hash`: Binds the folded accumulator to the next kernel's verification.
+//       Tampering causes folding verification to fail. [Test: AccumulatorHashTamperingFailure]
+//   - `kernel_return_data`: Commitment to kernel's return data, must match calldata of next circuit.
+//       Tampering causes databus consistency check to fail. [Test: KernelReturnDataTamperingFailure]
+//   - `app_return_data`: Commitment to app's return data, must match secondary_calldata of next circuit.
+//       Tampering causes databus consistency check to fail. [Test: AppReturnDataTamperingFailure]
+//   - `ecc_op_tables`: Commitments to merged ECC op tables (T_prev). Propagated from Tail to Chonk Verifier.
+//       Tampering causes recursive merge verification to fail. [Test: EccOpTablesTamperingFailure]
+//   - `empty_ecc_op_tables()`: Constrains initial T_prev to point-at-infinity (verified via BB_ASSERT)
 //
 #pragma once
 
@@ -53,6 +57,9 @@ std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_ecc_op_tabl
     std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_tables;
     for (auto& table_commitment : empty_tables) {
         table_commitment = bn254<Builder>::Group::point_at_infinity(&builder);
+        // Robustness: verify the native value is actually at infinity
+        BB_ASSERT(table_commitment.get_value().is_point_at_infinity(),
+                  "empty_ecc_op_tables: T_prev must be initialized to point at infinity");
     }
 
     return empty_tables;
