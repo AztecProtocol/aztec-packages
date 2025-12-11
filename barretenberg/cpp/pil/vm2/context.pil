@@ -266,8 +266,9 @@ namespace execution;
 
     // nested_return          = 1 ==> last_child_success' = 1;
     // nested_revert_or_error = 1 ==> last_child_success' = 0;
-    // sel_enter_call         = 1 ==> last_child_success' = 0; (Default is false in simulation)
-    // enqueued_call_start    = 1 ==> last_child_success = 0;  (Default is false in simulation)
+    // Last child success value is reset when entering a new context/call (Default is false in simulation):
+    // sel_enter_call         = 1 ==> last_child_success' = 0;
+    // enqueued_call_start    = 1 ==> last_child_success = 0;
     // otherwise                  ==> last_child_success' = last_child_success;
     #[NESTED_RETURN_LAST_CHILD_SUCCESS]
     NOT_LAST_EXEC * nested_return * (last_child_success' - 1) = 0;
