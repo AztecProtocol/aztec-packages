@@ -58,7 +58,6 @@ pub trait ProveNoteNotNullified {
     fn prove_note_not_nullified<Note>(
         header: BlockHeader,
         retrieved_note: RetrievedNote<Note>,
-        storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
@@ -69,13 +68,12 @@ impl ProveNoteNotNullified for BlockHeader {
     fn prove_note_not_nullified<Note>(
         self,
         retrieved_note: RetrievedNote<Note>,
-        storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
         Note: NoteHash,
     {
-        let nullifier = compute_siloed_note_nullifier(retrieved_note, storage_slot, context);
+        let nullifier = compute_siloed_note_nullifier(retrieved_note, context);
 
         self.prove_nullifier_non_inclusion(nullifier);
     }
