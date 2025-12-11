@@ -58,7 +58,6 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_EXEC_OP_ID_NULLIFIER_EXISTS = FF(262144);
     const auto constants_AVM_EXEC_OP_ID_EMIT_NULLIFIER = FF(524288);
     const auto constants_AVM_EXEC_OP_ID_SENDL2TOL1MSG = FF(1048576);
-    const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
     const auto execution_SEL_SHOULD_RESOLVE_ADDRESS = in.get(C::execution_sel_instruction_fetching_success);
 
     {
@@ -66,60 +65,59 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp = static_cast<View>(in.get(C::execution_sel)) * (FF(1) - static_cast<View>(in.get(C::execution_sel)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    {
-        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::execution_last)) * (FF(1) - static_cast<View>(in.get(C::execution_last)));
-        std::get<1>(evals) += (tmp * scaling_factor);
-    }
     { // ENQUEUED_CALL_START
-        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_enqueued_call_start_shift)) -
                     (static_cast<View>(in.get(C::precomputed_first_row)) +
                      static_cast<View>(in.get(C::execution_enqueued_call_end))) *
                         static_cast<View>(in.get(C::execution_sel_shift)));
-        std::get<2>(evals) += (tmp * scaling_factor);
+        std::get<1>(evals) += (tmp * scaling_factor);
     }
     { // ENQUEUED_CALL_END
-        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_enqueued_call_end)) -
                     static_cast<View>(in.get(C::execution_sel_exit_call)) *
                         (FF(1) - static_cast<View>(in.get(C::execution_has_parent_ctx))));
-        std::get<3>(evals) += (tmp * scaling_factor);
+        std::get<2>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_sel_first_row_in_context_shift)) -
                     (static_cast<View>(in.get(C::execution_sel_enter_call)) +
                      static_cast<View>(in.get(C::execution_enqueued_call_start_shift))));
-        std::get<4>(evals) += (tmp * scaling_factor);
+        std::get<3>(evals) += (tmp * scaling_factor);
     }
     { // TRACE_CONTINUITY
-        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel))) *
                    (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
                    static_cast<View>(in.get(C::execution_sel_shift));
+        std::get<4>(evals) += (tmp * scaling_factor);
+    }
+    { // BYTECODE_RETRIEVAL_NO_FAILURE
+        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_first_row_in_context))) *
+                   static_cast<View>(in.get(C::execution_sel_bytecode_retrieval_failure));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
-    { // LAST_IS_LAST
+    {
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp =
-            (static_cast<View>(in.get(C::execution_last)) -
-             static_cast<View>(in.get(C::execution_sel)) * (FF(1) - static_cast<View>(in.get(C::execution_sel_shift))));
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_bytecode_retrieval_success)) -
+                    static_cast<View>(in.get(C::execution_sel)) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_bytecode_retrieval_failure))));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_bytecode_retrieval_success)) -
-                    static_cast<View>(in.get(C::execution_sel)) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_sel_bytecode_retrieval_failure))));
-        std::get<7>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_sel_instruction_fetching_success)) -
                     static_cast<View>(in.get(C::execution_sel_bytecode_retrieval_success)) *
                         (FF(1) - static_cast<View>(in.get(C::execution_sel_instruction_fetching_failure))));
+        std::get<7>(evals) += (tmp * scaling_factor);
+    }
+    { // NO_FETCHING_NO_INSTR_FETCH_ERROR
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_bytecode_retrieval_success))) *
+                   static_cast<View>(in.get(C::execution_sel_instruction_fetching_failure));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
     {
@@ -138,153 +136,212 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_to_radix)) *
-                   (static_cast<View>(in.get(C::execution_two_five_six)) - FF(256));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_calldata_copy)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_calldata_copy)));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_returndata_copy)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_returndata_copy)));
+        std::get<12>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_to_radix)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_to_radix)));
+        std::get<13>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_bitwise)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_bitwise)));
+        std::get<14>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)));
+        std::get<15>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_sstore)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_sstore)));
+        std::get<16>(evals) += (tmp * scaling_factor);
+    }
+    { // DYN_GAS_ID_DECOMPOSITION
+        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
+        auto tmp =
+            ((static_cast<View>(in.get(C::execution_sel_gas_calldata_copy)) *
+                  CView(constants_AVM_DYN_GAS_ID_CALLDATACOPY) +
+              static_cast<View>(in.get(C::execution_sel_gas_returndata_copy)) *
+                  CView(constants_AVM_DYN_GAS_ID_RETURNDATACOPY) +
+              static_cast<View>(in.get(C::execution_sel_gas_to_radix)) * CView(constants_AVM_DYN_GAS_ID_TORADIX) +
+              static_cast<View>(in.get(C::execution_sel_gas_bitwise)) * CView(constants_AVM_DYN_GAS_ID_BITWISE) +
+              static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
+                  CView(constants_AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG) +
+              static_cast<View>(in.get(C::execution_sel_gas_sstore)) * CView(constants_AVM_DYN_GAS_ID_SSTORE)) -
+             static_cast<View>(in.get(C::execution_sel_should_check_gas)) *
+                 static_cast<View>(in.get(C::execution_dyn_gas_id)));
+        std::get<17>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_to_radix)) *
+                   (static_cast<View>(in.get(C::execution_two_five_six)) - FF(256));
+        std::get<18>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_sel_lookup_num_p_limbs)) -
                     static_cast<View>(in.get(C::execution_sel_gas_to_radix)) *
                         (FF(1) - static_cast<View>(in.get(C::execution_sel_radix_gt_256))));
-        std::get<12>(evals) += (tmp * scaling_factor);
+        std::get<19>(evals) += (tmp * scaling_factor);
     }
     { // NUM_P_LIMBS_CEIL
-        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_gas_to_radix)) *
                    static_cast<View>(in.get(C::execution_sel_radix_gt_256)) *
                    (static_cast<View>(in.get(C::execution_num_p_limbs)) - FF(32));
-        std::get<13>(evals) += (tmp * scaling_factor);
+        std::get<20>(evals) += (tmp * scaling_factor);
     }
     { // DYN_L2_FACTOR_TO_RADIX_BE
-        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_gas_to_radix)) *
                    (((static_cast<View>(in.get(C::execution_register_2_)) -
                       static_cast<View>(in.get(C::execution_num_p_limbs))) *
                          static_cast<View>(in.get(C::execution_sel_use_num_limbs)) +
                      static_cast<View>(in.get(C::execution_num_p_limbs))) -
                     static_cast<View>(in.get(C::execution_dynamic_l2_gas_factor)));
-        std::get<14>(evals) += (tmp * scaling_factor);
-    }
-    { // SSTORE_DYN_L2_GAS_IS_ZERO
-        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sstore)) *
-                   static_cast<View>(in.get(C::execution_dynamic_l2_gas_factor));
-        std::get<15>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
-                   (static_cast<View>(in.get(C::execution_register_0_)) -
-                    static_cast<View>(in.get(C::execution_dynamic_l2_gas_factor)));
-        std::get<16>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
-                   (static_cast<View>(in.get(C::execution_register_0_)) -
-                    static_cast<View>(in.get(C::execution_dynamic_da_gas_factor)));
-        std::get<17>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_should_execute_opcode)) -
-                    static_cast<View>(in.get(C::execution_sel_should_check_gas)) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_sel_out_of_gas))));
-        std::get<18>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_opcode_error)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error)));
-        std::get<19>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_execution)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_execution)));
-        std::get<20>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_alu)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_alu)));
         std::get<21>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_bitwise)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_bitwise)));
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) +
+                    static_cast<View>(in.get(C::execution_sel_gas_calldata_copy)) +
+                    static_cast<View>(in.get(C::execution_sel_gas_returndata_copy))) *
+                   (static_cast<View>(in.get(C::execution_register_0_)) -
+                    static_cast<View>(in.get(C::execution_dynamic_l2_gas_factor)));
         std::get<22>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_cast)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_cast)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
+                   (static_cast<View>(in.get(C::execution_register_0_)) -
+                    static_cast<View>(in.get(C::execution_dynamic_da_gas_factor)));
         std::get<23>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // DYN_DA_GAS_IS_ZERO
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_calldata_copy)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_calldata_copy)));
+        auto tmp = ((FF(1) - static_cast<View>(in.get(C::execution_sel_gas_sstore))) -
+                    static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log))) *
+                   static_cast<View>(in.get(C::execution_dynamic_da_gas_factor));
         std::get<24>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // DYN_L2_GAS_IS_ZERO
         using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_returndata_copy)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_returndata_copy)));
+        auto tmp = (((((FF(1) - static_cast<View>(in.get(C::execution_sel_gas_bitwise))) -
+                       static_cast<View>(in.get(C::execution_sel_gas_to_radix))) -
+                      static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log))) -
+                     static_cast<View>(in.get(C::execution_sel_gas_calldata_copy))) -
+                    static_cast<View>(in.get(C::execution_sel_gas_returndata_copy))) *
+                   static_cast<View>(in.get(C::execution_dynamic_l2_gas_factor));
         std::get<25>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_set)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_set)));
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_should_execute_opcode)) -
+                    static_cast<View>(in.get(C::execution_sel_should_check_gas)) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_out_of_gas))));
         std::get<26>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_get_contract_instance)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_get_contract_instance)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_execution)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_execution)));
         std::get<27>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_alu)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_alu)));
         std::get<28>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_poseidon2_perm)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_poseidon2_perm)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_bitwise)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_bitwise)));
         std::get<29>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_sha256_compression)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_sha256_compression)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_cast)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_cast)));
         std::get<30>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_keccakf1600)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_keccakf1600)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_calldata_copy)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_calldata_copy)));
         std::get<31>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_ecc_add)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_ecc_add)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_returndata_copy)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_returndata_copy)));
         std::get<32>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_to_radix)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_to_radix)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_set)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_set)));
         std::get<33>(evals) += (tmp * scaling_factor);
     }
-    { // SUBTRACE_ID_DECOMPOSITION
+    {
         using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_get_contract_instance)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_get_contract_instance)));
+        std::get<34>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log)));
+        std::get<35>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_poseidon2_perm)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_poseidon2_perm)));
+        std::get<36>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_sha256_compression)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_sha256_compression)));
+        std::get<37>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_keccakf1600)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_keccakf1600)));
+        std::get<38>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_ecc_add)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_ecc_add)));
+        std::get<39>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<40, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_to_radix)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_to_radix)));
+        std::get<40>(evals) += (tmp * scaling_factor);
+    }
+    { // SUBTRACE_ID_DECOMPOSITION
+        using View = typename std::tuple_element_t<41, ContainerOverSubrelations>::View;
         auto tmp =
             ((static_cast<View>(in.get(C::execution_sel_exec_dispatch_execution)) *
                   CView(constants_AVM_SUBTRACE_ID_EXECUTION) +
@@ -312,136 +369,136 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                   CView(constants_AVM_SUBTRACE_ID_TO_RADIX)) -
              static_cast<View>(in.get(C::execution_sel_should_execute_opcode)) *
                  static_cast<View>(in.get(C::execution_subtrace_id)));
-        std::get<34>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_get_env_var)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_get_env_var)));
-        std::get<35>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_mov)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_mov)));
-        std::get<36>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_jump)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_jump)));
-        std::get<37>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_jumpi)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_jumpi)));
-        std::get<38>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_call)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_call)));
-        std::get<39>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<40, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_static_call)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_static_call)));
-        std::get<40>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<41, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_internal_call)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_internal_call)));
         std::get<41>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<42, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_internal_return)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_internal_return)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_get_env_var)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_get_env_var)));
         std::get<42>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<43, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_return)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_return)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_mov)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_mov)));
         std::get<43>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<44, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_revert)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_revert)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_jump)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_jump)));
         std::get<44>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<45, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_success_copy)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_success_copy)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_jumpi)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_jumpi)));
         std::get<45>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<46, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_returndata_size)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_returndata_size)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_call)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_call)));
         std::get<46>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<47, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_debug_log)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_debug_log)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_static_call)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_static_call)));
         std::get<47>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<48, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sload)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sload)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_internal_call)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_internal_call)));
         std::get<48>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<49, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sstore)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sstore)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_internal_return)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_internal_return)));
         std::get<49>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<50, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_notehash_exists)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_notehash_exists)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_return)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_return)));
         std::get<50>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<51, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_emit_notehash)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_notehash)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_revert)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_revert)));
         std::get<51>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<52, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_l1_to_l2_message_exists)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_l1_to_l2_message_exists)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_success_copy)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_success_copy)));
         std::get<52>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<53, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_nullifier_exists)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_nullifier_exists)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_returndata_size)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_returndata_size)));
         std::get<53>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<54, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_debug_log)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_debug_log)));
         std::get<54>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<55, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_send_l2_to_l1_msg)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_send_l2_to_l1_msg)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sload)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sload)));
         std::get<55>(evals) += (tmp * scaling_factor);
     }
-    { // EXEC_OP_ID_DECOMPOSITION
+    {
         using View = typename std::tuple_element_t<56, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sstore)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sstore)));
+        std::get<56>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<57, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_notehash_exists)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_notehash_exists)));
+        std::get<57>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<58, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_emit_notehash)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_notehash)));
+        std::get<58>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<59, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_l1_to_l2_message_exists)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_l1_to_l2_message_exists)));
+        std::get<59>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<60, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_nullifier_exists)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_nullifier_exists)));
+        std::get<60>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<61, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier)));
+        std::get<61>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<62, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_send_l2_to_l1_msg)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_send_l2_to_l1_msg)));
+        std::get<62>(evals) += (tmp * scaling_factor);
+    }
+    { // EXEC_OP_ID_DECOMPOSITION
+        using View = typename std::tuple_element_t<63, ContainerOverSubrelations>::View;
         auto tmp =
             ((static_cast<View>(in.get(C::execution_sel_execute_get_env_var)) *
                   CView(constants_AVM_EXEC_OP_ID_GETENVVAR) +
@@ -476,240 +533,174 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                   CView(constants_AVM_EXEC_OP_ID_EMIT_NULLIFIER) +
               static_cast<View>(in.get(C::execution_sel_execute_send_l2_to_l1_msg)) *
                   CView(constants_AVM_EXEC_OP_ID_SENDL2TOL1MSG)) -
-             static_cast<View>(in.get(C::execution_sel_should_execute_opcode)) *
-                 static_cast<View>(in.get(C::execution_sel_exec_dispatch_execution)) *
+             static_cast<View>(in.get(C::execution_sel_exec_dispatch_execution)) *
                  static_cast<View>(in.get(C::execution_subtrace_operation_id)));
-        std::get<56>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<57, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_calldata_copy)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_calldata_copy)));
-        std::get<57>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<58, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_returndata_copy)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_returndata_copy)));
-        std::get<58>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<59, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_to_radix)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_to_radix)));
-        std::get<59>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<60, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_bitwise)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_bitwise)));
-        std::get<60>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<61, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)));
-        std::get<61>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<62, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_sstore)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_sstore)));
-        std::get<62>(evals) += (tmp * scaling_factor);
-    }
-    { // DYN_GAS_ID_DECOMPOSITION
-        using View = typename std::tuple_element_t<63, ContainerOverSubrelations>::View;
-        auto tmp =
-            ((static_cast<View>(in.get(C::execution_sel_gas_calldata_copy)) *
-                  CView(constants_AVM_DYN_GAS_ID_CALLDATACOPY) +
-              static_cast<View>(in.get(C::execution_sel_gas_returndata_copy)) *
-                  CView(constants_AVM_DYN_GAS_ID_RETURNDATACOPY) +
-              static_cast<View>(in.get(C::execution_sel_gas_to_radix)) * CView(constants_AVM_DYN_GAS_ID_TORADIX) +
-              static_cast<View>(in.get(C::execution_sel_gas_bitwise)) * CView(constants_AVM_DYN_GAS_ID_BITWISE) +
-              static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
-                  CView(constants_AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG) +
-              static_cast<View>(in.get(C::execution_sel_gas_sstore)) * CView(constants_AVM_DYN_GAS_ID_SSTORE)) -
-             static_cast<View>(in.get(C::execution_sel_should_check_gas)) *
-                 static_cast<View>(in.get(C::execution_sel)) * static_cast<View>(in.get(C::execution_dyn_gas_id)));
         std::get<63>(evals) += (tmp * scaling_factor);
     }
-    {
-        using View = typename std::tuple_element_t<64, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_opcode_failure)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_failure)));
-        std::get<64>(evals) += (tmp * scaling_factor);
-    }
     { // PC_NEXT_ROW_INT_CALL_JUMP
-        using View = typename std::tuple_element_t<65, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_NOT_LAST_EXEC) *
+        using View = typename std::tuple_element_t<64, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_shift)) *
                    (static_cast<View>(in.get(C::execution_sel_execute_internal_call)) +
                     static_cast<View>(in.get(C::execution_sel_execute_jump))) *
                    (static_cast<View>(in.get(C::execution_pc_shift)) - static_cast<View>(in.get(C::execution_rop_0_)));
-        std::get<65>(evals) += (tmp * scaling_factor);
+        std::get<64>(evals) += (tmp * scaling_factor);
     }
     { // PC_NEXT_ROW_JUMPI
-        using View = typename std::tuple_element_t<66, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<65, ContainerOverSubrelations>::View;
         auto tmp =
-            CView(execution_NOT_LAST_EXEC) * static_cast<View>(in.get(C::execution_sel_execute_jumpi)) *
+            static_cast<View>(in.get(C::execution_sel_shift)) *
+            static_cast<View>(in.get(C::execution_sel_execute_jumpi)) *
             ((static_cast<View>(in.get(C::execution_register_0_)) *
                   (static_cast<View>(in.get(C::execution_rop_1_)) - static_cast<View>(in.get(C::execution_next_pc))) +
               static_cast<View>(in.get(C::execution_next_pc))) -
              static_cast<View>(in.get(C::execution_pc_shift)));
-        std::get<66>(evals) += (tmp * scaling_factor);
+        std::get<65>(evals) += (tmp * scaling_factor);
     }
     { // MOV_SAME_VALUE
-        using View = typename std::tuple_element_t<67, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<66, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::execution_sel_execute_mov)) *
             (static_cast<View>(in.get(C::execution_register_0_)) - static_cast<View>(in.get(C::execution_register_1_)));
-        std::get<67>(evals) += (tmp * scaling_factor);
+        std::get<66>(evals) += (tmp * scaling_factor);
     }
     { // MOV_SAME_TAG
-        using View = typename std::tuple_element_t<68, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<67, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_mov)) *
                    (static_cast<View>(in.get(C::execution_mem_tag_reg_0_)) -
                     static_cast<View>(in.get(C::execution_mem_tag_reg_1_)));
-        std::get<68>(evals) += (tmp * scaling_factor);
+        std::get<67>(evals) += (tmp * scaling_factor);
     }
     { // SUCCESS_COPY_WRITE_REG
-        using View = typename std::tuple_element_t<69, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<68, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_success_copy)) *
                    (static_cast<View>(in.get(C::execution_register_0_)) -
                     static_cast<View>(in.get(C::execution_last_child_success)));
-        std::get<69>(evals) += (tmp * scaling_factor);
+        std::get<68>(evals) += (tmp * scaling_factor);
     }
     { // SUCCESS_COPY_U1_TAG
-        using View = typename std::tuple_element_t<70, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<69, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_success_copy)) *
                    (static_cast<View>(in.get(C::execution_mem_tag_reg_0_)) - CView(constants_MEM_TAG_U1));
-        std::get<70>(evals) += (tmp * scaling_factor);
+        std::get<69>(evals) += (tmp * scaling_factor);
     }
     { // RETURNDATA_SIZE_WRITE_REG
-        using View = typename std::tuple_element_t<71, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<70, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_returndata_size)) *
                    (static_cast<View>(in.get(C::execution_register_0_)) -
                     static_cast<View>(in.get(C::execution_last_child_returndata_size)));
-        std::get<71>(evals) += (tmp * scaling_factor);
+        std::get<70>(evals) += (tmp * scaling_factor);
     }
     { // RETURNDATA_SIZE_U32_TAG
-        using View = typename std::tuple_element_t<72, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<71, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_returndata_size)) *
                    (static_cast<View>(in.get(C::execution_mem_tag_reg_0_)) - CView(constants_MEM_TAG_U32));
-        std::get<72>(evals) += (tmp * scaling_factor);
+        std::get<71>(evals) += (tmp * scaling_factor);
     }
     { // PUBLIC_DATA_TREE_ROOT_NOT_CHANGED
-        using View = typename std::tuple_element_t<73, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sstore))) *
+        using View = typename std::tuple_element_t<72, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sstore))) *
                    (static_cast<View>(in.get(C::execution_prev_public_data_tree_root)) -
                     static_cast<View>(in.get(C::execution_public_data_tree_root)));
-        std::get<73>(evals) += (tmp * scaling_factor);
+        std::get<72>(evals) += (tmp * scaling_factor);
     }
     { // PUBLIC_DATA_TREE_SIZE_NOT_CHANGED
-        using View = typename std::tuple_element_t<74, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sstore))) *
+        using View = typename std::tuple_element_t<73, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sstore))) *
                    (static_cast<View>(in.get(C::execution_prev_public_data_tree_size)) -
                     static_cast<View>(in.get(C::execution_public_data_tree_size)));
-        std::get<74>(evals) += (tmp * scaling_factor);
+        std::get<73>(evals) += (tmp * scaling_factor);
     }
     { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_NOT_CHANGED
-        using View = typename std::tuple_element_t<75, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sstore))) *
+        using View = typename std::tuple_element_t<74, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sstore))) *
                    (static_cast<View>(in.get(C::execution_prev_written_public_data_slots_tree_root)) -
                     static_cast<View>(in.get(C::execution_written_public_data_slots_tree_root)));
-        std::get<75>(evals) += (tmp * scaling_factor);
+        std::get<74>(evals) += (tmp * scaling_factor);
     }
     { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED
-        using View = typename std::tuple_element_t<76, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sstore))) *
+        using View = typename std::tuple_element_t<75, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_sstore))) *
                    (static_cast<View>(in.get(C::execution_prev_written_public_data_slots_tree_size)) -
                     static_cast<View>(in.get(C::execution_written_public_data_slots_tree_size)));
-        std::get<76>(evals) += (tmp * scaling_factor);
+        std::get<75>(evals) += (tmp * scaling_factor);
     }
     { // NOTE_HASH_TREE_ROOT_NOT_CHANGED
-        using View = typename std::tuple_element_t<77, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_notehash))) *
+        using View = typename std::tuple_element_t<76, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_notehash))) *
                    (static_cast<View>(in.get(C::execution_prev_note_hash_tree_root)) -
                     static_cast<View>(in.get(C::execution_note_hash_tree_root)));
-        std::get<77>(evals) += (tmp * scaling_factor);
+        std::get<76>(evals) += (tmp * scaling_factor);
     }
     { // NOTE_HASH_TREE_SIZE_NOT_CHANGED
-        using View = typename std::tuple_element_t<78, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_notehash))) *
+        using View = typename std::tuple_element_t<77, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_notehash))) *
                    (static_cast<View>(in.get(C::execution_prev_note_hash_tree_size)) -
                     static_cast<View>(in.get(C::execution_note_hash_tree_size)));
-        std::get<78>(evals) += (tmp * scaling_factor);
+        std::get<77>(evals) += (tmp * scaling_factor);
     }
     { // NUM_NOTE_HASHES_EMITTED_NOT_CHANGED
-        using View = typename std::tuple_element_t<79, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_notehash))) *
+        using View = typename std::tuple_element_t<78, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_notehash))) *
                    (static_cast<View>(in.get(C::execution_prev_num_note_hashes_emitted)) -
                     static_cast<View>(in.get(C::execution_num_note_hashes_emitted)));
-        std::get<79>(evals) += (tmp * scaling_factor);
+        std::get<78>(evals) += (tmp * scaling_factor);
     }
     { // NULLIFIER_TREE_ROOT_NOT_CHANGED
-        using View = typename std::tuple_element_t<80, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier))) *
+        using View = typename std::tuple_element_t<79, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier))) *
                    (static_cast<View>(in.get(C::execution_prev_nullifier_tree_root)) -
                     static_cast<View>(in.get(C::execution_nullifier_tree_root)));
-        std::get<80>(evals) += (tmp * scaling_factor);
+        std::get<79>(evals) += (tmp * scaling_factor);
     }
     { // NULLIFIER_TREE_SIZE_NOT_CHANGED
-        using View = typename std::tuple_element_t<81, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier))) *
+        using View = typename std::tuple_element_t<80, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier))) *
                    (static_cast<View>(in.get(C::execution_prev_nullifier_tree_size)) -
                     static_cast<View>(in.get(C::execution_nullifier_tree_size)));
-        std::get<81>(evals) += (tmp * scaling_factor);
+        std::get<80>(evals) += (tmp * scaling_factor);
     }
     { // NUM_NULLIFIERS_EMITTED_NOT_CHANGED
-        using View = typename std::tuple_element_t<82, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier))) *
+        using View = typename std::tuple_element_t<81, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier))) *
                    (static_cast<View>(in.get(C::execution_prev_num_nullifiers_emitted)) -
                     static_cast<View>(in.get(C::execution_num_nullifiers_emitted)));
-        std::get<82>(evals) += (tmp * scaling_factor);
+        std::get<81>(evals) += (tmp * scaling_factor);
     }
     { // NUM_UNENCRYPTED_LOGS_NOT_CHANGED
-        using View = typename std::tuple_element_t<83, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log))) *
+        using View = typename std::tuple_element_t<82, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log))) *
                    (static_cast<View>(in.get(C::execution_prev_num_unencrypted_log_fields)) -
                     static_cast<View>(in.get(C::execution_num_unencrypted_log_fields)));
-        std::get<83>(evals) += (tmp * scaling_factor);
+        std::get<82>(evals) += (tmp * scaling_factor);
     }
     { // NUM_L2_TO_L1_MESSAGES_NOT_CHANGED
-        using View = typename std::tuple_element_t<84, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_send_l2_to_l1_msg))) *
+        using View = typename std::tuple_element_t<83, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_send_l2_to_l1_msg))) *
                    (static_cast<View>(in.get(C::execution_prev_num_l2_to_l1_messages)) -
                     static_cast<View>(in.get(C::execution_num_l2_to_l1_messages)));
-        std::get<84>(evals) += (tmp * scaling_factor);
+        std::get<83>(evals) += (tmp * scaling_factor);
     }
     { // RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED
-        using View = typename std::tuple_element_t<85, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_first_row_in_context))) *
+        using View = typename std::tuple_element_t<84, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_first_row_in_context))) *
                    (static_cast<View>(in.get(C::execution_prev_retrieved_bytecodes_tree_root)) -
                     static_cast<View>(in.get(C::execution_retrieved_bytecodes_tree_root)));
-        std::get<85>(evals) += (tmp * scaling_factor);
+        std::get<84>(evals) += (tmp * scaling_factor);
     }
     { // RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED
-        using View = typename std::tuple_element_t<86, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_first_row_in_context))) *
+        using View = typename std::tuple_element_t<85, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_first_row_in_context))) *
                    (static_cast<View>(in.get(C::execution_prev_retrieved_bytecodes_tree_size)) -
                     static_cast<View>(in.get(C::execution_retrieved_bytecodes_tree_size)));
-        std::get<86>(evals) += (tmp * scaling_factor);
+        std::get<85>(evals) += (tmp * scaling_factor);
     }
     {
+        using View = typename std::tuple_element_t<86, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_opcode_error)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error)));
+        std::get<86>(evals) += (tmp * scaling_factor);
+    }
+    { // INFALLIBLE_OPCODES_SUCCESS
         using View = typename std::tuple_element_t<87, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_sel_execute_mov)) +
                     static_cast<View>(in.get(C::execution_sel_execute_returndata_size)) +
@@ -721,19 +712,29 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::execution_sel_execute_static_call)) +
                     static_cast<View>(in.get(C::execution_sel_execute_internal_call)) +
                     static_cast<View>(in.get(C::execution_sel_execute_return)) +
-                    static_cast<View>(in.get(C::execution_sel_execute_revert))) *
+                    static_cast<View>(in.get(C::execution_sel_execute_revert)) +
+                    static_cast<View>(in.get(C::execution_sel_execute_sload)) +
+                    static_cast<View>(in.get(C::execution_sel_execute_notehash_exists)) +
+                    static_cast<View>(in.get(C::execution_sel_execute_l1_to_l2_message_exists)) +
+                    static_cast<View>(in.get(C::execution_sel_execute_nullifier_exists))) *
                    static_cast<View>(in.get(C::execution_sel_opcode_error));
         std::get<87>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<88, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_should_write_registers)) -
-                    static_cast<View>(in.get(C::execution_sel_should_execute_opcode)) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))));
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_should_execute_opcode))) *
+                   static_cast<View>(in.get(C::execution_sel_opcode_error));
         std::get<88>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<89, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_should_write_registers)) -
+                    static_cast<View>(in.get(C::execution_sel_should_execute_opcode)) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))));
+        std::get<89>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<90, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_sel_error)) -
                     (static_cast<View>(in.get(C::execution_sel_bytecode_retrieval_failure)) +
                      static_cast<View>(in.get(C::execution_sel_instruction_fetching_failure)) +
@@ -741,7 +742,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                      static_cast<View>(in.get(C::execution_sel_register_read_error)) +
                      static_cast<View>(in.get(C::execution_sel_out_of_gas)) +
                      static_cast<View>(in.get(C::execution_sel_opcode_error))));
-        std::get<89>(evals) += (tmp * scaling_factor);
+        std::get<90>(evals) += (tmp * scaling_factor);
     }
 }
 

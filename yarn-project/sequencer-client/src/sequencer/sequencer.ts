@@ -1,13 +1,15 @@
 import { L2Block } from '@aztec/aztec.js/block';
+import { getKzg } from '@aztec/blob-lib';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
+import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
+import { FormattedViemError } from '@aztec/ethereum/utils';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { omit, pick } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
@@ -220,6 +222,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   public async init() {
+    // Takes ~3s to precompute some tables.
+    getKzg();
     this.publisher = (await this.publisherFactory.create(undefined)).publisher;
   }
 
@@ -644,8 +648,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     await publisher.validateBlockHeader(proposalHeader, invalidateBlock);
 
     const blockNumber = newGlobalVariables.blockNumber;
+    const checkpointNumber = CheckpointNumber.fromBlockNumber(blockNumber);
     const slot = proposalHeader.slotNumber;
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
 
     const workTimer = new Timer();
     this.setState(SequencerState.CREATING_BLOCK, slot);

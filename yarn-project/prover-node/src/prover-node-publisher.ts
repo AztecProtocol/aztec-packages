@@ -1,11 +1,12 @@
 import { BatchedBlob, getEthBlobEvaluationInputs } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
-import type { L1TxUtils, RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum';
+import type { RollupContract, ViemCommitteeAttestation } from '@aztec/ethereum/contracts';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { makeTuple } from '@aztec/foundation/array';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { areArraysEqual } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
@@ -104,6 +105,7 @@ export class ProverNodePublisher {
 
       const txReceipt = await this.sendSubmitEpochProofTx(args);
       if (!txReceipt) {
+        this.log.error(`Failed to mine submitEpochProof tx`, undefined, ctx);
         return false;
       }
 
@@ -136,7 +138,7 @@ export class ProverNodePublisher {
       }
 
       this.metrics.recordFailedTx();
-      this.log.error(`Rollup.submitEpochProof tx status failed ${txReceipt.transactionHash}`, undefined, ctx);
+      this.log.error(`Rollup submitEpochProof tx reverted ${txReceipt.transactionHash}`, undefined, ctx);
     }
 
     this.log.verbose('Checkpoint data syncing interrupted', ctx);
@@ -156,7 +158,7 @@ export class ProverNodePublisher {
     // Check that the checkpoint numbers match the expected epoch to be proven
     const { pending, proven } = await this.rollupContract.getTips();
     // Don't publish if proven is beyond our toCheckpoint, pointless to do so
-    if (proven > BigInt(toCheckpoint)) {
+    if (proven > toCheckpoint) {
       throw new Error(
         `Cannot submit epoch proof for ${fromCheckpoint}-${toCheckpoint} as proven checkpoint is ${proven}`,
       );
@@ -228,21 +230,24 @@ export class ProverNodePublisher {
     });
     try {
       const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({ to: this.rollupContract.address, data });
+      if (receipt.status !== 'success') {
+        const errorMsg = await this.l1TxUtils.tryGetErrorFromRevertedTx(
+          data,
+          {
+            args: [...txArgs],
+            functionName: 'submitEpochRootProof',
+            abi: RollupAbi,
+            address: this.rollupContract.address,
+          },
+          /*blobInputs*/ undefined,
+          /*stateOverride*/ [],
+        );
+        this.log.error(`Rollup submit epoch proof tx reverted with ${errorMsg ?? 'unknown error'}`);
+        return undefined;
+      }
       return receipt;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);
-      const errorMsg = await this.l1TxUtils.tryGetErrorFromRevertedTx(
-        data,
-        {
-          args: [...txArgs],
-          functionName: 'submitEpochRootProof',
-          abi: RollupAbi,
-          address: this.rollupContract.address,
-        },
-        /*blobInputs*/ undefined,
-        /*stateOverride*/ [],
-      );
-      this.log.error(`Rollup submit epoch proof tx reverted. ${errorMsg}`);
       return undefined;
     }
   }

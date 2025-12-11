@@ -13,11 +13,6 @@ pub struct EcdsaPublicKeyNote {
     pub y: [u8; 32],
 }
 
-impl EcdsaPublicKeyNote {
-    pub fn new(x: [u8; 32], y: [u8; 32]) -> Self {
-        EcdsaPublicKeyNote { x, y }
-    }
-}
 
 impl Packable for EcdsaPublicKeyNote {
     let N: u32 = 4;

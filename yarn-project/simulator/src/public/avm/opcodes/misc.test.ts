@@ -1,5 +1,5 @@
 import { LogLevels } from '@aztec/foundation/log';
-import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
+import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -126,7 +126,10 @@ describe('Misc Instructions', () => {
     it('Should fail when max debug log memory reads is exceeded', async () => {
       const trace = mock<PublicSideEffectTraceInterface>();
       const env = initExecutionEnvironment({
-        config: PublicSimulatorConfig.from({ collectDebugLogs: true, maxDebugLogMemoryReads: 1000 }),
+        config: PublicSimulatorConfig.from({
+          collectDebugLogs: true,
+          collectionLimits: CollectionLimitsConfig.from({ maxDebugLogMemoryReads: 1000 }),
+        }),
       });
       const context = initContext({ env, persistableState: initPersistableStateManager({ trace }) });
 

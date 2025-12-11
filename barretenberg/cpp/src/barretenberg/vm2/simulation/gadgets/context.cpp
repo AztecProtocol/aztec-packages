@@ -12,9 +12,9 @@ namespace bb::avm2::simulation {
 /////////////////////////////
 // Base Context
 /////////////////////////////
-std::vector<MemoryValue> BaseContext::get_returndata(uint32_t rd_offset, uint32_t rd_copy_size)
+std::vector<MemoryValue> BaseContext::get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) const
 {
-    MemoryInterface& child_memory = get_child_context().get_memory();
+    const MemoryInterface& child_memory = get_child_context().get_memory();
     // The amount to rd copy is the minimum of the requested size (with the offset into rd) and the size of the
     // returndata We need to do it over a wider integer type to avoid overflow issues, but the result is guaranteed to
     // be a u32 since last_child_rd_size would have previously been constrained to be u32.

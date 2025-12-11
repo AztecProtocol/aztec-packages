@@ -1,6 +1,5 @@
 pub(crate) mod find_index_of_first_fully_revertible_private_call_request;
 mod validate_contract_address;
-mod validate_min_revertible_side_effect_counter;
 pub(crate) mod validate_side_effect_counters;
 
 use dep::types::{
@@ -14,7 +13,6 @@ use dep::types::{
     traits::Empty,
 };
 use validate_contract_address::validate_contract_address;
-use validate_min_revertible_side_effect_counter::validate_no_phase_change_within_child_calls;
 use validate_side_effect_counters::validate_unique_and_within_bounds_side_effect_counters;
 
 pub struct PrivateCallDataValidator {
@@ -37,8 +35,6 @@ impl PrivateCallDataValidator {
     pub fn validate_common(self, protocol_contracts: ProtocolContracts) {
         // Validate that the vk exists within the called contract address:
         validate_contract_address(self.data, protocol_contracts);
-
-        self.validate_min_revertible_counter_within_range();
 
         self.restrict_side_effects();
         self.validate_claimed_lengths();
@@ -248,12 +244,6 @@ impl PrivateCallDataValidator {
                 }
             }
         }
-
-        let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        validate_no_phase_change_within_child_calls(
-            min_revertible_side_effect_counter,
-            public_inputs.private_call_requests,
-        );
     }
 
     fn validate_public_call_requests(self) {
@@ -316,22 +306,6 @@ impl PrivateCallDataValidator {
                     & (expected_revertible_side_effect_counter >= claimed_revertible_counter),
                 "Failed to validate expected revertible side effect counter",
             )
-        }
-    }
-
-    fn validate_min_revertible_counter_within_range(self) {
-        let public_inputs = self.data.public_inputs;
-        let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        if min_revertible_side_effect_counter != 0 {
-            // Validate that the min revertible side effect counter is within the range of the call.
-            assert(
-                min_revertible_side_effect_counter >= public_inputs.start_side_effect_counter,
-                "min_revertible_side_effect_counter must be greater than or equal to start_side_effect_counter",
-            );
-            assert(
-                min_revertible_side_effect_counter <= public_inputs.end_side_effect_counter,
-                "min_revertible_side_effect_counter must be less than or equal to end_side_effect_counter",
-            );
         }
     }
 }

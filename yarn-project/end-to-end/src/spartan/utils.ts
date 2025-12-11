@@ -1,6 +1,8 @@
 import { createLogger } from '@aztec/aztec.js/log';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
-import type { L1ContractAddresses, ViemPublicClient } from '@aztec/ethereum';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
+import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
@@ -194,9 +196,9 @@ export function getExternalIP(namespace: string, serviceName: string): Promise<s
   return promise;
 }
 
-export function startPortForwardForRPC(namespace: string, resourceType = 'services', index = 0) {
+export function startPortForwardForRPC(namespace: string, index = 0) {
   return startPortForward({
-    resource: `${resourceType}/${namespace}-rpc-aztec-node-${index}`,
+    resource: `pod/${namespace}-rpc-aztec-node-${index}`,
     namespace,
     containerPort: 8080,
   });
@@ -531,24 +533,24 @@ export function applyNetworkShaping({
   });
 }
 
-export async function awaitL2BlockNumber(
+export async function awaitCheckpointNumber(
   rollupCheatCodes: RollupCheatCodes,
-  blockNumber: bigint,
+  checkpointNumber: CheckpointNumber,
   timeoutSeconds: number,
   logger: Logger,
 ) {
-  logger.info(`Waiting for L2 Block ${blockNumber}`);
+  logger.info(`Waiting for checkpoint ${checkpointNumber}`);
   let tips = await rollupCheatCodes.getTips();
   const endTime = Date.now() + timeoutSeconds * 1000;
-  while (tips.pending < blockNumber && Date.now() < endTime) {
-    logger.info(`At L2 Block ${tips.pending}`);
+  while (tips.pending < checkpointNumber && Date.now() < endTime) {
+    logger.info(`At checkpoint ${tips.pending}`);
     await sleep(1000);
     tips = await rollupCheatCodes.getTips();
   }
-  if (tips.pending < blockNumber) {
-    throw new Error(`Timeout waiting for L2 Block ${blockNumber}, only reached ${tips.pending}`);
+  if (tips.pending < checkpointNumber) {
+    throw new Error(`Timeout waiting for checkpoint ${checkpointNumber}, only reached ${tips.pending}`);
   } else {
-    logger.info(`Reached L2 Block ${tips.pending}`);
+    logger.info(`Reached checkpoint ${tips.pending}`);
   }
 }
 

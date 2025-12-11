@@ -1,8 +1,8 @@
 use crate::{
     context::{note_hash_read::NoteHashRead, PrivateContext},
     note::{
-        note_emission::NoteEmission,
         note_interface::{NoteHash, NoteType},
+        note_message::NoteMessage,
         retrieved_note::RetrievedNote,
         utils::{compute_note_hash_for_nullification_from_note_hash_read, compute_note_hash_read},
     },
@@ -10,12 +10,36 @@ use crate::{
 };
 use protocol_types::{address::AztecAddress, traits::Packable};
 
+/// A note that was created in the current contract call.
+pub struct NewNote<Note> {
+    pub(crate) note: Note,
+    pub(crate) owner: AztecAddress,
+    pub(crate) storage_slot: Field,
+    pub(crate) randomness: Field,
+    /// The [PrivateContext] side-effect counter associated with the creation of this note.
+    pub(crate) note_hash_counter: u32,
+}
+
+impl<Note> NewNote<Note> {
+    fn new(
+        note: Note,
+        owner: AztecAddress,
+        storage_slot: Field,
+        randomness: Field,
+        note_hash_counter: u32,
+    ) -> Self {
+        // A counter of value zero indicates a settled note, which a NewNote by definition cannot be.
+        assert(note_hash_counter != 0, "A NewNote cannot have a zero note hash counter");
+        Self { note, owner, storage_slot, randomness, note_hash_counter }
+    }
+}
+
 pub fn create_note<Note>(
     context: &mut PrivateContext,
     owner: AztecAddress,
     storage_slot: Field,
     note: Note,
-) -> NoteEmission<Note>
+) -> NoteMessage<Note>
 where
     Note: NoteType + NoteHash + Packable,
 {
@@ -29,25 +53,20 @@ where
 
     let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
 
-    let packed_note = Note::pack(note);
     notify_created_note(
         owner,
         storage_slot,
         randomness,
         Note::get_id(),
-        packed_note,
+        note.pack(),
         note_hash,
         note_hash_counter,
     );
 
     context.push_note_hash(note_hash);
 
-    NoteEmission::new(
-        note,
-        owner,
-        storage_slot,
-        randomness,
-        note_hash_counter,
+    NoteMessage::new(
+        NewNote::new(note, owner, storage_slot, randomness, note_hash_counter),
         context,
     )
 }
@@ -56,21 +75,19 @@ where
 pub fn destroy_note<Note>(
     context: &mut PrivateContext,
     retrieved_note: RetrievedNote<Note>,
-    owner: AztecAddress,
     storage_slot: Field,
 )
 where
     Note: NoteHash,
 {
-    let note_hash_read = compute_note_hash_read(retrieved_note, owner, storage_slot);
+    let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
 
-    destroy_note_unsafe(context, retrieved_note, owner, note_hash_read)
+    destroy_note_unsafe(context, retrieved_note, note_hash_read)
 }
 
 pub fn destroy_note_unsafe<Note>(
     context: &mut PrivateContext,
     retrieved_note: RetrievedNote<Note>,
-    owner: AztecAddress,
     note_hash_read: NoteHashRead,
 )
 where
@@ -78,8 +95,11 @@ where
 {
     let note_hash_for_nullification =
         compute_note_hash_for_nullification_from_note_hash_read(retrieved_note, note_hash_read);
-    let nullifier =
-        retrieved_note.note.compute_nullifier(context, owner, note_hash_for_nullification);
+    let nullifier = retrieved_note.note.compute_nullifier(
+        context,
+        retrieved_note.owner,
+        note_hash_for_nullification,
+    );
 
     let note_hash = if retrieved_note.metadata.is_settled() {
         // Counter is zero, so we're nullifying a settled note and we don't populate the note_hash with real value.

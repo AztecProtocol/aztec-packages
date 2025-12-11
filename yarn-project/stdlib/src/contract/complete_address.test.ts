@@ -1,4 +1,5 @@
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { PublicKeys } from '../keys/public_keys.js';

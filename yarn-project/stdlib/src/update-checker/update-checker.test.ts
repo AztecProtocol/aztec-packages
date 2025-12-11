@@ -1,4 +1,4 @@
-import { randomBigInt } from '@aztec/foundation/crypto';
+import { randomBigInt } from '@aztec/foundation/crypto/random';
 
 import { jest } from '@jest/globals';
 

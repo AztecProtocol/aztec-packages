@@ -251,7 +251,10 @@ int predict_block_size(ProgramBlock* block)
                     continue;
                 }
                 auto set_16_instruction =
-                    SET_16_Instruction{ .value_tag = bb::avm2::MemoryTag::U1, .offset = address, .value = 0 };
+                    SET_16_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
+                                        .result_address =
+                                            ResultAddressRef{ .address = address, .mode = AddressingMode::Direct },
+                                        .value = 0 };
                 block->process_instruction(set_16_instruction);
                 bytecode_length = static_cast<int>(create_bytecode(block->get_instructions()).size());
                 break;

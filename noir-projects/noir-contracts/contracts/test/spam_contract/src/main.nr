@@ -1,5 +1,3 @@
-mod types;
-
 use aztec::macros::aztec;
 
 #[aztec]
@@ -15,14 +13,14 @@ pub contract Spam {
             },
             hash::poseidon2_hash_with_separator,
         },
-        state_vars::{Map, PublicMutable},
+        state_vars::{Map, Owned, PublicMutable},
     };
 
-    use crate::types::balance_set::BalanceSet;
+    use balance_set::BalanceSet;
 
     #[storage]
     struct Storage<Context> {
-        balances: BalanceSet<Context>,
+        balances: Owned<BalanceSet<Context>, Context>,
         public_balances: Map<Field, PublicMutable<u128, Context>, Context>,
     }
 
@@ -31,10 +29,7 @@ pub contract Spam {
         let caller = self.msg_sender().unwrap();
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
-            self.storage.balances.at(caller).add(1).emit(
-                caller,
-                MessageDelivery.UNCONSTRAINED_ONCHAIN,
-            );
+            self.storage.balances.at(caller).add(1).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
         }
 
         for i in 0..MAX_NULLIFIERS_PER_CALL {

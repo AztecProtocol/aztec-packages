@@ -1,6 +1,7 @@
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Note } from '@aztec/stdlib/note';
@@ -115,6 +116,26 @@ export class NoteDao {
   static fromString(str: string) {
     const hex = str.replace(/^0x/, '');
     return NoteDao.fromBuffer(Buffer.from(hex, 'hex'));
+  }
+
+  /**
+   * Returns true if this note is equal to the `other` one.
+   */
+  equals(other: NoteDao): boolean {
+    return (
+      this.note.equals(other.note) &&
+      this.contractAddress.equals(other.contractAddress) &&
+      this.owner.equals(other.owner) &&
+      this.storageSlot.equals(other.storageSlot) &&
+      this.randomness.equals(other.randomness) &&
+      this.noteNonce.equals(other.noteNonce) &&
+      this.noteHash.equals(other.noteHash) &&
+      this.siloedNullifier.equals(other.siloedNullifier) &&
+      this.txHash.equals(other.txHash) &&
+      this.l2BlockNumber === other.l2BlockNumber &&
+      this.l2BlockHash === other.l2BlockHash &&
+      this.index === other.index
+    );
   }
 
   /**

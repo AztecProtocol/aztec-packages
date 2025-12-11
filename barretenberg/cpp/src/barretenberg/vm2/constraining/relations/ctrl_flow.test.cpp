@@ -28,7 +28,7 @@ TEST(CtrlFlowConstrainingTest, Jump)
             { C::execution_sel_execute_jump, 1 },
             { C::execution_rop_0_, 120 },
         },
-        { { C::execution_sel, 1 }, { C::execution_last, 1 }, { C::execution_pc, 120 } },
+        { { C::execution_sel, 1 }, { C::execution_pc, 120 } },
     });
 
     check_relation<execution>(trace, execution::SR_PC_NEXT_ROW_INT_CALL_JUMP);
@@ -48,7 +48,7 @@ TEST(CtrlFlowConstrainingTest, JumpiTrueCondition)
           { C::execution_rop_1_, 120 },
           { C::execution_next_pc, 220 },
           { C::execution_register_0_, 1 } }, // True condition
-        { { C::execution_sel, 1 }, { C::execution_last, 1 }, { C::execution_pc, 120 } },
+        { { C::execution_sel, 1 }, { C::execution_pc, 120 } },
     });
 
     check_relation<execution>(trace, execution::SR_PC_NEXT_ROW_JUMPI);
@@ -67,7 +67,7 @@ TEST(CtrlFlowConstrainingTest, JumpiFalseCondition)
           { C::execution_rop_1_, 120 },
           { C::execution_next_pc, 220 },
           { C::execution_register_0_, 0 } }, // False condition
-        { { C::execution_sel, 1 }, { C::execution_last, 1 }, { C::execution_pc, 220 } },
+        { { C::execution_sel, 1 }, { C::execution_pc, 220 } },
     });
 
     check_relation<execution>(trace, execution::SR_PC_NEXT_ROW_JUMPI);

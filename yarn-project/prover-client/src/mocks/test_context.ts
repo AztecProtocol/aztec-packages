@@ -3,7 +3,7 @@ import { TestCircuitProver } from '@aztec/bb-prover';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd, times, timesAsync } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -250,7 +250,6 @@ export class TestContext {
     // Add tx effects to db and build block headers.
     const blocks = [];
     for (let i = 0; i < numBlocks; i++) {
-      const isFirstBlock = i === 0;
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
@@ -259,8 +258,8 @@ export class TestContext {
       const header = block.header;
       this.headers.set(block.number, header);
 
-      const blockMsgs = isFirstBlock ? l1ToL2Messages : [];
-      await this.worldState.handleL2BlockAndMessages(block, blockMsgs, isFirstBlock);
+      const blockMsgs = block.indexWithinCheckpoint === 0 ? l1ToL2Messages : [];
+      await this.worldState.handleL2BlockAndMessages(block, blockMsgs);
 
       blocks.push({ header, txs });
     }

@@ -424,14 +424,31 @@ struct AvmProvingInputs {
     MSGPACK_CAMEL_CASE_FIELDS(public_inputs, hints);
 };
 
+struct CollectionLimitsConfig {
+    uint32_t max_debug_log_memory_reads = 0;
+    uint32_t max_calldata_size_in_fields = 0;
+    uint32_t max_returndata_size_in_fields = 0;
+    uint32_t max_call_stack_depth = 0;
+    uint32_t max_call_stack_items = 0;
+
+    bool operator==(const CollectionLimitsConfig& other) const = default;
+
+    MSGPACK_CAMEL_CASE_FIELDS(max_debug_log_memory_reads,
+                              max_calldata_size_in_fields,
+                              max_returndata_size_in_fields,
+                              max_call_stack_depth,
+                              max_call_stack_items);
+};
+
 struct PublicSimulatorConfig {
     FF prover_id = 0;
     bool skip_fee_enforcement = false;
     bool collect_call_metadata = false;
     bool collect_hints = false;
+    bool collect_public_inputs = false;
     bool collect_debug_logs = false;
-    uint32_t max_debug_log_memory_reads = 0;
     bool collect_statistics = false;
+    CollectionLimitsConfig collection_limits;
 
     bool operator==(const PublicSimulatorConfig& other) const = default;
 
@@ -439,9 +456,10 @@ struct PublicSimulatorConfig {
                               skip_fee_enforcement,
                               collect_call_metadata,
                               collect_hints,
+                              collect_public_inputs,
                               collect_debug_logs,
-                              max_debug_log_memory_reads,
-                              collect_statistics);
+                              collect_statistics,
+                              collection_limits);
 };
 
 struct AvmFastSimulationInputs {
@@ -461,40 +479,89 @@ struct AvmFastSimulationInputs {
 // Tx Simulation Result
 ////////////////////////////////////////////////////////////////////////////
 
-// Metadata about a given call.
-// NOTE: This is currently a superset of the NestedProcessReturnValues class in TS
-// but it will likely be extended to include more information.
-struct CallStackMetadata {
-    std::vector<FF> calldata;
-    std::optional<std::vector<FF>> values;
-    std::vector<CallStackMetadata> nested;
-
-    bool operator==(const CallStackMetadata& other) const = default;
-    MSGPACK_CAMEL_CASE_FIELDS(calldata, values, nested);
+enum class CoarseTransactionPhase : uint8_t {
+    SETUP,
+    APP_LOGIC,
+    TEARDOWN,
 };
 
-// TODO(fcarreiro/mwood): add.
-using SimulationError = bool;
+inline std::ostream& operator<<(std::ostream& os, const CoarseTransactionPhase& phase)
+{
+    switch (phase) {
+    case CoarseTransactionPhase::SETUP:
+        return os << "SETUP";
+    case CoarseTransactionPhase::APP_LOGIC:
+        return os << "APP_LOGIC";
+    case CoarseTransactionPhase::TEARDOWN:
+        return os << "TEARDOWN";
+    default:
+        return os << "UNKNOWN";
+    }
+}
+
+// Metadata about a given (enqueued or external) call.
+struct CallStackMetadata {
+    uint32_t timestamp;
+    CoarseTransactionPhase phase;
+    FF contract_address;
+    PC caller_pc;
+    std::vector<FF> calldata;
+    bool is_static_call;
+    Gas gas_limit;
+    std::vector<FF> output; // returndata or revertdata.
+
+    bool reverted;
+    std::vector<CallStackMetadata> nested;
+    std::vector<PC> internal_call_stack_at_exit; // At return/revert time. Last one is exit PC.
+    std::optional<std::string> halting_message;
+    uint32_t num_nested_calls; // This will be different from the size of the nested vector if we went past some limit.
+
+    bool operator==(const CallStackMetadata& other) const = default;
+    MSGPACK_CAMEL_CASE_FIELDS(timestamp,
+                              phase,
+                              contract_address,
+                              caller_pc,
+                              calldata,
+                              is_static_call,
+                              gas_limit,
+                              output,
+                              reverted,
+                              nested,
+                              internal_call_stack_at_exit,
+                              halting_message,
+                              num_nested_calls);
+};
+
+struct PublicTxEffect {
+    FF transaction_fee;
+    std::vector<FF> note_hashes;
+    std::vector<FF> nullifiers;
+    std::vector<ScopedL2ToL1Message> l2_to_l1_msgs;
+    std::vector<PublicLog> public_logs;
+    std::vector<PublicDataWrite> public_data_writes;
+
+    bool operator==(const PublicTxEffect& other) const = default;
+
+    MSGPACK_CAMEL_CASE_FIELDS(transaction_fee, note_hashes, nullifiers, l2_to_l1_msgs, public_logs, public_data_writes);
+};
 
 struct TxSimulationResult {
     // Simulation.
     GasUsed gas_used;
     RevertCode revert_code;
-    std::optional<SimulationError> revert_reason;
+    PublicTxEffect public_tx_effect;
     // The following fields are only guaranteed to be present if the simulator is configured to collect them.
-    // NOTE: This vector will be populated with one CallStackMetadata per app logic enqueued call.
-    // IMPORTANT: The nesting will only be 1 level deep! You will get one result per enqueued call
-    // but no information about nested calls. This can be added later.
-    std::vector<CallStackMetadata> app_logic_return_values;
+    std::vector<CallStackMetadata> call_stack_metadata; // One per enqueued call. All phases.
     std::optional<std::vector<DebugLog>> logs;
     // Proving request data.
-    PublicInputs public_inputs;
+    std::optional<PublicInputs> public_inputs;
     std::optional<ExecutionHints> hints;
 
     bool operator==(const TxSimulationResult& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(
-        gas_used, revert_code, revert_reason, app_logic_return_values, logs, public_inputs, hints);
+    MSGPACK_CAMEL_CASE_FIELDS(gas_used, revert_code, public_tx_effect, call_stack_metadata, logs, public_inputs, hints);
 };
 
 } // namespace bb::avm2
+
+MSGPACK_ADD_ENUM(bb::avm2::CoarseTransactionPhase)

@@ -18,6 +18,8 @@ import {
 
 import { type ViemClient, isExtendedClient } from '../types.js';
 
+const MAX_WAIT_TIME_SECONDS = 180;
+
 export function waitUntilBlock<T extends Client>(
   client: T,
   blockNumber: number | bigint,
@@ -36,7 +38,7 @@ export function waitUntilBlock<T extends Client>(
       return currentBlockNumber >= BigInt(blockNumber);
     },
     `Wait until L1 block ${blockNumber}`,
-    timeout ?? 120,
+    timeout ?? MAX_WAIT_TIME_SECONDS,
     0.1,
   );
 }
@@ -66,7 +68,7 @@ export function waitUntilL1Timestamp<T extends Client>(
       return currentTs >= BigInt(timestamp);
     },
     `Wait until L1 timestamp ${timestamp}`,
-    timeout ?? 120,
+    timeout ?? MAX_WAIT_TIME_SECONDS,
     0.1,
   );
 }

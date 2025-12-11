@@ -1,12 +1,14 @@
 use crate::note::note_metadata::NoteMetadata;
 use protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 
-/// A container of a note and the metadata required to prove its existence, regardless of whether the note is
-/// pending (created in the current transaction) or settled (created in a previous transaction).
+/// A container of a note and the metadata that is along with a storage slot required to prove existence of the note,
+/// regardless of whether the note is pending (created in the current transaction) or settled (created in a previous
+/// transaction).
 #[derive(Deserialize, Eq, Serialize, Packable)]
 pub struct RetrievedNote<Note> {
     pub note: Note,
     pub contract_address: AztecAddress,
+    pub owner: AztecAddress,
     pub randomness: Field,
     pub metadata: NoteMetadata,
 }
@@ -43,9 +45,11 @@ mod test {
         let note_metadata = NoteMetadata::from_raw_data(nonzero_note_hash_counter, note_nonce);
 
         // Now we reconstruct the retrieved note from the values above and pack it.
+        let owner = AztecAddress::from_field(5);
         let retrieved_note = RetrievedNote {
             note: TestNote::unpack(packed_note),
             contract_address,
+            owner,
             randomness,
             metadata: note_metadata,
         };
@@ -56,6 +60,7 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000003,
             0x0000000000000000000000000000000000000000000000000000000000000004,
             0x0000000000000000000000000000000000000000000000000000000000000001,
+            0x0000000000000000000000000000000000000000000000000000000000000005,
             0x000000000000000000000000000000000000000000000000000000000000002a,
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x0000000000000000000000000000000000000000000000000000000000000002,

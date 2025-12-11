@@ -1,8 +1,8 @@
 import { ArchiverStoreHelper, KVArchiverDataStore, type PublishedL2Block } from '@aztec/archiver';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, L2BlockSource, L2Tips, ValidateBlockResult } from '@aztec/stdlib/block';
@@ -95,6 +95,10 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     throw new Error('TXE Archiver does not implement "getPublishedCheckpoints"');
   }
 
+  public getCheckpointByArchive(_archive: Fr): Promise<Checkpoint | undefined> {
+    throw new Error('TXE Archiver does not implement "getCheckpointByArchive"');
+  }
+
   public getL2SlotNumber(): Promise<SlotNumber | undefined> {
     throw new Error('TXE Archiver does not implement "getL2SlotNumber"');
   }
@@ -113,10 +117,6 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
 
   public getBlockHeadersForEpoch(_epochNumber: EpochNumber): Promise<BlockHeader[]> {
     throw new Error('TXE Archiver does not implement "getBlockHeadersForEpoch"');
-  }
-
-  public getL1ToL2MessagesForCheckpoint(_checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    throw new Error('TXE Archiver does not implement "getL1ToL2MessagesForCheckpoint"');
   }
 
   public isEpochComplete(_epochNumber: EpochNumber): Promise<boolean> {

@@ -23,7 +23,7 @@
     "generate": "./scripts/generate.sh",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "codegen": "yarn noir-codegen",
-    "build:dev": "tsgo -b --watch"
+    "build:dev": "../scripts/tsc.sh --watch"
   },
   "jest": {
     "moduleNameMapper": {
