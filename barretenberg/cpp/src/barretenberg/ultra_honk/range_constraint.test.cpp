@@ -212,6 +212,19 @@ TYPED_TEST(RangeTests, SmallRangeConstraintFailsValueJustOverBoundary)
     TestFixture::prove_and_verify(builder, /*expected_result=*/false);
 }
 
+// FAILURE: orphan variable (not in any gate) causes GPA failure. This is a quirk of `create_small_range_constraint`.
+TYPED_TEST(RangeTests, SmallRangeConstraintFailsOrphanVariable)
+{
+    auto builder = UltraCircuitBuilder();
+    auto idx = TestFixture::add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
+    for (auto i : idx) {
+        builder.create_small_range_constraint(i, /*target_range=*/8);
+    }
+    // NOT calling create_unconstrained_gates - variables are orphans
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/false);
+}
+
 /***************************************************************************************************
  * Range constraints combined with arithmetic gates
  ***************************************************************************************************/
