@@ -3,6 +3,7 @@ id: creating_and_voting_on_proposals
 sidebar_position: 1
 title: Governance and Proposal Process
 description: Learn how to participate in protocol governance as a sequencer, including signaling support, creating proposals, and voting
+references: ["l1-contracts/src/governance/Governance.sol", "l1-contracts/src/governance/interfaces/IGovernance.sol"]
 ---
 
 ## Overview
