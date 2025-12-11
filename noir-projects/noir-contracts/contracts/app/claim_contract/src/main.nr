@@ -13,7 +13,6 @@ pub contract Claim {
         state_vars::PublicImmutable,
     };
     use dep::uint_note::uint_note::UintNote;
-    use crowdfunding::Crowdfunding;
     use token::Token;
 
     // TODO: This can be optimized by storing the addresses in Config struct in 1 PublicImmutable (less merkle proofs).
@@ -47,10 +46,12 @@ pub contract Claim {
             "Note is not owned by the msg_sender",
         );
 
+        // Given that there is only 1 state variable in the Crowdfunding contract we don't need to constrain the storage
+        // slot of the note as there is no risk of claiming with a note that is not a donation note.
+
         // 3) Prove that the note hash exists in the note hash tree
-        let note_storage_slot = Crowdfunding::storage_layout().donation_receipts.slot;
         let header = self.context.get_anchor_block_header();
-        header.prove_note_inclusion(proof_retrieved_note, note_storage_slot);
+        header.prove_note_inclusion(proof_retrieved_note);
 
         // 4) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
         // claimed only once with the given note.
@@ -59,8 +60,7 @@ pub contract Claim {
         // the address of a contract it was emitted from.
         // TODO(#7775): manually computing the hash and passing it to compute_nullifier func is not great as note could
         // handle it on its own or we could make prove_note_inclusion return note_hash_for_nullification.
-        let note_hash_for_nullification =
-            compute_note_hash_for_nullification(proof_retrieved_note, note_storage_slot);
+        let note_hash_for_nullification = compute_note_hash_for_nullification(proof_retrieved_note);
         let nullifier = proof_retrieved_note.note.compute_nullifier(
             self.context,
             proof_retrieved_note.owner,
