@@ -19,9 +19,6 @@ using FlavorTypes =
 #endif
 template <typename T> using RangeTests = UltraHonkTests<T>;
 TYPED_TEST_SUITE(RangeTests, FlavorTypes);
-using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>;
-template <typename T> using RangeNonZKTests = UltraHonkTests<T>;
-TYPED_TEST_SUITE(RangeNonZKTests, NonZKFlavorTypes);
 
 /***************************************************************************************************
  * enforce_small_deltas tests
