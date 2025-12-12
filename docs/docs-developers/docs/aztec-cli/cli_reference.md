@@ -617,7 +617,6 @@ Options:
                                      deployment (default: 0)
   -c, --l1-chain-id <number>         Chain ID of the ethereum host (default:
                                      31337, env: L1_CHAIN_ID)
-  --salt <number>                    The optional salt to use in deployment
   --json                             Output the contract addresses in JSON
                                      format
   --test-accounts                    Populate genesis state with initial fee
@@ -1417,10 +1416,6 @@ Options:
 - `--local-network.l1Mnemonic <value>` (default: `test test test test test test test test test test test junk`)
   Mnemonic for L1 accounts. Will be used
   *Environment: `$MNEMONIC`*
-
-- `--local-network.deployAztecContractsSalt <value>`
-  Numeric salt for deploying L1 Aztec contracts before starting the local network. Needs mnemonic or private key to be set.
-  *Environment: `$DEPLOY_AZTEC_CONTRACTS_SALT`*
 
 **API**
 

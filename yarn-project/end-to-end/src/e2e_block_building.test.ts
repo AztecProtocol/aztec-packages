@@ -469,7 +469,6 @@ describe('e2e_block_building', () => {
     it('publishes two empty blocks', async () => {
       ({ teardown, wallet, logger, aztecNode } = await setup(0, {
         minTxsPerBlock: 0,
-        skipProtocolContracts: true,
       }));
 
       await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 10, 1);
@@ -479,7 +478,6 @@ describe('e2e_block_building', () => {
     it('sends a tx on the first block', async () => {
       const context = await setup(0, {
         minTxsPerBlock: 0,
-        skipProtocolContracts: true,
         numberOfInitialFundedAccounts: 1,
       });
       ({ teardown, logger, aztecNode, wallet } = context);
@@ -505,7 +503,6 @@ describe('e2e_block_building', () => {
         accounts: [ownerAddress],
       } = await setup(1, {
         minTxsPerBlock: 1,
-        skipProtocolContracts: true,
         ethereumSlotDuration: 6,
       }));
 
@@ -535,7 +532,6 @@ describe('e2e_block_building', () => {
     it('clears up all nullifiers if tx processing fails', async () => {
       const context = await setup(1, {
         minTxsPerBlock: 1,
-        skipProtocolContracts: true,
         numberOfInitialFundedAccounts: 1,
       });
       ({

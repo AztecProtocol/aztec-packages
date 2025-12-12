@@ -134,7 +134,7 @@ function main {
     exit 0
   fi
   check_cache
-  echo_header "Run CI"
+  echo_header "Run ${CI_MODE} CI"
   exec ./ci.sh "${CI_MODE}"
 }
 

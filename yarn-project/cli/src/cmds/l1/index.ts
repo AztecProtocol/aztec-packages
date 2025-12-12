@@ -39,31 +39,25 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
     .addOption(l1ChainIdOption)
-    .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
     .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
     .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
-    .option('--accelerated-test-deployments', 'Fire and forget deployment transactions, use in testing only', false)
     .option('--real-verifier', 'Deploy the real verifier', false)
     .option('--existing-token <address>', 'Use an existing ERC20 for both fee and staking', parseEthereumAddress)
-    .option('--create-verification-json [path]', 'Create JSON file for etherscan contract verification', false)
     .action(async options => {
-      const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
+      const { deployL1ContractsCmd } = await import('./deploy_l1_contracts_cmd.js');
 
       const initialValidators =
         options.validators?.split(',').map((validator: string) => EthAddress.fromString(validator)) || [];
-      await deployL1Contracts(
+      await deployL1ContractsCmd(
         options.l1RpcUrls,
         options.l1ChainId,
         options.privateKey,
         options.mnemonic,
         options.mnemonicIndex,
-        options.salt,
         options.testAccounts,
         options.sponsoredFpc,
-        options.acceleratedTestDeployments,
         options.json,
-        options.createVerificationJson,
         initialValidators,
         options.realVerifier,
         options.existingToken,
@@ -86,12 +80,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
     .addOption(l1ChainIdOption)
-    .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
     .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
     .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .option('--real-verifier', 'Deploy the real verifier', false)
-    .option('--create-verification-json [path]', 'Create JSON file for etherscan contract verification', false)
     .action(async options => {
       const { deployNewRollup } = await import('./deploy_new_rollup.js');
 
@@ -104,15 +96,12 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.privateKey,
         options.mnemonic,
         options.mnemonicIndex,
-        options.salt,
         options.testAccounts,
         options.sponsoredFpc,
         options.json,
         initialValidators,
         options.realVerifier,
-        options.createVerificationJson,
         log,
-        debugLogger,
       );
     });
 
