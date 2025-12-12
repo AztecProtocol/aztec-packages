@@ -171,7 +171,6 @@ struct ProgramMetadata {
                // should propagate an IPA claim. In our codebase, circuits that propagate IPA claims are the ones whose
                // proof is constructed/verified using Rollup flavors.
     bool collect_gates_per_opcode = false;
-    size_t size_hint = 0;
 };
 
 /**

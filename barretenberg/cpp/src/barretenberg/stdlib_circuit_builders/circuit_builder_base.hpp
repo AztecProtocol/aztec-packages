@@ -114,7 +114,7 @@ template <typename FF_> class CircuitBuilderBase {
     std::vector<uint32_t> real_variable_tags;
     uint32_t current_tag = DUMMY_TAG;
 
-    CircuitBuilderBase(size_t size_hint = 0, bool is_write_vk_mode = false);
+    CircuitBuilderBase(bool is_write_vk_mode = false);
 
     CircuitBuilderBase(const CircuitBuilderBase& other) = default;
     CircuitBuilderBase(CircuitBuilderBase&& other) noexcept = default;

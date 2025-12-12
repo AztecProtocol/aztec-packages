@@ -204,7 +204,7 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
         witness.resize(constraints.max_witness_index + 1, 0);
     }
 
-    UltraCircuitBuilder builder{ metadata.size_hint, witness, constraints.public_inputs, is_write_vk_mode };
+    UltraCircuitBuilder builder{ witness, constraints.public_inputs, is_write_vk_mode };
 
     // Populate constraints in the builder
     build_constraints(builder, constraints, metadata);

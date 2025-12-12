@@ -50,10 +50,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     void apply_databus_selectors(BusId bus_idx);
 
   public:
-    MegaCircuitBuilder_(const size_t size_hint = 0,
-                        std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),
+    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),
                         bool is_write_vk_mode = false)
-        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint, is_write_vk_mode)
+        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(is_write_vk_mode)
         , op_queue(std::move(op_queue_in))
     {
         BB_BENCH();
@@ -89,8 +88,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
                         const std::vector<FF>& witness_values,
                         const std::vector<uint32_t>& public_inputs,
                         const bool is_write_vk_mode)
-        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(
-              /*size_hint=*/0, witness_values, public_inputs, is_write_vk_mode)
+        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(witness_values, public_inputs, is_write_vk_mode)
         , op_queue(std::move(op_queue_in))
     {
         // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate

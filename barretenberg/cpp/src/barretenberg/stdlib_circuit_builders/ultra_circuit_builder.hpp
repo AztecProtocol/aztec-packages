@@ -211,8 +211,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void process_non_native_field_multiplications();
 
-    UltraCircuitBuilder_(const size_t size_hint = 0, bool is_write_vk_mode = false)
-        : CircuitBuilderBase<FF>(size_hint, is_write_vk_mode)
+    UltraCircuitBuilder_(bool is_write_vk_mode = false)
+        : CircuitBuilderBase<FF>(is_write_vk_mode)
     {
         this->set_zero_idx(put_constant_variable(FF::zero()));
         this->_tau.insert(
@@ -223,7 +223,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * @brief Constructor from data generated from ACIR
      *
-     * @param size_hint
      * @param witness_values witnesses values known to acir
      * @param public_inputs indices of public inputs in witness array
      * @param is_write_vk_mode true if the builder is use to generate the vk of a circuit
@@ -236,11 +235,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * implementation (or more generally on the backend used to process acir).
      *
      */
-    UltraCircuitBuilder_(const size_t size_hint,
-                         const std::vector<FF>& witness_values,
+    UltraCircuitBuilder_(const std::vector<FF>& witness_values,
                          const std::vector<uint32_t>& public_inputs,
                          const bool is_write_vk_mode)
-        : CircuitBuilderBase<FF>(size_hint, is_write_vk_mode)
+        : CircuitBuilderBase<FF>(is_write_vk_mode)
     {
         for (const auto value : witness_values) {
             this->add_variable(value);

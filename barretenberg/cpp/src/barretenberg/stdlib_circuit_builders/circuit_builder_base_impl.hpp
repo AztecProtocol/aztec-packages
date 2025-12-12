@@ -11,16 +11,9 @@
 
 namespace bb {
 template <typename FF_>
-CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool is_write_vk_mode)
+CircuitBuilderBase<FF_>::CircuitBuilderBase(bool is_write_vk_mode)
     : _is_write_vk_mode(is_write_vk_mode)
-{
-    variables.reserve(size_hint * 3);
-    variable_names.reserve(size_hint * 3);
-    next_var_index.reserve(size_hint * 3);
-    prev_var_index.reserve(size_hint * 3);
-    real_variable_index.reserve(size_hint * 3);
-    real_variable_tags.reserve(size_hint * 3);
-}
+{}
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_finalized_gates() const
 {
