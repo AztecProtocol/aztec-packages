@@ -1,6 +1,3 @@
-// CLI API for Chonk proving system.
-// See: chonk/README.md for architecture overview.
-
 #pragma once
 #include "barretenberg/api/api.hpp"
 #include <filesystem>

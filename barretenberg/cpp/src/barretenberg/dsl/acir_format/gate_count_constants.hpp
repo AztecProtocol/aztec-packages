@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/constants.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -109,7 +108,6 @@ inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 96;
 // Hiding kernel gate counts (verifies HN_FINAL proof)
 inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 37212;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 1341 + MSM_ROWS_OFFSET;
-// Re-export from bb constants for backward compatibility
-inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = bb::CONST_HIDING_KERNEL_ULTRA_OPS;
+inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 124;
 
 } // namespace acir_format
