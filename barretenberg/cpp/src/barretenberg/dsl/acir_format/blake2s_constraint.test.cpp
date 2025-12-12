@@ -12,10 +12,11 @@
 using namespace bb;
 using namespace acir_format;
 
-template <class BuilderType> class Blake2sTestingFunctions {
+template <class BuilderType, bool IsInputConstant> class Blake2sTestingFunctions {
   public:
     using Builder = BuilderType;
     using AcirConstraint = Blake2sConstraint;
+    using FF = Builder::FF;
 
     struct InvalidWitness {
       public:
@@ -37,7 +38,12 @@ template <class BuilderType> class Blake2sTestingFunctions {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::Input: {
             // Tamper with the first input element
-            witness_values[constraint.inputs[0].blackbox_input.index] += bb::fr(1);
+            if constexpr (IsInputConstant) {
+                constraint.inputs[0].blackbox_input =
+                    WitnessOrConstant<FF>::from_constant(constraint.inputs[0].blackbox_input.value + bb::fr(1));
+            } else {
+                witness_values[constraint.inputs[0].blackbox_input.index] += bb::fr(1);
+            }
             break;
         }
         case InvalidWitness::Target::Output: {
@@ -55,8 +61,22 @@ template <class BuilderType> class Blake2sTestingFunctions {
      */
     void generate_constraints(Blake2sConstraint& blake2s_constraint, WitnessVector& witness_values)
     {
-        // Start with the zero variable at index 0
-        witness_values.emplace_back(bb::fr(0));
+        // Helper to add a state: either as witness or constant
+        auto construct_state = [&](const std::vector<uint8_t>& state,
+                                   bool as_constant) -> std::vector<WitnessOrConstant<FF>> {
+            std::vector<WitnessOrConstant<FF>> result;
+            if (as_constant) {
+                for (const auto& byte : state) {
+                    result.push_back(WitnessOrConstant<FF>::from_constant(FF(byte)));
+                }
+                return result;
+            }
+            auto indices = add_to_witness_and_track_indices(witness_values, state);
+            for (const auto& idx : indices) {
+                result.push_back(WitnessOrConstant<FF>::from_index(idx));
+            }
+            return result;
+        };
 
         // Input: 64-byte message
         std::vector<uint8_t> input_state(64);
@@ -64,43 +84,61 @@ template <class BuilderType> class Blake2sTestingFunctions {
         // Expected Blake2s hash output
         std::array<uint8_t, 32> output_state = crypto::blake2s(input_state);
 
-        // Add input and output state to witness
-        auto input_indices = add_to_witness_and_track_indices<std::vector<uint8_t>, 64>(witness_values, input_state);
-        auto output_indices =
-            add_to_witness_and_track_indices<std::array<uint8_t, 32>, 32>(witness_values, output_state);
-
         // Create the constraint
         blake2s_constraint.inputs.reserve(input_state.size());
-        for (size_t i = 0; i < input_state.size(); ++i) {
-            Blake2sInput input{
-                .blackbox_input = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(input_indices[i])),
-                .num_bits = 8,
-            };
+        for (const auto& state : construct_state(input_state, IsInputConstant)) {
+            Blake2sInput input{ .blackbox_input = state, .num_bits = 8 };
             blake2s_constraint.inputs.push_back(input);
         }
-        for (size_t i = 0; i < 32; ++i) {
-            blake2s_constraint.result[i] = static_cast<uint32_t>(output_indices[i]);
+
+        // Add output state to witness
+        auto output_indices = add_to_witness_and_track_indices(witness_values, output_state);
+        // Add output indices to constraint
+        for (auto [blake_result, output_idx] : zip_view(blake2s_constraint.result, output_indices)) {
+            blake_result = output_idx;
         }
     }
 };
 
 template <class Builder>
-class Blake2sConstraintsTest : public ::testing::Test, public TestClass<Blake2sTestingFunctions<Builder>> {
+class Blake2sConstraintsTestInputConstant : public ::testing::Test,
+                                            public TestClass<Blake2sTestingFunctions<Builder, true>> {
   protected:
     static void SetUpTestSuite() { srs::init_file_crs_factory(srs::bb_crs_path()); }
 };
 
 using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
 
-TYPED_TEST_SUITE(Blake2sConstraintsTest, BuilderTypes);
-
-TYPED_TEST(Blake2sConstraintsTest, GenerateVKFromConstraints)
+TYPED_TEST_SUITE(Blake2sConstraintsTestInputConstant, BuilderTypes);
+TYPED_TEST(Blake2sConstraintsTestInputConstant, GenerateVKFromConstraints)
 {
     using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
     TestFixture::template test_vk_independence<Flavor>();
 }
 
-TYPED_TEST(Blake2sConstraintsTest, Tampering)
+TYPED_TEST(Blake2sConstraintsTestInputConstant, Tampering)
+{
+    BB_DISABLE_ASSERTS();
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+}
+
+template <class Builder>
+class Blake2sConstraintsTestInputWitness : public ::testing::Test,
+                                           public TestClass<Blake2sTestingFunctions<Builder, false>> {
+  protected:
+    static void SetUpTestSuite() { srs::init_file_crs_factory(srs::bb_crs_path()); }
+};
+
+using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
+
+TYPED_TEST_SUITE(Blake2sConstraintsTestInputWitness, BuilderTypes);
+TYPED_TEST(Blake2sConstraintsTestInputWitness, GenerateVKFromConstraints)
+{
+    using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
+    TestFixture::template test_vk_independence<Flavor>();
+}
+
+TYPED_TEST(Blake2sConstraintsTestInputWitness, Tampering)
 {
     BB_DISABLE_ASSERTS();
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
