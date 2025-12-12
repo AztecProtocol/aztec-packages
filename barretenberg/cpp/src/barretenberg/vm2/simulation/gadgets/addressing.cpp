@@ -26,6 +26,8 @@ namespace bb::avm2::simulation {
  * - BASE_ADDRESS_INVALID: the base address is invalid
  * - RELATIVE_COMPUTATION_OOB: the relative address computation overflowed
  * - INVALID_ADDRESS_AFTER_INDIRECTION: the address obtained after applying indirection is invalid
+ * Note: We do not stop processing the other operands if an error occurs as we need
+ * error information for each operand in the event to correctly perform the trace generation.
  */
 std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryInterface& memory)
 {
@@ -112,6 +114,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
                 if (is_address_out_of_range(offset)) {
                     // We need to update the default value for the resolved operand to the overflowed value.
                     // This is required for the circuit to be on par with the behavior of immediate operands.
+                    // In this case, the tag of the resolved operand is not constrained.
                     resolution_info.resolved_operand = Operand::from_tag(ValueTag::FF, FF(offset));
                     // If this happens, it means that the relative computation overflowed. However both the base and
                     // operand addresses by themselves were valid.

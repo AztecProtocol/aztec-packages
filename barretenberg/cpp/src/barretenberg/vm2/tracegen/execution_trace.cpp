@@ -844,6 +844,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
 
     auto resolution_info_vec = addr_event.resolution_info;
     assert(resolution_info_vec.size() <= AVM_MAX_OPERANDS);
+    // Pad with default values for the missing operands.
     resolution_info_vec.resize(AVM_MAX_OPERANDS,
                                {
                                    // This is the default we want: both tag and value 0.
@@ -864,7 +865,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     // The error about the base address being invalid is stored in every resolution_info member when it happens.
     bool base_address_invalid = resolution_info_vec[0].error.has_value() &&
                                 *resolution_info_vec[0].error == AddressingEventError::BASE_ADDRESS_INVALID;
-    bool do_base_check = false;
+    bool do_base_check = false; // Whether we need to retrieve the base address,
+                                // i.e., at least one operand is relative.
 
     // Gather operand information.
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {

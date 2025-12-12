@@ -75,7 +75,7 @@ SEL_SHOULD_RESOLVE_ADDRESS * indirect =
 // Simulation will ignore the bits that we don't care about.
 // However, the reconstruction cannot force them to be 0 or this would enable an attack vector.
 // That is, execution of any bytecode that sets the upper bits of indirect would be unprovable.
-// In this case, I consider that adding 2 extra selectors is cheaper than paying for a range check
+// In this case, we consider that adding 2 extra selectors is cheaper than paying for a range check
 // or some other solution.
 
 // Whether each operand is an address for the given opcode.
