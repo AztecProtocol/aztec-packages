@@ -24,12 +24,13 @@ RUN useradd -m fuzzer -G sudo
 WORKDIR /home/fuzzer
 
 # Build argument to avoid layer caching
+# Alternatively pass nothing for latest commit, and delete the build for a rebuild.
 ARG COMMIT=""
 
 RUN git clone https://github.com/AztecProtocol/aztec-packages.git --depth 1 && \
     cd aztec-packages &&                                                       \
     if [ -n "$COMMIT" ]; then                                                  \
-        git fetch origin $COMMIT                                               \
+        git fetch origin $COMMIT;                                              \
         git checkout $COMMIT || exit 1;                                        \
     fi
 
