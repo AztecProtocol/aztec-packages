@@ -104,7 +104,7 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
     relation_parameters.accumulated_result = compute_four_limbs(accumulated_result);
 
     // OriginTag: The accumulated_result limbs originate from ECCVM verifier (different protocol phase)
-    // and are used directly in Translator relations Translator relations. The fact that these values do not interact
+    // and are used directly in Translator relations. The fact that these values do not interact
     // with any other value from the Translator circuit would trigger the round provenance mechanism if we didn't clear
     // the round provenance. This cross-protocol usage is sound because:
     // 1. ECCVM proves correctness of translation evaluations via its own sumcheck + IPA
