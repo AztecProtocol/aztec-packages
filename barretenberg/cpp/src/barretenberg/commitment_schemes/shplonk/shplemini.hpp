@@ -185,15 +185,17 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @details The logic of this method could be divided into several steps:
      *
      * 1. Receive most of the challenges and prover data.
-     * 2. Run the \ref batch_multivariate_opening_claims method corresponding to step 1 above.
+     * 2. Run the \ref compute_scalars_for_each_batch and \ref update_batch_mul_inputs_and_batched_evaluation from the
+     * ClaimBatcher class corresponding to step 1 above.
      * 3. Corresponding to step 2 above:
      *    - Run the \ref batch_gemini_claims_received_from_prover method.
      *    - Compute the evaluation of the Gemini batched univariate.
-     * 4. Output a \ref bb::BatchOpeningClaim<Curve> "batch opening claim", which is a atriple \f$ (\text{commitments},
+     * 4. Output a \ref bb::BatchOpeningClaim<Curve> "batch opening claim", which is a a triple \f$ (\text{commitments},
      * \text{scalars}, \text{shplonk_evaluation_point}) \f$ that satisfies the following: \f[ \text{batch_mul}
      * (\text{commitments},\ \text{scalars}) = \text{shplonk_opening_claim}.\text{point} \f] and the sizes of
      * 'commitments' and 'scalars' are equal to: \f[
-     * \#\text{claimed_evaluations} + \text{log_n} + 2
+     * \#\text{claimed_evaluations} + \text{log_n} + 2 (+3 for libra in case of ZK and + log_n for sumcheck univariates
+     * in case of commited sumcheck)
      * \f]
      *
      * The output triple is either fed to the corresponding \ref bb::KZG< Curve_ >::reduce_verify_batch_opening_claim
@@ -290,7 +292,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Start computing the scalar to be multiplied by [1]₁
         Fr constant_term_accumulator = Fr(0);
 
-        // Initialize the vector of scalars placing the scalar 1 correposnding to Q_commitment
+        // Initialize the vector of scalars placing the scalar 1 corresponding to Q_commitment
         std::vector<Fr> scalars;
 
         scalars.emplace_back(Fr(1));
@@ -444,7 +446,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param gemini_pos_evaluations The evaluations of Gemini fold polynomials \f$ A_i \f$ at \f$ r^{2^i} \f$ for \f$
      * i = 0, \ldots, d - 1 \f$
      * @param inverse_vanishing_evals \f$ 1/(z − r), 1/(z + r), 1/(z - r^2),  1/(z + r^2), \ldots, 1/(z - r^{2^{d-1}}),
-     * 1/(z + r^{2^{-1}}) \f$
+     * 1/(z + r^{2^{d-1}}) \f$
      * @param shplonk_batching_challenge_powers A vector of powers of \f$ \nu \f$ used to batch all univariate claims.
      * @param commitments Output vector where the commitments to the Gemini fold polynomials will be stored.
      * @param scalars Output vector where the computed scalars will be stored.
@@ -638,7 +640,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      *   \alpha_i^2 = \frac{\nu^{k+3i+2}}{z - u_i},
      * \f]
      * where \f$ z\f$ is the Shplonk evaluation challenge, \f$\nu\f$ is the batching challenge, and \f$k\f$ is an
-     * offset exponent equal to `num_gemini_claims + NUM_INTERLEAVING_CLAIMS + NUM_LIBRA_EVALATIONS`, where
+     * offset exponent equal to `num_gemini_claims + NUM_INTERLEAVING_CLAIMS + NUM_SMALL_IPA_EVALUATIONS`, where
      * `num_gemini_claims` = `2 * log_n`. Then:
      *
      * - The **batched scalar** appended to \p scalars is
@@ -725,7 +727,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             batched_scalar -= current_scaling_factor;
             const_term_contribution += current_scaling_factor * eval_array[2];
 
-            // Update Shplonk constant term accumualator
+            // Update Shplonk constant term accumulator
             constant_term_accumulator += const_term_contribution;
             scalars.push_back(batched_scalar);
         }

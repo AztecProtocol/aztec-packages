@@ -52,7 +52,7 @@
 namespace bb {
 
 /**
- * @brief Prover output (evalutation pair, witness) that can be passed on to Shplonk batch opening.
+ * @brief Prover output (evaluation pair, witness) that can be passed on to Shplonk batch opening.
  * @details Evaluation pairs {r, A₀₊(r)}, {-r, A₀₋(-r)}, {r^{2^j}, Aⱼ(r^{2^j)}, {-r^{2^j}, Aⱼ(-r^{2^j)}, j = [1,
  * ..., m-1] and witness (Fold) polynomials
  * [
@@ -390,7 +390,7 @@ template <typename Curve> class GeminiVerifier_ {
      * @param batched_evaluation The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
      * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$. Depending on the context, might be
      * padded to `virtual_log_n` size.
-     * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{d-1}} \f$.
+     * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 ,\dots, r^{2^{d-1}} \f$.
      * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return \f$ A_{i}(r^{2^{i}})\f$ for \f$ i = 0, \ldots, \text{virtual_log_n} - 1 \f$.
      */
@@ -426,7 +426,7 @@ template <typename Curve> class GeminiVerifier_ {
             eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
 
             // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
-            // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
+            // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
             eval_pos_prev =
                 padding_indicator_array[l - 1] * eval_pos + (Fr{ 1 } - padding_indicator_array[l - 1]) * eval_pos_prev;
             // If current index is bigger than log_n, we emplace 0, which is later multiplied against
