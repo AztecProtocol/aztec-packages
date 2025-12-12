@@ -8,6 +8,7 @@ pub mod public_immutable;
 pub mod public_mutable;
 pub mod private_set;
 pub mod delayed_public_mutable;
+pub mod single_use_claim;
 pub mod state_variable;
 pub mod storage;
 
@@ -21,4 +22,5 @@ pub use crate::state_vars::private_set::PrivateSet;
 pub use crate::state_vars::public_immutable::PublicImmutable;
 pub use crate::state_vars::public_mutable::PublicMutable;
 pub use crate::state_vars::single_private_immutable::SinglePrivateImmutable;
+pub use crate::state_vars::single_use_claim::SingleUseClaim;
 pub use crate::state_vars::state_variable::StateVariable;
