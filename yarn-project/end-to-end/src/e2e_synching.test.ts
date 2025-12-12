@@ -67,7 +67,6 @@ import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
 
-const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
 const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
@@ -330,7 +329,6 @@ describe('e2e_synching', () => {
         initialFundedAccounts,
         cheatCodes,
       } = await setup(1, {
-        salt: SALT,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
         numberOfInitialFundedAccounts: variant.txCount + 1,
@@ -393,9 +391,7 @@ describe('e2e_synching', () => {
       initialFundedAccounts,
       dateProvider,
     } = await setup(0, {
-      salt: SALT,
       l1StartTime: START_TIME,
-      skipProtocolContracts: true,
       numberOfInitialFundedAccounts: 10,
     });
 

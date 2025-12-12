@@ -63,7 +63,6 @@ describe('e2e_p2p_network', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
       },
-      mockZkPassportVerifier: true,
     });
 
     await t.addBootstrapNode();

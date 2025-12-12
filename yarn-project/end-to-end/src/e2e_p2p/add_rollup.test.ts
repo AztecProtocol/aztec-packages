@@ -6,9 +6,10 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { createBlobSinkServer } from '@aztec/blob-sink/server';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
-import { deployL1Contract, deployRollupForUpgrade } from '@aztec/ethereum/deploy-l1-contracts';
+import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { L1TxUtils, createL1TxUtilsFromViemWallet, defaultL1TxUtilsConfig } from '@aztec/ethereum/l1-tx-utils';
+import { L1TxUtils, createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -36,6 +37,7 @@ import getPort from 'get-port';
 import os from 'os';
 import path from 'path';
 import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract } from 'viem';
+import { foundry } from 'viem/chains';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
@@ -144,9 +146,11 @@ describe('e2e_p2p_add_rollup', () => {
       initialTestAccounts.map(a => a.address),
     );
     const { rollup: newRollup } = await deployRollupForUpgrade(
-      t.ctx.deployL1ContractsValues.l1Client,
+      t.baseAccountPrivateKey,
+      t.ctx.aztecNodeConfig.l1RpcUrls[0],
+      foundry.id,
+      t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       {
-        salt: Math.floor(Math.random() * 1000000),
         vkTreeRoot: getVKTreeRoot(),
         protocolContractsHash,
         genesisArchiveRoot,
@@ -175,9 +179,6 @@ describe('e2e_p2p_add_rollup', () => {
         slashAmountLarge: t.ctx.aztecNodeConfig.slashAmountLarge,
         localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
       },
-      t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
-      t.logger,
-      defaultL1TxUtilsConfig,
     );
 
     const { address: newPayloadAddress } = await deployL1Contract(
