@@ -35,8 +35,10 @@
 | `hypernova/hypernova_verifier.cpp` | Folding verification |
 | `hypernova/hypernova_decider_verifier.cpp` | Final accumulator verification |
 | `multilinear_batching/multilinear_batching_verifier.cpp` | Claim batching |
-| `goblin/merge_verifier.cpp` | Degree/concatenation checks |
-| `goblin/goblin.cpp` | `Goblin::verify` orchestration |
+| `goblin/merge_verifier.cpp` | `reduce_to_pairing_check()` - degree/concatenation checks |
+| `goblin/goblin_verifier.cpp` | `reduce_to_pairing_check_and_ipa_opening()` - orchestrates Merge → ECCVM → Translator |
+| `eccvm/eccvm_verifier.cpp` | `reduce_to_ipa_opening()` - reduces to IPA claim |
+| `translator_vm/translator_verifier.cpp` | `reduce_to_pairing_check()` - reduces to pairing points |
 | `relations/databus_lookup_relation.hpp` | Databus soundness |
 | `relations/multilinear_batching/multilinear_batching_relation.hpp` | Claim Batching relations |
 
@@ -136,12 +138,20 @@ See `SECURITY_ANALYSIS.md` §4 and `goblin/MERGE_PROTOCOL.md` for full analysis.
 
 ### 5. Chonk Orchestration (`chonk/`) ✅ VERIFIED
 
-**Unit tests**: `chonk.test.cpp` (tampering detection, databus failure, proof component swapping), `chonk_transcript_manifest.test.cpp`
+**Unit tests**: `chonk.test.cpp`, `chonk_transcript_invariants.test.cpp`
 
+*Tampering tests* (verify public inputs are bound via sumcheck relations):
+- [x] `AccumulatorHashTamperingFailure`: Modifying `output_hn_accum_hash` → verification fails
+- [x] `KernelReturnDataTamperingFailure`: Modifying `kernel_return_data` → verification fails
+- [x] `AppReturnDataTamperingFailure`: Modifying `app_return_data` → verification fails
+- [x] `EccOpTablesTamperingFailure`: Modifying `ecc_op_tables` → verification fails
+- [x] `MTailPropagationConsistency`: Verifies M_tail propagates correctly from Tail to Hiding kernel
+
+*State machine and logic*:
 - [x] QUEUE_TYPE state machine: `get_queue_type()` transitions based on `num_circuits_accumulated`
 - [x] `complete_kernel_circuit_logic`: Switch on QUEUE_TYPE, handles init/tail/hiding kernel logic
 - [x] Public input propagation: `T_prev_commitments` → `kernel_output.ecc_op_tables`
-- [x] First circuit: `empty_ecc_op_tables()` initializes T_prev to infinity points (line 133)
+- [x] First circuit: `empty_ecc_op_tables()` initializes T_prev to infinity points
 
 ---
 
@@ -151,10 +161,17 @@ See `SECURITY_ANALYSIS.md` §4 and `goblin/MERGE_PROTOCOL.md` for full analysis.
 
 See `SECURITY_ANALYSIS.md` §6.
 
+*Unified verifier interface* (`GoblinVerifier_::reduce_to_pairing_check_and_ipa_opening()`):
+- [x] Orchestrates: `MergeVerifier::reduce_to_pairing_check()` → `ECCVMVerifier::reduce_to_ipa_opening()` → `TranslatorVerifier::reduce_to_pairing_check()`
+- [x] Returns `ReductionResult` with aggregated pairing points + IPA claim for deferred verification
+- [x] Native mode: performs immediate pairing checks for fail-fast; only IPA deferred
+- [x] Recursive mode: both pairing and IPA deferred for batched verification
+
+*Data flow*:
 - [x] `merged_table_commitments` passed from Merge to Translator (not re-read from proof)
-- [x] `accumulated_result` computed by ECCVM verifier, not claimed by prover
+- [x] `accumulated_result` computed by ECCVM verifier via `get_translator_input_data()`, not claimed by prover
 - [x] Shared transcript across Merge → ECCVM → Translator
-- [x] Recursive verifiers fix VK as constants via `fix_witness()`
+- [x] Recursive verifiers fix VK as constants
 
 ### Transcript Boundaries ✅ VERIFIED
 
@@ -169,8 +186,11 @@ See `SECURITY_ANALYSIS.md` §1.
 
 ## VK Consistency
 
-VK authenticity is enforced cryptographically, not at the input layer:
-- **VK hash**: Computed and bound to transcript in Oink phase (`oink_verifier.cpp:56-63`)
+**Attack vector**: If the first Fiat-Shamir challenge doesn't depend on the VK, a malicious prover could generate a valid proof for circuit A, then claim it's a proof for circuit B by presenting a different VK.
+
+**Defense**: VK hash is first value added to transcript via `add_to_hash_buffer("vk_hash", ...)` in `OinkVerifier::verify()`, which is called by `HypernovaFoldingVerifier` for each incoming instance. All subsequent challenges depend on this hash.
+
+- **VK hash binding**: `oink_verifier.cpp:56-57` - `vk->hash_with_origin_tagging()` then `add_to_hash_buffer()`
 - **VK tree membership**: Noir circuits verify VK is in authorized Merkle tree (`vk_data.nr:33-43`)
 
 **Note**: `private_execution_steps.cpp` does not validate VK consistency at input time—this is intentional since it's enforced during verification.
