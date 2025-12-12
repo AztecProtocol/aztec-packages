@@ -4,7 +4,7 @@
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
-#include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
+#include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -118,9 +118,8 @@ class AvmGoblinRecursiveVerifier {
         using MegaRecursiveFlavor = MegaRecursiveFlavor_<UltraBuilder>;
         using MegaRecursiveVKAndHash = MegaRecursiveFlavor::VKAndHash;
         using MegaRecursiveVerifier = stdlib::recursion::honk::UltraRecursiveVerifier_<MegaRecursiveFlavor>;
-        using GoblinRecursiveVerifier = stdlib::recursion::honk::GoblinRecursiveVerifier;
-        using GoblinRecursiveVerifierOutput = stdlib::recursion::honk::GoblinRecursiveVerifierOutput;
-        using MergeCommitments = GoblinRecursiveVerifier::MergeVerifier::InputCommitments;
+        using GoblinRecursiveVerifier = bb::GoblinRecursiveVerifier;
+        using MergeCommitments = GoblinRecursiveVerifier::MergeCommitments;
         using FF = MegaRecursiveFlavor::FF;
         using IO = stdlib::recursion::honk::GoblinAvmIO<UltraBuilder>;
 
@@ -152,11 +151,13 @@ class AvmGoblinRecursiveVerifier {
             .T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(
                 ultra_builder) // Empty ecc op tables because there is only one layer of Goblin
         };
-        GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk, transcript };
         GoblinStdlibProof stdlib_goblin_proof(ultra_builder, inner_output.goblin_proof);
-        GoblinRecursiveVerifierOutput goblin_verifier_output =
-            goblin_verifier.verify(stdlib_goblin_proof, merge_commitments);
-        goblin_verifier_output.points_accumulator.aggregate(mega_verifier_output.points_accumulator);
+        GoblinRecursiveVerifier goblin_verifier{
+            transcript, stdlib_goblin_proof, merge_commitments, MergeSettings::PREPEND
+        };
+        GoblinRecursiveVerifier::ReductionResult goblin_verifier_output =
+            goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
+        goblin_verifier_output.pairing_points.aggregate(mega_verifier_output.points_accumulator);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
         // circuit and the outer (Ultra) by asserting equality on the independently computed hashes of this data.
@@ -165,8 +166,8 @@ class AvmGoblinRecursiveVerifier {
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
         RecursiveAvmGoblinOutput output;
-        output.points_accumulator = goblin_verifier_output.points_accumulator;
-        output.ipa_claim = goblin_verifier_output.opening_claim;
+        output.points_accumulator = goblin_verifier_output.pairing_points;
+        output.ipa_claim = goblin_verifier_output.ipa_claim;
         output.ipa_proof = goblin_verifier_output.ipa_proof;
         return output;
     }
