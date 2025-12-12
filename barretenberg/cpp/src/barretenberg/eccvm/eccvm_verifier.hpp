@@ -39,9 +39,9 @@ template <typename Flavor> class ECCVMVerifier_ {
      * @details Contains IPA opening claim and aggregate check status.
      * Individual check results are logged internally by the verifier.
      */
-    struct VerificationResult {
+    struct ReductionResult {
         OpeningClaim<Curve> ipa_claim;
-        bool verified = false; // Aggregate of sumcheck, consistency, and translation masking checks
+        bool reduction_succeeded = false; // Aggregate of sumcheck, consistency, and translation masking checks
     };
 
     // Unified constructor for both native and recursive verification
@@ -65,7 +65,7 @@ template <typename Flavor> class ECCVMVerifier_ {
         }
     }
 
-    [[nodiscard("Verification result should be checked")]] VerificationResult verify_proof();
+    [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_ipa_opening();
 
     /**
      * @brief Get the data required by the TranslatorVerifier

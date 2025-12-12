@@ -106,7 +106,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
         RecursiveVerifier verifier{ stdlib_verifier_transcript, stdlib_proof };
         verifier.get_transcript()->enable_manifest();
-        [[maybe_unused]] auto recursive_result = verifier.verify_proof();
+        [[maybe_unused]] auto recursive_result = verifier.reduce_to_ipa_opening();
         stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
         info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
@@ -120,14 +120,14 @@ class ECCVMRecursiveTests : public ::testing::Test {
         std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
         InnerVerifier native_verifier(verifier_transcript, proof);
         verifier_transcript->enable_manifest();
-        auto native_result = native_verifier.verify_proof();
+        auto native_result = native_verifier.reduce_to_ipa_opening();
 
         // Verify IPA
         auto ipa_verify_transcript = std::make_shared<Transcript>();
         ipa_verify_transcript->load_proof(ipa_proof);
         auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
         bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, native_result.ipa_claim, ipa_verify_transcript);
-        EXPECT_TRUE(ipa_verified && native_result.verified);
+        EXPECT_TRUE(ipa_verified && native_result.reduction_succeeded);
         auto recursive_manifest = verifier.get_transcript()->get_manifest();
         auto native_manifest = native_verifier.get_transcript()->get_manifest();
 
@@ -187,7 +187,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
 
         std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
         RecursiveVerifier verifier{ stdlib_verifier_transcript, stdlib_proof };
-        [[maybe_unused]] auto output = verifier.verify_proof();
+        [[maybe_unused]] auto output = verifier.reduce_to_ipa_opening();
         stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
         info("Recursive Verifier: estimated num finalized gates = ",
              outer_circuit.get_num_finalized_gates_inefficient());
@@ -216,7 +216,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
             auto stdlib_proof = stdlib::Proof<OuterBuilder>(outer_circuit, proof);
             std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
             RecursiveVerifier verifier{ stdlib_verifier_transcript, stdlib_proof };
-            auto recursive_result = verifier.verify_proof();
+            auto recursive_result = verifier.reduce_to_ipa_opening();
             stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
             if (idx == 0) {
@@ -265,7 +265,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
             std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
             RecursiveVerifier verifier{ stdlib_verifier_transcript, stdlib_proof };
 
-            [[maybe_unused]] auto recursive_opening_claim = verifier.verify_proof();
+            [[maybe_unused]] auto recursive_opening_claim = verifier.reduce_to_ipa_opening();
             stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
             auto outer_proving_key = std::make_shared<OuterProverInstance>(outer_circuit);

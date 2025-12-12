@@ -154,14 +154,14 @@ TEST_F(ECCVMTests, ZeroesCoefficients)
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
-    auto eccvm_result = verifier.verify_proof();
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
 
     // Verify IPA
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
     auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
     bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
 
-    ASSERT_TRUE(ipa_verified && eccvm_result.verified);
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
 }
 TEST_F(ECCVMTests, PointAtInfinity)
 {
@@ -176,13 +176,13 @@ TEST_F(ECCVMTests, PointAtInfinity)
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
-    auto eccvm_result = verifier.verify_proof();
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
 
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
     auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
     bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
 
-    ASSERT_TRUE(ipa_verified && eccvm_result.verified);
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
 }
 TEST_F(ECCVMTests, ScalarEdgeCase)
 {
@@ -208,13 +208,13 @@ TEST_F(ECCVMTests, ScalarEdgeCase)
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
-    auto eccvm_result = verifier.verify_proof();
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
 
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
     auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
     bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
 
-    ASSERT_TRUE(ipa_verified && eccvm_result.verified);
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
 }
 /**
  * @brief Check that size of a ECCVM proof matches the corresponding constant
@@ -246,13 +246,13 @@ TEST_F(ECCVMTests, BaseCaseFixedSize)
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
-    auto eccvm_result = verifier.verify_proof();
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
 
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
     auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
     bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
 
-    ASSERT_TRUE(ipa_verified && eccvm_result.verified);
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
 }
 
 TEST_F(ECCVMTests, EqFailsFixedSize)
@@ -272,13 +272,13 @@ TEST_F(ECCVMTests, EqFailsFixedSize)
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
-    auto eccvm_result = verifier.verify_proof();
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
 
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
     auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
     bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
 
-    ASSERT_FALSE(ipa_verified && eccvm_result.verified);
+    ASSERT_FALSE(ipa_verified && eccvm_result.reduction_succeeded);
 }
 
 TEST_F(ECCVMTests, CommittedSumcheck)

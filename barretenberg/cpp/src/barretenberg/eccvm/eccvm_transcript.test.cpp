@@ -360,7 +360,7 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->enable_manifest();
     ECCVMVerifier verifier(verifier_transcript, proof);
-    auto verification_result = verifier.verify_proof();
+    auto verification_result = verifier.reduce_to_ipa_opening();
 
     // Verify IPA with manifest enabled
     auto verifier_ipa_transcript = std::make_shared<Transcript>(prover_ipa_transcript->export_proof());

@@ -34,11 +34,11 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
 
     // Step 2: Verify the ECCVM proof
     ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
-    auto eccvm_result = eccvm_verifier.verify_proof();
-    vinfo("Goblin: ECCVM reduced to IPA opening: ", eccvm_result.verified);
+    auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
+    vinfo("Goblin: ECCVM reduced to IPA opening: ", eccvm_result.reduction_succeeded);
 
     if constexpr (!IsRecursive) {
-        if (!eccvm_result.verified) {
+        if (!eccvm_result.reduction_succeeded) {
             info("Goblin verification failed at ECCVM step");
             return VerificationResult();
         }
@@ -78,7 +78,7 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     // Recursive: must evaluate all booleans (circuit structure must be fixed)
     // Native: redundant check (already returned early on failure), but kept for consistency
     bool all_checks_passed =
-        merge_result.reduction_succeeded && eccvm_result.verified && translator_result.reduction_succeeded;
+        merge_result.reduction_succeeded && eccvm_result.reduction_succeeded && translator_result.reduction_succeeded;
 
     // Warning: `all_checks_passed` excludes pairing verification. Full native verification requires:
     // - Aggregated pairing check (performed in caller)
