@@ -231,11 +231,11 @@ Private state variables have _private_ content meaning that only some people kno
 
 Aztec.nr provides three private state variable types:
 
-- `PrivateMutable<NoteType>`: Single mutable private value
-- `PrivateImmutable<NoteType>`: Single immutable private value
-- `PrivateSet<NoteType>`: Collection of private notes
+- `Owned<PrivateMutable<NoteType, Context>, Context>`: Single mutable private value
+- `Owned<PrivateImmutable<NoteType, Context>, Context>`: Single immutable private value
+- `Owned<PrivateSet<NoteType, Context>, Context>`: Collection of private notes
 
-But, you'll notice that each requires a `NoteType`. To understand this, let's go through notes and nullifiers and how they can be used so we can understand how private state works.
+These private state variables are "owned" and must be wrapped in the `Owned<>` container, which enables owner-specific access via the `.at(owner)` method. Each also requires a `NoteType`. To understand this, let's go through notes and nullifiers and how they can be used so we can understand how private state works.
 
 ### Notes and Nullifiers
 
@@ -260,34 +260,30 @@ A nullifier is a value which indicates a resource has been spent. Nullifiers are
 
 Most often, nullifiers are used to mark a note as being spent, which prevents note double spends. The nullifier is typically computed as a **hash of the note contents concatenated with a private key of the note's owner**. These values are **immutable**, and only the owner knows their private keys, ensuring both determinism and secrecy.
 
-### Note Emissions
+### Note Messages
 
-When working with private state variables, many operations return a `NoteEmission<Note>` type rather than the note directly. This is a type-safe wrapper that ensures you explicitly decide whether to emit the note for the recipient to discover, or to discard it.
+When working with private state variables, many operations return a `NoteMessage<Note>` type rather than the note directly. This is a type-safe wrapper that ensures you explicitly decide how to deliver the note to its recipient.
 
-#### Why NoteEmission?
+#### Why NoteMessage?
 
-Private notes need to be communicated to their recipients so they know the note exists and can use it. The `NoteEmission` wrapper forces you to make an explicit choice about how this happens:
+Private notes need to be communicated to their recipients so they know the note exists and can use it. The `NoteMessage` wrapper forces you to make an explicit choice about how this happens:
 
-- **`.emit(recipient, MessageDelivery)`**: Emits the note so the recipient can discover it. You must specify:
-  - `recipient`: The `AztecAddress` who should receive the note
-  - `MessageDelivery`: Either `CONSTRAINED_ONCHAIN` (verified in the circuit) or `UNCONSTRAINED_ONCHAIN` (cheaper but less secure)
-
-- **`.discard()`**: Explicitly discards the note without emitting it (useful when you're reading but not sending)
+- **`.deliver(MessageDelivery)`**: Delivers the note so the recipient can discover it. You must specify a `MessageDelivery` option:
+  - `MessageDelivery.CONSTRAINED_ONCHAIN`: Verified in the circuit (most secure)
+  - `MessageDelivery.UNCONSTRAINED_ONCHAIN`: Cheaper but less secure
+  - `MessageDelivery.UNCONSTRAINED_OFFCHAIN`: Suitable when recipients can verify message validity through other means
 
 #### Accessing the Note
 
-After calling `.emit()` or `.discard()`, you can access the underlying note using the `.note` property:
+The `NoteMessage` type contains a `new_note` field that you can access if needed:
 
 ```rust
-// Get the note and emit it
-let emission = self.storage.user_settings.at(owner).get_note();
-let note = emission.emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN).note;
-
-// Or discard it if you don't need to emit
-let note = self.storage.user_settings.at(owner).get_note().discard().note;
+// Get the note and deliver it
+let note_message = self.storage.user_settings.at(owner).get_note();
+note_message.deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
 ```
 
-Methods that return `NoteEmission` include `initialize()`, `get_note()`, and `replace()` on `PrivateMutable` and `PrivateImmutable`, as well as `insert()` on `PrivateSet`.
+Methods that return `NoteMessage` include `initialize()`, `get_note()`, and `replace()` on `PrivateMutable`, `initialize()` on `PrivateImmutable`, and `insert()` on `PrivateSet`.
 
 ### Choosing a Private State Variable
 
@@ -315,7 +311,7 @@ Below is a table comparing certain key properties of the different private state
 ```rust
 #[storage]
 struct Storage<Context> {
-    user_settings: PrivateMutable<SettingsNote, Context>,
+    user_settings: Owned<PrivateMutable<SettingsNote, Context>, Context>,
 }
 ```
 
@@ -336,9 +332,9 @@ use aztec::messages::message_delivery::MessageDelivery;
 
 #[external("private")]
 fn initialize_settings(value: u8) {
-    let owner = self.msg_sender();
+    let owner = self.msg_sender().unwrap();
     let note = SettingsNote::new(value, owner);
-    self.storage.user_settings.at(owner).initialize(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+    self.storage.user_settings.at(owner).initialize(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
 }
 ```
 
@@ -348,9 +344,9 @@ This function allows us to get the note of a `PrivateMutable`, essentially readi
 
 ```rust
 #[external("private")]
-fn read_settings() -> SettingsNote {
-    let owner = self.msg_sender();
-    self.storage.user_settings.at(owner).get_note().emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN).note
+fn read_settings() {
+    let owner = self.msg_sender().unwrap();
+    self.storage.user_settings.at(owner).get_note().deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
 }
 ```
 
@@ -365,8 +361,8 @@ To update the value of a `PrivateMutable`, we can use the `replace` method:
 ```rust
 #[external("private")]
 fn update_settings(new_value: u8) {
-    let owner = self.msg_sender();
-    self.storage.user_settings.at(owner).replace(|_| SettingsNote::new(new_value, owner)).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+    let owner = self.msg_sender().unwrap();
+    self.storage.user_settings.at(owner).replace(|_| SettingsNote::new(new_value, owner)).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
 }
 ```
 
@@ -379,7 +375,7 @@ fn update_settings(new_value: u8) {
 ```rust
 #[storage]
 struct Storage<Context> {
-    signing_key: PrivateImmutable<KeyNote, Context>,
+    signing_key: Owned<PrivateImmutable<KeyNote, Context>, Context>,
 }
 ```
 
@@ -390,9 +386,9 @@ When this function is invoked, it creates a nullifier for the storage slot, ensu
 ```rust
 #[external("private")]
 fn initialize_key(key_value: Field) {
-    let owner = self.msg_sender();
+    let owner = self.msg_sender().unwrap();
     let note = KeyNote::new(key_value, owner);
-    self.storage.signing_key.at(owner).initialize(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+    self.storage.signing_key.at(owner).initialize(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
 }
 ```
 
@@ -403,12 +399,12 @@ Similar to the `PrivateMutable`, we can use the `get_note` method to read the va
 ```rust
 #[external("private")]
 fn get_key() -> KeyNote {
-    let owner = self.msg_sender();
+    let owner = self.msg_sender().unwrap();
     self.storage.signing_key.at(owner).get_note()
 }
 ```
 
-Unlike a `PrivateMutable`, the `get_note` function for a `PrivateImmutable` doesn't nullify the current note. This means that multiple accounts can concurrently call this function to read the value.
+Unlike a `PrivateMutable`, the `get_note` function for a `PrivateImmutable` doesn't nullify the current note and returns the `Note` directly (not wrapped in `NoteMessage`). This means that multiple accounts can concurrently call this function to read the value.
 
 ### PrivateSet
 
@@ -421,12 +417,12 @@ The set's current value is the collection of notes in the set that have not yet 
 
 #### Declaration
 
-For example, to add a mapping of private token balances to storage:
+For example, to add private token balances to storage:
 
 ```rust
 #[storage]
 struct Storage<Context> {
-    balances: Map<AztecAddress, PrivateSet<UintNote, Context>, Context>,
+    balances: Owned<PrivateSet<UintNote, Context>, Context>,
 }
 ```
 
@@ -438,27 +434,29 @@ Allows us to modify the storage by inserting a note into the `PrivateSet`:
 #[external("private")]
 fn mint_tokens(to: AztecAddress, amount: u128) {
     let note = UintNote::new(amount, to);
-    self.storage.balances.at(to).insert(note).emit(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+    self.storage.balances.at(to).insert(note).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
 }
 ```
 
+Note: The `Owned` wrapper requires calling `.at(owner)` to access the underlying `PrivateSet` for a specific owner. This binds the owner to the state variable instance.
+
 #### `get_notes`
 
-Retrieves notes the account has access to. You can optionally provide filtering options:
+Retrieves notes the account has access to. You can optionally provide filtering options. Returns `RetrievedNote` instances:
 
 ```rust
 // Get all notes (with default options)
 let options = NoteGetterOptions::new();
-let notes = self.storage.balances.at(owner).get_notes(options);
+let retrieved_notes = self.storage.balances.at(owner).get_notes(options);
 
 // Or with custom options (e.g., limit the number of notes)
 let options = NoteGetterOptions::new().set_limit(5);
-let notes = self.storage.balances.at(owner).get_notes(options);
+let retrieved_notes = self.storage.balances.at(owner).get_notes(options);
 ```
 
 #### `pop_notes`
 
-This function pops (gets, removes and returns) the notes the account has access to:
+This function pops (gets, removes and returns) the notes the account has access to. Unlike `get_notes`, this immediately nullifies the notes and returns them directly (not wrapped in `RetrievedNote`):
 
 ```rust
 // Pop notes with a limit
@@ -468,10 +466,13 @@ let notes = self.storage.balances.at(owner).pop_notes(options);
 
 #### `remove`
 
-Will remove a note from the `PrivateSet` if it previously has been read from storage:
+Will remove a note from the `PrivateSet` if it previously has been read from storage. Takes a `RetrievedNote` as returned by `get_notes`:
 
 ```rust
-self.storage.balances.at(owner).remove(note);
+let options = NoteGetterOptions::new();
+let retrieved_notes = self.storage.balances.at(owner).get_notes(options);
+// ... select a note to remove ...
+self.storage.balances.at(owner).remove(retrieved_notes.get(0));
 ```
 
 ## Containers
@@ -490,8 +491,8 @@ struct Storage<Context> {
     // Map of addresses to public balances
     public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
 
-    // Map of addresses to private note sets
-    private_balances: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
+    // Map of addresses to authorized users
+    authorized_users: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
 }
 ```
 
@@ -506,6 +507,42 @@ fn increase_balance(account: AztecAddress, amount: u128) {
     self.storage.public_balances.at(account).write(current + amount);
 }
 ```
+
+### Owned
+
+The `Owned` wrapper is used with private state variables (`PrivateMutable`, `PrivateImmutable`, and `PrivateSet`) to associate them with a specific owner. This is necessary because private state variables need to know which address owns the notes they manage.
+
+#### Declaration
+
+```rust
+#[storage]
+struct Storage<Context> {
+    // Single owner's private balance
+    balances: Owned<PrivateSet<UintNote, Context>, Context>,
+
+    // Single owner's private settings
+    user_settings: Owned<PrivateMutable<SettingsNote, Context>, Context>,
+}
+```
+
+#### Usage
+
+Use the `.at(owner)` method to access the underlying state variable for a specific owner:
+
+```rust
+#[external("private")]
+fn transfer(from: AztecAddress, to: AztecAddress, amount: u128) {
+    // Access the balance for the 'from' address
+    let options = NoteGetterOptions::new();
+    let notes = self.storage.balances.at(from).pop_notes(options);
+
+    // Access the balance for the 'to' address
+    let new_note = UintNote::new(amount, to);
+    self.storage.balances.at(to).insert(new_note).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+}
+```
+
+The `Owned` wrapper is essential for private state variables because it binds the owner's address to the state variable instance, enabling proper note encryption, nullifier computation, and access control.
 
 ## Custom Structs in Public Storage
 
