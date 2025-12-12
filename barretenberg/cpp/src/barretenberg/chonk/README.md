@@ -589,7 +589,7 @@ The decider proof is verified recursively in the hiding kernel.
 
 ### Transcript Sharing
 
-Transcripts are shared strategically to ensure Fiat-Shamir challenge binding - challenges in later proofs depend on all prior proof elements, preventing a malicious prover from generating sub-proofs independently.
+Transcripts are shared to ensure Fiat-Shamir challenge binding - challenges in later proofs depend on all prior proof elements, preventing a malicious prover from generating sub-proofs independently.
 
 **Prover-side transcript lifecycle**:
 
