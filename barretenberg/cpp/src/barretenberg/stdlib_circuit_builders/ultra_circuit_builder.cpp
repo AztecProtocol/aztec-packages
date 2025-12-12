@@ -753,7 +753,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
     if (range_lists.count(target_range) == 0) {
         range_lists.insert({ target_range, create_range_list(target_range) });
     }
-    // The tag of `variable_index` is `DUMMY_TAG` if it has never been range-constrained and a non-trivial value
+    // The tag of `variable_index` is `DEFAULT_TAG` if it has never been range-constrained and a non-trivial value
     // otherwise.
     const auto existing_tag = this->real_variable_tags[this->real_variable_index[variable_index]];
     auto& list = range_lists[target_range];
@@ -766,7 +766,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
     }
     // If the variable is 'untagged' (i.e., it has the dummy tag), assign it the appropriate tag, which amounts to
     // setting the range-constraint.
-    if (existing_tag == DUMMY_TAG) {
+    if (existing_tag == DEFAULT_TAG) {
         assign_tag(variable_index, list.range_tag);
         list.variable_indices.emplace_back(variable_index);
         return;

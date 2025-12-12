@@ -81,8 +81,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         uint64_t target_range; // range constraint will be for the range [0, target_range], i.e., is inclusive of
                                // `target_range`.
         uint32_t range_tag;    // Every variable that is range-constrained to a given `target_range` has the same tag,
-                               // namely, `range_tag`. Never `DUMMY_TAG`.
-        uint32_t tau_tag;      // Tag assigned to the sorted reference set. Never `DUMMY_TAG`.
+                               // namely, `range_tag`. Never `DEFAULT_TAG`.
+        uint32_t tau_tag;      // Tag assigned to the sorted reference set. Never `DEFAULT_TAG`.
         std::vector<uint32_t>
             variable_indices; // All variable-indices constrained to this range. During processing, this will be
                               // mutated: replaced by real-variable-indices, then deduplicated.
@@ -222,9 +222,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         : CircuitBuilderBase<FF>(size_hint, is_write_vk_mode)
     {
         this->set_zero_idx(put_constant_variable(FF::zero()));
-        // The identity permutation on the set `{DUMMY_TAG}`. We therefore assume that the
-        // `DUMMY_TAG` is not involved in any non-trivial multiset-equality checks.
-        this->set_tau_at_index(DUMMY_TAG, DUMMY_TAG);
+        // The identity permutation on the set `{DEFAULT_TAG}`. We therefore assume that the
+        // `DEFAULT_TAG` is not involved in any non-trivial multiset-equality checks.
+        this->set_tau_at_index(DEFAULT_TAG, DEFAULT_TAG);
     };
 
     /**
@@ -259,7 +259,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         // Add the const zero variable after the acir witness has been
         // incorporated into variables.
         this->set_zero_idx(put_constant_variable(FF::zero()));
-        this->_tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
+        this->set_tau_at_index(DEFAULT_TAG,
+                               DEFAULT_TAG); // tau fixes the `DEFAULT_TAG`, as we assume that `DEFAULT_TAG` is not
+                                             // involved in any non-trivial multiset-equality checks.
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other) = default;
@@ -320,7 +322,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * this->zero_idx(), this->zero_idx(), this->zero_idx());`
      * @note Only suitable for small ranges (≤ DEFAULT_PLOOKUP_RANGE_SIZE). For larger ranges, use
      * `create_limbed_range_constraint` which decomposes into smaller limbs.
-     * @note The tag of `variable_index` is `DUMMY_TAG` if it has never been range-constrained and a non-trivial value
+     * @note The tag of `variable_index` is `DEFAULT_TAG` if it has never been range-constrained and a non-trivial value
      * else. In other words, the non-trivial tags that occur for witnesses in the first phase of witness-generation
      * _precisely_ correspond to existing ranges (a.k.a. `target_range`s) being used in range-constraints.
      */
@@ -514,7 +516,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             return;
         }
 
-        BB_ASSERT_EQ(this->real_variable_tags[this->real_variable_index[variable_index]], DUMMY_TAG);
+        BB_ASSERT_EQ(this->real_variable_tags[this->real_variable_index[variable_index]], DEFAULT_TAG);
         this->real_variable_tags[this->real_variable_index[variable_index]] = tag;
     }
     /**
