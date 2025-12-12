@@ -64,10 +64,6 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         set_goblin_ecc_op_code_constant_variables();
     };
 
-    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
-        : MegaCircuitBuilder_(0, op_queue_in)
-    {}
-
     /**
      * @brief Constructor from data generated from ACIR
      *
