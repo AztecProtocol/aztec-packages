@@ -108,9 +108,9 @@ if [[ "$mode" == "show-fuzzers" ]]; then
 	entrypoint_args+=(--asm "$asm")
 	entrypoint_args+=(--avm "$avm")
 
-	docker run -it --rm                \
+	docker run -it --rm \
 		--entrypoint "./entrypoint.sh" \
-		"$image_name"                  \
+		"$image_name" \
 		"${entrypoint_args[@]}"
 	exit 0
 fi
@@ -122,7 +122,7 @@ if [ -z "${fuzzer}" ]; then
 	exit 1
 fi
 
-mkdir -p crash-reports/unsorted output corpus coverage
+mkdir -p crash-reports/unsorted output corpus coverage artifacts
 
 docker_args=(
 	-it --rm
@@ -131,6 +131,7 @@ docker_args=(
 	-v "$(pwd)/output:/home/fuzzer/output:rw"
 	-v "$(pwd)/corpus:/home/fuzzer/corpus:rw"
 	-v "$(pwd)/coverage:/home/fuzzer/coverage:rw"
+	-v "$(pwd)/artifacts:/home/fuzzer/artifacts:rw"
 	--cpus="$cpus"
 	-m "$mem"
 	--entrypoint "./entrypoint.sh"

@@ -1,16 +1,18 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { AvmCircuitPublicInputs, AvmTxHint, deserializeFromMessagePack } from '@aztec/stdlib/avm';
-import { GlobalVariables } from '@aztec/stdlib/tx';
+import {
+  AvmCircuitPublicInputs,
+  type AvmTxHint,
+  deserializeFromMessagePack,
+  serializeWithMessagePack,
+} from '@aztec/stdlib/avm';
+import { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { writeSync } from 'fs';
 import { createInterface } from 'readline';
 
-import { SimpleContractDataSource } from '../fixtures/simple_contract_data_source.js';
-import { PublicContractsDB } from '../public_db_sources.js';
-import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
-import { createFuzzerTx, registerContract } from './helpers.js';
+import { AvmFuzzerSimulator, FuzzerSimulationRequest } from './avm_fuzzer_simulator.js';
 
 // This cache holds opened world states to avoid reopening them for each invocation.
 // It's a map so that in the future we could support multiple world states (if we had multiple fuzzers).
@@ -34,46 +36,33 @@ async function openExistingWorldState(dataDir: string, mapSizeKb: number): Promi
   return ws;
 }
 
-async function simulateWithPublicTxSimulator(
+async function simulateWithFuzzer(
   dataDir: string,
   mapSizeKb: number,
-  bytecode: Buffer,
-  cppTx: AvmTxHint,
-  cppGlobals: GlobalVariables,
+  txHint: AvmTxHint,
+  globals: GlobalVariables,
+  rawContractClasses: any[], // Replace these when we are moving contract classes to TS
+  rawContractInstances: [any, any][], // Replace these when we are moving contract instances to TS
 ): Promise<{ reverted: boolean; output: Fr[]; revertReason?: string; publicInputs: AvmCircuitPublicInputs }> {
   const worldStateService = await openExistingWorldState(dataDir, mapSizeKb);
-  const merkleTrees = await worldStateService.fork();
 
-  // todo(ilyas): enable this once we can handle multiple bytecodes across multiple enqueued calls
-  // Concat all the enqueued calls, extract the de-duplicated contract addresses so we can register them
-  //const teardownCalls = cppTx.teardownEnqueuedCall ? [cppTx.teardownEnqueuedCall] : [];
-  //const contractAddresses = new Set([...cppTx.setupEnqueuedCalls, ...cppTx.appLogicEnqueuedCalls, ...teardownCalls].map(
-  //    call => call.request.contractAddress,
-  //));
-  //await Promise.all([...contractAddresses].map(addr => registerContract(merkleTrees, addr)));
-  //await Promise.all(
-  //    [...contractAddresses].map(addr => contractDataSource.addContractWithBytecode(addr, bytecode)),
-  //);
+  const simulator = await AvmFuzzerSimulator.create(worldStateService, globals);
 
-  const contractAddress = cppTx.appLogicEnqueuedCalls[0].request.contractAddress;
-  await registerContract(merkleTrees, contractAddress);
-  const contractDataSource = new SimpleContractDataSource();
-  await contractDataSource.addContractWithBytecode(contractAddress, bytecode);
+  // Register contract classes from C++
+  for (const rawClass of rawContractClasses) {
+    await simulator.addContractClassFromCpp(rawClass);
+  }
 
-  const contractsDb = new PublicContractsDB(contractDataSource);
+  // Register contract instances from C++
+  for (const [rawAddress, rawInstance] of rawContractInstances) {
+    await simulator.addContractInstanceFromCpp(rawAddress, rawInstance);
+  }
 
-  const publicTxSimulator = new PublicTxSimulator(merkleTrees, contractsDb, cppGlobals, {
-    skipFeeEnforcement: true,
-    collectDebugLogs: false,
-    collectHints: false,
-    collectStatistics: false,
-    collectCallMetadata: false,
-  });
+  const result = await simulator.simulate(txHint);
 
-  const tx = await createFuzzerTx(cppTx);
-  const result = await publicTxSimulator.simulate(tx);
-
-  const output = result.getAppLogicReturnValues().flatMap(rv => rv?.values?.filter(v => v != null) ?? []);
+  const output = result
+    .getAppLogicReturnValues()
+    .flatMap((rv: { values?: Fr[] } | undefined) => rv?.values?.filter((v: Fr | null | undefined) => v != null) ?? []);
 
   return {
     reverted: !result.revertCode.isOK(),
@@ -83,64 +72,39 @@ async function simulateWithPublicTxSimulator(
   };
 }
 
-async function executeFromJson(jsonLine: string): Promise<void> {
+async function execute(base64Line: string): Promise<void> {
   try {
-    const input = JSON.parse(jsonLine.trim());
-    if (!input.bytecode || !input.ws_data_dir || !input.ws_map_size_kb || !input.tx || !input.globals) {
-      writeSync(
-        process.stdout.fd,
-        'Error: JSON must contain "bytecode", "ws_data_dir", "ws_map_size_kb", "tx", and "globals" fields\n',
-      );
-      return;
-    }
+    // Decode base64 and deserialize the entire request from msgpack
+    const buffer = Buffer.from(base64Line.trim(), 'base64');
+    const rawRequest = deserializeFromMessagePack(buffer);
+    const request = FuzzerSimulationRequest.fromPlainObject(rawRequest);
 
-    const bytecode = Buffer.from(input.bytecode, 'base64');
-    const rawTx: object = deserializeFromMessagePack(Buffer.from(input.tx, 'base64'));
-    const tx = AvmTxHint.fromPlainObject(rawTx);
-    const rawGlobals = deserializeFromMessagePack(Buffer.from(input.globals, 'base64'));
-    const globals = GlobalVariables.fromPlainObject(rawGlobals);
-
-    const result = await simulateWithPublicTxSimulator(input.ws_data_dir, input.ws_map_size_kb, bytecode, tx, globals);
-
-    // todo(ilyas): Would be nice to serialize entire publicInputs for comparison, but it was extremely slow.
-    // Serialize endTreeSnapshots for comparison with C++ simulator
-    const endTreeSnapshots = {
-      l1ToL2MessageTree: {
-        root: result.publicInputs.endTreeSnapshots.l1ToL2MessageTree.root.toString(),
-        nextAvailableLeafIndex: result.publicInputs.endTreeSnapshots.l1ToL2MessageTree.nextAvailableLeafIndex,
-      },
-      noteHashTree: {
-        root: result.publicInputs.endTreeSnapshots.noteHashTree.root.toString(),
-        nextAvailableLeafIndex: result.publicInputs.endTreeSnapshots.noteHashTree.nextAvailableLeafIndex,
-      },
-      nullifierTree: {
-        root: result.publicInputs.endTreeSnapshots.nullifierTree.root.toString(),
-        nextAvailableLeafIndex: result.publicInputs.endTreeSnapshots.nullifierTree.nextAvailableLeafIndex,
-      },
-      publicDataTree: {
-        root: result.publicInputs.endTreeSnapshots.publicDataTree.root.toString(),
-        nextAvailableLeafIndex: result.publicInputs.endTreeSnapshots.publicDataTree.nextAvailableLeafIndex,
-      },
-    };
-
-    writeSync(
-      process.stdout.fd,
-      JSON.stringify({
-        reverted: result.reverted,
-        output: result.output.map(v => v?.toString() ?? '0'),
-        revertReason: result.revertReason,
-        endTreeSnapshots,
-      }) + '\n',
+    // Run the TS simulation
+    const result = await simulateWithFuzzer(
+      request.wsDataDir,
+      request.wsMapSizeKb,
+      request.tx,
+      request.globals,
+      request.contractClasses,
+      request.contractInstances,
     );
+
+    // Serialize the result to msgpack and encode it in base64 for output
+    const resultBuffer = serializeWithMessagePack({
+      reverted: result.reverted,
+      output: result.output,
+      revertReason: result.revertReason ?? '',
+      endTreeSnapshots: result.publicInputs.endTreeSnapshots,
+    });
+    writeSync(process.stdout.fd, resultBuffer.toString('base64') + '\n');
   } catch (error: any) {
-    writeSync(
-      process.stdout.fd,
-      JSON.stringify({
-        reverted: true,
-        output: [],
-        revertReason: error.message,
-      }) + '\n',
-    );
+    const errorResult = serializeWithMessagePack({
+      reverted: true,
+      output: [] as string[],
+      revertReason: `Unexpected Error ${error.message}`,
+      endTreeSnapshots: TreeSnapshots.empty(),
+    });
+    writeSync(process.stdout.fd, errorResult.toString('base64') + '\n');
   }
 }
 
@@ -148,7 +112,7 @@ function mainLoop() {
   const rl = createInterface({ input: process.stdin, terminal: false });
   rl.on('line', (line: string) => {
     if (line.trim()) {
-      void executeFromJson(line);
+      void execute(line);
     }
   });
   rl.on('close', () => process.exit(0));

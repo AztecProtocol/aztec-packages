@@ -5,6 +5,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
+import type { PrivateLog } from '../logs/private_log.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { Body } from './body.js';
@@ -176,6 +177,10 @@ export class L2BlockNew {
       blockTimestamp: Number(this.header.globalVariables.timestamp),
       ...logsStats,
     };
+  }
+
+  getPrivateLogs(): PrivateLog[] {
+    return this.body.txEffects.map(txEffect => txEffect.privateLogs).flat();
   }
 
   toBlockInfo(): L2BlockInfo {

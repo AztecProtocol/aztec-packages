@@ -40,7 +40,7 @@ export async function startBot(
   const pxeConfig = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
   const wallet = await TestWallet.create(aztecNode, pxeConfig);
 
-  const telemetry = initTelemetryClient(getTelemetryClientConfig());
+  const telemetry = await initTelemetryClient(getTelemetryClientConfig());
   await addBot(options, signalHandlers, services, wallet, aztecNode, telemetry, undefined);
 }
 

@@ -4,8 +4,9 @@ import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
-import { DefaultL1ContractsConfig, InboxContract, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
-import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
+import { InboxContract, MULTI_CALL_3_ADDRESS, RollupContract } from '@aztec/ethereum/contracts';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
@@ -383,7 +384,7 @@ describe('Archiver', () => {
       for (const block of checkpoint.blocks) {
         const blockNumber = block.number;
 
-        const privateLogs = await archiver.getPrivateLogs(blockNumber, 1);
+        const privateLogs = (await archiver.getBlock(blockNumber))!.toL2Block().getPrivateLogs();
         const expectedTotalNumPrivateLogs = block.body.txEffects.reduce(
           (acc, txEffect) => acc + txEffect.privateLogs.length,
           0,
@@ -780,7 +781,6 @@ describe('Archiver', () => {
     expect(await archiver.getTxEffect(txHash)).resolves.toBeUndefined;
     expect(await archiver.getCheckpoint(CheckpointNumber(2))).resolves.toBeUndefined;
 
-    expect(await archiver.getPrivateLogs(BlockNumber(2), 1)).toEqual([]);
     expect((await archiver.getPublicLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
     expect((await archiver.getContractClassLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
   }, 10_000);

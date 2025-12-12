@@ -1,16 +1,11 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import {
-  BlockTagTooOldError,
-  InboxContract,
-  type L1BlockId,
-  type L1ContractAddresses,
-  RollupContract,
-  type ViemPublicClient,
-  type ViemPublicDebugClient,
-  createEthereumChain,
-} from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { BlockTagTooOldError, InboxContract, RollupContract } from '@aztec/ethereum/contracts';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1BlockId } from '@aztec/ethereum/l1-types';
+import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
@@ -1368,16 +1363,6 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   }
 
   /**
-   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
-   * @param from - The block number from which to begin retrieving logs.
-   * @param limit - The maximum number of blocks to retrieve logs from.
-   * @returns An array of private logs from the specified range of blocks.
-   */
-  public getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]> {
-    return this.store.getPrivateLogs(from, limit);
-  }
-
-  /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
@@ -1847,9 +1832,6 @@ export class ArchiverStoreHelper
   }
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.store.getL1ToL2MessageIndex(l1ToL2Message);
-  }
-  getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]> {
-    return this.store.getPrivateLogs(from, limit);
   }
   getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
     return this.store.getLogsByTags(tags, logsPerTag);

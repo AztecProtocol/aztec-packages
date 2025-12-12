@@ -64,8 +64,8 @@ std::vector<MemoryValue> EnqueuedCallContext::get_calldata(uint32_t cd_offset, u
 
 ContextEvent EnqueuedCallContext::serialize_context_event()
 {
-    auto& call_stack = get_internal_call_stack_manager();
-    auto& side_effects = get_side_effect_tracker().get_side_effects();
+    const auto& call_stack = get_internal_call_stack_manager();
+    const auto& side_effects = get_side_effect_tracker().get_side_effects();
 
     return {
         .id = get_context_id(),
@@ -86,7 +86,7 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .gas_limit = get_gas_limit(),
         .parent_gas_used = get_parent_gas_used(),
         .parent_gas_limit = get_parent_gas_limit(),
-        // internal call stack
+        // Internal call stack
         .internal_call_id = call_stack.get_call_id(),
         .internal_call_return_id = call_stack.get_return_call_id(),
         .next_internal_call_id = call_stack.get_next_call_id(),
@@ -130,8 +130,8 @@ std::vector<MemoryValue> NestedContext::get_calldata(uint32_t cd_offset, uint32_
 
 ContextEvent NestedContext::serialize_context_event()
 {
-    auto& call_stack = get_internal_call_stack_manager();
-    auto& side_effects = get_side_effect_tracker().get_side_effects();
+    const auto& call_stack = get_internal_call_stack_manager();
+    const auto& side_effects = get_side_effect_tracker().get_side_effects();
 
     return {
         .id = get_context_id(),
@@ -152,7 +152,7 @@ ContextEvent NestedContext::serialize_context_event()
         .gas_limit = get_gas_limit(),
         .parent_gas_used = get_parent_gas_used(),
         .parent_gas_limit = get_parent_gas_limit(),
-        // internal call stack
+        // Internal call stack
         .internal_call_id = call_stack.get_call_id(),
         .internal_call_return_id = call_stack.get_return_call_id(),
         .next_internal_call_id = call_stack.get_next_call_id(),

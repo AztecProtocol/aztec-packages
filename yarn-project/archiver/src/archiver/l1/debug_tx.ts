@@ -1,4 +1,4 @@
-import type { DebugCallTrace, ViemPublicDebugClient } from '@aztec/ethereum';
+import type { DebugCallTrace, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';

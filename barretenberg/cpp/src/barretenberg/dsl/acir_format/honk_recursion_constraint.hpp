@@ -18,9 +18,6 @@ namespace acir_format {
 
 using namespace bb;
 
-template <typename Builder>
-using HonkRecursionConstraintOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
-
 template <typename Flavor>
 [[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintOutput<
     typename Flavor::CircuitBuilder>
