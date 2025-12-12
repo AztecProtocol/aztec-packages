@@ -85,7 +85,6 @@ template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<F
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
-    consistency_checked = true;
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
@@ -103,7 +102,7 @@ template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<F
                                                sumcheck_output.claimed_libra_evaluation,
                                                sumcheck_output.round_univariate_commitments,
                                                sumcheck_output.round_univariate_evaluations);
-    consistency_checked = shplemini_verifier_output.consistency_checked.value();
+    consistency_checked = shplemini_verifier_output.consistency_checked.value_or(true);
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims = shplemini_verifier_output.batch_opening_claim;
 
     // Reduce the accumulator to a single opening claim
