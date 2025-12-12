@@ -5,8 +5,6 @@ export interface BBConfig {
   bbSkipCleanup: boolean;
   numConcurrentIVCVerifiers: number;
   bbIVCConcurrency: number;
-  /** Maximum memory limit for BB in bytes (default: 4GB) */
-  bbMaxMemory?: number;
 }
 
 export interface ACVMConfig {

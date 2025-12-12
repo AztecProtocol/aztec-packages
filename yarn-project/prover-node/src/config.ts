@@ -128,17 +128,10 @@ export function getProverNodeBrokerConfigFromEnv(): ProverBrokerConfig {
 }
 
 export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig & ACVMConfig {
-  const config = {
+  return {
     ...getConfigFromMappings(proverAgentConfigMappings),
     ...getConfigFromMappings(bbConfigMappings),
   };
-
-  // Override BB_MAX_MEMORY default to 16GB for prover nodes if not explicitly set
-  if (config.bbMaxMemory === 4 * 1024 * 1024 * 1024 && !process.env.BB_MAX_MEMORY) {
-    config.bbMaxMemory = 16 * 1024 * 1024 * 1024;
-  }
-
-  return config;
 }
 
 function createKeyStoreFromWeb3Signer(config: ProverNodeConfig): KeyStore | undefined {
