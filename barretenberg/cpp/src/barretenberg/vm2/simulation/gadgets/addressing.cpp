@@ -15,7 +15,7 @@
 namespace bb::avm2::simulation {
 
 /**
- * @brief Resolve the operands of an instruction. If the operands are non addresses, they are returned as is.
+ * @brief Resolve the operands of an instruction. If the operands are non-addresses, they are returned as is.
  * If the operands are addresses, we apply relative addressing and indirection to them. We emit an event of type
  * AddressingEvent with the resolution information.
  *
@@ -45,7 +45,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         });
     }
 
-    // Note: it's fine to query instruction info in here since it does not trigger events.
+    // Note: it's fine to query instruction info here since it does not trigger events.
     // Also, if addressing is being resolved, we can assume that instruction fetching succeeded.
     ExecutionOpCode exec_opcode = instruction_info_db.get(instruction.opcode).exec_opcode;
     const ExecInstructionSpec& spec = instruction_info_db.get(exec_opcode);
@@ -63,8 +63,8 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         }
     }
 
-    // If there is a relative address, we resolve base address.
-    // We check tag of resolved base address and keep this information for later use.
+    // If there is a relative address, we resolve the base address.
+    // We check the tag of the resolved base address and keep this information for later use.
     bool base_address_invalid = false;
     std::optional<MemoryValue> base_address;
     if (has_relative_address) {
@@ -88,10 +88,10 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
             // For instance, a 16-bit operand can be cast to a MemoryAddress and fit.
             assert(FF(static_cast<MemoryAddress>(instruction.operands[i].as_ff())) == instruction.operands[i].as_ff());
 
-            // Guarantees by this point:
+            // Guarantees at this point:
             // - original operand is a valid address IF interpreted as a MemoryAddress.
 
-            // Check if base address is invalid. Even for non-relative addresses, we need to check this because
+            // Check if the base address is invalid. Even for non-relative addresses, we need to check this because
             // we essentially stop any resolution if the base address is invalid and a relative address is used.
             if (base_address_invalid) {
                 throw AddressingEventError::BASE_ADDRESS_INVALID;
@@ -116,13 +116,13 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
                     // This is required for the circuit to be on par with the behavior of immediate operands.
                     // In this case, the tag of the resolved operand is not constrained.
                     resolution_info.resolved_operand = Operand::from_tag(ValueTag::FF, FF(offset));
-                    // If this happens, it means that the relative computation overflowed. However both the base and
+                    // If this happens, it means that the relative computation overflowed. However, both the base and
                     // operand addresses by themselves were valid.
                     throw AddressingEventError::RELATIVE_COMPUTATION_OOB;
                 }
             }
 
-            // Guarantees by this point:
+            // Guarantees at this point:
             // - original operand is a valid address IF interpreted as MemoryAddress.
             // - after_relative is in the valid address range.
 
@@ -134,13 +134,13 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
             if (is_operand_indirect(instruction.indirect, i)) {
                 resolution_info.resolved_operand =
                     memory.get(static_cast<MemoryAddress>(resolution_info.after_relative));
-                // Check the tag of resolved operand.
+                // Check the tag of the resolved operand.
                 if (!memory.is_valid_address(resolution_info.resolved_operand)) {
                     throw AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
                 }
             }
 
-            // Guarantees by this point:
+            // Guarantees at this point:
             // - original operand is a valid address IF interpreted as MemoryAddress.
             // - after_relative is in the valid address range.
             // - resolved_operand is a valid address.
@@ -172,7 +172,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
 }
 
 /**
- * @brief Checks if an address as uint64_t is out of range. Emit a gt event comparing the address to
+ * @brief Checks if an address as uint64_t is out of range. Emits a gt event comparing the address to
  * AVM_HIGHEST_MEM_ADDRESS.
  *
  * @param address as uint64_t
