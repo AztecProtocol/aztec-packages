@@ -11,14 +11,16 @@ namespace bb {
  * On platforms where memory limiting is not supported, a warning is logged but execution continues.
  *
  * Memory limits:
- * - Regular proving: 16GB
- * - AVM proving: 64GB (conservative estimate)
+ * - Regular BB: 16GB
+ * - AVM: 128GB (conservative)
+ *
+ * The BB_MAX_MEMORY environment variable can override these defaults (value in bytes).
  *
  * If memory allocation fails due to the limit, a custom new handler reports the error to stderr
  * before throwing std::bad_alloc.
  *
- * @param is_avm Whether this is an AVM proving operation (uses higher 64GB limit)
- * @note This should be called early in main() before significant memory allocation occurs.
+ * @param is_avm Whether this is an AVM operation (uses 128GB instead of 16GB)
+ * @note This should be called early before significant memory allocation occurs.
  */
 void initialize_memory_limit(bool is_avm = false);
 

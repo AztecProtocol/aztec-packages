@@ -28,6 +28,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/version.hpp"
+#include "barretenberg/env/memory_limit.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -105,6 +106,19 @@ void print_subcommand_options(const CLI::App* sub)
  */
 int parse_and_run_cli_command(int argc, char* argv[])
 {
+    // Determine if this is an AVM command (needs 128GB instead of 16GB)
+    // Do this BEFORE parsing to avoid duplicating the parsing logic
+    bool is_avm = false;
+    if (argc > 1) {
+        const char* cmd = argv[1];
+        if (std::strncmp(cmd, "avm_", 4) == 0) {
+            is_avm = true;
+        }
+    }
+
+    // Initialize memory limit before any significant allocations
+    initialize_memory_limit(is_avm);
+
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
                        "programming language.";
 
