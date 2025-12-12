@@ -5,6 +5,10 @@ include "../gt.pil";
 
 // See https://docs.google.com/document/d/1EgFj0OQYZCWufjzLgoAAiVL9jV0-fUAaCCIVlvRc8bY/ for circuit design.
 
+// This sub-trace is virtual to the execution trace (execution.pil) and therefore it consists
+// of exactly one row per event (AddressingEvent). It is not used as destination of any interaction
+// (permutation/lookup).
+
 // This gadget constrains the resolution of the operands from instruction fetching.
 // The input operands are op[0], ..., op[6] (from execution.pil).
 // The output operands are rop[0], ..., rop[6] (from execution.pil).
@@ -19,16 +23,34 @@ include "../gt.pil";
 //  - sel_addressing_error
 //  - rop[7]
 
-// HOW TO REVIEW: You probably want to think of at least two cases.
+// Errors:
+// - sel_base_address_failure: the base address is invalid
+// - sel_relative_overflow[i]: the relative address computation overflowed for operand i
+// - sel_some_final_check_failed: any of the indirect resolved operand has an invalid tag
+// - sel_addressing_error: is toggled to 1 if any of the above errors occurred
+//
+// If `sel_base_address_failure == 1`, then `sel_relative_overflow[i] == 0` for all `i`
+// and `sel_some_final_check_failed == 0`.
+// Only one error can happen per operand at a time. We can have multiple errors
+// of type `sel_relative_overflow[i]` and/or `sel_some_final_check_failed` at the same time,
+// because sel_some_final_check_failed consolidates all invalid tag errors of the indirect
+// resolved operands.
+
+// TWO MAIN CASES:
 // (1) An operand is immediate.
 //     In this case, the constraints should force that the resolved operand is the same as the original operand.
-//     This will probably be done via op_after_relative. None of the selectors (in particular errors)
+//     This is done via op_after_relative as intermediate column. None of the selectors (in particular errors)
 //     should let you choose an arbitrary value for the intermediate steps nor the final operand.
 // (2) An operand is an address.
 //     In this case, the constraints should force that the resolved operand is a valid address.
 //     You should consider all the intermediate and possible errors.
+//     The ordering of the constraints follow simulation order (per operand):
+//     - base address check
+//     - relative resolution if any and base address check passed
+//     - if relative resolution happens, we check for overflow (sel_relative_overflow[i])
+//     - apply indirection if no errors occurred so far
+//     - check the tag of the resolved operand if indirection happened
 
-// This is a virtual gadget, which is part of the execution trace.
 namespace execution;
 
 #[skippable_if]
