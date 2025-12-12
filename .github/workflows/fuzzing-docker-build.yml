@@ -5,11 +5,11 @@ on:
     branches:
       - next
   workflow_dispatch:
-    inputs: 
-      commit: 
-        description: "Git commit SHA to build (latest means most recent from 'next')"
+    inputs:
+      commit:
+        description: "Git commit SHA to build (leave empty for latest)"
         required: false
-        default: "latest"
+        default: ""
 
 jobs:
   build:
@@ -20,12 +20,10 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      # We run right against the disk space limit. 
-      # If we hit it again, we'll ned to slim the image.
-      - name: Remove unnecessary files
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+      - name: Free up disk space aggressively (up to 30gb)
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          tool-cache: true
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
