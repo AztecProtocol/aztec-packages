@@ -20,13 +20,19 @@ namespace bb {
 /**
  * @brief Unified Goblin verifier for both native and recursive verification.
  *
- * @details The verification is split into:
- *   1. Merge verification - See MERGE_PROTOCOL.md
- *   2. ECCVM verification - Verify the correctness of ECC operations, outputs a claim to be opened by IPA.
- *   3. Translator verification -  Establish the consistency between fq/bigfield and fr/field_t representations of the
- * op queue.
- * The output contains deferred verification data (IPA claim + pairing points) that must be accumulated and
- * verified elsewhere.
+ * @details Orchestrates verification of the three Goblin sub-protocols:
+ *   1. Merge protocol - Proves correct concatenation of op queue tables (see MERGE_PROTOCOL.md)
+ *      - Reduces to KZG pairing check
+ *   2. ECCVM verification - Proves correct execution of elliptic curve operations
+ *      - Reduces to IPA opening claim (Grumpkin curve)
+ *   3. Translator verification - Proves consistency between BN254 ↔ Grumpkin field element representations
+ *      - Reduces to KZG pairing check
+ *
+ * Each sub-verifier performs internal consistency checks and reduces polynomial opening claims to either:
+ *   - KZG pairing points (Merge, Translator) - aggregated and verified via ecPairing on L1 or accumulated in-circuit
+ *   - IPA opening claim (ECCVM) - accumulated across proofs and verified in root rollup (recursive) or natively
+ *
+ * This verifier does NOT perform final verification - it returns reduction results for deferred verification.
  *
  * @tparam Curve The BN254 curve type (either curve::BN254 for native or stdlib::bn254<Builder> for recursive)
  */
@@ -47,18 +53,22 @@ template <typename Curve> class GoblinVerifier_ {
     // Transcript type
     using Transcript = std::conditional_t<IsRecursive, UltraStdlibTranscript, NativeTranscript>;
 
-    struct VerificationResult {
+    /**
+     * @brief Result of Goblin verification with mode-specific semantics
+     * @details Native mode: Pairing checks performed immediately (fail-fast), only IPA verification deferred
+     *          Recursive mode: Both pairing and IPA verification deferred for batched verification
+     */
+    struct ReductionResult {
         using PairingPoints = MergeVerifier::PairingPoints;
         using IPAClaim = OpeningClaim<typename ECCVMVerifier::Curve>;
         using IPAProof = std::conditional_t<IsRecursive, stdlib::Proof<UltraCircuitBuilder>, HonkProof>;
 
-        PairingPoints pairing_points; // BN254 pairing points - aggregated, verified natively or aggregated in-circuit
-        IPAClaim ipa_claim;           // IPA opening claim from ECCVM - accumulated, verified natively by base, verified
-                                      // in-circuit at root
-        IPAProof ipa_proof;           // IPA proof - used for deferred verification
-        bool all_checks_passed = false; // Responsible for all native checks except for IPA verification, tracks the
-                                        // results of several identity checks in-circuit (should be viewed as debug
-                                        // info). Defaults to false for fail-fast early returns.
+        PairingPoints pairing_points;   // Aggregated KZG pairing points (Merge + Translator)
+        IPAClaim ipa_claim;             // IPA opening claim from ECCVM (Grumpkin curve)
+        IPAProof ipa_proof;             // IPA proof for verifying the claim
+        bool all_checks_passed = false; // Native: includes pairing checks (already performed)
+                                        // Recursive: excludes pairing (deferred for batching)
+                                        // Both: excludes IPA verification (always deferred)
     };
 
     /**
@@ -79,10 +89,19 @@ template <typename Curve> class GoblinVerifier_ {
     {}
 
     /**
-     * @brief Verify a full Goblin proof (Merge, ECCVM + IPA, Translator)
-     * @return VerificationResult containing pairing points, IPA claim, and IPA proof
+     * @brief Verify Goblin proof components and return deferred verification data
+     * @details Orchestrates three sub-verifiers: Merge → ECCVM → Translator
+     *
+     * Native mode: Performs immediate pairing checks (cheap ~1ms) for fail-fast, returns IPA claim for deferred
+     * verification. Recursive mode: Returns both pairing points and IPA claim for batched verification.
+     *
+     * @return VerificationResult with all_checks_passed indicating:
+     *   - Native: reduction checks + pairing checks passed, IPA verification still needed
+     *   - Recursive: reduction checks only (pairing and IPA both deferred)
+     *
+     * @warning Caller must verify ipa_claim using ipa_proof (deferred in both modes)
      */
-    [[nodiscard("Verification result must be accumulated")]] VerificationResult verify();
+    [[nodiscard("Verification result must be accumulated")]] ReductionResult reduce_to_pairing_check_and_ipa_opening();
 
   private:
     std::shared_ptr<Transcript> transcript;

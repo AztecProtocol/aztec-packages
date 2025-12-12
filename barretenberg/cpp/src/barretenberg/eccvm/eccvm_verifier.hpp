@@ -35,12 +35,12 @@ template <typename Flavor> class ECCVMVerifier_ {
     using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
 
     /**
-     * @brief Result of ECCVM verification
-     * @details Contains IPA opening claim and aggregate check status.
-     * Individual check results are logged internally by the verifier.
+     * @brief Result of reducing ECCVM proof to IPA opening claim
+     * @details Contains IPA opening claim for deferred verification and status of internal checks. The IPA claim
+     * must be verified externally. Individual check results are logged via vinfo().
      */
     struct ReductionResult {
-        OpeningClaim<Curve> ipa_claim;
+        OpeningClaim<Curve> ipa_claim;    // IPA opening claim for deferred verification
         bool reduction_succeeded = false; // Aggregate of sumcheck, consistency, and translation masking checks
     };
 
@@ -65,6 +65,17 @@ template <typename Flavor> class ECCVMVerifier_ {
         }
     }
 
+    /**
+     * @brief Reduce the ECCVM proof to an IPA opening claim
+     * @details The ECCVM proves correct execution of elliptic curve operations accumulated in the op queue. This method
+     * verifies the ECCVM proof's internal checks (sumcheck, translation masking consistency, etc.) and reduces all
+     * polynomial opening claims to a single IPA opening claim via Shplemini and Shplonk. This method does NOT perform
+     * the final IPA verification - it returns an IPA claim that must be verified externally.
+     *
+     * @return ReductionResult containing:
+     *   - ipa_claim: IPA opening claim to be verified externally (in root rollup or natively)
+     *   - reduction_succeeded: true if sumcheck, consistency, and masking checks passed
+     */
     [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_ipa_opening();
 
     /**

@@ -43,12 +43,12 @@ template <typename Flavor> class TranslatorVerifier_ {
     using Proof = std::conditional_t<IsRecursive, stdlib::Proof<Builder>, HonkProof>;
 
     /**
-     * @brief Result of translator verification
-     * @details Contains pairing points for KZG verification and aggregate check status.
-     * Individual check results are logged internally by the verifier.
+     * @brief Result of reducing translator proof to pairing check
+     * @details Contains pairing points for deferred KZG verification and status of internal checks. The pairing
+     * points must be verified externally.
      */
     struct ReductionResult {
-        PairingPoints pairing_points;
+        PairingPoints pairing_points;     // KZG pairing points for deferred verification
         bool reduction_succeeded = false; // Aggregate of sumcheck and consistency checks
     };
 
@@ -93,12 +93,17 @@ template <typename Flavor> class TranslatorVerifier_ {
     }
 
     /**
-     * @brief Verify the translator proof
-     * @details Verifies that the Translator circuit correctly processes the op queue transcript.
-     * Returns verification result containing pairing points and check status.
-     * All inputs are provided via constructor.
+     * @brief Reduce the translator proof to a pairing check
+     * @details Verifies the Translator circuit's internal checks (sumcheck, Libra evaluations consistency) and reduces
+     * all polynomial opening claims to a KZG pairing check. This method does NOT perform the final pairing
+     * verification - it returns pairing points that must be verified externally.
      *
-     * @return VerificationResult containing pairing points and verification status
+     * The Translator proves correct translation between BN254 and Grumpkin curve operations. It bridges the ECCVM
+     * (which operates on Grumpkin) with the main circuit constraints (which operate on BN254).
+     *
+     * @return ReductionResult containing:
+     *   - pairing_points: KZG pairing check points to be verified externally
+     *   - reduction_succeeded: true if sumcheck and consistency checks passed
      */
     [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check();
 

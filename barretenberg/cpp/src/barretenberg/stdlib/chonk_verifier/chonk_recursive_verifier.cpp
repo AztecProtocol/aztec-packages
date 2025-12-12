@@ -40,9 +40,9 @@ ChonkRecursiveVerifier::Output ChonkRecursiveVerifier::verify(const StdlibProof&
     GoblinVerifier goblin_verifier{
         chonk_rec_verifier_transcript, proof.goblin_proof, merge_commitments, MergeSettings::APPEND
     };
-    GoblinVerifier::VerificationResult goblin_output = goblin_verifier.verify();
+    GoblinVerifier::ReductionResult goblin_output = goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
     goblin_output.pairing_points.aggregate(mega_output.points_accumulator);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in Chonk verifiers
+
     return { goblin_output };
 }
 

@@ -128,7 +128,7 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 
     auto transcript = std::make_shared<NativeTranscript>();
     bb::GoblinVerifier verifier(transcript, proof, merge_commitments, MergeSettings::APPEND);
-    auto result = verifier.verify();
+    auto result = verifier.reduce_to_pairing_check_and_ipa_opening();
 
     // Check pairing points
     bool pairing_verified = result.pairing_points.check();
@@ -156,7 +156,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     bb::GoblinRecursiveVerifier verifier{
         transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
     };
-    auto output = verifier.verify();
+    auto output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
     stdlib::recursion::honk::DefaultIO<Builder> inputs;
     inputs.pairing_inputs = output.pairing_points;
@@ -198,7 +198,7 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
         bb::GoblinRecursiveVerifier verifier{
             transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
         };
-        auto output = verifier.verify();
+        auto output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
         stdlib::recursion::honk::DefaultIO<Builder> inputs;
         inputs.pairing_inputs = output.pairing_points;
@@ -246,7 +246,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     bb::GoblinRecursiveVerifier verifier{
         transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
     };
-    auto goblin_rec_verifier_output = verifier.verify();
+    auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
     EXPECT_FALSE(CircuitChecker::check(builder));
 
     srs::init_file_crs_factory(bb::srs::bb_crs_path());
@@ -289,7 +289,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
         bb::GoblinRecursiveVerifier verifier{
             transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
         };
-        auto goblin_rec_verifier_output = verifier.verify();
+        auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
         // Circuit is correct but pairing check should fail
         EXPECT_TRUE(CircuitChecker::check(builder));
@@ -322,7 +322,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
         bb::GoblinRecursiveVerifier verifier{
             transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
         };
-        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify();
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
@@ -345,7 +345,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
     bb::GoblinRecursiveVerifier verifier{
         transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
     };
-    [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify();
+    [[maybe_unused]] auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
@@ -366,7 +366,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         // Check natively that the proof is correct.
         auto native_transcript = std::make_shared<NativeTranscript>();
         bb::GoblinVerifier native_verifier(native_transcript, proof, merge_commitments, MergeSettings::APPEND);
-        auto native_result = native_verifier.verify();
+        auto native_result = native_verifier.reduce_to_pairing_check_and_ipa_opening();
         bool pairing_verified = native_result.pairing_points.check();
         auto ipa_transcript = std::make_shared<NativeTranscript>(native_result.ipa_proof);
         auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
@@ -394,7 +394,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         bb::GoblinRecursiveVerifier verifier{
             transcript, stdlib_proof, tampered_recursive_merge_commitments, MergeSettings::APPEND
         };
-        auto goblin_rec_verifier_output = verifier.verify();
+        auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
         // Circuit is correct but pairing check should fail
         EXPECT_TRUE(CircuitChecker::check(builder));

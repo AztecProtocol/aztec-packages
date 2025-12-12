@@ -11,9 +11,10 @@ namespace bb {
 
 /**
  * @brief Verify a full Goblin proof (Merge, ECCVM, Translator)
- * @details In native mode, we are failing fast and returning the default VerificationResult.
+ * @details In native mode, we are failing fast and returning the default ReductionResult.
  */
-template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult GoblinVerifier_<Curve>::verify()
+template <typename Curve>
+typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_to_pairing_check_and_ipa_opening()
 {
     // Step 1: Verify the merge proof
     MergeVerifier merge_verifier{ merge_settings, transcript };
@@ -23,12 +24,12 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     if constexpr (!IsRecursive) {
         if (!merge_result.reduction_succeeded) {
             info("Goblin verification failed at Merge step");
-            return VerificationResult();
+            return ReductionResult();
         }
         // Pairing check is cheap (~1ms), do it immediately for fail-fast
         if (!merge_result.pairing_points.check()) {
             info("Goblin verification failed at Merge pairing check");
-            return VerificationResult();
+            return ReductionResult();
         }
     }
 
@@ -40,7 +41,7 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     if constexpr (!IsRecursive) {
         if (!eccvm_result.reduction_succeeded) {
             info("Goblin verification failed at ECCVM step");
-            return VerificationResult();
+            return ReductionResult();
         }
     }
 
@@ -62,12 +63,12 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     if constexpr (!IsRecursive) {
         if (!translator_result.reduction_succeeded) {
             info("Goblin verification failed at Translator step");
-            return VerificationResult();
+            return ReductionResult();
         }
         // Pairing check is cheap (~1ms), do it immediately for fail-fast
         if (!translator_result.pairing_points.check()) {
             info("Goblin verification failed at Translator pairing check");
-            return VerificationResult();
+            return ReductionResult();
         }
     }
 
@@ -80,14 +81,14 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     bool all_checks_passed =
         merge_result.reduction_succeeded && eccvm_result.reduction_succeeded && translator_result.reduction_succeeded;
 
-    // Warning: `all_checks_passed` excludes pairing verification. Full native verification requires:
-    // - Aggregated pairing check (performed in caller)
-    // - IPA verification (performed in caller)
-    // In-circuit, the boolean flags are designed for debugging only.
-    VerificationResult result{ .pairing_points = std::move(translator_result.pairing_points),
-                               .ipa_claim = std::move(eccvm_result.ipa_claim),
-                               .ipa_proof = proof.ipa_proof,
-                               .all_checks_passed = all_checks_passed };
+    // Warning: `all_checks_passed` always excludes IPA verification (deferred in both modes).
+    // Native mode: pairing checks already performed above (fail-fast), included in all_checks_passed
+    // Recursive mode: pairing checks deferred, excluded from all_checks_passed (for in-circuit batching)
+    // In recursive mode, boolean flags are for circuit structure only (not actual verification).
+    ReductionResult result{ .pairing_points = std::move(translator_result.pairing_points),
+                            .ipa_claim = std::move(eccvm_result.ipa_claim),
+                            .ipa_proof = proof.ipa_proof,
+                            .all_checks_passed = all_checks_passed };
 
     return result;
 }

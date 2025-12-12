@@ -86,7 +86,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     auto transcript = std::make_shared<GoblinRecursiveVerifier::Transcript>();
     GoblinStdlibProof stdlib_proof(builder, proof);
     GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND };
-    GoblinRecursiveVerifier::VerificationResult output = verifier.verify();
+    GoblinRecursiveVerifier::ReductionResult output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
     stdlib::recursion::honk::DefaultIO<Builder> inputs;
     inputs.pairing_inputs = output.pairing_points;

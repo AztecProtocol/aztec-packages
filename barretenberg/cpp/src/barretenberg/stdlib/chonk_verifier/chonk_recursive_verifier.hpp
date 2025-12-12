@@ -43,7 +43,7 @@ class ChonkRecursiveVerifier {
 
   public:
     using GoblinVerificationKey = Goblin::VerificationKey;
-    using Output = GoblinRecursiveVerifier::VerificationResult;
+    using Output = GoblinRecursiveVerifier::ReductionResult;
     using RecursiveVKAndHash = RecursiveVerifierInstance::VKAndHash;
     using RecursiveVK = RecursiveFlavor::VerificationKey;
 
