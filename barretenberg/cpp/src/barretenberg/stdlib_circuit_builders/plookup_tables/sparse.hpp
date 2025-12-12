@@ -15,6 +15,19 @@
 
 namespace bb::plookup::sparse_tables {
 
+/**
+ * @brief Computes the C2 and C3 column values for a sparse lookup table with optional rotation.
+ *
+ * @tparam base The sparse form base (e.g., 28 for Choose, 16 for Majority)
+ * @tparam num_rotated_bits The number of bits to rotate the input by for the C3 value (0 = no rotation)
+ * @param key The lookup key; key[0] is the input value (a limb), key[1] is unused
+ * @return {C2, C3} where:
+ *   - C2 = sparse(input): the input converted to sparse base form
+ *   - C3 = sparse(rotate32(input, num_rotated_bits)): the rotated input in sparse form
+ *         (equals C2 if num_rotated_bits == 0)
+ *
+ * Used by MultiTable lookups to simultaneously obtain sparse form and rotation results for SHA-256.
+ */
 template <uint64_t base, uint64_t num_rotated_bits>
 inline std::array<bb::fr, 2> get_sparse_table_with_rotation_values(const std::array<uint64_t, 2> key)
 {
@@ -28,6 +41,25 @@ inline std::array<bb::fr, 2> get_sparse_table_with_rotation_values(const std::ar
     return { bb::fr(t0), bb::fr(t1) };
 }
 
+/**
+ * @brief Generates a BasicTable for converting values to sparse form with optional rotation.
+ *
+ * @details Creates a lookup table with three columns:
+ *   - C1: Input value in normal form (the lookup key)
+ *   - C2: Input converted to sparse base form
+ *   - C3: Input rotated by num_rotated_bits, then converted to sparse form
+ *         (equals C2 if num_rotated_bits == 0)
+ *
+ * Step sizes are configured for accumulator building:
+ *   - C1 step: 2^11 (SHA-256 decomposes 32-bit words into three limbs of sizes {11, 11, 10} bits)
+ *   - C2/C3 step: base^bits_per_slice (for sparse form accumulation)
+ *
+ * Also sets get_values_from_key to enable on-the-fly value computation during lookups.
+ *
+ * @tparam base The sparse form base (e.g., 28 for Choose, 16 for Majority)
+ * @tparam bits_per_slice Number of bits in each table entry (determines table size = 2^bits_per_slice)
+ * @tparam num_rotated_bits The number of bits to rotate for C3 values (0 = no rotation)
+ */
 template <uint64_t base, uint64_t bits_per_slice, uint64_t num_rotated_bits>
 inline BasicTable generate_sparse_table_with_rotation(BasicTableId id, const size_t table_index)
 {

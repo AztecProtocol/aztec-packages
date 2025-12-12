@@ -237,40 +237,19 @@ SHA256<Builder>::sparse_value SHA256<Builder>::map_into_maj_sparse_form(const fi
 }
 
 /**
- * @brief Compute Ch(e,f,g) + Σ₁(e) for SHA-256 compression rounds.
+ * @brief Compute Σ₁(e) + Ch(e,f,g) for SHA-256 compression rounds.
  *
- * This function combines two SHA-256 operations into one efficient computation:
- *   - Ch(e,f,g) = (e & f) ^ (~e & g)     [Choose: if e then f else g]
- *   - Σ₁(e) = (e >>> 6) ^ (e >>> 11) ^ (e >>> 25)  [Big sigma rotation sum]
+ * Combines two operations efficiently using base-28 sparse form:
+ *   - Σ₁(e) = (e >>> 6) ^ (e >>> 11) ^ (e >>> 25)
+ *   - Ch(e,f,g) = (e & f) ^ (~e & g)
  *
- * ## Sparse Form Technique
+ * Sparse encoding: 7*[rotations] + [e + 2f + 3g], where factor 7 separates rotation
+ * contributions (0-3) from Choose encoding (0-6) within each base-28 digit.
  *
- * In base-28 sparse representation, XOR becomes arithmetic addition and the combined
- * operation can be expressed as:
- *     [e + 2*f + 3*g] + 7*[(e >>> 6) + (e >>> 11) + (e >>> 25)]
- *
- * The first term is a sparse encoding of the Choose function via coefficients 1, 2, 3 on e, f, g. The factor 7 on the
- * rotation terms is a bit packing scalar needed to position the Σ₁ contributions in the upper bits of each base-28
- * digit.
- *
- * ## Lookup Table Structure (SHA256_CH_INPUT)
- *
- * The input lookup decomposes e.normal (32 bits) into three 11/11/10-bit limbs and returns:
- *   - Column C2[0]: Full sparse accumulator of e (stored in e.sparse as side effect)
- *   - Column C2[2]: Third sparse limb (sparse_limb_3, needed for rotation correction)
- *   - Column C3[0]: Rotation accumulator encoding partial Σ₁(e) computation
- *
- * The rotation_coefficients correct for limb boundary effects when combining rotations.
- *
- * ## Output Normalization (SHA256_CH_OUTPUT)
- *
- * The sparse result is normalized back to a 32-bit value via lookup table that maps
- * each sparse digit to its corresponding Ch + Σ₁ output bit.
- *
- * @param e Input/output: e.normal is read, e.sparse is populated as SIDE EFFECT
+ * @param e Input/output: e.normal read, e.sparse populated as side effect
  * @param f Input: must have .sparse already populated
  * @param g Input: must have .sparse already populated
- * @return Ch(e,f,g) + Σ₁(e) as a constrained 32-bit field element
+ * @return Σ₁(e) + Ch(e,f,g) as a constrained 32-bit field element
  */
 template <typename Builder>
 field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const sparse_value& f, const sparse_value& g)
@@ -280,24 +259,43 @@ field_t<Builder> SHA256<Builder>::choose_with_sigma1(sparse_value& e, const spar
     const auto lookup = plookup_read<Builder>::get_lookup_accumulators(SHA256_CH_INPUT, e.normal);
     const auto rotation_coefficients = sha256_tables::get_choose_rotation_multipliers();
 
+    // Rotation accumulator with split-boundary contributions baked in via lookup tables
     field_pt rotation_result = lookup[ColumnIdx::C3][0];
-
+    // Full sparse form of e (L0 + L1*28^11 + L2*28^22)
     e.sparse = lookup[ColumnIdx::C2][0];
-
+    // Isolated sparse(L2), needed for L2 coefficient correction
     field_pt sparse_limb_3 = lookup[ColumnIdx::C2][2];
 
-    // where is the middle limb used
+    // Compute e + 7*Σ₁(e): rotation_result provides split-boundary parts,
+    // coef[0] adds contiguous contributions via e.sparse, coef[2] corrects L2's coefficient
     field_pt xor_result = (rotation_result * fr(7))
                               .add_two(e.sparse * (rotation_coefficients[0] * fr(7) + fr(1)),
                                        sparse_limb_3 * (rotation_coefficients[2] * fr(7)));
 
+    // Add 2f + 3g to complete: e + 7*Σ₁(e) + 2f + 3g (each digit in 0..27)
     field_pt choose_result_sparse = xor_result.add_two(f.sparse + f.sparse, g.sparse + g.sparse + g.sparse);
 
+    // Normalize: each digit maps to Σ₁(e)_i + Ch(e,f,g)_i via lookup table
     field_pt choose_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_CH_OUTPUT, choose_result_sparse);
 
     return choose_result;
 }
 
+/**
+ * @brief Compute Σ₀(a) + Maj(a,b,c) for SHA-256 compression rounds.
+ *
+ * Combines two operations efficiently using base-16 sparse form:
+ *   - Σ₀(a) = (a >>> 2) ^ (a >>> 13) ^ (a >>> 22)
+ *   - Maj(a,b,c) = (a & b) ^ (a & c) ^ (b & c)
+ *
+ * Sparse encoding: 4*[rotations] + [a + b + c], where factor 4 separates rotation
+ * contributions (0-3) from Majority encoding (0-3) within each base-16 digit.
+ *
+ * @param a Input/output: a.normal read, a.sparse populated as side effect
+ * @param b Input: must have .sparse already populated
+ * @param c Input: must have .sparse already populated
+ * @return Σ₀(a) + Maj(a,b,c) as a constrained 32-bit field element
+ */
 template <typename Builder>
 field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sparse_value& b, const sparse_value& c)
 {
@@ -306,18 +304,24 @@ field_t<Builder> SHA256<Builder>::majority_with_sigma0(sparse_value& a, const sp
     const auto lookup = plookup_read<Builder>::get_lookup_accumulators(SHA256_MAJ_INPUT, a.normal);
     const auto rotation_coefficients = sha256_tables::get_majority_rotation_multipliers();
 
-    field_pt rotation_result =
-        lookup[ColumnIdx::C3][0]; // last index of first row gives accumulating sum of "non-trival" wraps
+    // Rotation accumulator with split-boundary contributions baked in via lookup tables
+    field_pt rotation_result = lookup[ColumnIdx::C3][0];
+    // Full sparse form of a (L0 + L1*16^11 + L2*16^22)
     a.sparse = lookup[ColumnIdx::C2][0];
-    // use these values to compute trivial wraps somehow
-    field_pt sparse_accumulator_2 = lookup[ColumnIdx::C2][1];
+    // Partial accumulator: sparse(L1) + sparse(L2)*16^11, used for L1 coefficient correction.
+    // The S2*16^11 term introduces an L2 side-effect that is corrected by the L2 correction baked into C3.
+    field_pt sparse_L1_acc = lookup[ColumnIdx::C2][1];
 
+    // Compute a + 4*Σ₀(a): rotation_result provides split-boundary parts,
+    // coef[0] adds contiguous contributions via a.sparse, coef[1] corrects L1's coefficient
     field_pt xor_result = (rotation_result * fr(4))
                               .add_two(a.sparse * (rotation_coefficients[0] * fr(4) + fr(1)),
-                                       sparse_accumulator_2 * (rotation_coefficients[1] * fr(4)));
+                                       sparse_L1_acc * (rotation_coefficients[1] * fr(4)));
 
+    // Add b + c to complete: a + 4*Σ₀(a) + b + c (each digit in 0..15)
     field_pt majority_result_sparse = xor_result.add_two(b.sparse, c.sparse);
 
+    // Normalize: each digit maps to Σ₀(a)_i + Maj(a,b,c)_i via lookup table
     field_pt majority_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_MAJ_OUTPUT, majority_result_sparse);
 
     return majority_result;
