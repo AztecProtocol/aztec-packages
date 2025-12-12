@@ -43,7 +43,6 @@ describe('e2e_l1_with_wall_time', () => {
     } = await setup(1, {
       initialValidators,
       ethereumSlotDuration,
-      salt: 420,
     }));
   });
 

@@ -7,7 +7,7 @@ import {
   RollupContract,
   TallySlashingProposerContract,
 } from '@aztec/ethereum/contracts';
-import { L1Deployer } from '@aztec/ethereum/deploy-l1-contracts';
+import { L1Deployer } from '@aztec/ethereum/deploy-l1-contract';
 import {
   EmpireSlashingProposerArtifact,
   SlasherArtifact,

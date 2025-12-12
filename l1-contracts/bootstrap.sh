@@ -61,13 +61,13 @@ function build_src {
     git submodule update --init --recursive ./lib
 
     # Compile contracts
-    # Build everything in src and test (except tests that need generated verifier).
-    forge build $(find src test -name '*.sol' ! -name 'shouting.t.sol')
+    # Build everything in src and test (except scripts that need generated verifier).
+    forge build $(find src test -name '*.sol' ! -name 'shouting.t.sol' ! -path 'test/script/*' )
 
     # Output storage information for the rollup contract.
     forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
 
-    cache_upload $artifact out
+    cache_upload $artifact out cache
   fi
 }
 
@@ -87,15 +87,14 @@ function build_verifier {
     fi
 
     # Build the generated verifier contract with optimization.
-    forge build $(find generated -name '*.sol') \
-      --optimize \
-      --optimizer-runs 1 \
-      --no-metadata
+    # Build the scripts that rely on the verifier. These are mutually exclusive with the build in build_src.
+    forge build \
+      $(find generated -name '*.sol') \
+      test/shouting.t.sol \
+      script/deploy/*.s.sol \
+      tests/scripts/*.t.sol
 
-    # Build the one test that imports the verifier.
-    forge build test/shouting.t.sol
-
-    cache_upload $artifact out generated
+    cache_upload $artifact out cache generated
   fi
 }
 

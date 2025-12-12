@@ -33,7 +33,6 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       {
         l1Mnemonic: localNetwork.l1Mnemonic,
         l1RpcUrls: options.l1RpcUrls,
-        deployAztecContractsSalt: localNetwork.deployAztecContractsSalt,
         testAccounts: localNetwork.testAccounts,
         realProofs: false,
       },
