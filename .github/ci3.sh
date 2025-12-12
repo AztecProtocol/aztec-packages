@@ -54,6 +54,43 @@ function has_label {
   return 1
 }
 
+function setup_network_deploy {
+  echo_header "Setup Network Deploy"
+  # Create env file from template (use ENV_FILE if provided, otherwise next-scenario.env)
+  local env_template="${ENV_FILE:-next-scenario.env}"
+  export NETWORK_ENV_FILE=/tmp/network.env
+  cp "spartan/environments/$env_template" "$NETWORK_ENV_FILE"
+  echo "Created network env file from $env_template"
+
+  # Use AZTEC_DOCKER_IMAGE if provided, otherwise build and push the image
+  if [ -n "${AZTEC_DOCKER_IMAGE:-}" ]; then
+    echo "Using provided AZTEC_DOCKER_IMAGE=$AZTEC_DOCKER_IMAGE"
+    echo "AZTEC_DOCKER_IMAGE=$AZTEC_DOCKER_IMAGE" >> "$NETWORK_ENV_FILE"
+  else
+    echo "AZTEC_DOCKER_IMAGE not provided, building and pushing image..."
+    # Build the release image
+    ./bootstrap.sh
+    # Push to aztecprotocol/aztecdev:<hash>-amd64
+    local image_tag="aztecprotocol/aztecdev:$(git rev-parse HEAD)-amd64"
+    docker tag aztecprotocol/aztec:$(git rev-parse HEAD) "$image_tag"
+    echo "$DOCKERHUB_PASSWORD" | docker login -u "${DOCKERHUB_USERNAME:-aztecprotocolci}" --password-stdin
+    docker push "$image_tag"
+    echo "AZTEC_DOCKER_IMAGE=$image_tag" >> "$NETWORK_ENV_FILE"
+    echo "Pushed and set AZTEC_DOCKER_IMAGE=$image_tag"
+  fi
+
+  # Use NAMESPACE if provided, otherwise derive from PR number or branch
+  if [ -z "${NAMESPACE:-}" ]; then
+    if [ -n "${PR_NUMBER:-}" ]; then
+      export NAMESPACE="pr-${PR_NUMBER}-scenario"
+    else
+      export NAMESPACE="$(echo -n "$REF_NAME" | tr -c 'a-z0-9-' '-' | cut -c1-20)-scenario"
+    fi
+  fi
+  echo "NAMESPACE=$NAMESPACE" >> "$NETWORK_ENV_FILE"
+  echo "Network env file created at $NETWORK_ENV_FILE with NAMESPACE=$NAMESPACE"
+}
+
 function determine_ci_mode {
   echo_header "CI Mode Determination"
   echo "Labels: ${LABELS}"
@@ -71,6 +108,8 @@ function determine_ci_mode {
     CI_MODE="full"
   elif has_label "ci-full-no-test-cache"; then
     CI_MODE="full-no-test-cache"
+  elif has_label "ci-test-network-deploy"; then
+    CI_MODE="test-network-deploy"
   elif has_label "ci-docs" || [ "${TARGET_BRANCH:-}" == "merge-train/docs" ]; then
     CI_MODE="docs"
   elif has_label "ci-barretenberg" || [ "${TARGET_BRANCH:-}" == "merge-train/barretenberg" ]; then
@@ -131,6 +170,12 @@ function main {
   if [ "${CI_MODE}" == "release-pr" ]; then
     handle_release_pr
     exit 0
+  fi
+  # Handle test-network-deploy mode separately
+  if [ "${CI_MODE}" == "test-network-deploy" ]; then
+    setup_network_deploy
+    echo_header "Run CI"
+    exec ./ci.sh network-deploy
   fi
   check_cache
   echo_header "Run CI"

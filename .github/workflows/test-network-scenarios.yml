@@ -1,5 +1,6 @@
 # CI for Aztec Network Scenarios.
-# Triggered by CI3 workflow completion on tagged releases.
+# For PRs: add the ci-test-network-deploy label and ci3.yml will handle it.
+# For manual runs or tagged releases: use triggers below.
 #
 name: Test Network Scenarios
 
@@ -59,7 +60,7 @@ jobs:
             echo "No semver tag found for head_sha: ${{ github.event.workflow_run.head_sha }}. Skipping."
           fi
 
-  deploy-and-test-scenarios:
+  ci:
     needs: check-should-run
     if: |
       always() &&
@@ -67,12 +68,8 @@ jobs:
       (github.event_name == 'workflow_dispatch'))
     runs-on: ubuntu-latest
     env:
-      NETWORK_ENV_FILE: /tmp/network.env
       GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
     steps:
-      #############
-      # Prepare Env
-      #############
       - name: Checkout (workflow_run)
         if: github.event_name == 'workflow_run'
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -80,6 +77,7 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
           persist-credentials: false
+
       - name: Checkout (workflow_dispatch)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -87,115 +85,43 @@ jobs:
           ref: ${{ inputs.ref }}
           fetch-depth: 0
           persist-credentials: false
+
       - name: Determine semver from tag
         if: github.event_name == 'workflow_run'
         run: |
           git fetch --tags --force
           tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
           semver="${tag#v}"
-          major_version="${semver%%.*}"
           echo "SEMVER=$semver" >> $GITHUB_ENV
-          echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
+          echo "AZTEC_DOCKER_IMAGE=aztecprotocol/aztec:${semver}" >> $GITHUB_ENV
 
-      # For dispatch, set the dockerimage and the namespace from provided inputs
-      - name: Set docker image from input
+      - name: Set env from dispatch inputs
         if: github.event_name == 'workflow_dispatch'
         run: |
-          docker_image="${{ inputs.docker_image }}"
-          # Use the provided namespace, sanitized for k8s naming
           namespace_id=$(echo "${{ inputs.namespace }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
-          echo "DOCKER_IMAGE=$docker_image" >> $GITHUB_ENV
-          echo "NAMESPACE_ID=$namespace_id" >> $GITHUB_ENV
+          echo "NAMESPACE=$namespace_id" >> $GITHUB_ENV
+          echo "AZTEC_DOCKER_IMAGE=${{ inputs.docker_image }}" >> $GITHUB_ENV
+          echo "ENV_FILE=${{ inputs.env_file }}" >> $GITHUB_ENV
 
-      - name: Setup
-        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
-        run: |
-          # Ensure we can SSH into the spot instances we request.
-          mkdir -p ~/.ssh
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-          sudo apt update && sudo apt install -y --no-install-recommends redis-tools parallel
-
-      - name: Store the GCP key in a file
-        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-        run: |
-          set +x
-          umask 077
-          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
-          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
-
-      - name: Set environment variables
-        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
-        run: |
-          if [ -n "${{ env.SEMVER }}" ]; then
-            # workflow_run mode: use semver to construct namespace and image
-            NAMESPACE="v${MAJOR_VERSION}-scenario"
-            echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
-            echo "AZTEC_DOCKER_IMAGE=aztecprotocol/aztec:${SEMVER}" >> $GITHUB_ENV
-          else
-            # workflow_dispatch mode: use provided docker image and namespace ID
-            NAMESPACE="${NAMESPACE_ID}"
-            echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
-            echo "AZTEC_DOCKER_IMAGE=${DOCKER_IMAGE}" >> $GITHUB_ENV
-          fi
-          echo "GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-
-      - name: Get Tree Hash
-        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
-        run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
-
-      - name: Copy network environment file
-        if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
-        run: |
-          # Use the env_file input for workflow_dispatch, default to next-scenario.env for workflow_run
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            ENV_FILE="${{ inputs.env_file }}"
-          else
-            ENV_FILE="next-scenario.env"
-          fi
-          cp "spartan/environments/${ENV_FILE}" ${{ env.NETWORK_ENV_FILE }}
-          echo "AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" >> ${{ env.NETWORK_ENV_FILE }}
-          echo "Copied network environment file ${ENV_FILE} to ${{ env.NETWORK_ENV_FILE }}"
-
-      - name: Check CI Cache
-        id: ci_cache
-        if: env.SEMVER != '' && github.event_name == 'workflow_run'
-        uses: actions/cache@v3
-        with:
-          path: ci-success.txt
-          key: ci-network-scenario-${{ env.TREE_HASH }}
-
-      #############
-      # Run
-      #############
       - name: Run
-        if: (env.SEMVER != '' || env.DOCKER_IMAGE != '') && (steps.ci_cache.outputs.cache-hit != 'true' || github.event_name == 'workflow_dispatch')
         env:
+          CI_INTERNAL: "1"
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          AZTEC_DOCKER_IMAGE: ${{ env.AZTEC_DOCKER_IMAGE }}
           NAMESPACE: ${{ env.NAMESPACE }}
-          REF_NAME: ${{ (github.event_name == 'workflow_run' && format('v{0}', env.SEMVER)) || (github.event_name == 'workflow_dispatch' && inputs.ref) }}
-          AWS_SHUTDOWN_TIME: 360 # 6 hours as we are running tests that may take a while
-          NO_SPOT: 1
-        run: |
-          # the network env file and gcp credentials file are mounted into the ec2 instance
-          # see ci3/bootstrap_ec2
-          exec ./ci.sh network-deploy
+          ENV_FILE: ${{ env.ENV_FILE }}
+        run: ./.github/ci3.sh "ci-test-network-deploy"
 
-      - name: Save CI Success
-        if: (env.SEMVER != '' || env.DOCKER_IMAGE != '') && steps.ci_cache.outputs.cache-hit != 'true' && github.event_name == 'workflow_run'
-        run: echo "success" > ci-success.txt
-
-      #############
-      # Benchmarks
-      #############
       - name: Download deploy benchmarks
         if: always()
         env:
