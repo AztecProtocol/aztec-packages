@@ -589,18 +589,135 @@ The decider proof is verified recursively in the hiding kernel.
 
 ### Transcript Sharing
 
-Transcripts are shared at two levels to ensure Fiat-Shamir challenge binding:
+Transcripts are shared strategically to ensure Fiat-Shamir challenge binding - challenges in later proofs depend on all prior proof elements, preventing a malicious prover from generating sub-proofs independently.
 
-1. **Accumulation transcript**: A transcript is shared across each (kernel, app) pair:
-   - Reset when accumulating a kernel $K_i$
-   - Shared between folding $K_i$ and folding $A_{i+1}$
-   - The decider proof (produced after the tail kernel) also uses this transcript
+**Prover-side transcript lifecycle**:
 
-   On the verifier side, the recursive verifier in kernel $K_{i+1}$ creates a matching transcript to verify the proofs of $K_i$ and $A_{i+1}$.
+1. **Accumulation transcript** (one per kernel-app pair):
+   - Created fresh when accumulating kernel $K_i$
+   - Shared across: folding proof for $K_i$, folding proof for $A_{i+1}$, Merge proof for $K_i$
+   - The decider proof (after tail kernel) also continues this transcript
 
-2. **Final proof transcript**: Shared between the Hiding kernel proof, Merge proof, ECCVM proof, and Translator proof. The native/recursive verifier uses a matching shared transcript.
+2. **Final proof transcript**:
+   - Shared across: Hiding kernel MegaZK proof, Merge proof, ECCVM proof, Translator proof
+   - This is the transcript serialized into the Chonk proof
 
-**Security**: Transcript sharing ensures that Fiat-Shamir challenges in later proofs depend on all prior proof elements, preventing a malicious prover from generating sub-proofs independently.
+**Verifier-side transcript matching**: The recursive verifier in kernel $K_{i+1}$ reconstructs the same transcript state by processing the same proof elements in the same order, ensuring challenges match.
+
+See [Soundness Mechanisms](#soundness-mechanisms) for how `OriginTag` enforces transcript isolation and prevents unsafe mixing of values.
+
+---
+
+## Soundness Mechanisms
+
+This section describes the key mechanisms that ensure Chonk's soundness: how transcripts bind components together via Fiat-Shamir, how public inputs flow between circuits, and how deferred verification works.
+
+### Transcript Isolation via OriginTag
+
+While [Transcript Sharing](#transcript-sharing) describes *which* components share transcripts, this section explains how we *enforce* that values from different transcripts don't accidentally mix.
+
+Each `BaseTranscript` instantiated in-circuit receives a unique index via an atomic counter (`unique_transcript_index`). Field elements derived from a transcript carry an `OriginTag` that records this index.
+
+**Why isolation matters**: If values from different transcripts were mixed (e.g., using a challenge from transcript A to batch commitments hashed into transcript B), an adversary could manipulate challenges by controlling which proof elements appear where.
+
+The `OriginTag` mechanism enforces several critical security invariants:
+1. **Transcript isolation**: Values from different transcript instances cannot interact
+2. **Free witness prohibition**: Free witness elements cannot interact with transcript-originated values (prevents adversarial witness construction)
+3. **Round separation**: Submitted values from different rounds cannot mix without challenges (enforces proper Fiat-Shamir sequencing)
+
+These checks are active in debug builds and catch bugs during development. For full details, see [Origin Tags Security](../transcript/Origin%20Tags%20Security.md).
+
+**Additional transcripts created per kernel** (beyond the shared accumulation transcript):
+- **Pairing points aggregation transcript**: Fresh transcript for `PairingPoints::aggregate_multiple` - generates independent Fiat-Shamir challenges for batching pairing points
+- **Hash transcript**: Used to compute `output_hn_accum_hash` which binds the accumulator state to public inputs
+
+### Public Input Structure: KernelIO and HidingKernelIO
+
+Kernel circuits output a structured public input block that carries cross-circuit verification data:
+
+```cpp
+// KernelIO (for non-hiding kernels)
+struct KernelIO {
+    PairingInputs pairing_inputs;      // Accumulated {P0, P1} for deferred pairing check
+    G1 kernel_return_data;             // Commitment to this kernel's return data
+    G1 app_return_data;                // Commitment to the app's return data
+    TableCommitments ecc_op_tables;    // [M_1]...[M_4] merged op queue tables from Merge
+    FF output_hn_accum_hash;           // Hash of the HyperNova accumulator state
+};
+
+// HidingKernelIO (for the final hiding kernel - no accumulator hash since folding terminates)
+struct HidingKernelIO {
+    PairingInputs pairing_inputs;
+    G1 kernel_return_data;
+    TableCommitments ecc_op_tables;
+};
+```
+
+**Security**: Public inputs are bound to the circuit via relations checked by HyperNova sumcheck. Tampering with any public input value in a proof causes the recursive sumcheck verification to fail - the relations won't hold for the modified values.
+
+### Accumulator Hash Chain
+
+Each kernel computes a hash of its verifier accumulator and outputs it as `output_hn_accum_hash`. The next kernel:
+1. Extracts `output_hn_accum_hash` from the previous kernel's public inputs
+2. Computes its own expected hash from the accumulator state
+3. Asserts equality in-circuit
+
+```cpp
+// In complete_kernel_circuit_logic()
+bool accum_hash_match = kernel_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
+BB_ASSERT(accum_hash_match);
+kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);  // In-circuit constraint
+```
+
+**Why this matters**: This creates an unbroken chain from the first kernel to the hiding kernel. If an adversary modifies any accumulator mid-chain, the hash mismatch is detected. The hash also includes `OriginTag` information via `hash_with_origin_tagging()`, binding it to the specific transcript that generated it.
+
+### Databus Consistency Checks
+
+The [Databus](#databus) section explains how circuits pass data via commitment equality checks. Here's the concrete enforcement in `complete_kernel_circuit_logic()`:
+
+```cpp
+// Kernel's calldata must match previous kernel's return_data
+kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
+
+// Kernel's secondary_calldata must match previous app's return_data
+kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
+```
+
+The `incomplete_assert_equal` (for non-native G1 points) adds in-circuit constraints that the commitments are equal. Combined with the HyperNova binding of public inputs to proofs, tampering with databus content invalidates the proof.
+
+### ECC Op Table Continuity
+
+The merged op queue table commitments `[M_1]...[M_4]` flow through `KernelIO.ecc_op_tables`:
+
+1. Each kernel runs a recursive Merge verifier that outputs `merged_table_commitments`
+2. These are placed in `kernel_output.ecc_op_tables` and become public inputs
+3. The next kernel extracts them and uses them as `T_prev_commitments` for its own Merge verification
+
+This chain ensures the op queue history is maintained correctly. The Merge protocol's degree check prevents injection of extra operations.
+
+### Verification Key Binding
+
+**Attack vector**: If the first Fiat-Shamir challenge doesn't depend on the verification key, a malicious prover could generate a valid proof for circuit A, then claim it's a proof for circuit B by presenting a different VK - the challenges would be identical since they don't bind to the VK.
+
+**Defense**: The VK hash is the first value added to the transcript via `add_to_hash_buffer("vk_hash", ...)` before any challenges are derived. This happens in `OinkVerifier::verify()`, which is called by `HypernovaFoldingVerifier` for each incoming instance. All subsequent Fiat-Shamir challenges depend on this hash, binding the proof to exactly one circuit.
+
+```cpp
+// In OinkVerifier::verify() (called by HypernovaFoldingVerifier for each instance)
+FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
+transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+// All subsequent challenges now depend on this hash
+```
+
+### Summary: Security Properties
+
+| Property | Enforcement |
+|----------|-------------|
+| **VK binding** | VK hash first in transcript via `add_to_hash_buffer`; all challenges depend on it |
+| **Fiat-Shamir soundness** | `OriginTag` prevents mixing values from different transcripts (debug builds) |
+| **Public input integrity** | Bound via sumcheck relations; tampering fails recursive verification |
+| **Accumulator chain** | `output_hn_accum_hash` checked via `assert_equal` (value flows through public inputs) |
+| **Databus consistency** | Databus lookup relation + `assert_equal` on commitments (flow through public inputs) |
+| **ECC op continuity** | ECC op queue relations (copy constraints on subtables) + Merge protocol (degree/concatenation checks) + `ecc_op_tables` flow through public inputs |
 
 ---
 
