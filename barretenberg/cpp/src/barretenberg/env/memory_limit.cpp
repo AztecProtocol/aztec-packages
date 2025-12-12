@@ -45,7 +45,7 @@ void initialize_memory_limit(bool is_avm)
     if (env_override != nullptr) {
         char* end = nullptr;
         unsigned long long value = std::strtoull(env_override, &end, 10);
-        if (end != env_override && *end == '\0' && value > 0) {
+        if (end != env_override && *end == '\0') {
             memory_limit = static_cast<std::size_t>(value);
         } else {
             std::cerr << "Warning: Invalid BB_MAX_MEMORY value '" << env_override << "', ignoring\n";
