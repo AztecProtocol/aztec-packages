@@ -1,4 +1,4 @@
-import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
+import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
   type ConfigMappingsType,
   SecretValue,

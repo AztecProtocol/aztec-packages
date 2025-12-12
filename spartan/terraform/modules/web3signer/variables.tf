@@ -63,7 +63,7 @@ variable "AZTEC_DOCKER_IMAGE" {
 variable "WEB3SIGNER_DOCKER_IMAGE" {
   description = "The web3signer image to use"
   type        = string
-  default     = "consensys/web3signer:25.3.0"
+  default     = "consensys/web3signer:25.11.0"
 }
 
 variable "KUBECTL_DOCKER_IMAGE" {

@@ -4,6 +4,7 @@
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/transcript/transcript_manifest.hpp"
 #include "gtest/gtest.h"
 
 using namespace bb;
@@ -46,6 +47,50 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
     using NativeVerifierInstance = NativeHypernovaVerifier::VerifierInstance;
 
     enum class TamperingMode : uint8_t { None, Accumulator, Instance, FoldedAccumulator };
+
+    /**
+     * @brief Build the expected transcript manifest for HyperNova decider
+     * @details Manifest tracking is enabled after folding (which uses 50 rounds), so only
+     * decider rounds are tracked. Round numbers continue from folding:
+     * - Round 50: rho challenge (batching for Gemini)
+     * - Round 51: Gemini FOLD commitments -> Gemini:r challenge
+     * - Round 52: Gemini evaluations -> Shplonk:nu challenge
+     * - Round 53: Shplonk:Q commitment -> Shplonk:z challenge
+     * - Round 54: KZG:W commitment -> KZG:masking_challenge
+     */
+    static TranscriptManifest build_expected_decider_manifest()
+    {
+        TranscriptManifest manifest;
+        constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
+        constexpr size_t NUM_GEMINI_FOLDS = NativeFlavor::VIRTUAL_LOG_N - 1; // 20
+        constexpr size_t NUM_GEMINI_EVALS = NativeFlavor::VIRTUAL_LOG_N;     // 21
+        constexpr size_t FOLDING_ROUNDS = 50;                                // Rounds used by folding verifier
+
+        // Round 50: rho challenge
+        manifest.add_challenge(FOLDING_ROUNDS, "rho");
+
+        // Round 51: Gemini FOLD commitments -> Gemini:r
+        for (size_t i = 1; i <= NUM_GEMINI_FOLDS; ++i) {
+            manifest.add_entry(FOLDING_ROUNDS + 1, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
+        }
+        manifest.add_challenge(FOLDING_ROUNDS + 1, "Gemini:r");
+
+        // Round 52: Gemini evaluations -> Shplonk:nu
+        for (size_t i = 1; i <= NUM_GEMINI_EVALS; ++i) {
+            manifest.add_entry(FOLDING_ROUNDS + 2, "Gemini:a_" + std::to_string(i), 1);
+        }
+        manifest.add_challenge(FOLDING_ROUNDS + 2, "Shplonk:nu");
+
+        // Round 53: Shplonk:Q -> Shplonk:z
+        manifest.add_entry(FOLDING_ROUNDS + 3, "Shplonk:Q", frs_per_G);
+        manifest.add_challenge(FOLDING_ROUNDS + 3, "Shplonk:z");
+
+        // Round 54: KZG:W -> KZG:masking_challenge
+        manifest.add_entry(FOLDING_ROUNDS + 4, "KZG:W", frs_per_G);
+        manifest.add_challenge(FOLDING_ROUNDS + 4, "KZG:masking_challenge");
+
+        return manifest;
+    }
 
     static std::shared_ptr<ProverInstance> generate_new_instance(size_t log_num_gates = 4)
     {
@@ -155,6 +200,9 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         auto [first_sumcheck_native, second_sumcheck_native, folded_verifier_accumulator_native] =
             native_verifier.verify_folding_proof(incoming_verifier_instance, folding_proof);
 
+        // Enable manifest tracking before decider verification
+        native_transcript->enable_manifest();
+
         // Natively verify the decider proof
         NativeHypernovaDeciderVerifier decider_verifier(native_transcript);
         auto native_pairing_points = decider_verifier.verify_proof(folded_verifier_accumulator_native, decider_proof);
@@ -196,6 +244,13 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         // Second sumcheck fails if the accumulator has been tampered with
         EXPECT_EQ(second_sumcheck_recursive, mode != TamperingMode::Accumulator);
         EXPECT_EQ(second_sumcheck_recursive, second_sumcheck_native);
+
+        // Pin the decider transcript manifest (only check when not tampering)
+        if (mode == TamperingMode::None) {
+            auto expected_manifest = build_expected_decider_manifest();
+            auto verifier_manifest = native_transcript->get_manifest();
+            EXPECT_EQ(verifier_manifest, expected_manifest);
+        }
     }
 };
 

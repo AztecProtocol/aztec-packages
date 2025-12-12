@@ -184,11 +184,11 @@ describe('Logs', () => {
           .send({ from: account1Address })
           .wait();
 
-        const blockNumber = tx.blockNumber!;
-
         // Fetch raw private logs for that block and check tag uniqueness
-        const privateLogs = await aztecNode.getPrivateLogs(blockNumber, 1);
-        const logs = privateLogs.filter(l => !l.isEmpty());
+        const logs = (await aztecNode.getBlock(tx.blockNumber!))!
+          .toL2Block()
+          .getPrivateLogs()
+          .filter(l => !l.isEmpty());
 
         expect(logs.length).toBe(tx1NumLogs);
 
@@ -210,8 +210,10 @@ describe('Logs', () => {
         const blockNumber = tx.blockNumber!;
 
         // Fetch raw private logs for that block and check tag uniqueness
-        const privateLogs = await aztecNode.getPrivateLogs(blockNumber, 1);
-        const logs = privateLogs.filter(l => !l.isEmpty());
+        const logs = (await aztecNode.getBlock(blockNumber))!
+          .toL2Block()
+          .getPrivateLogs()
+          .filter(l => !l.isEmpty());
 
         expect(logs.length).toBe(tx2NumLogs);
 

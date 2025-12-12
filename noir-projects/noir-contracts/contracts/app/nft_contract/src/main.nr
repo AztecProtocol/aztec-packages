@@ -256,7 +256,7 @@ pub contract NFT {
 
         let new_note = NFTNote { token_id };
 
-        nfts.at(to).insert(new_note).deliver(to, MessageDelivery.CONSTRAINED_ONCHAIN);
+        nfts.at(to).insert(new_note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -298,8 +298,8 @@ pub contract NFT {
         page_index: u32,
     ) -> ([Field; MAX_NOTES_PER_PAGE], bool) {
         let offset = page_index * MAX_NOTES_PER_PAGE;
-        let mut options = NoteViewerOptions::new();
-        let notes = self.storage.private_nfts.at(owner).view_notes(options.set_offset(offset));
+        let options = NoteViewerOptions::new().set_offset(offset);
+        let notes = self.storage.private_nfts.at(owner).view_notes(options);
 
         let mut owned_nft_ids = [0; MAX_NOTES_PER_PAGE];
         for i in 0..options.limit {

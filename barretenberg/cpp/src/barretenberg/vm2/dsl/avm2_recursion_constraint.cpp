@@ -127,8 +127,8 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     BB_ASSERT_EQ(input.proof_type, AVM);
 
     // Construct in-circuit representations of the proof and public inputs
-    const auto proof_fields = RecursionConstraint::fields_from_witnesses(builder, input.proof);
-    const auto public_inputs_flattened = RecursionConstraint::fields_from_witnesses(builder, input.public_inputs);
+    const auto proof_fields = fields_from_witnesses(builder, input.proof);
+    const auto public_inputs_flattened = fields_from_witnesses(builder, input.public_inputs);
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (builder.is_write_vk_mode()) {

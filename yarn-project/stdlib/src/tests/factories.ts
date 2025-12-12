@@ -439,7 +439,10 @@ function makeAvmAccumulatedDataArrayLengths(seed = 1) {
 }
 
 export function makeGas(seed = 1) {
-  return new Gas(seed, seed + 1);
+  // Constrain gas values to u32 range
+  const daGas = seed % 2 ** 32;
+  const l2Gas = (seed + 1) % 2 ** 32;
+  return new Gas(daGas, l2Gas);
 }
 
 /**
@@ -722,7 +725,9 @@ function makeFeeRecipient(seed = 1) {
  * @returns An append only tree snapshot.
  */
 export function makeAppendOnlyTreeSnapshot(seed = 1): AppendOnlyTreeSnapshot {
-  return new AppendOnlyTreeSnapshot(fr(seed), seed);
+  // Constrain nextAvailableLeafIndex to u32 range
+  const nextAvailableLeafIndex = seed % 2 ** 32;
+  return new AppendOnlyTreeSnapshot(fr(seed), nextAvailableLeafIndex);
 }
 
 /**

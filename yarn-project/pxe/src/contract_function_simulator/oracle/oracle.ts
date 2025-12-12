@@ -240,7 +240,8 @@ export class Oracle {
   }
 
   async utilityGetNotes(
-    [owner]: ACVMField[],
+    [ownerSome]: ACVMField[],
+    [ownerValue]: ACVMField[],
     [storageSlot]: ACVMField[],
     [numSelects]: ACVMField[],
     selectByIndexes: ACVMField[],
@@ -258,8 +259,10 @@ export class Oracle {
     [maxNotes]: ACVMField[],
     [packedRetrievedNoteLength]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
+    // Parse Option<AztecAddress>: ownerSome is 0 for None, 1 for Some
+    const owner = Fr.fromString(ownerSome).toNumber() === 1 ? AztecAddress.fromString(ownerValue) : undefined;
     const noteDatas = await this.handlerAsUtility().utilityGetNotes(
-      AztecAddress.fromString(owner),
+      owner,
       Fr.fromString(storageSlot),
       +numSelects,
       selectByIndexes.map(s => +s),
@@ -276,7 +279,17 @@ export class Oracle {
       +status,
     );
 
-    const returnDataAsArrayOfPackedRetrievedNotes = noteDatas.map(packAsRetrievedNote);
+    const returnDataAsArrayOfPackedRetrievedNotes = noteDatas.map(noteData =>
+      packAsRetrievedNote({
+        contractAddress: noteData.contractAddress,
+        owner: noteData.owner,
+        randomness: noteData.randomness,
+        storageSlot: noteData.storageSlot,
+        noteNonce: noteData.noteNonce,
+        index: noteData.index,
+        note: noteData.note,
+      }),
+    );
 
     // Now we convert each sub-array to an array of ACVMField
     const returnDataAsArrayOfACVMFieldArrays = returnDataAsArrayOfPackedRetrievedNotes.map(subArray =>

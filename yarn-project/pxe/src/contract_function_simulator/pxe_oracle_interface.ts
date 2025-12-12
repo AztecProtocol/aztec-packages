@@ -93,7 +93,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async getNotes(
     contractAddress: AztecAddress,
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     status: NoteStatus,
     scopes?: AztecAddress[],
@@ -680,6 +680,20 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
+    const txEffect = await this.aztecNode.getTxEffect(txHash);
+    if (!txEffect) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash}`);
+    }
+
+    if (txEffect.l2BlockNumber > syncedBlockNumber) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
+    }
+
+    const noteInTx = txEffect.data.noteHashes.some(nh => nh.equals(uniqueNoteHash));
+    if (!noteInTx) {
+      throw new Error(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}`);
+    }
+
     // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
     // note existence in said tree. We concurrently also check if the note's nullifier exists, performing all node
     // queries in a single round-trip.
@@ -814,7 +828,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
     }
 
-    const eventInTx = txEffect.data.nullifiers.some(nullifier => nullifier.equals(siloedEventCommitment));
+    const eventInTx = txEffect.data.nullifiers.some(n => n.equals(siloedEventCommitment));
     if (!eventInTx) {
       throw new Error(
         `Event commitment ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present in tx ${txHash}`,

@@ -1,4 +1,5 @@
-import { RegistryContract, type ViemClient } from '@aztec/ethereum';
+import { RegistryContract } from '@aztec/ethereum/contracts';
+import type { ViemClient } from '@aztec/ethereum/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';

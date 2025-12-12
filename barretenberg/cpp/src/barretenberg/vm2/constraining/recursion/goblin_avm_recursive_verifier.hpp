@@ -143,8 +143,9 @@ class AvmGoblinRecursiveVerifier {
                 ultra_builder) // Empty ecc op tables because there is only one layer of Goblin
         };
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk, transcript };
+        GoblinStdlibProof stdlib_goblin_proof(ultra_builder, inner_output.goblin_proof);
         GoblinRecursiveVerifierOutput goblin_verifier_output =
-            goblin_verifier.verify(inner_output.goblin_proof, merge_commitments);
+            goblin_verifier.verify(stdlib_goblin_proof, merge_commitments);
         goblin_verifier_output.points_accumulator.aggregate(mega_verifier_output.points_accumulator);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)

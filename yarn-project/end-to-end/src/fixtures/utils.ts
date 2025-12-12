@@ -12,19 +12,18 @@ import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
+import { isAnvilTestChain } from '@aztec/ethereum/chain';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { NULL_KEY } from '@aztec/ethereum/constants';
+import { RollupContract, deployMulticall3 } from '@aztec/ethereum/contracts';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
-  FeeAssetArtifact,
-  NULL_KEY,
   type Operator,
-  RollupContract,
-  createExtendedL1Client,
   deployL1Contracts,
-  deployMulticall3,
-  getL1ContractsConfigEnvVars,
-  isAnvilTestChain,
-} from '@aztec/ethereum';
+} from '@aztec/ethereum/deploy-l1-contracts';
+import { FeeAssetArtifact } from '@aztec/ethereum/l1-artifacts';
 import {
   DelayedTxUtils,
   EthCheatCodes,
@@ -92,10 +91,10 @@ const { AZTEC_NODE_URL = '' } = process.env;
 const getAztecUrl = () => AZTEC_NODE_URL;
 
 let telemetry: TelemetryClient | undefined = undefined;
-function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
+async function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
   if (!telemetry) {
     const config = { ...getTelemetryConfig(), ...partialConfig };
-    telemetry = config.benchmark ? new BenchmarkTelemetryClient() : initTelemetryClient(config);
+    telemetry = config.benchmark ? new BenchmarkTelemetryClient() : await initTelemetryClient(config);
   }
   return telemetry;
 }
@@ -449,7 +448,9 @@ export async function setup(
       config.publisherPrivateKeys = [new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const)];
     }
 
-    config.coinbase = EthAddress.fromString(publisherHdAccount.address);
+    if (config.coinbase === undefined) {
+      config.coinbase = EthAddress.fromString(publisherHdAccount.address);
+    }
 
     if (AZTEC_NODE_URL) {
       // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
@@ -539,7 +540,7 @@ export async function setup(
       await watcher.start();
     }
 
-    const telemetry = getTelemetryClient(opts.telemetryConfig);
+    const telemetry = await getTelemetryClient(opts.telemetryConfig);
 
     // Blob sink service - blobs get posted here and served from here
     const blobSinkPort = await getPort();

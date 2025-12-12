@@ -1,6 +1,37 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+function download_solc {
+  # Read solc path from foundry.toml and extract version (e.g., "./solc-0.8.27" -> "0.8.27")
+  local solc_path=$(grep '^solc = ' foundry.toml | sed 's/.*"\.\/\(.*\)"/\1/')
+  local solc_version=${solc_path#solc-}
+  if [ -f "$solc_path" ]; then
+    return 0
+  fi
+  local platform="$(os)-$(arch)"
+  local artifact="solc-$platform-$solc_version.tar.gz"
+  if cache_download "$artifact"; then
+    return 0
+  fi
+
+  # Use forge's built-in svm to download solc (handles all platforms including arm64)
+  echo_stderr "Downloading solc $solc_version via svm..."
+  # svm-rs always uses ~/.svm if it exists. Make sure it does for a consistent path across OS/architecture.
+  mkdir -p "$HOME/.svm"
+  # We build a minimal file to trigger svm download of solc.
+  forge build --use "$solc_version" src/core/libraries/ConstantsGen.sol 2>/dev/null
+
+  # Copy from svm cache to local path
+  local svm_path="$HOME/.svm/$solc_version/solc-$solc_version"
+  if [ ! -f "$svm_path" ]; then
+    echo_stderr "ERROR: svm failed to download solc $solc_version"
+    exit 1
+  fi
+
+  cp "$svm_path" "$solc_path"
+  cache_upload "$artifact" "$solc_path"
+}
+
 # We rely on noir-projects for the verifier contract.
 export hash=$(cache_content_hash \
   .rebuild_patterns \
@@ -11,6 +42,9 @@ export hash=$(cache_content_hash \
 
 function build_src {
   echo_header "l1-contracts build_src"
+
+  # Download solc binary
+  download_solc
 
   # Deps install
   npm_install_deps

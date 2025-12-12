@@ -26,6 +26,7 @@ function print_usage {
   echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
   echo_cmd "network-deploy" "Spin up an EC2 instance to deploy a network."
   echo_cmd "network-tests"  "Spin up an EC2 instance to run tests on a network."
+  echo_cmd "network-bench"  "Spin up an EC2 instance to run benchmarks on a network."
   echo_cmd "release"        "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"      "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"          "Drop into a shell in the current running build instance container."
@@ -119,6 +120,10 @@ case "$cmd" in
     export JOB_ID="x-${NAMESPACE}-network-tests"
     export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
     bootstrap_ec2 "./bootstrap.sh ci-network-tests"
+    ;;
+  "network-bench")
+    export JOB_ID="x-network-bench" CPUS=16
+    bootstrap_ec2 "./bootstrap.sh ci-network-bench"
     ;;
   "release")
     prep_vars
@@ -257,6 +262,9 @@ case "$cmd" in
     ;;
   "gh-deploy-bench")
     cache_download deploy-bench-$(git rev-parse HEAD^{tree}).tar.gz
+    ;;
+  "gh-spartan-bench")
+    cache_download spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
   "uncached-tests")
     if [ -z "$CI_REDIS_AVAILABLE" ]; then

@@ -51,12 +51,12 @@ storing it:</p>
 <p>For more details on what &quot;owned&quot; means, see the documentation for the <a href="../../../noir_aztec/state_vars/owned_state_variable/trait.OwnedStateVariable.html">OwnedStateVariable</a> trait.</p>
 <p>The value of a PrivateImmutable is stored in the Aztec's private state and hence is represented as a note.</p>
 <p>The PrivateImmutable type facilitates: inserting the permanent note during initialization, and reading that note.</p>
-<h2>Example.</h2>
-<p>A contract's configuration parameters can be represented as a PrivateImmutable.
-Once set during contract deployment or initial setup, these parameters remain
-constant for the lifetime of the contract. The owner in this case would be an
-account with admin privileges.
-TODO(F-187): Update this ^</p>
+<h2>Example</h2>
+<p>A user's permanent configuration can be represented as a PrivateImmutable. For example, in a vesting contract, each
+user's vesting parameters (start date, total amount, etc.) could be stored as a PrivateImmutable owned by that user.
+Once initialized during registration, these parameters remain constant for that specific user, while different users
+can have their own distinct parameters.</p>
+<p>Note: For contract-wide configuration (one value for the entire contract), use SinglePrivateImmutable instead.</p>
 <h2>Generic Parameters:</h2>
 <ul>
 <li><code>Note</code> - A single note of this type will represent the PrivateImmutable's
@@ -74,7 +74,7 @@ value at the given storage_slot.</li>
 
 <div class="padded-description"><div class="comments">
 <p>Initializes a PrivateImmutable state variable instance with a permanent <code>note</code> and returns a [NoteEmission] that
-allows you to decide whether to encrypt and send the note to someone.</p>
+allows you to decide what method of note message delivery to use.</p>
 <p>This function inserts the single, permanent note for this state variable. It can only be called once per
 PrivateImmutable. Subsequent calls will fail because the initialization nullifier will already exist.</p>
 <p>Unlike PrivateMutable, this note will never be nullified or replaced through the state variable interface</p>

@@ -1,4 +1,4 @@
-import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';

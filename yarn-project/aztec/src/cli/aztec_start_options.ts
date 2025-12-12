@@ -1,8 +1,9 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
-import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
-import { blobSinkConfigMappings } from '@aztec/blob-sink/server';
+import { blobSinkConfigMappings } from '@aztec/blob-sink/server/config';
 import { botConfigMappings } from '@aztec/bot/config';
-import { l1ContractAddressesMapping, l1ContractsConfigMappings, l1ReaderConfigMappings } from '@aztec/ethereum';
+import { l1ContractsConfigMappings } from '@aztec/ethereum/config';
+import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
+import { l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import { getKeys } from '@aztec/foundation/collection';
 import {
   type ConfigMapping,
@@ -14,12 +15,13 @@ import {
 import { dataConfigMappings } from '@aztec/kv-store/config';
 import { sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
-import { proverAgentConfigMappings, proverBrokerConfigMappings } from '@aztec/prover-client/broker';
+import { proverAgentConfigMappings, proverBrokerConfigMappings } from '@aztec/prover-client/broker/config';
 import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
+import { sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
 import { chainConfigMappings } from '@aztec/stdlib/config';
-import { telemetryClientConfigMappings } from '@aztec/telemetry-client';
-import { worldStateConfigMappings } from '@aztec/world-state';
+import { telemetryClientConfigMappings } from '@aztec/telemetry-client/config';
+import { worldStateConfigMappings } from '@aztec/world-state/config';
 
 import { DefaultMnemonic } from '../mnemonic.js';
 

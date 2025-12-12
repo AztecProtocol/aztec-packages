@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Completed, auditors: [Federico], date: 2025-12-04 }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
@@ -29,7 +29,13 @@ using namespace bb;
 
 /// ========= HELPERS ========= ///
 
-WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
+bb::fr from_buffer_with_bound_checks(const std::vector<uint8_t>& buffer)
+{
+    BB_ASSERT_EQ(buffer.size(), 32U, "acir_format::from_buffer_with_bound_checks: buffer size must be 32 bytes.");
+    return fr::serialize_from_buffer(buffer.data());
+}
+
+WitnessOrConstant<bb::fr> parse_input(const Acir::FunctionInput& input)
 {
     WitnessOrConstant<bb::fr> result = std::visit(
         [&](auto&& e) {
@@ -43,7 +49,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
             } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
                 return WitnessOrConstant<bb::fr>{
                     .index = bb::stdlib::IS_CONSTANT,
-                    .value = fr::serialize_from_buffer(&e.value[0]),
+                    .value = from_buffer_with_bound_checks(e.value),
                     .is_constant = true,
                 };
             } else {
@@ -55,7 +61,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
     return result;
 }
 
-uint32_t get_witness_from_function_input(Acir::FunctionInput input)
+uint32_t get_witness_from_function_input(const Acir::FunctionInput& input)
 {
     BB_ASSERT(std::holds_alternative<Acir::FunctionInput::Witness>(input.value),
               "acir_format::get_witness_from_function_input: input must be a Witness variant. An error here means "
@@ -64,7 +70,7 @@ uint32_t get_witness_from_function_input(Acir::FunctionInput input)
     return std::get<Acir::FunctionInput::Witness>(input.value).value.value;
 }
 
-void update_max_witness_index(uint32_t witness_idx, AcirFormat& af)
+void update_max_witness_index(const uint32_t witness_idx, AcirFormat& af)
 {
     if (witness_idx != stdlib::IS_CONSTANT) {
         af.max_witness_index = std::max(af.max_witness_index, witness_idx);
@@ -285,7 +291,10 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
         // Once we remove support for legacy bincode format, we should expect to always
         // have a format marker corresponding to acir::serialization::Format::Msgpack,
         // but until then a match could be pure coincidence.
-        if (buf[0] == 2) {
+        const uint8_t FORMAT_MSGPACK = 2;
+        const uint8_t FORMAT_MSGPACK_COMPACT = 3;
+        uint8_t format = buf[0];
+        if (format == FORMAT_MSGPACK || format == FORMAT_MSGPACK_COMPACT) {
             // Skip the format marker to get the data.
             const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
             size_t size = buf.size() - 1;
@@ -295,10 +304,9 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
                 // This has to be on a separate line, see
                 // https://github.com/msgpack/msgpack-c/issues/695#issuecomment-393035172
                 auto o = oh.get();
-                // In experiments bincode data was parsed as 0.
-                // All the top level formats we look for are MAP types.
-                if (o.type == msgpack::type::MAP) {
-                    BB_ASSERT(false, "acir_format::deserialize_any_format: Msgpack is not currently supported.");
+                // In experiments bincode data was parsed as 0, so a successful parse is not a guarnatee that it's
+                // msgpack. All the top level formats we look for are MAP or ARRAY types (depending on the format).
+                if (o.type == msgpack::type::MAP || o.type == msgpack::type::ARRAY) {
                     return decode_msgpack(o);
                 }
             }
@@ -313,16 +321,19 @@ T deserialize_any_format(std::vector<uint8_t>&& buf,
 
 AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
 {
+    BB_ASSERT_LT(
+        circuit.opcodes.size(), UINT32_MAX, "acir_format::circuit_serde_to_acir_format: too many opcodes in circuit.");
+
     AcirFormat af;
     af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
     af.public_inputs = join({
         transform::map(circuit.public_parameters.value,
-                       [&](auto e) {
+                       [&](const Acir::Witness& e) {
                            update_max_witness_index(e.value, af);
                            return e.value;
                        }),
         transform::map(circuit.return_values.value,
-                       [&](auto e) {
+                       [&](const Acir::Witness& e) {
                            update_max_witness_index(e.value, af);
                            return e.value;
                        }),
@@ -436,7 +447,7 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
             witness_vector.emplace_back(0);
             index++;
         }
-        witness_vector.emplace_back(fr::serialize_from_buffer(&e.second[0]));
+        witness_vector.emplace_back(from_buffer_with_bound_checks(e.second));
         index++;
     }
 
@@ -470,7 +481,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
             .b = std::get<2>(mul_term).value,
             .c = bb::stdlib::IS_CONSTANT,
             .d = bb::stdlib::IS_CONSTANT,
-            .mul_scaling = fr::serialize_from_buffer(&(std::get<0>(mul_term)[0])),
+            .mul_scaling = from_buffer_with_bound_checks(std::get<0>(mul_term)),
             .a_scaling = fr::zero(),
             .b_scaling = fr::zero(),
             .c_scaling = fr::zero(),
@@ -500,7 +511,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
 
         if (is_first_gate) {
             // First gate contains the constant term and uses all four wires
-            mul_quad.const_scaling = fr::serialize_from_buffer(&arg.q_c[0]);
+            mul_quad.const_scaling = from_buffer_with_bound_checks(arg.q_c);
             if (!linear_terms.empty()) {
                 add_linear_term_and_erase(mul_quad.d, mul_quad.d_scaling, linear_terms);
             }
@@ -534,7 +545,7 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         }
         if (is_first_gate) {
             // First gate contains the constant term and uses all four wires
-            mul_quad.const_scaling = fr::serialize_from_buffer(&arg.q_c[0]);
+            mul_quad.const_scaling = from_buffer_with_bound_checks(arg.q_c);
             if (!linear_terms.empty()) {
                 add_linear_term_and_erase(mul_quad.d, mul_quad.d_scaling, linear_terms);
             }
@@ -544,7 +555,9 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
         result.emplace_back(mul_quad);
     }
 
-    BB_ASSERT(!result.empty(), "split_into_mul_quad_gates: resulted in zero gates.");
+    BB_ASSERT(!result.empty(),
+              "split_into_mul_quad_gates: resulted in zero gates. This means that there is an expression with no  "
+              "multiplication terms and no linear terms.");
     result.shrink_to_fit();
 
     return result;
@@ -563,19 +576,22 @@ void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFo
     std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(arg.value, linear_terms);
 
     if (is_single_gate) {
-        BB_ASSERT_EQ(mul_quads.size(), 1U, "acir_format::handle_arithmetic: expected a single gate.");
+        BB_ASSERT_EQ(mul_quads.size(), 1U, "acir_format::assert_zero_to_quad_constraints: expected a single gate.");
         auto mul_quad = mul_quads[0];
 
         af.quad_constraints.push_back(mul_quad);
         af.original_opcode_indices.quad_constraints.push_back(opcode_index);
     } else {
-        BB_ASSERT_GT(mul_quads.size(), 1U, "acir_format::handle_arithmetic: expected multiple gates but found one.");
+        BB_ASSERT_GT(mul_quads.size(),
+                     1U,
+                     "acir_format::assert_zero_to_quad_constraints: expected multiple gates but found one.");
         af.big_quad_constraints.push_back(mul_quads);
         af.original_opcode_indices.big_quad_constraints.push_back(opcode_index);
     }
 
     for (auto const& mul_quad : mul_quads) {
-        BB_ASSERT(!is_zero_gate(mul_quad), "acir_format::handle_arithmetic: produced an arithmetic zero gate.");
+        BB_ASSERT(!is_zero_gate(mul_quad),
+                  "acir_format::assert_zero_to_quad_constraints: produced an arithmetic zero gate.");
     }
 }
 
@@ -583,9 +599,9 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                                            AcirFormat& af,
                                            size_t opcode_index)
 {
-    auto to_witness_or_constant = [&](auto& e) { return parse_input(e); };
-    auto to_witness = [&](auto& e) { return e.value; };
-    auto to_witness_from_input = [&](auto& e) { return get_witness_from_function_input(e); };
+    auto to_witness_or_constant = [&](const Acir::FunctionInput& e) { return parse_input(e); };
+    auto to_witness = [&](const Acir::Witness& e) { return e.value; };
+    auto to_witness_from_input = [&](const Acir::FunctionInput& e) { return get_witness_from_function_input(e); };
 
     std::visit(
         [&](auto&& arg) {
@@ -798,9 +814,9 @@ void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, Blo
         BB_ASSERT_LTE(expr.linear_combinations.size(), 1U, "MemoryOp should have at most one linear term");
 
         const fr a_scaling = expr.linear_combinations.size() == 1
-                                 ? fr::serialize_from_buffer(std::get<0>(expr.linear_combinations[0]).data())
+                                 ? from_buffer_with_bound_checks(std::get<0>(expr.linear_combinations[0]))
                                  : fr::zero();
-        const fr constant_term = fr::serialize_from_buffer(expr.q_c.data());
+        const fr constant_term = from_buffer_with_bound_checks(expr.q_c);
 
         bool is_witness = a_scaling == fr::one() && constant_term == fr::zero();
         bool is_constant = a_scaling == fr::zero();
@@ -818,7 +834,7 @@ void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, Blo
         BB_ASSERT(expr.mul_terms.empty(), "MemoryOp expression should not have multiplication terms");
         BB_ASSERT(expr.linear_combinations.empty(), "MemoryOp expression should not have linear terms");
 
-        const fr const_term = fr::serialize_from_buffer(&expr.q_c[0]);
+        const fr const_term = from_buffer_with_bound_checks(expr.q_c);
 
         BB_ASSERT((const_term == fr::one()) || (const_term == fr::zero()),
                   "MemoryOp expression should be either zero or one");
@@ -896,7 +912,7 @@ std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr)
 {
     std::map<uint32_t, bb::fr> linear_terms;
     for (const auto& linear_term : expr.linear_combinations) {
-        fr selector_value = fr::serialize_from_buffer(&(std::get<0>(linear_term)[0]));
+        fr selector_value = from_buffer_with_bound_checks(std::get<0>(linear_term));
         uint32_t witness_idx = std::get<1>(linear_term).value;
         if (linear_terms.contains(witness_idx)) {
             linear_terms[witness_idx] += selector_value; // Accumulate coefficients for duplicate witnesses
