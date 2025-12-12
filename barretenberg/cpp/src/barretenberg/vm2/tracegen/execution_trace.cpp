@@ -854,6 +854,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                                });
 
     std::array<bool, AVM_MAX_OPERANDS> should_apply_indirection{};
+    std::array<bool, AVM_MAX_OPERANDS> is_relative{};
+    std::array<bool, AVM_MAX_OPERANDS> is_indirect{};
     std::array<bool, AVM_MAX_OPERANDS> is_relative_effective{};
     std::array<bool, AVM_MAX_OPERANDS> is_indirect_effective{};
     std::array<bool, AVM_MAX_OPERANDS> relative_oob{};
@@ -874,8 +876,10 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         bool op_is_address = i < ex_spec.num_addresses;
         relative_oob[i] = resolution_info.error.has_value() &&
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
-        is_indirect_effective[i] = op_is_address && is_operand_indirect(instruction.indirect, i);
-        is_relative_effective[i] = op_is_address && is_operand_relative(instruction.indirect, i);
+        is_relative[i] = is_operand_relative(instruction.indirect, i);
+        is_indirect[i] = is_operand_indirect(instruction.indirect, i);
+        is_relative_effective[i] = op_is_address && is_relative[i];
+        is_indirect_effective[i] = op_is_address && is_indirect[i];
         should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i] && !base_address_invalid;
         resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
         after_relative[i] = resolution_info.after_relative;
@@ -892,6 +896,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
         trace.set(row,
                   { {
+                      { OPERAND_IS_RELATIVE_WIRE_COLUMNS[i], is_relative[i] ? 1 : 0 },
+                      { OPERAND_IS_INDIRECT_WIRE_COLUMNS[i], is_indirect[i] ? 1 : 0 },
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
@@ -904,7 +910,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
 
     // We need to compute relative and indirect over the whole 16 bits of the indirect flag.
     // See comment in PIL file about indirect upper bits.
-    for (size_t i = 0; i < TOTAL_INDIRECT_BITS / 2; i++) {
+    for (size_t i = AVM_MAX_OPERANDS; i < TOTAL_INDIRECT_BITS / 2; i++) {
         bool is_relative = is_operand_relative(instruction.indirect, i);
         bool is_indirect = is_operand_indirect(instruction.indirect, i);
         trace.set(row,
