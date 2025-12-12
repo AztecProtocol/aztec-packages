@@ -41,7 +41,7 @@ pub(crate) unconstrained fn create_note() -> (TestEnvironment, RetrievedNote<Moc
 pub(crate) unconstrained fn create_note_and_nullify_it() -> (TestEnvironment, RetrievedNote<MockNote>) {
     let (env, retrieved_note) = create_note();
 
-    env.private_context(|context| { destroy_note(context, retrieved_note, NOTE_STORAGE_SLOT); });
+    env.private_context(|context| { destroy_note(context, retrieved_note); });
 
     // Verify the note was nullified in the correct block
     assert_eq(env.last_block_number(), NOTE_NULLIFIED_AT);

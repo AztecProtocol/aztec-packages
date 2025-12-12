@@ -194,20 +194,19 @@ template <typename Curve> class MergeTests : public testing::Test {
         // Verify the proof
         auto transcript = std::make_shared<Transcript>();
         MergeVerifierType verifier{ settings, transcript };
-        auto [pairing_points, merged_table_commitments, degree_check_passed, concatenation_check_passed] =
-            verifier.verify_proof(proof, input_commitments);
+        auto result = verifier.reduce_to_pairing_check(proof, input_commitments);
 
         // Perform pairing check and verify
         VerifierCommitmentKey pcs_verification_key;
-        bool pairing_verified =
-            pcs_verification_key.pairing_check(to_native(pairing_points.P0), to_native(pairing_points.P1));
-        bool verified = pairing_verified && degree_check_passed && concatenation_check_passed;
+        bool pairing_verified = pcs_verification_key.pairing_check(to_native(result.pairing_points.P0),
+                                                                   to_native(result.pairing_points.P1));
+        bool verified = pairing_verified && result.reduction_succeeded;
         EXPECT_EQ(verified, expected);
 
         // If verification is expected to succeed, also check that the merged table commitments match
         if (expected) {
             for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-                EXPECT_EQ(to_native(merged_table_commitments[idx]), expected_merged_commitments[idx])
+                EXPECT_EQ(to_native(result.merged_commitments[idx]), expected_merged_commitments[idx])
                     << "Merged table commitment mismatch at index " << idx;
             }
         }
@@ -655,11 +654,10 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     auto verifier_transcript = std::make_shared<NativeTranscript>();
     verifier_transcript->enable_manifest();
     MergeVerifier merge_verifier{ MergeSettings::PREPEND, verifier_transcript };
-    auto [pairing_points, _, degree_check_passed, concatenation_check_passed] =
-        merge_verifier.verify_proof(merge_proof, merge_commitments);
+    auto result = merge_verifier.reduce_to_pairing_check(merge_proof, merge_commitments);
 
     // Verification should succeed
-    ASSERT_TRUE(pairing_points.check() && degree_check_passed && concatenation_check_passed);
+    ASSERT_TRUE(result.pairing_points.check() && result.reduction_succeeded);
 
     // Check prover and verifier manifests match
     auto prover_manifest = merge_prover.transcript->get_manifest();

@@ -11,8 +11,8 @@ use crate::{
 };
 use protocol_types::{address::AztecAddress, traits::Packable};
 
-/// A message with information about a note that has just been created. This message **MUST** be delivered to a
-/// recipient in order to not lose the private note information.
+/// A message with information about a note that was created in the current contract call. This message **MUST** be
+/// delivered to a recipient in order to not lose the private note information.
 ///
 /// Use [NoteMessage::deliver] to select a delivery mechanism. The same message can be delivered to multiple
 /// recipients.

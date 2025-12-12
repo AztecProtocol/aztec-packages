@@ -39,7 +39,6 @@ import { PublicKeys } from '../keys/public_keys.js';
 import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import type { LogFilter } from '../logs/log_filter.js';
-import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
@@ -286,11 +285,6 @@ describe('AztecNodeApiSchema', () => {
 
   it('registerContractFunctionSignatures', async () => {
     await context.client.registerContractFunctionSignatures(['test()']);
-  });
-
-  it('getPrivateLogs', async () => {
-    const response = await context.client.getPrivateLogs(BlockNumber(1), BlockNumber(1));
-    expect(response).toEqual([expect.any(PrivateLog)]);
   });
 
   it('getPublicLogs', async () => {
@@ -709,9 +703,6 @@ class MockAztecNode implements AztecNode {
   }
   registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
     return Promise.resolve();
-  }
-  getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
-    return Promise.resolve([PrivateLog.random()]);
   }
   async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);

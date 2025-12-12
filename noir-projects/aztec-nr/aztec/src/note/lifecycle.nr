@@ -72,15 +72,11 @@ where
 }
 
 // Note: This function is currently totally unused.
-pub fn destroy_note<Note>(
-    context: &mut PrivateContext,
-    retrieved_note: RetrievedNote<Note>,
-    storage_slot: Field,
-)
+pub fn destroy_note<Note>(context: &mut PrivateContext, retrieved_note: RetrievedNote<Note>)
 where
     Note: NoteHash,
 {
-    let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
+    let note_hash_read = compute_note_hash_read(retrieved_note);
 
     destroy_note_unsafe(context, retrieved_note, note_hash_read)
 }

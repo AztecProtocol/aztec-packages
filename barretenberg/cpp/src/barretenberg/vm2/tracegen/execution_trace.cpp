@@ -680,7 +680,7 @@ void ExecutionTraceBuilder::process(
         const bool is_failure = should_execute_revert || is_err;
         const bool nested_exit_call = sel_exit_call && has_parent;
         const bool enqueued_call_end = sel_exit_call && !has_parent;
-        const bool rollback_context = (should_execute_revert || is_err) && has_parent;
+        const bool nested_revert_or_error = (should_execute_revert || is_err) && has_parent;
         const bool resolves_dying_context = is_failure && is_dying_context;
         const bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
 
@@ -689,7 +689,7 @@ void ExecutionTraceBuilder::process(
             { {
                 { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
                 { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
-                { C::execution_rollback_context, rollback_context ? 1 : 0 },
+                { C::execution_nested_revert_or_error, nested_revert_or_error ? 1 : 0 },
                 { C::execution_sel_error, is_err ? 1 : 0 },
                 { C::execution_sel_failure, is_failure ? 1 : 0 },
                 { C::execution_discard, discard },

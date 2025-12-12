@@ -128,7 +128,7 @@ export class RollupCheatCodes {
     const timestamp = (await this.rollup.read.getTimestampForSlot([BigInt(slotNumber)])) + BigInt(opts.offset ?? 0);
     try {
       await this.ethCheatCodes.warp(Number(timestamp), { ...opts, silent: true, resetBlockInterval: true });
-      this.logger.warn(`Warped to epoch ${epoch}`);
+      this.logger.warn(`Warped to epoch ${epoch}`, { offset: opts.offset, timestamp });
     } catch (err) {
       this.logger.warn(`Warp to epoch ${epoch} failed: ${err}`);
     }

@@ -17,7 +17,6 @@ import {
 } from '../contract/index.js';
 import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { LogFilterSchema } from '../logs/log_filter.js';
-import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { optional, schemas } from '../schemas/schemas.js';
@@ -112,7 +111,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),
   isEpochComplete: z.function().args(EpochNumberSchema).returns(z.boolean()),
   getL2Tips: z.function().args().returns(L2TipsSchema),
-  getPrivateLogs: z.function().args(BlockNumberSchema, z.number()).returns(z.array(PrivateLog.schema)),
   getLogsByTags: z
     .function()
     .args(z.array(schemas.Fr))
