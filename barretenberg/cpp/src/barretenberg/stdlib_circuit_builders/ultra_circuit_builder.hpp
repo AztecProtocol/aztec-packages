@@ -57,7 +57,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // We offer two types of range constraints: small (which can be non-dyadic) and general. The below constants
     // determine their max values.
     static constexpr size_t MAX_SMALL_RANGE_CONSTRAINT_VAL = (1 << 16) - 1;
-    static constexpr size_t MAX_NUM_BITS_RANGE_CONSTRAINT = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH;
+    static constexpr size_t MAX_NUM_BITS_RANGE_CONSTRAINT =
+        253; // AUDITTODO: should be `grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH`, but the latter is currently 252
+             // (historical relic). We should increment the latter, but this will require a bit of refactoring of the
+             // `slice` method in `safe_uint.cpp`.
     enum MEMORY_SELECTORS {
         MEM_NONE,
         RAM_CONSISTENCY_CHECK,
