@@ -2,16 +2,39 @@
 
 #include <vector>
 
+#include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/common/process.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
 
 using namespace bb::avm2::simulation;
 using namespace bb::avm2;
 
+/**
+ * Request struct for fuzzer simulation communication between C++ and TypeScript.
+ * Contains all data needed for the TS simulator to execute a transaction.
+ */
+struct FuzzerSimulationRequest {
+    std::string ws_data_dir;
+    uint64_t ws_map_size_kb;
+    Tx tx;
+    GlobalVariables globals;
+    std::vector<ContractClass> contract_classes;
+    // Having addresses here avoids doing re-work in TS.
+    std::vector<std::pair<AztecAddress, ContractInstance>> contract_instances;
+
+    MSGPACK_CAMEL_CASE_FIELDS(ws_data_dir, ws_map_size_kb, tx, globals, contract_classes, contract_instances);
+};
+
 struct SimulatorResult {
     bool reverted;
     std::vector<FF> output;
+    TreeSnapshots end_tree_snapshots;
+    std::string revert_reason;
+
+    MSGPACK_CAMEL_CASE_FIELDS(reverted, output, end_tree_snapshots, revert_reason);
 };
 
 class Simulator {
@@ -22,13 +45,17 @@ class Simulator {
     Simulator(Simulator&&) = delete;
     Simulator& operator=(Simulator&&) = delete;
     Simulator() = default;
-    virtual SimulatorResult simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata) = 0;
+    virtual SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
+                                     fuzzer::FuzzerContractDB& contract_db,
+                                     const Tx& tx) = 0;
 };
 
 /// @brief uses barretenberg/vm2 to simulate the bytecode
 class CppSimulator : public Simulator {
   public:
-    SimulatorResult simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata) override;
+    SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
+                             fuzzer::FuzzerContractDB& contract_db,
+                             const Tx& tx) override;
 };
 
 /// @brief uses the yarn-project/simulator to simulate the bytecode
@@ -40,8 +67,6 @@ class JsSimulator : public Simulator {
     JsSimulator(std::string& simulator_path);
     Process process;
 
-    void restart_simulator_process();
-
   public:
     JsSimulator(JsSimulator& other) = delete;
     void operator=(const JsSimulator&) = delete;
@@ -51,9 +76,10 @@ class JsSimulator : public Simulator {
 
     static JsSimulator* getInstance();
     static void initialize(std::string& simulator_path);
-    static void restart_simulator();
 
-    SimulatorResult simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata) override;
+    SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
+                             fuzzer::FuzzerContractDB& contract_db,
+                             const Tx& tx) override;
 };
 
 bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2);

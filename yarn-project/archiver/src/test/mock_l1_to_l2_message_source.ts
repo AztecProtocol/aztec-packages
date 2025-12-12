@@ -7,25 +7,20 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
  * A mocked implementation of L1ToL2MessageSource to be used in tests.
  */
 export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
-  private messagesPerBlock = new Map<number, Fr[]>();
+  private messagesPerCheckpoint = new Map<CheckpointNumber, Fr[]>();
 
   constructor(private blockNumber: number) {}
 
-  public setL1ToL2Messages(blockNumber: number, msgs: Fr[]) {
-    this.messagesPerBlock.set(blockNumber, msgs);
+  public setL1ToL2Messages(checkpointNumber: CheckpointNumber, msgs: Fr[]) {
+    this.messagesPerCheckpoint.set(checkpointNumber, msgs);
   }
 
   public setBlockNumber(blockNumber: number) {
     this.blockNumber = blockNumber;
   }
 
-  getL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    // TODO: Implement this properly. This only works when we have one block per checkpoint.
-    return this.getL1ToL2Messages(checkpointNumber);
-  }
-
-  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
-    return Promise.resolve(this.messagesPerBlock.get(blockNumber) ?? []);
+  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    return Promise.resolve(this.messagesPerCheckpoint.get(checkpointNumber) ?? []);
   }
 
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {

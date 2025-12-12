@@ -65,7 +65,6 @@ pub contract Crowdfunding {
         // We don't constrain encryption because the donor is sending the note to himself. And hence by performing
         // encryption incorrectly would harm himself only.
         self.storage.donation_receipts.at(donor).insert(note).deliver(
-            donor,
             MessageDelivery.UNCONSTRAINED_ONCHAIN,
         );
     }
@@ -102,7 +101,7 @@ pub contract Crowdfunding {
         // type that is not returned by view_notes function. We on the other hand need this metadata because we will
         // be proving the note existence in the Claim contract.
         let opt_notes = aztec::oracle::notes::get_notes(
-            donor,
+            Option::some(donor),
             storage_slot,
             0,
             [],

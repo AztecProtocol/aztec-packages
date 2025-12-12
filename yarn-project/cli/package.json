@@ -7,6 +7,7 @@
     "./devnet": "./dest/cmds/devnet/index.js",
     "./infrastructure": "./dest/cmds/infrastructure/index.js",
     "./l1": "./dest/cmds/l1/index.js",
+    "./l1/validators": "./dest/cmds/l1/update_l1_validators.js",
     "./aztec_node": "./dest/cmds/aztec_node/index.js",
     "./cli-utils": "./dest/utils/index.js",
     "./misc": "./dest/cmds/misc/index.js",
@@ -14,7 +15,9 @@
     "./setup-contracts": "./dest/cmds/misc/setup_contracts.js",
     "./utils": "./dest/utils/index.js",
     "./inspect": "./dest/utils/inspect.js",
-    "./config": "./dest/config/index.js"
+    "./config": "./dest/config/index.js",
+    "./config/chain": "./dest/config/chain_l2_config.js",
+    "./config/network": "./dest/config/network_config.js"
   },
   "typedocOptions": {
     "entryPoints": [

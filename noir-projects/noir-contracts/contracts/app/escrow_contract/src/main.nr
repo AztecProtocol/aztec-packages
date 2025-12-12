@@ -7,7 +7,7 @@ pub contract Escrow {
         macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
-        state_vars::{Owned, PrivateImmutable},
+        state_vars::SinglePrivateImmutable,
     };
 
     use address_note::address_note::AddressNote;
@@ -15,7 +15,7 @@ pub contract Escrow {
 
     #[storage]
     struct Storage<Context> {
-        owner: Owned<PrivateImmutable<AddressNote, Context>, Context>,
+        owner: SinglePrivateImmutable<AddressNote, Context>,
     }
 
     // Creates a new instance
@@ -23,10 +23,7 @@ pub contract Escrow {
     #[initializer]
     fn constructor(owner: AztecAddress) {
         let note = AddressNote { address: owner };
-        self.storage.owner.at(owner).initialize(note).deliver(
-            owner,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        self.storage.owner.initialize(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Withdraws balance. Requires that msg.sender is the owner.
@@ -34,7 +31,7 @@ pub contract Escrow {
     fn withdraw(token: AztecAddress, amount: u128, recipient: AztecAddress) {
         let sender = self.msg_sender().unwrap();
 
-        let note = self.storage.owner.at(sender).get_note();
+        let note = self.storage.owner.get_note();
         assert(note.address == sender);
         self.call(Token::at(token).transfer(recipient, amount));
     }

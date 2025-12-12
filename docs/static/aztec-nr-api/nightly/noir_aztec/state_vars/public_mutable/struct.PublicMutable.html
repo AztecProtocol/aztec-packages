@@ -71,22 +71,7 @@ access to the current state during public function execution.</p>
 <p>docs:start:public_mutable_struct</p>
 </div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Reads the current value stored in this PublicMutable state variable.</p>
-<p>Notice that this function is executable only within a UtilityContext, which
-is an unconstrained environment on the user's local device.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>T</code> - The current value stored in this PublicMutable.</li>
-</ul>
-</div>
-</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
 <div class="where-clause">where
@@ -115,6 +100,21 @@ is an unconstrained environment on the user's local device.</p>
 The new value becomes immediately available to subsequent reads within
 the same transaction.</p>
 <p>docs:start:public_mutable_struct_write</p>
+</div>
+</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Reads the current value stored in this PublicMutable state variable.</p>
+<p>Notice that this function is executable only within a UtilityContext, which
+is an unconstrained environment on the user's local device.</p>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - The current value stored in this PublicMutable.</li>
+</ul>
 </div>
 </div></div><h2>Trait implementations</h2>
 <h3 id="impl-StateVariable&lt;M, Context&gt;-for-PublicMutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/state_vars/state_variable/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M, Context&gt; for <a href="../../../noir_aztec/state_vars/public_mutable/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, Context&gt;

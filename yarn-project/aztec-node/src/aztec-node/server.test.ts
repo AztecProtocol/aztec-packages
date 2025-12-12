@@ -1,6 +1,6 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import { EpochCache } from '@aztec/epoch-cache';
-import type { RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';

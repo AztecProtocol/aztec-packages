@@ -151,7 +151,7 @@ locals {
         }
       })]
       custom_settings = {
-        "validator.service.p2p.nodePortEnabled"                   = var.P2P_NODEPORT_ENABLED
+        "validator.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
         "validator.web3signerUrl"                                  = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "validator.mnemonic"                                       = var.VALIDATOR_MNEMONIC
         "validator.mnemonicStartIndex"                             = var.VALIDATOR_MNEMONIC_START_INDEX
@@ -173,6 +173,7 @@ locals {
         "validator.slash.offenseExpirationRounds"                  = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
         "validator.slash.maxPayloadSize"                           = var.SLASH_MAX_PAYLOAD_SIZE
         "validator.node.env.TRANSACTIONS_DISABLED"                 = var.TRANSACTIONS_DISABLED
+        "validator.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"     = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
         "validator.node.env.KEY_INDEX_START"                       = var.VALIDATOR_MNEMONIC_START_INDEX
         "validator.node.env.PUBLISHER_KEY_INDEX_START"             = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
         "validator.node.env.VALIDATORS_PER_NODE"                   = var.VALIDATORS_PER_NODE
@@ -225,6 +226,7 @@ locals {
           "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
           "node.node.logLevel"                                  = var.LOG_LEVEL
           "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
+          "node.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"     = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
           "node.node.env.KEY_INDEX_START"                       = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.env.PUBLISHER_KEY_INDEX_START"             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.env.PUBLISHERS_PER_PROVER"                 = var.PROVER_PUBLISHERS_PER_PROVER
@@ -243,6 +245,7 @@ locals {
           "agent.node.env.BOOTSTRAP_NODES"                      = "asdf"
           "agent.node.env.PROVER_AGENT_COUNT"                   = var.PROVER_AGENTS_PER_PROVER
           "agent.node.env.PROVER_TEST_DELAY_TYPE"               = var.PROVER_TEST_DELAY_TYPE
+          "agent.node.env.PROVER_AGENT_PROOF_TYPES"             = join(",", var.PROVER_AGENT_PROOF_TYPES)
           "agent.node.otelIncludeMetrics"                       = var.PROVER_AGENT_INCLUDE_METRICS
           "agent.node.logLevel"                                 = var.LOG_LEVEL
           "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE
@@ -298,7 +301,7 @@ locals {
             }
           }
         }
-      })] : [yamlencode({
+        })] : [yamlencode({
         service = {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
           rpc = {
@@ -309,9 +312,9 @@ locals {
       })]
 
       custom_settings = merge({
-        "nodeType"                                    = "rpc"
-        "replicaCount"                                = var.RPC_REPLICAS
-        "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
+        "nodeType"                    = "rpc"
+        "replicaCount"                = var.RPC_REPLICAS
+        "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
 
         # Ensure the JSON-RPC server binds the same port the probe checks
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
@@ -320,6 +323,7 @@ locals {
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
         "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
@@ -368,6 +372,7 @@ locals {
         "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
+        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
@@ -407,6 +412,7 @@ locals {
         "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
+        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
         "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES

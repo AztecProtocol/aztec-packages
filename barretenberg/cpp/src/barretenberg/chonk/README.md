@@ -530,11 +530,11 @@ The fold operation:
 1. **Convert instance to accumulator**: Run Sumcheck on the incoming instance to produce an incoming accumulator claim
 
 2. **Batch the two accumulators**: Use `MultilinearBatchingProver` to fold:
-   - Constructs a circuit with 4 witness columns and 2 "evaluation" columns:
-     - `w_non_shifted_accumulator`, `w_non_shifted_instance` - batched polynomials
-     - `w_shifted_accumulator`, `w_shifted_instance` - batched shifted polynomials
-     - `w_evaluations_accumulator` = $\text{eq}(X, r_{\text{acc}})$
-     - `w_evaluations_instance` = $\text{eq}(X, r_{\text{inst}})$
+   - Constructs a circuit with 4 batched polynomial columns and 2 eq polynomial columns:
+     - `batched_unshifted_accumulator`, `batched_unshifted_instance` - batched polynomials
+     - `batched_shifted_accumulator`, `batched_shifted_instance` - batched shifted polynomials
+     - `eq_accumulator` = $\text{eq}(X, r_{\text{acc}})$ - selects accumulator evaluation point
+     - `eq_instance` = $\text{eq}(X, r_{\text{inst}})$ - selects instance evaluation point
 
    - Runs Sumcheck on the batching relation which checks (sums are over the Boolean hypercube $\{0,1\}^n$):
 

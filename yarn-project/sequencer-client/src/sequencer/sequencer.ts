@@ -2,10 +2,11 @@ import { L2Block } from '@aztec/aztec.js/block';
 import { getKzg } from '@aztec/blob-lib';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
+import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
+import { FormattedViemError } from '@aztec/ethereum/utils';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { omit, pick } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -647,8 +648,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     await publisher.validateBlockHeader(proposalHeader, invalidateBlock);
 
     const blockNumber = newGlobalVariables.blockNumber;
+    const checkpointNumber = CheckpointNumber.fromBlockNumber(blockNumber);
     const slot = proposalHeader.slotNumber;
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
 
     const workTimer = new Timer();
     this.setState(SequencerState.CREATING_BLOCK, slot);
@@ -1170,7 +1172,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    const { publisher } = await this.publisherFactory.create(undefined);
     const invalidBlockNumber = pendingChainValidationStatus.block.blockNumber;
     const invalidBlockTimestamp = pendingChainValidationStatus.block.timestamp;
     const timeSinceChainInvalid = this.dateProvider.nowInSeconds() - Number(invalidBlockTimestamp);
@@ -1209,6 +1210,24 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.log.debug(`Not invalidating pending chain`, logData);
       return;
     }
+
+    let validatorToUse: EthAddress;
+    if (invalidateAsCommitteeMember) {
+      // When invalidating as a committee member, use first validator that's actually in the committee
+      const { committee } = await this.epochCache.getCommittee(currentSlot);
+      if (committee) {
+        const committeeSet = new Set(committee.map(addr => addr.toString()));
+        validatorToUse =
+          ourValidatorAddresses.find(addr => committeeSet.has(addr.toString())) ?? ourValidatorAddresses[0];
+      } else {
+        validatorToUse = ourValidatorAddresses[0];
+      }
+    } else {
+      // When invalidating as a non-committee member, use the first validator
+      validatorToUse = ourValidatorAddresses[0];
+    }
+
+    const { publisher } = await this.publisherFactory.create(validatorToUse);
 
     const invalidateBlock = await publisher.simulateInvalidateBlock(pendingChainValidationStatus);
     if (!invalidateBlock) {

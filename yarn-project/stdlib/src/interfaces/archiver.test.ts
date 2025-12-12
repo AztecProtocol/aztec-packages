@@ -1,5 +1,5 @@
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
@@ -27,7 +27,6 @@ import { PublicKeys } from '../keys/public_keys.js';
 import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import type { LogFilter } from '../logs/log_filter.js';
-import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { BlockHeader } from '../tx/block_header.js';
@@ -195,11 +194,6 @@ describe('ArchiverApiSchema', () => {
     });
   });
 
-  it('getPrivateLogs', async () => {
-    const result = await context.client.getPrivateLogs(BlockNumber(1), BlockNumber(1));
-    expect(result).toEqual([expect.any(PrivateLog)]);
-  });
-
   it('getLogsByTags', async () => {
     const result = await context.client.getLogsByTags([Fr.random()]);
     expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
@@ -251,13 +245,8 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([expect.any(Fr)]);
   });
 
-  it('getL1ToL2MessagesForCheckpoint', async () => {
-    const result = await context.client.getL1ToL2MessagesForCheckpoint(CheckpointNumber(BlockNumber(1)));
-    expect(result).toEqual([expect.any(Fr)]);
-  });
-
   it('getL1ToL2Messages', async () => {
-    const result = await context.client.getL1ToL2Messages(BlockNumber(1));
+    const result = await context.client.getL1ToL2Messages(CheckpointNumber(1));
     expect(result).toEqual([expect.any(Fr)]);
   });
 
@@ -439,9 +428,6 @@ class MockArchiver implements ArchiverApi {
     expect(blockNumber).toEqual(BlockNumber(1));
     return Promise.resolve(`0x01`);
   }
-  getPrivateLogs(_from: BlockNumber, _limit: number): Promise<PrivateLog[]> {
-    return Promise.resolve([PrivateLog.random()]);
-  }
   async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags[0]).toBeInstanceOf(Fr);
     return [await Promise.all(tags.map(() => TxScopedL2Log.random()))];
@@ -501,12 +487,8 @@ class MockArchiver implements ArchiverApi {
     expect(Array.isArray(signatures)).toBe(true);
     return Promise.resolve();
   }
-  getL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    expect(checkpointNumber).toEqual(CheckpointNumber(BlockNumber(1)));
-    return Promise.resolve([Fr.random()]);
-  }
-  getL1ToL2Messages(blockNumber: BlockNumber): Promise<Fr[]> {
-    expect(blockNumber).toEqual(BlockNumber(1));
+  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    expect(checkpointNumber).toEqual(CheckpointNumber(1));
     return Promise.resolve([Fr.random()]);
   }
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {

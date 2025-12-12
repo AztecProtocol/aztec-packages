@@ -29,10 +29,7 @@ pub contract Spam {
         let caller = self.msg_sender().unwrap();
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
-            self.storage.balances.at(caller).add(1).deliver(
-                caller,
-                MessageDelivery.UNCONSTRAINED_ONCHAIN,
-            );
+            self.storage.balances.at(caller).add(1).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
         }
 
         for i in 0..MAX_NULLIFIERS_PER_CALL {

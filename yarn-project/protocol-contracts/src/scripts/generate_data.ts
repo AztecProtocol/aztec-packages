@@ -13,7 +13,7 @@ import {
   ROUTER_ADDRESS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { loadContractArtifact } from '@aztec/stdlib/abi';

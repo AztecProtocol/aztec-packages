@@ -4,10 +4,10 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
@@ -352,36 +352,19 @@ export function describeArchiverDataStore(
       });
     });
 
-    describe('deleteLogs', () => {
-      it('deletes private & public logs', async () => {
-        const block = blocks[0].block;
-        await store.addBlocks([blocks[0]]);
-        await expect(store.addLogs([block])).resolves.toEqual(true);
+    it('deleteLogs', async () => {
+      const block = blocks[0].block;
+      await store.addBlocks([blocks[0]]);
+      await expect(store.addLogs([block])).resolves.toEqual(true);
 
-        expect((await store.getPrivateLogs(BlockNumber(1), 1)).length).toEqual(
-          block.body.txEffects.map(txEffect => txEffect.privateLogs).flat().length,
-        );
-        expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(
-          block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
-        );
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(
+        block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
+      );
 
-        // This one is a pain for memory as we would never want to just delete memory in the middle.
-        await store.deleteLogs([block]);
+      // This one is a pain for memory as we would never want to just delete memory in the middle.
+      await store.deleteLogs([block]);
 
-        expect((await store.getPrivateLogs(BlockNumber(1), 1)).length).toEqual(0);
-        expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
-      });
-    });
-
-    describe('getPrivateLogs', () => {
-      it('gets added private logs', async () => {
-        const block = blocks[0].block;
-        await store.addBlocks([blocks[0]]);
-        await store.addLogs([block]);
-
-        const privateLogs = await store.getPrivateLogs(BlockNumber(1), 1);
-        expect(privateLogs).toEqual(block.body.txEffects.map(txEffect => txEffect.privateLogs).flat());
-      });
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
     });
 
     describe('getTxEffect', () => {
@@ -446,7 +429,7 @@ export function describeArchiverDataStore(
     });
 
     describe('L1 to L2 Messages', () => {
-      const initialL2BlockNumber = 13;
+      const initialCheckpointNumber = CheckpointNumber(13);
 
       const checkMessages = async (msgs: InboxMessage[]) => {
         expect(await store.getLastL1ToL2Message()).toEqual(msgs.at(-1));
@@ -454,46 +437,50 @@ export function describeArchiverDataStore(
         expect(await store.getTotalL1ToL2MessageCount()).toEqual(BigInt(msgs.length));
       };
 
-      const makeInboxMessagesWithFullBlocks = (blockCount: number, opts: { initialL2BlockNumber?: number } = {}) =>
+      const makeInboxMessagesWithFullBlocks = (
+        blockCount: number,
+        opts: { initialCheckpointNumber?: CheckpointNumber } = {},
+      ) =>
         makeInboxMessages(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * blockCount, {
           overrideFn: (msg, i) => {
-            const l2BlockNumber = BlockNumber(
-              (opts.initialL2BlockNumber ?? initialL2BlockNumber) + Math.floor(i / NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+            const checkpointNumber = CheckpointNumber(
+              (opts.initialCheckpointNumber ?? initialCheckpointNumber) +
+                Math.floor(i / NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
             );
             const index =
-              InboxLeaf.smallestIndexFromL2Block(l2BlockNumber) + BigInt(i % NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-            return { ...msg, l2BlockNumber, index };
+              InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) + BigInt(i % NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+            return { ...msg, checkpointNumber, index };
           },
         });
 
       it('stores first message ever', async () => {
-        const msg = makeInboxMessage(Buffer16.ZERO, { index: 0n, l2BlockNumber: BlockNumber(1) });
+        const msg = makeInboxMessage(Buffer16.ZERO, { index: 0n, checkpointNumber: CheckpointNumber(1) });
         await store.addL1ToL2Messages([msg]);
 
         await checkMessages([msg]);
-        expect(await store.getL1ToL2Messages(BlockNumber(1))).toEqual([msg.leaf]);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(1))).toEqual([msg.leaf]);
       });
 
       it('stores single message', async () => {
-        const msg = makeInboxMessage(Buffer16.ZERO, { l2BlockNumber: BlockNumber(2) });
+        const msg = makeInboxMessage(Buffer16.ZERO, { checkpointNumber: CheckpointNumber(2) });
         await store.addL1ToL2Messages([msg]);
 
         await checkMessages([msg]);
-        expect(await store.getL1ToL2Messages(BlockNumber(2))).toEqual([msg.leaf]);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(2))).toEqual([msg.leaf]);
       });
 
       it('stores and returns messages across different blocks', async () => {
-        const msgs = makeInboxMessages(5, { initialL2BlockNumber });
+        const msgs = makeInboxMessages(5, { initialCheckpointNumber });
         await store.addL1ToL2Messages(msgs);
 
         await checkMessages(msgs);
-        expect(await store.getL1ToL2Messages(BlockNumber(initialL2BlockNumber + 2))).toEqual(
+        expect(await store.getL1ToL2Messages(CheckpointNumber(initialCheckpointNumber + 2))).toEqual(
           [msgs[2]].map(m => m.leaf),
         );
       });
 
       it('stores the same messages again', async () => {
-        const msgs = makeInboxMessages(5, { initialL2BlockNumber });
+        const msgs = makeInboxMessages(5, { initialCheckpointNumber });
         await store.addL1ToL2Messages(msgs);
         await store.addL1ToL2Messages(msgs.slice(2));
 
@@ -501,26 +488,29 @@ export function describeArchiverDataStore(
       });
 
       it('stores and returns messages across different blocks with gaps', async () => {
-        const msgs1 = makeInboxMessages(3, { initialL2BlockNumber: 1 });
-        const msgs2 = makeInboxMessages(3, { initialL2BlockNumber: 20, initialHash: msgs1.at(-1)!.rollingHash });
+        const msgs1 = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(1) });
+        const msgs2 = makeInboxMessages(3, {
+          initialCheckpointNumber: CheckpointNumber(20),
+          initialHash: msgs1.at(-1)!.rollingHash,
+        });
 
         await store.addL1ToL2Messages(msgs1);
         await store.addL1ToL2Messages(msgs2);
 
         await checkMessages([...msgs1, ...msgs2]);
 
-        expect(await store.getL1ToL2Messages(BlockNumber(1))).toEqual([msgs1[0].leaf]);
-        expect(await store.getL1ToL2Messages(BlockNumber(4))).toEqual([]);
-        expect(await store.getL1ToL2Messages(BlockNumber(20))).toEqual([msgs2[0].leaf]);
-        expect(await store.getL1ToL2Messages(BlockNumber(24))).toEqual([]);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(1))).toEqual([msgs1[0].leaf]);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(4))).toEqual([]);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(20))).toEqual([msgs2[0].leaf]);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(24))).toEqual([]);
       });
 
       it('stores and returns messages with block numbers larger than a byte', async () => {
-        const msgs = makeInboxMessages(5, { initialL2BlockNumber: 1000 });
+        const msgs = makeInboxMessages(5, { initialCheckpointNumber: CheckpointNumber(1000) });
         await store.addL1ToL2Messages(msgs);
 
         await checkMessages(msgs);
-        expect(await store.getL1ToL2Messages(BlockNumber(1002))).toEqual([msgs[2]].map(m => m.leaf));
+        expect(await store.getL1ToL2Messages(CheckpointNumber(1002))).toEqual([msgs[2]].map(m => m.leaf));
       });
 
       it('stores and returns multiple messages per block', async () => {
@@ -528,7 +518,7 @@ export function describeArchiverDataStore(
         await store.addL1ToL2Messages(msgs);
 
         await checkMessages(msgs);
-        const blockMessages = await store.getL1ToL2Messages(BlockNumber(initialL2BlockNumber + 1));
+        const blockMessages = await store.getL1ToL2Messages(CheckpointNumber(initialCheckpointNumber + 1));
         expect(blockMessages).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
         expect(blockMessages).toEqual(
           msgs.slice(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 2).map(m => m.leaf),
@@ -536,21 +526,21 @@ export function describeArchiverDataStore(
       });
 
       it('stores messages in multiple operations', async () => {
-        const msgs = makeInboxMessages(20, { initialL2BlockNumber });
+        const msgs = makeInboxMessages(20, { initialCheckpointNumber });
         await store.addL1ToL2Messages(msgs.slice(0, 10));
         await store.addL1ToL2Messages(msgs.slice(10, 20));
 
-        expect(await store.getL1ToL2Messages(BlockNumber(initialL2BlockNumber + 2))).toEqual(
+        expect(await store.getL1ToL2Messages(CheckpointNumber(initialCheckpointNumber + 2))).toEqual(
           [msgs[2]].map(m => m.leaf),
         );
-        expect(await store.getL1ToL2Messages(BlockNumber(initialL2BlockNumber + 12))).toEqual(
+        expect(await store.getL1ToL2Messages(CheckpointNumber(initialCheckpointNumber + 12))).toEqual(
           [msgs[12]].map(m => m.leaf),
         );
         await checkMessages(msgs);
       });
 
       it('iterates over messages from start index', async () => {
-        const msgs = makeInboxMessages(10, { initialL2BlockNumber });
+        const msgs = makeInboxMessages(10, { initialCheckpointNumber });
         await store.addL1ToL2Messages(msgs);
 
         const iterated = await toArray(store.iterateL1ToL2Messages({ start: msgs[3].index }));
@@ -558,8 +548,9 @@ export function describeArchiverDataStore(
       });
 
       it('iterates over messages in reverse', async () => {
-        const msgs = makeInboxMessages(10, { initialL2BlockNumber });
+        const msgs = makeInboxMessages(10, { initialCheckpointNumber });
         await store.addL1ToL2Messages(msgs);
+        initialCheckpointNumber;
 
         const iterated = await toArray(store.iterateL1ToL2Messages({ reverse: true, end: msgs[3].index }));
         expect(iterated).toEqual(msgs.slice(0, 4).reverse());
@@ -571,8 +562,8 @@ export function describeArchiverDataStore(
       });
 
       it('throws if block number for the first message is out of order', async () => {
-        const msgs = makeInboxMessages(4, { initialL2BlockNumber });
-        msgs[2].l2BlockNumber = BlockNumber(initialL2BlockNumber - 1);
+        const msgs = makeInboxMessages(4, { initialCheckpointNumber });
+        msgs[2].checkpointNumber = CheckpointNumber(initialCheckpointNumber - 1);
         await store.addL1ToL2Messages(msgs.slice(0, 2));
         await expect(store.addL1ToL2Messages(msgs.slice(2, 4))).rejects.toThrow(MessageStoreError);
       });
@@ -586,28 +577,28 @@ export function describeArchiverDataStore(
       it('throws if rolling hash for first message is not correct', async () => {
         const msgs = makeInboxMessages(4);
         msgs[2].rollingHash = Buffer16.random();
-        await store.addL1ToL2Messages(msgs.slice(0, BlockNumber(2)));
+        await store.addL1ToL2Messages(msgs.slice(0, CheckpointNumber(2)));
         await expect(store.addL1ToL2Messages(msgs.slice(2, 4))).rejects.toThrow(MessageStoreError);
       });
 
       it('throws if index is not in the correct range', async () => {
-        const msgs = makeInboxMessages(5, { initialL2BlockNumber });
+        const msgs = makeInboxMessages(5, { initialCheckpointNumber });
         msgs.at(-1)!.index += 100n;
         await expect(store.addL1ToL2Messages(msgs)).rejects.toThrow(MessageStoreError);
       });
 
       it('throws if first index in block has gaps', async () => {
-        const msgs = makeInboxMessages(4, { initialL2BlockNumber });
+        const msgs = makeInboxMessages(4, { initialCheckpointNumber });
         msgs[2].index++;
         await expect(store.addL1ToL2Messages(msgs)).rejects.toThrow(MessageStoreError);
       });
 
       it('throws if index does not follow previous one', async () => {
         const msgs = makeInboxMessages(2, {
-          initialL2BlockNumber,
+          initialCheckpointNumber,
           overrideFn: (msg, i) => ({
             ...msg,
-            l2BlockNumber: BlockNumber(2),
+            checkpointNumber: CheckpointNumber(2),
             index: BigInt(i + NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 2),
           }),
         });
@@ -616,28 +607,28 @@ export function describeArchiverDataStore(
       });
 
       it('removes messages up to the given block number', async () => {
-        const msgs = makeInboxMessagesWithFullBlocks(4, { initialL2BlockNumber: 1 });
+        const msgs = makeInboxMessagesWithFullBlocks(4, { initialCheckpointNumber: CheckpointNumber(1) });
 
         await store.addL1ToL2Messages(msgs);
         await checkMessages(msgs);
 
-        expect(await store.getL1ToL2Messages(BlockNumber(1))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-        expect(await store.getL1ToL2Messages(BlockNumber(2))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-        expect(await store.getL1ToL2Messages(BlockNumber(3))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-        expect(await store.getL1ToL2Messages(BlockNumber(4))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(2))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(3))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(4))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
-        await store.rollbackL1ToL2MessagesToL2Block(BlockNumber(2));
+        await store.rollbackL1ToL2MessagesToCheckpoint(CheckpointNumber(2));
 
-        expect(await store.getL1ToL2Messages(BlockNumber(1))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-        expect(await store.getL1ToL2Messages(BlockNumber(2))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-        expect(await store.getL1ToL2Messages(BlockNumber(3))).toHaveLength(0);
-        expect(await store.getL1ToL2Messages(BlockNumber(4))).toHaveLength(0);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(2))).toHaveLength(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(3))).toHaveLength(0);
+        expect(await store.getL1ToL2Messages(CheckpointNumber(4))).toHaveLength(0);
 
         await checkMessages(msgs.slice(0, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 2));
       });
 
       it('removes messages starting with the given index', async () => {
-        const msgs = makeInboxMessagesWithFullBlocks(4, { initialL2BlockNumber: 1 });
+        const msgs = makeInboxMessagesWithFullBlocks(4, { initialCheckpointNumber: CheckpointNumber(1) });
         await store.addL1ToL2Messages(msgs);
 
         await store.removeL1ToL2Messages(msgs[13].index);

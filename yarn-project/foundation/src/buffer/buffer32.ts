@@ -1,4 +1,4 @@
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, deserializeBigInt, serializeBigInt } from '@aztec/foundation/serialize';
 

@@ -45,7 +45,10 @@ import {
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
-import { Grumpkin, SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
+import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { SchnorrSignature } from '@aztec/foundation/crypto/schnorr';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -436,7 +439,10 @@ function makeAvmAccumulatedDataArrayLengths(seed = 1) {
 }
 
 export function makeGas(seed = 1) {
-  return new Gas(seed, seed + 1);
+  // Constrain gas values to u32 range
+  const daGas = seed % 2 ** 32;
+  const l2Gas = (seed + 1) % 2 ** 32;
+  return new Gas(daGas, l2Gas);
 }
 
 /**
@@ -719,7 +725,9 @@ function makeFeeRecipient(seed = 1) {
  * @returns An append only tree snapshot.
  */
 export function makeAppendOnlyTreeSnapshot(seed = 1): AppendOnlyTreeSnapshot {
-  return new AppendOnlyTreeSnapshot(fr(seed), seed);
+  // Constrain nextAvailableLeafIndex to u32 range
+  const nextAvailableLeafIndex = seed % 2 ** 32;
+  return new AppendOnlyTreeSnapshot(fr(seed), nextAvailableLeafIndex);
 }
 
 /**

@@ -1,5 +1,5 @@
-import type { L1BlockId } from '@aztec/ethereum';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import type { L1BlockId } from '@aztec/ethereum/l1-types';
+import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
@@ -16,7 +16,7 @@ import type {
   UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
-import { type LogFilter, PrivateLog, type TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogFilter, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -31,7 +31,7 @@ import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
-export const ARCHIVER_DB_VERSION = 3;
+export const ARCHIVER_DB_VERSION = 4;
 export const MAX_FUNCTION_SIGNATURES = 1000;
 export const MAX_FUNCTION_NAME_LEN = 256;
 
@@ -300,22 +300,12 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
   }
 
   /**
-   * Gets L1 to L2 message (to be) included in a given block.
-   * @param blockNumber - L2 block number to get messages for.
+   * Gets L1 to L2 message (to be) included in a given checkpoint.
+   * @param checkpointNumber - Checkpoint number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: BlockNumber): Promise<Fr[]> {
-    return this.#messageStore.getL1ToL2Messages(blockNumber);
-  }
-
-  /**
-   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
-   * @param from - The block number from which to begin retrieving logs.
-   * @param limit - The maximum number of blocks to retrieve logs from.
-   * @returns An array of private logs from the specified range of blocks.
-   */
-  getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]> {
-    return this.#logStore.getPrivateLogs(from, limit);
+  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
+    return this.#messageStore.getL1ToL2Messages(checkpointNumber);
   }
 
   /**
@@ -401,8 +391,8 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.db.estimateSize();
   }
 
-  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: BlockNumber): Promise<void> {
-    return this.#messageStore.rollbackL1ToL2MessagesToL2Block(targetBlockNumber);
+  public rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
+    return this.#messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
   }
 
   public iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {

@@ -1,4 +1,4 @@
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -67,6 +67,9 @@ export class Note extends Vector<Fr> {
   }
 
   equals(other: Note) {
+    if (this.items.length !== other.items.length) {
+      return false;
+    }
     return this.items.every((item, index) => item.equals(other.items[index]));
   }
 }

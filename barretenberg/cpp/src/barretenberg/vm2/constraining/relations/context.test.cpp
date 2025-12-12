@@ -141,6 +141,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
               { C::execution_parent_calldata_size, 0 },
               { C::execution_last_child_returndata_size, 200 }, // Return data size
               { C::execution_last_child_returndata_addr, 600 }, // Return data offset
+              { C::execution_last_child_success, 1 },           // Success because return was successful
               { C::execution_parent_l2_gas_limit, 2000 },
               { C::execution_parent_da_gas_limit, 4000 },
               { C::execution_parent_l2_gas_used, 500 },
@@ -148,7 +149,6 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
           },
           {
               { C::execution_sel, 0 },
-              { C::execution_last, 1 },
           } });
 
     check_relation<context>(trace);
@@ -277,7 +277,6 @@ TEST(ContextConstrainingTest, ContextSwitchingExceptionalHalt)
           },
           {
               { C::execution_sel, 0 },
-              { C::execution_last, 1 },
           } });
 
     check_relation<context>(trace);
@@ -334,7 +333,6 @@ TEST(ContextConstrainingTest, GasNextRow)
                                },
                                {
                                    { C::execution_sel, 0 },
-                                   { C::execution_last, 1 },
                                } });
 
     check_relation<context>(trace,
@@ -436,7 +434,6 @@ TEST(ContextConstrainingTest, GasUsedContinuity)
                                },
                                {
                                    { C::execution_sel, 0 },
-                                   { C::execution_last, 1 },
                                } });
 
     check_relation<context>(trace,

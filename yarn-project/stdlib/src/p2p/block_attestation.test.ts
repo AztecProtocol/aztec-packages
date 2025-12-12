@@ -1,5 +1,5 @@
 // Serde test for the block attestation type
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 
 import { makeBlockAttestation } from '../tests/mocks.js';
 import { BlockAttestation } from './block_attestation.js';

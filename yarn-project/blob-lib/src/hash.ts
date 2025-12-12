@@ -1,4 +1,5 @@
-import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { sha256, sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { BLS12Fr } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
 

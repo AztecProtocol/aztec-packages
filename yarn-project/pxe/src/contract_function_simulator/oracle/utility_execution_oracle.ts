@@ -1,5 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import { Aes128 } from '@aztec/foundation/crypto';
+import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
@@ -169,7 +169,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Real notes coming from DB will have a leafIndex which
    * represents their index in the note hash tree.
    *
-   * @param owner - The owner of the notes.
+   * @param owner - The owner of the notes. If undefined, returns notes for all owners.
    * @param storageSlot - The storage slot.
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
@@ -183,7 +183,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns Array of note data.
    */
   public async utilityGetNotes(
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],

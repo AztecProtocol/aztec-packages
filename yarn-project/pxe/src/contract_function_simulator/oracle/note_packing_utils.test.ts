@@ -8,7 +8,9 @@ import { packAsRetrievedNote } from './note_packing_utils.js';
 it('packs retrieved note', () => {
   const noteInfo = {
     contractAddress: AztecAddress.fromField(new Fr(1n)),
+    owner: AztecAddress.fromField(new Fr(5n)),
     randomness: new Fr(42n),
+    storageSlot: new Fr(100n),
     noteNonce: new Fr(2n),
     index: undefined, // Transient note
     note: new Note([new Fr(3n), new Fr(4n)]),

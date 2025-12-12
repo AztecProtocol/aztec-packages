@@ -1,5 +1,5 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
-import { RollupContract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -163,7 +163,7 @@ describe('prover-node', () => {
     );
 
     // L1 to L2 message source returns no messages
-    l1ToL2MessageSource.getL1ToL2MessagesForCheckpoint.mockResolvedValue([]);
+    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
 
     // Tx provider plays along and returns a tx whenever requested
     txProvider.getTxsForBlock.mockImplementation(block =>

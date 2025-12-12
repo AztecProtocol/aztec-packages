@@ -1,6 +1,6 @@
 import { ARCHIVER_DB_VERSION, ARCHIVER_STORE_NAME, type ArchiverConfig, createArchiverStore } from '@aztec/archiver';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { type EthereumClientConfig, getPublicClient } from '@aztec/ethereum';
+import { type EthereumClientConfig, getPublicClient } from '@aztec/ethereum/client';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';

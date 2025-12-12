@@ -1,13 +1,10 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
-import {
-  GovernanceProposerContract,
-  PublisherManager,
-  RollupContract,
-  getPublicClient,
-  isAnvilTestChain,
-} from '@aztec/ethereum';
+import { isAnvilTestChain } from '@aztec/ethereum/chain';
+import { getPublicClient } from '@aztec/ethereum/client';
+import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';

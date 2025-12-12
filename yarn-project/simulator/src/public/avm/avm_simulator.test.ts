@@ -1,14 +1,10 @@
 import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import {
-  Grumpkin,
-  keccak256,
-  keccakf1600,
-  pedersenCommit,
-  pedersenHash,
-  poseidon2Hash,
-  sha256,
-} from '@aztec/foundation/crypto';
+import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
+import { keccak256, keccakf1600 } from '@aztec/foundation/crypto/keccak';
+import { pedersenCommit, pedersenHash } from '@aztec/foundation/crypto/pedersen';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import type { Fieldable } from '@aztec/foundation/serialize';

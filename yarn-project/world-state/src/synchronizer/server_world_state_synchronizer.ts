@@ -30,7 +30,6 @@ import type { WorldStateStatusFull } from '../native/message.js';
 import type { MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateConfig } from './config.js';
 import { WorldStateSynchronizerError } from './errors.js';
-import { findFirstBlocksInCheckpoints } from './utils.js';
 
 export type { SnapshotDataKeys };
 
@@ -271,13 +270,13 @@ export class ServerWorldStateSynchronizer
         await this.handleL2Blocks(event.blocks.map(b => b.block.toL2Block()));
         break;
       case 'chain-pruned':
-        await this.handleChainPruned(BlockNumber(event.block.number));
+        await this.handleChainPruned(event.block.number);
         break;
       case 'chain-proven':
-        await this.handleChainProven(BlockNumber(event.block.number));
+        await this.handleChainProven(event.block.number);
         break;
       case 'chain-finalized':
-        await this.handleChainFinalized(BlockNumber(event.block.number));
+        await this.handleChainFinalized(event.block.number);
         break;
     }
   }
@@ -290,13 +289,22 @@ export class ServerWorldStateSynchronizer
   private async handleL2Blocks(l2Blocks: L2BlockNew[]) {
     this.log.trace(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
 
-    const firstBlocksInCheckpoints = await findFirstBlocksInCheckpoints(l2Blocks, this.l2BlockSource);
+    // Fetch the L1->L2 messages for the first block in a checkpoint.
+    const messagesForBlocks = new Map<BlockNumber, Fr[]>();
+    await Promise.all(
+      l2Blocks
+        .filter(b => b.indexWithinCheckpoint === 0)
+        .map(async block => {
+          const l1ToL2Messages = await this.l2BlockSource.getL1ToL2Messages(block.checkpointNumber);
+          messagesForBlocks.set(block.number, l1ToL2Messages);
+        }),
+    );
 
     let updateStatus: WorldStateStatusFull | undefined = undefined;
     for (const block of l2Blocks) {
-      const l1ToL2Messages = firstBlocksInCheckpoints.get(block.number) ?? [];
-      const isFirstBlock = firstBlocksInCheckpoints.has(block.number);
-      const [duration, result] = await elapsed(() => this.handleL2Block(block, l1ToL2Messages, isFirstBlock));
+      const [duration, result] = await elapsed(() =>
+        this.handleL2Block(block, messagesForBlocks.get(block.number) ?? []),
+      );
       this.log.info(`World state updated with L2 block ${block.number}`, {
         eventName: 'l2-block-handled',
         duration,
@@ -319,18 +327,13 @@ export class ServerWorldStateSynchronizer
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  private async handleL2Block(
-    l2Block: L2BlockNew,
-    l1ToL2Messages: Fr[],
-    isFirstBlock: boolean,
-  ): Promise<WorldStateStatusFull> {
-    // If the above check succeeds, we can proceed to handle the block.
+  private async handleL2Block(l2Block: L2BlockNew, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
     this.log.trace(`Pushing L2 block ${l2Block.number} to merkle tree db `, {
       blockNumber: l2Block.number,
       blockHash: await l2Block.hash().then(h => h.toString()),
       l1ToL2Messages: l1ToL2Messages.map(msg => msg.toString()),
     });
-    const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages, isFirstBlock);
+    const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
 
     if (this.currentState === WorldStateRunningState.SYNCHING && l2Block.number >= this.latestBlockNumberAtStart) {
       this.setCurrentState(WorldStateRunningState.RUNNING);
@@ -346,12 +349,12 @@ export class ServerWorldStateSynchronizer
     if (this.historyToKeep === undefined) {
       return;
     }
-    const newHistoricBlock = BlockNumber(summary.finalizedBlockNumber - this.historyToKeep + 1);
-    if (newHistoricBlock <= BlockNumber(1)) {
+    const newHistoricBlock = summary.finalizedBlockNumber - this.historyToKeep + 1;
+    if (newHistoricBlock <= 1) {
       return;
     }
     this.log.verbose(`Pruning historic blocks to ${newHistoricBlock}`);
-    const status = await this.merkleTreeDb.removeHistoricalBlocks(newHistoricBlock);
+    const status = await this.merkleTreeDb.removeHistoricalBlocks(BlockNumber(newHistoricBlock));
     this.log.debug(`World state summary `, status.summary);
   }
 

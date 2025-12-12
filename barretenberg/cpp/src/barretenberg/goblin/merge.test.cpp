@@ -510,9 +510,9 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
 
     // Catch the exception and verify it's the expected cross-transcript error
 #ifndef NDEBUG
-    EXPECT_THROW_OR_ABORT([[maybe_unused]] auto result =
-                              verifier_2.verify_proof(proof_2_recursive, input_commitments_1),
-                          "Tags from different transcripts were involved in the same computation");
+    EXPECT_THROW_WITH_MESSAGE([[maybe_unused]] auto result =
+                                  verifier_2.verify_proof(proof_2_recursive, input_commitments_1),
+                              "Tags from different transcripts were involved in the same computation");
 #endif
 }
 
