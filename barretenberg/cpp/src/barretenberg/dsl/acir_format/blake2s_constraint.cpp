@@ -39,8 +39,10 @@ template <typename Builder> void create_blake2s_constraints(Builder& builder, co
 
     byte_array_ct output_bytes = stdlib::Blake2s<Builder>::hash(arr);
 
-    for (size_t i = 0; i < output_bytes.size(); ++i) {
-        output_bytes[i].assert_equal(field_ct::from_witness_index(&builder, constraint.result[i]));
+    for (const auto& [output_byte, result_byte_idx] : zip_view(output_bytes.bytes(), constraint.result)) {
+        // Constrain each output byte to equal the corresponding witness
+        // This equality also constrains the result witnesses to be bytes
+        output_byte.assert_equal(field_ct::from_witness_index(&builder, result_byte_idx));
     }
 }
 
