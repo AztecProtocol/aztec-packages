@@ -3,13 +3,11 @@
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
-#include <nlohmann/json.hpp>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
-#include "barretenberg/avm_fuzzer/common/interfaces/simulation_helper.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/common/base64.hpp"
@@ -22,6 +20,7 @@
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
+#include "barretenberg/vm2/simulation_helper.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 
@@ -30,41 +29,36 @@ using namespace bb::avm2;
 using namespace bb::avm2::simulation;
 using namespace bb::avm2::fuzzer;
 using namespace bb::world_state;
-using json = nlohmann::json;
 
-// Helper function to serialize bytecode, calldata, tx, and globals to JSON
-std::string serialize_simulation_request(const std::vector<uint8_t>& bytecode,
-                                         const std::vector<FF>& calldata,
-                                         const Tx& tx,
-                                         const GlobalVariables& globals)
+// Helper function to serialize simulation request via
+std::string serialize_simulation_request(const Tx& tx,
+                                         const GlobalVariables& globals,
+                                         const FuzzerContractDB& contract_db)
 {
-    json j;
-    j["bytecode"] = base64_encode(bytecode.data(), bytecode.size());
-
-    // Convert FF values to strings for JSON serialization
-    std::vector<std::string> calldata_strings;
-    calldata_strings.reserve(calldata.size());
-    for (const auto& field : calldata) {
-        calldata_strings.push_back(field_to_string(field));
+    // Build vectors from contract_db
+    std::vector<ContractClass> classes_vec;
+    for (const auto& [_, contract_class] : contract_db.get_contract_classes()) {
+        classes_vec.push_back(contract_class);
     }
-    j["inputs"] = calldata_strings;
 
-    // Pass WorldState database path and configuration for TypeScript to open the same DB
-    // Note: TypeScript expects the parent directory and adds "world_state/" subdirectory itself
-    j["ws_data_dir"] = FuzzerWorldStateManager::get_data_dir();
-    j["ws_map_size_kb"] = FuzzerWorldStateManager::get_map_size_kb();
+    std::vector<std::pair<AztecAddress, ContractInstance>> instances_vec;
+    for (const auto& [address, instance] : contract_db.get_contract_instances()) {
+        instances_vec.emplace_back(address, instance);
+    }
 
-    // Serialize Tx using msgpack and base64 encode
-    auto [tx_buffer, tx_size] = msgpack_encode_buffer(tx);
-    j["tx"] = base64_encode(tx_buffer, tx_size);
-    delete[] tx_buffer;
+    FuzzerSimulationRequest request{
+        .ws_data_dir = FuzzerWorldStateManager::get_data_dir(),
+        .ws_map_size_kb = FuzzerWorldStateManager::get_map_size_kb(),
+        .tx = tx,
+        .globals = globals,
+        .contract_classes = std::move(classes_vec),
+        .contract_instances = std::move(instances_vec),
+    };
 
-    // Serialize GlobalVariables using msgpack and base64 encode
-    auto [globals_buffer, globals_size] = msgpack_encode_buffer(globals);
-    j["globals"] = base64_encode(globals_buffer, globals_size);
-    delete[] globals_buffer;
-
-    return j.dump();
+    auto [buffer, size] = msgpack_encode_buffer(request);
+    std::string result = base64_encode(buffer, size);
+    delete[] buffer;
+    return result;
 }
 
 // Helper function to create default global variables for testing
@@ -82,71 +76,22 @@ GlobalVariables create_default_globals()
     };
 }
 
-// Creates a default transaction that the single app logic enqueued call can be inserted into
-Tx create_default_tx(const AztecAddress& contract_address,
-                     const AztecAddress& sender_address,
-                     const std::vector<FF>& calldata,
-                     [[maybe_unused]] const FF& transaction_fee,
-                     bool is_static_call,
-                     const Gas& gas_limit)
-{
-    return Tx
-    {
-        .hash = TRANSACTION_HASH,
-        .gas_settings = GasSettings{
-            .gas_limits = gas_limit,
-            .max_fees_per_gas = GasFees{ .fee_per_da_gas = FEE_PER_DA_GAS, .fee_per_l2_gas = FEE_PER_L2_GAS },
-        },
-        .effective_gas_fees = EFFECTIVE_GAS_FEES,
-        .non_revertible_accumulated_data = AccumulatedData{
-            .note_hashes = NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES,
-            // This nullifier is needed to make the nonces for note hashes and expected by simulation_helper
-            .nullifiers = NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS,
-            .l2_to_l1_messages = NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MESSAGES,
-        },
-        .revertible_accumulated_data = AccumulatedData{
-            .note_hashes = REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES,
-            .nullifiers = REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS,
-            .l2_to_l1_messages = REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MESSAGES,
-        },
-        .setup_enqueued_calls = SETUP_ENQUEUED_CALLS,
-        .app_logic_enqueued_calls = {
-            PublicCallRequestWithCalldata{
-                .request = PublicCallRequest{
-                    .msg_sender = MSG_SENDER,
-                    .contract_address = contract_address,
-                    .is_static_call = is_static_call,
-                    .calldata_hash = 0,
-                },
-                .calldata = calldata,
-            },
-        },
-        .teardown_enqueued_call = TEARDOWN_ENQUEUED_CALLS,
-        .gas_used_by_private = GAS_USED_BY_PRIVATE,
-        .fee_payer = sender_address,
-    };
-}
-
 SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
-                                       const std::vector<uint8_t>& bytecode,
-                                       const std::vector<FF>& calldata)
+                                       fuzzer::FuzzerContractDB& contract_db,
+                                       const Tx& tx)
 {
-    FuzzerContractDB minimal_contract_db(bytecode);
-
     const PublicSimulatorConfig config{ .collect_call_metadata = true, .collect_public_inputs = true };
 
     ProtocolContracts protocol_contracts{};
 
     auto globals = create_default_globals();
 
-    Tx tx = create_default_tx(CONTRACT_ADDRESS, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-
     WorldState& ws = ws_mgr.get_world_state();
     WorldStateRevision ws_rev = ws_mgr.get_current_revision();
 
     AvmSimulationHelper helper;
     TxSimulationResult result =
-        helper.simulate_fast_with_existing_ws(minimal_contract_db, ws_rev, ws, config, tx, globals, protocol_contracts);
+        helper.simulate_fast_with_existing_ws(contract_db, ws_rev, ws, config, tx, globals, protocol_contracts);
     bool reverted = result.revert_code != RevertCode::OK;
     // Just process the top level call's output
     vinfo(
@@ -190,19 +135,13 @@ void JsSimulator::initialize(std::string& simulator_path)
 }
 
 SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateManager& ws_mgr,
-                                      const std::vector<uint8_t>& bytecode,
-                                      const std::vector<FF>& calldata)
+                                      fuzzer::FuzzerContractDB& contract_db,
+                                      const Tx& tx)
 {
-    bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
-
-    // Create tx and globals to match C++ simulator
     auto globals = create_default_globals();
-    Tx tx = create_default_tx(CONTRACT_ADDRESS, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
 
-    std::string serialized = serialize_simulation_request(bytecode, calldata, tx, globals);
-    if (logging_enabled) {
-        info("Sending request to simulator: ", serialized);
-    }
+    std::string serialized = serialize_simulation_request(tx, globals, contract_db);
+    fuzz_info("Sending request to simulator: ", serialized);
 
     // Send the request
     process.write_line(serialized);
@@ -215,48 +154,11 @@ SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateM
     // Remove the newline character
     response.erase(response.find_last_not_of('\n') + 1);
 
-    // Response is plain JSON (no longer gzipped/base64 encoded)
-    if (logging_enabled) {
-        info("Received response from simulator: ", response);
-    }
-    json response_json = json::parse(response);
-    bool reverted = response_json["reverted"];
-    std::vector<std::string> output = response_json["output"];
-    std::string revert_reason = response_json.value("revertReason", "");
-    std::vector<FF> output_fields;
-    output_fields.reserve(output.size());
-    for (const auto& field : output) {
-        output_fields.push_back(FF(field));
-    }
-
-    // Parse endTreeSnapshots from JSON response
-    TreeSnapshots end_tree_snapshots;
-    if (response_json.contains("endTreeSnapshots")) {
-        const auto& ets = response_json["endTreeSnapshots"];
-        end_tree_snapshots.l1_to_l2_message_tree = AppendOnlyTreeSnapshot{
-            .root = FF(ets["l1ToL2MessageTree"]["root"].get<std::string>()),
-            .next_available_leaf_index = ets["l1ToL2MessageTree"]["nextAvailableLeafIndex"].get<uint64_t>(),
-        };
-        end_tree_snapshots.note_hash_tree = AppendOnlyTreeSnapshot{
-            .root = FF(ets["noteHashTree"]["root"].get<std::string>()),
-            .next_available_leaf_index = ets["noteHashTree"]["nextAvailableLeafIndex"].get<uint64_t>(),
-        };
-        end_tree_snapshots.nullifier_tree = AppendOnlyTreeSnapshot{
-            .root = FF(ets["nullifierTree"]["root"].get<std::string>()),
-            .next_available_leaf_index = ets["nullifierTree"]["nextAvailableLeafIndex"].get<uint64_t>(),
-        };
-        end_tree_snapshots.public_data_tree = AppendOnlyTreeSnapshot{
-            .root = FF(ets["publicDataTree"]["root"].get<std::string>()),
-            .next_available_leaf_index = ets["publicDataTree"]["nextAvailableLeafIndex"].get<uint64_t>(),
-        };
-    }
-
-    SimulatorResult result = {
-        .reverted = reverted,
-        .output = output_fields,
-        .end_tree_snapshots = end_tree_snapshots,
-        .revert_reason = revert_reason,
-    };
+    fuzz_info("Received response from simulator: ", response);
+    // Parse with msg_pack
+    auto res_buffer = base64_decode(response);
+    SimulatorResult result;
+    result = msgpack::unpack(res_buffer.data(), res_buffer.size()).get().convert(result);
     return result;
 }
 

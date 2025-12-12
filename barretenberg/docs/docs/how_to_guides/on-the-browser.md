@@ -50,11 +50,16 @@ Verification is similarly simple:
 
 #include_code verify examples/basic.test.ts typescript
 
-### Working with Different Hash Functions
+### Verifier Targets
 
-UltraHonk supports different hash functions for different target verification environments:
+UltraHonk supports different verifier targets for different verification environments. The `verifierTarget` option configures the hash function and zero-knowledge settings automatically:
 
-#include_code hash_variants examples/basic.test.ts typescript
+- `evm` / `evm-no-zk`: For Ethereum/Solidity verification (uses keccak)
+- `noir-recursive` / `noir-recursive-no-zk`: For recursive verification in Noir circuits (uses poseidon2)
+- `noir-rollup` / `noir-rollup-no-zk`: For rollup circuits with IPA accumulation (uses poseidon2)
+- `starknet` / `starknet-no-zk`: For Starknet verification via Garaga
+
+#include_code verifier_targets examples/basic.test.ts typescript
 
 ### Getting Verification Keys (VK)
 

@@ -109,8 +109,8 @@ pub contract StatefulTest {
         offset: u32,
     ) -> Field {
         let mut balance = 0;
-        let mut options = NoteViewerOptions::new();
-        let notes = set.view_notes(options.set_offset(offset));
+        let options = NoteViewerOptions::new().set_offset(offset);
+        let notes = set.view_notes(options);
         for i in 0..options.limit {
             if i < notes.len() {
                 balance += notes.get_unchecked(i).value;

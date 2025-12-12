@@ -76,7 +76,7 @@ export interface ExecutionDataProvider {
    * Returns an object containing an array of note data.
    *
    * @param contractAddress - The contract address of the notes.
-   * @param owner - The owner of the notes.
+   * @param owner - The owner of the notes. If undefined, returns notes for all owners.
    * @param storageSlot - The storage slot of the notes.
    * @param status - The status of notes to fetch.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
@@ -84,7 +84,7 @@ export interface ExecutionDataProvider {
    */
   getNotes(
     contractAddress: AztecAddress,
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     status: NoteStatus,
     scopes?: AztecAddress[],

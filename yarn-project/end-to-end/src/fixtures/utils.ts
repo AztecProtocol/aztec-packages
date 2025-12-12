@@ -91,10 +91,10 @@ const { AZTEC_NODE_URL = '' } = process.env;
 const getAztecUrl = () => AZTEC_NODE_URL;
 
 let telemetry: TelemetryClient | undefined = undefined;
-function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
+async function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
   if (!telemetry) {
     const config = { ...getTelemetryConfig(), ...partialConfig };
-    telemetry = config.benchmark ? new BenchmarkTelemetryClient() : initTelemetryClient(config);
+    telemetry = config.benchmark ? new BenchmarkTelemetryClient() : await initTelemetryClient(config);
   }
   return telemetry;
 }
@@ -540,7 +540,7 @@ export async function setup(
       await watcher.start();
     }
 
-    const telemetry = getTelemetryClient(opts.telemetryConfig);
+    const telemetry = await getTelemetryClient(opts.telemetryConfig);
 
     // Blob sink service - blobs get posted here and served from here
     const blobSinkPort = await getPort();

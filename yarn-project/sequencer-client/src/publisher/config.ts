@@ -1,6 +1,6 @@
-import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
+import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client/config';
 import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
-import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from '@aztec/ethereum/l1-tx-utils';
+import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from '@aztec/ethereum/l1-tx-utils/config';
 import {
   type ConfigMappingsType,
   SecretValue,

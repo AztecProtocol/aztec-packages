@@ -261,6 +261,24 @@ namespace execution;
     #[PROPAGATE_RD_SIZE]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
 
+    pol commit nested_revert_or_error; // @boolean (by definition)
+    nested_revert_or_error = nested_exit_call * (1 - sel_execute_return);
+
+    // nested_return          = 1 ==> last_child_success' = 1;
+    // nested_revert_or_error = 1 ==> last_child_success' = 0;
+    // Last child success value is reset when entering a new context/call (Default is false in simulation):
+    // sel_enter_call         = 1 ==> last_child_success' = 0;
+    // enqueued_call_start    = 1 ==> last_child_success = 0;
+    // otherwise                  ==> last_child_success' = last_child_success;
+    #[NESTED_RETURN_LAST_CHILD_SUCCESS]
+    NOT_LAST_EXEC * nested_return * (last_child_success' - 1) = 0;
+    #[LAST_CHILD_SUCCESS_NEXT_ROW_ZERO]
+    NOT_LAST_EXEC * (nested_revert_or_error + sel_enter_call) * last_child_success' = 0;
+    #[LAST_CHILD_SUCCESS_IS_ZERO]
+    enqueued_call_start * last_child_success = 0;
+    #[PROPAGATE_LAST_CHILD_SUCCESS]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_success' - last_child_success) = 0;
+
     // nested_exit_call    = 1 ==> last_child_id' = context_id;  <-- sel_exit_call includes error case
     // sel_enter_call      = 1 ==> last_child_id' = 0;
     // enqueued_call_start = 1 ==> last_child_id = 0; <-- Current row is 0
@@ -389,13 +407,9 @@ namespace execution;
     };
 
     // If we are reverting or erroring a nested call, we restore the entire ctx from the stack
-    pol commit rollback_context;
-    rollback_context * (1 - rollback_context) = 0;
-    // Constrained to be boolean based on previous relations
-    rollback_context = nested_exit_call * (1 - sel_execute_return);
 
     #[CTX_STACK_ROLLBACK]
-    rollback_context {
+    nested_revert_or_error {
         context_id,
         context_id', // constrained to be parent_id
         parent_id',

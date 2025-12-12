@@ -54,6 +54,7 @@
     "@aztec/prover-client": "workspace:^",
     "@aztec/prover-node": "workspace:^",
     "@aztec/pxe": "workspace:^",
+    "@aztec/sequencer-client": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/test-wallet": "workspace:^",

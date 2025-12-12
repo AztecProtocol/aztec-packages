@@ -3,10 +3,14 @@ use crate::{
         calls::{PrivateCall, PrivateStaticCall, PublicCall, PublicStaticCall},
         private_context::PrivateContext,
         public_context::PublicContext,
+        utility_context::UtilityContext,
     },
-    event::{event_emission::emit_event_in_private, event_interface::EventInterface},
+    event::{
+        event_emission::{emit_event_in_private, emit_event_in_public},
+        event_interface::EventInterface,
+        event_message::EventMessage,
+    },
 };
-use super::{context::utility_context::UtilityContext, event::event_emission::emit_event_in_public};
 use protocol_types::{
     address::AztecAddress,
     constants::NULL_MSG_SENDER_CONTRACT_ADDRESS,
@@ -23,7 +27,7 @@ use protocol_types::{
 /// Once injected, you can use `self` to:
 /// - Access storage: `self.storage.balances.at(owner).read()`
 /// - Call contracts: `self.call(Token::at(address).transfer(recipient, amount))`
-/// - Emit events: `self.emit(event, recipient, delivery_mode)` (private) or `self.emit(event)` (public)
+/// - Emit events: `self.emit(event).deliver_to(recipient, delivery_mode)` (private) or `self.emit(event)` (public)
 /// - Get the contract address: `self.address`
 /// - Get the caller: `self.msg_sender()`
 /// - Access low-level Aztec.nr APIs through the context: `self.context`
@@ -175,34 +179,44 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
         }
     }
 
-    /// Emits an event from a private function. Private events can be delivered either via private logs or offchain
-    /// messages, with configurable encryption and tagging constraints.
+    /// Emits an event privately.
     ///
-    /// Events in private functions are encrypted and sent to a specific recipient. This ensures that only the intended
-    /// recipient can read the event data.
-    ///
-    /// # Parameters
-    /// - `event`: The event to emit (must implement `EventInterface` and `Serialize`)
-    /// - `recipient`: The address that should be able to decrypt and read this event
-    /// - `delivery_mode`: The delivery mode for the event (e.g., `MessageDelivery.CONSTRAINED_ONCHAIN`)
+    /// Unlike public events, private events do not reveal their contents publicly. They instead create an
+    /// [EventMessage] containing the private event information, which **MUST** be delivered to a recipient via
+    /// [EventMessage::deliver_to] in order for them to learn about the event. Multiple recipients can have the same
+    /// message be delivered to them.
     ///
     /// # Example
     /// ```noir
+    /// #[event]
+    /// struct Transfer { from: AztecAddress, to: AztecAddress, amount: u128 }
+    ///
     /// #[external("private")]
-    /// fn transfer(amount: u128, to: AztecAddress) {
-    ///     // ... transfer logic ...
-    ///     self.emit(
-    ///         TransferEvent { from: sender, to, amount },
-    ///         to,
-    ///         MessageDelivery.CONSTRAINED_ONCHAIN
-    ///     );
+    /// fn transfer(to: AztecAddress, amount: u128) {
+    ///     let from = self.msg_sender().unwrap();
+    ///
+    ///     let message: EventMessage = self.emit(Transfer { from, to, amount });
+    ///     message.deliver_to(from, MessageDelivery.UNCONSTRAINED_OFFCHAIN);
+    ///     message.deliver_to(to, MessageDelivery.CONSTRAINED_ONCHAIN);
     /// }
     /// ```
-    pub fn emit<Event>(&mut self, event: Event, recipient: AztecAddress, delivery_mode: u8)
+    ///
+    /// # Cost
+    ///
+    /// Private event emission always results in the creation of a nullifer, which acts as a commitment to the event and
+    /// is used by third parties to verify its authenticity. See [EventMessage::deliver_to] for the costs associated to
+    /// delivery.
+    ///
+    /// # Privacy
+    ///
+    /// The nullifier created when emitting a private event leaks nothing about the content of the event - it's a
+    /// commitment that includes a random value, so even with full knowledge of the event preimage determining if an
+    /// event was emitted or not requires brute-forcing the entire `Field` space.
+    pub fn emit<Event>(&mut self, event: Event) -> EventMessage<Event>
     where
         Event: EventInterface + Serialize,
     {
-        emit_event_in_private(event, self.context, recipient, delivery_mode);
+        emit_event_in_private(self.context, event)
     }
 
     /// Makes a call to the private function defined by the `call` parameter.
@@ -552,27 +566,33 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelf<PublicContext
         }
     }
 
-    /// Emits an event from a public function.
+    /// Emits an event publicly.
     ///
-    /// Events in public functions are emitted in plaintext and are visible to everyone.
-    /// Unlike private events, they don't require a recipient parameter.
+    /// Public events are emitted as plaintext and are therefore visible to everyone. This is is the same as Solidity
+    /// events on EVM chains.
     ///
-    /// # Parameters
-    /// - `event`: The event to emit (must implement `EventInterface` and `Serialize`)
+    /// Unlike private events, they don't require delivery of an event message.
     ///
     /// # Example
     /// ```noir
+    /// #[event]
+    /// struct Update { value: Field }
+    ///
     /// #[external("public")]
     /// fn publish_update(value: Field) {
-    ///     // ... update logic ...
-    ///     self.emit(UpdateEvent { value });
+    ///     self.emit(Update { value });
     /// }
     /// ```
+    ///
+    /// # Cost
+    ///
+    /// Public event emission is achieved by emitting public transaction logs. A total of `N+1` fields are emitted,
+    /// where `N` is the serialization length of the event.
     pub fn emit<Event>(&mut self, event: Event)
     where
         Event: EventInterface + Serialize,
     {
-        emit_event_in_public(event, self.context);
+        emit_event_in_public(self.context, event);
     }
 
     /// Makes the call to the public function defined by the `call` parameter.
