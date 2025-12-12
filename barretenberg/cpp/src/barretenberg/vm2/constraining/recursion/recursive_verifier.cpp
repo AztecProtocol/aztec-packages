@@ -105,7 +105,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
 
-    info("AVM vk hash in recursive verifier: ", vk_hash);
+    info("AVM vk hash in recursive verifier: ", vk_hash.get_value());
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
