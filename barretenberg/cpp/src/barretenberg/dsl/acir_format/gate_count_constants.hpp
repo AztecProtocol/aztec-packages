@@ -105,7 +105,7 @@ inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 179;
 // Tail kernel gate counts (verifies HN_TAIL proof)
 inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 33968;
 inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 914 + MSM_ROWS_OFFSET;
-inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 95;
+inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 96;
 
 // Hiding kernel gate counts (verifies HN_FINAL proof)
 inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 37211;

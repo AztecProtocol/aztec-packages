@@ -73,8 +73,8 @@ void ToRadix::to_be_radix(MemoryInterface& memory,
 
     // Error handling - check that the maximum write address does not exceed the highest memory address
     // This subtrace writes in the range { dst_addr, dst_addr + 1, ..., dst_addr + num_limbs - 1 }
-    uint64_t max_write_address = static_cast<uint64_t>(dst_addr) + num_limbs - 1;
-    bool dst_out_of_range = gt.gt(max_write_address, AVM_HIGHEST_MEM_ADDRESS);
+    uint64_t write_addr_upper_bound = static_cast<uint64_t>(dst_addr) + num_limbs;
+    bool dst_out_of_range = gt.gt(write_addr_upper_bound, AVM_MEMORY_SIZE);
 
     // Error handling - check that the radix value is within the valid range
     // The valid range is [2, 256]. Therefore, the radix is invalid if (2 > radix) or (radix > 256)

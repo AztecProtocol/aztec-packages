@@ -5,55 +5,57 @@
 // =====================
 
 #pragma once
+#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_base.hpp"
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/dsl/acir_format/gate_counter.hpp"
+#include "barretenberg/dsl/acir_format/recursion_constraint_output.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
+#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
+#include "recursion_constraint.hpp"
 #include <cstdint>
 #include <vector>
 
 namespace acir_format {
 
+using namespace bb;
+using namespace stdlib;
+
 // Used to specify the type of recursive verifier via the proof_type specified by the RecursiveAggregation opcode from
 // ACIR
 // Keep this enum values in sync with their noir counterpart constants defined in
-// noir-protocol-circuits/crates/types/src/constants.nr
-enum PROOF_TYPE { PLONK, HONK, OINK, HN, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, HN_FINAL, HN_TAIL, CHONK };
+// noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
+enum PROOF_TYPE : uint8_t { HONK, OINK, HN, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, HN_FINAL, HN_TAIL, CHONK };
 
 /**
- * @brief RecursionConstraint struct contains information required to recursively verify a proof!
+ * @brief RecursionConstraint struct contains information required to recursively verify a proof
  *
- * @details The recursive verifier algorithm produces an 'aggregation object' representing 2 G1 points, expressed as 16
- * witness values. The smart contract Verifier must be aware of this aggregation object in order to complete the full
- * recursive verification. If the circuit verifies more than 1 proof, the recursion algorithm will update a pre-existing
- * aggregation object (`input_points_accumulator`).
+ * @details The recursive verifier algorithm produces an aggregation object representing 2 G1 points, which in the code
+ * is called PairingPoints. The smart contract Verifier must be aware of this aggregation object in order to complete
+ * the recursive verification. We output the PairingPoints object to avoid perfoming pairing calculations in-circuit.
  *
- * @details We currently require that the inner circuit being verified only has a single public input. If more are
- * required, the outer circuit can hash them down to 1 input.
+ * NOTE: Each recursive verification outputs a different PairingPoints object. If a circuit performs multiple recursive
+ * verifications we aggregate the PairingPoints into a single PairingPoints using random challenges.
  *
- * @param verification_key_data The inner circuit vkey. Is converted into circuit witness values (internal to the
- * backend)
- * @param proof The plonk proof. Is converted into circuit witness values (internal to the backend)
- * @param is_points_accumulator_nonzero A flag to tell us whether the circuit has already recursively verified proofs
- * (and therefore an aggregation object is present)
- * @param public_input The index of the single public input
- * @param input_points_accumulator Witness indices of pre-existing aggregation object (if it exists)
- * @param output_points_accumulator Witness indices of the aggregation object produced by recursive verification
- * @param nested_points_accumulator Public input indices of an aggregation object inside the proof.
+ * NOTE: If a circuit `C` recursively verifies a proof \f$\pi\f$ which is the output of another recursive verification,
+ * then \f$\pi\f$ contains among its public inputs a PairingPoints object \f$P\f$. Then, `C` extracts \f$P\f$ from the
+ * public inputs, recursively verifies the proof \f$\pi\f$ producing a PairingPoints objects \f$P'\f$, and then
+ * aggregates \f$P, P'\f$ to produce a new PairingPoints object \f$P_{out}\f$ which is added to the public inputs of
+ * `C`.
  *
- * @note If input_points_accumulator witness indices are all zero, we interpret this to mean that the inner proof does
- * NOT contain a previously recursively verified proof
- * @note nested_points_accumulator is used for cases where the proof being verified contains an aggregation object in
- * its public inputs! If this is the case, we record the public input locations in `nested_points_accumulator`. If the
- * inner proof is of a circuit that does not have a nested aggregation object, these values are all zero.
+ * @param key the indices of the verification key of the circuit whose proof is recursively verified
+ * @param proof the indices of the proof being recursively verified
+ * @param public_inputs the indices of the public inputs of the proof being recursively verified
+ * @param key_hash the index of the hash of the verification key of the circuit whose proof is being recursively
+ * verified
+ * @param proof_type the type of the proof being recursively verified
+ * @param predicate witness or constant determining whether the recursive verification constraint is active
  *
- * To outline the interaction between the input_aggergation_object and the nested_points_accumulator take the following
- * example: If we have a circuit that verifies 2 proofs A and B, the recursion constraint for B will have an
- * input_points_accumulator that points to the aggregation output produced by verifying A. If circuit B also verifies a
- * proof, in the above example the recursion constraint for verifying B will have a nested object that describes the
- * aggregation object in B’s public inputs as well as an input aggregation object that points to the object produced by
- * the previous recursion constraint in the circuit (the one that verifies A)
- *
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/996): Create similar comments for Honk.
  */
 struct RecursionConstraint {
     std::vector<uint32_t> key;
@@ -64,38 +66,60 @@ struct RecursionConstraint {
     WitnessOrConstant<bb::fr> predicate;
 
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
-
-    template <typename Builder>
-    static std::vector<bb::stdlib::field_t<Builder>> fields_from_witnesses(Builder& builder,
-                                                                           const std::vector<uint32_t>& witness_indices)
-    {
-        std::vector<bb::stdlib::field_t<Builder>> result;
-        result.reserve(witness_indices.size());
-        for (const auto& idx : witness_indices) {
-            result.emplace_back(bb::stdlib::field_t<Builder>::from_witness_index(&builder, idx));
-        }
-        return result;
-    }
 };
 
-template <typename B> inline void read(B& buf, RecursionConstraint& constraint)
-{
-    using serialize::read;
-    read(buf, constraint.key);
-    read(buf, constraint.proof);
-    read(buf, constraint.public_inputs);
-    read(buf, constraint.key_hash);
-    read(buf, constraint.predicate);
-}
+/**
+ * @brief Single entrypoint to process recursion constraints
+ *
+ * @details This functions processes the recursion constraints that have to be added to the builder. It has two
+ * specializations:
+ *   - MegaCircuitBuilder: only Honk and HyperNova recursion constraints are processed. AVM and Chonk are not handled
+ *     and a WARNING is output in case they are encountered. We fail if both Honk and HyperNova recursion constraints
+ *     are present.
+ *   - UltraCircuitBuilder: Honk, AVM and Chonk recursion constraints are processed. HyperNova recursion constraints are
+ *     not handled and we fail if we encounter them. We handle:
+ *       - Chonk recursion constraints (Private Base Rollup)
+ *       - Honk + AVM recursion constraints (Public Base Rollup)
+ *       - Honk recursion constraints
+ *       - AVM recursion constraints
+ *     However, as mock protocol circuits use Chonk + AVM (mock Public Base Rollup), instead of throwing an assert we
+ *     return a vinfo for the case of Chonk + AVM
+ *
+ * @tparam Builder
+ * @param builder
+ * @param gate_counter
+ * @param gates_per_opcode
+ * @param ivc_base
+ * @param honk_recursion_data pair of (HonkRecursionConstraints, HonkRecursionConstraintsOriginalOpcodeIndices)
+ * @param avm_recursion_data pair of (AvmRecursionConstraints, AvmRecursionConstraintsOriginalOpcodeIndices)
+ * @param hn_recursion_data pair of (HypernovaRecursionConstraints, HypernovaRecursionConstraintsOriginalOpcodeIndices)
+ * @param chonk_recursion_data pair of (ChonkRecursionConstraints, ChonkRecursionConstraintsOriginalOpcodeIndices)
+ */
+template <typename Builder>
+HonkRecursionConstraintsOutput<Builder> create_recursion_constraints(
+    Builder& builder,
+    GateCounter<Builder>& gate_counter,
+    std::vector<size_t>& gates_per_opcode,
+    [[maybe_unused]] const std::shared_ptr<IVCBase>& ivc_base,
+    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& honk_recursion_data,
+    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& avm_recursion_data,
+    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
+    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& chonk_recursion_data);
 
-template <typename B> inline void write(B& buf, RecursionConstraint const& constraint)
-{
-    using serialize::write;
-    write(buf, constraint.key);
-    write(buf, constraint.proof);
-    write(buf, constraint.public_inputs);
-    write(buf, constraint.key_hash);
-    write(buf, constraint.predicate);
-}
+/**
+ * @brief Process HyperNova recursion constraints and complete kernel logic
+ *
+ * @param builder
+ * @param gate_counter
+ * @param gates_per_opcode
+ * @param hn_recursion_data pair of (HypernovaRecursionConstraints, HypernovaRecursionConstraintsOriginalOpcodeIndices)
+ * @param ivc_base
+ */
+void process_hn_recursion_constraints(
+    MegaCircuitBuilder& builder,
+    GateCounter<MegaCircuitBuilder>& gate_counter,
+    std::vector<size_t>& gates_per_opcode,
+    const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
+    const std::shared_ptr<IVCBase>& ivc_base);
 
 } // namespace acir_format

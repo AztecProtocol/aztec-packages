@@ -1,6 +1,7 @@
 import { EpochCache } from '@aztec/epoch-cache';
-import type { L1ReaderConfig, ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
+import type { L1ReaderConfig } from '@aztec/ethereum/l1-reader';
+import type { ViemClient } from '@aztec/ethereum/types';
 import { unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';

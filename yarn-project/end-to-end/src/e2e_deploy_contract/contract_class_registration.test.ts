@@ -178,8 +178,10 @@ describe('e2e_deploy_contract contract class registration', () => {
 
         it('stores contract instance in the aztec node', async () => {
           // Contract instance deployed event is emitted via private logs.
-          const block = await aztecNode.getBlockNumber();
-          const logs = await aztecNode.getPrivateLogs(block, 1);
+          const blockNumber = await aztecNode.getBlockNumber();
+
+          const logs = (await aztecNode.getBlock(blockNumber))!.toL2Block().getPrivateLogs();
+
           expect(logs.length).toBe(1);
 
           // To actually trigger this write:
@@ -311,7 +313,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       // Confirm that the tx reverts with the expected message
       await expect(
         instance.methods.increment_public_value_no_init_check(whom, 10).simulate({ from: defaultAccountAddress }),
-      ).rejects.toThrow(/No bytecode/);
+      ).rejects.toThrow(/not deployed/);
       // This time, don't throw on revert and confirm that the tx is included
       // despite reverting in app logic because of the call to a non-existent contract
       const tx = await instance.methods

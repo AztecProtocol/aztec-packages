@@ -18,6 +18,10 @@
 
 namespace bb {
 
+/**
+ * @brief HyperNova folding verifier (native + recursive). Verifies folding proofs and maintains accumulators.
+ * @details See: chonk/README.md#hypernova-folding-details
+ */
 template <typename Flavor_> class HypernovaFoldingVerifier {
   public:
     using Flavor = Flavor_;
@@ -62,8 +66,12 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
     /**
      * @brief Verify folding proof. Return the new accumulator and the results of the two sumchecks.
      *
-     * @param proof
-     * @return std::tuple<bool, bool, Accumulator> Tuple of first and second sumcheck result, and new accumulator.
+     * @param instance The verifier instance for the incoming circuit
+     * @param proof The folding proof to verify
+     * @return std::tuple<instance_sumcheck_verified, batching_sumcheck_verified, new_accumulator>
+     *         - instance_sumcheck_verified: Did the Sumcheck on the incoming instance pass?
+     *         - batching_sumcheck_verified: Did the MultilinearBatching Sumcheck pass?
+     *         - new_accumulator: The combined accumulator (valid only if both checks pass)
      */
     std::tuple<bool, bool, Accumulator> verify_folding_proof(
         const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance, const Proof& proof);

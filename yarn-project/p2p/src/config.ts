@@ -9,9 +9,9 @@ import {
   pickConfigMappings,
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import { FunctionSelector } from '@aztec/stdlib/abi/function-selector';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type AllowedElement, type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 

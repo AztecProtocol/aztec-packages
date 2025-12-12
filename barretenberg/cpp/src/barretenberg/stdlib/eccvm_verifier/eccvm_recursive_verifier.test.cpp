@@ -54,6 +54,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         using Curve = curve::BN254;
         using G1 = Curve::Element;
         using Fr = Curve::ScalarField;
+        using Fq = curve::Grumpkin::ScalarField;
 
         std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
         G1 a = G1::random_element(engine);
@@ -78,6 +79,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
             op_queue->mul_accumulate(c, x);
             op_queue->merge();
         }
+        // Set hiding op for ECCVM ZK (required before ECCVMCircuitBuilder construction)
+        op_queue->append_hiding_op(Fq::random_element(engine), Fq::random_element(engine));
         InnerBuilder builder{ op_queue };
         return builder;
     }

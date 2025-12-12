@@ -7,6 +7,7 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
@@ -143,8 +144,6 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         vinfo("Recursively verifying accumulation of the tail kernel.");
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
 
-        hide_op_queue_accumulation_result(circuit);
-
         auto [_first_verified, _second_verified, final_verifier_accumulator] =
             folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
 
@@ -253,6 +252,9 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Add randomness at the begining of the tail kernel (whose ecc ops fall at the beginning of the op queue table)
         // to ensure the CHONK proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_tail(circuit);
+
+        // Add the hiding op with random (non-curve) Px, Py values for statistical hiding of accumulated_result.
+        hide_op_queue_accumulation_result(circuit);
     }
     circuit.queue_ecc_eq();
 
@@ -447,23 +449,19 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 }
 
 /**
- * @brief Add a valid operation with random data to the op queue to prevent information leakage in Translator
- * proof.
+ * @brief Add a hiding op with fully random Px, Py field elements to prevent information leakage in Translator proof.
  *
  * @details The Translator circuit builder evaluates a batched polynomial (representing the four op queue polynomials
  * in UltraOp format) at a random challenge x. This evaluation result (called accumulated_result in translator) is
  * included in the translator proof and verified against the equivalent computation performed by ECCVM (in
- * verify_translation, establishing equivalence between ECCVM and UltraOp format). To ensure the accumulated_result
- * doesn't reveal information about actual ecc operations in the transaction, when the proof is sent to the rollup, we
- * add a random yet valid operation to the op queue. This guarantees the batched polynomial over Grumpkin contains at
- * least one random coefficient.
+ * verify_translation, establishing equivalence between ECCVM and UltraOp format).
+ *
  */
 void Chonk::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 {
-    Point random_point = Point::random_element();
-    FF random_scalar = FF::random_element();
-    circuit.queue_ecc_mul_accum(random_point, random_scalar);
-    circuit.queue_ecc_eq();
+    // Use random Fq field elements as Px and Py.
+    using Fq = curve::Grumpkin::ScalarField; // Same as BN254::BaseField
+    circuit.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
 }
 
 /**
@@ -490,7 +488,7 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 }
 
 /**
- * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding,
+ * @brief Construct a zero-knowledge proof for the Hiding kernel, which recursively verifies the last folding,
  * merge and decider proof.
  */
 HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
@@ -498,7 +496,7 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
 
-    // Hiding circuit is proven by a MegaZKProver
+    // Hiding kernel is proven by a MegaZKProver
     MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
     HonkProof proof = prover.construct_proof();
 
@@ -516,11 +514,11 @@ Chonk::Proof Chonk::prove()
     prover_accumulator = ProverAccumulator();
     auto mega_proof = verification_queue.front().proof;
 
-    // A transcript is shared between the Hiding circuit prover and the Goblin prover
+    // A transcript is shared between the Hiding kernel prover and the Goblin prover
     goblin.transcript = transcript;
 
-    // Returns a proof for the hiding circuit and the Goblin proof. The latter consists of Translator and ECCVM proof
-    // for the whole ecc op table and the merge proof for appending the subtable coming from the hiding circuit. The
+    // Returns a proof for the Hiding kernel and the Goblin proof. The latter consists of Translator and ECCVM proof
+    // for the whole ecc op table and the merge proof for appending the subtable coming from the Hiding kernel. The
     // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
     // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
     // evaluations of both the previous table and the incoming subtable.
@@ -532,7 +530,7 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     using TableCommitments = Goblin::TableCommitments;
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
     std::shared_ptr<Goblin::Transcript> chonk_verifier_transcript = std::make_shared<Goblin::Transcript>();
-    // Verify the hiding circuit proof
+    // Verify the Hiding kernel proof
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, chonk_verifier_transcript };
     auto [mega_verified, kernel_return_data, T_prev_commitments] =
         verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);

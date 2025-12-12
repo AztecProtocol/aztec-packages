@@ -7,7 +7,9 @@
   },
   "exports": {
     "./server": "./dest/server/index.js",
+    "./server/config": "./dest/server/config.js",
     "./client": "./dest/client/index.js",
+    "./client/config": "./dest/client/config.js",
     "./encoding": "./dest/encoding/index.js",
     "./types": "./dest/types/index.js"
   },
@@ -15,8 +17,8 @@
     "../package.common.json"
   ],
   "scripts": {
-    "build": "yarn clean && tsgo -b",
-    "build:dev": "tsgo -b --watch",
+    "build": "yarn clean && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },

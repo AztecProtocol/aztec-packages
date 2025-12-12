@@ -15,12 +15,12 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsgo -b",
+    "build": "yarn clean && ../scripts/tsc.sh",
     "start": "node --no-warnings ./dest/bin",
     "start:debug": "node --inspect=0.0.0.0:9221 --no-warnings ./dest/bin",
     "start:local-network": "ETHEREUM_HOSTS=http://0.0.0.0:8545/ && yarn start start --local-network",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "build:dev": "tsgo -b --watch",
+    "build:dev": "../scripts/tsc.sh --watch",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "run:example:token": "LOG_LEVEL='verbose' node ./dest/examples/token.js"
   },
@@ -54,6 +54,7 @@
     "@aztec/prover-client": "workspace:^",
     "@aztec/prover-node": "workspace:^",
     "@aztec/pxe": "workspace:^",
+    "@aztec/sequencer-client": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/test-wallet": "workspace:^",

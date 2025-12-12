@@ -12,9 +12,9 @@ namespace bb::avm2::simulation {
 /////////////////////////////
 // Base Context
 /////////////////////////////
-std::vector<MemoryValue> BaseContext::get_returndata(uint32_t rd_offset, uint32_t rd_copy_size)
+std::vector<MemoryValue> BaseContext::get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) const
 {
-    MemoryInterface& child_memory = get_child_context().get_memory();
+    const MemoryInterface& child_memory = get_child_context().get_memory();
     // The amount to rd copy is the minimum of the requested size (with the offset into rd) and the size of the
     // returndata We need to do it over a wider integer type to avoid overflow issues, but the result is guaranteed to
     // be a u32 since last_child_rd_size would have previously been constrained to be u32.
@@ -64,8 +64,8 @@ std::vector<MemoryValue> EnqueuedCallContext::get_calldata(uint32_t cd_offset, u
 
 ContextEvent EnqueuedCallContext::serialize_context_event()
 {
-    auto& call_stack = get_internal_call_stack_manager();
-    auto& side_effects = get_side_effect_tracker().get_side_effects();
+    const auto& call_stack = get_internal_call_stack_manager();
+    const auto& side_effects = get_side_effect_tracker().get_side_effects();
 
     return {
         .id = get_context_id(),
@@ -86,7 +86,7 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .gas_limit = get_gas_limit(),
         .parent_gas_used = get_parent_gas_used(),
         .parent_gas_limit = get_parent_gas_limit(),
-        // internal call stack
+        // Internal call stack
         .internal_call_id = call_stack.get_call_id(),
         .internal_call_return_id = call_stack.get_return_call_id(),
         .next_internal_call_id = call_stack.get_next_call_id(),
@@ -130,8 +130,8 @@ std::vector<MemoryValue> NestedContext::get_calldata(uint32_t cd_offset, uint32_
 
 ContextEvent NestedContext::serialize_context_event()
 {
-    auto& call_stack = get_internal_call_stack_manager();
-    auto& side_effects = get_side_effect_tracker().get_side_effects();
+    const auto& call_stack = get_internal_call_stack_manager();
+    const auto& side_effects = get_side_effect_tracker().get_side_effects();
 
     return {
         .id = get_context_id(),
@@ -152,7 +152,7 @@ ContextEvent NestedContext::serialize_context_event()
         .gas_limit = get_gas_limit(),
         .parent_gas_used = get_parent_gas_used(),
         .parent_gas_limit = get_parent_gas_limit(),
-        // internal call stack
+        // Internal call stack
         .internal_call_id = call_stack.get_call_id(),
         .internal_call_return_id = call_stack.get_return_call_id(),
         .next_internal_call_id = call_stack.get_next_call_id(),

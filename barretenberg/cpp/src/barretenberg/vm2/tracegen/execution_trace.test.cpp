@@ -50,8 +50,8 @@ ExecutionEvent create_add_event(uint32_t context_id, uint32_t parent_id, Transac
     const auto add_instr =
         InstructionBuilder(WireOpCode::ADD_8).operand<uint8_t>(0).operand<uint8_t>(0).operand<uint8_t>(0).build();
     auto ex_event = create_base_event(add_instr, context_id, parent_id, phase);
-    ex_event.inputs = { TaggedValue::from_tag(ValueTag::U16, 5), TaggedValue::from_tag(ValueTag::U16, 3) };
-    ex_event.output = { TaggedValue::from_tag(ValueTag::U16, 8) };
+    ex_event.inputs = { MemoryValue::from_tag(ValueTag::U16, 5), MemoryValue::from_tag(ValueTag::U16, 3) };
+    ex_event.output = { MemoryValue::from_tag(ValueTag::U16, 8) };
     return ex_event;
 }
 
@@ -96,8 +96,8 @@ ExecutionEvent create_error_event(uint32_t context_id,
         simulation::ExecutionError::INSTRUCTION_FETCHING; // This should trigger error behavior (like discard)
     ex_event.next_context_id = next_context_id;           // Return to parent
     // inputs and output are not used for error events
-    ex_event.inputs = { TaggedValue::from_tag(ValueTag::U16, 5), TaggedValue::from_tag(ValueTag::U16, 3) };
-    ex_event.output = { TaggedValue::from_tag(ValueTag::U16, 8) };
+    ex_event.inputs = { MemoryValue::from_tag(ValueTag::U16, 5), MemoryValue::from_tag(ValueTag::U16, 3) };
+    ex_event.output = { MemoryValue::from_tag(ValueTag::U16, 8) };
     return ex_event;
 }
 
@@ -117,8 +117,8 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
 
     ExecutionEvent ex_event = {
         .wire_instruction = instr,
-        .inputs = { TaggedValue::from_tag(ValueTag::U16, 5), TaggedValue::from_tag(ValueTag::U16, 3) },
-        .output = { TaggedValue::from_tag(ValueTag::U16, 8) },
+        .inputs = { MemoryValue::from_tag(ValueTag::U16, 5), MemoryValue::from_tag(ValueTag::U16, 3) },
+        .output = { MemoryValue::from_tag(ValueTag::U16, 8) },
         .addressing_event = { .instruction = instr },
     };
 
@@ -288,8 +288,8 @@ TEST(ExecutionTraceGenTest, Gas)
 
     ExecutionEvent ex_event = {
         .wire_instruction = instr,
-        .inputs = { TaggedValue::from_tag(ValueTag::U16, 5), TaggedValue::from_tag(ValueTag::U16, 3) },
-        .output = { TaggedValue::from_tag(ValueTag::U16, 8) },
+        .inputs = { MemoryValue::from_tag(ValueTag::U16, 5), MemoryValue::from_tag(ValueTag::U16, 3) },
+        .output = { MemoryValue::from_tag(ValueTag::U16, 8) },
         .addressing_event = { .instruction = instr },
     };
 
@@ -391,8 +391,8 @@ TEST(ExecutionTraceGenTest, DiscardNestedFailContext)
                     AllOf(ROW_FIELD_EQ(execution_discard, 1),
                           ROW_FIELD_EQ(execution_dying_context_id, 2),
                           ROW_FIELD_EQ(execution_is_dying_context, 1),
-                          ROW_FIELD_EQ(execution_sel_error, 1),         // failure
-                          ROW_FIELD_EQ(execution_rollback_context, 1)), // Has parent, so rollback
+                          ROW_FIELD_EQ(execution_sel_error, 1),               // failure
+                          ROW_FIELD_EQ(execution_nested_revert_or_error, 1)), // Has parent, so rollback
                     // Row 5: Parent continues - discard should be reset to 0
                     AllOf(ROW_FIELD_EQ(execution_discard, 0),
                           ROW_FIELD_EQ(execution_dying_context_id, 0),
@@ -446,7 +446,7 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToTeardownError)
                                   ROW_FIELD_EQ(execution_dying_context_id, 2),
                                   ROW_FIELD_EQ(execution_is_dying_context, 1),
                                   ROW_FIELD_EQ(execution_sel_error, 1),
-                                  ROW_FIELD_EQ(execution_rollback_context, 0)))); // No parent, so no rollback
+                                  ROW_FIELD_EQ(execution_nested_revert_or_error, 0)))); // No parent, so no rollback
 }
 
 TEST(ExecutionTraceGenTest, DiscardAppLogicDueToSecondEnqueuedCallError)
@@ -493,7 +493,7 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToSecondEnqueuedCallError)
                                   ROW_FIELD_EQ(execution_dying_context_id, 2),
                                   ROW_FIELD_EQ(execution_is_dying_context, 1),
                                   ROW_FIELD_EQ(execution_sel_error, 1),
-                                  ROW_FIELD_EQ(execution_rollback_context, 0)))); // No parent, so no rollback
+                                  ROW_FIELD_EQ(execution_nested_revert_or_error, 0)))); // No parent, so no rollback
 }
 
 TEST(ExecutionTraceGenTest, InternalCall)
@@ -566,6 +566,7 @@ TEST(ExecutionTraceGenTest, InternalRetError)
                     // Second row is the internal call
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
                           ROW_FIELD_EQ(execution_sel_execute_internal_return, 1),
+                          ROW_FIELD_EQ(execution_sel_read_unwind_call_stack, 0),
                           ROW_FIELD_EQ(execution_next_internal_call_id, 2),
                           ROW_FIELD_EQ(execution_internal_call_id, 1),
                           ROW_FIELD_EQ(execution_internal_call_return_id, 0),
@@ -789,7 +790,7 @@ TEST(ExecutionTraceGenTest, SuccessCopy)
     // clang-format off
     ExecutionEvent ex_event = {
         .wire_instruction = instr,
-        .output = { TaggedValue::from_tag(ValueTag::U1, 1) }, // Success copy outputs true
+        .output = { MemoryValue::from_tag(ValueTag::U1, 1) }, // Success copy outputs true
         .addressing_event = {
             .instruction = instr,
             .resolution_info = { { .resolved_operand = MemoryValue::from<uint8_t>(45) } }
@@ -823,7 +824,7 @@ TEST(ExecutionTraceGenTest, RdSize)
     // clang-format off
     ExecutionEvent ex_event = {
         .wire_instruction = instr,
-        .output = { TaggedValue::from_tag(ValueTag::U32, 100) }, // RdSize output
+        .output = { MemoryValue::from_tag(ValueTag::U32, 100) }, // RdSize output
         .addressing_event = {
             .instruction = instr,
             .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(1234) } }
@@ -1114,8 +1115,8 @@ TEST(ExecutionTraceGenTest, NullifierExists)
                            .build();
     ExecutionEvent ex_event = {
         .wire_instruction = instr,
-        .inputs = { TaggedValue::from_tag(ValueTag::FF, nullifier), TaggedValue::from_tag(ValueTag::FF, address) },
-        .output = { TaggedValue::from_tag(ValueTag::U1, exists ? 1 : 0) }, // exists = true
+        .inputs = { MemoryValue::from_tag(ValueTag::FF, nullifier), MemoryValue::from_tag(ValueTag::FF, address) },
+        .output = { MemoryValue::from_tag(ValueTag::U1, exists ? 1 : 0) }, // exists = true
         .addressing_event = { .instruction = instr,
                               .resolution_info = { { .resolved_operand = MemoryValue::from<FF>(nullifier) },
                                                    { .resolved_operand = MemoryValue::from<FF>(address) },
@@ -1156,7 +1157,7 @@ TEST(ExecutionTraceGenTest, EmitNullifier)
 
     ExecutionEvent ex_event = {
         .wire_instruction = instr,
-        .inputs = { TaggedValue::from_tag(ValueTag::FF, nullifier) },
+        .inputs = { MemoryValue::from_tag(ValueTag::FF, nullifier) },
         .addressing_event = { .instruction = instr,
                               .resolution_info = { { .resolved_operand = MemoryValue::from<FF>(nullifier) } } },
         .before_context_event = {
@@ -1202,8 +1203,8 @@ TEST(ExecutionTraceGenTest, SendL2ToL1Msg)
                            .build();
 
     ExecutionEvent ex_event = { .wire_instruction = instr,
-                                .inputs = { TaggedValue::from_tag(ValueTag::FF, recipient),
-                                            TaggedValue::from_tag(ValueTag::FF, content) },
+                                .inputs = { MemoryValue::from_tag(ValueTag::FF, recipient),
+                                            MemoryValue::from_tag(ValueTag::FF, content) },
                                 .addressing_event = { .instruction = instr,
                                                       .resolution_info = { { .resolved_operand =
                                                                                  MemoryValue::from<FF>(recipient) },

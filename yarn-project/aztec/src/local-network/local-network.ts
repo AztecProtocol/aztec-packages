@@ -4,17 +4,15 @@ import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import {
-  NULL_KEY,
-  createEthereumChain,
-  deployL1Contracts,
-  deployMulticall3,
-  getL1ContractsConfigEnvVars,
-  waitForPublicClient,
-} from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { waitForPublicClient } from '@aztec/ethereum/client';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { NULL_KEY } from '@aztec/ethereum/constants';
+import { deployMulticall3 } from '@aztec/ethereum/contracts';
+import { deployL1Contracts } from '@aztec/ethereum/deploy-l1-contracts';
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -183,7 +181,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     await watcher.start();
   }
 
-  const telemetry = initTelemetryClient(getTelemetryClientConfig());
+  const telemetry = await initTelemetryClient(getTelemetryClientConfig());
   // Create a local blob sink client inside the local network, no http connectivity
   const blobSinkClient = createBlobSinkClient();
   const node = await createAztecNode(

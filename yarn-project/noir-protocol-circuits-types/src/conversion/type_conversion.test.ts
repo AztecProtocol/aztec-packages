@@ -1,5 +1,6 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, Point } from '@aztec/foundation/fields';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { makeBlockHeader } from '@aztec/stdlib/testing';

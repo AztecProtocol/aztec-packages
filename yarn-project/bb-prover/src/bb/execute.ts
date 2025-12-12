@@ -1,4 +1,4 @@
-import { sha256 } from '@aztec/foundation/crypto';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';

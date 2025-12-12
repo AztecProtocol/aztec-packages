@@ -1,6 +1,7 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { EventSelector, type FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
@@ -92,7 +93,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async getNotes(
     contractAddress: AztecAddress,
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     status: NoteStatus,
     scopes?: AztecAddress[],
@@ -679,6 +680,20 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
+    const txEffect = await this.aztecNode.getTxEffect(txHash);
+    if (!txEffect) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash}`);
+    }
+
+    if (txEffect.l2BlockNumber > syncedBlockNumber) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
+    }
+
+    const noteInTx = txEffect.data.noteHashes.some(nh => nh.equals(uniqueNoteHash));
+    if (!noteInTx) {
+      throw new Error(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}`);
+    }
+
     // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
     // note existence in said tree. We concurrently also check if the note's nullifier exists, performing all node
     // queries in a single round-trip.
@@ -793,7 +808,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     content: Fr[],
     eventCommitment: Fr,
     txHash: TxHash,
-    recipient: AztecAddress,
+    scope: AztecAddress,
   ): Promise<void> {
     // While using 'latest' block number would be fine for private events since they cannot be accessed from Aztec.nr
     // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
@@ -813,7 +828,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
     }
 
-    const eventInTx = txEffect.data.nullifiers.some(nullifier => nullifier.equals(siloedEventCommitment));
+    const eventInTx = txEffect.data.nullifiers.some(n => n.equals(siloedEventCommitment));
     if (!eventInTx) {
       throw new Error(
         `Event commitment ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present in tx ${txHash}`,
@@ -831,14 +846,16 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
 
     return this.privateEventDataProvider.storePrivateEventLog(
-      contractAddress,
-      recipient,
       selector,
       content,
-      txHash,
       Number(nullifierIndex.data), // Index of the event commitment in the nullifier tree
-      nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
-      nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
+      {
+        contractAddress,
+        scope,
+        txHash,
+        l2BlockNumber: nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
+        l2BlockHash: nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
+      },
     );
   }
 

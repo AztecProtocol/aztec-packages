@@ -340,16 +340,16 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     // Run Shplemini
     std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                                    mock_claims.claim_batcher,
-                                                                                    mle_opening_point,
-                                                                                    this->vk().get_g1_identity(),
-                                                                                    verifier_transcript,
-                                                                                    {},
-                                                                                    true,
-                                                                                    libra_commitments,
-                                                                                    libra_evaluation)
-                                         .batch_opening_claim;
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                                              mock_claims.claim_batcher,
+                                                                              mle_opening_point,
+                                                                              this->vk().get_g1_identity(),
+                                                                              verifier_transcript,
+                                                                              {},
+                                                                              true,
+                                                                              libra_commitments,
+                                                                              libra_evaluation)
+                                   .batch_opening_claim;
     // Verify claim using KZG or IPA
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
         auto result =
@@ -357,7 +357,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
         EXPECT_EQ(result, true);
     } else {
         const auto pairing_points =
-            KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
         // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
         EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
     }
@@ -446,18 +446,18 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     // Run Shplemini
     std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                                    mock_claims.claim_batcher,
-                                                                                    challenge,
-                                                                                    this->vk().get_g1_identity(),
-                                                                                    verifier_transcript,
-                                                                                    {},
-                                                                                    true,
-                                                                                    libra_commitments,
-                                                                                    libra_evaluation,
-                                                                                    mock_claims.sumcheck_commitments,
-                                                                                    mock_claims.sumcheck_evaluations)
-                                         .batch_opening_claim;
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                                              mock_claims.claim_batcher,
+                                                                              challenge,
+                                                                              this->vk().get_g1_identity(),
+                                                                              verifier_transcript,
+                                                                              {},
+                                                                              true,
+                                                                              libra_commitments,
+                                                                              libra_evaluation,
+                                                                              mock_claims.sumcheck_commitments,
+                                                                              mock_claims.sumcheck_evaluations)
+                                   .batch_opening_claim;
     // Verify claim using KZG or IPA
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
         auto result =
@@ -465,7 +465,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
         EXPECT_EQ(result, true);
     } else {
         const auto pairing_points =
-            KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
         // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
         EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
     }
@@ -529,7 +529,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
 
     std::vector<Fr> padding_indicator_array(small_log_n, Fr{ 1 });
 
-    const auto batch_opening_claim =
+    auto batch_opening_claim =
         ShpleminiVerifier::compute_batch_opening_claim(
             padding_indicator_array, mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript)
             .batch_opening_claim;
@@ -541,7 +541,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
         EXPECT_EQ(result, true);
     } else {
         const auto pairing_points =
-            KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
         EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
     }
 }
@@ -595,7 +595,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
 
     std::vector<Fr> padding_indicator_array(small_log_n, Fr{ 1 });
 
-    const auto batch_opening_claim =
+    auto batch_opening_claim =
         ShpleminiVerifier::compute_batch_opening_claim(
             padding_indicator_array, mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript)
             .batch_opening_claim;
@@ -608,7 +608,7 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
             std::runtime_error);
     } else {
         const auto pairing_points =
-            KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
         EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), false);
     }
 }

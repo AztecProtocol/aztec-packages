@@ -1,5 +1,5 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -225,7 +225,8 @@ export class NoteDataProvider {
    *
    * @param filter - Filter criteria including contractAddress (required), and optional
    *                 owner, storageSlot, status, scopes, and siloedNullifier.
-   * @returns Promise resolving to array of NoteDao objects matching the filter
+   * @returns Filtered and deduplicated notes (a note might be present in multiple scopes - we ensure it is only
+   * returned once if this is the case)
    * @throws If filtering by an empty scopes array. Scopes have to be set to undefined or to a non-empty array.
    */
   async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
@@ -323,7 +324,15 @@ export class NoteDataProvider {
       }
     }
 
-    return result;
+    // A note might be present in multiple scopes - we ensure it is only returned once
+    const deduplicated: NoteDao[] = [];
+    for (const note of result) {
+      if (!deduplicated.some(existing => existing.equals(note))) {
+        deduplicated.push(note);
+      }
+    }
+
+    return deduplicated;
   }
 
   /**

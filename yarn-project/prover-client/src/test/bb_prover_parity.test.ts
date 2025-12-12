@@ -7,8 +7,8 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { parseBooleanEnv } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';

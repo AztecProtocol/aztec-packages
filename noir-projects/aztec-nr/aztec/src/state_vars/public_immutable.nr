@@ -1,6 +1,6 @@
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
-    state_vars::storage::HasStorageSlot,
+    state_vars::state_variable::StateVariable,
     utils::with_hash::WithHash,
 };
 use protocol_types::{
@@ -69,42 +69,21 @@ pub struct PublicImmutable<T, Context> {
 
 /// `PublicImmutable` stores both the packed value (using M fields) and its hash (1 field), requiring M + 1 total
 /// fields.
-impl<T, Context, let M: u32> HasStorageSlot<M + 1> for PublicImmutable<T, Context>
+impl<T, Context, let M: u32> StateVariable<M + 1, Context> for PublicImmutable<T, Context>
 where
     T: Packable<N = M>,
 {
+    fn new(context: Context, storage_slot: Field) -> Self {
+        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
+        PublicImmutable { context, storage_slot }
+    }
+
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }
 }
 
 impl<T, Context> PublicImmutable<T, Context> {
-    /// Initializes a new PublicImmutable state variable.
-    ///
-    /// This function is usually automatically called within the #[storage] macro.
-    /// You typically don't need to call this directly when writing smart contracts.
-    ///
-    /// # Arguments
-    ///
-    /// * `context` - One of `PublicContext`/`PrivateContext`/`UtilityContext`. The
-    ///               Context determines which methods of this struct will be made
-    ///               available to the calling smart contract function.
-    /// * `storage_slot` - A unique identifier for this state variable within the
-    ///                    contract. Usually, the #[storage] macro will determine an
-    ///                    appropriate storage_slot automatically. A smart contract
-    ///                    dev shouldn't have to worry about this, as it's managed
-    ///                    behind the scenes.
-    ///
-    /// docs:start:public_immutable_struct_new
-    pub fn new(
-        // Note: Passing the contexts to new(...) just to have an interface compatible with a Map.
-        context: Context,
-        storage_slot: Field,
-    ) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        PublicImmutable { context, storage_slot }
-    }
-
     pub fn compute_initialization_nullifier(self) -> Field {
         poseidon2_hash_with_separator(
             [self.storage_slot],

@@ -149,7 +149,7 @@ bool TranslatorVerifier::verify_proof(
         .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_interleaved(),
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
-    const auto [opening_claim, consistency_checked] =
+    auto [opening_claim, consistency_checked] =
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
@@ -159,7 +159,7 @@ bool TranslatorVerifier::verify_proof(
                                                Flavor::HasZK,
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
-    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 
     VerifierCommitmentKey pcs_vkey{};
     auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);

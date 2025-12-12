@@ -11,12 +11,12 @@ import {
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
-import { L2Block } from '@aztec/stdlib/block';
+import { L2BlockNew } from '@aztec/stdlib/block';
 import { DatabaseVersion, DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type { MerkleTreeLeafType, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -62,8 +62,103 @@ describe('NativeWorldState', () => {
     }
   });
 
+  describe('Padding', () => {
+    let ws: NativeWorldStateService;
+    let fork: MerkleTreeWriteOperations;
+
+    beforeEach(async () => {
+      ws = await NativeWorldStateService.tmp();
+      fork = await ws.fork();
+    });
+
+    afterEach(async () => {
+      await fork.close();
+      await ws.close();
+    });
+
+    it('pads messages, note hashes, nullifiers correctly for first block', async () => {
+      const isFirstBlock = true;
+      const txsPerBlock = 2;
+      const maxEffects = 1;
+      const numMessages = 2;
+      const { block, messages } = await mockBlock(
+        BlockNumber(1),
+        txsPerBlock,
+        fork,
+        maxEffects,
+        numMessages,
+        isFirstBlock,
+      );
+
+      const status = await ws.handleL2BlockAndMessages(block, messages);
+
+      expect(status.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+
+      const expectedNoteHashCount = txsPerBlock * MAX_NOTE_HASHES_PER_TX;
+      expect(status.meta.noteHashTreeMeta.size).toBe(BigInt(expectedNoteHashCount));
+
+      const expectedNullifierCount = txsPerBlock * MAX_NULLIFIERS_PER_TX;
+      expect(status.meta.nullifierTreeMeta.size).toBe(BigInt(INITIAL_NULLIFIER_TREE_SIZE + expectedNullifierCount));
+
+      // Public data writes are never padded.
+      const expectedPublicDataCount = txsPerBlock * maxEffects;
+      expect(status.meta.publicDataTreeMeta.size).toBe(BigInt(INITIAL_PUBLIC_DATA_TREE_SIZE + expectedPublicDataCount));
+    });
+
+    it('pads everything except for l1 to l2 messages for non-first block', async () => {
+      const isFirstBlock = false;
+      const txsPerBlock = 2;
+      const maxEffects = 1;
+      const numMessages = 0;
+      const { block, messages } = await mockBlock(
+        BlockNumber(1),
+        txsPerBlock,
+        fork,
+        maxEffects,
+        numMessages,
+        isFirstBlock,
+      );
+
+      const status = await ws.handleL2BlockAndMessages(block, messages);
+
+      // L1 to L2 messages should NOT grow for non-first blocks
+      expect(status.meta.messageTreeMeta.size).toBe(0n);
+
+      // Note hashes should be padded.
+      const expectedNoteHashCount = txsPerBlock * MAX_NOTE_HASHES_PER_TX;
+      expect(status.meta.noteHashTreeMeta.size).toBe(BigInt(expectedNoteHashCount));
+
+      // Nullifiers should be padded.
+      const expectedNullifierCount = txsPerBlock * MAX_NULLIFIERS_PER_TX;
+      expect(status.meta.nullifierTreeMeta.size).toBe(BigInt(INITIAL_NULLIFIER_TREE_SIZE + expectedNullifierCount));
+
+      // Public data writes are never padded.
+      const expectedPublicDataCount = txsPerBlock * maxEffects;
+      expect(status.meta.publicDataTreeMeta.size).toBe(BigInt(INITIAL_PUBLIC_DATA_TREE_SIZE + expectedPublicDataCount));
+    });
+
+    it('pads empty messages array for first block', async () => {
+      const isFirstBlock = true;
+      const numMessages = 0;
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork, 1, numMessages, isFirstBlock);
+
+      const status = await ws.handleL2BlockAndMessages(block, messages);
+      expect(status.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+    });
+
+    it('throws error if messages are provided for non-first block', async () => {
+      const isFirstBlock = false;
+      const numMessages = 1;
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork, 1, numMessages, isFirstBlock);
+
+      await expect(ws.handleL2BlockAndMessages(block, messages)).rejects.toThrow(
+        'L1 to L2 messages must be empty for non-first blocks',
+      );
+    });
+  });
+
   describe('Persistence', () => {
-    let block: L2Block;
+    let block: L2BlockNew;
     let messages: Fr[];
     let noteHash: Fr;
 
@@ -881,7 +976,7 @@ describe('NativeWorldState', () => {
       // Now build an invalid block, see that it is rejected and that we can then insert the correct block
       {
         const { block: block, messages } = await mockBlock(BlockNumber(5), 1, fork);
-        const invalidBlock = L2Block.fromBuffer(block.toBuffer());
+        const invalidBlock = L2BlockNew.fromBuffer(block.toBuffer());
         invalidBlock.header.state.partial.nullifierTree.root = Fr.random();
 
         await expect(ws.handleL2BlockAndMessages(invalidBlock, messages)).rejects.toThrow(
@@ -900,7 +995,7 @@ describe('NativeWorldState', () => {
       // Now we push another invalid block, see that it is rejected and check we can unwind to the last proven block
       {
         const { block: block, messages } = await mockBlock(BlockNumber(6), 1, fork);
-        const invalidBlock = L2Block.fromBuffer(block.toBuffer());
+        const invalidBlock = L2BlockNew.fromBuffer(block.toBuffer());
         invalidBlock.header.state.partial.nullifierTree.root = Fr.random();
 
         await expect(ws.handleL2BlockAndMessages(invalidBlock, messages)).rejects.toThrow(
@@ -917,7 +1012,7 @@ describe('NativeWorldState', () => {
   });
 
   describe('Finding leaves', () => {
-    let block: L2Block;
+    let block: L2BlockNew;
     let messages: Fr[];
 
     it('retrieves leaf indices', async () => {
@@ -979,7 +1074,7 @@ describe('NativeWorldState', () => {
   });
 
   describe('Finding sibling paths', () => {
-    let block: L2Block;
+    let block: L2BlockNew;
     let messages: Fr[];
 
     it('retrieves leaf sibling paths', async () => {
@@ -1037,7 +1132,7 @@ describe('NativeWorldState', () => {
   });
 
   describe('Block numbers for indices', () => {
-    let block: L2Block;
+    let block: L2BlockNew;
     let messages: Fr[];
     let noteHashes: number;
     let nullifiers: number;
@@ -1098,7 +1193,7 @@ describe('NativeWorldState', () => {
   });
 
   describe('Status reporting', () => {
-    let block: L2Block;
+    let block: L2BlockNew;
     let messages: Fr[];
 
     beforeAll(async () => {

@@ -149,7 +149,6 @@ P2P_GOSSIPSUB_DHI=${P2P_GOSSIPSUB_DHI:-12}
 P2P_DROP_TX=${P2P_DROP_TX:-false}
 P2P_DROP_TX_CHANCE=${P2P_DROP_TX_CHANCE:-0}
 
-
 # Compute validator addresses (skip if no validators)
 if [[ $VALIDATOR_REPLICAS -gt 0 ]]; then
   VALIDATOR_ADDRESSES=$(echo "$VALIDATOR_INDICES" | tr ',' '\n' | xargs -I{} cast wallet address --mnemonic "$LABS_INFRA_MNEMONIC" --mnemonic-index {} | tr '\n' ',' | sed 's/,$//')
@@ -368,6 +367,15 @@ AZTEC_INFRA_START=$(date +%s)
 DEPLOY_AZTEC_INFRA_DIR="${SCRIPT_DIR}/../terraform/deploy-aztec-infra"
 "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_AZTEC_INFRA_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-aztec-infra/${SALT}"
 
+# Gate NodePort based on cluster (true for kind, false for GKE)
+if [[ "${CLUSTER}" == "kind" ]]; then
+  P2P_NODEPORT_ENABLED=true
+  P2P_PUBLIC_IP=false
+else
+  P2P_NODEPORT_ENABLED=false
+  P2P_PUBLIC_IP=true
+fi
+
 cat > "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" << EOF
 K8S_CLUSTER_CONTEXT = "${K8S_CLUSTER_CONTEXT}"
 RELEASE_PREFIX = "${NAMESPACE}"
@@ -472,6 +480,12 @@ LOG_LEVEL = "${LOG_LEVEL}"
 FISHERMAN_LOG_LEVEL = "${FISHERMAN_LOG_LEVEL}"
 
 WS_NUM_HISTORIC_BLOCKS = ${WS_NUM_HISTORIC_BLOCKS:-null}
+
+P2P_PUBLIC_IP = ${P2P_PUBLIC_IP}
+P2P_NODEPORT_ENABLED = ${P2P_NODEPORT_ENABLED}
+
+PROVER_AGENT_PROOF_TYPES = ${PROVER_AGENT_PROOF_TYPES:-[]}
+DEBUG_FORCE_TX_PROOF_VERIFICATION = ${DEBUG_FORCE_TX_PROOF_VERIFICATION:-false}
 EOF
 
 tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}"

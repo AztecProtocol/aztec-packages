@@ -10,10 +10,7 @@ namespace bb::avm2 {
 
 class AvmSimulationHelper {
   public:
-    // Full simulation with event collection.
-    simulation::EventsContainer simulate_for_witgen(const ExecutionHints& hints);
-
-    // Fast simulation without event collection.
+    // Fast simulation without event collection (used in block building, TXE, etc).
     TxSimulationResult simulate_fast_with_existing_ws(simulation::ContractDBInterface& raw_contract_db,
                                                       const world_state::WorldStateRevision& world_state_revision,
                                                       world_state::WorldState& ws,
@@ -22,16 +19,37 @@ class AvmSimulationHelper {
                                                       const GlobalVariables& global_variables,
                                                       const ProtocolContracts& protocol_contracts);
 
+    // Simulation to collect hints (used by the prover node).
+    TxSimulationResult simulate_for_hint_collection(simulation::ContractDBInterface& raw_contract_db,
+                                                    const world_state::WorldStateRevision& world_state_revision,
+                                                    world_state::WorldState& ws,
+                                                    const PublicSimulatorConfig& config,
+                                                    const Tx& tx,
+                                                    const GlobalVariables& global_variables,
+                                                    const ProtocolContracts& protocol_contracts);
+
+    // Simulation with event collection (used in witgen and proving).
+    simulation::EventsContainer simulate_for_witgen(const ExecutionHints& hints);
+
+    // An extra entry point that is not used in production.
     TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints);
 
   protected:
-    // Helper called by simulate_fast* functions.
-    TxSimulationResult simulate_fast(simulation::ContractDBInterface& raw_contract_db,
-                                     simulation::LowLevelMerkleDBInterface& raw_merkle_db,
-                                     const PublicSimulatorConfig& config,
-                                     const Tx& tx,
-                                     const GlobalVariables& global_variables,
-                                     const ProtocolContracts& protocol_contracts);
+    TxSimulationResult simulate_fast_internal(simulation::ContractDBInterface& raw_contract_db,
+                                              simulation::LowLevelMerkleDBInterface& raw_merkle_db,
+                                              const PublicSimulatorConfig& config,
+                                              const Tx& tx,
+                                              const GlobalVariables& global_variables,
+                                              const ProtocolContracts& protocol_contracts);
+
+    template <template <typename> class DefaultEventEmitter, template <typename> class DefaultDeduplicatingEventEmitter>
+    std::tuple<simulation::EventsContainer, TxSimulationResult> simulate_for_witgen_internal(
+        simulation::ContractDBInterface& raw_contract_db,
+        simulation::LowLevelMerkleDBInterface& raw_merkle_db,
+        const PublicSimulatorConfig& config,
+        const Tx& tx,
+        const GlobalVariables& global_variables,
+        const ProtocolContracts& protocol_contracts);
 };
 
 } // namespace bb::avm2

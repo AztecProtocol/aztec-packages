@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/interfaces/index.js",
+    "./interfaces": "./dest/interfaces/index.js",
     "./lmdb": "./dest/lmdb/index.js",
     "./lmdb-v2": "./dest/lmdb-v2/index.js",
     "./indexeddb": "./dest/indexeddb/index.js",
@@ -11,8 +12,8 @@
     "./config": "./dest/config.js"
   },
   "scripts": {
-    "build": "yarn clean && tsgo -b",
-    "build:dev": "tsgo -b --watch",
+    "build": "yarn clean && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
     "test:browser": "wtr --config ./web-test-runner.config.mjs",

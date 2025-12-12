@@ -7,7 +7,8 @@ set -euo pipefail
 # 1. Extracts all 'references' fields from documentation markdown frontmatter
 # 2. Checks if any referenced files were changed in the current PR
 # 3. Requests AztecProtocol/devrel team as reviewers if files changed and PR is not draft
-# 4. Skips if devrel team is already requested as a reviewer
+# 4. Adds a comprehensive PR comment showing which changed files are referenced by which docs
+# 5. Skips reviewer request if devrel team is already requested or a member has approved
 #
 # Usage: check_doc_references.sh [pr_number] [docs_dir]
 #
@@ -116,9 +117,17 @@ fi
 # Extract all reference file paths from markdown frontmatter
 # Expected format: references: ["path/from/repo/root/file.ts", "another/file.ts"]
 # Paths should be absolute from repository root (not relative with ../)
-echo "Extracting references from markdown files in $DOCS_DIR..."
-REFERENCE_FILES=$(
-  find "$DOCS_DIR" -type f -name "*.md" -exec awk '
+# Also create a mapping of source files to documentation files
+# Note: We only scan docs/docs/ (current docs), not versioned_docs/
+# Versioned docs are historical snapshots and should not be modified when references change
+echo "Extracting references from markdown files in $DOCS_DIR/docs..."
+
+# Create a temporary file to store the mapping
+MAPPING_FILE=$(mktemp)
+trap "rm -f $MAPPING_FILE" EXIT
+
+find "$DOCS_DIR/docs" -type f -name "*.md" -print0 | while IFS= read -r -d '' doc_file; do
+  awk -v doc="$doc_file" '
     BEGIN { in_frontmatter = 0 }
     /^---$/ {
       if (NR == 1) {
@@ -136,13 +145,32 @@ REFERENCE_FILES=$(
         split(refs, arr, /,[ ]*/)
         for (i in arr) {
           if (arr[i] != "") {
-            print arr[i]
+            # Output format: source_file|doc_file
+            print arr[i] "|" doc
           }
         }
       }
     }
-  ' {} \; | sort -u
-)
+  ' "$doc_file"
+done > "$MAPPING_FILE"
+# Validate all referenced files exist
+echo "Validating referenced files exist..."
+MISSING_FILES=""
+while IFS='|' read -r ref_file doc_file; do
+  if [[ ! -f "$ref_file" ]]; then
+    MISSING_FILES="${MISSING_FILES}  - ${ref_file} (referenced in ${doc_file})\n"
+  fi
+done < "$MAPPING_FILE"
+
+if [[ -n "$MISSING_FILES" ]]; then
+  echo ""
+  echo "ERROR: The following referenced files do not exist:"
+  echo -e "$MISSING_FILES"
+  echo "Please update the 'references' frontmatter in the affected documentation files."
+  exit 1
+fi
+# Extract unique referenced files
+REFERENCE_FILES=$(cut -d'|' -f1 "$MAPPING_FILE" | sort -u)
 
 if [[ -z "$REFERENCE_FILES" ]]; then
   echo "No reference files found in documentation frontmatter."
@@ -195,12 +223,26 @@ if [[ -z "$CHANGED_FILES" ]]; then
 fi
 echo "Found $(echo "$CHANGED_FILES" | wc -l) changed file(s) in PR."
 
-# Check if any referenced files were changed
+# Check if any referenced files were changed and build mapping
 # Reference paths are absolute from repo root, so we can compare directly
 CHANGED_REFERENCES=""
+declare -A FILE_TO_DOCS_MAP
+
 while IFS= read -r ref_file; do
   if echo "$CHANGED_FILES" | grep -qF "$ref_file"; then
     CHANGED_REFERENCES="${CHANGED_REFERENCES}${ref_file}\n"
+
+    # Find all docs that reference this changed file
+    while IFS='|' read -r src_file doc_file; do
+      if [[ "$src_file" == "$ref_file" ]]; then
+        # Store in associative array (append to existing value if key exists)
+        if [[ -n "${FILE_TO_DOCS_MAP[$ref_file]}" ]]; then
+          FILE_TO_DOCS_MAP[$ref_file]="${FILE_TO_DOCS_MAP[$ref_file]}|${doc_file}"
+        else
+          FILE_TO_DOCS_MAP[$ref_file]="$doc_file"
+        fi
+      fi
+    done < "$MAPPING_FILE"
   fi
 done <<< "$REFERENCE_FILES"
 
@@ -213,26 +255,95 @@ echo ""
 echo "The following referenced files were changed in this PR:"
 echo -e "$CHANGED_REFERENCES"
 echo ""
+
+# Build comprehensive PR comment with file-to-docs mapping
+COMMENT_BODY="📚 **Documentation References Updated**
+
+The following source files that changed in this PR are referenced by documentation:
+
+### Changed Files → Documentation
+"
+
+# Get unique doc files count
+ALL_DOCS=""
+CHANGED_FILE_COUNT=0
+
+# Sort the keys for consistent output
+SORTED_KEYS=$(for key in "${!FILE_TO_DOCS_MAP[@]}"; do echo "$key"; done | sort)
+
+while IFS= read -r changed_file; do
+  [[ -z "$changed_file" ]] && continue
+  CHANGED_FILE_COUNT=$((CHANGED_FILE_COUNT + 1))
+
+  COMMENT_BODY="${COMMENT_BODY}
+**\`${changed_file}\`**"
+
+  # Get docs for this file and split by pipe
+  docs="${FILE_TO_DOCS_MAP[$changed_file]}"
+
+  # Convert pipe-separated list to array and iterate
+  IFS='|' read -ra DOC_ARRAY <<< "$docs"
+  for doc_file in "${DOC_ARRAY[@]}"; do
+    COMMENT_BODY="${COMMENT_BODY}
+- 📄 \`${doc_file}\`"
+
+    # Track all unique docs
+    if ! echo "$ALL_DOCS" | grep -qF "$doc_file"; then
+      ALL_DOCS="${ALL_DOCS}${doc_file}\n"
+    fi
+  done
+done <<< "$SORTED_KEYS"
+
+# Count unique docs
+DOC_FILE_COUNT=$(echo -e "$ALL_DOCS" | grep -v '^$' | sort -u | wc -l)
+
+COMMENT_BODY="${COMMENT_BODY}
+
+---
+**Summary:** ${CHANGED_FILE_COUNT} changed file(s) referenced by ${DOC_FILE_COUNT} documentation file(s)
+
+@AztecProtocol/devrel team has been requested for review."
+
 echo "Requesting AztecProtocol/devrel team as a reviewer for PR #$PR_NUMBER..."
 
 # Request AztecProtocol/devrel team as a reviewer
+REVIEWER_REQUESTED=false
 if gh pr edit "$PR_NUMBER" --add-reviewer AztecProtocol/devrel 2>/dev/null; then
   echo "✓ Successfully requested AztecProtocol/devrel team as a reviewer."
+  REVIEWER_REQUESTED=true
 else
   echo "⚠ Failed to request AztecProtocol/devrel team as a reviewer. They may need to be added manually."
 
-  # Add a PR comment to notify about the failure
-  COMMENT_BODY="⚠️ **Documentation Reference Check**
+  # Update comment to reflect failure
+  COMMENT_BODY="⚠️ ${COMMENT_BODY}
 
-Failed to automatically request @AztecProtocol/devrel as reviewers.
-
-**Referenced files changed:**
-$(echo -e "$CHANGED_REFERENCES" | sed 's/^/- /')
-
-Please manually request @AztecProtocol/devrel as reviewers for this PR."
-
-  gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY" 2>/dev/null || echo "Note: Could not add PR comment."
-
-  # Don't block the build
-  exit 0
+**Note:** Failed to automatically add @AztecProtocol/devrel as reviewers. Please add them manually."
 fi
+
+# Check if we've already posted a documentation reference comment
+echo "Checking for existing documentation reference comment..."
+EXISTING_COMMENT=$(gh pr view "$PR_NUMBER" --json comments --jq '.comments[] | select(.body | startswith("📚 **Documentation References Updated**")) | .id' 2>/dev/null | head -n 1 || echo "")
+
+if [[ -n "$EXISTING_COMMENT" ]]; then
+  echo "Found existing documentation reference comment (ID: $EXISTING_COMMENT). Updating it..."
+  if gh api "repos/{owner}/{repo}/issues/comments/$EXISTING_COMMENT" -X PATCH -f body="$COMMENT_BODY" 2>/dev/null; then
+    echo "✓ Successfully updated existing documentation reference comment."
+  else
+    echo "⚠ Failed to update existing comment. Will try to add new comment instead."
+    if gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY" 2>/dev/null; then
+      echo "✓ Successfully added new documentation reference comment."
+    else
+      echo "⚠ Failed to add PR comment."
+    fi
+  fi
+else
+  echo "No existing documentation reference comment found. Adding new comment..."
+  if gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY" 2>/dev/null; then
+    echo "✓ Successfully added documentation reference comment."
+  else
+    echo "⚠ Failed to add PR comment."
+  fi
+fi
+
+# Exit successfully even if comment fails (don't block builds)
+exit 0

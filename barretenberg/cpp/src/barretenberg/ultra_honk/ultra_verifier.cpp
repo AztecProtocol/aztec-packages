@@ -80,17 +80,18 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
 
-    const auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                                                         claim_batcher,
-                                                                         sumcheck_output.challenge,
-                                                                         Commitment::one(),
-                                                                         transcript,
-                                                                         Flavor::REPEATED_COMMITMENTS,
-                                                                         Flavor::HasZK,
-                                                                         libra_commitments,
-                                                                         sumcheck_output.claimed_libra_evaluation);
+    auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                                                   claim_batcher,
+                                                                   sumcheck_output.challenge,
+                                                                   Commitment::one(),
+                                                                   transcript,
+                                                                   Flavor::REPEATED_COMMITMENTS,
+                                                                   Flavor::HasZK,
+                                                                   libra_commitments,
+                                                                   sumcheck_output.claimed_libra_evaluation);
 
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(shplemini_output.batch_opening_claim, transcript);
+    auto pairing_points =
+        PCS::reduce_verify_batch_opening_claim(std::move(shplemini_output.batch_opening_claim), transcript);
     // Reconstruct the public inputs
     IO inputs;
     inputs.reconstruct_from_public(verifier_instance->public_inputs);

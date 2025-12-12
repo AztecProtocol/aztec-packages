@@ -3,7 +3,7 @@ import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { L2Block, L2BlockInfo, L2BlockNew } from '@aztec/stdlib/block';
+import type { L2BlockInfo, L2BlockNew } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -146,7 +146,7 @@ export class TxCollection {
   }
 
   /** Starts collecting the given tx hashes for the given L2Block in the slow loop */
-  public startCollecting(block: L2Block, txHashes: TxHash[]) {
+  public startCollecting(block: L2BlockNew, txHashes: TxHash[]) {
     return this.slowCollection.startCollecting(block, txHashes);
   }
 
@@ -162,11 +162,11 @@ export class TxCollection {
 
   /** Collects the set of txs for the given mined block as fast as possible */
   public collectFastForBlock(
-    block: L2Block,
+    block: L2BlockNew,
     txHashes: TxHash[] | string[],
     opts: { deadline: Date; pinnedPeer?: PeerId },
   ) {
-    return this.collectFastFor({ type: 'block', block: block.toL2Block() }, txHashes, opts);
+    return this.collectFastFor({ type: 'block', block }, txHashes, opts);
   }
 
   /** Collects the set of txs for the given proposal or block as fast as possible */
