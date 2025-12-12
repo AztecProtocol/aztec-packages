@@ -10,8 +10,6 @@ on:
         description: "Git commit SHA to build (leave empty for latest)"
         required: false
         default: ""
-  pull_request:
-
 jobs:
   build:
     runs-on: ubuntu-latest
