@@ -328,7 +328,7 @@ where
     ///     easier ways to customize your own note encryption options.
     ///
     pub fn remove(self, retrieved_note: RetrievedNote<Note>) {
-        let note_hash_read = compute_note_hash_read(retrieved_note, self.storage_slot);
+        let note_hash_read = compute_note_hash_read(retrieved_note);
         self.context.assert_has_been_requested(note_hash_read);
 
         destroy_note_unsafe(self.context, retrieved_note, note_hash_read);

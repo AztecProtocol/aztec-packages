@@ -5,25 +5,24 @@ import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, type ContractMethod } from '@aztec/aztec.js/contracts';
 import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
+import { Fr } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import { type AztecNode, createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
+import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { NULL_KEY } from '@aztec/ethereum/constants';
-import { RollupContract, deployMulticall3 } from '@aztec/ethereum/contracts';
 import {
-  type DeployL1ContractsArgs,
-  type DeployL1ContractsReturnType,
+  type DeployAztecL1ContractsReturnType,
   type Operator,
-  deployL1Contracts,
-} from '@aztec/ethereum/deploy-l1-contracts';
-import { FeeAssetArtifact } from '@aztec/ethereum/l1-artifacts';
+  type ZKPassportArgs,
+  deployAztecL1Contracts,
+} from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import {
   DelayedTxUtils,
   EthCheatCodes,
@@ -33,8 +32,6 @@ import {
 } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto/random';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { withLogNameSuffix } from '@aztec/foundation/log';
@@ -71,13 +68,20 @@ import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/serv
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { Anvil } from '@viem/anvil';
+import { randomBytes } from 'crypto';
 import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
-import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from 'viem';
-import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
+import type { Hex } from 'viem';
+import {
+  type HDAccount,
+  type PrivateKeyAccount,
+  generatePrivateKey,
+  mnemonicToAccount,
+  privateKeyToAccount,
+} from 'viem/accounts';
+import { type Chain, foundry } from 'viem/chains';
 
 import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
@@ -108,37 +112,6 @@ export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
   const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
   const privKeyRaw = hdAccount.getHdKey().privateKey;
   return privKeyRaw === null ? null : Buffer.from(privKeyRaw);
-};
-
-export const setupL1Contracts = async (
-  l1RpcUrls: string[],
-  account: HDAccount | PrivateKeyAccount,
-  logger: Logger,
-  args: Partial<DeployL1ContractsArgs> = {},
-  chain: Chain = foundry,
-) => {
-  const l1Data = await deployL1Contracts(
-    l1RpcUrls,
-    account,
-    chain,
-    logger,
-    {
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractsHash,
-      genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-      salt: args.salt,
-      initialValidators: args.initialValidators,
-      ...getL1ContractsConfigEnvVars(),
-      realVerifier: false,
-      ...args,
-    },
-    {
-      priorityFeeBumpPercentage: 0,
-      priorityFeeRetryBumpPercentage: 0,
-    },
-  );
-
-  return l1Data;
 };
 
 /**
@@ -217,7 +190,7 @@ async function setupWithRemoteEnvironment(
 
   const l1Client = createExtendedL1Client(config.l1RpcUrls, account, foundry);
 
-  const deployL1ContractsValues: DeployL1ContractsReturnType = {
+  const deployL1ContractsValues: DeployAztecL1ContractsReturnType = {
     l1ContractAddresses,
     l1Client,
     rollupVersion,
@@ -272,17 +245,13 @@ export type SetupOptions = {
   /** Whether to enable metrics collection, if undefined, metrics collection is disabled */
   metricsPort?: number | undefined;
   /** Previously deployed contracts on L1 */
-  deployL1ContractsValues?: DeployL1ContractsReturnType;
-  /** Whether to skip deployment of protocol contracts (auth registry, etc) */
-  skipProtocolContracts?: boolean;
+  deployL1ContractsValues?: DeployAztecL1ContractsReturnType;
   /** Initial fee juice for default accounts */
   initialAccountFeeJuice?: Fr;
   /** Number of initial accounts funded with fee juice */
   numberOfInitialFundedAccounts?: number;
   /** Data of the initial funded accounts */
   initialFundedAccounts?: InitialAccountData[];
-  /** Salt to use in L1 contract deployment */
-  salt?: number;
   /** An initial set of validators */
   initialValidators?: (Operator & { privateKey: `0x${string}` })[];
   /** Anvil Start time */
@@ -291,8 +260,6 @@ export type SetupOptions = {
   l2StartTime?: number;
   /** Whether to start a prover node */
   startProverNode?: boolean;
-  /** Whether to fund the rewardDistributor */
-  fundRewardDistributor?: boolean;
   /** Manual config for the telemetry client */
   telemetryConfig?: Partial<TelemetryClientConfig> & { benchmark?: boolean };
   /** Public data that will be inserted in the tree in genesis */
@@ -311,6 +278,8 @@ export type SetupOptions = {
   anvilPort?: number;
   /** Key to use for publishing L1 contracts */
   l1PublisherKey?: SecretValue<`0x${string}`>;
+  /** ZkPassport configuration (domain, scope, mock verifier) */
+  zkPassportArgs?: ZKPassportArgs;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -323,8 +292,8 @@ export type EndToEndContext = {
   proverNode: ProverNode | undefined;
   /** A client to the sequencer service (undefined if connected to remote environment) */
   sequencer: SequencerClient | undefined;
-  /** Return values from deployL1Contracts function. */
-  deployL1ContractsValues: DeployL1ContractsReturnType;
+  /** Return values from deployAztecL1Contracts function. */
+  deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   /** The Aztec Node configuration. */
   config: AztecNodeConfig;
   /** The data for the initial funded accounts. */
@@ -428,24 +397,27 @@ export async function setup(
       await ethCheatCodes.warp(opts.l1StartTime, { resetBlockInterval: true });
     }
 
-    let publisherPrivKey = undefined;
-    let publisherHdAccount = undefined;
+    let publisherPrivKeyHex: `0x${string}` | undefined = undefined;
+    let publisherHdAccount: HDAccount | PrivateKeyAccount | undefined = undefined;
 
     if (opts.l1PublisherKey && opts.l1PublisherKey.getValue() && opts.l1PublisherKey.getValue() != NULL_KEY) {
-      publisherHdAccount = privateKeyToAccount(opts.l1PublisherKey.getValue());
+      publisherPrivKeyHex = opts.l1PublisherKey.getValue();
+      publisherHdAccount = privateKeyToAccount(publisherPrivKeyHex);
     } else if (
       config.publisherPrivateKeys &&
       config.publisherPrivateKeys.length > 0 &&
       config.publisherPrivateKeys[0].getValue() != NULL_KEY
     ) {
-      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKeys[0].getValue());
+      publisherPrivKeyHex = config.publisherPrivateKeys[0].getValue();
+      publisherHdAccount = privateKeyToAccount(publisherPrivKeyHex);
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
     } else {
       publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
-      publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
-      config.publisherPrivateKeys = [new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const)];
+      const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+      publisherPrivKeyHex = `0x${publisherPrivKey!.toString('hex')}` as const;
+      config.publisherPrivateKeys = [new SecretValue(publisherPrivKeyHex)];
     }
 
     if (config.coinbase === undefined) {
@@ -473,50 +445,25 @@ export async function setup(
     }
 
     const l1Client = createExtendedL1Client(config.l1RpcUrls, publisherHdAccount!, chain);
-    await deployMulticall3(l1Client, logger);
 
-    const deployL1ContractsValues =
-      opts.deployL1ContractsValues ??
-      (await setupL1Contracts(
-        config.l1RpcUrls,
-        publisherHdAccount!,
-        logger,
-        {
-          ...opts,
-          genesisArchiveRoot,
-          feeJuicePortalInitialBalance: fundingNeeded,
-          initialValidators: opts.initialValidators,
-        },
-        chain,
-      ));
+    const deployL1ContractsValues: DeployAztecL1ContractsReturnType = await deployAztecL1Contracts(
+      config.l1RpcUrls[0],
+      publisherPrivKeyHex!,
+      chain.id,
+      {
+        ...getL1ContractsConfigEnvVars(),
+        ...opts,
+        vkTreeRoot: getVKTreeRoot(),
+        protocolContractsHash,
+        genesisArchiveRoot,
+        initialValidators: opts.initialValidators,
+        feeJuicePortalInitialBalance: fundingNeeded,
+        realVerifier: false,
+      },
+    );
 
     config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
     config.rollupVersion = deployL1ContractsValues.rollupVersion;
-
-    if (opts.fundRewardDistributor) {
-      // Mints block rewards for 10000 blocks to the rewardDistributor contract
-
-      const rollup = new RollupContract(
-        deployL1ContractsValues.l1Client,
-        deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-      );
-
-      const blockReward = await rollup.getCheckpointReward();
-      const mintAmount = 10_000n * (blockReward as bigint);
-
-      const feeJuice = getContract({
-        address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-        abi: FeeAssetArtifact.contractAbi,
-        client: deployL1ContractsValues.l1Client,
-      });
-
-      const rewardDistributorMintTxHash = await feeJuice.write.mint(
-        [deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(), mintAmount],
-        {} as any,
-      );
-      await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
-      logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
-    }
 
     if (enableAutomine) {
       await ethCheatCodes.setAutomine(false);

@@ -114,8 +114,6 @@ export class EpochsTestContext {
       checkIntervalMs: 50,
       archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
       worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,
-      skipProtocolContracts: true,
-      salt: 1,
       aztecEpochDuration,
       aztecSlotDuration,
       ethereumSlotDuration,

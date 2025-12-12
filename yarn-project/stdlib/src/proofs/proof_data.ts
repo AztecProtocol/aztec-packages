@@ -29,6 +29,30 @@ export class ProofData<T extends Bufferable, PROOF_LENGTH extends number> {
   }
 }
 
+/**
+ * Represents the data of a recursive proof for a circuit with a fixed verification key.
+ */
+export class ProofDataForFixedVk<T extends Bufferable, PROOF_LENGTH extends number> {
+  constructor(
+    public publicInputs: T,
+    public proof: RecursiveProof<PROOF_LENGTH>,
+  ) {}
+
+  public toBuffer(): Buffer {
+    return serializeToBuffer(this.publicInputs, this.proof);
+  }
+
+  public static fromBuffer<T extends Bufferable, PROOF_LENGTH extends number>(
+    buffer: Buffer | BufferReader,
+    publicInputs: {
+      fromBuffer: (reader: BufferReader) => T;
+    },
+  ): ProofDataForFixedVk<T, PROOF_LENGTH> {
+    const reader = BufferReader.asReader(buffer);
+    return new ProofDataForFixedVk(reader.readObject(publicInputs), RecursiveProof.fromBuffer(reader));
+  }
+}
+
 export type ChonkProofData<T extends Bufferable> = ProofData<T, typeof CHONK_PROOF_LENGTH>;
 
 export type UltraHonkProofData<T extends Bufferable> = ProofData<T, typeof RECURSIVE_PROOF_LENGTH>;

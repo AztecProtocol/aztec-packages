@@ -5,12 +5,11 @@ on:
     branches:
       - next
   workflow_dispatch:
-    inputs: 
-      commit: 
+    inputs:
+      commit:
         description: "Git commit SHA to build (leave empty for latest)"
         required: false
         default: ""
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,6 +18,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Free up disk space on runner
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          large-packages: false
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772

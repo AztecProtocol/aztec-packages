@@ -57,9 +57,6 @@ tags:
     --local-network.l1Mnemonic <value>                                             (default: test test test test test test test test test test test junk)($MNEMONIC)
           Mnemonic for L1 accounts. Will be used
 
-    --local-network.deployAztecContractsSalt <value>                                                                                             ($DEPLOY_AZTEC_CONTRACTS_SALT)
-          Numeric salt for deploying L1 Aztec contracts before starting the local network. Needs mnemonic or private key to be set.
-
   API
 
     --port <value>                                                           (default: 8080)                                               ($AZTEC_PORT)

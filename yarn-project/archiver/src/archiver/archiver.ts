@@ -1363,16 +1363,6 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   }
 
   /**
-   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
-   * @param from - The block number from which to begin retrieving logs.
-   * @param limit - The maximum number of blocks to retrieve logs from.
-   * @returns An array of private logs from the specified range of blocks.
-   */
-  public getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]> {
-    return this.store.getPrivateLogs(from, limit);
-  }
-
-  /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
@@ -1842,9 +1832,6 @@ export class ArchiverStoreHelper
   }
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.store.getL1ToL2MessageIndex(l1ToL2Message);
-  }
-  getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]> {
-    return this.store.getPrivateLogs(from, limit);
   }
   getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
     return this.store.getLogsByTags(tags, logsPerTag);

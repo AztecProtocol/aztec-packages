@@ -1,6 +1,37 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+function download_solc {
+  # Read solc path from foundry.toml and extract version (e.g., "./solc-0.8.27" -> "0.8.27")
+  local solc_path=$(grep '^solc = ' foundry.toml | sed 's/.*"\.\/\(.*\)"/\1/')
+  local solc_version=${solc_path#solc-}
+  if [ -f "$solc_path" ]; then
+    return 0
+  fi
+  local platform="$(os)-$(arch)"
+  local artifact="solc-$platform-$solc_version.tar.gz"
+  if cache_download "$artifact"; then
+    return 0
+  fi
+
+  # Use forge's built-in svm to download solc (handles all platforms including arm64)
+  echo_stderr "Downloading solc $solc_version via svm..."
+  # svm-rs always uses ~/.svm if it exists. Make sure it does for a consistent path across OS/architecture.
+  mkdir -p "$HOME/.svm"
+  # We build a minimal file to trigger svm download of solc.
+  forge build --use "$solc_version" src/core/libraries/ConstantsGen.sol 2>/dev/null
+
+  # Copy from svm cache to local path
+  local svm_path="$HOME/.svm/$solc_version/solc-$solc_version"
+  if [ ! -f "$svm_path" ]; then
+    echo_stderr "ERROR: svm failed to download solc $solc_version"
+    exit 1
+  fi
+
+  cp "$svm_path" "$solc_path"
+  cache_upload "$artifact" "$solc_path"
+}
+
 # We rely on noir-projects for the verifier contract.
 export hash=$(cache_content_hash \
   .rebuild_patterns \
@@ -11,6 +42,9 @@ export hash=$(cache_content_hash \
 
 function build_src {
   echo_header "l1-contracts build_src"
+
+  # Download solc binary
+  download_solc
 
   # Deps install
   npm_install_deps
@@ -27,13 +61,13 @@ function build_src {
     git submodule update --init --recursive ./lib
 
     # Compile contracts
-    # Build everything in src and test (except tests that need generated verifier).
-    forge build $(find src test -name '*.sol' ! -name 'shouting.t.sol')
+    # Build everything in src and test (except scripts that need generated verifier).
+    forge build $(find src test -name '*.sol' ! -name 'shouting.t.sol' ! -path 'test/script/*' )
 
     # Output storage information for the rollup contract.
     forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
 
-    cache_upload $artifact out
+    cache_upload $artifact out cache
   fi
 }
 
@@ -53,15 +87,14 @@ function build_verifier {
     fi
 
     # Build the generated verifier contract with optimization.
-    forge build $(find generated -name '*.sol') \
-      --optimize \
-      --optimizer-runs 1 \
-      --no-metadata
+    # Build the scripts that rely on the verifier. These are mutually exclusive with the build in build_src.
+    forge build \
+      $(find generated -name '*.sol') \
+      test/shouting.t.sol \
+      script/deploy/*.s.sol \
+      tests/scripts/*.t.sol
 
-    # Build the one test that imports the verifier.
-    forge build test/shouting.t.sol
-
-    cache_upload $artifact out generated
+    cache_upload $artifact out cache generated
   fi
 }
 

@@ -18,6 +18,9 @@
 <h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
 <div id="crate-version">0.0.0</div>
 <h2>In module event_emission</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.NewEvent.html">NewEvent</a></div></li>
+</ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.emit_event_in_private.html">emit_event_in_private</a></div></li>
 <li><a href="fn.emit_event_in_public.html">emit_event_in_public</a></div></li>
@@ -26,11 +29,13 @@
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">event</a>::<a href="index.html">event_emission</a></div>
 <h1>Function <span class="fn">emit_event_in_public</span></h1>
-<pre><code>pub fn emit_event_in_public&lt;Event&gt;(event: Event, context: <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>)
+<pre><code>pub fn emit_event_in_public&lt;Event&gt;(context: <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>, event: Event)
 <div class="where-clause">where
     Event: <a href="../../../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
     Event: <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></pre>
 
+<div class="comments">
+<p>Equivalent to <code>self.emit(event)</code>: see <a href="../../../noir_aztec/contract_self/struct.ContractSelf.html#emit">crate::contract_self::ContractSelf::emit</a>.</p></div>
 </main>
 </span>
 </body>

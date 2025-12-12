@@ -239,6 +239,7 @@ export class UltraHonkBackend {
     _proof: Uint8Array,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _numOfPublicInputs: number,
+    options?: UltraHonkBackendOptions,
   ): Promise<{ proofAsFields: string[]; vkAsFields: string[]; vkHash: string }> {
     // TODO(https://github.com/noir-lang/noir/issues/5661): This needs to be updated to handle recursive aggregation.
     // There is still a proofAsFields method but we could consider getting rid of it as the proof itself
@@ -248,14 +249,12 @@ export class UltraHonkBackend {
     // const proof = reconstructProofWithPublicInputs(proofData);
     // const proofAsFields = (await this.api.acirProofAsFieldsUltraHonk(proof)).slice(numOfPublicInputs);
 
-    // TODO: perhaps we should put this in the init function. Need to benchmark
-    // TODO how long it takes.
     const vkResult = await this.api.circuitComputeVk({
       circuit: {
         name: 'circuit',
         bytecode: this.acirUncompressedBytecode,
       },
-      settings: getProofSettingsFromOptions({}),
+      settings: getProofSettingsFromOptions(options),
     });
 
     // Convert VK bytes to field elements (32-byte chunks)
@@ -387,3 +386,41 @@ function base64Decode(input: string): Uint8Array {
     throw new Error('atob is not available. Node.js 18+ or browser required.');
   }
 }
+
+/**
+ * Convert a field element (32-byte Uint8Array) to a string.
+ *
+ * @param field - A 32-byte field element
+ * @param radix - The radix for string conversion (2-36), defaults to 10 (decimal)
+ * @returns The field value as a string in the specified radix
+ *
+ * @example
+ * const decimal = fieldToString(field);        // "12345678"
+ * const hex = fieldToString(field, 16);        // "bc614e"
+ */
+export function fieldToString(field: Uint8Array, radix: number = 10): string {
+  let result = 0n;
+  for (const byte of field) {
+    result <<= 8n;
+    result += BigInt(byte);
+  }
+  return result.toString(radix);
+}
+
+/**
+ * Convert an array of field elements to an array of strings.
+ * Useful for passing VK fields to Noir circuits.
+ *
+ * @param fields - Array of 32-byte field elements
+ * @param radix - The radix for string conversion (2-36), defaults to 10 (decimal)
+ * @returns Array of strings in the specified radix
+ *
+ * @example
+ * const vkAsFields = await barretenbergAPI.vkAsFields({ verificationKey: vk });
+ * const vkDecimalStrings = fieldsToStrings(vkAsFields.fields);      // ["12345678", "87654321", ...]
+ * const vkHexStrings = fieldsToStrings(vkAsFields.fields, 16);      // ["bc614e", "5397fb1", ...]
+ */
+export function fieldsToStrings(fields: Uint8Array[], radix: number = 10): string[] {
+  return fields.map(field => fieldToString(field, radix));
+}
+
