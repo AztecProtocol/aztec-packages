@@ -5,7 +5,7 @@
 //
 //  Windows note: link with Psapi.lib
 
-#include "mem.hpp"
+#include "barretenberg/common/mem.hpp"
 #include <cstddef>
 #include <iomanip>
 #include <iostream>
