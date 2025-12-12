@@ -134,7 +134,7 @@ class ChonkRecursiveVerifier {
      *   2. Databus consistency (kernel return data == calldata)
      *   3. Goblin proof (Merge + ECCVM + Translator) - reduces to pairing points and IPA claim
      *
-     * Both pairing verification and IPA verification are deferred. Tge aggregated pairing points must be verified
+     * Both pairing verification and IPA verification are deferred. The aggregated pairing points must be verified
      * elsewhere. The IPA claims are accumulated and deferred to root rollup.
      *
      * @param proof Stdlib Chonk proof containing mega_proof and goblin_proof

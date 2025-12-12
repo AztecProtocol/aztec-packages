@@ -20,7 +20,7 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
     // Step 1: Verify the merge proof
     MergeVerifier merge_verifier{ merge_settings, transcript };
     auto merge_result = merge_verifier.reduce_to_pairing_check(proof.merge_proof, merge_commitments);
-    vinfo("Goblin: Merge reduced to pairing check: ", merge_result.reduction_succeeded);
+    vinfo("Goblin: Merge reduced to pairing check successfully: ", merge_result.reduction_succeeded ? "true" : "false");
 
     if constexpr (!IsRecursive) {
         if (!merge_result.reduction_succeeded) {
@@ -36,7 +36,7 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
     // Step 2: Verify the ECCVM proof
     ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
     auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
-    vinfo("Goblin: ECCVM reduced to IPA opening: ", eccvm_result.reduction_succeeded);
+    vinfo("Goblin: ECCVM reduced to IPA opening successfully: ", eccvm_result.reduction_succeeded ? "true" : "false");
 
     if constexpr (!IsRecursive) {
         if (!eccvm_result.reduction_succeeded) {
@@ -58,7 +58,8 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
                                             translator_input.accumulated_result,
                                             merge_result.merged_commitments };
     auto translator_result = translator_verifier.reduce_to_pairing_check();
-    vinfo("Goblin: Translator reduced to pairing check: ", translator_result.reduction_succeeded);
+    vinfo("Goblin: Translator reduced to pairing check successfully: ",
+          translator_result.reduction_succeeded ? "true" : "false");
 
     if constexpr (!IsRecursive) {
         if (!translator_result.reduction_succeeded) {

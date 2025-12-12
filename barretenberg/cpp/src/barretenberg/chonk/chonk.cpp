@@ -559,8 +559,7 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     GoblinVerifier goblin_verifier{
         chonk_verifier_transcript, proof.goblin_proof, { t_commitments, T_prev_commitments }, MergeSettings::APPEND
     };
-    auto [pairing_points, ipa_claim, ipa_proof, goblin_checks_passed] =
-        goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
+    auto [_, ipa_claim, ipa_proof, goblin_checks_passed] = goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
     if (!goblin_checks_passed) {
         info("Chonk verification failed at Goblin checks (merge/eccvm/translator reduction + pairing)");
         return false;

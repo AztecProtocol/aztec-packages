@@ -366,7 +366,7 @@ TEST_F(ECCVMTests, FixedVK)
     // Generate a VK from PK
     ECCVMFlavor::VerificationKey vk_computed_by_prover(prover.key);
 
-    auto labels = verifier.get_verification_key()->get_labels();
+    const auto& labels = bb::ECCVMFlavor::VerificationKey::get_labels();
     size_t index = 0;
     for (auto [vk_commitment, fixed_commitment] : zip_view(vk_computed_by_prover.get_all(), fixed_vk.get_all())) {
         EXPECT_EQ(vk_commitment, fixed_commitment)

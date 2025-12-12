@@ -210,8 +210,8 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     // KZG verifier - returns PairingPoints directly
     PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), transcript);
 
-    vinfo("Merge Verifier: degree check passed: ", degree_check_verified);
-    vinfo("Merge Verifier: concatenation check passed: ", concatenation_verified);
+    vinfo("Merge Verifier: degree check passed: ", degree_check_verified ? "true" : "false");
+    vinfo("Merge Verifier: concatenation check passed: ", concatenation_verified ? "true" : "false");
 
     return { pairing_points, merged_table_commitments, degree_check_verified && concatenation_verified };
 }
