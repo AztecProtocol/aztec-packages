@@ -21,6 +21,10 @@ template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<
         }
     };
 
+    BB_ASSERT_NEQ(mul_quad.a,
+                  bb::stdlib::IS_CONSTANT,
+                  "mul_quad_ gate cannot have IS_CONSTANT for witness a. An error here probably means a conversion "
+                  "issue in acir_to_constraint_buf.");
     replace_and_check_zero_scaling(mul_quad.b, mul_quad.b_scaling);
     replace_and_check_zero_scaling(mul_quad.c, mul_quad.c_scaling);
     replace_and_check_zero_scaling(mul_quad.d, mul_quad.d_scaling);
