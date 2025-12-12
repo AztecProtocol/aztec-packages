@@ -9,6 +9,57 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec node, archiver] Deprecated `getPrivateLogs`
+
+Aztec node no longer offers a `getPrivateLogs` method. If you need to process the logs of a block, you can instead use `getBlock` and call `getPrivateLogs` on an `L2BlockNew` instance. See the diff below for before/after equivalent code samples.
+
+```diff
+-  const logs = await aztecNode.getPrivateLogs(blockNumber, 1);
++  const logs = (await aztecNode.getBlock(blockNumber))?.toL2Block().getPrivateLogs();
+```
+
+### [Aztec.nr] Private event emission API changes
+
+Private events are still emitted via the `emit` function, but this now returns an `EventMessage` type that must have `deliver_to` called on it in order to deliver the event message to the intended recipients. This allows for multiple recipients to receive the same event.
+
+```diff
+- self.emit(event, recipient, delivery_method)
++ self.emit(event).delivery(recipient, delivery_method)
+```
+
+### [Aztec.nr] History proof functions no longer require `storage_slot` parameter
+
+The `RetrievedNote` struct now includes a `storage_slot` field, making it self-contained for proving note inclusion and validity. As a result, the history proof functions in the `aztec::history` module no longer require a separate `storage_slot` parameter.
+
+**Affected functions:**
+
+- `BlockHeader::prove_note_inclusion` - removed `storage_slot: Field` parameter
+- `BlockHeader::prove_note_validity` - removed `storage_slot: Field` parameter
+- `BlockHeader::prove_note_is_nullified` - removed `storage_slot: Field` parameter
+- `BlockHeader::prove_note_not_nullified` - removed `storage_slot: Field` parameter
+
+**Migration:**
+
+The `storage_slot` is now read from `retrieved_note.storage_slot` internally. Simply remove the `storage_slot` argument from all calls to these functions:
+
+```diff
+  let header = context.get_anchor_block_header();
+- header.prove_note_inclusion(retrieved_note, storage_slot);
++ header.prove_note_inclusion(retrieved_note);
+
+  let header = context.get_anchor_block_header();
+- header.prove_note_validity(retrieved_note, storage_slot, context);
++ header.prove_note_validity(retrieved_note, context);
+
+  let header = context.get_anchor_block_header();
+- header.prove_note_is_nullified(retrieved_note, storage_slot, context);
++ header.prove_note_is_nullified(retrieved_note, context);
+
+  let header = context.get_anchor_block_header();
+- header.prove_note_not_nullified(retrieved_note, storage_slot, context);
++ header.prove_note_not_nullified(retrieved_note, context);
+```
+
 ### [Aztec.nr] Note fields are now public
 
 All note struct fields are now public, and the `new()` constructor methods and getter methods have been removed. Notes should be instantiated using struct literal syntax, and fields should be accessed directly.

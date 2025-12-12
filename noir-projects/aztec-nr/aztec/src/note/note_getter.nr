@@ -117,7 +117,14 @@ where
         assert(retrieved_note.owner.eq(owner.unwrap_unchecked()), "Note owner mismatch.");
     }
 
-    let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
+    // We need to constrain that the storage slot in the retrieved note matches the value on the input. Note that this
+    // assertion could be avoided if we did not receive the storage slot from the oracle but we instead directly
+    // injected it into the returned note type (e.g. by doing something like
+    // `RetrievedNote::from(retrieved_note_from_oracle, storage_slot)`). This optimization is too low of a priority
+    // now.
+    assert(retrieved_note.storage_slot == storage_slot, "Note storage slot mismatch.");
+
+    let note_hash_read = compute_note_hash_read(retrieved_note);
     context.push_note_hash_read_request(note_hash_read);
 
     (retrieved_note, note_hash_read)
@@ -200,6 +207,13 @@ where
                 assert(retrieved_note.owner.eq(options.owner.unwrap()), "Note owner mismatch.");
             }
 
+            // We need to constrain that the storage slot in the retrieved note matches the value on the input. Note
+            // that this assertion could be avoided if we did not receive the storage slot from the oracle but we
+            // instead directly injected it into the returned note type (e.g. by doing something like
+            // `RetrievedNote::from(retrieved_note_from_oracle, storage_slot)`). This optimization is too low of a
+            // priority now.
+            assert(retrieved_note.storage_slot == storage_slot, "Note storage slot mismatch.");
+
             let packed_note = retrieved_note.note.pack();
             check_packed_note(packed_note, options.selects);
             if i != 0 {
@@ -207,7 +221,7 @@ where
             }
             prev_packed_note = packed_note;
 
-            let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
+            let note_hash_read = compute_note_hash_read(retrieved_note);
             context.push_note_hash_read_request(note_hash_read);
             note_hashes.push(note_hash_read);
         };

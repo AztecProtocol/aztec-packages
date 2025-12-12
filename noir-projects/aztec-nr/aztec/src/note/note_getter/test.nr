@@ -18,7 +18,11 @@ unconstrained fn build_valid_retrieved_note(
     contract_address: AztecAddress,
     value: Field,
 ) -> RetrievedNote<MockNote> {
-    MockNote::new(value).contract_address(contract_address).owner(owner).build_retrieved_note()
+    MockNote::new(value)
+        .contract_address(contract_address)
+        .owner(owner)
+        .storage_slot(storage_slot)
+        .build_retrieved_note()
 }
 
 unconstrained fn assert_equivalent_vec_and_array<T, let N: u32>(

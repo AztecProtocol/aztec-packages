@@ -391,8 +391,8 @@ TEST(ExecutionTraceGenTest, DiscardNestedFailContext)
                     AllOf(ROW_FIELD_EQ(execution_discard, 1),
                           ROW_FIELD_EQ(execution_dying_context_id, 2),
                           ROW_FIELD_EQ(execution_is_dying_context, 1),
-                          ROW_FIELD_EQ(execution_sel_error, 1),         // failure
-                          ROW_FIELD_EQ(execution_rollback_context, 1)), // Has parent, so rollback
+                          ROW_FIELD_EQ(execution_sel_error, 1),               // failure
+                          ROW_FIELD_EQ(execution_nested_revert_or_error, 1)), // Has parent, so rollback
                     // Row 5: Parent continues - discard should be reset to 0
                     AllOf(ROW_FIELD_EQ(execution_discard, 0),
                           ROW_FIELD_EQ(execution_dying_context_id, 0),
@@ -446,7 +446,7 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToTeardownError)
                                   ROW_FIELD_EQ(execution_dying_context_id, 2),
                                   ROW_FIELD_EQ(execution_is_dying_context, 1),
                                   ROW_FIELD_EQ(execution_sel_error, 1),
-                                  ROW_FIELD_EQ(execution_rollback_context, 0)))); // No parent, so no rollback
+                                  ROW_FIELD_EQ(execution_nested_revert_or_error, 0)))); // No parent, so no rollback
 }
 
 TEST(ExecutionTraceGenTest, DiscardAppLogicDueToSecondEnqueuedCallError)
@@ -493,7 +493,7 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToSecondEnqueuedCallError)
                                   ROW_FIELD_EQ(execution_dying_context_id, 2),
                                   ROW_FIELD_EQ(execution_is_dying_context, 1),
                                   ROW_FIELD_EQ(execution_sel_error, 1),
-                                  ROW_FIELD_EQ(execution_rollback_context, 0)))); // No parent, so no rollback
+                                  ROW_FIELD_EQ(execution_nested_revert_or_error, 0)))); // No parent, so no rollback
 }
 
 TEST(ExecutionTraceGenTest, InternalCall)

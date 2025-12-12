@@ -1,10 +1,10 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { getDefaultConfig } from '@aztec/foundation/config';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { L2Block } from '@aztec/stdlib/block';
+import { L2BlockNew } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
@@ -36,7 +36,7 @@ describe('TxCollection', () => {
   let deadline: Date;
   let txs: Tx[];
   let txHashes: TxHash[];
-  let block: L2Block;
+  let block: L2BlockNew;
 
   const makeNode = (name: string) => {
     const node = mock<TxSource>();
@@ -52,7 +52,14 @@ describe('TxCollection', () => {
   };
 
   const makeL2Block = (blockNumber = 1, slotNumber?: number) =>
-    L2Block.random(BlockNumber(blockNumber), 0, 0, 0, undefined, slotNumber ?? blockNumber);
+    L2BlockNew.random(BlockNumber(blockNumber), {
+      txsPerBlock: 4,
+      txOptions: {
+        numPublicCallsPerTx: 3,
+        numPublicLogsPerCall: 1,
+      },
+      ...(slotNumber !== undefined ? { slotNumber: SlotNumber(slotNumber) } : {}),
+    });
 
   const setNodeTxs = (node: MockProxy<TxSource>, txs: Tx[]) => {
     node.getTxsByHash.mockImplementation(async hashes => {

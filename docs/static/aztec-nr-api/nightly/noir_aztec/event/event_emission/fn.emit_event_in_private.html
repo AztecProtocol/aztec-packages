@@ -18,6 +18,9 @@
 <h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
 <div id="crate-version">0.0.0</div>
 <h2>In module event_emission</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.NewEvent.html">NewEvent</a></div></li>
+</ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.emit_event_in_private.html">emit_event_in_private</a></div></li>
 <li><a href="fn.emit_event_in_public.html">emit_event_in_public</a></div></li>
@@ -27,27 +30,15 @@
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">event</a>::<a href="index.html">event_emission</a></div>
 <h1>Function <span class="fn">emit_event_in_private</span></h1>
 <pre><code>pub fn emit_event_in_private&lt;Event&gt;(
-    event: Event,
     context: &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
-    recipient: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    delivery_mode: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>,
-)
+    event: Event,
+) -> <a href="../../../noir_aztec/event/event_message/struct.EventMessage.html" class="struct">EventMessage</a>&lt;Event&gt;
 <div class="where-clause">where
     Event: <a href="../../../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
     Event: <a href="../../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></pre>
 
 <div class="comments">
-<p>Emits an event that can be delivered either via private logs or offchain messages, with configurable encryption and
-tagging constraints.</p>
-<h2>Arguments</h2>
-<ul>
-<li><code>event</code> - The event to emit</li>
-<li><code>context</code> - The private context to emit the event in</li>
-<li><code>recipient</code> - The address that should receive this event</li>
-<li><code>delivery_mode</code> - Controls encryption, tagging, and delivery constraints. Must be a compile-time constant.
-See <code>MessageDeliveryEnum</code> for details on the available modes.</li>
-</ul>
-</div>
+<p>Equivalent to <code>self.emit(event)</code>: see <a href="../../../noir_aztec/contract_self/struct.ContractSelf.html#emit">crate::contract_self::ContractSelf::emit</a>.</p></div>
 </main>
 </span>
 </body>

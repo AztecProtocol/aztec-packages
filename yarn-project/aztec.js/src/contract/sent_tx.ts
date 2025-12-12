@@ -1,6 +1,5 @@
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
-import type { FieldsOf } from '@aztec/foundation/types';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
@@ -88,7 +87,7 @@ export class SentTx {
    * @param opts - Options for configuring the waiting for the tx to be mined.
    * @returns The transaction receipt.
    */
-  public async wait(opts?: WaitOpts): Promise<FieldsOf<TxReceipt>> {
+  public async wait(opts?: WaitOpts): Promise<TxReceipt> {
     const receipt = await this.waitForReceipt(opts);
     if (receipt.status !== TxStatus.SUCCESS && !opts?.dontThrowOnRevert) {
       throw new Error(

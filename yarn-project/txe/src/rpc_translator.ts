@@ -395,7 +395,17 @@ export class RPCTranslator {
       status,
     );
 
-    const returnDataAsArrayOfArrays = noteDatas.map(packAsRetrievedNote);
+    const returnDataAsArrayOfArrays = noteDatas.map(noteData =>
+      packAsRetrievedNote({
+        contractAddress: noteData.contractAddress,
+        owner: noteData.owner,
+        randomness: noteData.randomness,
+        storageSlot: noteData.storageSlot,
+        noteNonce: noteData.noteNonce,
+        index: noteData.index,
+        note: noteData.note,
+      }),
+    );
 
     // Now we convert each sub-array to an array of ForeignCallSingles
     const returnDataAsArrayOfForeignCallSingleArrays = returnDataAsArrayOfArrays.map(subArray =>
