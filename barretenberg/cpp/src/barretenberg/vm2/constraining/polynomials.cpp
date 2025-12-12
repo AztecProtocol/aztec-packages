@@ -101,4 +101,16 @@ void resize_inverses(AvmFlavor::ProverPolynomials& prover_polynomials,
     assert(prover_polynomials.get(static_cast<ColumnAndShifts>(inverses_col)).size() == num_rows);
 }
 
+std::shared_ptr<AvmProver::ProvingKey> proving_key_from_polynomials(AvmProver::ProverPolynomials& polynomials)
+{
+    auto proving_key = std::make_shared<AvmProver::ProvingKey>();
+
+    for (auto [key_poly, prover_poly] : zip_view(proving_key->get_all(), polynomials.get_unshifted())) {
+        BB_ASSERT_EQ(flavor_get_label(*proving_key, key_poly), flavor_get_label(polynomials, prover_poly));
+        key_poly = std::move(prover_poly);
+    }
+
+    return proving_key;
+}
+
 } // namespace bb::avm2::constraining
