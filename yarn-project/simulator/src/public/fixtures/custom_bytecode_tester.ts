@@ -1,115 +1,81 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
 import { FunctionType, emptyContractArtifact, emptyFunctionArtifact } from '@aztec/stdlib/abi';
 import type { PublicTxResult } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
 /**
- *
- * Test custom bytecode (simulation or proving) with the provided bytecode.
+ * Deploy a contract with the provided bytecode.
  * @param bytecode - The bytecode buffer to use
- * @param tester - The tester to use (simulation or proving)
- * @param txLabel - The label of the transaction
- * @param contractName - The name of the contract (default: 'CustomBytecodeContract')
+ * @param tester - The tester to use
+ * @param contractName - The name of the contract
+ * @param deployer - The deployer address
+ * @returns The deployed contract instance
  */
-export async function testCustomBytecode(
+export async function deployCustomBytecode(
   bytecode: Buffer,
   tester: PublicTxSimulationTester,
-  txLabel: string,
   contractName: string = 'CustomBytecodeContract',
-  calldata: any[] = [],
-): Promise<PublicTxResult> {
-  const deployer = AztecAddress.fromNumber(42);
-
+  deployer: AztecAddress = AztecAddress.fromNumber(42),
+): Promise<ContractInstanceWithAddress> {
   const contractArtifact = emptyContractArtifact();
   contractArtifact.name = contractName;
   contractArtifact.functions = [emptyFunctionArtifact()];
+  // TODO(dbanks12): shouldn't need function name
   contractArtifact.functions[0].name = 'public_dispatch';
   contractArtifact.functions[0].functionType = FunctionType.PUBLIC;
   contractArtifact.functions[0].bytecode = bytecode;
 
-  const testContract = await tester.registerAndDeployContract(
+  // return the contract instance
+  return await tester.registerAndDeployContract(
     /*constructorArgs=*/ [],
     deployer,
     /*contractArtifact=*/ contractArtifact,
   );
+}
 
+/**
+ * Execute a custom bytecode contract.
+ * @param contract - The contract instance to execute
+ * @param tester - The tester to use
+ * @param txLabel - The label of the transaction
+ * @param calldata - The calldata to use
+ * @returns The execution result
+ */
+export async function executeCustomBytecode(
+  contract: ContractInstanceWithAddress,
+  tester: PublicTxSimulationTester,
+  txLabel: string = 'CustomBytecodeTest',
+  calldata: any[] = [],
+): Promise<PublicTxResult> {
   // EXECUTE! This means that if using AvmProvingTester subclass, it will PROVE the transaction!
   return await tester.executeTxWithLabel(
     /*txLabel=*/ txLabel,
-    /*sender=*/ deployer,
+    /*sender=*/ contract.deployer,
     /*setupCalls=*/ [],
-    /*appCalls=*/ [
-      {
-        address: testContract.address,
-        args: calldata,
-      },
-    ],
+    /*appCalls=*/ [{ address: contract.address, args: calldata }],
   );
 }
 
 /**
- * Test nested custom bytecode for side-effect limited opcodes.
- *
- * Deploys an inner contract that does side effects + reverts, then deploys
- * an outer contract that loops calling the inner until out-of-gas.
- *
- * @param innerBytecode - Bytecode for inner contract (side effects + revert)
- * @param createOuterBytecode - Function to create outer bytecode given inner address
+ * Deploy and execute a custom bytecode contract.
+ * @param bytecode - The bytecode buffer to use
  * @param tester - The tester to use
  * @param txLabel - The label of the transaction
+ * @param contractName - The name of the contract
+ * @param deployer - The deployer address
+ * @param calldata - The calldata to use
+ * @returns The execution result
  */
-export async function testNestedCustomBytecode(
-  innerBytecode: Buffer,
-  createOuterBytecode: (innerAddress: Fr) => Buffer,
+export async function deployAndExecuteCustomBytecode(
+  bytecode: Buffer,
   tester: PublicTxSimulationTester,
-  txLabel: string,
+  txLabel: string = 'CustomBytecodeTest',
+  contractName: string = 'CustomBytecodeContract',
+  deployer: AztecAddress = AztecAddress.fromNumber(42),
+  calldata: any[] = [],
 ): Promise<PublicTxResult> {
-  const deployer = AztecAddress.fromNumber(42);
-
-  // Deploy inner contract (side effects + revert)
-  const innerArtifact = emptyContractArtifact();
-  innerArtifact.name = `${txLabel}_Inner`;
-  innerArtifact.functions = [emptyFunctionArtifact()];
-  innerArtifact.functions[0].name = 'public_dispatch';
-  innerArtifact.functions[0].functionType = FunctionType.PUBLIC;
-  innerArtifact.functions[0].bytecode = innerBytecode;
-
-  const innerContract = await tester.registerAndDeployContract(
-    /*constructorArgs=*/ [],
-    deployer,
-    /*contractArtifact=*/ innerArtifact,
-  );
-
-  // Create outer bytecode using inner contract address
-  const outerBytecode = createOuterBytecode(innerContract.address.toField());
-
-  // Deploy outer contract (loops calling inner)
-  const outerArtifact = emptyContractArtifact();
-  outerArtifact.name = `${txLabel}_Outer`;
-  outerArtifact.functions = [emptyFunctionArtifact()];
-  outerArtifact.functions[0].name = 'public_dispatch';
-  outerArtifact.functions[0].functionType = FunctionType.PUBLIC;
-  outerArtifact.functions[0].bytecode = outerBytecode;
-
-  const outerContract = await tester.registerAndDeployContract(
-    /*constructorArgs=*/ [],
-    deployer,
-    /*contractArtifact=*/ outerArtifact,
-  );
-
-  // Execute outer contract
-  return await tester.executeTxWithLabel(
-    /*txLabel=*/ txLabel,
-    /*sender=*/ deployer,
-    /*setupCalls=*/ [],
-    /*appCalls=*/ [
-      {
-        address: outerContract.address,
-        fnName: 'public_dispatch',
-        args: [],
-      },
-    ],
-  );
+  const testContract = await deployCustomBytecode(bytecode, tester, contractName, deployer);
+  return await executeCustomBytecode(testContract, tester, txLabel, calldata);
 }

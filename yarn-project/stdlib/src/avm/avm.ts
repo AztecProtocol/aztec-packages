@@ -47,7 +47,7 @@ export class AvmContractClassHint {
     public readonly artifactHash: Fr,
     public readonly privateFunctionsRoot: Fr,
     public readonly packedBytecode: Buffer,
-  ) { }
+  ) {}
 
   static get schema() {
     return z
@@ -90,7 +90,7 @@ export class AvmBytecodeCommitmentHint {
     public readonly hintKey: number,
     public readonly classId: Fr,
     public readonly commitment: Fr,
-  ) { }
+  ) {}
 
   static get schema() {
     return z
@@ -131,7 +131,7 @@ export class AvmContractInstanceHint {
     public readonly originalContractClassId: Fr,
     public readonly initializationHash: Fr,
     public readonly publicKeys: PublicKeys,
-  ) { }
+  ) {}
 
   static get schema() {
     return z
@@ -198,7 +198,7 @@ export class AvmDebugFunctionNameHint {
     public readonly address: AztecAddress,
     public readonly selector: Fr,
     public readonly name: string,
-  ) { }
+  ) {}
 
   static get schema() {
     return z
@@ -241,7 +241,7 @@ export class AvmGetSiblingPathHint {
     public readonly index: bigint,
     // return
     public readonly path: Fr[],
-  ) { }
+  ) {}
 
   static get schema() {
     return z
@@ -284,7 +284,7 @@ export class AvmGetPreviousValueIndexHint {
     // return
     public readonly index: bigint,
     public readonly alreadyPresent: boolean,
-  ) { }
+  ) {}
 
   static get schema() {
     return z
@@ -336,7 +336,7 @@ function AvmGetLeafPreimageHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
       public readonly index: bigint,
       // return
       public readonly leafPreimage: IndexedTreeLeafPreimages,
-    ) { }
+    ) {}
 
     static get schema() {
       return z
@@ -369,8 +369,8 @@ function AvmGetLeafPreimageHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
 }
 
 // Note: only supported for PUBLIC_DATA_TREE and NULLIFIER_TREE.
-export class AvmGetLeafPreimageHintPublicDataTree extends AvmGetLeafPreimageHintFactory(PublicDataTreeLeafPreimage) { }
-export class AvmGetLeafPreimageHintNullifierTree extends AvmGetLeafPreimageHintFactory(NullifierLeafPreimage) { }
+export class AvmGetLeafPreimageHintPublicDataTree extends AvmGetLeafPreimageHintFactory(PublicDataTreeLeafPreimage) {}
+export class AvmGetLeafPreimageHintNullifierTree extends AvmGetLeafPreimageHintFactory(NullifierLeafPreimage) {}
 
 // Hint for MerkleTreeDB.getLeafValue.
 // Note: only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE.
@@ -382,7 +382,7 @@ export class AvmGetLeafValueHint {
     public readonly index: bigint,
     // return
     public readonly value: Fr,
-  ) { }
+  ) {}
 
   static get schema() {
     return z
@@ -437,7 +437,7 @@ function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) 
         index: bigint;
         path: Fr[];
       },
-    ) { }
+    ) {}
 
     static get schema() {
       return z
@@ -503,8 +503,8 @@ function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) 
 }
 
 // Note: only supported for PUBLIC_DATA_TREE and NULLIFIER_TREE.
-export class AvmSequentialInsertHintPublicDataTree extends AvmSequentialInsertHintFactory(PublicDataTreeLeafPreimage) { }
-export class AvmSequentialInsertHintNullifierTree extends AvmSequentialInsertHintFactory(NullifierLeafPreimage) { }
+export class AvmSequentialInsertHintPublicDataTree extends AvmSequentialInsertHintFactory(PublicDataTreeLeafPreimage) {}
+export class AvmSequentialInsertHintNullifierTree extends AvmSequentialInsertHintFactory(NullifierLeafPreimage) {}
 
 // Hint for MerkleTreeDB.appendLeaves.
 // Note: only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE.
@@ -515,7 +515,7 @@ export class AvmAppendLeavesHint {
     // params
     public readonly treeId: MerkleTreeId,
     public readonly leaves: Fr[],
-  ) { }
+  ) {}
 
   static get schema() {
     return z
@@ -558,7 +558,7 @@ class AvmCheckpointActionNoStateChangeHint {
     // current checkpoint evolution
     public readonly oldCheckpointId: number,
     public readonly newCheckpointId: number,
-  ) { }
+  ) {}
 
   static get schema() {
     return z
@@ -589,10 +589,10 @@ class AvmCheckpointActionNoStateChangeHint {
 }
 
 // Hint for MerkleTreeDB.createCheckpoint.
-export class AvmCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint { }
+export class AvmCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
 
 // Hint for MerkleTreeDB.commitCheckpoint.
-export class AvmCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint { }
+export class AvmCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
 
 // Hint for MerkleTreeDB.revertCheckpoint.
 export class AvmRevertCheckpointHint {
@@ -606,7 +606,7 @@ export class AvmRevertCheckpointHint {
     // state evolution
     public readonly stateBefore: TreeSnapshots,
     public readonly stateAfter: TreeSnapshots,
-  ) { }
+  ) {}
 
   static create(
     actionCounter: number,
@@ -670,9 +670,9 @@ export class AvmRevertCheckpointHint {
   }
 }
 
-export class AvmContractDbCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint { }
-export class AvmContractDbCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint { }
-export class AvmContractDbRevertCheckpointHint extends AvmCheckpointActionNoStateChangeHint { }
+export class AvmContractDbCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+export class AvmContractDbCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+export class AvmContractDbRevertCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
 
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
@@ -701,7 +701,7 @@ export class AvmTxHint {
     public readonly teardownEnqueuedCall: PublicCallRequestWithCalldata | null,
     public readonly gasUsedByPrivate: Gas,
     public readonly feePayer: AztecAddress,
-  ) { }
+  ) {}
 
   static fromTx(tx: Tx, gasFees: GasFees): AvmTxHint {
     const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
@@ -878,7 +878,7 @@ export class AvmExecutionHints {
     public readonly createCheckpointHints: AvmCreateCheckpointHint[] = [],
     public readonly commitCheckpointHints: AvmCommitCheckpointHint[] = [],
     public readonly revertCheckpointHints: AvmRevertCheckpointHint[] = [],
-  ) { }
+  ) {}
 
   /**
    * Creates an AvmExecutionHints from a plain object without Zod validation.
@@ -909,7 +909,7 @@ export class AvmExecutionHints {
         AvmGetLeafPreimageHintPublicDataTree.fromPlainObject(h),
       ) || [],
       obj.getLeafPreimageHintsNullifierTree?.map((h: any) => AvmGetLeafPreimageHintNullifierTree.fromPlainObject(h)) ||
-      [],
+        [],
       obj.getLeafValueHints?.map((h: any) => AvmGetLeafValueHint.fromPlainObject(h)) || [],
       obj.sequentialInsertHintsPublicDataTree?.map((h: any) =>
         AvmSequentialInsertHintPublicDataTree.fromPlainObject(h),
@@ -1011,7 +1011,7 @@ export class AvmCircuitInputs {
   constructor(
     public readonly hints: AvmExecutionHints,
     public publicInputs: AvmCircuitPublicInputs,
-  ) { }
+  ) {}
 
   static empty() {
     return new AvmCircuitInputs(AvmExecutionHints.empty(), AvmCircuitPublicInputs.empty());
@@ -1061,7 +1061,7 @@ export class CallStackMetadata {
     public reverted: boolean,
     public nested: CallStackMetadata[],
     public numNestedCalls: number, // This will be different from the size of the nested vector if we went past some limit.
-  ) { }
+  ) {}
 
   static get schema(): ZodFor<CallStackMetadata> {
     return z
@@ -1148,7 +1148,7 @@ export class CallStackMetadata {
     const { stack, leaf } = failingCall;
     const aztecCallStack = stack.map(call => ({
       contractAddress: AztecAddress.fromField(call.contractAddress),
-      functionSelector: call.calldata.length > 0 ? FunctionSelector.fromField(call.calldata[0]) : undefined,
+      functionSelector: call.calldata.length > 0 ? FunctionSelector.fromFieldOrUndefined(call.calldata[0]) : undefined,
     }));
 
     // The Noir call stack is the internal call stack at exit of the failing call
@@ -1204,7 +1204,7 @@ export class PublicTxEffect {
     public l2ToL1Msgs: ScopedL2ToL1Message[],
     public publicLogs: PublicLog[],
     public publicDataWrites: PublicDataWrite[],
-  ) { }
+  ) {}
 
   static empty() {
     return new PublicTxEffect(Fr.ZERO, [], [], [], [], []);
@@ -1277,7 +1277,7 @@ export class PublicTxResult {
     // For the proving request.
     public hints: AvmExecutionHints | undefined,
     public publicInputs: AvmCircuitPublicInputs | undefined,
-  ) { }
+  ) {}
 
   static empty() {
     return new PublicTxResult(
@@ -1289,8 +1289,8 @@ export class PublicTxResult {
       },
       RevertCode.OK,
       PublicTxEffect.empty(),
-      /*callStackMetadata=*/[] as CallStackMetadata[],
-      /*logs=*/[],
+      /*callStackMetadata=*/ [] as CallStackMetadata[],
+      /*logs=*/ [],
       /*hints=*/ AvmExecutionHints.empty(),
       /*publicInputs=*/ AvmCircuitPublicInputs.empty(),
     );
@@ -1386,7 +1386,7 @@ export class CollectionLimitsConfig {
     public readonly maxReturndataSizeInFields: number,
     public readonly maxCallStackDepth: number,
     public readonly maxCallStackItems: number,
-  ) { }
+  ) {}
 
   static from(obj: Partial<CollectionLimitsConfig>): CollectionLimitsConfig {
     return new CollectionLimitsConfig(
@@ -1440,7 +1440,7 @@ export class PublicSimulatorConfig {
     public readonly collectDebugLogs: boolean, // logs.
     public readonly collectStatistics: boolean, // timings etc.
     public readonly collectionLimits: CollectionLimitsConfig,
-  ) { }
+  ) {}
 
   static from(obj: Partial<PublicSimulatorConfig>): PublicSimulatorConfig {
     return new PublicSimulatorConfig(
@@ -1482,7 +1482,7 @@ export class AvmFastSimulationInputs {
     public tx: AvmTxHint,
     public globalVariables: GlobalVariables,
     public protocolContracts: ProtocolContracts,
-  ) { }
+  ) {}
 
   static empty() {
     return new AvmFastSimulationInputs(
