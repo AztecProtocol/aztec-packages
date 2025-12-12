@@ -352,36 +352,19 @@ export function describeArchiverDataStore(
       });
     });
 
-    describe('deleteLogs', () => {
-      it('deletes private & public logs', async () => {
-        const block = blocks[0].block;
-        await store.addBlocks([blocks[0]]);
-        await expect(store.addLogs([block])).resolves.toEqual(true);
+    it('deleteLogs', async () => {
+      const block = blocks[0].block;
+      await store.addBlocks([blocks[0]]);
+      await expect(store.addLogs([block])).resolves.toEqual(true);
 
-        expect((await store.getPrivateLogs(BlockNumber(1), 1)).length).toEqual(
-          block.body.txEffects.map(txEffect => txEffect.privateLogs).flat().length,
-        );
-        expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(
-          block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
-        );
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(
+        block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
+      );
 
-        // This one is a pain for memory as we would never want to just delete memory in the middle.
-        await store.deleteLogs([block]);
+      // This one is a pain for memory as we would never want to just delete memory in the middle.
+      await store.deleteLogs([block]);
 
-        expect((await store.getPrivateLogs(BlockNumber(1), 1)).length).toEqual(0);
-        expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
-      });
-    });
-
-    describe('getPrivateLogs', () => {
-      it('gets added private logs', async () => {
-        const block = blocks[0].block;
-        await store.addBlocks([blocks[0]]);
-        await store.addLogs([block]);
-
-        const privateLogs = await store.getPrivateLogs(BlockNumber(1), 1);
-        expect(privateLogs).toEqual(block.body.txEffects.map(txEffect => txEffect.privateLogs).flat());
-      });
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
     });
 
     describe('getTxEffect', () => {
