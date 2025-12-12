@@ -302,7 +302,8 @@ TEST_F(IPATest, ShpleminiIPAWithoutShift)
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
                                                                                     vk.get_g1_identity(),
-                                                                                    verifier_transcript);
+                                                                                    verifier_transcript)
+                                         .batch_opening_claim;
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
 
@@ -340,7 +341,8 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
                                                                                     vk.get_g1_identity(),
-                                                                                    verifier_transcript);
+                                                                                    verifier_transcript)
+                                         .batch_opening_claim;
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     // auto result = PCS::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
@@ -395,7 +397,8 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
                                                                                     mle_opening_point,
                                                                                     vk.get_g1_identity(),
                                                                                     verifier_transcript,
-                                                                                    repeated_commitments);
+                                                                                    repeated_commitments)
+                                         .batch_opening_claim;
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     EXPECT_EQ(result, true);

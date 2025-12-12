@@ -62,15 +62,17 @@ inline constexpr std::tuple<size_t, size_t, size_t> HONK_RECURSION_CONSTANTS = [
     using MegaCircuitBuilder = bb::MegaCircuitBuilder;
 
     if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
-        return std::make_tuple(723995, 0, 0);
+        return std::make_tuple(723994, 0, 0);
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>) {
-        return std::make_tuple(724462, 0, 0);
+        return std::make_tuple(724461, 0, 0);
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
-        return std::make_tuple(24329, 1250, 76);
+        return std::make_tuple(24328, 1250, 76);
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>) {
-        return std::make_tuple(767515, 0, 0);
+        return std::make_tuple(767514, 0, 0);
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
-        return std::make_tuple(29302, 1052, 80);
+        return std::make_tuple(29301, 1052, 80);
+    } else if constexpr (std::is_same_v<RecursiveFlavor, bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
+        return std::make_tuple(814519, 0, 0);
     } else {
         bb::assert_failure("Unhandled recursive flavor.");
     }
@@ -81,7 +83,7 @@ inline constexpr std::tuple<size_t, size_t, size_t> HONK_RECURSION_CONSTANTS = [
 // ========================================
 
 // Gate count for Chonk recursive verification (UltraRollup builder)
-inline constexpr size_t CHONK_RECURSION_GATES = 2494057;
+inline constexpr size_t CHONK_RECURSION_GATES = 2494050;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -106,8 +108,15 @@ inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 914 + MSM_ROWS_OFFSET;
 inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 95;
 
 // Hiding kernel gate counts (verifies HN_FINAL proof)
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 37212;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 37211;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 1405 + MSM_ROWS_OFFSET;
 inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 126;
+
+// ========================================
+// ECCVM Recursive Verifier Constants
+// ========================================
+
+// Gate count for ECCVM recursive verifier (Ultra-arithmetized)
+inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 214038;
 
 } // namespace acir_format

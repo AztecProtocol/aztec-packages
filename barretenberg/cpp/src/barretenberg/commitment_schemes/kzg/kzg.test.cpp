@@ -227,11 +227,12 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     std::array<Fr, log_n> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, Fr{ 1 });
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                                    mock_claims.claim_batcher,
-                                                                                    mle_opening_point,
-                                                                                    vk.get_g1_identity(),
-                                                                                    verifier_transcript);
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                                              mock_claims.claim_batcher,
+                                                                              mle_opening_point,
+                                                                              vk.get_g1_identity(),
+                                                                              verifier_transcript)
+                                   .batch_opening_claim;
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
@@ -287,11 +288,11 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
                                                                                     verifier_transcript,
                                                                                     /* repeated commitments= */ {},
                                                                                     /* has zk = */ {},
-                                                                                    nullptr,
                                                                                     /* libra commitments = */ {},
                                                                                     /* libra evaluations = */ {},
                                                                                     {},
-                                                                                    {});
+                                                                                    {})
+                                         .batch_opening_claim;
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
@@ -354,7 +355,8 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
                                                                                     mle_opening_point,
                                                                                     vk.get_g1_identity(),
                                                                                     verifier_transcript,
-                                                                                    repeated_commitments);
+                                                                                    repeated_commitments)
+                                         .batch_opening_claim;
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
 

@@ -91,7 +91,7 @@ template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<F
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
 
-    BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
+    auto shplemini_verifier_output =
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
@@ -99,11 +99,12 @@ template <typename Flavor> OpeningClaim<typename Flavor::Curve> ECCVMVerifier_<F
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
-                                               &consistency_checked,
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation,
                                                sumcheck_output.round_univariate_commitments,
                                                sumcheck_output.round_univariate_evaluations);
+    consistency_checked = shplemini_verifier_output.consistency_checked.value();
+    BatchOpeningClaim<Curve> sumcheck_batch_opening_claims = shplemini_verifier_output.batch_opening_claim;
 
     // Reduce the accumulator to a single opening claim
     OpeningClaim multivariate_to_univariate_opening_claim =

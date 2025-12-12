@@ -337,10 +337,6 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     libra_commitments[1] = verifier_transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = verifier_transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
-    // Used to verify the consistency of the evaluations of the concatenated libra polynomial, big sum polynomial, and
-    // the quotient polynomial computed by SmallSubgroupIPAProver
-    bool consistency_checked = true;
-
     // Run Shplemini
     std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
 
@@ -351,9 +347,9 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
                                                                                     verifier_transcript,
                                                                                     {},
                                                                                     true,
-                                                                                    &consistency_checked,
                                                                                     libra_commitments,
-                                                                                    libra_evaluation);
+                                                                                    libra_evaluation)
+                                         .batch_opening_claim;
     // Verify claim using KZG or IPA
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
         auto result =
@@ -447,8 +443,6 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     libra_commitments[1] = verifier_transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = verifier_transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
-    bool consistency_checked = true;
-
     // Run Shplemini
     std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
 
@@ -459,11 +453,11 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
                                                                                     verifier_transcript,
                                                                                     {},
                                                                                     true,
-                                                                                    &consistency_checked,
                                                                                     libra_commitments,
                                                                                     libra_evaluation,
                                                                                     mock_claims.sumcheck_commitments,
-                                                                                    mock_claims.sumcheck_evaluations);
+                                                                                    mock_claims.sumcheck_evaluations)
+                                         .batch_opening_claim;
     // Verify claim using KZG or IPA
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
         auto result =
@@ -535,8 +529,10 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
 
     std::vector<Fr> padding_indicator_array(small_log_n, Fr{ 1 });
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
-        padding_indicator_array, mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript);
+    const auto batch_opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(
+            padding_indicator_array, mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript)
+            .batch_opening_claim;
 
     // Verify claim - should succeed because the polynomial was crafted to fold correctly
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
@@ -599,8 +595,10 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
 
     std::vector<Fr> padding_indicator_array(small_log_n, Fr{ 1 });
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
-        padding_indicator_array, mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript);
+    const auto batch_opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(
+            padding_indicator_array, mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript)
+            .batch_opening_claim;
 
     // Verify claim - should fail because the random polynomial doesn't fold correctly
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {

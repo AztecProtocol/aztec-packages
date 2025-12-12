@@ -173,6 +173,12 @@ template <typename Curve> class ShpleminiVerifier_ {
     using ClaimBatcher = ClaimBatcher_<Curve>;
 
   public:
+    // A struct to return the batch opening claim and the consistency checked flag for ZK flavors
+    struct ShpleminiVerifierOutput {
+        BatchOpeningClaim<Curve> batch_opening_claim;
+        std::optional<bool> consistency_checked;
+    };
+
     /**
      * @brief This method receives commitments to all prover polynomials, their claimed
      * evaluations, the sumcheck challenge, the group element \f$ [1]_1 \f$, and a pointer to the transcript.
@@ -199,7 +205,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      *
      */
     template <typename Transcript>
-    static BatchOpeningClaim<Curve> compute_batch_opening_claim(
+    static ShpleminiVerifierOutput compute_batch_opening_claim(
         std::span<const Fr> padding_indicator_array,
         ClaimBatcher& claim_batcher,
         const std::vector<Fr>& multivariate_challenge,
@@ -207,7 +213,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::shared_ptr<Transcript>& transcript,
         const RepeatedCommitmentsData& repeated_commitments = {},
         const bool has_zk = false,
-        bool* consistency_checked = nullptr,
         const std::array<Commitment, NUM_LIBRA_COMMITMENTS>& libra_commitments = {},
         const Fr& libra_univariate_evaluation = Fr{ 0 },
         const std::vector<Commitment>& sumcheck_round_commitments = {},
@@ -311,7 +316,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr shplonk_interleaving_batching_pos = Fr{ 0 };
         Fr shplonk_interleaving_batching_neg = Fr{ 0 };
         if (claim_batcher.interleaved) {
-            // Currently, the prover places the Interleaving claims before the Gemini dummy claims.
+            // The prover places the Interleaving claims (P₊, P₋) after all Gemini fold claims.
+            // Their batching powers are ν^{2·virtual_log_n} and ν^{2·virtual_log_n+1}.
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving.
             const size_t interleaved_pos_index = 2 * virtual_log_n;
             const size_t interleaved_neg_index = interleaved_pos_index + 1;
@@ -355,14 +361,15 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Retrieve  the contribution without P₊(r^s)
         Fr a_0_pos = full_a_0_pos - p_pos;
         // Add contributions from A₀₊(r) and  A₀₋(-r) to constant_term_accumulator:
-        //  Add  A₀₊(r)/(z−r) to the constant term accumulator
+        // Add  A₀₊(r)/(z−r) to the constant term accumulator
         constant_term_accumulator += a_0_pos * inverse_vanishing_evals[0];
         // Add  A₀₋(-r)/(z+r) to the constant term accumulator
         constant_term_accumulator +=
             gemini_fold_neg_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
 
         remove_repeated_commitments(commitments, scalars, repeated_commitments, has_zk);
-
+        // An optional boolean flag for SmallSubgroupIPAVerifier to check the consistency of the Libra evaluations
+        std::optional<bool> consistency_checked = std::nullopt;
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
         // ShpleminiVerifier, otherwise this argument is set to be empty
         if (has_zk) {
@@ -376,7 +383,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                         shplonk_batching_challenge_powers,
                         shplonk_evaluation_challenge);
 
-            *consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_libra_evaluations_consistency(
+            consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_libra_evaluations_consistency(
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 
@@ -396,7 +403,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         commitments.emplace_back(g1_identity);
         scalars.emplace_back(constant_term_accumulator);
 
-        return { commitments, scalars, shplonk_evaluation_challenge };
+        return { { commitments, scalars, shplonk_evaluation_challenge }, consistency_checked };
     };
 
     /**

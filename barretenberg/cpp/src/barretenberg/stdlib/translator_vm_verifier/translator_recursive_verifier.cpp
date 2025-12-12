@@ -164,7 +164,6 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Execute Shplemini
-    bool consistency_checked = true;
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted_without_interleaved(),
                                  sumcheck_output.claimed_evaluations.get_unshifted_without_interleaved() },
@@ -172,17 +171,16 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
         .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_interleaved(),
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
-    const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                               claim_batcher,
-                                               sumcheck_output.challenge,
-                                               Commitment::one(builder),
-                                               transcript,
-                                               Flavor::REPEATED_COMMITMENTS,
-                                               Flavor::HasZK,
-                                               &consistency_checked,
-                                               libra_commitments,
-                                               sumcheck_output.claimed_libra_evaluation);
+    const auto opening_claim = Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                                                      claim_batcher,
+                                                                      sumcheck_output.challenge,
+                                                                      Commitment::one(builder),
+                                                                      transcript,
+                                                                      Flavor::REPEATED_COMMITMENTS,
+                                                                      Flavor::HasZK,
+                                                                      libra_commitments,
+                                                                      sumcheck_output.claimed_libra_evaluation)
+                                   .batch_opening_claim;
 
     PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
 
