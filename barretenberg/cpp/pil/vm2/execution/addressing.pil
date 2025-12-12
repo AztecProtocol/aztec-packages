@@ -207,6 +207,10 @@ op_after_relative[5] = op[5] + SEL_OP_IS_RELATIVE_EFFECTIVE_5_ * RELATIVE_RESOLU
 #[RELATIVE_RESOLUTION_6]
 op_after_relative[6] = op[6] + SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * RELATIVE_RESOLUTION_FILTER;
 
+// In tracegen, each op[i] is 0 when SHOULD_RESOLVE_ADDRESS == 0 because #[INSTRUCTION_FETCHING_BODY]
+// is not active. Therefore, we do not have to gate the above relations by SEL_SHOULD_RESOLVE_ADDRESS.
+// In addition, the above relations can be skipped when SEL_SHOULD_RESOLVE_ADDRESS == 0 (skippable condition).
+
 pol commit sel_op_do_overflow_check[7]; //@boolean (from definition)
 sel_op_do_overflow_check[0] = SEL_OP_IS_RELATIVE_EFFECTIVE_0_ * (1 - sel_base_address_failure);
 sel_op_do_overflow_check[1] = SEL_OP_IS_RELATIVE_EFFECTIVE_1_ * (1 - sel_base_address_failure);
