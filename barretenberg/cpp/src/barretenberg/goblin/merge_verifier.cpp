@@ -111,7 +111,7 @@ BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
  * @return VerificationResult containing pairing points, merged table commitments, and check results
  */
 template <typename Curve>
-typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::reduce_to_pairing_check(
+typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to_pairing_check(
     const Proof& proof, const InputCommitments& input_commitments)
 {
     transcript->load_proof(proof);

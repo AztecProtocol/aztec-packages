@@ -57,10 +57,10 @@ template <typename Curve> class MergeVerifier_ {
      * @details Contains pairing points for KZG verification, merged table commitments, and aggregate check status.
      * Individual check results are logged internally by the verifier.
      */
-    struct VerificationResult {
+    struct ReductionResult {
         PairingPoints pairing_points;
         TableCommitments merged_commitments;
-        bool verified = false; // Aggregate of degree and concatenation checks
+        bool reduction_succeeded = false; // Aggregate of degree and concatenation checks
     };
 
     MergeSettings settings;
@@ -80,7 +80,7 @@ template <typename Curve> class MergeVerifier_ {
      * @param transcript Shared transcript for Fiat-Shamir
      * @return VerificationResult containing pairing points, merged commitments, and degree check status
      */
-    [[nodiscard("Verification result should be checked")]] VerificationResult reduce_to_pairing_check(
+    [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check(
         const Proof& proof, const InputCommitments& input_commitments);
 
   private:

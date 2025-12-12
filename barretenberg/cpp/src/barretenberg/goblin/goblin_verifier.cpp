@@ -18,10 +18,10 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     // Step 1: Verify the merge proof
     MergeVerifier merge_verifier{ merge_settings, transcript };
     auto merge_result = merge_verifier.reduce_to_pairing_check(proof.merge_proof, merge_commitments);
-    vinfo("Goblin: Merge reduced to pairing check: ", merge_result.verified);
+    vinfo("Goblin: Merge reduced to pairing check: ", merge_result.reduction_succeeded);
 
     if constexpr (!IsRecursive) {
-        if (!merge_result.verified) {
+        if (!merge_result.reduction_succeeded) {
             info("Goblin verification failed at Merge step");
             return VerificationResult();
         }
@@ -77,7 +77,8 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     // Combine all check results
     // Recursive: must evaluate all booleans (circuit structure must be fixed)
     // Native: redundant check (already returned early on failure), but kept for consistency
-    bool all_checks_passed = merge_result.verified && eccvm_result.verified && translator_result.reduction_succeeded;
+    bool all_checks_passed =
+        merge_result.reduction_succeeded && eccvm_result.verified && translator_result.reduction_succeeded;
 
     // Warning: `all_checks_passed` excludes pairing verification. Full native verification requires:
     // - Aggregated pairing check (performed in caller)

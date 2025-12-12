@@ -200,7 +200,7 @@ template <typename Curve> class MergeTests : public testing::Test {
         VerifierCommitmentKey pcs_verification_key;
         bool pairing_verified = pcs_verification_key.pairing_check(to_native(result.pairing_points.P0),
                                                                    to_native(result.pairing_points.P1));
-        bool verified = pairing_verified && result.verified;
+        bool verified = pairing_verified && result.reduction_succeeded;
         EXPECT_EQ(verified, expected);
 
         // If verification is expected to succeed, also check that the merged table commitments match
@@ -657,7 +657,7 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     auto result = merge_verifier.reduce_to_pairing_check(merge_proof, merge_commitments);
 
     // Verification should succeed
-    ASSERT_TRUE(result.pairing_points.check() && result.verified);
+    ASSERT_TRUE(result.pairing_points.check() && result.reduction_succeeded);
 
     // Check prover and verifier manifests match
     auto prover_manifest = merge_prover.transcript->get_manifest();
