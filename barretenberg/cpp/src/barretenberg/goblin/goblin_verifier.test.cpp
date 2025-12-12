@@ -1,4 +1,4 @@
-#include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
+#include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/test.hpp"
@@ -12,7 +12,7 @@
 namespace bb::stdlib::recursion::honk {
 class GoblinRecursiveVerifierTests : public testing::Test {
   public:
-    using Builder = GoblinRecursiveVerifier::Builder;
+    using Builder = UltraCircuitBuilder;
     using ECCVMVK = Goblin::ECCVMVerificationKey;
     using TranslatorVK = Goblin::TranslatorVerificationKey;
 
@@ -22,9 +22,10 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using Commitment = MergeVerifier::Commitment;
-    using RecursiveCommitment = GoblinRecursiveVerifier::MergeVerifier::Commitment;
+    using RecursiveCommitment = bb::GoblinRecursiveVerifier::MergeVerifier::Commitment;
     using MergeCommitments = MergeVerifier::InputCommitments;
-    using RecursiveMergeCommitments = GoblinRecursiveVerifier::MergeVerifier::InputCommitments;
+    using RecursiveMergeCommitments = bb::GoblinRecursiveVerifier::MergeVerifier::InputCommitments;
+    using Transcript = UltraStdlibTranscript;
     using FF = TranslatorFlavor::FF;
     using BF = TranslatorFlavor::BF;
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -35,7 +36,6 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
     struct ProverOutput {
         GoblinProof proof;
-        Goblin::VerificationKey verifier_input;
         MergeCommitments merge_commitments;
         RecursiveMergeCommitments recursive_merge_commitments;
     };
@@ -113,11 +113,8 @@ class GoblinRecursiveVerifierTests : public testing::Test {
             }
         }
 
-        // Output is a goblin proof plus ECCVM/Translator verification keys
-        return { goblin_proof,
-                 { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() },
-                 merge_commitments,
-                 recursive_merge_commitments };
+        // Output is a goblin proof plus merge commitments
+        return { goblin_proof, merge_commitments, recursive_merge_commitments };
     }
 };
 
@@ -127,11 +124,21 @@ class GoblinRecursiveVerifierTests : public testing::Test {
  */
 TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 {
-    auto [proof, verifier_input, merge_commitments, _] = create_goblin_prover_output();
+    auto [proof, merge_commitments, _] = create_goblin_prover_output();
 
-    std::shared_ptr<Goblin::Transcript> verifier_transcript = std::make_shared<Goblin::Transcript>();
+    auto transcript = std::make_shared<NativeTranscript>();
+    bb::GoblinVerifier verifier(transcript, proof, merge_commitments, MergeSettings::APPEND);
+    auto result = verifier.reduce_to_pairing_check_and_ipa_opening();
 
-    EXPECT_TRUE(Goblin::verify(proof, merge_commitments, verifier_transcript, MergeSettings::APPEND));
+    // Check pairing points
+    bool pairing_verified = result.pairing_points.check();
+
+    // Verify IPA opening
+    auto ipa_transcript = std::make_shared<NativeTranscript>(result.ipa_proof);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, result.ipa_claim, ipa_transcript);
+
+    EXPECT_TRUE(pairing_verified && ipa_verified);
 }
 
 /**
@@ -142,16 +149,17 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
 {
     Builder builder;
 
-    auto [proof, verifier_input, merge_commitments, recursive_merge_commitments] =
-        create_goblin_prover_output(&builder);
+    auto [proof, merge_commitments, recursive_merge_commitments] = create_goblin_prover_output(&builder);
 
-    GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+    auto transcript = std::make_shared<Transcript>();
     GoblinStdlibProof stdlib_proof(builder, proof);
-    GoblinRecursiveVerifierOutput output =
-        verifier.verify(stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND);
+    bb::GoblinRecursiveVerifier verifier{
+        transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
+    };
+    auto output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
     stdlib::recursion::honk::DefaultIO<Builder> inputs;
-    inputs.pairing_inputs = output.points_accumulator;
+    inputs.pairing_inputs = output.pairing_points;
     inputs.set_public();
 
     info("Recursive Verifier: num gates = ", builder.num_gates());
@@ -182,16 +190,18 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
         -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<OuterFlavor::VerificationKey>> {
         Builder builder;
 
-        auto [proof, verifier_input, merge_commitments, recursive_merge_commitments] =
+        auto [proof, merge_commitments, recursive_merge_commitments] =
             create_goblin_prover_output(&builder, inner_size);
 
-        GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        auto transcript = std::make_shared<Transcript>();
         GoblinStdlibProof stdlib_proof(builder, proof);
-        GoblinRecursiveVerifierOutput output =
-            verifier.verify(stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND);
+        bb::GoblinRecursiveVerifier verifier{
+            transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
+        };
+        auto output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
         stdlib::recursion::honk::DefaultIO<Builder> inputs;
-        inputs.pairing_inputs = output.points_accumulator;
+        inputs.pairing_inputs = output.pairing_points;
         inputs.set_public();
 
         info("Recursive Verifier: num gates = ", builder.num_gates());
@@ -221,8 +231,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     BB_DISABLE_ASSERTS(); // Avoid on_curve assertion failure in cycle_group etc
     Builder builder;
 
-    auto [proof, verifier_input, merge_commitments, recursive_merge_commitments] =
-        create_goblin_prover_output(&builder);
+    auto [proof, merge_commitments, recursive_merge_commitments] = create_goblin_prover_output(&builder);
 
     // Tamper with the ECCVM proof
     for (auto& val : proof.eccvm_proof) {
@@ -232,16 +241,18 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
         }
     }
 
-    GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+    auto transcript = std::make_shared<Transcript>();
     GoblinStdlibProof stdlib_proof(builder, proof);
-    GoblinRecursiveVerifierOutput goblin_rec_verifier_output =
-        verifier.verify(stdlib_proof, recursive_merge_commitments);
+    bb::GoblinRecursiveVerifier verifier{
+        transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
+    };
+    auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
     EXPECT_FALSE(CircuitChecker::check(builder));
 
     srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto crs_factory = srs::get_grumpkin_crs_factory();
     VerifierCommitmentKey<curve::Grumpkin> grumpkin_verifier_commitment_key(1 << CONST_ECCVM_LOG_N, crs_factory);
-    OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.opening_claim.get_native_opening_claim();
+    OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.ipa_claim.get_native_opening_claim();
     auto native_ipa_transcript = std::make_shared<NativeTranscript>(goblin_rec_verifier_output.ipa_proof.get_value());
 
     bool native_result =
@@ -255,7 +266,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
  */
 TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 {
-    auto [proof, verifier_input, merge_commitments, _] = create_goblin_prover_output();
+    auto [proof, merge_commitments, _] = create_goblin_prover_output();
 
     // Tamper with the op commitment in merge commitments (used by Translator verifier)
     {
@@ -273,18 +284,19 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
             recursive_merge_commitments.T_prev_commitments[idx].fix_witness();
         }
 
-        GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        auto transcript = std::make_shared<Transcript>();
         GoblinStdlibProof stdlib_proof(builder, proof);
-        auto goblin_rec_verifier_output =
-            verifier.verify(stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND);
+        bb::GoblinRecursiveVerifier verifier{
+            transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
+        };
+        auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
         // Circuit is correct but pairing check should fail
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         // Check that the pairing fails natively
-        bb::PairingPoints<curve::BN254> native_pairing_points(
-            goblin_rec_verifier_output.points_accumulator.P0.get_value(),
-            goblin_rec_verifier_output.points_accumulator.P1.get_value());
+        bb::PairingPoints<curve::BN254> native_pairing_points(goblin_rec_verifier_output.pairing_points.P0.get_value(),
+                                                              goblin_rec_verifier_output.pairing_points.P1.get_value());
         bool pairing_result = native_pairing_points.check();
         EXPECT_FALSE(pairing_result);
     }
@@ -305,10 +317,12 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
             recursive_merge_commitments.T_prev_commitments[idx].fix_witness();
         }
 
-        GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        auto transcript = std::make_shared<Transcript>();
         GoblinStdlibProof stdlib_proof(builder, tampered_proof);
-        [[maybe_unused]] auto goblin_rec_verifier_output =
-            verifier.verify(stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND);
+        bb::GoblinRecursiveVerifier verifier{
+            transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
+        };
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
@@ -321,16 +335,17 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
 {
     Builder builder;
 
-    auto [proof, verifier_input, merge_commitments, recursive_merge_commitments] =
-        create_goblin_prover_output(&builder);
+    auto [proof, merge_commitments, recursive_merge_commitments] = create_goblin_prover_output(&builder);
 
     // Tamper with the `op` evaluation in the ECCVM proof using the helper function
     tamper_with_eccvm_op_eval(proof.eccvm_proof);
 
-    GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+    auto transcript = std::make_shared<Transcript>();
     GoblinStdlibProof stdlib_proof(builder, proof);
-    [[maybe_unused]] auto goblin_rec_verifier_output =
-        verifier.verify(stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND);
+    bb::GoblinRecursiveVerifier verifier{
+        transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
+    };
+    [[maybe_unused]] auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
@@ -346,13 +361,17 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
 
         Builder builder;
 
-        auto [proof, verifier_input, merge_commitments, recursive_merge_commitments] =
-            create_goblin_prover_output(&builder);
-
-        std::shared_ptr<Goblin::Transcript> verifier_transcript = std::make_shared<Goblin::Transcript>();
+        auto [proof, merge_commitments, recursive_merge_commitments] = create_goblin_prover_output(&builder);
 
         // Check natively that the proof is correct.
-        EXPECT_TRUE(Goblin::verify(proof, merge_commitments, verifier_transcript, MergeSettings::APPEND));
+        auto native_transcript = std::make_shared<NativeTranscript>();
+        bb::GoblinVerifier native_verifier(native_transcript, proof, merge_commitments, MergeSettings::APPEND);
+        auto native_result = native_verifier.reduce_to_pairing_check_and_ipa_opening();
+        bool pairing_verified = native_result.pairing_points.check();
+        auto ipa_transcript = std::make_shared<NativeTranscript>(native_result.ipa_proof);
+        auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+        bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, native_result.ipa_claim, ipa_transcript);
+        EXPECT_TRUE(pairing_verified && ipa_verified);
 
         // Tamper with the op commitment in merge commitments (used by Translator verifier)
         MergeCommitments tampered_merge_commitments = merge_commitments;
@@ -370,18 +389,19 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
             tampered_recursive_merge_commitments.T_prev_commitments[idx].fix_witness();
         }
 
-        GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        auto transcript = std::make_shared<Transcript>();
         GoblinStdlibProof stdlib_proof(builder, proof);
-        auto goblin_rec_verifier_output =
-            verifier.verify(stdlib_proof, tampered_recursive_merge_commitments, MergeSettings::APPEND);
+        bb::GoblinRecursiveVerifier verifier{
+            transcript, stdlib_proof, tampered_recursive_merge_commitments, MergeSettings::APPEND
+        };
+        auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
         // Circuit is correct but pairing check should fail
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         // Check that the pairing fails natively
-        bb::PairingPoints<curve::BN254> native_pairing_points(
-            goblin_rec_verifier_output.points_accumulator.P0.get_value(),
-            goblin_rec_verifier_output.points_accumulator.P1.get_value());
+        bb::PairingPoints<curve::BN254> native_pairing_points(goblin_rec_verifier_output.pairing_points.P0.get_value(),
+                                                              goblin_rec_verifier_output.pairing_points.P1.get_value());
         bool pairing_result = native_pairing_points.check();
         EXPECT_FALSE(pairing_result);
     }

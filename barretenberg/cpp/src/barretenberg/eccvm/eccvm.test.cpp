@@ -23,6 +23,7 @@ using FF = ECCVMFlavor::FF;
 using PK = ECCVMFlavor::ProvingKey;
 using Transcript = ECCVMFlavor::Transcript;
 using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
+using PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
 class ECCVMTests : public ::testing::Test {
   protected:
     void SetUp() override { srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
@@ -149,21 +150,18 @@ TEST_F(ECCVMTests, ZeroesCoefficients)
 
     // Compute IPA proof
     auto ipa_transcript = std::make_shared<Transcript>();
-    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
-    auto verifier_opening_claim = verifier.verify_proof();
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
 
     // Verify IPA
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
-    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
 
-    bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
-                    verifier.translation_masking_consistency_checked;
-
-    ASSERT_TRUE(verified);
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
 }
 TEST_F(ECCVMTests, PointAtInfinity)
 {
@@ -174,20 +172,17 @@ TEST_F(ECCVMTests, PointAtInfinity)
     auto [proof, opening_claim] = prover.construct_proof();
 
     auto ipa_transcript = std::make_shared<Transcript>();
-    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
-    auto verifier_opening_claim = verifier.verify_proof();
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
 
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
-    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
 
-    bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
-                    verifier.translation_masking_consistency_checked;
-
-    ASSERT_TRUE(verified);
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
 }
 TEST_F(ECCVMTests, ScalarEdgeCase)
 {
@@ -209,20 +204,17 @@ TEST_F(ECCVMTests, ScalarEdgeCase)
     auto [proof, opening_claim] = prover.construct_proof();
 
     auto ipa_transcript = std::make_shared<Transcript>();
-    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
-    auto verifier_opening_claim = verifier.verify_proof();
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
 
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
-    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
 
-    bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
-                    verifier.translation_masking_consistency_checked;
-
-    ASSERT_TRUE(verified);
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
 }
 /**
  * @brief Check that size of a ECCVM proof matches the corresponding constant
@@ -250,20 +242,17 @@ TEST_F(ECCVMTests, BaseCaseFixedSize)
     auto [proof, opening_claim] = prover.construct_proof();
 
     auto ipa_transcript = std::make_shared<Transcript>();
-    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
-    auto verifier_opening_claim = verifier.verify_proof();
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
 
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
-    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
 
-    bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
-                    verifier.translation_masking_consistency_checked;
-
-    ASSERT_TRUE(verified);
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
 }
 
 TEST_F(ECCVMTests, EqFailsFixedSize)
@@ -279,19 +268,17 @@ TEST_F(ECCVMTests, EqFailsFixedSize)
     auto [proof, opening_claim] = prover.construct_proof();
 
     auto ipa_transcript = std::make_shared<Transcript>();
-    ECCVMFlavor::PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript, proof);
-    auto verifier_opening_claim = verifier.verify_proof();
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
 
     auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
-    bool ipa_verified = ECCVMFlavor::PCS::reduce_verify(
-        verifier.key->pcs_verification_key, verifier_opening_claim, ipa_verifier_transcript);
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
 
-    bool verified = ipa_verified && verifier.sumcheck_verified && verifier.consistency_checked &&
-                    verifier.translation_masking_consistency_checked;
-    ASSERT_FALSE(verified);
+    ASSERT_FALSE(ipa_verified && eccvm_result.reduction_succeeded);
 }
 
 TEST_F(ECCVMTests, CommittedSumcheck)
@@ -379,11 +366,7 @@ TEST_F(ECCVMTests, FixedVK)
     // Generate a VK from PK
     ECCVMFlavor::VerificationKey vk_computed_by_prover(prover.key);
 
-    // Set verifier PCS key to null in both the fixed VK and the generated VK
-    fixed_vk.pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
-    vk_computed_by_prover.pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
-
-    auto labels = verifier.key->get_labels();
+    const auto& labels = bb::ECCVMFlavor::VerificationKey::get_labels();
     size_t index = 0;
     for (auto [vk_commitment, fixed_commitment] : zip_view(vk_computed_by_prover.get_all(), fixed_vk.get_all())) {
         EXPECT_EQ(vk_commitment, fixed_commitment)
