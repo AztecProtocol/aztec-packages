@@ -1,8 +1,8 @@
 use crate::{
     constants::{
-        AVM_VK_INDEX, HIDING_KERNEL_TO_PUBLIC_VK_INDEX, MEGA_VK_LENGTH_IN_FIELDS,
-        PARITY_BASE_VK_INDEX, PARITY_ROOT_VK_INDEX, PRIVATE_KERNEL_RESET_INDEX,
-        ROOT_ROLLUP_VK_INDEX, ULTRA_VK_LENGTH_IN_FIELDS, VK_TREE_HEIGHT,
+        HIDING_KERNEL_TO_PUBLIC_VK_INDEX, MEGA_VK_LENGTH_IN_FIELDS, PARITY_BASE_VK_INDEX,
+        PARITY_ROOT_VK_INDEX, PRIVATE_KERNEL_RESET_INDEX, ROOT_ROLLUP_VK_INDEX,
+        ULTRA_VK_LENGTH_IN_FIELDS, VK_TREE_HEIGHT,
     },
     merkle_tree::merkle_tree::MerkleTree,
     proof::{verification_key::VerificationKey, vk_data::VkData},
@@ -53,7 +53,6 @@ pub global VK_MERKLE_TREE: MerkleTree<VK_TREE_WIDTH> = {
 
     // Honk
     // Override some of the above with Honk Vks.
-    leaves[AVM_VK_INDEX] = generate_fake_honk_vk_for_index(AVM_VK_INDEX).hash;
     leaves[PARITY_BASE_VK_INDEX] = generate_fake_honk_vk_for_index(PARITY_BASE_VK_INDEX).hash;
     leaves[PARITY_ROOT_VK_INDEX] = generate_fake_honk_vk_for_index(PARITY_ROOT_VK_INDEX).hash;
     leaves[ROOT_ROLLUP_VK_INDEX] = generate_fake_honk_vk_for_index(ROOT_ROLLUP_VK_INDEX).hash;

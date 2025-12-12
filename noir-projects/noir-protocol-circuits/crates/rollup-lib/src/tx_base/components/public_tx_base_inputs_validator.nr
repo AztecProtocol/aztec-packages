@@ -4,7 +4,7 @@ use dep::types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
     },
-    constants::{ARCHIVE_HEIGHT, AVM_VK_INDEX, PUBLIC_CHONK_VERIFIER_VK_INDEX},
+    constants::{ARCHIVE_HEIGHT, PUBLIC_CHONK_VERIFIER_VK_INDEX},
     proof::proof_data::{AvmV2ProofData, RollupHonkProofData},
     traits::Empty,
     utils::arrays::array_length,
@@ -49,7 +49,7 @@ impl PublicTxBaseInputsValidator {
 
     pub fn validate(self) {
         self.validate_public_chonk_verifier_proof_and_vk();
-        self.validate_avm_proof_and_vk();
+        self.validate_avm_proof();
 
         // The public inputs of `private_tail_to_public` are propagated to `hiding_kernel_to_public` and then to
         // `public_chonk_verifier`. The following two functions verify the public inputs to ensure that the private side was
@@ -73,15 +73,10 @@ impl PublicTxBaseInputsValidator {
         self.public_chonk_verifier_proof_data.vk_data.validate_in_vk_tree(vk_tree_root);
     }
 
-    fn validate_avm_proof_and_vk(self) {
+    fn validate_avm_proof(self) {
         if !dep::std::runtime::is_unconstrained() {
             self.avm_proof_data.verify_proof_with_columns();
         }
-
-        assert_eq(self.avm_proof_data.vk_data.leaf_index, AVM_VK_INDEX, "Incorrect avm vk index");
-
-        let vk_tree_root = self.constants.vk_tree_root;
-        self.avm_proof_data.vk_data.validate_in_vk_tree(vk_tree_root);
     }
 
     fn validate_private_tail(self) {
