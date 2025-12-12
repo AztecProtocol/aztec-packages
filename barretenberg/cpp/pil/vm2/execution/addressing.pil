@@ -6,7 +6,7 @@ include "../gt.pil";
 // See https://docs.google.com/document/d/1EgFj0OQYZCWufjzLgoAAiVL9jV0-fUAaCCIVlvRc8bY/ for circuit design.
 
 // This sub-trace is virtual to the execution trace (execution.pil) and therefore it consists
-// of exactly one row per event (AddressingEvent). It is not used as destination of any interaction
+// of exactly one row per event (AddressingEvent). It is not used as a destination of any interaction
 // (permutation/lookup).
 
 // This gadget constrains the resolution of the operands from instruction fetching.
@@ -26,7 +26,7 @@ include "../gt.pil";
 // Errors:
 // - sel_base_address_failure: the base address is invalid
 // - sel_relative_overflow[i]: the relative address computation overflowed for operand i
-// - sel_some_final_check_failed: any of the indirect resolved operand has an invalid tag
+// - sel_some_final_check_failed: any of the indirect resolved operands has an invalid tag
 // - sel_addressing_error: is toggled to 1 if any of the above errors occurred
 //
 // If `sel_base_address_failure == 1`, then `sel_relative_overflow[i] == 0` for all `i`
@@ -39,12 +39,12 @@ include "../gt.pil";
 // TWO MAIN CASES:
 // (1) An operand is immediate.
 //     In this case, the constraints should force that the resolved operand is the same as the original operand.
-//     This is done via op_after_relative as intermediate column. None of the selectors (in particular errors)
+//     This is done via op_after_relative as an intermediate column. None of the selectors (in particular errors)
 //     should let you choose an arbitrary value for the intermediate steps nor the final operand.
 // (2) An operand is an address.
 //     In this case, the constraints should force that the resolved operand is a valid address.
 //     You should consider all the intermediate and possible errors.
-//     The ordering of the constraints follow simulation order (per operand):
+//     The ordering of the constraints follows simulation order (per operand):
 //     - base address check
 //     - relative resolution if any and base address check passed
 //     - if relative resolution happens, we check for overflow (sel_relative_overflow[i])
@@ -101,7 +101,7 @@ SEL_SHOULD_RESOLVE_ADDRESS * indirect =
 // or some other solution.
 
 // Whether each operand is an address for the given opcode.
-// Retrieved from the instruction spec in execution.pil. Therefore no need to constrain it to be a boolean.
+// Retrieved from the instruction spec in execution.pil. Therefore, there is no need to constrain it to be a boolean.
 // If an operand is not an address, then the resolved operand is expected to be the same as the original operand.
 pol commit sel_op_is_address[7]; // @boolean when SEL_SHOULD_RESOLVE_ADDRESS == 1 (see #[EXEC_SPEC_READ])
 
@@ -109,7 +109,7 @@ pol commit sel_op_is_address[7]; // @boolean when SEL_SHOULD_RESOLVE_ADDRESS == 
 // We only really want to apply the indirection and relative resolution if we are resolving an address.
 // Otherwise, we will treat it as an immediate and only propagate the operand value.
 // This is because simulation only considers the bits that can be addresses, and will not
-// attempt to resolve any other even if the indirect flag says so. Therefore, in particular it
+// attempt to resolve any other operand even if the indirect flag says so. Therefore, in particular it
 // will never error on those operands.
 pol SEL_OP_IS_RELATIVE_EFFECTIVE_0_ = sel_op_is_relative_wire[0] * sel_op_is_address[0];
 pol SEL_OP_IS_RELATIVE_EFFECTIVE_1_ = sel_op_is_relative_wire[1] * sel_op_is_address[1];
@@ -127,16 +127,15 @@ pol SEL_OP_IS_INDIRECT_EFFECTIVE_4_ = sel_op_is_indirect_wire[4] * sel_op_is_add
 pol SEL_OP_IS_INDIRECT_EFFECTIVE_5_ = sel_op_is_indirect_wire[5] * sel_op_is_address[5];
 pol SEL_OP_IS_INDIRECT_EFFECTIVE_6_ = sel_op_is_indirect_wire[6] * sel_op_is_address[6];
 
-// Note that sel_op_is_address[i] being only constrained when `SEL_SHOULD_RESOLVE_ADDRESS == 1`
-// is not a problem to define SEL_OP_IS_INDIRECT_EFFECTIVE_i_ and SEL_OP_IS_RELATIVE_EFFECTIVE_i_
-// because whenever `SEL_SHOULD_RESOLVE_ADDRESS == 0`, `sel_op_is_relative_wire[i] == 0` and
-// `sel_op_is_indirect_wire[i] == 0` according to #[INDIRECT_RECONSTRUCTION]. Therefore,
+// We recall that sel_op_is_address[i] is constrained only when `SEL_SHOULD_RESOLVE_ADDRESS == 1`.
+// If `SEL_SHOULD_RESOLVE_ADDRESS == 0`, we have `sel_op_is_relative_wire[i] == 0` and
+// `sel_op_is_indirect_wire[i] == 0` according to #[INDIRECT_RECONSTRUCTION]. This implies that
 // `SEL_OP_IS_INDIRECT_EFFECTIVE_i_ == 0` and `SEL_OP_IS_RELATIVE_EFFECTIVE_i_ == 0`.
-// This also proves that SEL_OP_IS_INDIRECT_EFFECTIVE_i_ and SEL_OP_IS_RELATIVE_EFFECTIVE_i_ are
+// This also shows that SEL_OP_IS_INDIRECT_EFFECTIVE_i_ and SEL_OP_IS_RELATIVE_EFFECTIVE_i_ are
 // boolean values.
 
 // Initial preconditions:
-// - The original operands which are marked as address are valid addresses.
+// - The original operands which are marked as addresses are valid addresses.
 //   This is not enforced in this trace. It is expected to be a guarantee of instruction fetching.
 
 /**************************************************************************************************
@@ -164,7 +163,7 @@ NUM_RELATIVE_X * (NUM_RELATIVE_E * (1 - NUM_RELATIVE_Y) + NUM_RELATIVE_Y) - 1 + 
 sel_do_base_check { precomputed.clk, context_id, /*address=*/precomputed.zero, /*value=*/base_address_val, /*tag=*/base_address_tag, /*rw=*/precomputed.zero/*(read)*/ }
 is memory.sel_addressing_base { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 
-// This error will be true iff the base address is not valid AND we did actually check it.
+// This error will be true iff the base address is not valid AND we actually checked it.
 pol commit sel_base_address_failure; // @boolean
 sel_base_address_failure * (1 - sel_base_address_failure) = 0;
 
@@ -313,7 +312,7 @@ is memory.sel_addressing_indirect[5] { memory.clk, memory.space_id, memory.addre
 sel_should_apply_indirection[6] { precomputed.clk, context_id, /*address=*/op_after_relative[6], /*value=*/rop[6], /*tag=*/rop_tag[6], /*rw=*/precomputed.zero/*(read)*/ }
 is memory.sel_addressing_indirect[6] { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 
-// Otherwise, if indirection is not applied , we propagate the operands from the previous step.
+// Otherwise, if indirection is not applied, we propagate the operands from the previous step.
 #[INDIRECT_PROPAGATION_0]
 (1 - sel_should_apply_indirection[0]) * (rop[0] - op_after_relative[0]) = 0;
 #[INDIRECT_PROPAGATION_1]
@@ -335,7 +334,7 @@ is memory.sel_addressing_indirect[6] { memory.clk, memory.space_id, memory.addre
  *  Final Guarantees
  **************************************************************************************************/
 
-// This error is true iff some final check failed. That is if some tag is not U32.
+// This error is true iff some final check failed. That is, if some tag is not U32.
 // We only check the tags of the operands that were indirection-resolved (this includes only addresses).
 // Observe that we don't need to know exactly which one failed.
 // We use this fact to "batch" the checks and do only 1 comparison against 0 (inverse check).
