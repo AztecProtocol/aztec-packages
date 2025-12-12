@@ -47,9 +47,9 @@ template <typename Flavor> class TranslatorVerifier_ {
      * @details Contains pairing points for KZG verification and aggregate check status.
      * Individual check results are logged internally by the verifier.
      */
-    struct VerificationResult {
+    struct ReductionResult {
         PairingPoints pairing_points;
-        bool verified = false; // Aggregate of sumcheck and consistency checks
+        bool reduction_succeeded = false; // Aggregate of sumcheck and consistency checks
     };
 
     /**
@@ -100,7 +100,7 @@ template <typename Flavor> class TranslatorVerifier_ {
      *
      * @return VerificationResult containing pairing points and verification status
      */
-    [[nodiscard("Verification result should be checked")]] VerificationResult verify_proof();
+    [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check();
 
     /**
      * @brief Get the verification key

@@ -56,11 +56,11 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
                                             translator_input.batching_challenge_v,
                                             translator_input.accumulated_result,
                                             merge_result.merged_commitments };
-    auto translator_result = translator_verifier.verify_proof();
-    vinfo("Goblin: Translator reduced to pairing check: ", translator_result.verified);
+    auto translator_result = translator_verifier.reduce_to_pairing_check();
+    vinfo("Goblin: Translator reduced to pairing check: ", translator_result.reduction_succeeded);
 
     if constexpr (!IsRecursive) {
-        if (!translator_result.verified) {
+        if (!translator_result.reduction_succeeded) {
             info("Goblin verification failed at Translator step");
             return VerificationResult();
         }
@@ -77,7 +77,7 @@ template <typename Curve> typename GoblinVerifier_<Curve>::VerificationResult Go
     // Combine all check results
     // Recursive: must evaluate all booleans (circuit structure must be fixed)
     // Native: redundant check (already returned early on failure), but kept for consistency
-    bool all_checks_passed = merge_result.verified && eccvm_result.verified && translator_result.verified;
+    bool all_checks_passed = merge_result.verified && eccvm_result.verified && translator_result.reduction_succeeded;
 
     // Warning: `all_checks_passed` excludes pairing verification. Full native verification requires:
     // - Aggregated pairing check (performed in caller)

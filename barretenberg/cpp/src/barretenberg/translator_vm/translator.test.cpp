@@ -105,8 +105,8 @@ class TranslatorTests : public ::testing::Test {
                                     op_queue_commitments);
 
         // Verify proof: get verification result and check all components
-        auto result = verifier.verify_proof();
-        return result.pairing_points.check() && result.verified;
+        auto result = verifier.reduce_to_pairing_check();
+        return result.pairing_points.check() && result.reduction_succeeded;
     }
 };
 

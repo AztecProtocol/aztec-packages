@@ -130,7 +130,7 @@ template <typename Flavor> void TranslatorVerifier_<Flavor>::put_translation_dat
  * the ECCVM transcript and the op queue data. Returns verification result with pairing points and check status.
  */
 template <typename Flavor>
-typename TranslatorVerifier_<Flavor>::VerificationResult TranslatorVerifier_<Flavor>::verify_proof()
+typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor>::reduce_to_pairing_check()
 {
     using PCS = typename Flavor::PCS;
     using Shplemini = ShpleminiVerifier_<Curve>;

@@ -184,7 +184,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
                                     recursive_inputs.batching_challenge_v,
                                     recursive_inputs.accumulated_result,
                                     recursive_inputs.op_queue_commitments };
-        auto recursive_result = verifier.verify_proof();
+        auto recursive_result = verifier.reduce_to_pairing_check();
 
         stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
         inputs.pairing_inputs = recursive_result.pairing_points;
@@ -198,8 +198,8 @@ class TranslatorRecursiveTests : public ::testing::Test {
                                       batching_challenge_v,
                                       recursive_inputs.accumulated_result_native,
                                       recursive_inputs.native_op_queue_commitments);
-        auto native_result = native_verifier.verify_proof();
-        bool native_verified = native_result.pairing_points.check() && native_result.verified;
+        auto native_result = native_verifier.reduce_to_pairing_check();
+        bool native_verified = native_result.pairing_points.check() && native_result.reduction_succeeded;
 
         NativeVerifierCommitmentKey pcs_vkey{};
         auto recursive_verified = pcs_vkey.pairing_check(recursive_result.pairing_points.P0.get_value(),
