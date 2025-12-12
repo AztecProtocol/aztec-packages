@@ -291,6 +291,7 @@ function test_cmds_native {
   done
 
   echo "$hash barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
+  echo "$hash barretenberg/cpp/scripts/test_memory_limit.sh"
 }
 
 function test_cmds_wasm_threads {
