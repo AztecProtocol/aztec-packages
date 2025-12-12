@@ -57,9 +57,9 @@ RUN cmake --build build-fuzzing-noasm && mv build-fuzzing-noasm/bin bin-fuzzing-
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-asan
 RUN cmake --build build-fuzzing-asan && mv build-fuzzing-asan/bin bin-fuzzing-asan && rm -rf build-fuzzing-asan
 
-# Build all coverage fuzzers
+# Build all coverage fuzzers (keep full build for LLVM links and external dependencies)
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-coverage
-RUN cmake --build build-fuzzing-cov && mv build-fuzzing-cov/bin bin-fuzzing-cov && rm -rf build-fuzzing-cov
+RUN cmake --build build-fuzzing-cov
 
 # Build avm fuzzers
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-avm
