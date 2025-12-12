@@ -3,7 +3,6 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { type Command, Option } from 'commander';
 
-import { getL1RollupAddressFromEnv } from '../../config/get_l1_config.js';
 import {
   ETHEREUM_HOSTS,
   MNEMONIC,
@@ -14,8 +13,6 @@ import {
   parseBigint,
   parseEthereumAddress,
 } from '../../utils/commands.js';
-
-export { addL1Validator } from './update_l1_validators.js';
 
 const l1RpcUrlsOption = new Option(
   '--l1-rpc-urls <string>',
@@ -313,7 +310,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .action(async options => {
       const { addL1ValidatorViaRollup } = await import('./update_l1_validators.js');
 
-      const rollupAddress = options.rollup ?? (await getL1RollupAddressFromEnv(options.l1RpcUrls, options.l1ChainId));
+      let rollupAddress = options.rollup;
+      if (!rollupAddress) {
+        const { getL1RollupAddressFromEnv } = await import('../../config/get_l1_config.js');
+        rollupAddress = await getL1RollupAddressFromEnv(options.l1RpcUrls, options.l1ChainId);
+      }
 
       await addL1ValidatorViaRollup({
         rpcUrls: options.l1RpcUrls,
