@@ -82,6 +82,9 @@
       "path": "../pxe"
     },
     {
+      "path": "../sequencer-client"
+    },
+    {
       "path": "../stdlib"
     },
     {
