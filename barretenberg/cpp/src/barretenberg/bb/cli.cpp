@@ -106,8 +106,7 @@ void print_subcommand_options(const CLI::App* sub)
  */
 int parse_and_run_cli_command(int argc, char* argv[])
 {
-    // Determine if this is an AVM command (needs 128GB instead of 16GB)
-    // Do this BEFORE parsing to avoid duplicating the parsing logic
+    // Determine if this is an AVM command for memory limit purposes.
     bool is_avm = false;
     if (argc > 1) {
         const char* cmd = argv[1];
