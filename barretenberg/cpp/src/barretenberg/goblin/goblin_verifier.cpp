@@ -10,8 +10,9 @@
 namespace bb {
 
 /**
- * @brief Verify a full Goblin proof (Merge, ECCVM, Translator)
- * @details In native mode, we are failing fast and returning the default ReductionResult.
+ * @brief Reduce Goblin proof to pairing check and IPA opening claim
+ * @details Processes Merge, ECCVM, and Translator sub-proofs sequentially. In native mode, performs immediate
+ * pairing checks for early rejections and returns the default ReductionResult on failure.
  */
 template <typename Curve>
 typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_to_pairing_check_and_ipa_opening()
@@ -26,7 +27,6 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
             info("Goblin verification failed at Merge step");
             return ReductionResult();
         }
-        // Pairing check is cheap (~1ms), do it immediately for fail-fast
         if (!merge_result.pairing_points.check()) {
             info("Goblin verification failed at Merge pairing check");
             return ReductionResult();
@@ -65,7 +65,7 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
             info("Goblin verification failed at Translator step");
             return ReductionResult();
         }
-        // Pairing check is cheap (~1ms), do it immediately for fail-fast
+
         if (!translator_result.pairing_points.check()) {
             info("Goblin verification failed at Translator pairing check");
             return ReductionResult();

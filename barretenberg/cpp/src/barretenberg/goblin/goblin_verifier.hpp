@@ -22,15 +22,9 @@ namespace bb {
  *
  * @details Orchestrates verification of the three Goblin sub-protocols:
  *   1. Merge protocol - Proves correct concatenation of op queue tables (see MERGE_PROTOCOL.md)
- *      - Reduces to KZG pairing check
  *   2. ECCVM verification - Proves correct execution of elliptic curve operations
- *      - Reduces to IPA opening claim (Grumpkin curve)
  *   3. Translator verification - Proves consistency between BN254 ↔ Grumpkin field element representations
- *      - Reduces to KZG pairing check
  *
- * Each sub-verifier performs internal consistency checks and reduces polynomial opening claims to either:
- *   - KZG pairing points (Merge, Translator) - aggregated and verified via ecPairing on L1 or accumulated in-circuit
- *   - IPA opening claim (ECCVM) - accumulated across proofs and verified in root rollup (recursive) or natively
  *
  * This verifier does NOT perform final verification - it returns reduction results for deferred verification.
  *
@@ -89,13 +83,16 @@ template <typename Curve> class GoblinVerifier_ {
     {}
 
     /**
-     * @brief Verify Goblin proof components and return deferred verification data
-     * @details Orchestrates three sub-verifiers: Merge → ECCVM → Translator
+     * @brief Reduce Goblin proof to pairing check and IPA opening claim
+     * @details Orchestrates three sub-verifiers in sequence: Merge → ECCVM → Translator
+     *   - Merge: reduces to KZG pairing check
+     *   - ECCVM: reduces to IPA opening claim (Grumpkin curve)
+     *   - Translator: reduces to KZG pairing check
      *
-     * Native mode: Performs immediate pairing checks (cheap ~1ms) for fail-fast, returns IPA claim for deferred
-     * verification. Recursive mode: Returns both pairing points and IPA claim for batched verification.
+     * Pairing points from Merge and Translator are aggregated. In native mode, performs immediate pairing
+     * checks for early rejections. IPA verification is always deferred.
      *
-     * @return VerificationResult with all_checks_passed indicating:
+     * @return ReductionResult with all_checks_passed indicating:
      *   - Native: reduction checks + pairing checks passed, IPA verification still needed
      *   - Recursive: reduction checks only (pairing and IPA both deferred)
      *

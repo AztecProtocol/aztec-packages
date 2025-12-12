@@ -127,6 +127,20 @@ class ChonkRecursiveVerifier {
         : builder(builder)
         , stdlib_mega_vk_and_hash(stdlib_mega_vk_and_hash) {};
 
+    /**
+     * @brief Recursively verify a Chonk proof and return deferred verification data
+     * @details Creates circuit constraints that verify:
+     *   1. MegaZK proof of the hiding kernel
+     *   2. Databus consistency (kernel return data == calldata)
+     *   3. Goblin proof (Merge + ECCVM + Translator) - reduces to pairing points and IPA claim
+     *
+     * Both pairing verification and IPA verification are deferred. Tge aggregated pairing points must be verified
+     * elsewhere. The IPA claims are accumulated and deferred to root rollup.
+     *
+     * @param proof Stdlib Chonk proof containing mega_proof and goblin_proof
+     * @return Output (GoblinVerifier::ReductionResult) containing pairing points and IPA claim for deferred
+     * verification
+     */
     [[nodiscard("IPA claim and pairing points must be accumulated")]] Output verify(const StdlibProof&);
 
   private:

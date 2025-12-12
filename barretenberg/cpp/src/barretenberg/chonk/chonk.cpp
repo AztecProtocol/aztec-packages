@@ -555,13 +555,15 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     TableCommitments t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Step 3: Goblin verification (merge, eccvm, translator)
+    // Reduces Goblin proof to pairing points and IPA claim. In native mode, pairing checks are performed
+    // immediately for fail-fast. goblin_checks_passed includes reduction checks + pairing checks (pairing performed).
     GoblinVerifier goblin_verifier{
         chonk_verifier_transcript, proof.goblin_proof, { t_commitments, T_prev_commitments }, MergeSettings::APPEND
     };
     auto [pairing_points, ipa_claim, ipa_proof, goblin_checks_passed] =
         goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
     if (!goblin_checks_passed) {
-        info("Chonk verification failed at Goblin checks (merge/eccvm/translator)");
+        info("Chonk verification failed at Goblin checks (merge/eccvm/translator reduction + pairing)");
         return false;
     }
 
