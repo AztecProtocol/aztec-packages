@@ -24,11 +24,11 @@ RUN useradd -m fuzzer -G sudo
 WORKDIR /home/fuzzer
 
 # Build argument to avoid layer caching
-ARG COMMIT=latest
+ARG COMMIT=""
 
 RUN git clone https://github.com/AztecProtocol/aztec-packages.git --depth 1 && \
     cd aztec-packages &&                                                       \
-    if [ "$COMMIT" != "latest" ]; then                                         \
+    if [ -n "$COMMIT" ]; then                                                  \
         git fetch origin $COMMIT                                               \
         git checkout $COMMIT || exit 1;                                        \
     fi
