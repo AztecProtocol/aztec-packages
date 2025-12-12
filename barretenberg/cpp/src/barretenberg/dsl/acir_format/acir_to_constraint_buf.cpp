@@ -470,6 +470,9 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
     // We cannot precompute the exact number of gates that will result from the expression. Therefore, we reserve the
     // maximum number of gates that could ever be needed: one per multiplication term plus one per linear term. The real
     // number of gates will in general be lower than this.
+    BB_ASSERT_LTE(arg.mul_terms.size(),
+                  SIZE_MAX - linear_terms.size(),
+                  "split_into_mul_quad_gates: overflow when reserving space for mul_quad_ gates.");
     result.reserve(arg.mul_terms.size() + linear_terms.size());
 
     // Step 1. Add multiplication terms and linear terms with the same witness index
