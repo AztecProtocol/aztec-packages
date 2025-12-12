@@ -70,7 +70,6 @@ export function executeBB(
   concurrency?: number,
   timeout?: number,
   resultParser = (code: number) => code === 0,
-  bbMaxMemory?: number,
 ): Promise<BBExecResult> {
   return new Promise<BBExecResult>(resolve => {
     // spawn the bb process
@@ -82,11 +81,6 @@ export function executeBB(
       env.HARDWARE_CONCURRENCY = concurrency.toString();
     } else if (process.env.HARDWARE_CONCURRENCY) {
       env.HARDWARE_CONCURRENCY = process.env.HARDWARE_CONCURRENCY;
-    }
-
-    // Set BB_MAX_MEMORY if provided
-    if (bbMaxMemory !== undefined && bbMaxMemory > 0) {
-      env.BB_MAX_MEMORY = bbMaxMemory.toString();
     }
 
     logger(`BB concurrency: ${env.HARDWARE_CONCURRENCY}`);
@@ -129,7 +123,6 @@ export async function executeBbChonkProof(
   inputsPath: string,
   log: LogFn,
   writeVk = false,
-  bbMaxMemory?: number,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -161,7 +154,7 @@ export async function executeBbChonkProof(
     if (writeVk) {
       args.push('--write_vk');
     }
-    const result = await executeBB(pathToBB, 'prove', args, logFunction, undefined, undefined, undefined, bbMaxMemory);
+    const result = await executeBB(pathToBB, 'prove', args, logFunction);
     const durationMs = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -221,7 +214,6 @@ export async function generateProof(
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
   log: Logger,
-  bbMaxMemory?: number,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -269,7 +261,7 @@ export async function generateProof(
     const logFunction = (message: string) => {
       log.info(`${circuitName} BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, `prove`, args, logFunction, undefined, undefined, undefined, bbMaxMemory);
+    const result = await executeBB(pathToBB, `prove`, args, logFunction);
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -308,7 +300,6 @@ export async function generateAvmProof(
   input: AvmCircuitInputs,
   logger: Logger,
   checkCircuitOnly: boolean = false,
-  bbMaxMemory?: number,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -353,7 +344,7 @@ export async function generateAvmProof(
     const logFunction = (message: string) => {
       logger.verbose(`AvmCircuit (${cmd}) BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, cmd, args, logFunction, undefined, undefined, undefined, bbMaxMemory);
+    const result = await executeBB(pathToBB, cmd, args, logFunction);
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
