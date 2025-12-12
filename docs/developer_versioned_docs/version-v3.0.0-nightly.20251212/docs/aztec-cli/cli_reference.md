@@ -1418,10 +1418,6 @@ Options:
   Mnemonic for L1 accounts. Will be used
   *Environment: `$MNEMONIC`*
 
-- `--local-network.deployAztecContractsSalt <value>`
-  Numeric salt for deploying L1 Aztec contracts before starting the local network. Needs mnemonic or private key to be set.
-  *Environment: `$DEPLOY_AZTEC_CONTRACTS_SALT`*
-
 **API**
 
 - `--port <value>` (default: `8080`)

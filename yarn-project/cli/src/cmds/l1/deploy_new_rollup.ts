@@ -1,8 +1,8 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
-import type { Operator } from '@aztec/ethereum/deploy-l1-contracts';
+import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { LogFn, Logger } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { deployNewRollupContracts } from '../../utils/aztec.js';
@@ -15,15 +15,12 @@ export async function deployNewRollup(
   privateKey: string | undefined,
   mnemonic: string,
   mnemonicIndex: number,
-  salt: number | undefined,
   testAccounts: boolean,
   sponsoredFPC: boolean,
   json: boolean,
   initialValidators: Operator[],
   realVerifier: boolean,
-  createVerificationJson: string | false,
   log: LogFn,
-  debugLogger: Logger,
 ) {
   const config = getL1ContractsConfigEnvVars();
 
@@ -35,18 +32,15 @@ export async function deployNewRollup(
   const { rollup, slashFactoryAddress } = await deployNewRollupContracts(
     registryAddress,
     rpcUrls,
-    chainId,
     privateKey,
+    chainId,
     mnemonic,
     mnemonicIndex,
-    salt,
     initialValidators,
     genesisArchiveRoot,
     fundingNeeded,
     config,
     realVerifier,
-    createVerificationJson,
-    debugLogger,
   );
 
   if (json) {

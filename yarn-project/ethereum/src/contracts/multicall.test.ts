@@ -12,7 +12,8 @@ import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
-import { type DeployL1ContractsReturnType, deployL1Contract, deployL1Contracts } from '../deploy_l1_contracts.js';
+import { type DeployAztecL1ContractsReturnType, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
+import { deployL1Contract } from '../deploy_l1_contract.js';
 import { L1TxUtils, createL1TxUtilsFromViemWallet } from '../l1_tx_utils/index.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
@@ -25,7 +26,7 @@ describe('Multicall3', () => {
   let privateKey: PrivateKeyAccount;
   let logger: Logger;
   let walletClient: ExtendedViemWalletClient;
-  let deployed: DeployL1ContractsReturnType;
+  let deployed: DeployAztecL1ContractsReturnType;
   let tokenContract: GetContractReturnType<typeof TestERC20Abi, ExtendedViemWalletClient>;
   let tokenAddress: `0x${string}`;
   let l1TxUtils: L1TxUtils;
@@ -33,7 +34,8 @@ describe('Multicall3', () => {
   beforeAll(async () => {
     logger = createLogger('ethereum:test:multicall');
     // this is the 6th address that gets funded by the junk mnemonic
-    privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    const privateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
+    privateKey = privateKeyToAccount(privateKeyRaw);
     const vkTreeRoot = Fr.random();
     const protocolContractsHash = Fr.random();
 
@@ -41,9 +43,8 @@ describe('Multicall3', () => {
 
     walletClient = createExtendedL1Client([rpcUrl], privateKey, foundry);
 
-    deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
+    deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
       ...DefaultL1ContractsConfig,
-      salt: undefined,
       vkTreeRoot,
       protocolContractsHash,
       genesisArchiveRoot: Fr.random(),

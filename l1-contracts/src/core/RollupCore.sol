@@ -23,7 +23,8 @@ import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorO
 import {TallySlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/TallySlasherDeploymentExtLib.sol";
 import {EmpireSlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/EmpireSlasherDeploymentExtLib.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
-import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {EthValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";

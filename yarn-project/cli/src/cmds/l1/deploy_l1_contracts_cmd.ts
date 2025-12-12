@@ -2,25 +2,26 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { type Operator, deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { SecretValue } from '@aztec/foundation/config';
 import type { LogFn, Logger } from '@aztec/foundation/log';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { deployAztecContracts } from '../../utils/aztec.js';
+import { mnemonicToAccount } from 'viem/accounts';
+
+import { addLeadingHex } from '../../utils/aztec.js';
 import { getSponsoredFPCAddress } from '../../utils/setup_contracts.js';
 
-export async function deployL1Contracts(
+export async function deployL1ContractsCmd(
   rpcUrls: string[],
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
   mnemonicIndex: number,
-  salt: number | undefined,
   testAccounts: boolean,
   sponsoredFPC: boolean,
-  acceleratedTestDeployments: boolean,
   json: boolean,
-  createVerificationJson: string | false,
   initialValidators: EthAddress[],
   realVerifier: boolean,
   existingToken: EthAddress | undefined,
@@ -29,34 +30,50 @@ export async function deployL1Contracts(
 ) {
   const config = getL1ContractsConfigEnvVars();
 
+  // Compute initial accounts for genesis (test accounts + sponsored FPC)
   const initialAccounts = testAccounts ? await getInitialTestAccountsData() : [];
   const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
   const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
 
-  const initialValidatorOperators = initialValidators.map(a => ({
+  // Get the VK tree root
+  const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
+  const vkTreeRoot = getVKTreeRoot();
+
+  // Get private key (from direct input or mnemonic)
+  let deployerPrivateKey: `0x${string}`;
+  if (privateKey) {
+    deployerPrivateKey = addLeadingHex(privateKey);
+  } else {
+    const account = mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex });
+    deployerPrivateKey = `0x${Buffer.from(account.getHdKey().privateKey!).toString('hex')}`;
+  }
+
+  // Prepare validator operators with bn254 keys
+  const initialValidatorOperators: Operator[] = initialValidators.map(a => ({
     attester: a,
     withdrawer: a,
     bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
   }));
 
-  const { l1ContractAddresses } = await deployAztecContracts(
-    rpcUrls,
-    chainId,
-    privateKey,
-    mnemonic,
-    mnemonicIndex,
-    salt,
-    initialValidatorOperators,
+  debugLogger.info('Deploying L1 contracts via Forge...');
+
+  // Deploy using l1-contracts Forge scripts
+  const { l1ContractAddresses, rollupVersion } = await deployAztecL1Contracts(rpcUrls[0], deployerPrivateKey, chainId, {
+    // Initial validators to add during deployment
+    initialValidators: initialValidatorOperators,
+    // Genesis config
+    vkTreeRoot,
+    protocolContractsHash,
     genesisArchiveRoot,
-    fundingNeeded,
-    acceleratedTestDeployments,
-    config,
-    existingToken,
+    // Deployment options
     realVerifier,
-    createVerificationJson,
-    debugLogger,
-  );
+    ...config,
+    feeJuicePortalInitialBalance: fundingNeeded,
+    existingTokenAddress: existingToken,
+  });
+
+  debugLogger.info('Forge deployment complete', { rollupVersion });
 
   if (json) {
     log(

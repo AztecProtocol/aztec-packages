@@ -126,14 +126,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: DefaultMnemonic,
       env: 'MNEMONIC',
     },
-    {
-      flag: '--local-network.deployAztecContractsSalt <value>',
-      description:
-        'Numeric salt for deploying L1 Aztec contracts before starting the local network. Needs mnemonic or private key to be set.',
-      env: 'DEPLOY_AZTEC_CONTRACTS_SALT',
-      defaultValue: undefined,
-      parseVal: (val: string) => (val ? parseInt(val) : undefined),
-    },
   ],
   API: [
     {

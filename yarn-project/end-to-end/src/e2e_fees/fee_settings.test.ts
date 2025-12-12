@@ -20,7 +20,6 @@ describe('e2e_fees fee settings', () => {
   let wallet: TestWallet;
   let gasSettings: Partial<GasSettings>;
   let testContract: TestContract;
-
   const t = new FeesTest('fee_juice', 1);
 
   beforeAll(async () => {
