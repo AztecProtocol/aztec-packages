@@ -52,6 +52,8 @@ export class SequencerMetrics {
   private fishermanPriorityFeeDelta: Histogram;
   private fishermanEstimatedCost: Histogram;
   private fishermanEstimatedOverpayment: Histogram;
+  private fishermanMinedBlobTxPriorityFee: Histogram;
+  private fishermanMinedBlobTxTotalCost: Histogram;
 
   private lastSeenSlot?: SlotNumber;
 
@@ -219,6 +221,24 @@ export class SequencerMetrics {
         valueType: ValueType.DOUBLE,
       },
     );
+
+    this.fishermanMinedBlobTxPriorityFee = this.meter.createHistogram(
+      Metrics.FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_PRIORITY_FEE,
+      {
+        unit: 'gwei',
+        description: 'Priority fee per gas for blob transactions in mined blocks',
+        valueType: ValueType.DOUBLE,
+      },
+    );
+
+    this.fishermanMinedBlobTxTotalCost = this.meter.createHistogram(
+      Metrics.FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_TOTAL_COST,
+      {
+        unit: 'eth',
+        description: 'Total cost in ETH for blob transactions in mined blocks',
+        valueType: ValueType.DOUBLE,
+      },
+    );
   }
 
   public recordRequiredAttestations(requiredAttestationsCount: number, allowanceMs: number) {
@@ -333,6 +353,29 @@ export class SequencerMetrics {
       // Record mined block data if available
       if (analysis.minedBlock) {
         this.fishermanIncludedBlobTxCount.record(analysis.minedBlock.includedBlobTxCount, strategyAttributes);
+
+        // Record actual fees from blob transactions in the mined block
+        for (const blobTx of analysis.minedBlock.includedBlobTxs) {
+          // Record priority fee per gas in Gwei
+          const priorityFeeGwei = Number(blobTx.maxPriorityFeePerGas) / 1e9;
+          this.fishermanMinedBlobTxPriorityFee.record(priorityFeeGwei, strategyAttributes);
+
+          // Calculate total cost in ETH
+          // Cost = (gas * (baseFee + priorityFee)) + (blobCount * blobGasPerBlob * blobBaseFee)
+          const baseFee = analysis.minedBlock.baseFeePerGas;
+          const effectiveGasPrice = baseFee + blobTx.maxPriorityFeePerGas;
+
+          // Calculate execution cost using actual gas limit from the transaction
+          const executionCost = blobTx.gas * effectiveGasPrice;
+
+          // Calculate blob cost using maxFeePerBlobGas * blobCount * GAS_PER_BLOB
+          const blobCost = blobTx.maxFeePerBlobGas * BigInt(blobTx.blobCount) * 131072n; // 128KB per blob
+
+          const totalCostWei = executionCost + blobCost;
+          const totalCostEth = Number(totalCostWei) / 1e18;
+
+          this.fishermanMinedBlobTxTotalCost.record(totalCostEth, strategyAttributes);
+        }
       }
 
       // Record the calculated priority fee for this strategy

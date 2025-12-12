@@ -25,6 +25,7 @@ export interface BlobTxInfo {
   maxFeePerGas: bigint;
   maxFeePerBlobGas: bigint;
   blobCount: number;
+  gas: bigint;
 }
 
 /**
@@ -227,6 +228,7 @@ function processTransactions(transactions: readonly FormattedTransaction[] | und
         maxFeePerGas: tx.maxFeePerGas || 0n,
         maxFeePerBlobGas: tx.maxFeePerBlobGas,
         blobCount,
+        gas: tx.gas,
       });
     }
   }
