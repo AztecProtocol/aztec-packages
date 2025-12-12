@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/env/mem.hpp"
 #include "log.hpp"
 #include "memory.h"
 #include "tracy/Tracy.hpp"
@@ -44,6 +45,7 @@ inline void* aligned_alloc(size_t alignment, size_t size)
     posix_memalign(&t, alignment, size);
     if (t == 0) {
         info("bad alloc of size: ", size);
+        bb::print_memory_limit_usage();
         std::abort();
     }
     TRACY_ALLOC(t, size);
@@ -70,6 +72,7 @@ inline void* protected_aligned_alloc(size_t alignment, size_t size)
     t = aligned_alloc(alignment, size);
     if (t == nullptr) {
         info("bad alloc of size: ", size);
+        bb::print_memory_limit_usage();
         std::abort();
     }
     TRACY_ALLOC(t, size);
