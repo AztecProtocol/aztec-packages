@@ -40,7 +40,7 @@ SEL_SHOULD_RESOLVE_ADDRESS = 0;
 
 // This will be expanded using the indirect flag.
 // The upper bits are unused. See comment below.
-pol commit sel_op_is_relative_wire[8];
+pol commit sel_op_is_relative_wire[8]; // @boolean
 sel_op_is_relative_wire[0] * (1 - sel_op_is_relative_wire[0]) = 0;
 sel_op_is_relative_wire[1] * (1 - sel_op_is_relative_wire[1]) = 0;
 sel_op_is_relative_wire[2] * (1 - sel_op_is_relative_wire[2]) = 0;
@@ -49,7 +49,7 @@ sel_op_is_relative_wire[4] * (1 - sel_op_is_relative_wire[4]) = 0;
 sel_op_is_relative_wire[5] * (1 - sel_op_is_relative_wire[5]) = 0;
 sel_op_is_relative_wire[6] * (1 - sel_op_is_relative_wire[6]) = 0;
 sel_op_is_relative_wire[7] * (1 - sel_op_is_relative_wire[7]) = 0;
-pol commit sel_op_is_indirect_wire[8];
+pol commit sel_op_is_indirect_wire[8]; // @boolean
 sel_op_is_indirect_wire[0] * (1 - sel_op_is_indirect_wire[0]) = 0;
 sel_op_is_indirect_wire[1] * (1 - sel_op_is_indirect_wire[1]) = 0;
 sel_op_is_indirect_wire[2] * (1 - sel_op_is_indirect_wire[2]) = 0;
@@ -81,7 +81,7 @@ SEL_SHOULD_RESOLVE_ADDRESS * indirect =
 // Whether each operand is an address for the given opcode.
 // Retrieved from the instruction spec in execution.pil. Therefore no need to constrain it to be a boolean.
 // If an operand is not an address, then the resolved operand is expected to be the same as the original operand.
-pol commit sel_op_is_address[7];
+pol commit sel_op_is_address[7]; // @boolean when SEL_SHOULD_RESOLVE_ADDRESS == 1 (see #[EXEC_SPEC_READ])
 
 // We need an extra step in the computation of is_indirect and is_relative:
 // We only really want to apply the indirection and relative resolution if we are resolving an address.
@@ -105,6 +105,14 @@ pol SEL_OP_IS_INDIRECT_EFFECTIVE_4_ = sel_op_is_indirect_wire[4] * sel_op_is_add
 pol SEL_OP_IS_INDIRECT_EFFECTIVE_5_ = sel_op_is_indirect_wire[5] * sel_op_is_address[5];
 pol SEL_OP_IS_INDIRECT_EFFECTIVE_6_ = sel_op_is_indirect_wire[6] * sel_op_is_address[6];
 
+// Note that sel_op_is_address[i] being only constrained when `SEL_SHOULD_RESOLVE_ADDRESS == 1`
+// is not a problem to define SEL_OP_IS_INDIRECT_EFFECTIVE_i_ and SEL_OP_IS_RELATIVE_EFFECTIVE_i_
+// because whenever `SEL_SHOULD_RESOLVE_ADDRESS == 0`, `sel_op_is_relative_wire[i] == 0` and
+// `sel_op_is_indirect_wire[i] == 0` according to #[INDIRECT_RECONSTRUCTION]. Therefore,
+// `SEL_OP_IS_INDIRECT_EFFECTIVE_i_ == 0` and `SEL_OP_IS_RELATIVE_EFFECTIVE_i_ == 0`.
+// This also proves that SEL_OP_IS_INDIRECT_EFFECTIVE_i_ and SEL_OP_IS_RELATIVE_EFFECTIVE_i_ are
+// boolean values.
+
 // Initial preconditions:
 // - The original operands which are marked as address are valid addresses.
 //   This is not enforced in this trace. It is expected to be a guarantee of instruction fetching.
@@ -117,7 +125,7 @@ pol commit base_address_val;
 pol commit base_address_tag;
 
 // If any operand requires relative resolution, we check the base address.
-pol commit sel_do_base_check;
+pol commit sel_do_base_check; // @boolean
 sel_do_base_check * (1 - sel_do_base_check) = 0;
 // We do a bit of extra work to check if the sum of SEL_OP_IS_RELATIVE_EFFECTIVE[i] is non-zero.
 pol NUM_RELATIVE_OPERANDS = SEL_OP_IS_RELATIVE_EFFECTIVE_0_ + SEL_OP_IS_RELATIVE_EFFECTIVE_1_ + SEL_OP_IS_RELATIVE_EFFECTIVE_2_ + SEL_OP_IS_RELATIVE_EFFECTIVE_3_
@@ -135,7 +143,7 @@ sel_do_base_check { precomputed.clk, context_id, /*address=*/precomputed.zero, /
 is memory.sel_addressing_base { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 
 // This error will be true iff the base address is not valid AND we did actually check it.
-pol commit sel_base_address_failure;
+pol commit sel_base_address_failure; // @boolean
 sel_base_address_failure * (1 - sel_base_address_failure) = 0;
 
 // We check the TAG of the base address only. This implies that the value is valid.
@@ -157,7 +165,7 @@ BASE_CHECK_X * (BASE_CHECK_E * (1 - BASE_CHECK_Y) + BASE_CHECK_Y) - 1 + BASE_CHE
 // Operands after relative resolution.
 pol commit op_after_relative[7];
 // Whether relative resolution overflowed the address space.
-pol commit sel_relative_overflow[7];
+pol commit sel_relative_overflow[7]; // @boolean
 // sel_relative_overflow[i] is a boolean value:
 // - SEL_OP_IS_RELATIVE_EFFECTIVE[i] == 0, we enforce below that sel_relative_overflow[i] == 0 (see #[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_i]).
 // - sel_base_address_failure == 1, we enforce below that sel_relative_overflow[i] == 0 (see #[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_i]).
@@ -199,7 +207,7 @@ op_after_relative[5] = op[5] + SEL_OP_IS_RELATIVE_EFFECTIVE_5_ * RELATIVE_RESOLU
 #[RELATIVE_RESOLUTION_6]
 op_after_relative[6] = op[6] + SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * RELATIVE_RESOLUTION_FILTER;
 
-pol commit sel_op_do_overflow_check[7];
+pol commit sel_op_do_overflow_check[7]; //@boolean (from definition)
 sel_op_do_overflow_check[0] = SEL_OP_IS_RELATIVE_EFFECTIVE_0_ * (1 - sel_base_address_failure);
 sel_op_do_overflow_check[1] = SEL_OP_IS_RELATIVE_EFFECTIVE_1_ * (1 - sel_base_address_failure);
 sel_op_do_overflow_check[2] = SEL_OP_IS_RELATIVE_EFFECTIVE_2_ * (1 - sel_base_address_failure);
@@ -236,7 +244,7 @@ sel_op_do_overflow_check[6] { op_after_relative[6], highest_address, sel_relativ
 // We only do this if the indirect bit is set AND nothing else failed so far (for this operand).
 // Recall that from #[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_i] (i = 0, ..., 6), we have:
 // `sel_base_address_failure == 1` ==> `sel_relative_overflow[i] == 0` and therefore they are mutually exclusive.
-pol commit sel_should_apply_indirection[7];
+pol commit sel_should_apply_indirection[7]; // @boolean (from definition and above remark)
 #[INDIRECT_GATING_0]
 sel_should_apply_indirection[0] = SEL_OP_IS_INDIRECT_EFFECTIVE_0_ * (1 - sel_relative_overflow[0] - sel_base_address_failure);
 #[INDIRECT_GATING_1]
@@ -305,7 +313,7 @@ is memory.sel_addressing_indirect[6] { memory.clk, memory.space_id, memory.addre
 // We only check the tags of the operands that were indirection-resolved (this includes only addresses).
 // Observe that we don't need to know exactly which one failed.
 // We use this fact to "batch" the checks and do only 1 comparison against 0 (inverse check).
-pol commit sel_some_final_check_failed;
+pol commit sel_some_final_check_failed; // @boolean
 sel_some_final_check_failed * (1 - sel_some_final_check_failed) = 0;
 // Each tag takes at most 3 bits (guaranteed by mem lookup!), we can encode all of them in a field.
 // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw?both#Batching-comparison-of-n-bit-numbers.
@@ -331,7 +339,7 @@ BATCHED_TAGS_DIFF_EQ = 0;
 
 // Whether there was any error resolving any of the operands.
 // I.e., the OR of all other error selectors.
-pol commit sel_addressing_error;
+pol commit sel_addressing_error; // @boolean
 sel_addressing_error * (1 - sel_addressing_error) = 0;
 pol ADDRESSING_ERROR_COLLECTION = sel_base_address_failure
                                 + sel_relative_overflow[0] + sel_relative_overflow[1] + sel_relative_overflow[2] + sel_relative_overflow[3]

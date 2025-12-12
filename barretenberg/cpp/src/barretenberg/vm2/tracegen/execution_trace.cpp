@@ -968,8 +968,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
             { C::execution_batched_tags_diff_inv, batched_tags_diff },         // Will be inverted in batch.
             { C::execution_sel_some_final_check_failed, some_final_check_failed ? 1 : 0 },
             { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
-            { C::execution_num_relative_operands_inv,
-              do_base_check ? num_relative_operands : 0 }, // Will be inverted in batch later.
+            { C::execution_num_relative_operands_inv, num_relative_operands }, // Will be inverted in batch later.
             { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
             { C::execution_highest_address, AVM_HIGHEST_MEM_ADDRESS },
         } });
