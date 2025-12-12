@@ -155,7 +155,8 @@ class AvmGoblinRecursiveVerifier {
         GoblinRecursiveVerifier goblin_verifier{
             transcript, stdlib_goblin_proof, merge_commitments, MergeSettings::PREPEND
         };
-        GoblinRecursiveVerifier::VerificationResult goblin_verifier_output = goblin_verifier.verify();
+        GoblinRecursiveVerifier::ReductionResult goblin_verifier_output =
+            goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
         goblin_verifier_output.pairing_points.aggregate(mega_verifier_output.points_accumulator);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
