@@ -16,6 +16,8 @@ Aztec node no longer offers a `getPrivateLogs` method. If you need to process th
 ```diff
 -  const logs = await aztecNode.getPrivateLogs(blockNumber, 1);
 +  const logs = (await aztecNode.getBlock(blockNumber))?.toL2Block().getPrivateLogs();
+```
+
 ### [Aztec.nr] Private event emission API changes
 
 Private events are still emitted via the `emit` function, but this now returns an `EventMessage` type that must have `deliver_to` called on it in order to deliver the event message to the intended recipients. This allows for multiple recipients to receive the same event.
