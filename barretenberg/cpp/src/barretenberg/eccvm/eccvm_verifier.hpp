@@ -76,7 +76,7 @@ template <typename Flavor> class ECCVMVerifier_ {
      *   - ipa_claim: IPA opening claim to be verified externally (in root rollup or natively)
      *   - reduction_succeeded: true if sumcheck, consistency, and masking checks passed
      */
-    [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_ipa_opening();
+    [[nodiscard("Verification result must be checked")]] ReductionResult reduce_to_ipa_opening();
 
     /**
      * @brief Get the data required by the TranslatorVerifier

@@ -15,7 +15,6 @@
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
-#include <chrono>
 
 namespace bb {
 
@@ -567,7 +566,7 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
         return false;
     }
 
-    // Step 4: Verify IPA opening (fail-fast - this is the expensive step ~30ms)
+    // Step 4: Verify IPA opening
     auto ipa_transcript = std::make_shared<Goblin::Transcript>(ipa_proof);
     auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
     bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, ipa_claim, ipa_transcript);
