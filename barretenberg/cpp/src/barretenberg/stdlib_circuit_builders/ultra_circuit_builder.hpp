@@ -57,9 +57,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // We offer two types of range constraints: small (which can be non-dyadic) and general. The below constants
     // determine their max values.
     static constexpr size_t MAX_SMALL_RANGE_CONSTRAINT_VAL = (1 << 16) - 1;
-    static constexpr size_t MAX_NUM_BITS_RANGE_CONSTRAINT =
-        253; // AUDITTODO: should be the same as `grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH`, which is currently 252.
-             // latter needs to be bumped up by 1.
+    static constexpr size_t MAX_NUM_BITS_RANGE_CONSTRAINT = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH;
     enum MEMORY_SELECTORS {
         MEM_NONE,
         RAM_CONSISTENCY_CHECK,
@@ -80,7 +78,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     };
 
     struct RangeList {
-        uint64_t target_range; // range constraint will be for the range [0, target_range].
+        uint64_t target_range; // range constraint will be for the range [0, target_range], i.e., is inclusive of
+                               // `target_range`.
         uint32_t range_tag;    // Every variable that is range-constrained to a given `target_range` has the same tag,
                                // namely, `range_tag`. Never `DUMMY_TAG`.
         uint32_t tau_tag;      // Tag assigned to the sorted reference set. Never `DUMMY_TAG`.
@@ -307,8 +306,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void fix_witness(const uint32_t witness_index, const FF& witness_value);
 
     /**
-     * @brief Low-level range constraint for small ranges, notably non-power-of-2. Adds variable to a RangeList for
-     * batched processing.
+     * @brief Range-constraints for small ranges, where the upper bound (`target_range`) need not be dyadic. Max
+     * possible value is 2^16 - 1. Adds variable to a RangeList for batched processing.
      * @details Constrains variable to [0, target_range], where `target_range < 2^14`. The constraint is deferred:
      * variables are collected into RangeLists (grouped by target_range), then processed together in
      * `process_range_lists()` which creates the actual delta-range gates. This batching is efficient because multiple
@@ -478,7 +477,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_unconstrained_gates(const std::vector<uint32_t>& variable_index);
 
     /**
-     * @brief Check for a sequence of variables that the neighborind differences are in {0, 1, 2, 3} via the delta_range
+     * @brief Check for a sequence of variables that the neighboring differences are in {0, 1, 2, 3} via the delta_range
      * block.
      *
      * @param variable_indices

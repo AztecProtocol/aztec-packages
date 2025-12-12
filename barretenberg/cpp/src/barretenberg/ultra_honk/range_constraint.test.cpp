@@ -303,20 +303,20 @@ TYPED_TEST(RangeTests, LimbedRangeConstraint133Bits)
     TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
-// Large range constraint using limb decomposition (252 bits - near field size)
-TYPED_TEST(RangeTests, LimbedRangeConstraint252Bits)
+// Edge-case range constraint using limb decomposition. Here, `253 == MAX_NUM_BITS_RANGE_CONSTRAINT`.
+TYPED_TEST(RangeTests, LimbedRangeConstraint253Bits)
 {
     auto builder = UltraCircuitBuilder();
 
-    // Create a random value that fits in 252 bits
+    // Create a random value that fits in 253 bits
     auto random_field = fr::random_element();
-    auto truncated = uint256_t(random_field).slice(0, 252);
+    auto truncated = uint256_t(random_field).slice(0, 253);
     auto value = fr(truncated);
 
     auto idx = builder.add_variable(value);
     // Need an arithmetic gate to use the variable (otherwise it's an orphan)
     builder.create_add_gate({ idx, builder.zero_idx(), builder.zero_idx(), 1, 0, 0, -value });
-    builder.create_limbed_range_constraint(idx, /*num_bits=*/252);
+    builder.create_limbed_range_constraint(idx, /*num_bits=*/253);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     TestFixture::prove_and_verify(builder, /*expected_result=*/true);

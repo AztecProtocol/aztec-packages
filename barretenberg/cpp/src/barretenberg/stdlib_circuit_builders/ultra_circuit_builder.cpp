@@ -599,7 +599,8 @@ typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<Ex
 
     uint64_t num_multiples_of_three = (target_range / DEFAULT_PLOOKUP_RANGE_STEP_SIZE);
     // allocate the minimum number of variable indices required for the range constraint. this function is only called
-    // when we are create a range constraint on a witness index, which is responsible for the extra + 1.
+    // when we are creating a range constraint on a witness index, which is responsible for the extra + 1. (note that
+    // the below loop goes from 0 to `num_multiples_of_three` inclusive.)
     result.variable_indices.reserve(static_cast<uint32_t>(num_multiples_of_three + 3));
     for (uint64_t i = 0; i <= num_multiples_of_three; ++i) {
         const uint32_t index = this->add_variable(fr(i * DEFAULT_PLOOKUP_RANGE_STEP_SIZE));
@@ -760,44 +761,47 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const u
     // If the variable's tag matches the target range list's tag, do nothing; the variable has _already_ been
     // constrained to this exact range (i.e., `create_new_range_constraint(variable_index, target_range)` has already
     // been called).
-    if (existing_tag != list.range_tag) {
-        // If the variable is 'untagged' (i.e., it has the dummy tag), assign it the appropriate tag, which amounts to
-        // setting the range-constraint. Otherwise, find the range for which the variable has already been tagged.
-        if (existing_tag != DUMMY_TAG) {
-            bool found_tag = false;
-            for (const auto& r : range_lists) {
-                if (r.second.range_tag == existing_tag) {
-                    found_tag = true;
-                    if (r.first < target_range) {
-                        // The variable already has a more restrictive range check, so do nothing.
-                        return;
-                    } else {
-                        // The range constraint we are trying to impose is more restrictive than the existing range
-                        // constraint. It would be difficult to remove an existing range check. Instead deep-copy the
-                        // variable and apply a range check to new variable. We do _not_ simply create a
-                        // copy-constraint, because that would copy the tag, which exactly corresponds to the old (less
-                        // restrictive) range constraint. Instead, we use an arithmetic gate to constrain the value of
-                        // the new variable and set the tag (a.k.a. range-constraint) via a new call to
-                        // `create_new_range_constraint`.
-                        const uint32_t copied_witness = this->add_variable(this->get_variable(variable_index));
-                        create_add_gate({ .a = variable_index,
-                                          .b = copied_witness,
-                                          .c = this->zero_idx(),
-                                          .a_scaling = 1,
-                                          .b_scaling = -1,
-                                          .c_scaling = 0,
-                                          .const_scaling = 0 });
-                        // Recurse with new witness that has no tag attached.
-                        create_small_range_constraint(copied_witness, target_range, msg);
-                        return;
-                    }
-                }
-            }
-            BB_ASSERT(found_tag);
-        }
+    if (existing_tag == list.range_tag) {
+        return;
+    }
+    // If the variable is 'untagged' (i.e., it has the dummy tag), assign it the appropriate tag, which amounts to
+    // setting the range-constraint.
+    if (existing_tag == DUMMY_TAG) {
         assign_tag(variable_index, list.range_tag);
         list.variable_indices.emplace_back(variable_index);
+        return;
     }
+    // Otherwise, find the range for which the variable has already been tagged.
+    bool found_tag = false;
+    for (const auto& r : range_lists) {
+        if (r.second.range_tag == existing_tag) {
+            found_tag = true;
+            if (r.first < target_range) {
+                // The variable already has a more restrictive range check, so do nothing.
+                return;
+            }
+            // The range constraint we are trying to impose is more restrictive than the existing range
+            // constraint. It would be difficult to remove an existing range check. Instead, arithmetically copy the
+            // variable and apply a range check to new variable. We do _not_ simply create a
+            // copy-constraint, because that would copy the tag, which exactly corresponds to the old (less
+            // restrictive) range constraint. Instead, we use an arithmetic gate to constrain the value of
+            // the new variable and set the tag (a.k.a. range-constraint) via a new call to
+            // `create_new_range_constraint`.
+            const uint32_t copied_witness = this->add_variable(this->get_variable(variable_index));
+            create_add_gate({ .a = variable_index,
+                              .b = copied_witness,
+                              .c = this->zero_idx(),
+                              .a_scaling = 1,
+                              .b_scaling = -1,
+                              .c_scaling = 0,
+                              .const_scaling = 0 });
+            // Recurse with new witness that has no tag attached.
+            create_small_range_constraint(copied_witness, target_range, msg);
+            return;
+        }
+    }
+    // should never occur
+    BB_ASSERT(found_tag);
 }
 
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_range_list(RangeList& list)
@@ -817,13 +821,12 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     auto back_iterator = std::unique(list.variable_indices.begin(), list.variable_indices.end());
     list.variable_indices.erase(back_iterator, list.variable_indices.end());
 
-    // go over variables
-    // iterate over each (real) variable and create mirror variable with same value - with tau tag
-    // need to make sure that, in original list, increments of at most 3
+    // Extract the values of each (real) variable into a list to be sorted (in the sense of the range/plookup-style
+    // argument).
     std::vector<uint32_t> sorted_list;
     sorted_list.reserve(list.variable_indices.size());
     for (const auto variable_index : list.variable_indices) {
-        // note that `field_element` is 32 bits as the corresponding witness has a non-trivial range-constraint.
+        // note that `field_element` is < 32 bits as the corresponding witness has a non-trivial range-constraint.
         const auto& field_element = this->get_variable(variable_index);
         const uint32_t shrinked_value = (uint32_t)field_element.from_montgomery_form().data[0];
         sorted_list.emplace_back(shrinked_value);
@@ -847,6 +850,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     for (size_t i = 0; i < padding; ++i) {
         indices.emplace_back(this->zero_idx());
     }
+    // tag the elements in the sorted_list to apply the multiset-equality check implicit in range-constraints.
     for (const auto sorted_value : sorted_list) {
         const uint32_t index = this->add_variable(fr(sorted_value));
         assign_tag(index, list.tau_tag);
@@ -884,7 +888,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::enforce_small_deltas(const std::vecto
         blocks.delta_range.set_gate_selector(1);
         check_selector_length_consistency();
     }
-    // dummy gate needed because of sort widget's check of next row
+    // dummy gate needed because of widget's check of next row
     create_unconstrained_gate(blocks.delta_range,
                               variable_indices[variable_indices.size() - 1],
                               this->zero_idx(),
@@ -945,10 +949,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
         check_selector_length_consistency();
     }
 
-    // NOTE(https://github.com/AztecProtocol/barretenberg/issues/879): Optimisation opportunity to use a single gate
-    // (and remove dummy gate). This used to be a single gate before trace sorting based on gate types. The dummy gate
-    // has been added to allow the previous gate to access the required wire data via shifts, allowing the arithmetic
-    // gate to occur out of sequence. More details on the linked Github issue.
+    // the delta_range constraint has to have access to w_1-shift (it checks that w_1-shift - w_4 is in {0, 1, 2, 3}).
+    // Therefore, we repeat the last element in an unconstrained gate.
     create_unconstrained_gate(
         block, variable_indices[variable_indices.size() - 1], this->zero_idx(), this->zero_idx(), this->zero_idx());
     // arithmetic gate to constrain that `variable_indices[last] == end`, i.e., verify the boundary condition.

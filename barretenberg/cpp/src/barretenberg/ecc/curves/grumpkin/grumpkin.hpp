@@ -12,7 +12,7 @@
 
 namespace bb::grumpkin {
 
-constexpr size_t MAX_NO_WRAP_INTEGER_BIT_LENGTH = 252;
+constexpr size_t MAX_NO_WRAP_INTEGER_BIT_LENGTH = 253;
 
 using fq = bb::fr;
 using fr = bb::fq;
