@@ -1,14 +1,3 @@
-//
-// Input format for Aztec private function execution steps.
-// See: chonk/README.md for architecture overview.
-//
-// Data flow:
-//   TypeScript (Aztec client) → msgpack encode → ivc-inputs.msgpack
-//     → PrivateExecutionStepRaw::load_and_decompress()
-//     → PrivateExecutionSteps::parse()
-//     → PrivateExecutionSteps::accumulate()
-//     → Chonk IVC proof
-//
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
@@ -57,6 +46,14 @@ struct PrivateExecutionStepRaw {
  * @details After deserializing from msgpack, this struct holds the decoded ACIR programs,
  * their witnesses, precomputed VKs, and function names. The accumulate() method runs the
  * complete IVC accumulation over all steps.
+ *
+ * Data flow:
+ *   TypeScript (Aztec client) → msgpack encode → ivc-inputs.msgpack
+ *     → PrivateExecutionStepRaw::load_and_decompress()
+ *     → PrivateExecutionSteps::parse()
+ *     → PrivateExecutionSteps::accumulate()
+ *     → Chonk IVC proof
+ *
  *
  * @note TODO(https://github.com/AztecProtocol/barretenberg/issues/1162) this should have a
  * common code path with the WASM folding stack code.

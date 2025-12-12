@@ -7,7 +7,6 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
-#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"

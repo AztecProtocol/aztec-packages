@@ -1,7 +1,3 @@
-//
-// Implementation of private execution step loading and IVC accumulation.
-// See: private_execution_steps.hpp for data flow overview.
-//
 #include "private_execution_steps.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/serialize.hpp"
