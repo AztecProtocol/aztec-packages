@@ -10,22 +10,6 @@
 
 ---
 
-## Separately Audited Components
-
-| Component | Audit Status | Interface In Scope |
-|-----------|-------------|-------------------|
-| ECCVM | Separate | Yes |
-| Translator | Separate | Yes |
-| Sumcheck | Separate | Yes |
-| PCS (KZG, IPA, Shplemini) | Separate | Yes |
-| Transcript | Separate | Yes |
-| Poseidon | Separate | Yes |
-| BigGroup | Separate | Yes |
-| BigField | **Completed** | — |
-| Field (stdlib) | **Completed** | — |
-
----
-
 ## Critical Files
 
 | File | Description |
@@ -42,8 +26,7 @@
 | `special_public_inputs/special_public_inputs.hpp` | `KernelIO`/`HidingKernelIO` - binds accumulators, ECC op tables, databus across circuits |
 | `chonk/chonk.cpp` | `verify()`, `complete_kernel_circuit_logic()` - IVC state machine |
 | `chonk/private_execution_steps.cpp` | IVC entry point, `accumulate()` orchestration |
-| `chonk_verifier.*` | Recursive Chonk verifier (in-circuit) |
-| `goblin_verifier.*` | Recursive Goblin verifier (in-circuit) |
+| `chonk_verifier.*` (tba) | Chonk verifier |
 
 ---
 
@@ -71,18 +54,18 @@
 
 ### Goblin Chain ✅
 [README: Goblin](README.md#goblin-eccvm--translator) | [MERGE_PROTOCOL: Verification Flow](../goblin/MERGE_PROTOCOL.md#verification-flow-at-each-step)
+
+**Tests**: `merge.test.cpp`, `goblin_recursive_verifier.test.cpp`
 - [x] Merge → ECCVM → Translator orchestration, `ReductionResult` aggregation
 - [x] Data flow: `merged_table_commitments` passed (not re-read), `accumulated_result` computed by ECCVM
+- [x] Failure tests: `ECCVMFailure`, `TranslatorFailure`, `TranslationEvaluationsFailure`, `TranslatorMergeConsistencyFailure`
 
-### Transcript Boundaries ✅
+### Transcripts ✅
 [transcript/README.md](../transcript/README.md)
 - [x] Manifest structure, transcript isolation (`unique_transcript_index`), public inputs bound to transcript
 
 ### VK Binding ✅
 - [x] VK hash first in transcript (`oink_verifier.cpp:56-57`), VK tree membership (`vk_data.nr:33-43`)
-do
----
-
 
 ---
 
