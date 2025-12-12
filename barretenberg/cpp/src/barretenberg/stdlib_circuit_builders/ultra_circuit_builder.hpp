@@ -58,9 +58,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // determine their max values.
     static constexpr size_t MAX_SMALL_RANGE_CONSTRAINT_VAL = (1 << 16) - 1;
     static constexpr size_t MAX_NUM_BITS_RANGE_CONSTRAINT =
-        253; // AUDITTODO: should be `grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH`, but the latter is currently 252
-             // (historical relic). We should increment the latter, but this will require a bit of refactoring of the
-             // `slice` method in `safe_uint.cpp`.
+        253; // the Grumpkin scalar field modulus is between 2^253 and 2^254 and has 254 bits. Therefore the largest
+             // non-vacuous dyadic range-constraint we can enforce is 2^253 - 1, i.e., `num_bits == 253`.
     enum MEMORY_SELECTORS {
         MEM_NONE,
         RAM_CONSISTENCY_CHECK,
