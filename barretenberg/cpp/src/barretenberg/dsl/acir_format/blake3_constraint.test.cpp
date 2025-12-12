@@ -118,7 +118,6 @@ TYPED_TEST(Blake3ConstraintsTestInputConstant, GenerateVKFromConstraints)
 
 TYPED_TEST(Blake3ConstraintsTestInputConstant, Tampering)
 {
-    BB_DISABLE_ASSERTS();
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }
 
@@ -140,6 +139,5 @@ TYPED_TEST(Blake3ConstraintsTestInputWitness, GenerateVKFromConstraints)
 
 TYPED_TEST(Blake3ConstraintsTestInputWitness, Tampering)
 {
-    BB_DISABLE_ASSERTS();
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }
