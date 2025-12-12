@@ -1,4 +1,4 @@
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 
 import { Ecdsa } from '../ecdsa/index.js';
 import { Secp256k1 } from './index.js';

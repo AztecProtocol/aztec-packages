@@ -4,7 +4,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
-import { ProofData, type RollupHonkProofData } from '../proofs/proof_data.js';
+import { ProofData, ProofDataForFixedVk, type RollupHonkProofData } from '../proofs/proof_data.js';
 import type { AvmProofData } from './avm_proof_data.js';
 import { PublicBaseRollupHints } from './base_rollup_hints.js';
 import { PublicChonkVerifierPublicInputs } from './public_chonk_verifier_public_inputs.js';
@@ -28,7 +28,7 @@ export class PublicTxBaseRollupPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new PublicTxBaseRollupPrivateInputs(
       ProofData.fromBuffer(reader, PublicChonkVerifierPublicInputs),
-      ProofData.fromBuffer(reader, AvmCircuitPublicInputs),
+      ProofDataForFixedVk.fromBuffer(reader, AvmCircuitPublicInputs),
       reader.readObject(PublicBaseRollupHints),
     );
   }

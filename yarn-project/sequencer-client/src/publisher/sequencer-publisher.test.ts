@@ -2,19 +2,16 @@ import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/
 import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { type L1ContractsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
-  FormattedViemError,
-  type GasPrice,
   type GovernanceProposerContract,
-  type L1ContractsConfig,
-  type L1TxUtilsConfig,
   Multicall3,
-  RollupContract,
-  defaultL1TxUtilsConfig,
-  getL1ContractsConfigEnvVars,
-} from '@aztec/ethereum';
+  type RollupContract,
+} from '@aztec/ethereum/contracts';
+import { type GasPrice, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from '@aztec/ethereum/l1-tx-utils';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { FormattedViemError } from '@aztec/ethereum/utils';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';

@@ -687,7 +687,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         // With the new assertion, attempting to double a point with y = 0 should throw
         // because for valid curves like bn254, y = 0 cannot occur on the curve
-        EXPECT_THROW_OR_ABORT(a.dbl(), "Attempting to dbl a point with y = 0, not allowed.");
+        EXPECT_THROW_WITH_MESSAGE(a.dbl(), "Attempting to dbl a point with y = 0, not allowed.");
     }
 
     static void test_add_equals_dbl()

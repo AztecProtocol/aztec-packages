@@ -28,6 +28,8 @@ on:
         - staging-public
         - staging-ignition
         - testnet
+        - devnet
+        - devnet-next
       semver:
         description: 'Semver version (e.g., 2.3.4)'
         required: true

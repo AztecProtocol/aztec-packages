@@ -51,7 +51,7 @@ pub contract NFTPunk {
 
         // we create an NFT note and insert it to the PrivateSet - a collection of notes meant to be read in private
         let new_nft = NFTNote { token_id };
-        self.storage.owners.at(to).insert(new_nft).deliver( to, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.owners.at(to).insert(new_nft).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
 
         // calling the internal public function above to indicate that the NFT is taken
         self.enqueue_self._mark_nft_exists(token_id, true);

@@ -196,15 +196,10 @@ where
         Note: Packable,
     {
         let (prev_retrieved_note, note_hash_read) =
-            get_note(self.context, self.owner, self.storage_slot);
+            get_note(self.context, Option::some(self.owner), self.storage_slot);
 
         // Nullify previous note.
-        destroy_note_unsafe(
-            self.context,
-            prev_retrieved_note,
-            self.owner,
-            note_hash_read,
-        );
+        destroy_note_unsafe(self.context, prev_retrieved_note, note_hash_read);
 
         let new_note = f(prev_retrieved_note.note);
 
@@ -314,10 +309,10 @@ where
         Note: Packable,
     {
         let mut (retrieved_note, note_hash_read) =
-            get_note(self.context, self.owner, self.storage_slot);
+            get_note(self.context, Option::some(self.owner), self.storage_slot);
 
         // Nullify current note to make sure it's reading the latest note.
-        destroy_note_unsafe(self.context, retrieved_note, self.owner, note_hash_read);
+        destroy_note_unsafe(self.context, retrieved_note, note_hash_read);
 
         // Add the same note again.
         // Because a nonce is added to every note in the kernel, its nullifier will be different.
@@ -375,6 +370,6 @@ where
     where
         Note: Packable,
     {
-        view_note(self.owner, self.storage_slot).note
+        view_note(Option::some(self.owner), self.storage_slot).note
     }
 }

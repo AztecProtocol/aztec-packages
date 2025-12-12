@@ -17,8 +17,8 @@ use dep::types::{
     },
     blob_data::SpongeBlob,
     constants::{
-        ARCHIVE_HEIGHT, AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, PUBLIC_CHONK_VERIFIER_VK_INDEX,
+        ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
+        MAX_L2_TO_L1_MSGS_PER_TX, PUBLIC_CHONK_VERIFIER_VK_INDEX,
     },
     hash::silo_l2_to_l1_message,
     tests::fixture_builder::FixtureBuilder,
@@ -29,7 +29,6 @@ struct TestBuilder {
     public_chonk_verifier_vk_index: u32,
     public_chonk_verifier_prover_id: Field,
     avm: AvmCircuitPublicInputs,
-    avm_vk_index: u32,
     start_sponge_blob: SpongeBlob,
     last_archive: AppendOnlyTreeSnapshot,
     anchor_block_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
@@ -90,7 +89,6 @@ impl TestBuilder {
             public_chonk_verifier_vk_index: PUBLIC_CHONK_VERIFIER_VK_INDEX,
             public_chonk_verifier_prover_id: prover_id,
             avm,
-            avm_vk_index: AVM_VK_INDEX,
             start_sponge_blob,
             last_archive,
             anchor_block_archive_sibling_path,
@@ -145,7 +143,7 @@ impl TestBuilder {
             self.public_chonk_verifier_vk_index,
         );
 
-        let avm_proof_data = RollupFixtureBuilder::make_proof_data(self.avm, self.avm_vk_index);
+        let avm_proof_data = RollupFixtureBuilder::make_avm_proof_data(self.avm);
 
         PublicTxBaseRollupPrivateInputs {
             public_chonk_verifier_proof_data,

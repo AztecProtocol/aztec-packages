@@ -1,11 +1,6 @@
 import { AztecClientBackend, Barretenberg } from '@aztec/bb.js';
-import {
-  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  CHONK_PROOF_LENGTH,
-  CHONK_VK_LENGTH_IN_FIELDS,
-  ULTRA_VK_LENGTH_IN_FIELDS,
-} from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS, ULTRA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
@@ -47,7 +42,6 @@ describe('Rollup IVC Integration', () => {
   let bbBinaryPath: string;
 
   let chonkProof: RecursiveProof<typeof CHONK_PROOF_LENGTH>;
-  let avmVK: VerificationKeyAsFields;
   let avmProof: Fr[];
   let avmPublicInputs: AvmCircuitPublicInputs;
 
@@ -84,11 +78,11 @@ describe('Rollup IVC Integration', () => {
     expect(avmSimulationResult.revertCode.isOK()).toBe(true);
 
     const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs!);
-    ({
-      vk: avmVK,
-      proof: avmProof,
-      publicInputs: avmPublicInputs,
-    } = await proveAvm(avmCircuitInputs, avmWorkingDirectory, logger));
+    ({ proof: avmProof, publicInputs: avmPublicInputs } = await proveAvm(
+      avmCircuitInputs,
+      avmWorkingDirectory,
+      logger,
+    ));
   });
 
   beforeEach(async () => {
@@ -130,7 +124,6 @@ describe('Rollup IVC Integration', () => {
         proof: mapRecursiveProofToNoir(chonkProof),
         vk_data: mapVerificationKeyToNoir(ivcVk, CHONK_VK_LENGTH_IN_FIELDS),
       },
-      verification_key: mapVerificationKeyToNoir(avmVK, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
       proof: mapAvmProofToNoir(avmProof),
       public_inputs: mapAvmCircuitPublicInputsToNoir(avmPublicInputs),
     });

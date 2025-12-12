@@ -1,4 +1,4 @@
-import { addressingWithBaseTagIssueTest } from '@aztec/simulator/public/fixtures';
+import { addressingWithBaseTagIssueTest, addressingWithIndirectTagIssueTest } from '@aztec/simulator/public/fixtures';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import {
@@ -39,6 +39,11 @@ describe.each([
 
   it('Base address uninitialized direct relative', async () => {
     const result = await addressingWithBaseTagIssueTest(/*isIndirect=*/ false, tester);
+    expect(result.revertCode.isOK()).toBe(false);
+  });
+
+  it('Indirect address with invalid tag', async () => {
+    const result = await addressingWithIndirectTagIssueTest(tester);
     expect(result.revertCode.isOK()).toBe(false);
   });
 });

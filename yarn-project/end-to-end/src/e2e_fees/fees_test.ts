@@ -2,7 +2,9 @@ import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
-import { type DeployL1ContractsArgs, RollupContract, createExtendedL1Client } from '@aztec/ethereum';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { DeployAztecL1ContractsArgs } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -95,7 +97,7 @@ export class FeesTest {
   constructor(
     testName: string,
     private numberOfAccounts = 3,
-    setupOptions: Partial<SetupOptions & DeployL1ContractsArgs> = {},
+    setupOptions: Partial<SetupOptions & DeployAztecL1ContractsArgs> = {},
   ) {
     if (!numberOfAccounts) {
       throw new Error('There must be at least 1 initial account.');

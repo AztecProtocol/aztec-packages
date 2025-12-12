@@ -1,19 +1,16 @@
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { CheatCodes } from '@aztec/aztec/testing';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
-import {
-  type DeployL1ContractsReturnType,
-  GovernanceProposerContract,
-  RollupContract,
-  deployL1Contract,
-} from '@aztec/ethereum';
+import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
+import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -47,7 +44,7 @@ describe('e2e_gov_proposal', () => {
   let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode | undefined;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
-  let deployL1ContractsValues: DeployL1ContractsReturnType;
+  let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   let cheatCodes: CheatCodes;
   let blobSink: BlobSinkServer | undefined;
   let dateProvider: TestDateProvider | undefined;
@@ -76,7 +73,6 @@ describe('e2e_gov_proposal', () => {
       ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       aztecProofSubmissionEpochs: 128, // no pruning
-      salt: 420,
       minTxsPerBlock: TXS_PER_BLOCK,
       enforceTimeTable: true,
       automineL1Setup: true, // speed up setup

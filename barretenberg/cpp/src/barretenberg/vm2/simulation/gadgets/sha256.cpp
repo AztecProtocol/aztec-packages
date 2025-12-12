@@ -105,7 +105,7 @@ void Sha256::compression(MemoryInterface& memory,
 
     try {
         if (state_addr_out_of_range || input_addr_out_of_range || output_addr_out_of_range) {
-            throw std::runtime_error("Memory address out of range for sha256 compression.");
+            throw Sha256CompressionException("Memory address out of range for sha256 compression.");
         }
 
         // Read the hash state from memory. The state needs to be loaded atomically from memory (i.e. all 8 elements are
@@ -116,7 +116,7 @@ void Sha256::compression(MemoryInterface& memory,
 
         // If any of the state values are not of tag U32, we throw an error.
         if (std::ranges::any_of(state, [](const MemoryValue& val) { return val.get_tag() != MemoryTag::U32; })) {
-            throw std::runtime_error("Invalid tag for sha256 state values.");
+            throw Sha256CompressionException("Invalid tag for sha256 state values.");
         }
 
         // Load 16 elements representing the hash input from memory.
@@ -124,7 +124,7 @@ void Sha256::compression(MemoryInterface& memory,
         for (uint32_t i = 0; i < 16; ++i) {
             input.emplace_back(memory.get(input_addr + i));
             if (input[i].get_tag() != MemoryTag::U32) {
-                throw std::runtime_error("Invalid tag for sha256 input values.");
+                throw Sha256CompressionException("Invalid tag for sha256 input values.");
             }
         }
 
@@ -198,7 +198,7 @@ void Sha256::compression(MemoryInterface& memory,
                       .state = state,
                       .input = input,
                       .output = output });
-    } catch (const std::exception& e) {
+    } catch (const Sha256CompressionException& e) {
         // If any error occurs, we emit an event with the error message.
         std::array<MemoryValue, 8> output;
         output.fill(MemoryValue::from<FF>(0)); // Default output in case of error
@@ -210,7 +210,9 @@ void Sha256::compression(MemoryInterface& memory,
                       .state = state,
                       .input = input,
                       .output = output });
-        throw; // Re-throw the exception after emitting the event
+
+        // Rethrow the exception after emitting the event
+        throw;
     }
 }
 

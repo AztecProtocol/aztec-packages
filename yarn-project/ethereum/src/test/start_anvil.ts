@@ -16,6 +16,8 @@ export async function startAnvil(
     captureMethodCalls?: boolean;
     accounts?: number;
     chainId?: number;
+    /** The hardfork to use - note: @viem/anvil types are out of date but 'cancun' and 'latest' work */
+    hardfork?: string;
   } = {},
 ): Promise<{ anvil: Anvil; methodCalls?: string[]; rpcUrl: string; stop: () => Promise<void> }> {
   const anvilBinary = resolve(dirname(fileURLToPath(import.meta.url)), '../../', 'scripts/anvil_kill_wrapper.sh');

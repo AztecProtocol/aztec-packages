@@ -4,7 +4,7 @@ import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/aztec.js/protocol';
-import type { Operator } from '@aztec/ethereum';
+import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';

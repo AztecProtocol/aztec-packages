@@ -50,8 +50,7 @@ contract OffchainEffect {
 
     #[external("private")]
     fn emit_event_as_offchain_message_for_msg_sender(a: u64, b: u64, c: u64) {
-        self.emit(
-            TestEvent { a, b, c },
+        self.emit(TestEvent { a, b, c }).deliver_to(
             self.msg_sender().unwrap(),
             MessageDelivery.UNCONSTRAINED_OFFCHAIN,
         );
@@ -61,7 +60,7 @@ contract OffchainEffect {
     fn emit_note_as_offchain_message(value: u128, owner: AztecAddress) {
         let note = UintNote { value };
 
-        self.storage.balances.at(owner).insert(note).deliver(
+        self.storage.balances.at(owner).insert(note).deliver_to(
             self.msg_sender().unwrap(),
             MessageDelivery.UNCONSTRAINED_OFFCHAIN,
         );

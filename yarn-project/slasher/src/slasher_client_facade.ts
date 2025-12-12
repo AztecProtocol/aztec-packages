@@ -1,6 +1,6 @@
 import { EpochCache } from '@aztec/epoch-cache';
-import type { ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
+import type { ViemClient } from '@aztec/ethereum/types';
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';

@@ -4,14 +4,13 @@ import { getStubAccountContractArtifact, createStubAccount } from '@aztec/accoun
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
 import type { Aliased } from '@aztec/aztec.js/wallet';
 import { type Account, type AccountContract, type ChainInfo, SignerlessAccount } from '@aztec/aztec.js/account';
-import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import { BaseWallet } from '@aztec/wallet-sdk/base-wallet';
 import { getPXEConfig, type PXEConfig } from '@aztec/pxe/config';
 import { createPXE, PXE } from '@aztec/pxe/client/lazy';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
-import { Fq, Fr } from '@aztec/foundation/fields';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
@@ -22,6 +21,7 @@ import { WebLogger } from '../utils/web_logger';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { NETWORKS } from '../utils/networks';
+import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 
 /**
  * Data for generating an account.

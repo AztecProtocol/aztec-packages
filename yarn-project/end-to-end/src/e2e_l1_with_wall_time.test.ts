@@ -1,7 +1,7 @@
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { SecretValue } from '@aztec/foundation/config';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
@@ -43,7 +43,6 @@ describe('e2e_l1_with_wall_time', () => {
     } = await setup(1, {
       initialValidators,
       ethereumSlotDuration,
-      salt: 420,
     }));
   });
 

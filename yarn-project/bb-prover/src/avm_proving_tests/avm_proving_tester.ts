@@ -91,7 +91,7 @@ class InterceptingLogger implements Logger {
 // Config with collectHints enabled for proving tests
 const provingConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
   skipFeeEnforcement: false,
-  collectCallMetadata: true,
+  collectCallMetadata: true, // For results.
   collectDebugLogs: false,
   collectHints: true, // Required for proving!
   collectPublicInputs: true, // Required for proving!
@@ -222,6 +222,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     txLabel: string = 'unlabeledTx',
     disableRevertCheck: boolean = false,
   ): Promise<PublicTxResult> {
+    const simTimer = new Timer();
     const simRes = await this.simulateTx(
       sender,
       setupCalls,
@@ -231,6 +232,8 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       privateInsertions,
       txLabel,
     );
+    const simDuration = simTimer.ms();
+    this.logger.info(`Simulation took ${simDuration} ms for tx ${txLabel}`);
 
     if (!disableRevertCheck) {
       expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
