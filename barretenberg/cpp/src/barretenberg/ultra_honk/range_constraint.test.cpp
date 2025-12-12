@@ -263,6 +263,27 @@ TYPED_TEST(RangeTests, RangeConstraintNonPowerOfTwo)
     TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
+/**
+ * @brief Test that multiple range constraints on the same small witness all pass.
+ */
+TYPED_TEST(RangeTests, MultipleRangeConstraintsOnSmallWitness)
+{
+    auto builder = UltraCircuitBuilder();
+
+    uint32_t witness_idx = builder.add_variable(fr(5));
+
+    // Apply multiple range constraints with different target ranges
+    builder.create_small_range_constraint(witness_idx, /*target_range=*/8);
+    builder.create_small_range_constraint(witness_idx, /*target_range=*/6);
+    builder.create_small_range_constraint(witness_idx, /*target_range=*/10);
+    builder.create_small_range_constraint(witness_idx, /*target_range=*/100);
+
+    // Add unconstrained gate to prevent orphan variable failure
+    builder.create_unconstrained_gates({ witness_idx });
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
+}
 /***************************************************************************************************
  * create_limbed_range_constraint tests
  * For large ranges (> 14 bits), decompose into smaller limbs.
@@ -346,7 +367,7 @@ TYPED_TEST(RangeTests, DyadicRangeConstraintOnOrphanVariable)
 
 /***************************************************************************************************
  * Copy constraint interaction tests
- * Tests that range constraints work correctly with assert_equal (copy constraints).
+ * Tests that (multiple) range constraints work correctly copy constraints.
  ***************************************************************************************************/
 
 /**
