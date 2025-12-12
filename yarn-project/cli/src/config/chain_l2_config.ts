@@ -1,4 +1,5 @@
-import { DefaultL1ContractsConfig, type L1ContractsConfig, type L1TxUtilsConfig } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereum/config';
+import type { L1TxUtilsConfig } from '@aztec/ethereum/l1-tx-utils';
 import type { NetworkNames } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';

@@ -146,7 +146,9 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
         create_goblin_prover_output(&builder);
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
+    GoblinStdlibProof stdlib_proof(builder, proof);
+    GoblinRecursiveVerifierOutput output =
+        verifier.verify(stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND);
 
     stdlib::recursion::honk::DefaultIO<Builder> inputs;
     inputs.pairing_inputs = output.points_accumulator;
@@ -184,8 +186,9 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
             create_goblin_prover_output(&builder, inner_size);
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        GoblinStdlibProof stdlib_proof(builder, proof);
         GoblinRecursiveVerifierOutput output =
-            verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
+            verifier.verify(stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND);
 
         stdlib::recursion::honk::DefaultIO<Builder> inputs;
         inputs.pairing_inputs = output.points_accumulator;
@@ -230,7 +233,9 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     }
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    GoblinRecursiveVerifierOutput goblin_rec_verifier_output = verifier.verify(proof, recursive_merge_commitments);
+    GoblinStdlibProof stdlib_proof(builder, proof);
+    GoblinRecursiveVerifierOutput goblin_rec_verifier_output =
+        verifier.verify(stdlib_proof, recursive_merge_commitments);
     EXPECT_FALSE(CircuitChecker::check(builder));
 
     srs::init_file_crs_factory(bb::srs::bb_crs_path());
@@ -269,7 +274,9 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
         }
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        auto goblin_rec_verifier_output = verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
+        GoblinStdlibProof stdlib_proof(builder, proof);
+        auto goblin_rec_verifier_output =
+            verifier.verify(stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND);
 
         // Circuit is correct but pairing check should fail
         EXPECT_TRUE(CircuitChecker::check(builder));
@@ -299,8 +306,9 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
         }
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        GoblinStdlibProof stdlib_proof(builder, tampered_proof);
         [[maybe_unused]] auto goblin_rec_verifier_output =
-            verifier.verify(tampered_proof, recursive_merge_commitments, MergeSettings::APPEND);
+            verifier.verify(stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
@@ -320,8 +328,9 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
     tamper_with_eccvm_op_eval(proof.eccvm_proof);
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+    GoblinStdlibProof stdlib_proof(builder, proof);
     [[maybe_unused]] auto goblin_rec_verifier_output =
-        verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
+        verifier.verify(stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND);
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
@@ -362,8 +371,9 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         }
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        GoblinStdlibProof stdlib_proof(builder, proof);
         auto goblin_rec_verifier_output =
-            verifier.verify(proof, tampered_recursive_merge_commitments, MergeSettings::APPEND);
+            verifier.verify(stdlib_proof, tampered_recursive_merge_commitments, MergeSettings::APPEND);
 
         // Circuit is correct but pairing check should fail
         EXPECT_TRUE(CircuitChecker::check(builder));

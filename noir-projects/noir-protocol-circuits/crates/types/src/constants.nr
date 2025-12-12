@@ -719,6 +719,7 @@ pub global AVM_TX_PHASE_VALUE_LAST: u8 = 11;
 
 // Subtrace IDs.
 // Execution, ALU, BITWISE and then we follow the order given by ExecutionOpCode enum.
+// Note: these are all powers of 2 to allow for binary decomposition.
 pub global AVM_SUBTRACE_ID_EXECUTION: u32 = 1;
 pub global AVM_SUBTRACE_ID_ALU: u32 = 2 * AVM_SUBTRACE_ID_EXECUTION;
 pub global AVM_SUBTRACE_ID_BITWISE: u32 = 2 * AVM_SUBTRACE_ID_ALU;
@@ -735,6 +736,7 @@ pub global AVM_SUBTRACE_ID_ECC: u32 = 2 * AVM_SUBTRACE_ID_KECCAKF1600;
 pub global AVM_SUBTRACE_ID_TO_RADIX: u32 = 2 * AVM_SUBTRACE_ID_ECC;
 
 // Dynamic Gas Opcode IDs
+// Note: these are all powers of 2 to allow for binary decomposition.
 pub global AVM_DYN_GAS_ID_CALLDATACOPY: u32 = 1;
 pub global AVM_DYN_GAS_ID_RETURNDATACOPY: u32 = 2 * AVM_DYN_GAS_ID_CALLDATACOPY;
 pub global AVM_DYN_GAS_ID_TORADIX: u32 = 2 * AVM_DYN_GAS_ID_RETURNDATACOPY;
@@ -1142,17 +1144,16 @@ pub global CHECKPOINT_END_PREFIX: Field = 0x636865636b706f696e745f656e64; // = "
 // Constants related to proof type of a recursive proof verification.
 // Keep following constants in sync with the enum acir_format::PROOF_TYPE in recursion_constraint.hpp
 // TODO: Move to BB noir constants lib
-pub global PROOF_TYPE_PLONK: u32 = 0;
-pub global PROOF_TYPE_HONK: u32 = 1;
-pub global PROOF_TYPE_OINK: u32 = 2;
-pub global PROOF_TYPE_HN: u32 = 3;
-pub global PROOF_TYPE_AVM: u32 = 4;
-pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
-pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
-// worktodo comment here where 7 is
-pub global PROOF_TYPE_HN_FINAL: u32 = 8;
-pub global PROOF_TYPE_HN_TAIL: u32 = 9;
-pub global PROOF_TYPE_CHONK: u32 = 10;
+pub global PROOF_TYPE_HONK: u32 = 0;
+pub global PROOF_TYPE_OINK: u32 = 1;
+pub global PROOF_TYPE_HN: u32 = 2;
+pub global PROOF_TYPE_AVM: u32 = 3;
+pub global PROOF_TYPE_ROLLUP_HONK: u32 = 4;
+pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 5;
+// worktodo comment here where 6 is
+pub global PROOF_TYPE_HN_FINAL: u32 = 7;
+pub global PROOF_TYPE_HN_TAIL: u32 = 8;
+pub global PROOF_TYPE_CHONK: u32 = 9;
 
 // TODO: Make it 1_u128 << 64 as Field without breaking TS constants generator
 pub global TWO_POW_64: Field = 18446744073709551616;

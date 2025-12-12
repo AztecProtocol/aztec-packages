@@ -3,10 +3,10 @@ use crate::{
     note::{
         constants::MAX_NOTES_PER_PAGE,
         lifecycle::{create_note, destroy_note_unsafe},
-        note_emission::NoteEmission,
         note_getter::{get_notes, view_notes},
         note_getter_options::NoteGetterOptions,
         note_interface::{NoteHash, NoteType},
+        note_message::NoteMessage,
         note_viewer_options::NoteViewerOptions,
         retrieved_note::RetrievedNote,
         utils::compute_note_hash_read,
@@ -137,7 +137,7 @@ where
     ///
     /// # Returns
     ///
-    /// - NoteEmission<Note> - A type-safe wrapper which makes it clear to the
+    /// - NoteMessage<Note> - A type-safe wrapper which makes it clear to the
     ///                        smart contract dev that they now have a choice: they
     ///   need to decide whether they would like to send the contents of the newly-
     ///   created note to someone, or not. If they would like to, they have some
@@ -146,9 +146,8 @@ where
     ///   - What kind of encryption scheme to use? (Currently only AES128 is supported)
     ///   - Whether to _constrain_ delivery of the note, or not.
     ///   At the moment, aztec-nr provides limited options.
-    ///   You can call `.emit()` on the returned type to encrypt and log the note, or
-    ///   `.discard()` to skip emission.
-    ///   See NoteEmission for more details.
+    ///   You can call `.deliver()` on the returned type to encrypt and log the note.
+    ///   See NoteMessage for more details.
     ///   > Note: We're planning a _significant_ refactor of this syntax, to make the
     ///     syntax of how to encrypt and deliver notes much clearer, and to make the
     ///     default options much clearer to developers. We will also be enabling
@@ -185,7 +184,7 @@ where
     ///       attacks, by hashing the `siloed_note_hash` with a unique value, to
     ///       yield a `unique_siloed_note_hash` (see the protocol spec for more).
     ///
-    pub fn insert(self, note: Note) -> NoteEmission<Note>
+    pub fn insert(self, note: Note) -> NoteMessage<Note>
     where
         Note: Packable,
     {
@@ -270,13 +269,15 @@ where
     ///
     pub fn pop_notes<PreprocessorArgs, FilterArgs, let M: u32>(
         self,
-        options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
+        mut options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
     ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
         Note: Packable<N = M>,
     {
-        let (retrieved_notes, note_hashes) =
-            get_notes(self.context, self.owner, self.storage_slot, options);
+        std::static_assert(options.owner.is_none(), "Owner cannot be set in pop_notes");
+
+        let options = options.set_owner(self.owner);
+        let (retrieved_notes, note_hashes) = get_notes(self.context, self.storage_slot, options);
         // We iterate in a range 0..options.limit instead of 0..notes.len() because options.limit is known at compile
         // time and hence will result in fewer constraints when set to a lower value than
         // MAX_NOTE_HASH_READ_REQUESTS_PER_CALL.
@@ -286,7 +287,7 @@ where
                 let note_hash = note_hashes.get_unchecked(i);
                 // We immediately destroy the note without doing any of the read request checks `remove` typically
                 // performs because we know that the `get_notes` call has already placed those constraints.
-                destroy_note_unsafe(self.context, retrieved_note, self.owner, note_hash);
+                destroy_note_unsafe(self.context, retrieved_note, note_hash);
             }
         }
 
@@ -311,7 +312,7 @@ where
     ///
     /// # Returns
     ///
-    /// - NoteEmission<Note> - A type-safe wrapper which makes it clear to the
+    /// - NoteMessage<Note> - A type-safe wrapper which makes it clear to the
     ///                        smart contract dev that they now have a choice: they
     ///   need to decide whether they would like to send the contents of the newly-
     ///   created note to someone, or not. If they would like to, they have some
@@ -320,17 +321,17 @@ where
     ///   - What kind of encryption scheme to use? (Currently only AES128 is supported)
     ///   - Whether to _constrain_ delivery of the note, or not.
     ///   At the moment, aztec-nr provides limited options.
-    ///   See NoteEmission for further details.
+    ///   See NoteMessage for further details.
     ///   > Note: We're planning a _significant_ refactor of this syntax, to make the
     ///     syntax of how to encrypt and deliver notes much clearer, and to make the
     ///     default options much clearer to developers. We will also be enabling
     ///     easier ways to customize your own note encryption options.
     ///
     pub fn remove(self, retrieved_note: RetrievedNote<Note>) {
-        let note_hash_read = compute_note_hash_read(retrieved_note, self.owner, self.storage_slot);
+        let note_hash_read = compute_note_hash_read(retrieved_note);
         self.context.assert_has_been_requested(note_hash_read);
 
-        destroy_note_unsafe(self.context, retrieved_note, self.owner, note_hash_read);
+        destroy_note_unsafe(self.context, retrieved_note, note_hash_read);
     }
 
     /// Returns a filtered collection of notes from the set.
@@ -395,12 +396,15 @@ where
     ///
     pub fn get_notes<PreprocessorArgs, FilterArgs, let M: u32>(
         self,
-        options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
+        mut options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
     ) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
         Note: Packable<N = M>,
     {
-        get_notes(self.context, self.owner, self.storage_slot, options).0
+        std::static_assert(options.owner.is_none(), "Owner cannot be set in get_notes");
+
+        let options = options.set_owner(self.owner);
+        get_notes(self.context, self.storage_slot, options).0
     }
 }
 
@@ -422,11 +426,14 @@ where
     ///
     pub unconstrained fn view_notes(
         self,
-        options: NoteViewerOptions<Note, <Note as Packable>::N>,
+        mut options: NoteViewerOptions<Note, <Note as Packable>::N>,
     ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE>
     where
         Note: Packable,
     {
-        view_notes(self.owner, self.storage_slot, options)
+        std::static_assert(options.owner.is_none(), "Owner cannot be set in view_notes");
+
+        let options = options.set_owner(self.owner);
+        view_notes(self.storage_slot, options)
     }
 }

@@ -3,8 +3,9 @@ import { getDecodedPublicEvents } from '@aztec/aztec.js/events';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import type { Wallet } from '@aztec/aztec.js/wallet';
+import type { PrivateEventFilter, Wallet } from '@aztec/aztec.js/wallet';
 import { makeTuple } from '@aztec/foundation/array';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/noir-test-contracts.js/TestLog';
@@ -61,49 +62,50 @@ describe('Logs', () => {
 
       const firstBlockNumber = Math.min(...txs.map(tx => tx.blockNumber!));
       const lastBlockNumber = Math.max(...txs.map(tx => tx.blockNumber!));
-      const numBlocks = lastBlockNumber - firstBlockNumber + 1;
+
+      const eventFilter: PrivateEventFilter = {
+        contractAddress: testLogContract.address,
+        fromBlock: BlockNumber(firstBlockNumber),
+        toBlock: BlockNumber(lastBlockNumber + 1),
+        scopes: [account1Address, account2Address],
+      };
 
       // Each emit_encrypted_events call emits 2 ExampleEvent0s and 1 ExampleEvent1
       // So with 5 calls we expect 10 ExampleEvent0s and 5 ExampleEvent1s
       const collectedEvent0s = await wallet.getPrivateEvents<ExampleEvent0>(
-        testLogContract.address,
         TestLogContract.events.ExampleEvent0,
-        firstBlockNumber,
-        numBlocks,
-        [account1Address, account2Address],
+        eventFilter,
       );
 
       const collectedEvent1s = await wallet.getPrivateEvents<ExampleEvent1>(
-        testLogContract.address,
         TestLogContract.events.ExampleEvent1,
-        firstBlockNumber,
-        numBlocks,
-        [account1Address, account2Address],
+        eventFilter,
       );
 
       expect(collectedEvent0s.length).toBe(10); // 2 events per tx * 5 txs
       expect(collectedEvent1s.length).toBe(5); // 1 event per tx * 5 txs
 
       const emptyEvent1s = await wallet.getPrivateEvents<ExampleEvent1>(
-        testLogContract.address,
         TestLogContract.events.ExampleEvent1,
-        firstBlockNumber,
-        numBlocks,
-        [account1Address],
+        eventFilter,
       );
 
       expect(emptyEvent1s.length).toBe(5); // Events sent to msg_sender()
 
       const exampleEvent0Sort = (a: ExampleEvent0, b: ExampleEvent0) => (a.value0 > b.value0 ? 1 : -1);
+
       // Each preimage is used twice for ExampleEvent0
-      const expectedEvent0s = [...preimages, ...preimages].map(preimage => ({
+      const expectedEvent0s: ExampleEvent0[] = [...preimages, ...preimages].map(preimage => ({
         value0: preimage[0].toBigInt(),
         value1: preimage[1].toBigInt(),
       }));
-      expect(collectedEvent0s.sort(exampleEvent0Sort)).toStrictEqual(expectedEvent0s.sort(exampleEvent0Sort));
+      expect(collectedEvent0s.map(ev => ev.event).sort(exampleEvent0Sort)).toStrictEqual(
+        expectedEvent0s.sort(exampleEvent0Sort),
+      );
 
       const exampleEvent1Sort = (a: ExampleEvent1, b: ExampleEvent1) => (a.value2 > b.value2 ? 1 : -1);
-      expect(collectedEvent1s.sort(exampleEvent1Sort)).toStrictEqual(
+
+      expect(collectedEvent1s.map(ev => ev.event).sort(exampleEvent1Sort)).toStrictEqual(
         preimages
           .map(preimage => ({
             value2: new AztecAddress(preimage[2]),
@@ -182,11 +184,11 @@ describe('Logs', () => {
           .send({ from: account1Address })
           .wait();
 
-        const blockNumber = tx.blockNumber!;
-
         // Fetch raw private logs for that block and check tag uniqueness
-        const privateLogs = await aztecNode.getPrivateLogs(blockNumber, 1);
-        const logs = privateLogs.filter(l => !l.isEmpty());
+        const logs = (await aztecNode.getBlock(tx.blockNumber!))!
+          .toL2Block()
+          .getPrivateLogs()
+          .filter(l => !l.isEmpty());
 
         expect(logs.length).toBe(tx1NumLogs);
 
@@ -208,8 +210,10 @@ describe('Logs', () => {
         const blockNumber = tx.blockNumber!;
 
         // Fetch raw private logs for that block and check tag uniqueness
-        const privateLogs = await aztecNode.getPrivateLogs(blockNumber, 1);
-        const logs = privateLogs.filter(l => !l.isEmpty());
+        const logs = (await aztecNode.getBlock(blockNumber))!
+          .toL2Block()
+          .getPrivateLogs()
+          .filter(l => !l.isEmpty());
 
         expect(logs.length).toBe(tx2NumLogs);
 

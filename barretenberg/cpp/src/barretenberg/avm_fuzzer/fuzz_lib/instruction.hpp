@@ -47,392 +47,434 @@ struct MemoryTagWrapper {
     }
 };
 
-/// Docs to offset_index struct fields
-/// The way we store used variables is a map of Tag: Vec[memory_address]
-/// The index of the argument in the stored vector, corresponding to the tag
-/// The index will be taken modulo the size of the vector
-/// If the corresponding vector is empty, the argument is invalid, we skip this op
-/// **Example**
-/// Stored variables map: { U8: [0, 1, 2], U32: [3, 4] }
-/// {offset_index: 100, variable_tag: U8} -> 100 % 3 = 1 -> 1st element of U8 vector = 1
-/// {offset_index: 100, variable_tag: U32} -> 100 % 2 = 0 -> 0th element of U32 vector = 3
+enum class AddressingMode : uint8_t {
+    Direct = 0,
+    Indirect = 1,
+    Relative = 2,
+    IndirectRelative = 3,
+};
+
+/// @brief Wrapper for AddressingMode to allow for msgpack packing and unpacking
+struct AddressingModeWrapper {
+    AddressingMode value;
+
+    AddressingModeWrapper() = default;
+    AddressingModeWrapper(AddressingMode v)
+        : value(v)
+    {}
+
+    operator AddressingMode() const { return value; }
+
+    void msgpack_pack(auto& packer) const
+    {
+        uint8_t value_to_serialize = static_cast<uint8_t>(this->value);
+        packer.pack_bin(sizeof(value_to_serialize));
+        packer.pack_bin_body((char*)&value_to_serialize, sizeof(value_to_serialize)); // NOLINT
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        // Handle binary data unpacking
+        if (o.type == msgpack::type::BIN) {
+            auto bin = o.via.bin;
+            if (bin.size == sizeof(uint8_t)) {
+                uint8_t value_to_deserialize = 0;
+                std::memcpy(&value_to_deserialize, bin.ptr, sizeof(value_to_deserialize));
+                *this = AddressingModeWrapper(static_cast<AddressingMode>(value_to_deserialize));
+            } else {
+                throw std::runtime_error("Invalid binary data size for AddressingMode");
+            }
+        }
+    }
+};
+
+/// @brief Address reference
+/// Used to resolve actual memory address from memory_manager
+/// @example
+/// AddressRef {U8, index: 15, mode: IndirectRelative, pointer_address: 50, pointer_value: 10, base_offset: 3}
+/// If memory_manager resolved DIRECT address 100 for tag U8,
+/// We set M[50] = 10, M[0] = 3
+/// We want to resolve address 100 in IndirectRealtive values, so we get M[50] + M[0] = 13
+/// So we will try to resolve the address 100 - 13 = 87
+struct AddressRef {
+    MemoryTagWrapper tag;
+    /// @brief Index of the address in the memory_manager.stored_variables map
+    uint32_t index = 0;
+
+    /// @brief Index of the pointer in the memory_manager.stored_variables map
+    /// Used for Indirect/IndirectRelative modes only
+    uint16_t pointer_address = 0;
+
+    /// @brief Base offset
+    /// Used for Relative/IndirectRelative modes only
+    /// Sets M[0] = base_offset
+    uint32_t base_offset = 0;
+    AddressingModeWrapper mode = AddressingMode::Direct;
+
+    MSGPACK_FIELDS(tag, index, pointer_address, base_offset, mode);
+};
+
+struct ResultAddressRef {
+    uint32_t address = 0;
+
+    /// @brief Pointer address used for Indirect/IndirectRelative modes only
+    uint16_t pointer_address = 0;
+
+    /// @brief Base offset used for Relative/IndirectRelative modes only
+    uint32_t base_offset = 0;
+    AddressingModeWrapper mode = AddressingMode::Direct;
+    MSGPACK_FIELDS(address, pointer_address, base_offset, mode);
+};
 
 /// @brief mem[result_offset] = mem[a_address] + mem[b_address]
 struct ADD_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] - mem[b_address]
 struct SUB_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] * mem[b_address]
 struct MUL_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] / mem[b_address]
 struct DIV_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 struct FDIV_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] == mem[b_address]
 struct EQ_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] < mem[b_address]
 struct LT_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] <= mem[b_address]
 struct LTE_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] & mem[b_address]
 struct AND_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] | mem[b_address]
 struct OR_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] ^ mem[b_address]
 struct XOR_8_Instruction {
     MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(argument_tag, a_address, b_address, result_address);
 };
 
 struct NOT_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, result_offset);
+    AddressRef a_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] << mem[b_address]
 struct SHL_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] >> mem[b_address]
 struct SHR_8_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint8_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief SET_8 instruction
 struct SET_8_Instruction {
     MemoryTagWrapper value_tag;
-    uint8_t offset;
+    ResultAddressRef result_address;
     uint8_t value;
-    MSGPACK_FIELDS(value_tag, offset, value);
+    MSGPACK_FIELDS(value_tag, result_address, value);
 };
 
 /// @brief SET_16 instruction
 struct SET_16_Instruction {
     MemoryTagWrapper value_tag;
-    uint16_t offset;
+    ResultAddressRef result_address;
     uint16_t value;
-    MSGPACK_FIELDS(value_tag, offset, value);
+    MSGPACK_FIELDS(value_tag, result_address, value);
 };
 
 /// @brief SET_32 instruction
 struct SET_32_Instruction {
     MemoryTagWrapper value_tag;
-    uint16_t offset;
+    ResultAddressRef result_address;
     uint32_t value;
-    MSGPACK_FIELDS(value_tag, offset, value);
+    MSGPACK_FIELDS(value_tag, result_address, value);
 };
 
 /// @brief SET_64 instruction
 struct SET_64_Instruction {
     MemoryTagWrapper value_tag;
-    uint16_t offset;
+    ResultAddressRef result_address;
     uint64_t value;
-    MSGPACK_FIELDS(value_tag, offset, value);
+    MSGPACK_FIELDS(value_tag, result_address, value);
 };
 
 /// @brief SET_128 instruction
 struct SET_128_Instruction {
     MemoryTagWrapper value_tag;
-    uint16_t offset;
+    ResultAddressRef result_address;
     uint64_t value_low;
     uint64_t value_high;
-    MSGPACK_FIELDS(value_tag, offset, value_low, value_high);
+    MSGPACK_FIELDS(value_tag, result_address, value_low, value_high);
 };
 
 /// @brief SET_FF instruction
 struct SET_FF_Instruction {
     MemoryTagWrapper value_tag;
-    uint16_t offset;
+    ResultAddressRef result_address;
     bb::avm2::FF value;
-    MSGPACK_FIELDS(value_tag, offset, value);
+    MSGPACK_FIELDS(value_tag, result_address, value);
 };
 
 /// @brief MOV_8 instruction: mem[dst_offset] = mem[src_offset]
 struct MOV_8_Instruction {
     MemoryTagWrapper value_tag;
-    uint16_t src_offset_index;
-    uint8_t dst_offset;
-    MSGPACK_FIELDS(value_tag, src_offset_index, dst_offset);
+    AddressRef src_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(value_tag, src_address, result_address);
 };
 
 /// @brief MOV_16 instruction: mem[dst_offset] = mem[src_offset]
 struct MOV_16_Instruction {
     MemoryTagWrapper value_tag;
-    uint16_t src_offset_index;
-    uint16_t dst_offset;
-    MSGPACK_FIELDS(value_tag, src_offset_index, dst_offset);
+    AddressRef src_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(value_tag, src_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] + mem[b_address] (16-bit)
 struct ADD_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] - mem[b_address] (16-bit)
 struct SUB_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] * mem[b_address] (16-bit)
 struct MUL_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] / mem[b_address] (16-bit)
 struct DIV_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 struct FDIV_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] == mem[b_address] (16-bit)
 struct EQ_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] < mem[b_address] (16-bit)
 struct LT_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] <= mem[b_address] (16-bit)
 struct LTE_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] & mem[b_address] (16-bit)
 struct AND_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] | mem[b_address] (16-bit)
 struct OR_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] ^ mem[b_address] (16-bit)
 struct XOR_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 struct NOT_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, result_offset);
+    AddressRef a_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] << mem[b_address] (16-bit)
 struct SHL_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] >> mem[b_address] (16-bit)
 struct SHR_16_Instruction {
-    MemoryTagWrapper argument_tag;
-    uint16_t a_offset_index;
-    uint16_t b_offset_index;
-    uint16_t result_offset;
-    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+    AddressRef a_address;
+    AddressRef b_address;
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief CAST_8: cast mem[src_offset_index] to target_tag and store at dst_offset
 struct CAST_8_Instruction {
     MemoryTagWrapper src_tag;
-    uint16_t src_offset_index;
-    uint8_t dst_offset;
+    AddressRef src_address;
+    ResultAddressRef result_address;
     MemoryTagWrapper target_tag;
-    MSGPACK_FIELDS(src_tag, src_offset_index, dst_offset, target_tag);
+    MSGPACK_FIELDS(src_tag, src_address, result_address, target_tag);
 };
 
 /// @brief CAST_16: cast mem[src_offset_index] to target_tag and store at dst_offset
 struct CAST_16_Instruction {
     MemoryTagWrapper src_tag;
-    uint16_t src_offset_index;
-    uint16_t dst_offset;
+    AddressRef src_address;
+    ResultAddressRef result_address;
     MemoryTagWrapper target_tag;
-    MSGPACK_FIELDS(src_tag, src_offset_index, dst_offset, target_tag);
+    MSGPACK_FIELDS(src_tag, src_address, result_address, target_tag);
 };
 
 /// @brief SSTORE: M[slot_offset_index] = slot; S[M[slotOffset]] = M[srcOffset]
 struct SSTORE_Instruction {
-    uint16_t src_offset_index;
-    uint16_t slot_offset;
+    AddressRef src_address;
+    ResultAddressRef result_address;
     bb::avm2::FF slot;
-    MSGPACK_FIELDS(src_offset_index, slot_offset, slot);
+    MSGPACK_FIELDS(src_address, result_address, slot);
 };
 
 /// @brief SLOAD: M[slot_offset] = slot; M[result_offset] = S[M[slotOffset]]
 struct SLOAD_Instruction {
-    uint16_t slot_index;  // index of the slot in memory_manager.storage_addresses
-    uint16_t slot_offset; // address where we set slot value
-    uint16_t result_offset;
-    MSGPACK_FIELDS(slot_index, slot_offset, result_offset);
+    uint16_t slot_index;           // index of the slot in memory_manager.storage_addresses
+    ResultAddressRef slot_address; // address where we set slot value
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(slot_index, slot_address, result_address);
 };
 
 /// @brief GETENVVAR: M[result_offset] = getenvvar(type)
 struct GETENVVAR_Instruction {
-    uint16_t result_offset;
+    ResultAddressRef result_address;
     // msgpack cannot pack enum classes, so we pack that as a uint8_t
     // 0 -> ADDRESS, 1 -> SENDER, 2 -> TRANSACTIONFEE, 3 -> CHAINID, 4 -> VERSION, 5 -> BLOCKNUMBER, 6 -> TIMESTAMP,
     // 7 -> BASEFEEPERDAGAS, 8 -> BASEFEEPERL2GAS, 9 -> ISSTATICCALL, 10 -> L2GASLEFT, 11 -> DAGASLEFT
     uint8_t type;
-    MSGPACK_FIELDS(result_offset, type);
+    MSGPACK_FIELDS(result_address, type);
 };
 
 /// @brief EMITNULIFIER: inserts new nullifier to the nullifier tree
 struct EMITNULLIFIER_Instruction {
-    uint16_t nullifier_offset_index;
-    MSGPACK_FIELDS(nullifier_offset_index);
+    AddressRef nullifier_address;
+    MSGPACK_FIELDS(nullifier_address);
 };
 
 /// @brief NULLIFIEREXISTS: checks if nullifier exists in the nullifier tree
 /// Gets contract's address by GETENVVAR(0)
 /// M[result_offset] = NULLIFIEREXISTS(M[nullifier_offset_index], GETENVVAR(0))
 struct NULLIFIEREXISTS_Instruction {
-    uint16_t nullifier_offset_index;
-    uint16_t contract_address_offset; // absolute address where the contract address will be stored
-    uint16_t result_offset;
-    MSGPACK_FIELDS(nullifier_offset_index, contract_address_offset, result_offset);
+    AddressRef nullifier_address;
+    ResultAddressRef contract_address_address; // absolute address where the contract address will be stored
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(nullifier_address, contract_address_address, result_address);
 };
 
 /// @brief EMITNOTEHASH: M[note_hash_offset] = note_hash; emit note hash to the note hash tree
 struct EMITNOTEHASH_Instruction {
-    uint16_t note_hash_offset; // absolute address where the note hash will be stored
+    ResultAddressRef note_hash_address; // absolute address where the note hash will be stored
     bb::avm2::FF note_hash;
-    MSGPACK_FIELDS(note_hash_offset, note_hash);
+    MSGPACK_FIELDS(note_hash_address, note_hash);
 };
 
 /// @brief NOTEHASHEXISTS:  M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset])
@@ -444,23 +486,23 @@ struct NOTEHASHEXISTS_Instruction {
     // index of the note hash in the memory_manager.emitted_note_hashes
     uint16_t notehash_index;
     // absolute address where the note hash will be stored
-    uint16_t notehash_offset;
+    ResultAddressRef notehash_address;
     // absolute address where the leaf index will be stored
-    uint16_t leaf_index_offset;
+    ResultAddressRef leaf_index_address;
     // absolute address where the result will be stored
-    uint16_t result_offset;
-    MSGPACK_FIELDS(notehash_index, notehash_offset, leaf_index_offset, result_offset);
+    ResultAddressRef result_address;
+    MSGPACK_FIELDS(notehash_index, notehash_address, leaf_index_address, result_address);
 };
 
 /// @brief CALLDATACOPY: M[dstOffset:dstOffset+M[copySizeOffset]] =
 /// calldata[M[cdStartOffset]:M[cdStartOffset]+M[copySizeOffset]]
 struct CALLDATACOPY_Instruction {
-    uint16_t dst_offset;
+    ResultAddressRef dst_address;
     uint8_t copy_size;
-    uint16_t copy_size_offset; // where copy size will be stored
+    ResultAddressRef copy_size_address; // where copy size will be stored
     uint16_t cd_start;
-    uint16_t cd_start_offset; // where cd start will be stored
-    MSGPACK_FIELDS(dst_offset, copy_size, copy_size_offset, cd_start, cd_start_offset);
+    ResultAddressRef cd_start_address; // where cd start will be stored
+    MSGPACK_FIELDS(dst_address, copy_size, copy_size_address, cd_start, cd_start_address);
 };
 
 using FuzzInstruction = std::variant<ADD_8_Instruction,
@@ -521,181 +563,159 @@ inline std::ostream& operator<<(std::ostream& os, const MemoryTag& tag)
     return os;
 }
 
+inline std::ostream& operator<<(std::ostream& os, const AddressRef& address)
+{
+    os << "AddressRef " << address.tag << " " << address.index << " " << address.base_offset << " "
+       << static_cast<int>(static_cast<AddressingMode>(address.mode));
+    return os;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const ResultAddressRef& result_address)
+{
+    os << "ResultAddressRef " << result_address.address << " "
+       << static_cast<int>(static_cast<AddressingMode>(result_address.mode));
+    return os;
+}
+
 inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruction)
 {
     std::visit(
         overloaded_instruction{
             [&](ADD_8_Instruction arg) {
-                os << "ADD_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "ADD_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](SET_8_Instruction arg) {
-                os << "SET_8_Instruction " << arg.value_tag << " " << static_cast<int>(arg.offset) << " "
-                   << static_cast<int>(arg.value);
+                os << "SET_8_Instruction " << arg.value_tag << " " << arg.result_address << " " << arg.value;
             },
             [&](SET_16_Instruction arg) {
-                os << "SET_16_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
+                os << "SET_16_Instruction " << arg.value_tag << " " << arg.result_address << " " << arg.value;
             },
             [&](SET_32_Instruction arg) {
-                os << "SET_32_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
+                os << "SET_32_Instruction " << arg.value_tag << " " << arg.result_address << " " << arg.value;
             },
             [&](SET_64_Instruction arg) {
-                os << "SET_64_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
+                os << "SET_64_Instruction " << arg.value_tag << " " << arg.result_address << " " << arg.value;
             },
             [&](SET_128_Instruction arg) {
-                os << "SET_128_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value_high << " "
-                   << arg.value_low;
+                os << "SET_128_Instruction " << arg.value_tag << " " << arg.result_address << " " << arg.value_high
+                   << " " << arg.value_low;
             },
             [&](SET_FF_Instruction arg) {
-                os << "SET_FF_Instruction " << arg.value_tag << " " << arg.offset << " " << arg.value;
+                os << "SET_FF_Instruction " << arg.value_tag << " " << arg.result_address << " " << arg.value;
             },
             [&](SUB_8_Instruction arg) {
-                os << "SUB_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "SUB_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](MUL_8_Instruction arg) {
-                os << "MUL_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "MUL_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](DIV_8_Instruction arg) {
-                os << "DIV_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "DIV_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](FDIV_8_Instruction arg) {
-                os << "FDIV_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "FDIV_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](EQ_8_Instruction arg) {
-                os << "EQ_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "EQ_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](LT_8_Instruction arg) {
-                os << "LT_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "LT_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](LTE_8_Instruction arg) {
-                os << "LTE_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "LTE_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](AND_8_Instruction arg) {
-                os << "AND_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "AND_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](OR_8_Instruction arg) {
-                os << "OR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "OR_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](XOR_8_Instruction arg) {
-                os << "XOR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "XOR_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](SHL_8_Instruction arg) {
-                os << "SHL_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "SHL_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](SHR_8_Instruction arg) {
-                os << "SHR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << static_cast<uint16_t>(arg.result_offset);
+                os << "SHR_8_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
-            [&](NOT_8_Instruction arg) {
-                os << "NOT_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << static_cast<uint16_t>(arg.result_offset);
-            },
+            [&](NOT_8_Instruction arg) { os << "NOT_8_Instruction " << arg.a_address << " " << arg.result_address; },
             [&](ADD_16_Instruction arg) {
-                os << "ADD_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << arg.b_offset_index << " " << arg.result_offset;
+                os << "ADD_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](SUB_16_Instruction arg) {
-                os << "SUB_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << arg.b_offset_index << " " << arg.result_offset;
+                os << "SUB_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](MUL_16_Instruction arg) {
-                os << "MUL_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << arg.b_offset_index << " " << arg.result_offset;
+                os << "MUL_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](DIV_16_Instruction arg) {
-                os << "DIV_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << arg.b_offset_index << " " << arg.result_offset;
+                os << "DIV_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](FDIV_16_Instruction arg) {
-                os << "FDIV_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << arg.b_offset_index << " " << arg.result_offset;
+                os << "FDIV_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](EQ_16_Instruction arg) {
-                os << "EQ_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << arg.result_offset;
+                os << "EQ_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](LT_16_Instruction arg) {
-                os << "LT_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << arg.result_offset;
+                os << "LT_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](LTE_16_Instruction arg) {
-                os << "LTE_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << arg.b_offset_index << " " << arg.result_offset;
+                os << "LTE_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](AND_16_Instruction arg) {
-                os << "AND_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << arg.b_offset_index << " " << arg.result_offset;
+                os << "AND_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](OR_16_Instruction arg) {
-                os << "OR_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " " << arg.b_offset_index
-                   << " " << arg.result_offset;
+                os << "OR_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](XOR_16_Instruction arg) {
-                os << "XOR_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << arg.b_offset_index << " " << arg.result_offset;
+                os << "XOR_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
-            [&](NOT_16_Instruction arg) {
-                os << "NOT_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << arg.result_offset;
-            },
+            [&](NOT_16_Instruction arg) { os << "NOT_16_Instruction " << arg.a_address << " " << arg.result_address; },
             [&](SHL_16_Instruction arg) {
-                os << "SHL_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << arg.b_offset_index << " " << arg.result_offset;
+                os << "SHL_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](SHR_16_Instruction arg) {
-                os << "SHR_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
-                   << arg.b_offset_index << " " << arg.result_offset;
+                os << "SHR_16_Instruction " << arg.a_address << " " << arg.b_address << " " << arg.result_address;
             },
             [&](CAST_8_Instruction arg) {
-                os << "CAST_8_Instruction " << arg.src_tag << " " << arg.src_offset_index << " "
-                   << static_cast<int>(arg.dst_offset) << " " << arg.target_tag;
+                os << "CAST_8_Instruction " << arg.src_tag << " " << arg.src_address << " " << arg.result_address << " "
+                   << arg.target_tag;
             },
             [&](CAST_16_Instruction arg) {
-                os << "CAST_16_Instruction " << arg.src_tag << " " << arg.src_offset_index << " " << arg.dst_offset
+                os << "CAST_16_Instruction " << arg.src_tag << " " << arg.src_address << " " << arg.result_address
                    << " " << arg.target_tag;
             },
             [&](MOV_8_Instruction arg) {
-                os << "MOV_8_Instruction " << arg.value_tag << " " << arg.src_offset_index << " "
-                   << static_cast<int>(arg.dst_offset);
+                os << "MOV_8_Instruction " << arg.value_tag << " " << arg.src_address << " " << arg.result_address;
             },
             [&](MOV_16_Instruction arg) {
-                os << "MOV_16_Instruction " << arg.value_tag << " " << arg.src_offset_index << " " << arg.dst_offset;
+                os << "MOV_16_Instruction " << arg.value_tag << " " << arg.src_address << " " << arg.result_address;
             },
             [&](SSTORE_Instruction arg) {
-                os << "SSTORE_Instruction " << arg.src_offset_index << " " << arg.slot_offset << " " << arg.slot;
+                os << "SSTORE_Instruction " << arg.src_address << " " << arg.result_address << " " << arg.slot;
             },
-            [&](SLOAD_Instruction arg) {
-                os << "SLOAD_Instruction " << arg.slot_index << " " << arg.slot_offset << " " << arg.result_offset;
-            },
+            [&](SLOAD_Instruction arg) { os << "SLOAD_Instruction " << arg.slot_address << " " << arg.result_address; },
             [&](GETENVVAR_Instruction arg) {
-                os << "GETENVVAR_Instruction " << arg.result_offset << " " << static_cast<int>(arg.type);
+                os << "GETENVVAR_Instruction " << arg.result_address << " " << static_cast<int>(arg.type);
             },
-            [&](EMITNULLIFIER_Instruction arg) { os << "EMITNULIFIER_Instruction " << arg.nullifier_offset_index; },
+            [&](EMITNULLIFIER_Instruction arg) { os << "EMITNULIFIER_Instruction " << arg.nullifier_address; },
             [&](NULLIFIEREXISTS_Instruction arg) {
-                os << "NULLIFIEREXISTS_Instruction " << arg.nullifier_offset_index << " " << arg.contract_address_offset
-                   << " " << arg.result_offset;
+                os << "NULLIFIEREXISTS_Instruction " << arg.nullifier_address << " " << arg.contract_address_address
+                   << " " << arg.result_address;
             },
             [&](EMITNOTEHASH_Instruction arg) {
-                os << "EMITNOTEHASH_Instruction " << arg.note_hash_offset << " " << arg.note_hash;
+                os << "EMITNOTEHASH_Instruction " << arg.note_hash_address << " " << arg.note_hash;
             },
             [&](NOTEHASHEXISTS_Instruction arg) {
-                os << "NOTEHASHEXISTS_Instruction " << arg.notehash_index << " " << arg.notehash_offset << " "
-                   << arg.leaf_index_offset << " " << arg.result_offset;
+                os << "NOTEHASHEXISTS_Instruction " << arg.notehash_address << " " << arg.notehash_address << " "
+                   << arg.leaf_index_address << " " << arg.result_address;
             },
             [&](CALLDATACOPY_Instruction arg) {
-                os << "CALLDATACOPY_Instruction " << arg.dst_offset << " " << static_cast<int>(arg.copy_size) << " "
-                   << arg.copy_size_offset << " " << arg.cd_start << " " << arg.cd_start_offset;
+                os << "CALLDATACOPY_Instruction " << arg.dst_address << " " << static_cast<int>(arg.copy_size) << " "
+                   << arg.copy_size_address << " " << arg.cd_start_address << " " << arg.cd_start_address;
             },
             [&](auto) { os << "Unknown instruction"; },
         },

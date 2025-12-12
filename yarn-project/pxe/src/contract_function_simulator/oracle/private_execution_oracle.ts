@@ -1,5 +1,5 @@
 import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
@@ -282,7 +282,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Real notes coming from DB will have a leafIndex which
    * represents their index in the note hash tree.
    *
-   * @param owner - The owner of the notes.
+   * @param owner - The owner of the notes. If undefined, returns notes for all owners.
    * @param storageSlot - The storage slot.
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
@@ -296,7 +296,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns Array of note data.
    */
   public override async utilityGetNotes(
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],

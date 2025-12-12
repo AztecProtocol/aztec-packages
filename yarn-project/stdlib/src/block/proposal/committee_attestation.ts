@@ -1,4 +1,4 @@
-import type { ViemCommitteeAttestation, ViemCommitteeAttestations } from '@aztec/ethereum';
+import type { ViemCommitteeAttestation, ViemCommitteeAttestations } from '@aztec/ethereum/contracts';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';

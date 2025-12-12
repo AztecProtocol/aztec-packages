@@ -46,11 +46,8 @@ pub contract StatefulTest {
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
         if (value != 0) {
-            let note = FieldNote::new(value);
-            self.storage.notes.at(owner).insert(note).emit(
-                owner,
-                MessageDelivery.CONSTRAINED_ONCHAIN,
-            );
+            let note = FieldNote { value };
+            self.storage.notes.at(owner).insert(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }
 
@@ -58,11 +55,8 @@ pub contract StatefulTest {
     #[noinitcheck]
     fn create_note_no_init_check(owner: AztecAddress, value: Field) {
         if (value != 0) {
-            let note = FieldNote::new(value);
-            self.storage.notes.at(owner).insert(note).emit(
-                owner,
-                MessageDelivery.CONSTRAINED_ONCHAIN,
-            );
+            let note = FieldNote { value };
+            self.storage.notes.at(owner).insert(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }
 
@@ -73,8 +67,7 @@ pub contract StatefulTest {
 
         let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 
-        self.storage.notes.at(recipient).insert(FieldNote::new(92)).emit(
-            recipient,
+        self.storage.notes.at(recipient).insert(FieldNote { value: 92 }).deliver(
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
@@ -86,8 +79,7 @@ pub contract StatefulTest {
 
         let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 
-        self.storage.notes.at(recipient).insert(FieldNote::new(92)).emit(
-            recipient,
+        self.storage.notes.at(recipient).insert(FieldNote { value: 92 }).deliver(
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
@@ -117,11 +109,11 @@ pub contract StatefulTest {
         offset: u32,
     ) -> Field {
         let mut balance = 0;
-        let mut options = NoteViewerOptions::new();
-        let notes = set.view_notes(options.set_offset(offset));
+        let options = NoteViewerOptions::new().set_offset(offset);
+        let notes = set.view_notes(options);
         for i in 0..options.limit {
             if i < notes.len() {
-                balance += notes.get_unchecked(i).value();
+                balance += notes.get_unchecked(i).value;
             }
         }
 

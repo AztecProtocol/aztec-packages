@@ -3,7 +3,7 @@ import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from 
 import { Fr } from '@aztec/aztec.js/fields';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { getL1Config } from '@aztec/cli/config';
-import { getPublicClient } from '@aztec/ethereum';
+import { getPublicClient } from '@aztec/ethereum/client';
 import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
@@ -117,7 +117,7 @@ export async function startNode(
   }
 
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
-  const telemetry = initTelemetryClient(telemetryConfig);
+  const telemetry = await initTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
   const node = await createAztecNode(nodeConfig, { telemetry }, { prefilledPublicData });

@@ -13,21 +13,21 @@ pub contract EcdsaKAccount {
         },
         messages::message_delivery::MessageDelivery,
         oracle::{auth_witness::get_auth_witness, notes::{get_sender_for_tags, set_sender_for_tags}},
-        state_vars::{Owned, PrivateImmutable},
+        state_vars::SinglePrivateImmutable,
     };
 
     use dep::ecdsa_public_key_note::EcdsaPublicKeyNote;
 
     #[storage]
     struct Storage<Context> {
-        signing_public_key: Owned<PrivateImmutable<EcdsaPublicKeyNote, Context>, Context>,
+        signing_public_key: SinglePrivateImmutable<EcdsaPublicKeyNote, Context>,
     }
 
     // Creates a new account out of an ECDSA public key to use for signature verification
     #[external("private")]
     #[initializer]
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
-        let pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y);
+        let pub_key_note = EcdsaPublicKeyNote { x: signing_pub_key_x, y: signing_pub_key_y };
 
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
@@ -42,8 +42,9 @@ pub contract EcdsaKAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(self.address) };
-        self.storage.signing_public_key.at(self.address).initialize(pub_key_note).emit(
-            self.address,
+        // The note message gets delivered to the note owner which is set by the SinglePrivateImmutable to be this
+        // contract.
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
         // Safety: Comment from above applies here as well.
@@ -77,7 +78,7 @@ pub contract EcdsaKAccount {
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Load public key from storage
         let storage = Storage::init(context);
-        let public_key = storage.signing_public_key.at(context.this_address()).get_note();
+        let public_key = storage.signing_public_key.get_note();
 
         // Load auth witness
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.

@@ -60,12 +60,11 @@ pub contract Crowdfunding {
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let note = UintNote::new(amount);
+        let note = UintNote { value: amount };
 
         // We don't constrain encryption because the donor is sending the note to himself. And hence by performing
         // encryption incorrectly would harm himself only.
-        self.storage.donation_receipts.at(donor).insert(note).emit(
-            donor,
+        self.storage.donation_receipts.at(donor).insert(note).deliver(
             MessageDelivery.UNCONSTRAINED_ONCHAIN,
         );
     }
@@ -102,7 +101,7 @@ pub contract Crowdfunding {
         // type that is not returned by view_notes function. We on the other hand need this metadata because we will
         // be proving the note existence in the Claim contract.
         let opt_notes = aztec::oracle::notes::get_notes(
-            donor,
+            Option::some(donor),
             storage_slot,
             0,
             [],

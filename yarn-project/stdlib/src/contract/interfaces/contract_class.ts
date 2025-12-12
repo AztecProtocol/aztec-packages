@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -153,3 +153,21 @@ export const ContractClassPublicSchema = z
 
 /** The contract class with the block it was initially deployed at */
 export type ContractClassPublicWithBlockNumber = { l2BlockNumber: number } & ContractClassPublic;
+
+/**
+ * Creates a ContractClassPublic from a plain object without Zod validation.
+ * Suitable for deserializing trusted data (e.g., from C++ via MessagePack).
+ * Note: privateFunctions and utilityFunctions are set to empty arrays since
+ * C++ does not provide them.
+ */
+export function contractClassPublicFromPlainObject(obj: any): ContractClassPublic {
+  return {
+    id: Fr.fromPlainObject(obj.id),
+    version: 1,
+    artifactHash: Fr.fromPlainObject(obj.artifactHash),
+    privateFunctionsRoot: Fr.fromPlainObject(obj.privateFunctionsRoot),
+    privateFunctions: [],
+    utilityFunctions: [],
+    packedBytecode: obj.packedBytecode instanceof Buffer ? obj.packedBytecode : Buffer.from(obj.packedBytecode),
+  };
+}

@@ -1,7 +1,7 @@
 use crate::note::constants::MAX_NOTES_PER_PAGE;
 use crate::note::note_getter_options::{NoteStatus, PropertySelector, Select, Sort};
 use crate::note::note_interface::NoteType;
-use dep::protocol_types::traits::{Packable, ToField};
+use dep::protocol_types::{address::AztecAddress, traits::{Packable, ToField}};
 use std::option::Option;
 
 pub struct NoteViewerOptions<Note, let M: u32> {
@@ -9,6 +9,7 @@ pub struct NoteViewerOptions<Note, let M: u32> {
     pub sorts: BoundedVec<Option<Sort>, M>,
     pub limit: u32,
     pub offset: u32,
+    pub owner: Option<AztecAddress>,
     pub status: u8,
 }
 
@@ -22,6 +23,7 @@ impl<Note, let M: u32> NoteViewerOptions<Note, M> {
             sorts: BoundedVec::new(),
             limit: MAX_NOTES_PER_PAGE as u32,
             offset: 0,
+            owner: Option::none(),
             status: NoteStatus.ACTIVE,
         }
     }
@@ -67,6 +69,13 @@ impl<Note, let M: u32> NoteViewerOptions<Note, M> {
     // This method sets the status value, which determines whether to retrieve active or nullified notes.
     pub fn set_status(&mut self, status: u8) -> Self {
         self.status = status;
+        *self
+    }
+
+    // This method sets the owner value, which determines which owner's notes to retrieve.
+    // If None, notes from all owners will be retrieved.
+    pub fn set_owner(&mut self, owner: AztecAddress) -> Self {
+        self.owner = Option::some(owner);
         *self
     }
 }

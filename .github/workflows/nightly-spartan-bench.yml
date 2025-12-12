@@ -1,0 +1,176 @@
+name: Nightly Spartan Benchmarks
+
+on:
+  schedule:
+    # Run every night at 3:00 AM UTC (1 hour after nightly release tag at 2:00 AM)
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      nightly_tag:
+        description: "Nightly tag to use (e.g., 2.3.4-nightly.20251209). Leave empty to auto-detect."
+        required: false
+        type: string
+
+concurrency:
+  group: nightly-spartan-bench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+      NETWORK_ENV_FILE: /tmp/tps-scenario.env
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: next
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Determine nightly tag
+        id: nightly-tag
+        run: |
+          if [[ -n "${{ inputs.nightly_tag }}" ]]; then
+            # Manual dispatch with explicit tag
+            nightly_tag="${{ inputs.nightly_tag }}"
+          else
+            # Auto-detect today's nightly tag
+            current_version=$(jq -r '."."' .release-please-manifest.json)
+            nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
+          fi
+          echo "nightly_tag=$nightly_tag" >> $GITHUB_OUTPUT
+          echo "Using nightly tag: $nightly_tag"
+
+      - name: Check if Docker image exists
+        id: check-image
+        run: |
+          DOCKER_IMAGE="aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
+          echo "Checking if Docker image exists: $DOCKER_IMAGE"
+
+          if docker manifest inspect "$DOCKER_IMAGE" > /dev/null 2>&1; then
+            echo "Docker image exists: $DOCKER_IMAGE"
+          else
+            echo "Docker image does not exist: $DOCKER_IMAGE"
+            exit 1
+          fi
+
+      - name: Store the GCP key in a file
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          set +x
+          umask 077
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
+
+      - name: Setup GCP authentication
+        run: |
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+
+      - name: Setup gcloud and install GKE auth plugin
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: "gke-gcloud-auth-plugin"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1
+        with:
+          terraform_version: "1.7.5"
+          terraform_wrapper: false
+
+      - name: Setup spartan
+        run: |
+          ./spartan/scripts/install_deps.sh
+
+      - name: Deploy network
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          REF_NAME: "v${{ steps.nightly-tag.outputs.nightly_tag }}"
+          AZTEC_DOCKER_IMAGE: "aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
+          NETWORK_ENV_FILE: tps-scenario
+        run: |
+          ./spartan/scripts/network_deploy.sh ${{ env.NETWORK_ENV_FILE }}
+
+      - name: Run benchmarks
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NETWORK_ENV_FILE: tps-scenario
+        run: |
+          ./ci.sh network-bench
+
+      - name: Cleanup network resources
+        if: always()
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+          AZTEC_DOCKER_IMAGE: "aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
+          NETWORK_ENV_FILE: tps-scenario
+
+          DESTROY_ETH_DEVNET: true
+          CREATE_ETH_DEVNET: false
+
+          DESTROY_ROLLUP_CONTRACTS: true
+          CREATE_ROLLUP_CONTRACTS: false
+
+          DESTROY_AZTEC_INFRA: true
+          CREATE_AZTEC_INFRA: false
+        run: |
+          ./spartan/scripts/network_deploy.sh ${{ env.NETWORK_ENV_FILE }}
+          echo "Cleanup complete"
+
+      - name: Download deploy benchmarks
+        if: always()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          if ./ci.sh gh-spartan-bench; then
+            echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
+          fi
+
+      - name: Upload deploy benchmarks
+        if: always() && env.ENABLE_DEPLOY_BENCH == '1'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: Spartan
+          benchmark-data-dir-path: "bench/next"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          alert-threshold: "120%"
+          comment-on-alert: false
+          fail-on-alert: false
+          max-items-in-chart: 100
+
+      - name: Notify Slack on failure
+        if: failure() && github.event_name == 'workflow_run'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            read -r -d '' data <<EOF || true
+            {
+              "channel": "#alerts-next-scenario",
+              "text": "Nightly Spartan Benchmarks FAILED (nightly tag ${{ steps.nightly-tag.outputs.nightly_tag }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+            }
+          EOF
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "$data"
+          fi
+

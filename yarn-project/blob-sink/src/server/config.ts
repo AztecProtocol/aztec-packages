@@ -1,4 +1,4 @@
-import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
+import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import { type ConfigMappingsType, getConfigFromMappings, omitConfigMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';

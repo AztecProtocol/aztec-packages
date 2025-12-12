@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 
@@ -173,12 +173,15 @@ export class ExecutionNoteCache {
    * Return notes created up to current point in execution.
    * If a nullifier for a note in this list is emitted, the note will be deleted.
    * @param contractAddress - Contract address of the notes.
-   * @param owner - Owner of the notes.
+   * @param owner - Owner of the notes. If undefined, returns all notes regardless of owner.
    * @param storageSlot - Storage slot of the notes.
    **/
-  public getNotes(contractAddress: AztecAddress, owner: AztecAddress, storageSlot: Fr) {
+  public getNotes(contractAddress: AztecAddress, owner: AztecAddress | undefined, storageSlot: Fr) {
     const notes = this.noteMap.get(contractAddress.toBigInt()) ?? [];
-    return notes.filter(n => n.note.owner.equals(owner) && n.note.storageSlot.equals(storageSlot)).map(n => n.note);
+    return notes
+      .filter(n => owner === undefined || n.note.owner.equals(owner))
+      .filter(n => n.note.storageSlot.equals(storageSlot))
+      .map(n => n.note);
   }
 
   /**

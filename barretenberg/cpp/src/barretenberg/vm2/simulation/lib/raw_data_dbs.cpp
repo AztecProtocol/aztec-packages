@@ -699,12 +699,16 @@ uint32_t HintedRawMerkleDB::get_checkpoint_id() const
 // PureRawMerkleDB starts.
 TreeSnapshots PureRawMerkleDB::get_tree_roots() const
 {
+    if (cached_tree_snapshots.has_value()) {
+        return cached_tree_snapshots.value();
+    }
+
     auto l1_to_l2_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
     auto note_hash_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::NOTE_HASH_TREE);
     auto nullifier_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::NULLIFIER_TREE);
     auto public_data_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::PUBLIC_DATA_TREE);
 
-    return TreeSnapshots{
+    TreeSnapshots tree_snapshots = {
         .l1_to_l2_message_tree = AppendOnlyTreeSnapshot{ .root = l1_to_l2_info.meta.root,
                                                          .next_available_leaf_index = l1_to_l2_info.meta.size },
         .note_hash_tree = AppendOnlyTreeSnapshot{ .root = note_hash_info.meta.root,
@@ -714,6 +718,12 @@ TreeSnapshots PureRawMerkleDB::get_tree_roots() const
         .public_data_tree = AppendOnlyTreeSnapshot{ .root = public_data_info.meta.root,
                                                     .next_available_leaf_index = public_data_info.meta.size },
     };
+
+    if (cache_tree_roots) {
+        cached_tree_snapshots = tree_snapshots;
+    }
+
+    return tree_snapshots;
 }
 
 SiblingPath PureRawMerkleDB::get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const
@@ -763,6 +773,9 @@ IndexedLeaf<NullifierLeafValue> PureRawMerkleDB::get_leaf_preimage_nullifier_tre
 SequentialInsertionResult<PublicDataLeafValue> PureRawMerkleDB::insert_indexed_leaves_public_data_tree(
     const PublicDataLeafValue& leaf_value)
 {
+    // Invalidate the cached tree roots.
+    cached_tree_snapshots = std::nullopt;
+
     auto result = ws_instance.insert_indexed_leaves<PublicDataLeafValue>(
         MerkleTreeId::PUBLIC_DATA_TREE, { leaf_value }, ws_revision.forkId);
     return result;
@@ -771,6 +784,9 @@ SequentialInsertionResult<PublicDataLeafValue> PureRawMerkleDB::insert_indexed_l
 SequentialInsertionResult<NullifierLeafValue> PureRawMerkleDB::insert_indexed_leaves_nullifier_tree(
     const NullifierLeafValue& leaf_value)
 {
+    // Invalidate the cached tree roots.
+    cached_tree_snapshots = std::nullopt;
+
     auto result = ws_instance.insert_indexed_leaves<NullifierLeafValue>(
         MerkleTreeId::NULLIFIER_TREE, { leaf_value }, ws_revision.forkId);
     return result;
@@ -781,6 +797,9 @@ SequentialInsertionResult<NullifierLeafValue> PureRawMerkleDB::insert_indexed_le
 // todo(ilyas): Given this function says append, perhaps we just want to restrict to NoteHash?
 std::vector<AppendLeafResult> PureRawMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves)
 {
+    // Invalidate the cached tree roots.
+    cached_tree_snapshots = std::nullopt;
+
     std::vector<FF> leaves_vec(leaves.begin(), leaves.end());
 
     // If we wanted intermediate roots and paths, we would need to call append_leaves one by one
@@ -793,6 +812,9 @@ std::vector<AppendLeafResult> PureRawMerkleDB::append_leaves(MerkleTreeId tree_i
 
 void PureRawMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
 {
+    // Invalidate the cached tree roots.
+    cached_tree_snapshots = std::nullopt;
+
     // The only trees that should be padded are NULLIFIER_TREE and NOTE_HASH_TREE
     switch (tree_id) {
     case MerkleTreeId::NULLIFIER_TREE: {
@@ -827,6 +849,9 @@ void PureRawMerkleDB::commit_checkpoint()
 
 void PureRawMerkleDB::revert_checkpoint()
 {
+    // Invalidate the cached tree roots.
+    cached_tree_snapshots = std::nullopt;
+
     ws_instance.revert_checkpoint(ws_revision.forkId);
     checkpoint_stack.pop();
 }
