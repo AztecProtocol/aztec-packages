@@ -1,5 +1,5 @@
 import { NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';

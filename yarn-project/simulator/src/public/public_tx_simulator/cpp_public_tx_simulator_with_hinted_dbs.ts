@@ -64,7 +64,7 @@ export class CppPublicTxSimulatorHintedDbs extends PublicTxSimulator implements 
     this.log.debug(`TS simulation succeeded for tx ${txHash}`);
 
     // Extract the full AvmCircuitInputs from the TS result
-    const avmCircuitInputs = new AvmCircuitInputs(tsResult.hints!, tsResult.publicInputs);
+    const avmCircuitInputs = new AvmCircuitInputs(tsResult.hints!, tsResult.publicInputs!);
 
     // Second, run C++ simulation with hinted DBs
     this.log.debug(`Running C++ simulation with hinted DBs for tx ${txHash}`);

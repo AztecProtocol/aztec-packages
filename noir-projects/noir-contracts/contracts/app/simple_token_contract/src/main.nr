@@ -124,7 +124,7 @@ pub contract SimpleToken {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        self.storage.balances.at(from).sub(amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
         self.enqueue_self._increase_public_balance(to, amount);
     }
 
@@ -133,16 +133,19 @@ pub contract SimpleToken {
         let from = self.msg_sender().unwrap();
 
         let change = self.internal.subtract_balance(from, amount, INITIAL_TRANSFER_CALL_MAX_NOTES);
-        self.storage.balances.at(from).add(change).emit(from, MessageDelivery.UNCONSTRAINED_ONCHAIN);
-        self.storage.balances.at(to).add(amount).emit(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).add(change).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
-        self.emit(Transfer { from, to, amount }, to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.emit(Transfer { from, to, amount }).deliver_to(
+            to,
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
     }
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        self.storage.balances.at(from).sub(amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
         self.enqueue_self._reduce_total_supply(amount);
     }
 

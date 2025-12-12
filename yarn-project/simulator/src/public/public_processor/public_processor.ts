@@ -1,6 +1,6 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
@@ -523,7 +523,7 @@ export class PublicProcessor implements Traceable {
 
     const result = await this.publicTxSimulator.simulate(tx);
     // TODO: use the callStackMetadata here to extract more data about public execution
-    const { hints, publicInputs, gasUsed, revertCode /*callStackMetadata*/ } = result;
+    const { hints, publicInputs, publicTxEffect, gasUsed, revertCode /*callStackMetadata*/ } = result;
 
     const contractClassLogs = revertCode.isOK()
       ? tx.getContractClassLogs()
@@ -542,10 +542,15 @@ export class PublicProcessor implements Traceable {
     const appLogicReturnValues: NestedProcessReturnValues[] = result.getAppLogicReturnValues();
     // Extract the revert reason from the call stack metadata.
     const revertReason = result.findRevertReason();
+    // Create proving request if we have hints and public inputs.
+    const avmProvingRequest =
+      hints && publicInputs ? PublicProcessor.generateProvingRequest(publicInputs, hints) : undefined;
 
     const processedTx = makeProcessedTxFromTxWithPublicCalls(
       tx,
-      PublicProcessor.generateProvingRequest(publicInputs, hints),
+      this.globalVariables,
+      avmProvingRequest,
+      publicTxEffect,
       gasUsed,
       revertCode,
       revertReason,

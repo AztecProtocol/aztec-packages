@@ -205,11 +205,11 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                             aztec::note::retrieved_note::RetrievedNote{ 
                                 note,
                                 contract_address,
+                                owner,
                                 randomness,
+                                storage_slot,
                                 metadata: aztec::note::note_metadata::SettledNoteMetadata::new(note_nonce).into()
-                            }, 
-                            owner,
-                            storage_slot,
+                            }
                         );
 
                         let inner_nullifier = $compute_nullifier_unconstrained(note, owner, note_hash_for_nullification);

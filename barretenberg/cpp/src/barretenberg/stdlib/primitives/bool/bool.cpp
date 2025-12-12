@@ -142,7 +142,8 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(bool_t&&
  */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const witness_t<Builder>& other)
 {
-    BB_ASSERT((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()));
+    BB_ASSERT((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()),
+              "bool_t: witness value is not 0 or 1");
     context = other.context;
     witness_bool = other.witness == bb::fr::one();
     witness_index = other.witness_index;
@@ -424,7 +425,7 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
     Builder* ctx = validate_context<Builder>(rhs.get_context(), lhs.get_context());
 
     if (lhs.is_constant() && rhs.is_constant()) {
-        BB_ASSERT_EQ(lhs.get_value(), rhs.get_value());
+        BB_ASSERT_EQ(lhs.get_value(), rhs.get_value(), "bool_t::assert_equal: constants are not equal");
     } else if (lhs.is_constant()) {
         BB_ASSERT(!lhs.witness_inverted);
         // if rhs is inverted, flip the value of the lhs constant

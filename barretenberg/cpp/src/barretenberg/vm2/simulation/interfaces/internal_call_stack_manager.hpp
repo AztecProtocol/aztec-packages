@@ -27,4 +27,13 @@ class InternalCallStackManagerProviderInterface {
         uint32_t context_id) = 0;
 };
 
+// InternalCallStackException is thrown when there is an attempt to pop from
+// an empty internal call stack
+class InternalCallStackException : public std::runtime_error {
+  public:
+    explicit InternalCallStackException(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
 } // namespace bb::avm2::simulation

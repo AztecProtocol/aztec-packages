@@ -1,6 +1,6 @@
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { BlockNumber, CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -56,7 +56,7 @@ export class Checkpoint {
   }
 
   public toBlobFields(): Fr[] {
-    const blocks = this.blocks.map((block, i) => block.toBlockBlobData(i === 0));
+    const blocks = this.blocks.map(block => block.toBlockBlobData());
     return encodeCheckpointBlobDataFromBlocks(blocks);
   }
 

@@ -1,5 +1,5 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 
@@ -158,6 +158,10 @@ export class ScopedL2ToL1Message {
 
   static empty() {
     return new ScopedL2ToL1Message(L2ToL1Message.empty(), AztecAddress.ZERO);
+  }
+
+  equals(other: ScopedL2ToL1Message): boolean {
+    return this.message.equals(other.message) && this.contractAddress.equals(other.contractAddress);
   }
 
   /**

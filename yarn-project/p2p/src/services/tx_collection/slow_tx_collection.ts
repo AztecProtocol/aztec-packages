@@ -4,7 +4,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { boundInclusive } from '@aztec/foundation/number';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { L2BlockNew } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getEpochAtSlot, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -76,7 +76,7 @@ export class SlowTxCollection {
   }
 
   /** Starts collecting the given tx hashes for the given L2Block in the slow loop */
-  public startCollecting(block: L2Block, txHashes: TxHash[]) {
+  public startCollecting(block: L2BlockNew, txHashes: TxHash[]) {
     const slot = block.header.getSlot();
     const deadline = this.getDeadlineForSlot(slot);
     if (+deadline < this.dateProvider.now()) {

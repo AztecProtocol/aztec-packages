@@ -1,5 +1,6 @@
 import { prettyPrintJSON } from '@aztec/cli/utils';
-import { GSEContract, createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { GSEContract } from '@aztec/ethereum/contracts';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';

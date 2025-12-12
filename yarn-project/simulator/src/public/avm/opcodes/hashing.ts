@@ -1,4 +1,6 @@
-import { keccakf1600, poseidon2Permutation, sha256Compression } from '@aztec/foundation/crypto';
+import { keccakf1600 } from '@aztec/foundation/crypto/keccak';
+import { poseidon2Permutation } from '@aztec/foundation/crypto/poseidon';
+import { sha256Compression } from '@aztec/foundation/crypto/sha256';
 
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint32, Uint64 } from '../avm_memory_types.js';

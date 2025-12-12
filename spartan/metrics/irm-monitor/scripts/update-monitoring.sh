@@ -15,7 +15,7 @@ export DEPLOYMENT_NAME="${MONITORING_NAMESPACE}-monitor"
 
 # Docker image (can be overridden via IMAGE_TAG or IMAGE environment variable)
 IMAGE_TAG=${IMAGE_TAG:-latest}
-IMAGE=${IMAGE:-"spypsy/block-height-monitor:${IMAGE_TAG}"}
+IMAGE=${IMAGE:-"aztecprotocol/block-height-monitor:${IMAGE_TAG}"}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$SCRIPT_DIR/.."
@@ -156,7 +156,7 @@ yq eval ".metadata.name = \"${DEPLOYMENT_NAME}\" |
 # Build image if missing (initial install path only)
 SCRIPT_BUILD="$SCRIPT_DIR/build-and-publish.sh"
 if [ -x "$SCRIPT_BUILD" ]; then
-  echo "Ensuring image spypsy/block-height-monitor:${IMAGE_TAG} exists..."
+  echo "Ensuring image aztecprotocol/block-height-monitor:${IMAGE_TAG} exists..."
   "$SCRIPT_BUILD" "$IMAGE_TAG"
 fi
 

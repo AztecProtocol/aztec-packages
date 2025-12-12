@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { getAddressFromPrivateKey } from '@aztec/ethereum';
+import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { EthPrivateKey } from '@aztec/node-keystore';
 

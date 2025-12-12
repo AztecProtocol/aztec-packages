@@ -1,5 +1,5 @@
-import type { IL1TxMetrics, L1TxState } from '@aztec/ethereum';
-import { TxUtilsState } from '@aztec/ethereum';
+import type { IL1TxMetrics, L1TxState } from '@aztec/ethereum/l1-tx-utils';
+import { TxUtilsState } from '@aztec/ethereum/l1-tx-utils';
 import { createLogger } from '@aztec/foundation/log';
 import {
   Attributes,
