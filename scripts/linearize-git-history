@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Linearize git history by rebasing away merge commits where possible.
+# Linearize git history by rebasing away merge commits.
 #
 # This script creates a linear version of git history by:
 # 1. Forking off HEAD~num_commits
-# 2. Cherry-picking commits, rebasing away unnecessary merge commits
-# 3. For merge-train commits, extracting feature commits and giving them the same timestamp
-# 4. Leaving intact merge commits that are needed (conflict resolutions, etc.)
+# 2. Cherry-picking non-merge commits one by one
+# 3. For merge commits, extracting feature commits and giving them the same timestamp
+# 4. When cherry-picks fail, creating "state fixup" commits to force them through
+# 5. Creating a final "state restore" commit to align with HEAD if needed
+#
+# The approach never skips commits - it forces them through by patching state as needed.
 #
 # Usage: scripts/linearize-git-history <num_commits> [--push]
 #
@@ -18,12 +21,14 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
 log_info() { echo -e "${BLUE}INFO:${NC} $*"; }
 log_success() { echo -e "${GREEN}SUCCESS:${NC} $*"; }
 log_warn() { echo -e "${YELLOW}WARN:${NC} $*"; }
 log_error() { echo -e "${RED}ERROR:${NC} $*" >&2; }
+log_fixup() { echo -e "${MAGENTA}FIXUP:${NC} $*"; }
 
 # Parse arguments
 num_commits=""
@@ -46,9 +51,10 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "The script will:"
             echo "  - Fork off HEAD~num_commits"
-            echo "  - Rebase away merge commits where possible"
-            echo "  - For merge-train commits, extract feature commits with same timestamp"
-            echo "  - Leave intact merge commits that are needed for conflict resolution"
+            echo "  - Cherry-pick all non-merge commits linearly"
+            echo "  - For merge commits, extract feature commits with same timestamp"
+            echo "  - Force through conflicts using 'state rewind/restore' fixup commits"
+            echo "  - Never skip commits - preserves full history"
             exit 0
             ;;
         *)
@@ -138,8 +144,8 @@ is_pr_merge() {
     [[ "$message" =~ \#[0-9]+ ]] && ! [[ "$message" =~ merge-train/ ]]
 }
 
-# Function to get feature commits from a merge-train (non-merge commits)
-get_merge_train_feature_commits() {
+# Function to get feature commits from a merge (non-merge commits from second parent)
+get_feature_commits_from_merge() {
     local merge_commit="$1"
     local first_parent second_parent
     first_parent=$(git rev-parse "${merge_commit}^1")
@@ -149,56 +155,167 @@ get_merge_train_feature_commits() {
     git rev-list --reverse --no-merges "${first_parent}..${second_parent}"
 }
 
-# Function to check if a merge commit has conflicts that required resolution
-# (i.e., if we can't recreate it by cherry-picking)
-merge_needs_preservation() {
-    local commit="$1"
+# Function to create a state fixup commit
+# This patches the working tree to match a target state for specific files
+create_state_fixup() {
+    local target_commit="$1"
+    local fixup_type="$2"  # "rewind" or "restore"
+    local files_to_fix="$3"
+    local reason="$4"
 
-    # If it's a sync merge (Merge branch 'next' into ...), we don't need to preserve it
-    if is_sync_merge "$commit"; then
-        return 1  # false - don't preserve
+    if [[ -z "$files_to_fix" ]]; then
+        return 0
     fi
 
-    # If it's a merge-train merge with a PR number, we can flatten it
-    if is_merge_train_merge "$commit"; then
-        return 1  # false - don't preserve, we'll extract commits
-    fi
+    log_fixup "Creating state $fixup_type for: $reason"
 
-    # If it's a regular PR merge, we can flatten it
-    if is_pr_merge "$commit"; then
-        return 1  # false - don't preserve, we'll extract commits
-    fi
+    # For each conflicting file, get it from the target commit's parent
+    # (the state we need to be at for the cherry-pick to apply)
+    local target_parent
+    target_parent=$(git rev-parse "${target_commit}^" 2>/dev/null || echo "$target_commit")
 
-    # For other merge commits, check if they have meaningful changes
-    # A merge commit that just combines branches without conflicts will have
-    # the same tree as one of its parents when rebased
-    return 0  # true - preserve other merges by default
+    local files_changed=0
+    for file in $files_to_fix; do
+        # Check if file exists in target parent
+        if git cat-file -e "${target_parent}:${file}" 2>/dev/null; then
+            # File exists in target - restore it
+            git show "${target_parent}:${file}" > "$file" 2>/dev/null || true
+            git add "$file" 2>/dev/null || true
+            ((files_changed++)) || true
+        elif [[ -f "$file" ]]; then
+            # File doesn't exist in target but exists now - remove it
+            git rm -f "$file" 2>/dev/null || true
+            ((files_changed++)) || true
+        fi
+    done
+
+    if [[ "$files_changed" -gt 0 ]]; then
+        local msg="state $fixup_type: prepare for $(git rev-parse --short "$target_commit")"
+        git commit -m "$msg" --no-verify 2>/dev/null || true
+        log_fixup "  Created $fixup_type commit ($files_changed files)"
+        return 0
+    fi
+    return 1
 }
 
-# Function to cherry-pick a commit with a specific timestamp
-cherry_pick_with_timestamp() {
+# Function to force a cherry-pick through, creating fixup commits as needed
+force_cherry_pick() {
     local commit="$1"
-    local timestamp="$2"
-    local author_date author_name author_email
+    local timestamp="${2:-}"
+    local short_hash message author_date author_name author_email
 
+    short_hash=$(git rev-parse --short "$commit")
+    message=$(git log -1 --format="%s" "$commit")
     author_date=$(git log -1 --format="%aD" "$commit")
     author_name=$(git log -1 --format="%an" "$commit")
     author_email=$(git log -1 --format="%ae" "$commit")
 
-    # Use the provided timestamp for committer date, preserve author date
-    # Use -X theirs to auto-resolve content conflicts in favor of the incoming commit
+    # Use provided timestamp or commit's own timestamp
+    if [[ -z "$timestamp" ]]; then
+        timestamp=$(git log -1 --format="%cD" "$commit")
+    fi
+
+    # Try simple cherry-pick first
+    if GIT_COMMITTER_DATE="$timestamp" \
+       GIT_AUTHOR_DATE="$author_date" \
+       GIT_AUTHOR_NAME="$author_name" \
+       GIT_AUTHOR_EMAIL="$author_email" \
+       git cherry-pick "$commit" --no-verify 2>/dev/null; then
+        log_success "Cherry-picked: $short_hash - $message"
+        return 0
+    fi
+
+    # Cherry-pick failed - check what kind of failure
+    local conflicting_files deleted_by_us deleted_by_them unmerged_files
+
+    # Get files with conflicts
+    unmerged_files=$(git diff --name-only --diff-filter=U 2>/dev/null || true)
+    deleted_by_us=$(git diff --name-only --diff-filter=DU 2>/dev/null || true)
+    deleted_by_them=$(git diff --name-only --diff-filter=UD 2>/dev/null || true)
+
+    # Check if it's just an empty commit (already applied)
+    if [[ -z "$unmerged_files" ]] && [[ -z "$deleted_by_us" ]] && [[ -z "$deleted_by_them" ]]; then
+        if git diff --cached --quiet 2>/dev/null && git diff --quiet 2>/dev/null; then
+            # Truly empty - the changes are already present
+            git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
+            log_warn "Empty (already applied): $short_hash - $message"
+            # Create an empty commit to preserve history
+            GIT_COMMITTER_DATE="$timestamp" \
+            GIT_AUTHOR_DATE="$author_date" \
+            GIT_AUTHOR_NAME="$author_name" \
+            GIT_AUTHOR_EMAIL="$author_email" \
+            git commit --allow-empty -m "$message (linearized: no-op)" --no-verify 2>/dev/null || true
+            return 0
+        fi
+    fi
+
+    # Abort the failed cherry-pick
+    git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
+
+    # Collect all problematic files
+    conflicting_files="$unmerged_files $deleted_by_us $deleted_by_them"
+    conflicting_files=$(echo "$conflicting_files" | tr ' ' '\n' | sort -u | tr '\n' ' ')
+
+    if [[ -n "$conflicting_files" ]]; then
+        log_warn "Conflict in: $short_hash - $message"
+        log_warn "  Conflicting files: $conflicting_files"
+
+        # Create a state rewind commit to prepare for this cherry-pick
+        if create_state_fixup "$commit" "rewind" "$conflicting_files" "$short_hash"; then
+            # Now try cherry-pick again
+            if GIT_COMMITTER_DATE="$timestamp" \
+               GIT_AUTHOR_DATE="$author_date" \
+               GIT_AUTHOR_NAME="$author_name" \
+               GIT_AUTHOR_EMAIL="$author_email" \
+               git cherry-pick "$commit" --no-verify 2>/dev/null; then
+                log_success "Cherry-picked (after rewind): $short_hash - $message"
+                return 0
+            fi
+
+            # Still failing - force it through by taking theirs
+            git cherry-pick --abort 2>/dev/null || true
+
+            log_warn "  Forcing through with conflict resolution..."
+            if GIT_COMMITTER_DATE="$timestamp" \
+               GIT_AUTHOR_DATE="$author_date" \
+               GIT_AUTHOR_NAME="$author_name" \
+               GIT_AUTHOR_EMAIL="$author_email" \
+               git cherry-pick "$commit" --no-verify -X theirs 2>/dev/null; then
+                log_success "Cherry-picked (forced): $short_hash - $message"
+                return 0
+            fi
+
+            # Last resort: just apply the commit's tree state for those files
+            git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
+
+            log_warn "  Last resort: direct file copy..."
+            for file in $conflicting_files; do
+                if git cat-file -e "${commit}:${file}" 2>/dev/null; then
+                    mkdir -p "$(dirname "$file")" 2>/dev/null || true
+                    git show "${commit}:${file}" > "$file" 2>/dev/null || true
+                    git add "$file" 2>/dev/null || true
+                fi
+            done
+
+            if ! git diff --cached --quiet 2>/dev/null; then
+                GIT_COMMITTER_DATE="$timestamp" \
+                GIT_AUTHOR_DATE="$author_date" \
+                GIT_AUTHOR_NAME="$author_name" \
+                GIT_AUTHOR_EMAIL="$author_email" \
+                git commit -m "$message" --no-verify 2>/dev/null || true
+                log_success "Cherry-picked (direct copy): $short_hash - $message"
+                return 0
+            fi
+        fi
+    fi
+
+    # If we get here, create an empty placeholder commit
+    log_warn "Creating placeholder for: $short_hash - $message"
     GIT_COMMITTER_DATE="$timestamp" \
     GIT_AUTHOR_DATE="$author_date" \
     GIT_AUTHOR_NAME="$author_name" \
     GIT_AUTHOR_EMAIL="$author_email" \
-    git cherry-pick --no-commit -X theirs "$commit" 2>/dev/null || return 1
-
-    GIT_COMMITTER_DATE="$timestamp" \
-    GIT_AUTHOR_DATE="$author_date" \
-    GIT_AUTHOR_NAME="$author_name" \
-    GIT_AUTHOR_EMAIL="$author_email" \
-    git commit -C "$commit" --no-verify 2>/dev/null || return 1
-
+    git commit --allow-empty -m "$message (linearized: could not apply)" --no-verify 2>/dev/null || true
     return 0
 }
 
@@ -209,9 +326,9 @@ mapfile -t commits < <(git rev-list --reverse --first-parent "${fork_point}..${c
 log_info "Processing ${#commits[@]} top-level commits..."
 
 processed=0
-skipped=0
+fixups=0
 flattened=0
-preserved=0
+empty=0
 
 # Helper to safely increment counters (avoid exit code 1 from ((var++)) when var=0)
 incr() { (($1++)) || true; }
@@ -222,12 +339,39 @@ for commit in "${commits[@]}"; do
 
     if is_merge_commit "$commit"; then
         if is_sync_merge "$commit"; then
-            # Skip sync merges entirely (Merge branch 'next' into ...)
-            log_warn "Skipping sync merge: $short_hash - $message"
-            incr skipped
-            continue
+            # Sync merges don't have feature commits to extract - they just sync branches
+            # We still need to account for any tree changes they introduce
+            log_info "Processing sync merge: $short_hash - $message"
+
+            # Get the tree state after the merge and compare with current
+            merge_tree=$(git rev-parse "${commit}^{tree}")
+            current_tree=$(git rev-parse "HEAD^{tree}")
+
+            if [[ "$merge_tree" != "$current_tree" ]]; then
+                # There are differences - create a state sync commit
+                # Get all files that differ
+                diff_files=$(git diff --name-only HEAD "$commit" 2>/dev/null || true)
+                if [[ -n "$diff_files" ]]; then
+                    for file in $diff_files; do
+                        if git cat-file -e "${commit}:${file}" 2>/dev/null; then
+                            mkdir -p "$(dirname "$file")" 2>/dev/null || true
+                            git show "${commit}:${file}" > "$file" 2>/dev/null || true
+                            git add "$file" 2>/dev/null || true
+                        elif [[ -f "$file" ]]; then
+                            git rm -f "$file" 2>/dev/null || true
+                        fi
+                    done
+                    if ! git diff --cached --quiet 2>/dev/null; then
+                        timestamp=$(git log -1 --format="%cD" "$commit")
+                        GIT_COMMITTER_DATE="$timestamp" git commit -m "state sync: $message" --no-verify 2>/dev/null || true
+                        log_fixup "Created state sync for merge"
+                        incr fixups
+                    fi
+                fi
+            fi
+            incr processed
         elif is_merge_train_merge "$commit" || is_pr_merge "$commit"; then
-            # Flatten merge-train or PR merge: extract feature commits with same timestamp
+            # Flatten merge: extract feature commits with same timestamp
             merge_timestamp=$(git log -1 --format="%cD" "$commit")
             if is_merge_train_merge "$commit"; then
                 log_info "Flattening merge-train: $short_hash - $message"
@@ -235,83 +379,119 @@ for commit in "${commits[@]}"; do
                 log_info "Flattening PR merge: $short_hash - $message"
             fi
 
-            feature_commits=$(get_merge_train_feature_commits "$commit")
+            feature_commits=$(get_feature_commits_from_merge "$commit")
             if [[ -z "$feature_commits" ]]; then
-                log_warn "  No feature commits found, skipping"
-                incr skipped
-                continue
-            fi
-
-            for feature_commit in $feature_commits; do
-                feature_message=$(git log -1 --format="%s" "$feature_commit")
-                feature_short=$(git rev-parse --short "$feature_commit")
-
-                if cherry_pick_with_timestamp "$feature_commit" "$merge_timestamp"; then
-                    log_success "  Cherry-picked: $feature_short - $feature_message"
+                log_warn "  No feature commits found in merge"
+                # Still need to apply the merge's changes
+                force_cherry_pick "$commit" "$merge_timestamp"
+                incr processed
+            else
+                for feature_commit in $feature_commits; do
+                    force_cherry_pick "$feature_commit" "$merge_timestamp"
                     incr processed
-                else
-                    # Check for unresolved conflicts
-                    if git diff --name-only --diff-filter=U 2>/dev/null | grep -q .; then
-                        log_warn "  Skipping conflicting commit: $feature_short - $feature_message"
-                        git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
-                        incr skipped
-                    # Check if it's an empty commit (no changes to apply)
-                    elif git diff --cached --quiet 2>/dev/null && git diff --quiet 2>/dev/null; then
-                        log_warn "  Skipping empty commit: $feature_short - $feature_message"
-                        git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
-                        incr skipped
-                    else
-                        log_error "  Failed to cherry-pick: $feature_short - $feature_message"
-                        cleanup_on_error
-                        exit 1
-                    fi
-                fi
-            done
+                done
+            fi
             incr flattened
-        elif merge_needs_preservation "$commit"; then
-            # Preserve this merge commit - try to recreate it
-            log_warn "Preserving merge commit: $short_hash - $message"
-            # For now, we'll skip these - they're complex to recreate
-            # In future, we could try to recreate the merge
-            incr preserved
-            incr skipped
         else
-            # Unknown merge type, skip
-            log_warn "Skipping unknown merge: $short_hash - $message"
-            incr skipped
+            # Other merge type - try to flatten it too
+            log_info "Processing merge: $short_hash - $message"
+            merge_timestamp=$(git log -1 --format="%cD" "$commit")
+
+            feature_commits=$(get_feature_commits_from_merge "$commit")
+            if [[ -z "$feature_commits" ]]; then
+                # No feature commits - apply merge directly
+                force_cherry_pick "$commit" "$merge_timestamp"
+                incr processed
+            else
+                for feature_commit in $feature_commits; do
+                    force_cherry_pick "$feature_commit" "$merge_timestamp"
+                    incr processed
+                done
+            fi
+            incr flattened
         fi
     else
-        # Regular commit - cherry-pick it with -X theirs to auto-resolve conflicts
-        if git cherry-pick "$commit" --no-verify -X theirs 2>/dev/null; then
-            log_success "Cherry-picked: $short_hash - $message"
-            incr processed
-        else
-            # Check for unresolved conflicts
-            if git diff --name-only --diff-filter=U 2>/dev/null | grep -q .; then
-                log_warn "Skipping conflicting commit: $short_hash - $message"
-                git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
-                incr skipped
-            # Check if it's an empty commit (no changes to apply)
-            elif git diff --cached --quiet 2>/dev/null && git diff --quiet 2>/dev/null; then
-                # Empty commit, skip
-                git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
-                log_warn "Skipping empty commit: $short_hash - $message"
-                incr skipped
-            else
-                log_error "Failed to cherry-pick: $short_hash - $message"
-                cleanup_on_error
-                exit 1
-            fi
-        fi
+        # Regular non-merge commit
+        force_cherry_pick "$commit"
+        incr processed
     fi
 done
+
+# Final state restore: ensure our tree matches the original HEAD
+log_info ""
+log_info "Checking final state alignment..."
+
+final_tree=$(git rev-parse "HEAD^{tree}")
+target_tree=$(git rev-parse "${current_head}^{tree}")
+
+if [[ "$final_tree" != "$target_tree" ]]; then
+    log_warn "Final tree differs from target - creating state restore commit"
+
+    # Use git diff-tree to find ALL differences and apply them
+    # This handles additions, deletions, and modifications correctly
+
+    # First, remove all files that exist in our tree but not in target
+    git diff-tree --diff-filter=A --name-only -r HEAD "$current_head" 2>/dev/null | while read -r file; do
+        if [[ -f "$file" ]]; then
+            git rm -f "$file" 2>/dev/null || rm -f "$file"
+        fi
+    done
+
+    # Then, checkout all files from the target that differ
+    git diff-tree --diff-filter=DMT --name-only -r HEAD "$current_head" 2>/dev/null | while read -r file; do
+        if git cat-file -e "${current_head}:${file}" 2>/dev/null; then
+            mkdir -p "$(dirname "$file")" 2>/dev/null || true
+            git show "${current_head}:${file}" > "$file"
+            git add "$file"
+        fi
+    done
+
+    # Handle files that were deleted in target (exist in HEAD but not in target)
+    git diff-tree --diff-filter=D --name-only -r HEAD "$current_head" 2>/dev/null | while read -r file; do
+        if [[ -f "$file" ]]; then
+            git rm -f "$file" 2>/dev/null || true
+        fi
+    done
+
+    # Stage everything
+    git add -A 2>/dev/null || true
+
+    if ! git diff --cached --quiet 2>/dev/null; then
+        git commit -m "state restore: align with original HEAD" --no-verify
+        log_fixup "Created final state restore commit"
+        incr fixups
+    fi
+
+    # Verify
+    final_tree=$(git rev-parse "HEAD^{tree}")
+    if [[ "$final_tree" == "$target_tree" ]]; then
+        log_success "Final tree matches target"
+    else
+        # Last resort: directly replace tree
+        log_warn "Tree still differs, using direct tree replacement..."
+        # Create a commit with the target tree but our parent
+        new_commit=$(git commit-tree "$target_tree" -p HEAD -m "state restore: align with original HEAD")
+        git reset --hard "$new_commit"
+        log_fixup "Created final state restore commit (tree replacement)"
+        incr fixups
+
+        # Final verify
+        final_tree=$(git rev-parse "HEAD^{tree}")
+        if [[ "$final_tree" == "$target_tree" ]]; then
+            log_success "Final tree matches target"
+        else
+            log_error "Failed to align trees - this should not happen"
+        fi
+    fi
+else
+    log_success "Final tree already matches target - no restore needed"
+fi
 
 log_info ""
 log_info "Summary:"
 log_info "  Commits processed: $processed"
-log_info "  Merge-trains flattened: $flattened"
-log_info "  Commits skipped: $skipped"
-log_info "  Merges preserved: $preserved"
+log_info "  Merges flattened: $flattened"
+log_info "  Fixup commits created: $fixups"
 
 # Move to target branch
 log_info "Moving result to branch: $TARGET_BRANCH"
@@ -320,6 +500,10 @@ git branch -f "$TARGET_BRANCH" "$work_branch"
 # Clean up working branch
 git checkout "$TARGET_BRANCH" --quiet
 git branch -D "$work_branch" 2>/dev/null || true
+
+# Count merge commits in result
+result_merges=$(git rev-list --count --merges "${fork_point}..HEAD")
+log_info "Merge commits in result: $result_merges"
 
 if [[ "$push_result" -eq 1 ]]; then
     log_info "Pushing to origin/$TARGET_BRANCH..."

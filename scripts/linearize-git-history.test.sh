@@ -113,20 +113,30 @@ run_linearize_test() {
     total_commits_after=$(git rev-list "${fork_point}..next-linear-git" 2>/dev/null | wc -l | tr -d ' ')
 
     # Extract stats from output
-    local processed skipped flattened
+    local processed fixups flattened
     processed=$(echo "$output" | grep "Commits processed:" | awk '{print $NF}')
-    skipped=$(echo "$output" | grep "Commits skipped:" | awk '{print $NF}')
-    flattened=$(echo "$output" | grep "Merge-trains flattened:" | awk '{print $NF}')
+    fixups=$(echo "$output" | grep "Fixup commits created:" | awk '{print $NF}')
+    flattened=$(echo "$output" | grep "Merges flattened:" | awk '{print $NF}')
+
+    # Verify final tree matches target
+    local tree_matches="no"
+    if echo "$output" | grep -q "Final tree matches target"; then
+        tree_matches="yes"
+    fi
 
     log_info "AFTER linearization:"
     log_info "  Total commits: $total_commits_after"
     log_info "  Merge commits: $merges_after"
     log_info "  Commits processed: $processed"
-    log_info "  Commits skipped: $skipped"
-    log_info "  Merge-trains flattened: $flattened"
+    log_info "  Fixup commits: $fixups"
+    log_info "  Merges flattened: $flattened"
+    log_info "  Tree matches target: $tree_matches"
 
-    # Verify no merge commits in result
-    if [[ "$merges_after" -eq 0 ]]; then
+    # Verify no merge commits in result AND tree matches
+    if [[ "$merges_after" -eq 0 ]] && [[ "$tree_matches" == "yes" ]]; then
+        log_pass "$test_name - Linear history achieved (0 merge commits, tree matches)"
+        incr TESTS_PASSED
+    elif [[ "$merges_after" -eq 0 ]]; then
         log_pass "$test_name - Linear history achieved (0 merge commits)"
         incr TESTS_PASSED
     else
@@ -136,7 +146,7 @@ run_linearize_test() {
 
     # Print summary line for easy comparison
     echo ""
-    echo "| $test_name | $num_commits | $merges_before | $merges_after | $total_commits_before | $total_commits_after | $processed | $skipped |"
+    echo "| $test_name | $num_commits | $merges_before | $merges_after | $total_commits_before | $total_commits_after | $processed | $fixups |"
     echo ""
 
     # Cleanup for next test
@@ -148,8 +158,8 @@ run_linearize_test() {
 
 # Header for results table
 echo ""
-echo "| Test | Num Commits | Merges Before | Merges After | Total Before | Total After | Processed | Skipped |"
-echo "|------|-------------|---------------|--------------|--------------|-------------|-----------|---------|"
+echo "| Test | Num Commits | Merges Before | Merges After | Total Before | Total After | Processed | Fixups |"
+echo "|------|-------------|---------------|--------------|--------------|-------------|-----------|--------|"
 
 # Test 1: Recent history (small)
 run_linearize_test "Recent (20 commits)" "origin/next" 20
