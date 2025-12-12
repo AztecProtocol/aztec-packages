@@ -1,9 +1,5 @@
 import { AztecClientBackend, Barretenberg } from '@aztec/bb.js';
-import {
-  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  CHONK_PROOF_LENGTH,
-  CHONK_VK_LENGTH_IN_FIELDS,
-} from '@aztec/constants';
+import { CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
@@ -46,7 +42,7 @@ async function proveMockPublicBaseRollup(
   chonkProof: RecursiveProof<typeof CHONK_PROOF_LENGTH>,
   skipPublicInputsValidation: boolean = false,
 ) {
-  const { vk, proof, publicInputs } = await proveAvm(
+  const { proof, publicInputs } = await proveAvm(
     avmCircuitInputs,
     bbWorkingDirectory,
     logger,
@@ -63,7 +59,6 @@ async function proveMockPublicBaseRollup(
       proof: mapRecursiveProofToNoir(chonkProof),
       vk_data: mapVerificationKeyToNoir(chonkVk, CHONK_VK_LENGTH_IN_FIELDS),
     },
-    verification_key: mapVerificationKeyToNoir(vk, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
     proof: mapAvmProofToNoir(proof),
     public_inputs: mapAvmCircuitPublicInputsToNoir(publicInputs),
   });
