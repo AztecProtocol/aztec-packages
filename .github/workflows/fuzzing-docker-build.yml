@@ -22,8 +22,6 @@ jobs:
 
       - name: Free up disk space aggressively (up to 30gb)
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
-        with:
-          tool-cache: true
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
