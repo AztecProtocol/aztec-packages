@@ -65,6 +65,18 @@ struct AssertGuard {
 #define BB_ASSERT_LT(left, right, ...) DONT_EVALUATE((left) < (right))
 #define BB_ASSERT_LTE(left, right, ...) DONT_EVALUATE((left) <= (right))
 #else
+#ifdef FUZZING_DISABLE_WARNINGS
+#define BB_ASSERT(expression, ...)                                                                                     \
+    do {                                                                                                               \
+        BB_BENCH_ASSERT("BB_ASSERT" #expression);                                                                      \
+        if (!(BB_LIKELY(expression))) {                                                                                \
+            std::ostringstream oss;                                                                                    \
+            oss << "Assertion failed: (" #expression ")";                                                              \
+            __VA_OPT__(oss << "\nReason   : " << __VA_ARGS__;)                                                         \
+            bb::assert_failure(oss.str());                                                                             \
+        }                                                                                                              \
+    } while (0)
+#else
 #define BB_ASSERT(expression, ...)                                                                                     \
     do {                                                                                                               \
         BB_BENCH_ASSERT("BB_ASSERT" #expression);                                                                      \
@@ -76,6 +88,7 @@ struct AssertGuard {
             bb::assert_failure(oss.str());                                                                             \
         }                                                                                                              \
     } while (0)
+#endif
 
 #define BB_ASSERT_EQ(actual, expected, ...)                                                                            \
     do {                                                                                                               \
