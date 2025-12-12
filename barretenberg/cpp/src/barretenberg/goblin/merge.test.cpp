@@ -194,7 +194,7 @@ template <typename Curve> class MergeTests : public testing::Test {
         // Verify the proof
         auto transcript = std::make_shared<Transcript>();
         MergeVerifierType verifier{ settings, transcript };
-        auto result = verifier.verify_proof(proof, input_commitments);
+        auto result = verifier.reduce_to_pairing_check(proof, input_commitments);
 
         // Perform pairing check and verify
         VerifierCommitmentKey pcs_verification_key;
@@ -654,7 +654,7 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     auto verifier_transcript = std::make_shared<NativeTranscript>();
     verifier_transcript->enable_manifest();
     MergeVerifier merge_verifier{ MergeSettings::PREPEND, verifier_transcript };
-    auto result = merge_verifier.verify_proof(merge_proof, merge_commitments);
+    auto result = merge_verifier.reduce_to_pairing_check(merge_proof, merge_commitments);
 
     // Verification should succeed
     ASSERT_TRUE(result.pairing_points.check() && result.verified);

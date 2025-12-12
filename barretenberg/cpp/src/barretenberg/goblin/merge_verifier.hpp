@@ -80,7 +80,7 @@ template <typename Curve> class MergeVerifier_ {
      * @param transcript Shared transcript for Fiat-Shamir
      * @return VerificationResult containing pairing points, merged commitments, and degree check status
      */
-    [[nodiscard("Verification result should be checked")]] VerificationResult verify_proof(
+    [[nodiscard("Verification result should be checked")]] VerificationResult reduce_to_pairing_check(
         const Proof& proof, const InputCommitments& input_commitments);
 
   private:

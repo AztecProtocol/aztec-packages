@@ -92,7 +92,7 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 
     MergeRecursiveVerifier merge_verifier{ merge_settings, transcript };
-    auto merge_result = merge_verifier.verify_proof(stdlib_merge_proof, merge_commitments);
+    auto merge_result = merge_verifier.reduce_to_pairing_check(stdlib_merge_proof, merge_commitments);
 
     merge_verification_queue.pop_front(); // remove the processed proof from the queue
 
