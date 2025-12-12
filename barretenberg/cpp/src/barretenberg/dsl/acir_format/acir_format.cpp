@@ -70,7 +70,10 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
     // Add range constraint
     for (const auto& [constraint, opcode_idx] :
          zip_view(constraints.range_constraints, constraints.original_opcode_indices.range_constraints)) {
-        builder.create_range_constraint(constraint.witness, constraint.num_bits, "");
+        builder.create_range_constraint(
+            constraint.witness,
+            constraint.num_bits,
+            std::format("acir_format::build_constraints: range constraint at opcode index {} failed", opcode_idx));
         gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }
 
@@ -150,6 +153,8 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
          zip_view(constraints.block_constraints, constraints.original_opcode_indices.block_constraints)) {
         create_block_constraints(builder, constraint);
         if (collect_gates_per_opcode) {
+            // Each block constraint may correspond to multiple opcodes, so we record the average number of gates added
+            // by the entire constraint as the number of gates for each opcode.
             size_t avg_gates_per_opcode = gate_counter.compute_diff() / opcode_indices.size();
             for (size_t opcode_index : opcode_indices) {
                 constraints.gates_per_opcode[opcode_index] = avg_gates_per_opcode;
@@ -193,8 +198,8 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
     if (!is_write_vk_mode) {
         BB_ASSERT_EQ(witness.size(),
                      constraints.max_witness_index + 1,
-                     "ACIR witness size (" << witness.size() << ") does not match max witness index ("
-                                           << constraints.max_witness_index << ").");
+                     "ACIR witness size (" << witness.size() << ") does not match max witness index + 1 ("
+                                           << (constraints.max_witness_index + 1) << ").");
     } else {
         witness.resize(constraints.max_witness_index + 1, 0);
     }
@@ -225,8 +230,8 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
     if (!is_write_vk_mode) {
         BB_ASSERT_EQ(witness.size(),
                      constraints.max_witness_index + 1,
-                     "ACIR witness size (" << witness.size() << ") does not match max witness index ("
-                                           << constraints.max_witness_index << ").");
+                     "ACIR witness size (" << witness.size() << ") does not match max witness index + 1 ("
+                                           << (constraints.max_witness_index + 1) << ").");
     } else {
         witness.resize(constraints.max_witness_index + 1, 0);
     }
