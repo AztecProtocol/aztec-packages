@@ -25,9 +25,6 @@ static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;
 static constexpr uint32_t CONST_FOLDING_LOG_N = 21;
 // Hiding kernel is a constant circuit that is being proven with MegaZKFlavor as a part Chonk
 static constexpr uint32_t HIDING_KERNEL_LOG_N = 16;
-// The number of ultra ops in the hiding kernel circuit. Must be constant for ZK: ensures merge proof's
-// shift_size (ℓ) is constant, preventing witness data leakage about accumulated op queue size.
-static constexpr uint32_t CONST_HIDING_KERNEL_ULTRA_OPS = 124;
 // The size of the AVMRecursiveVerifier circuit arithmetized with Mega.
 static constexpr uint32_t MEGA_AVM_LOG_N = 21;
 

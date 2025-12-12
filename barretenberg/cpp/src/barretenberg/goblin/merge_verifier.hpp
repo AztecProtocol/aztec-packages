@@ -17,7 +17,7 @@ namespace bb {
 
 /**
  * @brief Unified verifier class for the Goblin ECC op queue transcript merge protocol
- * @details Verifies op queue table merging. See: goblin/MERGE_PROTOCOL.md
+ * @details Works for both native verification and recursive (in-circuit) verification
  * @tparam Curve The curve type (native curve::BN254 or stdlib bn254<Builder>)
  */
 template <typename Curve> class MergeVerifier_ {

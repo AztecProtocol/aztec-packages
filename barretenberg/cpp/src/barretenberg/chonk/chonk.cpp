@@ -171,26 +171,11 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         // Add pairing points for aggregation
         pairing_points.emplace_back(kernel_input.pairing_inputs);
         // Perform databus consistency checks
-        bool kernel_return_data_match =
-            kernel_input.kernel_return_data.get_value() == witness_commitments.calldata.get_value();
-        BB_ASSERT(kernel_return_data_match,
-                  "kernel_return_data mismatch: proof contains ",
-                  kernel_input.kernel_return_data.get_value(),
-                  " but calldata commitment is ",
-                  witness_commitments.calldata.get_value());
         kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
-
-        bool app_return_data_match =
-            kernel_input.app_return_data.get_value() == witness_commitments.secondary_calldata.get_value();
-        BB_ASSERT(app_return_data_match,
-                  "app_return_data mismatch: proof contains ",
-                  kernel_input.app_return_data.get_value(),
-                  " but secondary_calldata commitment is ",
-                  witness_commitments.secondary_calldata.get_value());
         kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
 
         // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
-        // verification of the folding of K_{i-1} (kernel), A_{i} (app). This verification happens in K_{i}
+        // verification of of the folding of K_{i-1} (kernel), A_{i} (app). This verification happens in K_{i}
         merge_commitments.T_prev_commitments = std::move(kernel_input.ecc_op_tables);
 
         BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::HN || verifier_inputs.type == QUEUE_TYPE::HN_TAIL ||
@@ -200,12 +185,6 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         // Get the previous accum hash
         info("Accumulator hash from IO: ", kernel_input.output_hn_accum_hash);
         BB_ASSERT(prev_accum_hash.has_value());
-        bool accum_hash_match = kernel_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
-        BB_ASSERT(accum_hash_match,
-                  "output_hn_accum_hash mismatch: proof contains ",
-                  kernel_input.output_hn_accum_hash.get_value(),
-                  " but expected ",
-                  prev_accum_hash->get_value());
         kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
 
         // Set the kernel return data commitment to be propagated via the public inputs
@@ -560,16 +539,6 @@ Chonk::Proof Chonk::prove()
     // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
     // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
     // evaluations of both the previous table and the incoming subtable.
-
-    // ZK CRITICAL: The hiding kernel must have a constant number of ultra ops to ensure the merge proof's
-    // shift_size (ℓ) is constant. Variable ℓ would leak information about the accumulated op queue size.
-    // shift_size = (OP_QUEUE_SIZE - hiding_subtable_size) * NUM_ROWS_PER_OP, so constant hiding_subtable_size
-    // guarantees constant shift_size. The degree check ensures L is zero-padded up to shift_size.
-    const size_t hiding_kernel_ultra_ops = goblin.op_queue->get_current_subtable_size();
-    BB_ASSERT_EQ(hiding_kernel_ultra_ops,
-                 CONST_HIDING_KERNEL_ULTRA_OPS,
-                 "Hiding kernel ultra ops count must match expected constant for ZK");
-
     return { mega_proof, goblin.prove(MergeSettings::APPEND) };
 };
 
