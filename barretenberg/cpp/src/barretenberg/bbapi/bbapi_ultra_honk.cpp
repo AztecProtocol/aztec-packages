@@ -2,6 +2,7 @@
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/constants.hpp"
@@ -22,11 +23,16 @@
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include <iostream>
 #include <type_traits>
 #ifdef STARKNET_GARAGA_FLAVORS
 #include "barretenberg/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/flavor/ultra_starknet_zk_flavor.hpp"
 #endif
+#include "barretenberg/common/net.hpp"
+#include "barretenberg/crypto/blake3s/blake3s.hpp"
+#include <cstring>
+#include <exception>
 #include <iomanip>
 #include <sstream>
 
@@ -55,13 +61,8 @@ template <typename Flavor>
 std::shared_ptr<ProverInstance_<Flavor>> _compute_prover_instance(std::vector<uint8_t>&& bytecode,
                                                                   std::vector<uint8_t>&& witness)
 {
-    // Measure function time and debug print
-    auto initial_time = std::chrono::high_resolution_clock::now();
     typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor>(std::move(bytecode), std::move(witness));
     auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
-    auto final_time = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(final_time - initial_time);
-    info("CircuitProve: Proving key computed in ", duration.count(), " ms");
     return prover_instance;
 }
 template <typename Flavor>
@@ -74,7 +75,9 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
     auto prover_instance = _compute_prover_instance<Flavor>(std::move(bytecode), std::move(witness));
     std::shared_ptr<typename Flavor::VerificationKey> vk;
     if (vk_bytes.empty()) {
-        info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
+        std::cerr
+            << "WARNING: computing verification key while proving. Pass in a precomputed vk for better performance."
+            << std::endl;
         vk = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
     } else {
         vk =
@@ -84,6 +87,7 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
     UltraProver_<Flavor> prover{ prover_instance, vk };
 
     Proof concat_pi_and_proof = prover.construct_proof();
+
     // Compute number of inner public inputs. Perform loose checks that the public inputs contain enough data.
     auto num_inner_public_inputs = [&]() {
         size_t num_public_inputs = prover.prover_instance->num_public_inputs();
@@ -115,15 +119,31 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
                         .hash = to_buffer(vk->hash()) };
     }
 
-    // We split the inner public inputs, which are stored at the front of the proof, from the rest of the proof. Now,
-    // the "proof" refers to everything except the inner public inputs.
-    return { .public_inputs = std::vector<uint256_t>{ concat_pi_and_proof.begin(),
-                                                      concat_pi_and_proof.begin() +
-                                                          static_cast<std::ptrdiff_t>(num_inner_public_inputs) },
-             .proof = std::vector<uint256_t>{ concat_pi_and_proof.begin() +
-                                                  static_cast<std::ptrdiff_t>(num_inner_public_inputs),
-                                              concat_pi_and_proof.end() },
-             .vk = std::move(vk_response) };
+    // Format: [num_public_inputs (4 bytes)] [public_inputs (32 bytes each)] [proof...]
+    std::vector<uint8_t> result_vec;
+    size_t total_size =
+        4 + (num_inner_public_inputs * 32) + ((concat_pi_and_proof.size() - num_inner_public_inputs) * 32);
+    result_vec.resize(total_size);
+
+    uint8_t* ptr = result_vec.data();
+
+    // Pack num_public_inputs (4 bytes, big endian)
+    uint32_t num_pub_inputs_be = htonl(static_cast<uint32_t>(num_inner_public_inputs));
+    std::memcpy(ptr, &num_pub_inputs_be, 4);
+    ptr += 4;
+
+    // Pack public inputs
+    for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+        bb::fr::serialize_to_buffer(concat_pi_and_proof[i], ptr);
+        ptr += 32;
+    }
+
+    // Pack proof
+    for (size_t i = num_inner_public_inputs; i < concat_pi_and_proof.size(); ++i) {
+        bb::fr::serialize_to_buffer(concat_pi_and_proof[i], ptr);
+        ptr += 32;
+    }
+    return { .combined_result = std::move(result_vec), .vk = std::move(vk_response) };
 }
 
 template <typename Flavor>
@@ -392,8 +412,219 @@ CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_
         contract = get_optimized_honk_solidity_verifier(vk);
     }
 #endif
-
     return { std::move(contract) };
+}
+
+/**
+ * @brief Serializable polynomial data for proving key export.
+ * @details Captures all metadata needed to reconstruct a polynomial:
+ *   - coefficients: The actual coefficient data
+ *   - start_index: The starting index of the memory-backed range (used for shifts)
+ *   - virtual_size: The total logical size of the polynomial
+ *
+ * This allows proper reconstruction of "shiftable" polynomials that require
+ * start_index > 0 for the shifted() operation to work correctly.
+ */
+struct PolynomialExport {
+    std::vector<bb::fr> coefficients;
+    uint64_t start_index;
+    uint64_t virtual_size;
+
+    MSGPACK_FIELDS(coefficients, start_index, virtual_size);
+};
+
+/**
+ * @brief Serializable proving key data for UltraFlavor.
+ * @details Contains circuit-specific precomputed data that can be
+ * cached and reused across multiple proofs with different witnesses.
+ *
+ * Key design decisions for upstream compatibility:
+ * 1. PolynomialExport preserves start_index/virtual_size for proper reconstruction
+ * 2. Bytecode hash enables cache validation across circuit versions
+ * 3. All integer types use uint64_t for cross-platform msgpack compatibility
+ */
+struct DeciderProvingKeyExport {
+    std::vector<PolynomialExport> polynomials;
+    std::vector<bb::fr> public_inputs;
+    bb::RelationParameters<bb::fr> relation_parameters;
+    std::vector<bb::fr> gate_challenges;
+    bb::fr target_sum;
+    bool is_structured;
+    uint64_t dyadic_size;
+    uint64_t num_public_inputs;
+    uint64_t pub_inputs_offset;
+    uint64_t overflow_size;
+    uint64_t final_active_wire_idx;
+    // Bytecode hash for cache validation - ensures proving key matches circuit
+    std::vector<uint8_t> bytecode_hash;
+    // Memory records for RAM/ROM lookup arguments (indices into full trace)
+    std::vector<uint32_t> memory_read_records;
+    std::vector<uint32_t> memory_write_records;
+
+    MSGPACK_FIELDS(polynomials,
+                   public_inputs,
+                   relation_parameters,
+                   gate_challenges,
+                   target_sum,
+                   is_structured,
+                   dyadic_size,
+                   num_public_inputs,
+                   pub_inputs_offset,
+                   overflow_size,
+                   final_active_wire_idx,
+                   bytecode_hash,
+                   memory_read_records,
+                   memory_write_records);
+};
+
+AcirGetProvingKey::Response AcirGetProvingKey::execute(BB_UNUSED const BBApiRequest& request) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    using ProverInstance = ProverInstance_<UltraFlavor>;
+
+    // Compute bytecode hash BEFORE consuming bytecode (for cache validation)
+    auto bytecode_hash_arr = blake3::blake3s(circuit.bytecode);
+    std::vector<uint8_t> bytecode_hash_vec(bytecode_hash_arr.begin(), bytecode_hash_arr.end());
+
+    // Build proving key from circuit
+    auto prover_instance = [&] {
+        const acir_format::ProgramMetadata metadata{};
+        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)) };
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
+        return std::make_shared<ProverInstance>(builder);
+    }();
+
+    // Extract ONLY precomputed polynomials (selectors, sigmas, ids, tables, lagrange)
+    // WitnessEntities (w_l, w_r, w_o, w_4, z_perm, lookup_inverses, etc.) are witness-dependent
+    // and must be computed fresh for each proof with the new witness
+    DeciderProvingKeyExport export_data;
+    for (auto& poly : prover_instance->polynomials.get_precomputed()) {
+        PolynomialExport poly_export;
+        poly_export.coefficients = std::vector<bb::fr>(poly.data(), poly.data() + poly.size());
+        poly_export.start_index = poly.start_index();
+        poly_export.virtual_size = poly.virtual_size();
+        export_data.polynomials.push_back(std::move(poly_export));
+    }
+    export_data.public_inputs = prover_instance->public_inputs;
+    export_data.relation_parameters = prover_instance->relation_parameters;
+    export_data.gate_challenges = prover_instance->gate_challenges;
+    export_data.dyadic_size = prover_instance->dyadic_size();
+    export_data.num_public_inputs = prover_instance->num_public_inputs();
+    export_data.pub_inputs_offset = prover_instance->pub_inputs_offset();
+    export_data.final_active_wire_idx = prover_instance->get_final_active_wire_idx();
+    export_data.bytecode_hash = std::move(bytecode_hash_vec);
+    export_data.memory_read_records = prover_instance->memory_read_records;
+    export_data.memory_write_records = prover_instance->memory_write_records;
+
+    // Serialize to msgpack
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, export_data);
+
+    return { .proving_key = std::vector<uint8_t>(buffer.data(), buffer.data() + buffer.size()) };
+}
+
+AcirProveWithPk::Response AcirProveWithPk::execute(BB_UNUSED const BBApiRequest& request) &&
+{
+    std::vector<uint8_t> result_vec;
+    {
+        BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+        using ProverInstance = ProverInstance_<UltraFlavor>;
+        using VerificationKey = UltraFlavor::VerificationKey;
+
+        // Compute bytecode hash for cache validation
+        auto current_bytecode_hash = blake3::blake3s(circuit.bytecode);
+
+        // Deserialize proving key
+        DeciderProvingKeyExport pk_data;
+        msgpack::object_handle oh = msgpack::unpack((const char*)proving_key.data(), proving_key.size());
+        msgpack::object obj = oh.get();
+        obj.convert(pk_data);
+
+        // Validate bytecode hash matches proving key
+        bool hash_matches =
+            (pk_data.bytecode_hash.size() == current_bytecode_hash.size()) &&
+            std::equal(pk_data.bytecode_hash.begin(), pk_data.bytecode_hash.end(), current_bytecode_hash.begin());
+
+        if (!hash_matches) {
+            throw_or_abort("AcirProveWithPk: Bytecode hash mismatch. "
+                           "The proving key was generated for a different circuit. "
+                           "Please regenerate the proving key with the current bytecode.");
+        }
+
+        // Reconstruct circuit from bytecode and witness
+        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)) };
+        program.witness = acir_format::witness_buf_to_witness_vector(std::move(witness));
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
+
+        // Reconstruct metadata from proving key
+        MetaData metadata;
+        metadata.dyadic_size = static_cast<size_t>(pk_data.dyadic_size);
+        metadata.num_public_inputs = static_cast<size_t>(pk_data.num_public_inputs);
+        metadata.pub_inputs_offset = static_cast<size_t>(pk_data.pub_inputs_offset);
+
+        // Convert PolynomialExport to ProverInstance::PolynomialData
+        std::vector<ProverInstance::PolynomialData> poly_data_vec;
+        poly_data_vec.reserve(pk_data.polynomials.size());
+        for (auto& poly_export : pk_data.polynomials) {
+            ProverInstance::PolynomialData poly_data;
+            poly_data.coefficients = std::move(poly_export.coefficients);
+            poly_data.start_index = static_cast<size_t>(poly_export.start_index);
+            poly_data.virtual_size = static_cast<size_t>(poly_export.virtual_size);
+            poly_data_vec.push_back(std::move(poly_data));
+        }
+
+        // HYDRATION: Create ProverInstance using precomputed polynomials from proving key
+        // This skips recomputing selectors, permutation polynomials, and lookup tables
+        auto instance = std::make_shared<ProverInstance>(builder,
+                                                         std::move(poly_data_vec),
+                                                         metadata,
+                                                         static_cast<size_t>(pk_data.final_active_wire_idx),
+                                                         std::move(pk_data.memory_read_records),
+                                                         std::move(pk_data.memory_write_records));
+
+        // Construct verification key and prove
+        auto verification_key = std::make_shared<VerificationKey>(instance->get_precomputed());
+        UltraProver prover{ instance, verification_key };
+
+        auto proof = prover.construct_proof();
+
+        // Calculate inner public inputs (excluding pairing point accumulator), consistent with CircuitProve
+        size_t num_inner_public_inputs = [&]() {
+            size_t num_public_inputs = instance->num_public_inputs();
+            // UltraFlavor uses DefaultIO::PUBLIC_INPUTS_SIZE for pairing point accumulator
+            constexpr size_t PAIRING_POINT_SIZE = 16; // DefaultIO::PUBLIC_INPUTS_SIZE
+            BB_ASSERT(num_public_inputs >= PAIRING_POINT_SIZE,
+                      "Public inputs should contain a pairing point accumulator.");
+            return num_public_inputs - PAIRING_POINT_SIZE;
+        }();
+
+        // Create the combined result
+        // Format: [num_public_inputs (4 bytes)] [public_inputs (32 bytes each)] [proof...]
+        size_t total_size = 4 + (num_inner_public_inputs * 32) + (proof.size() * 32);
+        result_vec.resize(total_size);
+
+        uint8_t* ptr = result_vec.data();
+
+        // Pack num_inner_public_inputs (4 bytes, big endian, matches CircuitProve format)
+        uint32_t num_pub_inputs_be = htonl(static_cast<uint32_t>(num_inner_public_inputs));
+        std::memcpy(ptr, &num_pub_inputs_be, 4);
+        ptr += 4;
+
+        // Pack inner public inputs (from proof, excluding pairing point accumulator)
+        // These are the first num_inner_public_inputs elements of the proof
+        for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+            bb::fr::serialize_to_buffer(proof[i], ptr);
+            ptr += 32;
+        }
+
+        // Pack proof (skip public inputs which were already extracted above)
+        for (size_t i = num_inner_public_inputs; i < proof.size(); ++i) {
+            bb::fr::serialize_to_buffer(proof[i], ptr);
+            ptr += 32;
+        }
+    } // Destructors run here
+
+    return { .combined_result = std::move(result_vec) };
 }
 
 } // namespace bb::bbapi

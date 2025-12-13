@@ -149,6 +149,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:bbapi_objects>
     $<TARGET_OBJECTS:chonk_objects>
     $<TARGET_OBJECTS:commitment_schemes_objects>
+    $<TARGET_OBJECTS:circuit_checker_objects>
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>

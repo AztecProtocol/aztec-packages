@@ -7,6 +7,7 @@
 #include "c_bind.hpp"
 #include "../acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -15,6 +16,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "honk_contract.hpp"

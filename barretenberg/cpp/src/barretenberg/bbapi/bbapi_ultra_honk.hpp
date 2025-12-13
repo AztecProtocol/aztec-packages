@@ -17,6 +17,8 @@
 
 namespace bb::bbapi {
 
+using bb::numeric::uint256_t;
+
 struct CircuitComputeVk {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitComputeVk";
 
@@ -55,10 +57,9 @@ struct CircuitProve {
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitProveResponse";
 
-        std::vector<uint256_t> public_inputs;
-        std::vector<uint256_t> proof;
+        std::vector<uint8_t> combined_result;
         CircuitComputeVk::Response vk;
-        MSGPACK_FIELDS(public_inputs, proof, vk);
+        MSGPACK_FIELDS(combined_result, vk);
         bool operator==(const Response&) const = default;
     };
 
@@ -186,6 +187,52 @@ struct CircuitWriteSolidityVerifier {
     MSGPACK_FIELDS(verification_key, settings);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const CircuitWriteSolidityVerifier&) const = default;
+};
+
+/**
+ * @struct AcirGetProvingKey
+ * @brief Generate a reusable proving key from circuit bytecode.
+ */
+struct AcirGetProvingKey {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "AcirGetProvingKey";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "AcirGetProvingKeyResponse";
+
+        std::vector<uint8_t> proving_key;
+        MSGPACK_FIELDS(proving_key);
+        bool operator==(const Response&) const = default;
+    };
+
+    CircuitInput circuit;
+    ProofSystemSettings settings;
+    MSGPACK_FIELDS(circuit, settings);
+    Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const AcirGetProvingKey&) const = default;
+};
+
+/**
+ * @struct AcirProveWithPk
+ * @brief Generate proof using precomputed proving key and fresh witness.
+ */
+struct AcirProveWithPk {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "AcirProveWithPk";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "AcirProveWithPkResponse";
+
+        std::vector<uint8_t> combined_result;
+        MSGPACK_FIELDS(combined_result);
+        bool operator==(const Response&) const = default;
+    };
+
+    CircuitInput circuit;
+    std::vector<uint8_t> witness;
+    std::vector<uint8_t> proving_key;
+    ProofSystemSettings settings;
+    MSGPACK_FIELDS(circuit, witness, proving_key, settings);
+    Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const AcirProveWithPk&) const = default;
 };
 
 } // namespace bb::bbapi

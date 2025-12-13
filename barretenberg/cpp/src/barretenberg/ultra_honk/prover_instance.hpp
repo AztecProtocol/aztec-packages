@@ -35,7 +35,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
 
-  private:
+  public:
     using Circuit = typename Flavor::CircuitBuilder;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
@@ -198,6 +198,149 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         auto end = std::chrono::steady_clock::now();
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         vinfo("time to construct proving key: ", diff.count(), " ms.");
+    }
+
+    /**
+     * @brief Serialized polynomial data for hydration.
+     * @details Contains all metadata needed to reconstruct a polynomial:
+     *   - coefficients: The actual coefficient data
+     *   - start_index: The starting index of the memory-backed range (for shifts)
+     *   - virtual_size: The total logical size of the polynomial
+     */
+    struct PolynomialData {
+        std::vector<FF> coefficients;
+        size_t start_index;
+        size_t virtual_size;
+    };
+
+    /**
+     * @brief Construct ProverInstance by hydrating precomputed polynomials from serialized data.
+     * @details This avoids recomputing selectors, permutation polynomials, and lookup tables.
+     * Only witness-specific data (wires, z_perm, lookup_inverses) is computed fresh from the circuit.
+     *
+     * Key design for upstream compatibility:
+     * - Uses PolynomialData struct that preserves start_index/virtual_size
+     * - Properly reconstructs shiftable polynomials (start_index > 0)
+     * - Validates polynomial count matches expected flavor
+     * - Accepts pre-serialized memory records (avoids trace_offset dependency)
+     *
+     * @param circuit The circuit builder with witness data populated
+     * @param precomputed_polynomials Vector of PolynomialData from DeciderProvingKeyExport
+     * @param precomputed_metadata Metadata (dyadic_size, num_public_inputs, pub_inputs_offset)
+     * @param final_active_wire_idx_in The final active wire index from the proving key
+     * @param precomputed_memory_read_records Memory read records from proving key
+     * @param precomputed_memory_write_records Memory write records from proving key
+     * @param commitment_key Optional commitment key
+     */
+    ProverInstance_(Circuit& circuit,
+                    std::vector<PolynomialData>&& precomputed_polynomials,
+                    const MetaData& precomputed_metadata,
+                    size_t final_active_wire_idx_in,
+                    std::vector<uint32_t>&& precomputed_memory_read_records,
+                    std::vector<uint32_t>&& precomputed_memory_write_records,
+                    const CommitmentKey& commitment_key_in = CommitmentKey())
+        : final_active_wire_idx(final_active_wire_idx_in)
+        , commitment_key(commitment_key_in)
+    {
+        BB_BENCH_NAME("ProverInstance(Circuit&, hydrated)");
+        vinfo("Constructing ProverInstance with hydration (stateful keygen)");
+        auto start = std::chrono::steady_clock::now();
+
+        // Copy metadata from proving key
+        metadata = precomputed_metadata;
+
+        // Validate circuit is finalized
+        if (!circuit.circuit_finalized) {
+            circuit.finalize_circuit(/* ensure_nonzero = */ true);
+        }
+
+        // Compute block offsets - needed for trace population
+        circuit.blocks.compute_offsets();
+
+        // --- STEP 1: Allocate and compute WITNESS-DEPENDENT polynomials from fresh circuit ---
+        // These MUST be computed fresh for each proof since they depend on the witness:
+        // - wires (w_l, w_r, w_o, w_4)
+        // - z_perm (permutation argument)
+        // - lookup_inverses, lookup_read_counts, lookup_read_tags
+        {
+            BB_BENCH_NAME("allocating and populating witness polynomials");
+
+            // Use pre-serialized memory records (already computed with correct trace offsets)
+            memory_read_records = std::move(precomputed_memory_read_records);
+            memory_write_records = std::move(precomputed_memory_write_records);
+
+            // Allocate witness polynomials
+            allocate_wires();
+            allocate_permutation_argument_polynomials();
+            allocate_table_lookup_polynomials(circuit);
+
+            if constexpr (IsMegaFlavor<Flavor>) {
+                allocate_ecc_op_polynomials(circuit);
+            }
+            if constexpr (HasDataBus<Flavor>) {
+                allocate_databus_polynomials(circuit);
+            }
+        }
+
+        // --- STEP 2: Hydrate PRECOMPUTED polynomials from serialized data ---
+        // These are circuit-specific and do NOT change between witnesses:
+        // - selectors (q_m, q_c, q_l, q_r, q_o, q_4, q_arith, etc.)
+        // - sigmas (sigma_1, sigma_2, sigma_3, sigma_4)
+        // - ids (id_1, id_2, id_3, id_4)
+        // - tables (table_1, table_2, table_3, table_4)
+        // - lagrange (lagrange_first, lagrange_last)
+        {
+            BB_BENCH_NAME("hydrating precomputed polynomials from proving key");
+            auto precomputed_polys = polynomials.get_precomputed();
+            BB_ASSERT(precomputed_polynomials.size() == precomputed_polys.size(),
+                      "ProverInstance hydration: precomputed polynomial count mismatch. Expected ",
+                      precomputed_polys.size(),
+                      " but got ",
+                      precomputed_polynomials.size());
+
+            size_t idx = 0;
+            for (auto& poly : precomputed_polys) {
+                auto& poly_data = precomputed_polynomials[idx];
+                size_t actual_size = poly_data.coefficients.size();
+                poly = Polynomial(actual_size, poly_data.virtual_size, poly_data.start_index);
+                std::copy(poly_data.coefficients.begin(), poly_data.coefficients.end(), poly.data());
+                ++idx;
+            }
+        }
+
+        // Set shifted polynomials (views into the to_be_shifted polynomials)
+        polynomials.set_shifted();
+
+        // --- STEP 3: Populate wire polynomials and compute witness-dependent data ---
+        {
+            BB_BENCH_NAME("populating witness trace");
+            // Populate wires from circuit witness - this fills w_l, w_r, w_o, w_4
+            Trace::populate(circuit, polynomials);
+
+            // Construct lookup read counts from circuit
+            construct_lookup_read_counts<Flavor>(polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit);
+
+            // If Goblin/Mega, construct databus polynomials
+            if constexpr (IsMegaFlavor<Flavor>) {
+                construct_databus_polynomials(circuit);
+            }
+        }
+
+        // --- STEP 4: Extract public inputs from fresh witness wires ---
+        {
+            for (size_t i = 0; i < metadata.num_public_inputs; ++i) {
+                size_t idx = i + metadata.pub_inputs_offset;
+                public_inputs.emplace_back(polynomials.w_r[idx]);
+            }
+
+            if constexpr (HasIPAAccumulator<Flavor>) {
+                ipa_proof = circuit.ipa_proof;
+            }
+        }
+
+        auto end = std::chrono::steady_clock::now();
+        auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        vinfo("time to construct proving key (hydrated): ", diff.count(), " ms.");
     }
 
     ProverInstance_() = default;

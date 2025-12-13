@@ -4,6 +4,8 @@
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include <cstddef>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace bb::acir_bincode_mocks {
@@ -117,6 +119,34 @@ inline std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circu
     witness_stack.stack.push_back(stack_item);
 
     return { program.bincodeSerialize(), witness_stack.bincodeSerialize() };
+}
+
+/**
+ * @brief Create a witness for a simple circuit with given values
+ * @details Creates witness data for a circuit with num_constraints constraints.
+ *          Each constraint is: a * b = c
+ * @param a First multiplicand for each constraint
+ * @param b Second multiplicand for each constraint
+ * @param num_constraints Number of constraints in the circuit (must match circuit)
+ * @return Serialized witness data
+ */
+inline std::vector<uint8_t> create_witness_for_simple_circuit(bb::fr a, bb::fr b, size_t num_constraints = 1)
+{
+    bb::fr c = a * b;
+
+    Witnesses::WitnessStack witness_stack;
+    Witnesses::StackItem stack_item{};
+
+    // For each constraint, add witnesses: w[i*3]=a, w[i*3+1]=b, w[i*3+2]=c
+    uint32_t witness_idx = 0;
+    for (size_t i = 0; i < num_constraints; ++i) {
+        stack_item.witness.value[Witnesses::Witness{ witness_idx++ }] = a.to_buffer();
+        stack_item.witness.value[Witnesses::Witness{ witness_idx++ }] = b.to_buffer();
+        stack_item.witness.value[Witnesses::Witness{ witness_idx++ }] = c.to_buffer();
+    }
+    witness_stack.stack.push_back(stack_item);
+
+    return witness_stack.bincodeSerialize();
 }
 
 /**

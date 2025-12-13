@@ -1,10 +1,12 @@
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/chonk/acir_bincode_mocks.hpp"
+#include "barretenberg/common/net.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
+#include <cstring>
 #include <gtest/gtest.h>
 #include <vector>
 
@@ -57,10 +59,56 @@ TEST_F(BBApiUltraHonkTest, CircuitProve)
                                             .settings = settings }
                                   .execute();
 
+        // Helper to unpack combined result from vector<uint8_t>
+        auto unpack_combined = [](const std::vector<uint8_t>& combined) {
+            if (combined.size() < 4) {
+                throw std::runtime_error("Combined result too small");
+            }
+
+            // Read num_public_inputs (first 4 bytes, big endian)
+            uint32_t num_pub_inputs_be;
+            std::memcpy(&num_pub_inputs_be, combined.data(), 4);
+            uint32_t num_pub_inputs = ntohl(num_pub_inputs_be);
+
+            size_t offset = 4;
+            size_t element_size = 32;
+            size_t pub_inputs_bytes = num_pub_inputs * element_size;
+
+            if (combined.size() < offset + pub_inputs_bytes) {
+                throw std::runtime_error("Combined result too small for public inputs");
+            }
+
+            std::vector<uint256_t> public_inputs;
+            for (size_t i = 0; i < num_pub_inputs; ++i) {
+                uint64_t bin_data[4];
+                std::memcpy(bin_data, &combined[offset + i * element_size], element_size);
+                public_inputs.emplace_back(
+                    ntohll(bin_data[3]), ntohll(bin_data[2]), ntohll(bin_data[1]), ntohll(bin_data[0]));
+            }
+
+            offset += pub_inputs_bytes;
+            size_t remaining_bytes = combined.size() - offset;
+            if (remaining_bytes % element_size != 0) {
+                throw std::runtime_error("Invalid proof size in combined result");
+            }
+            size_t num_proof_elements = remaining_bytes / element_size;
+
+            std::vector<uint256_t> proof;
+            for (size_t i = 0; i < num_proof_elements; ++i) {
+                uint64_t bin_data[4];
+                std::memcpy(bin_data, &combined[offset + i * element_size], element_size);
+                proof.emplace_back(ntohll(bin_data[3]), ntohll(bin_data[2]), ntohll(bin_data[1]), ntohll(bin_data[0]));
+            }
+
+            return std::make_pair(public_inputs, proof);
+        };
+
+        auto [public_inputs, proof] = unpack_combined(prove_response.combined_result);
+
         // Verify the proof
         auto verify_response = CircuitVerify{ .verification_key = vk_response.bytes,
-                                              .public_inputs = prove_response.public_inputs,
-                                              .proof = prove_response.proof,
+                                              .public_inputs = public_inputs,
+                                              .proof = proof,
                                               .settings = settings }
                                    .execute();
 

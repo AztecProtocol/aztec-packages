@@ -8,7 +8,8 @@ set(DSL_DEPENDENCIES
     stdlib_keccak
     stdlib_poseidon2
     stdlib_honk_verifier
-    stdlib_chonk_verifier)
+    stdlib_chonk_verifier
+    circuit_checker)
 
 barretenberg_module(
     dsl
