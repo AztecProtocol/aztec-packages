@@ -268,9 +268,16 @@ fuzz() {
 	ARCHIVE_NAME="${fuzzer}.tar.gz"
 	if compgen -G "$CORPUS/*" >/dev/null || compgen -G "$CRASHES/*" >/dev/null; then
 		log "Packing corpus & crashes into $ARTIFACTS/$ARCHIVE_NAME"
-		tar -czf "$ARTIFACTS/$ARCHIVE_NAME" \
-			-C "$CORPUS" . \
-			-C "$CRASHES" .
+
+		STAGE="$(mktemp -d)"
+		mkdir -p "$STAGE/corpus" "$STAGE/crashes"
+
+		cp -a "$CORPUS/." "$STAGE/corpus/" 2>/dev/null || true
+		cp -a "$CRASHES/." "$STAGE/crashes/" 2>/dev/null || true
+
+		tar -czf "$ARTIFACTS/$ARCHIVE_NAME" -C "$STAGE" corpus crashes
+
+		rm -rf "$STAGE"
 	else
 		log "Corpus & crashes are empty, skipping packing"
 	fi
