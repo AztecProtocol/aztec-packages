@@ -243,6 +243,11 @@ function(barretenberg_module_with_sources MODULE_NAME)
     if(BENCH_SOURCE_FILES AND NOT FUZZING)
         foreach(BENCHMARK_SOURCE ${BENCH_SOURCE_FILES})
             get_filename_component(BENCHMARK_NAME ${BENCHMARK_SOURCE} NAME_WE) # extract name without extension
+            if("${BENCHMARK_NAME}" STREQUAL "")
+                message(WARNING "Skipping benchmark source with empty name: ${BENCHMARK_SOURCE}")
+                continue()
+            endif()
+            message(STATUS "BENCH_SOURCE: ${BENCHMARK_SOURCE} -> NAME: ${BENCHMARK_NAME}")
             add_library(
                 ${BENCHMARK_NAME}_bench_objects
                 OBJECT
