@@ -424,33 +424,28 @@ AcirGetProvingKey::Response AcirGetProvingKey::execute(BB_UNUSED const BBApiRequ
     // Select appropriate flavor based on settings
     auto flavor_type = select_ultra_flavor(settings);
 
-    DeciderProvingKeyExport export_data;
+    std::vector<uint8_t> serialized_pk;
 
-    // Dispatch to the correct flavor
+    // Dispatch to the correct flavor (zero-copy serialization)
     switch (flavor_type) {
     case UltraFlavorType::Ultra:
-        export_data = get_proving_key<UltraFlavor>(circuit, settings);
+        serialized_pk = get_proving_key_serialized<UltraFlavor>(circuit, settings);
         break;
     case UltraFlavorType::UltraZK:
-        export_data = get_proving_key<UltraZKFlavor>(circuit, settings);
+        serialized_pk = get_proving_key_serialized<UltraZKFlavor>(circuit, settings);
         break;
     case UltraFlavorType::UltraKeccak:
-        export_data = get_proving_key<UltraKeccakFlavor>(circuit, settings);
+        serialized_pk = get_proving_key_serialized<UltraKeccakFlavor>(circuit, settings);
         break;
     case UltraFlavorType::UltraKeccakZK:
-        export_data = get_proving_key<UltraKeccakZKFlavor>(circuit, settings);
+        serialized_pk = get_proving_key_serialized<UltraKeccakZKFlavor>(circuit, settings);
         break;
     case UltraFlavorType::UltraRollup:
-        // UltraRollup uses same proving key structure as Ultra
-        export_data = get_proving_key<UltraRollupFlavor>(circuit, settings);
+        serialized_pk = get_proving_key_serialized<UltraRollupFlavor>(circuit, settings);
         break;
     }
 
-    // Serialize proving key to msgpack
-    msgpack::sbuffer buffer;
-    msgpack::pack(buffer, export_data);
-
-    return { .proving_key = std::vector<uint8_t>(buffer.data(), buffer.data() + buffer.size()) };
+    return { .proving_key = std::move(serialized_pk) };
 }
 
 AcirProveWithPk::Response AcirProveWithPk::execute(BB_UNUSED const BBApiRequest& request) &&
