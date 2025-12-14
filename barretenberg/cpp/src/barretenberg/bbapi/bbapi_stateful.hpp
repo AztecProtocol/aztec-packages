@@ -16,9 +16,11 @@
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include <vector>
@@ -202,13 +204,22 @@ std::vector<uint8_t> prove_with_pk(const CircuitInput& circuit,
     auto proof = prover.construct_proof();
 
     // Calculate inner public inputs (excluding pairing point accumulator)
+    // Use flavor-specific constants for correct public input size
     size_t num_inner_public_inputs = [&]() {
         size_t num_public_inputs = instance->num_public_inputs();
-        // Assuming PAIRING_POINT_SIZE is standard across flavors for now
-        // UltraFlavor uses DefaultIO::PUBLIC_INPUTS_SIZE = 16
-        constexpr size_t PAIRING_POINT_SIZE = 16;
-        BB_ASSERT(num_public_inputs >= PAIRING_POINT_SIZE, "Public inputs should contain a pairing point accumulator.");
-        return num_public_inputs - PAIRING_POINT_SIZE;
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            // UltraRollup includes both pairing points and IPA claim
+            constexpr size_t ROLLUP_SPECIAL_SIZE = RollupIO::PUBLIC_INPUTS_SIZE;
+            BB_ASSERT(num_public_inputs >= ROLLUP_SPECIAL_SIZE,
+                      "Public inputs should contain pairing points and IPA claim.");
+            return num_public_inputs - ROLLUP_SPECIAL_SIZE;
+        } else {
+            // Standard Ultra flavors only have pairing points
+            constexpr size_t DEFAULT_SPECIAL_SIZE = DefaultIO::PUBLIC_INPUTS_SIZE;
+            BB_ASSERT(num_public_inputs >= DEFAULT_SPECIAL_SIZE,
+                      "Public inputs should contain a pairing point accumulator.");
+            return num_public_inputs - DEFAULT_SPECIAL_SIZE;
+        }
     }();
 
     // Create the combined result [num_inputs][inputs...][proof...]

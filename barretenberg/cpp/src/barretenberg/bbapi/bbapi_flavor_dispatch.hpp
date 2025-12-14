@@ -42,14 +42,17 @@ enum class UltraFlavorType : std::uint8_t {
  */
 inline UltraFlavorType select_ultra_flavor(const ProofSystemSettings& settings)
 {
+    // IPA accumulation takes precedence - this selects UltraRollup
+    if (settings.ipa_accumulation) {
+        return UltraFlavorType::UltraRollup;
+    }
+
     // Keccak-based flavors (for EVM verification)
     if (settings.oracle_hash_type == "keccak") {
         return settings.disable_zk ? UltraFlavorType::UltraKeccak : UltraFlavorType::UltraKeccakZK;
     }
 
     // Poseidon2-based flavors (default)
-    // Note: UltraRollup also uses Poseidon2 but with different circuit constraints.
-    // For now, we treat it as standard Ultra. Future: add explicit rollup flag.
     if (settings.oracle_hash_type == "poseidon2") {
         return settings.disable_zk ? UltraFlavorType::Ultra : UltraFlavorType::UltraZK;
     }
