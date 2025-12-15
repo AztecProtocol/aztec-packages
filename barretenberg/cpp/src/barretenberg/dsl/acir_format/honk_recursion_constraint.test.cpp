@@ -310,7 +310,7 @@ class HonkRecursionConstraintTestingFunctions {
 };
 
 template <typename Params>
-class HonkRecursionTestWithPredicate
+class HonkRecursionConstraintTestWithPredicate
     : public ::testing::Test,
       public TestClassWithPredicate<HonkRecursionConstraintTestingFunctions<typename Params::RecursiveFlavor,
                                                                             Params::IsRootRollup,
@@ -333,9 +333,9 @@ using HonkRecursionTypesWithPredicate =
                    HonkRecursionTestParams<UltraRecursiveFlavor_<MegaCircuitBuilder>, false, 1, { 1 }>,
                    HonkRecursionTestParams<UltraZKRecursiveFlavor_<MegaCircuitBuilder>, false, 1, { 1 }>>;
 
-TYPED_TEST_SUITE(HonkRecursionTestWithPredicate, HonkRecursionTypesWithPredicate);
+TYPED_TEST_SUITE(HonkRecursionConstraintTestWithPredicate, HonkRecursionTypesWithPredicate);
 
-TYPED_TEST(HonkRecursionTestWithPredicate, GenerateVKFromConstraints)
+TYPED_TEST(HonkRecursionConstraintTestWithPredicate, GenerateVKFromConstraints)
 {
     // The flavor with which we prove the outer circuit (the one verifying F_1, .., F_{s_1}) depends on what type of
     // data the inner circuits have propagated and the builder.
@@ -345,22 +345,22 @@ TYPED_TEST(HonkRecursionTestWithPredicate, GenerateVKFromConstraints)
     TestFixture::template test_vk_independence<Flavor>();
 }
 
-TYPED_TEST(HonkRecursionTestWithPredicate, ConstantTrue)
+TYPED_TEST(HonkRecursionConstraintTestWithPredicate, ConstantTrue)
 {
     TestFixture::test_constant_true(TestFixture::InvalidWitnessTarget::VKHash);
 }
 
-TYPED_TEST(HonkRecursionTestWithPredicate, WitnessTrue)
+TYPED_TEST(HonkRecursionConstraintTestWithPredicate, WitnessTrue)
 {
     TestFixture::test_witness_true(TestFixture::InvalidWitnessTarget::VKHash);
 }
 
-TYPED_TEST(HonkRecursionTestWithPredicate, WitnessFalseSlow)
+TYPED_TEST(HonkRecursionConstraintTestWithPredicate, WitnessFalseSlow)
 {
     TestFixture::test_witness_false_slow();
 }
 
-TYPED_TEST(HonkRecursionTestWithPredicate, GateCountSingleHonkRecursion)
+TYPED_TEST(HonkRecursionConstraintTestWithPredicate, GateCountSingleHonkRecursion)
 {
     using RecursiveFlavor = TestFixture::RecursiveFlavor;
     using Builder = TestFixture::Builder;
@@ -397,7 +397,7 @@ TYPED_TEST(HonkRecursionTestWithPredicate, GateCountSingleHonkRecursion)
 }
 
 template <typename Params>
-class HonkRecursionTestWithoutPredicate
+class HonkRecursionConstraintTestWithoutPredicate
     : public ::testing::Test,
       public TestClass<HonkRecursionConstraintTestingFunctions<typename Params::RecursiveFlavor,
                                                                Params::IsRootRollup,
@@ -427,9 +427,9 @@ using HonkRecursionTypesWithoutPredicate = testing::Types<
     HonkRecursionTestParams<UltraRecursiveFlavor_<MegaCircuitBuilder>, false, 4, { 4, 3, 1, 1 }>>; // Random complex
                                                                                                    // flow
 
-TYPED_TEST_SUITE(HonkRecursionTestWithoutPredicate, HonkRecursionTypesWithoutPredicate);
+TYPED_TEST_SUITE(HonkRecursionConstraintTestWithoutPredicate, HonkRecursionTypesWithoutPredicate);
 
-TYPED_TEST(HonkRecursionTestWithoutPredicate, GenerateVKFromConstraints)
+TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, GenerateVKFromConstraints)
 {
     if constexpr (TypeParam::IsRootRollup) {
         // We need to skip this case because the root rollup case takes too much time.
@@ -447,7 +447,7 @@ TYPED_TEST(HonkRecursionTestWithoutPredicate, GenerateVKFromConstraints)
     TestFixture::template test_vk_independence<Flavor>();
 }
 
-TYPED_TEST(HonkRecursionTestWithoutPredicate, Tampering)
+TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, Tampering)
 {
     if constexpr (TypeParam::IsRootRollup) {
         // We need to skip this case because the root rollup case takes too much time.
