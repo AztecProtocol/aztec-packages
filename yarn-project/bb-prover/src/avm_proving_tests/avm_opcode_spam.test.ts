@@ -19,8 +19,9 @@ const describeOrSkip = process.env.RUN_AVM_OPCODE_SPAM ? describe : describe.ski
 describeOrSkip('AVM Opcode Spammer Proving Benchmarks', () => {
   const logger = createLogger('avm-opcode-spam-proving');
 
-  // Get all test cases from the spammer config (grouped by opcode)
-  const groupedSpamConfigs = getSpamConfigsPerOpcode();
+  // Get test cases from the spammer config (grouped by opcode)
+  // Limit to 2 configs per opcode otherwise this suite will take hours
+  const groupedSpamConfigs = getSpamConfigsPerOpcode(/*maxConfigsPerOpcode=*/ 2);
 
   // Shared metrics instance for benchmark collection
   const metrics = new TestExecutorMetrics();

@@ -22,7 +22,9 @@ export async function deployCustomBytecode(
   const contractArtifact = emptyContractArtifact();
   contractArtifact.name = contractName;
   contractArtifact.functions = [emptyFunctionArtifact()];
-  // TODO(dbanks12): shouldn't need function name
+  // We use name 'public_dispatch' since that is what is expected
+  // in a ContractArtifact. But function selectors are not required
+  // when executing since the custom bytecode likely has no dispatch.
   contractArtifact.functions[0].name = 'public_dispatch';
   contractArtifact.functions[0].functionType = FunctionType.PUBLIC;
   contractArtifact.functions[0].bytecode = bytecode;
