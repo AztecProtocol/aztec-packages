@@ -1,6 +1,7 @@
-import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
@@ -66,10 +67,14 @@ export class RollupCheatCodes {
    * @returns The pending and proven chain tips
    */
   public async getTips(): Promise<{
-    /** The pending chain tip */ pending: bigint;
-    /** The proven chain tip */ proven: bigint;
+    /** The pending chain tip */ pending: CheckpointNumber;
+    /** The proven chain tip */ proven: CheckpointNumber;
   }> {
-    return await this.rollup.read.getTips();
+    const { pending, proven } = await this.rollup.read.getTips();
+    return {
+      pending: CheckpointNumber.fromBigInt(pending),
+      proven: CheckpointNumber.fromBigInt(proven),
+    };
   }
 
   /**
@@ -123,7 +128,7 @@ export class RollupCheatCodes {
     const timestamp = (await this.rollup.read.getTimestampForSlot([BigInt(slotNumber)])) + BigInt(opts.offset ?? 0);
     try {
       await this.ethCheatCodes.warp(Number(timestamp), { ...opts, silent: true, resetBlockInterval: true });
-      this.logger.warn(`Warped to epoch ${epoch}`);
+      this.logger.warn(`Warped to epoch ${epoch}`, { offset: opts.offset, timestamp });
     } catch (err) {
       this.logger.warn(`Warp to epoch ${epoch} failed: ${err}`);
     }

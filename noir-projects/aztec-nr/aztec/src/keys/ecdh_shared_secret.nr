@@ -3,40 +3,19 @@ use dep::protocol_types::{
 };
 use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
 
-/// Computes a standard ecdh shared secret: [secret] * public_key = shared_secret.
-/// The input secret is known only to one party. The output shared secret is derivable
-/// by both parties, through this function.
+/// Computes a standard ECDH shared secret: secret * public_key = shared_secret.
+///
+/// The input secret is known only to one party. The output shared secret can be derived given knowledge of
+/// `public_key`'s key-pair and the public ephemeral secret, using this same function (with reversed inputs).
+///
 /// E.g.:
-/// Epk = esk * G // ephemeral keypair
-/// Pk = sk * G // recipient keypair
-/// Shared secret S = esk * Pk = sk * Epk // see how this function can be called with two different sets of inputs, depending on which secret the caller knows (either esk or sk)?
-// See also: https://en.wikipedia.org/wiki/Elliptic-curve_Diffie%E2%80%93Hellman
+/// Epk = esk * G // ephemeral key-pair
+/// Pk = sk * G // recipient key-pair
+/// Shared secret S = esk * Pk = sk * Epk
+///
+/// See also: https://en.wikipedia.org/wiki/Elliptic-curve_Diffie%E2%80%93Hellman
 pub fn derive_ecdh_shared_secret(secret: Scalar, public_key: Point) -> Point {
-    let shared_secret = multi_scalar_mul([public_key], [secret]);
-    shared_secret
-}
-
-/// Computes a standard ECDH shared secret using the public key corresponding to an AztecAddress:
-///
-/// # Formula
-/// `[ephemeral_secret] * recipient_address_public_key = shared_secret`
-///
-/// # Usage
-/// The intention is that the _creator_ of a shared secret calls this function,
-/// providing the address of their intended recipient.
-///
-/// # Note
-/// The function returns `Option<Point>` because the recipient address might be invalid
-/// (i.e., not correspond to a point on the curve). Callers must handle the `None` case.
-/// This is unlike `derive_ecdh_shared_secret`, which always returns a `Point` because it
-/// operates on guaranteed-valid inputs.
-pub fn derive_ecdh_shared_secret_using_aztec_address(
-    ephemeral_secret: Scalar,
-    recipient_address: AztecAddress,
-) -> Option<Point> {
-    recipient_address.to_address_point().map(|addr_point| {
-        derive_ecdh_shared_secret(ephemeral_secret, addr_point.inner)
-    })
+    multi_scalar_mul([public_key], [secret])
 }
 
 #[test]
@@ -103,8 +82,9 @@ unconstrained fn test_shared_secret_computation_from_address_in_both_directions(
         pk_b.neg()
     };
 
-    let shared_secret = derive_ecdh_shared_secret_using_aztec_address(secret_a, address_b);
+    let shared_secret =
+        derive_ecdh_shared_secret(secret_a, address_b.to_address_point().unwrap().inner);
     let shared_secret_alt = derive_ecdh_shared_secret(secret_b, pk_a);
 
-    assert_eq(shared_secret.unwrap(), shared_secret_alt);
+    assert_eq(shared_secret, shared_secret_alt);
 }

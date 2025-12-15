@@ -37,5 +37,5 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     #[SLOAD_FF_OUTPUT_TAG]
     sel_execute_sload * (constants.MEM_TAG_FF - mem_tag_reg[1]) = 0;
 
-    #[SLOAD_SUCCESS]
-    sel_execute_sload * sel_opcode_error = 0;
+    // This opcode is infallible and sel_opcode_error is constrained to be zero
+    // in execution.pil (see #[INFALLIBLE_OPCODES_SUCCESS]).

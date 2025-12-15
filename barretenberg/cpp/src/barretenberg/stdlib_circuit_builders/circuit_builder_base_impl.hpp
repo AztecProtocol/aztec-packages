@@ -11,8 +11,8 @@
 
 namespace bb {
 template <typename FF_>
-CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool has_dummy_witnesses)
-    : _has_dummy_witnesses(has_dummy_witnesses)
+CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool is_write_vk_mode)
+    : _is_write_vk_mode(is_write_vk_mode)
 {
     variables.reserve(size_hint * 3);
     variable_names.reserve(size_hint * 3);
@@ -57,11 +57,11 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF&
     real_variable_index.emplace_back(index);
     next_var_index.emplace_back(REAL_VARIABLE);
     prev_var_index.emplace_back(FIRST_VARIABLE_IN_CLASS);
-    real_variable_tags.emplace_back(DUMMY_TAG);
+    real_variable_tags.emplace_back(DEFAULT_TAG);
     return index;
 }
 
-// AUDITTODO: is this used?
+// Only used in SMT verification
 template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t index, const std::string& name)
 {
     BB_ASSERT_DEBUG(variables.size() > index);
@@ -145,12 +145,13 @@ void CircuitBuilderBase<FF>::assert_equal(const uint32_t a_variable_idx,
     auto a_start_idx = get_first_variable_in_class(a_variable_idx);
     next_var_index[b_real_idx] = a_start_idx;
     prev_var_index[a_start_idx] = b_real_idx;
-    bool no_tag_clash = (real_variable_tags[a_real_idx] == DUMMY_TAG || real_variable_tags[b_real_idx] == DUMMY_TAG ||
-                         real_variable_tags[a_real_idx] == real_variable_tags[b_real_idx]);
+    bool no_tag_clash =
+        (real_variable_tags[a_real_idx] == DEFAULT_TAG || real_variable_tags[b_real_idx] == DEFAULT_TAG ||
+         real_variable_tags[a_real_idx] == real_variable_tags[b_real_idx]);
     if (!no_tag_clash && !failed()) {
         failure(msg);
     }
-    if (real_variable_tags[a_real_idx] == DUMMY_TAG) {
+    if (real_variable_tags[a_real_idx] == DEFAULT_TAG) {
         real_variable_tags[a_real_idx] = real_variable_tags[b_real_idx];
     }
 }
@@ -178,7 +179,7 @@ template <typename FF_> const std::string& CircuitBuilderBase<FF_>::err() const
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
 #ifndef FUZZING_DISABLE_WARNINGS
-    if (!_has_dummy_witnesses) {
+    if (!_is_write_vk_mode) {
         // Not a catch-all error log. We have a builder failure when we have real witnesses which is a mistake.
         info("(Experimental) WARNING: Builder failure when we have real witnesses! Ignore if writing vk.");
     }

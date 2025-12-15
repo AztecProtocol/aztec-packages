@@ -1,11 +1,12 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
-import { Fq, Fr } from '@aztec/foundation/fields';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash, randomInBlock } from '@aztec/stdlib/block';
+import { L2BlockHash, randomDataInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -75,9 +76,9 @@ describe('PXEOracleInterface', () => {
   let pxeOracleInterface: PXEOracleInterface;
 
   // The block number of the first log to be emitted.
-  const MIN_BLOCK_NUMBER_OF_A_LOG = 1;
+  const MIN_BLOCK_NUMBER_OF_A_LOG = BlockNumber(1);
   // The block number of the last log to be emitted.
-  const MAX_BLOCK_NUMBER_OF_A_LOG = 3;
+  const MAX_BLOCK_NUMBER_OF_A_LOG = BlockNumber(3);
 
   beforeEach(async () => {
     const store = await openTmpStore('test');
@@ -134,7 +135,7 @@ describe('PXEOracleInterface', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       const firstSender = senders[0];
       const tag = await computeSiloedTagForIndex(firstSender, recipient.address, contractAddress, tagIndex);
-      const log = new TxScopedL2Log(TxHash.random(), 1, 0, 0, PrivateLog.random(tag.value));
+      const log = new TxScopedL2Log(TxHash.random(), 1, 0, BlockNumber.ZERO, PrivateLog.random(tag.value));
       logs[tag.toString()].push(log);
       // Accumulated logs intended for recipient: NUM_SENDERS + 1
 
@@ -143,7 +144,7 @@ describe('PXEOracleInterface', () => {
       for (let i = NUM_SENDERS / 2; i < NUM_SENDERS; i++) {
         const sender = senders[i];
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex + 1);
-        const blockNumber = 2;
+        const blockNumber = BlockNumber(2);
         const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag.value));
         logs[tag.toString()] = [log];
       }
@@ -184,7 +185,7 @@ describe('PXEOracleInterface', () => {
       }
       aztecNode.getLogsByTags.mockReset();
       aztecNode.getTxEffect.mockResolvedValue({
-        ...randomInBlock(await TxEffect.random({ numNullifiers: 1 })),
+        ...randomDataInBlock(await TxEffect.random({ numNullifiers: 1 })),
         txIndexInBlock: 0,
       });
     });
@@ -502,7 +503,7 @@ describe('PXEOracleInterface', () => {
   });
 
   describe('deliverEvent', () => {
-    let blockNumber: number;
+    let blockNumber: BlockNumber;
     let eventSelector: EventSelector;
     let eventContent: Fr[];
     let eventCommitment: Fr;
@@ -513,7 +514,7 @@ describe('PXEOracleInterface', () => {
     // beforeEach sets up the happy path case, so error modes are tested
     // by minimally failing happy path conditions
     beforeEach(async () => {
-      blockNumber = 42;
+      blockNumber = BlockNumber(42);
       eventSelector = EventSelector.random();
       eventContent = [Fr.random(), Fr.random()];
 
@@ -537,10 +538,7 @@ describe('PXEOracleInterface', () => {
        ** - Node knows tx effect
        ** - Node knows siloed event commitment
        */
-      const header = BlockHeader.empty({
-        globalVariables: GlobalVariables.empty({ blockNumber }),
-      });
-      await syncDataProvider.setHeader(header);
+      await setSyncedBlockNumber(blockNumber);
 
       aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
 
@@ -578,7 +576,7 @@ describe('PXEOracleInterface', () => {
     it('should throw when tx block has not yet been synchronized', async () => {
       indexedTxEffect = {
         ...indexedTxEffect,
-        l2BlockNumber: blockNumber + 1,
+        l2BlockNumber: BlockNumber(blockNumber + 1),
       };
       aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
 
@@ -601,13 +599,12 @@ describe('PXEOracleInterface', () => {
       await deliverEvent();
 
       // I should be able to retrieve the private event I just saved using getPrivateEvents
-      const result = await privateEventDataProvider.getPrivateEvents(
+      const result = await privateEventDataProvider.getPrivateEvents(eventSelector, {
         contractAddress,
-        blockNumber,
-        1,
-        [recipient.address],
-        eventSelector,
-      );
+        fromBlock: blockNumber,
+        toBlock: blockNumber + 1,
+        scopes: [recipient.address],
+      });
 
       expect(result.length).toEqual(1);
       expect(result[0].packedEvent).toEqual(eventContent);
@@ -615,9 +612,6 @@ describe('PXEOracleInterface', () => {
   });
 
   describe('deliverNote', () => {
-    let noteHash: Fr;
-    let nullifier: Fr;
-    let txHash: TxHash;
     // Recipient is different from the owner because recipient refers to the
     // recipient of the message containing the note, while owner refers to the
     // owner of the note.
@@ -627,6 +621,20 @@ describe('PXEOracleInterface', () => {
     let noteNonce: Fr;
     let content: Fr[];
 
+    let noteHash: Fr;
+    let uniqueNoteHash: Fr;
+    let nullifier: Fr;
+    let siloedNullifier: Fr;
+
+    let txHash: TxHash;
+    let txEffect: TxEffect;
+    let indexedTxEffect: IndexedTxEffect;
+    let blockNumber: BlockNumber;
+
+    let nullified = false;
+
+    // beforeEach sets up the happy path case, so error modes are tested
+    // by minimally failing happy path conditions
     beforeEach(async () => {
       noteHash = Fr.random();
       nullifier = Fr.random();
@@ -636,18 +644,67 @@ describe('PXEOracleInterface', () => {
       randomness = Fr.random();
       noteNonce = Fr.random();
       content = [Fr.random(), Fr.random()];
+
+      uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
+      siloedNullifier = await siloNullifier(contractAddress, nullifier);
+
+      blockNumber = BlockNumber(42);
+
+      txEffect = TxEffect.from({
+        ...(await TxEffect.random()),
+        noteHashes: [uniqueNoteHash],
+      });
+
+      indexedTxEffect = {
+        l2BlockNumber: blockNumber,
+        l2BlockHash: L2BlockHash.random(),
+        data: txEffect,
+        txIndexInBlock: 0,
+      };
+
+      /* Happy path context conditions:
+       ** - PXE is sync'd to _at least_ block including tx
+       ** - Node knows tx effect
+       ** - Node knows unique note hash (and siloed nullifier if requested)
+       */
+      await setSyncedBlockNumber(blockNumber);
+
+      aztecNode.getTxEffect.mockImplementation(queryTxHash =>
+        Promise.resolve(queryTxHash == txHash ? indexedTxEffect : undefined),
+      );
+
+      aztecNode.findLeavesIndexes.mockImplementation((queryBlockNum, treeId, leaves) => {
+        if (queryBlockNum != blockNumber) {
+          throw new Error(`Got a tree query for block ${queryBlockNum} but synced block is ${blockNumber}`);
+        }
+
+        if (treeId == MerkleTreeId.NOTE_HASH_TREE && leaves[0].equals(uniqueNoteHash)) {
+          return Promise.resolve([
+            {
+              data: BigInt(0),
+              l2BlockNumber: indexedTxEffect.l2BlockNumber,
+              l2BlockHash: indexedTxEffect.l2BlockHash,
+            },
+          ]);
+        } else if (treeId == MerkleTreeId.NULLIFIER_TREE && leaves[0].equals(siloedNullifier)) {
+          // Note that returning undefined (i.e. the un-nullified case) covers both scenarios where the note has not
+          // been nullified and where the nullifier is in a block past the synced block.
+          return Promise.resolve([
+            nullified
+              ? {
+                  data: BigInt(0),
+                  l2BlockNumber: indexedTxEffect.l2BlockNumber,
+                  l2BlockHash: indexedTxEffect.l2BlockHash,
+                }
+              : undefined,
+          ]);
+        } else {
+          throw new Error();
+        }
+      });
     });
 
     it('should store note if it exists in note hash tree and is not nullified', async () => {
-      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
-      // Mock note exists in tree
-      aztecNode.findLeavesIndexes.mockImplementation((_blockNum, treeId, leaves) => {
-        if (treeId === MerkleTreeId.NOTE_HASH_TREE && leaves[0].equals(uniqueNoteHash)) {
-          return Promise.resolve([randomInBlock(0n)]);
-        }
-        return Promise.resolve([undefined]);
-      });
-
       await pxeOracleInterface.deliverNote(
         contractAddress,
         owner,
@@ -668,9 +725,42 @@ describe('PXEOracleInterface', () => {
       expect(notes[0].noteHash.equals(noteHash)).toBe(true);
     });
 
-    it('should throw if note does not exist in note hash tree', async () => {
-      // Mock note does not exist in tree
-      aztecNode.findLeavesIndexes.mockImplementation(() => Promise.resolve([undefined]));
+    it('should throw if tx hash does not exist', async () => {
+      await expect(
+        pxeOracleInterface.deliverNote(
+          contractAddress,
+          owner,
+          storageSlot,
+          randomness,
+          noteNonce,
+          content,
+          noteHash,
+          nullifier,
+          TxHash.random(),
+          recipient.address,
+        ),
+      ).rejects.toThrow(/Could not find tx effect/);
+    });
+
+    it('should throw if note was not emitted in the tx', async () => {
+      await expect(
+        pxeOracleInterface.deliverNote(
+          contractAddress,
+          owner,
+          storageSlot,
+          randomness,
+          noteNonce,
+          content,
+          Fr.random(), // note hash
+          nullifier,
+          txHash,
+          recipient.address,
+        ),
+      ).rejects.toThrow(/is not present in tx/);
+    });
+
+    it('should throw if tx was mined after synced block number', async () => {
+      await setSyncedBlockNumber(BlockNumber(blockNumber - 1));
 
       await expect(
         pxeOracleInterface.deliverNote(
@@ -685,23 +775,11 @@ describe('PXEOracleInterface', () => {
           txHash,
           recipient.address,
         ),
-      ).rejects.toThrow(/not present on the tree/);
+      ).rejects.toThrow(/as of block number/);
     });
 
     it('should store and immediately remove note if it is already nullified', async () => {
-      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
-      const siloedNullifier = await siloNullifier(contractAddress, nullifier);
-
-      // Mock note exists and is nullified
-      aztecNode.findLeavesIndexes.mockImplementation((_blockNum, treeId, leaves) => {
-        if (treeId === MerkleTreeId.NOTE_HASH_TREE && leaves[0].equals(uniqueNoteHash)) {
-          return Promise.resolve([randomInBlock(0n)]);
-        }
-        if (treeId === MerkleTreeId.NULLIFIER_TREE && leaves[0].equals(siloedNullifier)) {
-          return Promise.resolve([randomInBlock(0n)]);
-        }
-        return Promise.resolve([undefined]);
-      });
+      nullified = true;
 
       await pxeOracleInterface.deliverNote(
         contractAddress,
@@ -719,85 +797,6 @@ describe('PXEOracleInterface', () => {
       // Verify note was removed
       const notes = await noteDataProvider.getNotes({ contractAddress, scopes: [recipient.address] });
       expect(notes).toHaveLength(0);
-    });
-
-    // Verifies that notes are only accepted from blocks that have been synced by PXE. We mock
-    // `AztecNode.findLeavesIndexes` to only return the note hash in blocks beyond our current
-    // sync point, and then we check that the function correctly throws.
-    it('should reject notes that exist only in unsynced future blocks', async () => {
-      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
-      const syncedBlockNumber = 100;
-      await setSyncedBlockNumber(syncedBlockNumber);
-
-      // Mock note only exists in blocks after synced block
-      aztecNode.findLeavesIndexes.mockImplementation((blockNum, treeId, leaves) => {
-        if (treeId === MerkleTreeId.NOTE_HASH_TREE && leaves[0].equals(uniqueNoteHash)) {
-          if (typeof blockNum === 'number' && blockNum > syncedBlockNumber) {
-            return Promise.resolve([randomInBlock(0n)]);
-          }
-        }
-        return Promise.resolve([undefined]);
-      });
-
-      await expect(
-        pxeOracleInterface.deliverNote(
-          contractAddress,
-          owner,
-          storageSlot,
-          randomness,
-          noteNonce,
-          content,
-          noteHash,
-          nullifier,
-          txHash,
-          recipient.address,
-        ),
-      ).rejects.toThrow(/not present on the tree/);
-    });
-
-    // Verifies that notes are not marked as nullified when their nullifier only exists in blocks that haven't been
-    // synced yet. We mock the note to exist in a synced block but its nullifier to only exist in future blocks, then
-    // verify the note can still be obtained as active.
-    it('should not remove note if nullifier only exists in unsynced blocks', async () => {
-      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
-      const siloedNullifier = await siloNullifier(contractAddress, nullifier);
-      const syncedBlockNumber = 100;
-      await setSyncedBlockNumber(syncedBlockNumber);
-
-      // Mock note exists in synced blocks but nullifier only exists after
-      aztecNode.findLeavesIndexes.mockImplementation((blockNum, treeId, leaves) => {
-        if (treeId === MerkleTreeId.NOTE_HASH_TREE && leaves[0].equals(uniqueNoteHash)) {
-          return Promise.resolve([randomInBlock(0n)]);
-        }
-        if (treeId === MerkleTreeId.NULLIFIER_TREE && leaves[0].equals(siloedNullifier)) {
-          if (typeof blockNum === 'number' && blockNum > syncedBlockNumber) {
-            return Promise.resolve([randomInBlock(0n)]);
-          }
-        }
-        return Promise.resolve([undefined]);
-      });
-
-      await pxeOracleInterface.deliverNote(
-        contractAddress,
-        owner,
-        storageSlot,
-        randomness,
-        noteNonce,
-        content,
-        noteHash,
-        nullifier,
-        txHash,
-        recipient.address,
-      );
-
-      // Verify note was stored and not removed
-      const notes = await noteDataProvider.getNotes({
-        contractAddress,
-        status: NoteStatus.ACTIVE,
-        scopes: [recipient.address],
-      });
-      expect(notes).toHaveLength(1);
-      expect(notes[0].noteHash.equals(noteHash)).toBe(true);
     });
   });
 
@@ -948,7 +947,7 @@ describe('PXEOracleInterface', () => {
         TxHash.random(),
         randomInt(100),
         randomInt(100),
-        randomInt(100),
+        BlockNumber(randomInt(100)),
         log,
       );
 
@@ -1032,7 +1031,7 @@ describe('PXEOracleInterface', () => {
       await noteDataProvider.addNotes([noteDao], recipient);
 
       // Set up the nullifier in the merkle tree
-      const nullifierIndex = randomInBlock(123n);
+      const nullifierIndex = randomDataInBlock(123n);
       aztecNode.findLeavesIndexes.mockResolvedValue([nullifierIndex]);
 
       // Call the function under test
@@ -1080,7 +1079,7 @@ describe('PXEOracleInterface', () => {
       // Set up initial state with a note
       const noteDao = await NoteDao.random({ contractAddress });
       const syncedBlockNumber = 100;
-      await setSyncedBlockNumber(syncedBlockNumber);
+      await setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
 
       // Add the note to storage
       await noteDataProvider.addNotes([noteDao], recipient);
@@ -1088,7 +1087,7 @@ describe('PXEOracleInterface', () => {
       // Mock nullifier to only exist after synced block
       aztecNode.findLeavesIndexes.mockImplementation(blockNum => {
         if (typeof blockNum === 'number' && blockNum > syncedBlockNumber) {
-          return Promise.resolve([randomInBlock(0n)]);
+          return Promise.resolve([randomDataInBlock(0n)]);
         }
         return Promise.resolve([undefined]);
       });
@@ -1137,37 +1136,37 @@ describe('PXEOracleInterface', () => {
       contractAddress = await AztecAddress.random();
       nullifier = Fr.random();
       leafSlot = Fr.random();
-      await setSyncedBlockNumber(syncedBlockNumber);
+      await setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
     });
 
     it('throws when getting low nullifier membership witness for future block', async () => {
       await expect(
-        pxeOracleInterface.getLowNullifierMembershipWitness(syncedBlockNumber + 1, nullifier),
+        pxeOracleInterface.getLowNullifierMembershipWitness(BlockNumber(syncedBlockNumber + 1), nullifier),
       ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
     });
 
     it('throws when getting block for future block number', async () => {
-      await expect(pxeOracleInterface.getBlock(syncedBlockNumber + 1)).rejects.toThrow(
+      await expect(pxeOracleInterface.getBlock(BlockNumber(syncedBlockNumber + 1))).rejects.toThrow(
         `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
       );
     });
 
     it('throws when getting public data witness for future block', async () => {
-      await expect(pxeOracleInterface.getPublicDataWitness(syncedBlockNumber + 1, leafSlot)).rejects.toThrow(
-        `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
-      );
+      await expect(
+        pxeOracleInterface.getPublicDataWitness(BlockNumber(syncedBlockNumber + 1), leafSlot),
+      ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
     });
 
     it('throws when getting public storage for future block', async () => {
       await expect(
-        pxeOracleInterface.getPublicStorageAt(syncedBlockNumber + 1, contractAddress, leafSlot),
+        pxeOracleInterface.getPublicStorageAt(BlockNumber(syncedBlockNumber + 1), contractAddress, leafSlot),
       ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
     });
   });
 
   describe('getAnchorBlockHeader', () => {
     it('returns the anchor block header and not a header from aztec node', async () => {
-      const blockNumber = 42;
+      const blockNumber = BlockNumber(42);
       const header = BlockHeader.empty({
         globalVariables: GlobalVariables.empty({ blockNumber }),
       });
@@ -1178,7 +1177,7 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  const setSyncedBlockNumber = (blockNumber: number) => {
+  const setSyncedBlockNumber = (blockNumber: BlockNumber) => {
     return syncDataProvider.setHeader(
       BlockHeader.empty({
         globalVariables: GlobalVariables.empty({ blockNumber }),

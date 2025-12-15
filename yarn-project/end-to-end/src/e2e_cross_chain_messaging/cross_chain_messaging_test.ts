@@ -3,13 +3,13 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
-import {
-  type DeployL1ContractsArgs,
-  type DeployL1ContractsReturnType,
-  type ExtendedViemWalletClient,
-  createExtendedL1Client,
-  deployL1Contract,
-} from '@aztec/ethereum';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import type {
+  DeployAztecL1ContractsArgs,
+  DeployAztecL1ContractsReturnType,
+} from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { InboxAbi, OutboxAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
@@ -54,9 +54,13 @@ export class CrossChainMessagingTest {
   outbox!: any; // GetContractReturnType<typeof OutboxAbi> | undefined;
   cheatCodes!: CheatCodes;
 
-  deployL1ContractsValues!: DeployL1ContractsReturnType;
+  deployL1ContractsValues!: DeployAztecL1ContractsReturnType;
 
-  constructor(testName: string, opts: SetupOptions = {}, deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {}) {
+  constructor(
+    testName: string,
+    opts: SetupOptions = {},
+    deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
+  ) {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_cross_chain_messaging/${testName}`, dataPath, opts, {
       initialValidators: [],

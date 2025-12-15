@@ -14,7 +14,7 @@ template <typename FF_> class get_contract_instanceImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 3, 4, 3, 3, 2, 2 };
+    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 5, 3, 4, 3, 3, 2, 2 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,10 +35,10 @@ template <typename FF> class get_contract_instance : public Relation<get_contrac
     static constexpr const std::string_view NAME = "get_contract_instance";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_WRITE_OUT_OF_BOUNDS_CHECK = 1;
-    static constexpr size_t SR_IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP = 2;
-    static constexpr size_t SR_ERROR_AGGREGATION = 3;
-    static constexpr size_t SR_SELECTED_MEMBER = 4;
+    static constexpr size_t SR_WRITE_OUT_OF_BOUNDS_CHECK = 2;
+    static constexpr size_t SR_IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP = 3;
+    static constexpr size_t SR_ERROR_AGGREGATION = 4;
+    static constexpr size_t SR_SELECTED_MEMBER = 5;
 
     static std::string get_subrelation_label(size_t index)
     {

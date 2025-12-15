@@ -1,5 +1,7 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import type { Fr, Point } from '@aztec/foundation/fields';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
@@ -74,7 +76,7 @@ export interface ExecutionDataProvider {
    * Returns an object containing an array of note data.
    *
    * @param contractAddress - The contract address of the notes.
-   * @param owner - The owner of the notes.
+   * @param owner - The owner of the notes. If undefined, returns notes for all owners.
    * @param storageSlot - The storage slot of the notes.
    * @param status - The status of notes to fetch.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
@@ -82,7 +84,7 @@ export interface ExecutionDataProvider {
    */
   getNotes(
     contractAddress: AztecAddress,
-    owner: AztecAddress,
+    owner: AztecAddress | undefined,
     storageSlot: Fr,
     status: NoteStatus,
     scopes?: AztecAddress[],
@@ -151,7 +153,7 @@ export interface ExecutionDataProvider {
    * @param leafValue - The leaf value
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
-  getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]>;
+  getMembershipWitness(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]>;
 
   /**
    * Returns a nullifier membership witness for a given nullifier at a given block.
@@ -159,7 +161,10 @@ export interface ExecutionDataProvider {
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  getNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
+  getNullifierMembershipWitness(
+    blockNumber: BlockNumber,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
@@ -170,14 +175,17 @@ export interface ExecutionDataProvider {
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  getLowNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
+  getLowNullifierMembershipWitness(
+    blockNumber: BlockNumber,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Returns a witness for a given slot of the public data tree at a given block.
    * @param blockNumber - The block number at which to get the witness.
    * @param leafSlot - The slot of the public data in the public data tree.
    */
-  getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  getPublicDataWitness(blockNumber: BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -191,14 +199,14 @@ export interface ExecutionDataProvider {
    * @returns Storage value at the given contract slot.
    * @throws If the contract is not deployed.
    */
-  getPublicStorageAt(blockNumber: number, contract: AztecAddress, slot: Fr): Promise<Fr>;
+  getPublicStorageAt(blockNumber: BlockNumber, contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
    * Fetch a block corresponding to the given block number.
    * @param blockNumber - The block number of a block to fetch.
    * @returns - The block corresponding to the given block number. Undefined if it does not exist.
    */
-  getBlock(blockNumber: number): Promise<L2Block | undefined>;
+  getBlock(blockNumber: BlockNumber): Promise<L2Block | undefined>;
 
   /**
    * Assert that the oracle version is compatible with the expected version.

@@ -2,8 +2,9 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import type { Operator } from '@aztec/ethereum';
+import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
@@ -116,7 +117,7 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     logger.warn(`All txs have been mined`);
 
     // Check all blocks mined by the sequencers have under the expected max number of transactions.
-    const blocks = await nodes[0].getPublishedBlocks(1, 50);
+    const blocks = await nodes[0].getPublishedBlocks(BlockNumber(1), 50);
     for (const block of blocks) {
       logger.warn(
         `Block ${block.block.number} was mined at L1 ${block.l1.blockNumber} with ${block.block.body.txEffects.length} transactions`,

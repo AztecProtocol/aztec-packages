@@ -1,7 +1,7 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
@@ -45,14 +45,14 @@ type ReexecuteTransactionsResult = {
 
 export type BlockProposalValidationSuccessResult = {
   isValid: true;
-  blockNumber: number;
+  blockNumber: BlockNumber;
   reexecutionResult?: ReexecuteTransactionsResult;
 };
 
 export type BlockProposalValidationFailureResult = {
   isValid: false;
   reason: BlockProposalValidationFailureReason;
-  blockNumber?: number;
+  blockNumber?: BlockNumber;
   reexecutionResult?: ReexecuteTransactionsResult;
 };
 
@@ -153,7 +153,10 @@ export class BlockProposalHandler {
     }
 
     // Compute the block number based on the parent block
-    const blockNumber = parentBlockHeader === 'genesis' ? INITIAL_L2_BLOCK_NUM : parentBlockHeader.getBlockNumber() + 1;
+    const blockNumber =
+      parentBlockHeader === 'genesis'
+        ? BlockNumber(INITIAL_L2_BLOCK_NUM)
+        : BlockNumber(parentBlockHeader.getBlockNumber() + 1);
 
     // Check that this block number does not exist already
     const existingBlock = await this.blockSource.getBlockHeader(blockNumber);
@@ -170,7 +173,9 @@ export class BlockProposalHandler {
     });
 
     // Check that I have the same set of l1ToL2Messages as the proposal
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(
+      CheckpointNumber.fromBlockNumber(blockNumber),
+    );
     const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
     const proposalInHash = proposal.payload.header.contentCommitment.inHash;
     if (!computedInHash.equals(proposalInHash)) {
@@ -262,7 +267,7 @@ export class BlockProposalHandler {
 
   async reexecuteTransactions(
     proposal: BlockProposal,
-    blockNumber: number,
+    blockNumber: BlockNumber,
     txs: Tx[],
     l1ToL2Messages: Fr[],
   ): Promise<ReexecuteTransactionsResult> {

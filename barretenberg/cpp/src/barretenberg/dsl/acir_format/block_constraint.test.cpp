@@ -177,9 +177,14 @@ using ROMTestConfigs = testing::Types<ROMTestParams<UltraCircuitBuilder, 0, 0, f
                                       ROMTestParams<UltraCircuitBuilder, 10, 0, false>,
                                       ROMTestParams<UltraCircuitBuilder, 10, 0, true>, // Test the case in which there
                                                                                        // are only constant operations
-                                      ROMTestParams<MegaCircuitBuilder, 10, 10, true>,
+                                      ROMTestParams<UltraCircuitBuilder, 10, 20, false>,
+                                      ROMTestParams<UltraCircuitBuilder, 10, 20, true>,
+                                      ROMTestParams<MegaCircuitBuilder, 0, 0, false>,
+                                      ROMTestParams<MegaCircuitBuilder, 10, 0, false>,
+                                      ROMTestParams<MegaCircuitBuilder, 10, 0, true>, // Test the case in which there
+                                                                                      // are only constant operations
+                                      ROMTestParams<MegaCircuitBuilder, 10, 20, false>,
                                       ROMTestParams<MegaCircuitBuilder, 10, 20, true>>;
-
 TYPED_TEST_SUITE(ROMTest, ROMTestConfigs);
 
 TYPED_TEST(ROMTest, GenerateVKFromConstraints)
@@ -417,9 +422,21 @@ class CallDataTestingFunctions {
       public:
         enum class Target : uint8_t { None, ReadValueIncremented };
 
-        static std::vector<Target> get_all() { return { Target::None, Target::ReadValueIncremented }; };
+        static std::vector<Target> get_all()
+        {
+            if constexpr (num_reads > 0) {
+                return { Target::None, Target::ReadValueIncremented };
+            }
+            return { Target::None };
+        }
 
-        static std::vector<std::string> get_labels() { return { "None", "ReadValueIncremented" }; };
+        static std::vector<std::string> get_labels()
+        {
+            if constexpr (num_reads > 0) {
+                return { "None", "ReadValueIncremented" };
+            }
+            return { "None" };
+        }
     };
 
     void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
@@ -442,18 +459,20 @@ class CallDataTestingFunctions {
         std::vector<MemOp> trace;
 
         // Add read operations
-        for (size_t idx = 0; idx < num_reads; ++idx) {
-            MemOp mem_op;
-            const size_t calldata_idx_to_read = static_cast<size_t>(engine.get_random_uint32() % calldata_size);
-            const uint32_t index_for_read =
-                add_to_witness_and_track_indices(witness_values, bb::fr(calldata_idx_to_read));
-            bb::fr read_value = calldata_values[calldata_idx_to_read];
-            const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
+        if constexpr (calldata_size > 0) {
+            for (size_t idx = 0; idx < num_reads; ++idx) {
+                MemOp mem_op;
+                const size_t calldata_idx_to_read = static_cast<size_t>(engine.get_random_uint32() % calldata_size);
+                const uint32_t index_for_read =
+                    add_to_witness_and_track_indices(witness_values, bb::fr(calldata_idx_to_read));
+                bb::fr read_value = calldata_values[calldata_idx_to_read];
+                const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
-            mem_op = { .access_type = AccessType::Read,
-                       .index = WitnessOrConstant<bb::fr>::from_index(index_for_read),
-                       .value = WitnessOrConstant<bb::fr>::from_index(value_for_read) };
-            trace.push_back(mem_op);
+                mem_op = { .access_type = AccessType::Read,
+                           .index = WitnessOrConstant<bb::fr>::from_index(index_for_read),
+                           .value = WitnessOrConstant<bb::fr>::from_index(value_for_read) };
+                trace.push_back(mem_op);
+            }
         }
         if constexpr (perform_constant_ops) {
             add_constant_ops<AccessType::Read>(calldata_size, calldata_values, witness_values, trace);
@@ -474,16 +493,22 @@ class CallDataTestingFunctions {
             break;
         case InvalidWitness::Target::ReadValueIncremented:
             // Tamper with a random read value using the recorded witness index
-            const size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % num_reads);
-            const uint32_t witness_idx = memory_constraint.trace[random_read_idx].index.index;
-            witness_values[witness_idx] += bb::fr(1);
+            if constexpr (num_reads > 0) {
+                const size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % num_reads);
+                const uint32_t witness_idx = memory_constraint.trace[random_read_idx].index.index;
+                witness_values[witness_idx] += bb::fr(1);
+            }
             break;
         }
     }
 };
 
-using CallDataTestConfigs = testing::Types<CallDataTestParams<CallDataType::Primary, 10, 5, false>,
-                                           CallDataTestParams<CallDataType::Primary, 10, 5, true>>;
+using CallDataTestConfigs = testing::Types<CallDataTestParams<CallDataType::Primary, 0, 0, false>,
+                                           CallDataTestParams<CallDataType::Primary, 10, 5, false>,
+                                           CallDataTestParams<CallDataType::Primary, 10, 5, true>,
+                                           CallDataTestParams<CallDataType::Secondary, 0, 0, false>,
+                                           CallDataTestParams<CallDataType::Secondary, 10, 5, false>,
+                                           CallDataTestParams<CallDataType::Secondary, 10, 5, true>>;
 
 template <typename Params>
 class CallDataTests : public ::testing::Test,
@@ -557,62 +582,22 @@ class ReturnDataTestingFunctions {
     }
 };
 
-static constexpr size_t RETURNDATA_SIZE = 10;
-class ReturnDataTests : public ::testing::Test, public TestClass<ReturnDataTestingFunctions<RETURNDATA_SIZE>> {
+template <size_t ReturnDataSize_> class ReturnDataTestsParams {
+  public:
+    static constexpr size_t returndata_size = ReturnDataSize_;
+};
+
+template <typename Params>
+class ReturnDataTests : public ::testing::Test, public TestClass<ReturnDataTestingFunctions<Params::returndata_size>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-TEST_F(ReturnDataTests, GenerateVKFromConstraints)
+using ReturnDataTestConfigs = testing::Types<ReturnDataTestsParams<0>, ReturnDataTestsParams<10>>;
+
+TYPED_TEST_SUITE(ReturnDataTests, ReturnDataTestConfigs);
+
+TYPED_TEST(ReturnDataTests, GenerateVKFromConstraints)
 {
-    test_vk_independence<MegaFlavor>();
-}
-
-template <typename Builder> class EmptyBlockConstraintTests : public ::testing::Test {};
-
-using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
-TYPED_TEST_SUITE(EmptyBlockConstraintTests, BuilderTypes);
-
-// Test that all block constraint types handle empty initialization gracefully
-TYPED_TEST(EmptyBlockConstraintTests, EmptyBlockConstraints)
-{
-    using Builder = TypeParam;
-
-    std::vector<std::pair<BlockType, CallDataType>> types_to_test;
-
-    // Test each block constraint type
-    if constexpr (IsUltraBuilder<Builder>) {
-        types_to_test = { { BlockType::ROM, CallDataType::None }, { BlockType::RAM, CallDataType::None } };
-    } else {
-        types_to_test = { { BlockType::ROM, CallDataType::None },
-                          { BlockType::RAM, CallDataType::None },
-                          { BlockType::CallData, CallDataType::Primary },
-                          { BlockType::CallData, CallDataType::Secondary },
-                          { BlockType::ReturnData, CallDataType::None } };
-    }
-
-    // Create empty block constraint
-    for (auto type : types_to_test) {
-        BlockConstraint block{
-            .init = {},  // Empty initialization data
-            .trace = {}, // Empty trace
-            .type = type.first,
-            .calldata_id = type.second,
-        };
-
-        AcirProgram program;
-        program.constraints = {
-            .varnum = 0, // No variables needed for empty block constraints
-            .num_acir_opcodes = 1,
-            .public_inputs = {},
-            .block_constraints = { block },
-            .original_opcode_indices = create_empty_original_opcode_indices(),
-        };
-
-        mock_opcode_indices(program.constraints);
-
-        // Circuit construction should succeed without errors
-        auto circuit = create_circuit<Builder>(program);
-        EXPECT_TRUE(CircuitChecker::check(circuit));
-    }
+    TestFixture::template test_vk_independence<MegaFlavor>();
 }

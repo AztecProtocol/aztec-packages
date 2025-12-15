@@ -145,6 +145,7 @@ pub fn validate_previous_kernel_for_tail(
             "Must have public calls when exporting public kernel data from the tail circuit",
         );
     } else {
+        // Empty public call requests validated in validate_accumulated_items
         public_teardown_call_request.assert_empty(
             "Public teardown call request must be empty when executing the tail circuit",
         );

@@ -103,24 +103,23 @@ pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 3;
 pub comptime global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
 pub comptime global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
 pub comptime global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
-pub comptime global AVM_VK_INDEX: u32 = 7;
-pub comptime global PRIVATE_TX_BASE_ROLLUP_VK_INDEX: u32 = 8;
-pub comptime global PUBLIC_TX_BASE_ROLLUP_VK_INDEX: u32 = 9;
-pub comptime global TX_MERGE_ROLLUP_VK_INDEX: u32 = 10;
-pub comptime global BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX: u32 = 11;
-pub comptime global BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX: u32 = 12;
-pub comptime global BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX: u32 = 13;
-pub comptime global BLOCK_ROOT_ROLLUP_VK_INDEX: u32 = 14;
-pub comptime global BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX: u32 = 15;
-pub comptime global BLOCK_MERGE_ROLLUP_VK_INDEX: u32 = 16;
-pub comptime global CHECKPOINT_ROOT_ROLLUP_VK_INDEX: u32 = 17;
-pub comptime global CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX: u32 = 18;
-pub comptime global CHECKPOINT_PADDING_ROLLUP_VK_INDEX: u32 = 19;
-pub comptime global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 20;
-pub comptime global ROOT_ROLLUP_VK_INDEX: u32 = 21;
-pub comptime global PARITY_BASE_VK_INDEX: u32 = 22;
-pub comptime global PARITY_ROOT_VK_INDEX: u32 = 23;
-pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 24;
+pub comptime global PRIVATE_TX_BASE_ROLLUP_VK_INDEX: u32 = 7;
+pub comptime global PUBLIC_TX_BASE_ROLLUP_VK_INDEX: u32 = 8;
+pub comptime global TX_MERGE_ROLLUP_VK_INDEX: u32 = 9;
+pub comptime global BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX: u32 = 10;
+pub comptime global BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX: u32 = 11;
+pub comptime global BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX: u32 = 12;
+pub comptime global BLOCK_ROOT_ROLLUP_VK_INDEX: u32 = 13;
+pub comptime global BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX: u32 = 14;
+pub comptime global BLOCK_MERGE_ROLLUP_VK_INDEX: u32 = 15;
+pub comptime global CHECKPOINT_ROOT_ROLLUP_VK_INDEX: u32 = 16;
+pub comptime global CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX: u32 = 17;
+pub comptime global CHECKPOINT_PADDING_ROLLUP_VK_INDEX: u32 = 18;
+pub comptime global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 19;
+pub comptime global ROOT_ROLLUP_VK_INDEX: u32 = 20;
+pub comptime global PARITY_BASE_VK_INDEX: u32 = 21;
+pub comptime global PARITY_ROOT_VK_INDEX: u32 = 22;
+pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 23;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
 // SIDE EFFECT RELATED CONSTANTS
@@ -142,6 +141,8 @@ pub global GLOBAL_INDEX_PRIVATE_LOG_OFFSET: u32 =
     GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET + MAX_L2_TO_L1_MSGS_PER_CALL;
 pub global GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET: u32 =
     GLOBAL_INDEX_PRIVATE_LOG_OFFSET + MAX_PRIVATE_LOGS_PER_CALL;
+pub global GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET: u32 =
+    GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET + MAX_CONTRACT_CLASS_LOGS_PER_CALL;
 
 pub global TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL: u32 = MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
     + MAX_NULLIFIER_READ_REQUESTS_PER_CALL
@@ -151,7 +152,8 @@ pub global TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL: u32 = MAX_NOTE_HASH_READ_REQUEST
     + MAX_ENQUEUED_CALLS_PER_CALL
     + MAX_L2_TO_L1_MSGS_PER_CALL
     + MAX_PRIVATE_LOGS_PER_CALL
-    + MAX_CONTRACT_CLASS_LOGS_PER_CALL;
+    + MAX_CONTRACT_CLASS_LOGS_PER_CALL
+    + 1 /* min_revertible_side_effect_counter */;
 
 // MISC CONSTANTS
 pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
@@ -606,7 +608,7 @@ pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 339; // See UltraKeccakFlavor for fo
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
-pub global CHONK_PROOF_LENGTH: u32 = 2049;
+pub global CHONK_PROOF_LENGTH: u32 = 1963;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
 pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
@@ -716,6 +718,7 @@ pub global AVM_TX_PHASE_VALUE_LAST: u8 = 11;
 
 // Subtrace IDs.
 // Execution, ALU, BITWISE and then we follow the order given by ExecutionOpCode enum.
+// Note: these are all powers of 2 to allow for binary decomposition.
 pub global AVM_SUBTRACE_ID_EXECUTION: u32 = 1;
 pub global AVM_SUBTRACE_ID_ALU: u32 = 2 * AVM_SUBTRACE_ID_EXECUTION;
 pub global AVM_SUBTRACE_ID_BITWISE: u32 = 2 * AVM_SUBTRACE_ID_ALU;
@@ -732,6 +735,7 @@ pub global AVM_SUBTRACE_ID_ECC: u32 = 2 * AVM_SUBTRACE_ID_KECCAKF1600;
 pub global AVM_SUBTRACE_ID_TO_RADIX: u32 = 2 * AVM_SUBTRACE_ID_ECC;
 
 // Dynamic Gas Opcode IDs
+// Note: these are all powers of 2 to allow for binary decomposition.
 pub global AVM_DYN_GAS_ID_CALLDATACOPY: u32 = 1;
 pub global AVM_DYN_GAS_ID_RETURNDATACOPY: u32 = 2 * AVM_DYN_GAS_ID_CALLDATACOPY;
 pub global AVM_DYN_GAS_ID_TORADIX: u32 = 2 * AVM_DYN_GAS_ID_RETURNDATACOPY;
@@ -1139,17 +1143,16 @@ pub global CHECKPOINT_END_PREFIX: Field = 0x636865636b706f696e745f656e64; // = "
 // Constants related to proof type of a recursive proof verification.
 // Keep following constants in sync with the enum acir_format::PROOF_TYPE in recursion_constraint.hpp
 // TODO: Move to BB noir constants lib
-pub global PROOF_TYPE_PLONK: u32 = 0;
-pub global PROOF_TYPE_HONK: u32 = 1;
-pub global PROOF_TYPE_OINK: u32 = 2;
-pub global PROOF_TYPE_HN: u32 = 3;
-pub global PROOF_TYPE_AVM: u32 = 4;
-pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
-pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
-// worktodo comment here where 7 is
-pub global PROOF_TYPE_HN_FINAL: u32 = 8;
-pub global PROOF_TYPE_HN_TAIL: u32 = 9;
-pub global PROOF_TYPE_CHONK: u32 = 10;
+pub global PROOF_TYPE_HONK: u32 = 0;
+pub global PROOF_TYPE_OINK: u32 = 1;
+pub global PROOF_TYPE_HN: u32 = 2;
+pub global PROOF_TYPE_AVM: u32 = 3;
+pub global PROOF_TYPE_ROLLUP_HONK: u32 = 4;
+pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 5;
+// worktodo comment here where 6 is
+pub global PROOF_TYPE_HN_FINAL: u32 = 7;
+pub global PROOF_TYPE_HN_TAIL: u32 = 8;
+pub global PROOF_TYPE_CHONK: u32 = 9;
 
 // TODO: Make it 1_u128 << 64 as Field without breaking TS constants generator
 pub global TWO_POW_64: Field = 18446744073709551616;
@@ -1215,6 +1218,7 @@ mod test {
     };
     use crate::traits::FromField;
     use super::{
+        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET,
         NUM_BASE_PARITY_PER_ROOT_PARITY, NUM_MSGS_PER_BASE_PARITY,
         NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
     };
@@ -1279,6 +1283,7 @@ mod test {
             (GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET, MAX_L2_TO_L1_MSGS_PER_CALL),
             (GLOBAL_INDEX_PRIVATE_LOG_OFFSET, MAX_PRIVATE_LOGS_PER_CALL),
             (GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET, MAX_CONTRACT_CLASS_LOGS_PER_CALL),
+            (GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET, 1),
         ];
 
         let mut last_offset = 0;

@@ -1,5 +1,6 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
@@ -66,7 +67,7 @@ describe('versioning', () => {
         l2CircuitsVkTreeRoot: Fr.random().toString(),
       };
 
-      const handler = { get: () => Promise.resolve(1) };
+      const handler = { get: () => Promise.resolve(BlockNumber(1)) };
       context = await createJsonRpcTestSetup<TestApi>(
         handler,
         TestApiSchema,
@@ -81,7 +82,7 @@ describe('versioning', () => {
 
     it('passes versioning headers', async () => {
       const result = await context.client.get();
-      expect(result).toBe(1);
+      expect(result).toBe(BlockNumber(1));
     });
 
     it('throws on mismatch', async () => {
@@ -95,14 +96,14 @@ describe('versioning', () => {
       const client = createSafeJsonRpcClient(context.url, TestApiSchema, {
         onResponse: getVersioningResponseHandler({ ...versions, rollupVersion: 5 }),
       });
-      expect(await client.get()).toEqual(1);
+      expect(await client.get()).toEqual(BlockNumber(1));
     });
 
     it('passes if missing on client', async () => {
       const client = createSafeJsonRpcClient(context.url, TestApiSchema, {
         onResponse: getVersioningResponseHandler({ ...versions, l1ChainId: undefined }),
       });
-      expect(await client.get()).toEqual(1);
+      expect(await client.get()).toEqual(BlockNumber(1));
     });
 
     it('throws ComponentsVersionsError on version mismatch even when request causes validation error', async () => {

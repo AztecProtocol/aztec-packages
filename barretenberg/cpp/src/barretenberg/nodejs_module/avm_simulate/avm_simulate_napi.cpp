@@ -14,6 +14,20 @@
 namespace bb::nodejs {
 
 namespace {
+// Log levels from TS foundation/src/log/log-levels.ts: ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug',
+// 'trace'] Map: 0=silent, 1=fatal, 2=error, 3=warn, 4=info, 5=verbose, 6=debug, 7=trace
+constexpr int LOG_LEVEL_VERBOSE = 5;
+constexpr int LOG_LEVEL_TRACE = 7;
+
+// Helper to set logging flags based on TS log level
+inline void set_logging_from_level(int log_level)
+{
+    // Turn verbose_logging on if log level is verbose (5) or above
+    verbose_logging = (log_level >= LOG_LEVEL_VERBOSE);
+    // Turn debug_logging on if log level is trace (7) or above
+    debug_logging = (log_level >= LOG_LEVEL_TRACE);
+}
+
 // Callback method names
 constexpr const char* CALLBACK_GET_CONTRACT_INSTANCE = "getContractInstance";
 constexpr const char* CALLBACK_GET_CONTRACT_CLASS = "getContractClass";
@@ -100,20 +114,17 @@ struct ContractCallbacks {
 
 Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
 {
-    // TODO(dbanks12): configurable verbosity (maybe based on TS log level)
-    // verbose_logging = true;
-    // debug_logging = true;
-
     Napi::Env env = cb_info.Env();
 
-    // Validate arguments - expects 3 arguments
+    // Validate arguments - expects 4 arguments
     // arg[0]: inputs Buffer (required)
     // arg[1]: contractProvider object (required)
     // arg[2]: worldStateHandle external (required)
-    if (cb_info.Length() < 3) {
+    // arg[3]: logLevel number (required) - index into TS LogLevels array
+    if (cb_info.Length() < 4) {
         throw Napi::TypeError::New(env,
-                                   "Wrong number of arguments. Expected 3 arguments: inputs Buffer, contractProvider "
-                                   "object, and worldStateHandle.");
+                                   "Wrong number of arguments. Expected 4 arguments: inputs Buffer, contractProvider "
+                                   "object, worldStateHandle, and logLevel.");
     }
 
     if (!cb_info[0].IsBuffer()) {
@@ -128,6 +139,14 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
     if (!cb_info[2].IsExternal()) {
         throw Napi::TypeError::New(env, "Third argument must be a WorldState handle (External)");
     }
+
+    if (!cb_info[3].IsNumber()) {
+        throw Napi::TypeError::New(env, "Fourth argument must be a log level number (0-7)");
+    }
+
+    // Extract log level and set logging flags
+    int log_level = cb_info[3].As<Napi::Number>().Int32Value();
+    set_logging_from_level(log_level);
 
     // Extract the inputs buffer
     auto inputs_buffer = cb_info[0].As<Napi::Buffer<uint8_t>>();
@@ -215,23 +234,29 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
 
 Napi::Value AvmSimulateNapi::simulateWithHintedDbs(const Napi::CallbackInfo& cb_info)
 {
-    // TODO(dbanks12): configurable verbosity (maybe based on TS log level)
-    verbose_logging = true;
-    debug_logging = true;
-
     Napi::Env env = cb_info.Env();
 
-    // Validate arguments - expects 1 argument
+    // Validate arguments - expects 2 arguments
     // arg[0]: inputs Buffer (required) - AvmProvingInputs
-    if (cb_info.Length() < 1) {
-        throw Napi::TypeError::New(
-            env, "Wrong number of arguments. Expected 1 argument: AvmProvingInputs/AvmCircuitInputs msgpack Buffer.");
+    // arg[1]: logLevel number (required) - index into TS LogLevels array
+    if (cb_info.Length() < 2) {
+        throw Napi::TypeError::New(env,
+                                   "Wrong number of arguments. Expected 2 arguments: AvmProvingInputs/AvmCircuitInputs "
+                                   "msgpack Buffer and logLevel.");
     }
 
     if (!cb_info[0].IsBuffer()) {
         throw Napi::TypeError::New(
             env, "First argument must be a Buffer containing serialized AvmProvingInputs/AvmCircuitInputs");
     }
+
+    if (!cb_info[1].IsNumber()) {
+        throw Napi::TypeError::New(env, "Second argument must be a log level number (0-7)");
+    }
+
+    // Extract log level and set logging flags
+    int log_level = cb_info[1].As<Napi::Number>().Int32Value();
+    set_logging_from_level(log_level);
 
     // Extract the inputs buffer
     auto inputs_buffer = cb_info[0].As<Napi::Buffer<uint8_t>>();

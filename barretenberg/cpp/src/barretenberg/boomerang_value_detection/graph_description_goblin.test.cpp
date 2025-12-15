@@ -3,9 +3,9 @@
 #include "barretenberg/common/test.hpp"
 
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -13,7 +13,7 @@
 namespace bb::stdlib::recursion::honk {
 class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
   public:
-    using Builder = GoblinRecursiveVerifier::Builder;
+    using Builder = UltraCircuitBuilder;
     using ECCVMVK = Goblin::ECCVMVerificationKey;
     using TranslatorVK = Goblin::TranslatorVerificationKey;
 
@@ -83,11 +83,13 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
         recursive_merge_commitments.T_prev_commitments[idx].unset_free_witness_tag();
     }
 
-    GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
+    auto transcript = std::make_shared<GoblinRecursiveVerifier::Transcript>();
+    GoblinStdlibProof stdlib_proof(builder, proof);
+    GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND };
+    GoblinRecursiveVerifier::ReductionResult output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
     stdlib::recursion::honk::DefaultIO<Builder> inputs;
-    inputs.pairing_inputs = output.points_accumulator;
+    inputs.pairing_inputs = output.pairing_points;
     inputs.set_public();
 
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
@@ -102,7 +104,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 
         ASSERT_TRUE(verified);
     }
-    auto translator_pairing_points = output.points_accumulator;
+    auto translator_pairing_points = output.pairing_points;
 
     // The pairing points are public outputs from the recursive verifier that will be verified externally via a pairing
     // check. While they are computed within the circuit (via batch_mul for P0 and negation for P1), their output

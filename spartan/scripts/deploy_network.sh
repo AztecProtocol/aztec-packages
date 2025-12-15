@@ -25,7 +25,6 @@ declare -A STAGE_TIMINGS
 ########################
 NAMESPACE=${NAMESPACE} # required
 CLUSTER=${CLUSTER:-kind}
-SALT=${SALT:-$(date +%s)}
 RESOURCE_PROFILE=$([[ "${CLUSTER}" == "kind" ]] && echo "dev" || echo "prod")
 BASE_STATE_PATH="${CLUSTER}/${NAMESPACE}"
 
@@ -50,7 +49,7 @@ LABS_INFRA_INDICES=${LABS_INFRA_INDICES:-0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1
 ########################
 # ROLLUP VARIABLES
 ########################
-DESTROY_ROLLUP_CONTRACTS=${DESTROY_ROLLUP_CONTRACTS:-false}
+REDEPLOY_ROLLUP_CONTRACTS=${REDEPLOY_ROLLUP_CONTRACTS:-false}
 CREATE_ROLLUP_CONTRACTS=${CREATE_ROLLUP_CONTRACTS:-true}
 SPONSORED_FPC=${SPONSORED_FPC:-true}
 TEST_ACCOUNTS=${TEST_ACCOUNTS:-false}
@@ -148,7 +147,6 @@ P2P_GOSSIPSUB_DHI=${P2P_GOSSIPSUB_DHI:-12}
 
 P2P_DROP_TX=${P2P_DROP_TX:-false}
 P2P_DROP_TX_CHANCE=${P2P_DROP_TX_CHANCE:-0}
-
 
 # Compute validator addresses (skip if no validators)
 if [[ $VALIDATOR_REPLICAS -gt 0 ]]; then
@@ -273,9 +271,16 @@ fi
 # -------------------------------
 # Deploy rollup contracts
 # -------------------------------
+
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
+  if [ -z "$ETHERSCAN_API_KEY" ]; then
+    echo "Error: ETHERSCAN_API_KEY is not set, but VERIFY_CONTRACTS=true. Cannot verify contracts without Etherscan API key (i.e. we need API access to the verification service)."
+  fi
+fi
+
 ROLLUP_CONTRACTS_START=$(date +%s)
 DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
-"${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts/${SALT}"
+"${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts"
 
 # Handle NETWORK variable - needs quotes for string values, null for unset
 if [[ -n "${NETWORK:-}" ]]; then
@@ -291,7 +296,6 @@ AZTEC_DOCKER_IMAGE = "${AZTEC_DOCKER_IMAGE}"
 L1_RPC_URLS = "${CSV_RPC_URLS}"
 PRIVATE_KEY = "${ROLLUP_DEPLOYMENT_PRIVATE_KEY}"
 L1_CHAIN_ID = "${ETHEREUM_CHAIN_ID}"
-SALT = "${SALT}"
 VALIDATORS = "${VALIDATOR_ADDRESSES}"
 SPONSORED_FPC = ${SPONSORED_FPC}
 TEST_ACCOUNTS = ${TEST_ACCOUNTS}
@@ -327,23 +331,32 @@ JOB_BACKOFF_LIMIT = 3
 JOB_TTL_SECONDS_AFTER_FINISHED = 3600
 EOF
 
-tf_run "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${DESTROY_ROLLUP_CONTRACTS}" "${CREATE_ROLLUP_CONTRACTS}"
+# Check terraform state for existing contract addresses
+# This avoids redeploying contracts when the k8s job has been cleaned up by TTL
+terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" init -reconfigure >/dev/null
+EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address 2>/dev/null | grep -E '^0x[a-fA-F0-9]{40}$' || true)
 
-# Print logs from any failed pods (useful if job succeeded after retries)
-JOB_NAME=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw job_name)
-for pod in $(kubectl get pods -n "${NAMESPACE}" -l "job-name=${JOB_NAME}" \
-  --field-selector=status.phase=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-  echo "=== Failed pod: $pod ==="
-  kubectl logs -n "${NAMESPACE}" "$pod" 2>/dev/null || true
-done
+if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
+  log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
+else
+  if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
+    log "REDEPLOY_ROLLUP_CONTRACTS=true, destroying existing deployment"
+    terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve
+  fi
+  terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" plan -out=tfplan
+  terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" apply tfplan
+
+  # Print logs from any failed pods (useful if job succeeded after retries)
+  JOB_NAME=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw job_name)
+  for pod in $(kubectl get pods -n "${NAMESPACE}" -l "job-name=${JOB_NAME}" \
+    --field-selector=status.phase=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+    echo "=== Failed pod: $pod ==="
+    kubectl logs -n "${NAMESPACE}" "$pod" 2>/dev/null || true
+  done
+fi
 
 STAGE_TIMINGS[rollup_contracts]=$(($(date +%s) - ROLLUP_CONTRACTS_START))
-log "Deployed rollup contracts"
-
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
-  terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw verification_json_b64 | base64 -d > $HOME/l1-verify.json
-  ${REPO_ROOT}/l1-contracts/scripts/verify-from-json.sh $HOME/l1-verify.json --api-key $ETHERSCAN_API_KEY
-fi
+log "Rollup contracts ready"
 
 if [[ "${USE_NETWORK_CONFIG:-false}" != "true" ]]; then
   REGISTRY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address)
@@ -353,7 +366,7 @@ if [[ "${USE_NETWORK_CONFIG:-false}" != "true" ]]; then
   [[ -n "${REGISTRY_ADDRESS}" ]] || die "Failed to fetch registry_address"
   [[ -n "${SLASH_FACTORY_ADDRESS}" ]] || die "Failed to fetch slash_factory_address"
   [[ -n "${FEE_ASSET_HANDLER_ADDRESS}" ]] || die "Failed to fetch fee_asset_handler_address"
-  log "Got rollup contract addresses"
+  log "Contract addresses: registry=${REGISTRY_ADDRESS}, slash_factory=${SLASH_FACTORY_ADDRESS}, fee_asset_handler=${FEE_ASSET_HANDLER_ADDRESS}"
 else
   REGISTRY_ADDRESS="${REGISTRY_ADDRESS:-}"
   SLASH_FACTORY_ADDRESS="${SLASH_FACTORY_ADDRESS:-}"
@@ -366,7 +379,16 @@ fi
 # -------------------------------
 AZTEC_INFRA_START=$(date +%s)
 DEPLOY_AZTEC_INFRA_DIR="${SCRIPT_DIR}/../terraform/deploy-aztec-infra"
-"${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_AZTEC_INFRA_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-aztec-infra/${SALT}"
+"${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_AZTEC_INFRA_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-aztec-infra"
+
+# Gate NodePort based on cluster (true for kind, false for GKE)
+if [[ "${CLUSTER}" == "kind" ]]; then
+  P2P_NODEPORT_ENABLED=true
+  P2P_PUBLIC_IP=false
+else
+  P2P_NODEPORT_ENABLED=false
+  P2P_PUBLIC_IP=true
+fi
 
 cat > "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" << EOF
 K8S_CLUSTER_CONTEXT = "${K8S_CLUSTER_CONTEXT}"
@@ -472,6 +494,12 @@ LOG_LEVEL = "${LOG_LEVEL}"
 FISHERMAN_LOG_LEVEL = "${FISHERMAN_LOG_LEVEL}"
 
 WS_NUM_HISTORIC_BLOCKS = ${WS_NUM_HISTORIC_BLOCKS:-null}
+
+P2P_PUBLIC_IP = ${P2P_PUBLIC_IP}
+P2P_NODEPORT_ENABLED = ${P2P_NODEPORT_ENABLED}
+
+PROVER_AGENT_PROOF_TYPES = ${PROVER_AGENT_PROOF_TYPES:-[]}
+DEBUG_FORCE_TX_PROOF_VERIFICATION = ${DEBUG_FORCE_TX_PROOF_VERIFICATION:-false}
 EOF
 
 tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}"

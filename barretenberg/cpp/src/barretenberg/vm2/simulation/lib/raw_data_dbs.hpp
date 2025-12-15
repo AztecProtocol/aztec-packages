@@ -114,9 +114,21 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
 // insertions (since we won't be tied to SequentialInsertionResult).
 class PureRawMerkleDB final : public LowLevelMerkleDBInterface {
   public:
-    PureRawMerkleDB(world_state::WorldStateRevision ws_revision, world_state::WorldState& ws_instance)
+    /**
+     * @brief Constructor for PureRawMerkleDB.
+     * @param ws_revision The world state revision.
+     * @param ws_instance The world state instance.
+     * @param cache_tree_roots Whether to cache the tree roots.
+     *  If true, the tree roots will be cached and returned by get_tree_roots().
+     *  If false, the tree roots will be fetched from the world state on each call to get_tree_roots().
+     *  It is important to note that if caching is ON, you are assuming nobody else could concurrently modify the trees.
+     */
+    PureRawMerkleDB(world_state::WorldStateRevision ws_revision,
+                    world_state::WorldState& ws_instance,
+                    bool cache_tree_roots = true)
         : ws_revision(ws_revision)
         , ws_instance(ws_instance)
+        , cache_tree_roots(cache_tree_roots)
     {}
 
     TreeSnapshots get_tree_roots() const override;
@@ -145,6 +157,8 @@ class PureRawMerkleDB final : public LowLevelMerkleDBInterface {
     world_state::WorldStateRevision ws_revision;
     world_state::WorldState& ws_instance;
     std::stack<uint32_t> checkpoint_stack{ { 0 } };
+    bool cache_tree_roots;
+    mutable std::optional<TreeSnapshots> cached_tree_snapshots;
 };
 
 } // namespace bb::avm2::simulation

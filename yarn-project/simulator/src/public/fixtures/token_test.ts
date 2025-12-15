@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
@@ -7,11 +7,17 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
+export type TokenTestOptions = {
+  /** Skip return value assertions in balance checks (useful for benchmarking with collectCallMetadata=false) */
+  skipReturnValueAssertions?: boolean;
+};
+
 export async function tokenTest(
   tester: PublicTxSimulationTester,
   logger: Logger,
   tokenArtifact: ContractArtifact,
   expectToBeTrue: (x: boolean) => void,
+  options: TokenTestOptions = {},
 ) {
   const timer = new Timer();
 
@@ -36,7 +42,7 @@ export async function tokenTest(
     ],
   );
   expectToBeTrue(mintResult.revertCode.isOK());
-  await checkBalance(tester, token, sender, sender, mintAmount, expectToBeTrue);
+  await checkBalance(tester, token, sender, sender, mintAmount, expectToBeTrue, options);
 
   const authwitNonce = new Fr(0);
   const transferAmount = 50n;
@@ -54,8 +60,8 @@ export async function tokenTest(
     ],
   );
   expectToBeTrue(transferResult.revertCode.isOK());
-  await checkBalance(tester, token, sender, receiver, mintAmount - transferAmount, expectToBeTrue);
-  await checkBalance(tester, token, sender, receiver, transferAmount, expectToBeTrue);
+  await checkBalance(tester, token, sender, sender, mintAmount - transferAmount, expectToBeTrue, options);
+  await checkBalance(tester, token, sender, receiver, transferAmount, expectToBeTrue, options);
 
   // EXECUTE! This means that if using AvmProvingTester subclass, it will PROVE the transaction!
   const burnResult = await tester.executeTxWithLabel(
@@ -71,7 +77,7 @@ export async function tokenTest(
     ],
   );
   expectToBeTrue(burnResult.revertCode.isOK());
-  await checkBalance(tester, token, sender, receiver, 0n, expectToBeTrue);
+  await checkBalance(tester, token, sender, receiver, 0n, expectToBeTrue, options);
 
   logger.info(`TokenContract test took ${timer.ms()}ms\n`);
 }
@@ -116,6 +122,7 @@ async function checkBalance(
   account: AztecAddress,
   expectedBalance: bigint,
   expectToBeTrue: (x: boolean) => void,
+  options: TokenTestOptions = {},
 ) {
   // Strictly simulate this! No need to "execute" (aka prove if using AvmProvingTester subclass).
   const balResult = await tester.simulateTxWithLabel(
@@ -132,8 +139,10 @@ async function checkBalance(
     ],
   );
   expectToBeTrue(balResult.revertCode.isOK());
-  // should be 1 call with 1 return value that is expectedBalance
-  expectToBeTrue(balResult.appLogicReturnValues.length == 1);
-  expectToBeTrue(balResult.appLogicReturnValues[0].values!.length == 1);
-  expectToBeTrue(balResult.appLogicReturnValues[0].values![0].toBigInt() == expectedBalance);
+  if (!options.skipReturnValueAssertions) {
+    // should be 1 call with 1 return value that is expectedBalance
+    const appLogicReturnValues = balResult.getAppLogicReturnValues();
+    expectToBeTrue(appLogicReturnValues.length === 1);
+    expectToBeTrue(appLogicReturnValues[0].values?.[0]?.toBigInt() === expectedBalance);
+  }
 }

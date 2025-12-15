@@ -1,4 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -12,7 +13,6 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
 import { GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
-import type { UInt32 } from '@aztec/stdlib/types';
 
 import { insertTxEffectIntoWorldTrees, makeTXEBlockHeader } from '../utils/block_creation.js';
 import type { IAvmExecutionOracle } from './interfaces.js';
@@ -48,7 +48,7 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     return Promise.resolve(AztecAddress.ZERO); // todo: change?
   }
 
-  avmOpcodeBlockNumber(): Promise<UInt32> {
+  avmOpcodeBlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(this.globalVariables.blockNumber);
   }
 

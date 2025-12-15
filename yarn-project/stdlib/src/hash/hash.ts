@@ -1,7 +1,8 @@
 import { GeneratorIndex, NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
-import { poseidon2Hash, poseidon2HashWithSeparator, sha256ToField } from '@aztec/foundation/crypto';
+import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { sha256ToField } from '@aztec/foundation/crypto/sha256';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 
 import { AztecAddress } from '../aztec-address/index.js';
 

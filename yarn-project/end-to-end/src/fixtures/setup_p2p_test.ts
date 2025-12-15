@@ -99,7 +99,7 @@ export async function createNode(
 ) {
   const createNode = async () => {
     const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, addressIndex, dataDirectory);
-    const telemetry = getEndToEndTestTelemetryClient(metricsPort);
+    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
     return await AztecNodeService.createAndSync(
       validatorConfig,
       { telemetry, dateProvider },
@@ -128,7 +128,7 @@ export async function createNonValidatorNode(
       validatorPrivateKeys: undefined,
       publisherPrivateKeys: [],
     };
-    const telemetry = getEndToEndTestTelemetryClient(metricsPort);
+    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
     return await AztecNodeService.createAndSync(config, { telemetry, dateProvider }, { prefilledPublicData });
   };
   return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createNode) : createNode();
@@ -147,7 +147,7 @@ export async function createProverNode(
 ) {
   const createProverNode = async () => {
     const proverNodePrivateKey = getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex)!;
-    const telemetry = getEndToEndTestTelemetryClient(metricsPort);
+    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
 
     const proverConfig: Partial<ProverNodeConfig> = await createP2PConfig(
       config,

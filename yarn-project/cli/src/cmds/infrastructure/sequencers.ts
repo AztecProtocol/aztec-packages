@@ -1,6 +1,8 @@
 import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { GSEContract, RollupContract, createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { GSEContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { LogFn } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
@@ -15,7 +17,6 @@ export async function sequencers(opts: {
   nodeUrl: string;
   l1RpcUrls: string[];
   chainId: number;
-  blockNumber?: number;
   log: LogFn;
 }) {
   const { command, who: maybeWho, mnemonic, bn254SecretKey, nodeUrl, l1RpcUrls, chainId, log } = opts;

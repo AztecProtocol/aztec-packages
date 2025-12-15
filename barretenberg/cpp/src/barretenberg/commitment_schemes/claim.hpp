@@ -135,24 +135,6 @@ template <typename Curve> class OpeningClaim {
             commitment.get_value()
         };
     }
-    /**
-     * @brief inefficiently check that the claim is correct by recomputing the commitment
-     * and evaluating the polynomial in r.
-     *
-     * @param ck CommitmentKey used
-     * @param polynomial the claimed witness polynomial p(X)
-     * @return C = Commit(p(X)) && p(r) = v
-     */
-    bool verify(std::shared_ptr<CK> ck, const bb::Polynomial<Fr>& polynomial) const
-    {
-        Fr real_eval = polynomial.evaluate(opening_pair.challenge);
-        if (real_eval != opening_pair.evaluation) {
-            return false;
-        }
-        // Note: real_commitment is a raw type, while commitment may be a linear combination.
-        auto real_commitment = ck->commit(polynomial);
-        return (real_commitment == commitment);
-    };
 
     bool operator==(const OpeningClaim& other) const = default;
 };
@@ -167,8 +149,12 @@ template <typename Curve> class OpeningClaim {
  * @tparam Curve: BN254 or Grumpkin.
  */
 template <typename Curve> struct BatchOpeningClaim {
-    std::vector<typename Curve::AffineElement> commitments;
-    std::vector<typename Curve::ScalarField> scalars;
-    typename Curve::ScalarField evaluation_point;
+
+    using Commitment = typename Curve::AffineElement;
+    using Scalar = typename Curve::ScalarField;
+
+    std::vector<Commitment> commitments;
+    std::vector<Scalar> scalars;
+    Scalar evaluation_point;
 };
 } // namespace bb

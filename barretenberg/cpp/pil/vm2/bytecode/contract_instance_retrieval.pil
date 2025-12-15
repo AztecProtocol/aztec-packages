@@ -98,7 +98,7 @@ namespace contract_instance_retrieval;
     #[CHECK_PROTOCOL_ADDRESS_RANGE]
     sel { max_protocol_contracts, address_sub_one, is_protocol_contract }
     in
-    ff_gt.sel { ff_gt.a, ff_gt.b, ff_gt.result};
+    ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result};
 
     // Constrain exists and derived address for protocol contracts
 

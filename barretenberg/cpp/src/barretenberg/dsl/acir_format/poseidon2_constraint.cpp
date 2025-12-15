@@ -5,6 +5,7 @@
 // =====================
 
 #include "poseidon2_constraint.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
@@ -14,13 +15,20 @@ namespace acir_format {
 
 using namespace bb;
 
-template <typename Builder> void create_poseidon2_permutations(Builder& builder, const Poseidon2Constraint& constraint)
+template <typename Builder>
+void create_poseidon2_permutations_constraints(Builder& builder, const Poseidon2Constraint& constraint)
 {
     using field_ct = stdlib::field_t<Builder>;
     using State = stdlib::Poseidon2Permutation<Builder>::State;
 
     BB_ASSERT_EQ(constraint.state.size(), 4U);
     BB_ASSERT_EQ(constraint.result.size(), 4U);
+
+    // stdlib poseidon2 does not support hashing constants
+    for (const auto& input : constraint.state) {
+        BB_ASSERT(!input.is_constant, "Poseidon2 constraint does not support constant inputs");
+    }
+
     // Get the witness assignment for each witness index
     // Write the witness assignment to the byte array state
     State state;
@@ -34,9 +42,9 @@ template <typename Builder> void create_poseidon2_permutations(Builder& builder,
     }
 }
 
-template void create_poseidon2_permutations<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                                 const Poseidon2Constraint& constraint);
+template void create_poseidon2_permutations_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
+                                                                             const Poseidon2Constraint& constraint);
 
-template void create_poseidon2_permutations<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                                const Poseidon2Constraint& constraint);
+template void create_poseidon2_permutations_constraints<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
+                                                                            const Poseidon2Constraint& constraint);
 } // namespace acir_format

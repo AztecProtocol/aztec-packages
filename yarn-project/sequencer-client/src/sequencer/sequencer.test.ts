@@ -1,13 +1,13 @@
 import { Body, L2Block } from '@aztec/aztec.js/block';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { GENESIS_BLOCK_HEADER_HASH, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
-import type { RollupContract } from '@aztec/ethereum';
-import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { RollupContract } from '@aztec/ethereum/contracts';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
@@ -18,6 +18,7 @@ import {
   CommitteeAttestationsAndSigners,
   L2BlockHeader,
   type L2BlockSource,
+  type ValidateBlockNegativeResult,
 } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
@@ -68,8 +69,8 @@ describe('sequencer', () => {
   let dateProvider: TestDateProvider;
 
   let initialBlockHeader: BlockHeader;
-  let lastBlockNumber: number;
-  let newBlockNumber: number;
+  let lastBlockNumber: BlockNumber;
+  let newBlockNumber: BlockNumber;
   let newSlotNumber: number;
   let hash: string;
 
@@ -163,8 +164,8 @@ describe('sequencer', () => {
   beforeEach(async () => {
     feeRecipient = await AztecAddress.random();
     initialBlockHeader = BlockHeader.empty();
-    lastBlockNumber = 0;
-    newBlockNumber = lastBlockNumber + 1;
+    lastBlockNumber = BlockNumber.ZERO;
+    newBlockNumber = BlockNumber(lastBlockNumber + 1);
     newSlotNumber = newBlockNumber;
     hash = Fr.ZERO.toString();
 
@@ -243,8 +244,8 @@ describe('sequencer', () => {
         syncSummary: {
           latestBlockNumber: lastBlockNumber,
           latestBlockHash: hash,
-          finalizedBlockNumber: 0,
-          oldestHistoricBlockNumber: 0,
+          finalizedBlockNumber: BlockNumber.ZERO,
+          oldestHistoricBlockNumber: BlockNumber.ZERO,
           treesAreSynched: true,
         },
       } satisfies WorldStateSynchronizerStatus),
@@ -275,7 +276,6 @@ describe('sequencer', () => {
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
-      getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
     });
 
@@ -438,7 +438,7 @@ describe('sequencer', () => {
     it('settles on the chain tip before it starts building a block', async () => {
       // this test simulates a synch happening right after the sequencer starts building a block
       // simulate every component being synched
-      const firstBlock = await L2Block.random(1);
+      const firstBlock = await L2Block.random(BlockNumber(1));
       const currentTip = firstBlock;
       const syncedToL2Block = { number: currentTip.number, hash: (await currentTip.hash()).toString() };
       worldState.status.mockImplementation(() =>
@@ -454,25 +454,25 @@ describe('sequencer', () => {
       l2BlockSource.getL2Tips.mockImplementation(() =>
         Promise.resolve({
           latest: syncedToL2Block,
-          proven: { number: 0, hash: undefined },
-          finalized: { number: 0, hash: undefined },
+          proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         }),
       );
       l1ToL2MessageSource.getL2Tips.mockImplementation(() =>
         Promise.resolve({
           latest: syncedToL2Block,
-          proven: { number: 0, hash: undefined },
-          finalized: { number: 0, hash: undefined },
+          proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         }),
       );
 
       // simulate a synch happening right after
       l2BlockSource.getBlockNumber.mockResolvedValueOnce(currentTip.number);
-      l2BlockSource.getBlockNumber.mockResolvedValueOnce(currentTip.number + 1);
+      l2BlockSource.getBlockNumber.mockResolvedValueOnce(BlockNumber(currentTip.number + 1));
       // now the new tip is actually block 2
       l2BlockSource.getBlock.mockImplementation(n =>
         n === -1
-          ? L2Block.random(currentTip.number + 1)
+          ? L2Block.random(BlockNumber(currentTip.number + 1))
           : n === currentTip.number
             ? Promise.resolve(currentTip)
             : Promise.resolve(undefined),
@@ -645,8 +645,8 @@ describe('sequencer', () => {
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
-          latestBlockNumber: lastBlockNumber,
-          latestBlockHash: differentHash, // Different hash causes sync check to fail
+          latestBlockNumber: BlockNumber(lastBlockNumber + 1),
+          latestBlockHash: differentHash,
         } as WorldStateSyncStatus,
       });
     });
@@ -761,6 +761,141 @@ describe('sequencer', () => {
       expect(slasherClient.getProposerActions).not.toHaveBeenCalled();
       expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
       expect(publisher.sendRequests).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('considerInvalidatingBlock', () => {
+    const validator1 = EthAddress.random();
+    const validator2 = EthAddress.random();
+    const validator3 = EthAddress.random();
+
+    let invalidValidationResult: ValidateBlockNegativeResult;
+
+    beforeEach(() => {
+      invalidValidationResult = {
+        valid: false,
+        block: {
+          blockNumber: lastBlockNumber,
+          timestamp: 1000n,
+          archive: Fr.random(),
+          lastArchive: Fr.random(),
+          slotNumber: SlotNumber(newSlotNumber),
+          txCount: 0,
+        },
+        committee: [validator2],
+        epoch: EpochNumber(1),
+        seed: 123n,
+        attestors: [],
+        attestations: [],
+        reason: 'insufficient-attestations',
+      };
+
+      l2BlockSource.getPendingChainValidationStatus.mockResolvedValue(invalidValidationResult);
+
+      // Mock committee to include validator2
+      epochCache.getCommittee.mockResolvedValue({
+        committee: [validator2],
+        seed: 123n,
+        epoch: EpochNumber(1),
+      });
+
+      // Setup validator client
+      validatorClient.getValidatorAddresses.mockReturnValue([validator1, validator2, validator3]);
+
+      // Make sure we're NOT the proposer so considerInvalidatingBlock is called
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(EthAddress.random());
+
+      // Setup publisher factory
+      publisherFactory.create.mockImplementation((validatorAddress?: EthAddress) => {
+        return Promise.resolve({
+          attestorAddress: validatorAddress ?? validator1,
+          publisher,
+        });
+      });
+
+      publisher.simulateInvalidateBlock.mockResolvedValue({
+        forcePendingBlockNumber: lastBlockNumber,
+      } as any);
+    });
+
+    it('should use committee member when invalidating as committee member', async () => {
+      // Set time past the committee member threshold
+      const timePastThreshold = 3; // seconds
+      dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
+
+      sequencer.updateConfig({
+        secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: 3,
+      });
+
+      await sequencer.work();
+
+      // Should create publisher with the committee member validator
+      expect(publisherFactory.create).toHaveBeenCalledWith(validator2);
+      expect(publisher.enqueueInvalidateBlock).toHaveBeenCalled();
+      expect(publisher.sendRequests).toHaveBeenCalled();
+    });
+
+    it('should use first validator when invalidating as non-committee member', async () => {
+      // Mock committee without any of our validators
+      epochCache.getCommittee.mockResolvedValue({
+        committee: [EthAddress.random()],
+        seed: 123n,
+        epoch: EpochNumber(1),
+      });
+
+      // Set time past the non-committee member threshold
+      const timePastThreshold = 5; // seconds
+      dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
+
+      sequencer.updateConfig({
+        secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: 3,
+      });
+
+      await sequencer.work();
+
+      // Should create publisher with the first validator
+      expect(publisherFactory.create).toHaveBeenCalledWith(validator1);
+      expect(publisher.enqueueInvalidateBlock).toHaveBeenCalled();
+      expect(publisher.sendRequests).toHaveBeenCalled();
+    });
+
+    it('should not invalidate when time thresholds not met', async () => {
+      // Set time before any threshold
+      const timePastThreshold = 1;
+      dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
+
+      sequencer.updateConfig({
+        secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: 3,
+      });
+
+      await sequencer.work();
+
+      // Should not create publisher or invalidate
+      expect(publisherFactory.create).not.toHaveBeenCalled();
+      expect(publisher.enqueueInvalidateBlock).not.toHaveBeenCalled();
+    });
+
+    it('should not invalidate when pending chain is valid', async () => {
+      // Mock valid chain
+      l2BlockSource.getPendingChainValidationStatus.mockResolvedValue({ valid: true });
+
+      // Set time past threshold
+      const timePastThreshold = 5; // seconds
+      dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
+
+      sequencer.updateConfig({
+        secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: 3,
+      });
+
+      await sequencer.work();
+
+      // Should not create publisher or invalidate
+      expect(publisherFactory.create).not.toHaveBeenCalled();
+      expect(publisher.enqueueInvalidateBlock).not.toHaveBeenCalled();
     });
   });
 });

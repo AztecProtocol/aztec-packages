@@ -43,11 +43,15 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
-import { Grumpkin, SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
+import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { SchnorrSignature } from '@aztec/foundation/crypto/schnorr';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable, Serializable, Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
@@ -131,7 +135,7 @@ import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../mes
 import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
-import { ProofData } from '../proofs/index.js';
+import { ProofData, ProofDataForFixedVk } from '../proofs/index.js';
 import { Proof } from '../proofs/proof.js';
 import { makeRecursiveProof } from '../proofs/recursive_proof.js';
 import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../rollup/base_rollup_hints.js';
@@ -435,7 +439,10 @@ function makeAvmAccumulatedDataArrayLengths(seed = 1) {
 }
 
 export function makeGas(seed = 1) {
-  return new Gas(seed, seed + 1);
+  // Constrain gas values to u32 range
+  const daGas = seed % 2 ** 32;
+  const l2Gas = (seed + 1) % 2 ** 32;
+  return new Gas(daGas, l2Gas);
 }
 
 /**
@@ -694,7 +701,7 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
   return GlobalVariables.from({
     chainId: new Fr(seed),
     version: new Fr(seed + 1),
-    blockNumber: seed + 2,
+    blockNumber: BlockNumber(seed + 2),
     slotNumber: SlotNumber(seed + 3),
     timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
@@ -718,7 +725,9 @@ function makeFeeRecipient(seed = 1) {
  * @returns An append only tree snapshot.
  */
 export function makeAppendOnlyTreeSnapshot(seed = 1): AppendOnlyTreeSnapshot {
-  return new AppendOnlyTreeSnapshot(fr(seed), seed);
+  // Constrain nextAvailableLeafIndex to u32 range
+  const nextAvailableLeafIndex = seed % 2 ** 32;
+  return new AppendOnlyTreeSnapshot(fr(seed), nextAvailableLeafIndex);
 }
 
 /**
@@ -916,8 +925,8 @@ export function makeL2BlockHeader(
     overrides?.contentCommitment ?? makeContentCommitment(seed + 0x200),
     overrides?.state ?? makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
-      ...(blockNumber ? { blockNumber } : {}),
-      ...(slotNumber ? { slotNumber: SlotNumber(slotNumber) } : {}),
+      ...(blockNumber !== undefined ? { blockNumber: BlockNumber(blockNumber) } : {}),
+      ...(slotNumber !== undefined ? { slotNumber: SlotNumber(slotNumber) } : {}),
     }),
     new Fr(seed + 0x800),
     new Fr(seed + 0x900),
@@ -1121,6 +1130,14 @@ export function makeProofData<T extends Bufferable, PROOF_LENGTH extends number>
   );
 }
 
+function makeProofDataForFixedVk<T extends Bufferable, PROOF_LENGTH extends number>(
+  seed = 0,
+  makePublicInputs: (seed: number) => T,
+  proofSize: PROOF_LENGTH = NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH as PROOF_LENGTH,
+) {
+  return new ProofDataForFixedVk(makePublicInputs(seed), makeRecursiveProof<PROOF_LENGTH>(proofSize, seed + 0x100));
+}
+
 function makeContractClassLogFields(seed = 1) {
   return new ContractClassLogFields(makeArray(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, fr, seed));
 }
@@ -1173,7 +1190,11 @@ export function makePublicTxBaseRollupPrivateInputs(seed = 0) {
     makePublicChonkVerifierPublicInputs,
     RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   );
-  const avmProofData = makeProofData(seed + 0x100, makeAvmCircuitPublicInputs, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+  const avmProofData = makeProofDataForFixedVk(
+    seed + 0x100,
+    makeAvmCircuitPublicInputs,
+    AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  );
   const hints = makePublicBaseRollupHints(seed + 0x200);
 
   return PublicTxBaseRollupPrivateInputs.from({

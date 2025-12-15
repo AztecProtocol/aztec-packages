@@ -28,7 +28,7 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
     using FF = typename Flavor::FF;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
@@ -75,25 +75,22 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
 
-    bool consistency_checked = true;
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
 
-    const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                               claim_batcher,
-                                               sumcheck_output.challenge,
-                                               Commitment::one(),
-                                               transcript,
-                                               Flavor::REPEATED_COMMITMENTS,
-                                               Flavor::HasZK,
-                                               &consistency_checked,
-                                               libra_commitments,
-                                               sumcheck_output.claimed_libra_evaluation);
+    auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                                                   claim_batcher,
+                                                                   sumcheck_output.challenge,
+                                                                   Commitment::one(),
+                                                                   transcript,
+                                                                   Flavor::REPEATED_COMMITMENTS,
+                                                                   libra_commitments,
+                                                                   sumcheck_output.claimed_libra_evaluation);
 
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    auto pairing_points = PCS::reduce_verify_batch_opening_claim(
+        std::move(shplemini_output.batch_opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
     // Reconstruct the public inputs
     IO inputs;
     inputs.reconstruct_from_public(verifier_instance->public_inputs);
@@ -106,6 +103,13 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
 
     // Check that verification passed
     bool pairing_check_verified = pairing_points.check();
+
+    bool consistency_checked = true;
+
+    if constexpr (Flavor::HasZK) {
+        consistency_checked = shplemini_output.consistency_checked;
+    }
+
     vinfo("sumcheck_verified: ", sumcheck_output.verified);
     vinfo("libra_evals_verified: ", consistency_checked);
     vinfo("pairing_check_verified: ", pairing_check_verified);

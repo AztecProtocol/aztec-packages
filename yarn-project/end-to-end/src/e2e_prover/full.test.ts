@@ -2,7 +2,9 @@ import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
 import { Tx, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
-import { type ExtendedViemWalletClient, RollupContract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
@@ -161,7 +163,10 @@ describe('full_prover', () => {
       const reward = await rollup.getCheckpointReward();
       const newProvenBlockNumber = Number(newProvenCheckpointNumber);
       const fees = (
-        await Promise.all([t.aztecNode.getBlock(newProvenBlockNumber - 1), t.aztecNode.getBlock(newProvenBlockNumber)])
+        await Promise.all([
+          t.aztecNode.getBlock(BlockNumber(newProvenBlockNumber - 1)),
+          t.aztecNode.getBlock(BlockNumber(newProvenBlockNumber)),
+        ])
       ).map(b => b!.header.totalFees.toBigInt());
 
       const totalRewards = fees.map(fee => fee + reward).reduce((acc, reward) => acc + reward, 0n);

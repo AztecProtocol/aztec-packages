@@ -5,7 +5,15 @@ import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../bb_backends/interf
 import { BackendOptions, BackendType } from '../bb_backends/index.js';
 import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
 
-export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
+export {
+  UltraHonkBackend,
+  UltraHonkVerifierBackend,
+  AztecClientBackend,
+  fieldToString,
+  fieldsToStrings,
+  type UltraHonkBackendOptions,
+  type VerifierTarget,
+} from './backend.js';
 export * from '../bb_backends/index.js';
 
 export type CircuitOptions = {

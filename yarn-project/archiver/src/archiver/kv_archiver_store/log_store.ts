@@ -1,5 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -11,7 +12,6 @@ import {
   ExtendedPublicLog,
   type LogFilter,
   LogId,
-  PrivateLog,
   PublicLog,
   TxScopedL2Log,
 } from '@aztec/stdlib/logs';
@@ -24,7 +24,6 @@ import type { BlockStore } from './block_store.js';
 export class LogStore {
   #logsByTag: AztecAsyncMap<string, Buffer[]>;
   #logTagsByBlock: AztecAsyncMap<number, string[]>;
-  #privateLogsByBlock: AztecAsyncMap<number, Buffer>;
   #publicLogsByBlock: AztecAsyncMap<number, Buffer>;
   #contractClassLogsByBlock: AztecAsyncMap<number, Buffer>;
   #logsMaxPageSize: number;
@@ -37,7 +36,6 @@ export class LogStore {
   ) {
     this.#logsByTag = db.openMap('archiver_tagged_logs_by_tag');
     this.#logTagsByBlock = db.openMap('archiver_log_tags_by_block');
-    this.#privateLogsByBlock = db.openMap('archiver_private_logs_by_block');
     this.#publicLogsByBlock = db.openMap('archiver_public_logs_by_block');
     this.#contractClassLogsByBlock = db.openMap('archiver_contract_class_logs_by_block');
 
@@ -111,12 +109,6 @@ export class LogStore {
         }
         await this.#logTagsByBlock.set(block.number, tagsInBlock);
 
-        const privateLogsInBlock = block.body.txEffects
-          .map(txEffect => txEffect.privateLogs)
-          .flat()
-          .map(log => log.toBuffer());
-        await this.#privateLogsByBlock.set(block.number, Buffer.concat(privateLogsInBlock));
-
         const publicLogsInBlock = block.body.txEffects
           .map((txEffect, txIndex) =>
             [
@@ -159,7 +151,6 @@ export class LogStore {
       await Promise.all(
         blocks.map(block =>
           Promise.all([
-            this.#privateLogsByBlock.delete(block.number),
             this.#publicLogsByBlock.delete(block.number),
             this.#logTagsByBlock.delete(block.number),
             this.#contractClassLogsByBlock.delete(block.number),
@@ -170,23 +161,6 @@ export class LogStore {
       await Promise.all(tagsToDelete.map(tag => this.#logsByTag.delete(tag.toString())));
       return true;
     });
-  }
-
-  /**
-   * Retrieves all private logs from up to `limit` blocks, starting from the block number `start`.
-   * @param start - The block number from which to begin retrieving logs.
-   * @param limit - The maximum number of blocks to retrieve logs from.
-   * @returns An array of private logs from the specified range of blocks.
-   */
-  async getPrivateLogs(start: number, limit: number): Promise<PrivateLog[]> {
-    const logs = [];
-    for await (const buffer of this.#privateLogsByBlock.valuesAsync({ start, limit })) {
-      const reader = new BufferReader(buffer);
-      while (reader.remainingBytes() > 0) {
-        logs.push(reader.readObject(PrivateLog));
-      }
-    }
-    return logs;
   }
 
   /**
@@ -389,9 +363,9 @@ export class LogStore {
       const log = txLogs[logIndex];
       if (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) {
         if (log instanceof ContractClassLog) {
-          results.push(new ExtendedContractClassLog(new LogId(blockNumber, txIndex, logIndex), log));
+          results.push(new ExtendedContractClassLog(new LogId(BlockNumber(blockNumber), txIndex, logIndex), log));
         } else {
-          results.push(new ExtendedPublicLog(new LogId(blockNumber, txIndex, logIndex), log));
+          results.push(new ExtendedPublicLog(new LogId(BlockNumber(blockNumber), txIndex, logIndex), log));
         }
 
         if (results.length >= this.#logsMaxPageSize) {

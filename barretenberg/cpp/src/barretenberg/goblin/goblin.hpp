@@ -43,6 +43,8 @@ class Goblin {
     using RecursiveMergeCommitments = MergeRecursiveVerifier::InputCommitments;
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
     using RecursiveTranscript = MegaStdlibTranscript;
+    using TranslatorInputData = TranslatorInputData_<fq>;
+    using IPA_PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     CommitmentKey<curve::BN254> commitment_key;
@@ -79,7 +81,9 @@ class Goblin {
                      const MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
-     * @brief Construct an ECCVM proof and the translation polynomial evaluations
+     * @brief Construct an ECCVM proof and IPA opening proof.
+     * @details Also computes the translation polynomial evaluation challenges (batching_challenge_v,
+     * evaluation_challenge_x) which are passed to the Translator.
      */
     void prove_eccvm();
 
@@ -113,29 +117,13 @@ class Goblin {
         const MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
-     * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
+     * @brief Add required initial ops to the op queue for AVM mode.
+     * @details Adds 1 no-op (for shiftability) followed by 3 random ops (for ZK hiding of accumulation result).
+     * This matches the structure expected by Translator. In Chonk, these ops are added automatically during
+     * circuit accumulation, but AVM uses Goblin directly without the full Chonk IVC flow.
      *
-     * @param proof
-     * @param inputs_commitments The commitments used by the Merge verifier
-     * @param merged_table_commitment The commitment to the merged table as read from the proof
-     * @param transcript
-     * @param merge_settings How the most recent ecc op subtable is going to be merged into the table of ecc ops
-     * @return Pair of verification result and commitments to the merged tables as read from the proof by the Merge
-     * verifier
-     */
-    static bool verify(const GoblinProof& proof,
-                       const MergeCommitments& merge_commitments,
-                       const std::shared_ptr<Transcript>& transcript,
-                       const MergeSettings merge_settings = MergeSettings::PREPEND);
-
-    /**
-     * @brief Translator requires the op queue to start with a no-op to ensure op queue polynomials are shiftable and
-     * then expects three random ops. This is due to the ZK requirement in Chonk.  We need to also ensure
-     * these ops are present when Goblin is used for AVM, although we only ever have a single table of ecc ops and no ZK
-     * requiements.
-     *
-     * @todo (https://github.com/AztecProtocol/barretenberg/issues/1537) Asses whether two Translator variants (one with
-     * Zk and one without) would be a better option
+     * @todo (https://github.com/AztecProtocol/barretenberg/issues/1537) Assess whether two Translator variants (one
+     * with ZK and one without) would be a better option
      */
     void ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const;
 };

@@ -15,19 +15,21 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 
 namespace bb::avm2 {
 
-// TODO(#15892): Remove vk argument from all functions once its fixed.
-AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
+AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder)
     : builder(builder)
-    , key(vkey)
 {
-    // TODO(#15892): Uncomment this when we make the AVM vk and vk
-    // hash fixed.
-    // key->fix_witness();
-    // compute the vk hash from the native vk fields
-    // this->vk_hash.fix_witness();
+    auto native_vk = std::make_shared<NativeVerificationKey>(constraining::AvmFixedVKCommitments::get_all());
+
+    key = std::make_shared<VerificationKey>(&builder, native_vk);
+    key->fix_witness();
+
+    auto native_vk_hash = native_vk->hash();
+    vk_hash = FF::from_witness(&builder, native_vk_hash);
+    vk_hash.fix_witness();
 }
 
 // Evaluate the given public input column over the multivariate challenge points
@@ -76,7 +78,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     using PCS = typename Flavor::PCS;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using RelationParams = RelationParameters<typename Flavor::FF>;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using stdlib::bool_t;
@@ -101,15 +103,9 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     transcript->load_proof(stdlib_proof);
 
-    // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the add_to_hash_buffer.
-    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/16716) For now we are unsetting the free witness tags
-    // to stop triggering the Origin Tag security mechanism, but the problem is that the VK is not hashed.
-    for (auto& comm : key->get_all()) {
-        comm.unset_free_witness_tag();
-    }
+    transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
 
-    info("AVM vk hash in recursive verifier: ", vk_hash);
+    info("AVM vk hash in recursive verifier: ", vk_hash.get_value());
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
@@ -224,10 +220,12 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
                                                                   .evaluations = RefVector(squashed_unshifted_eval) },
                                          .shifted = ClaimBatch{ .commitments = RefVector(squashed_shifted),
                                                                 .evaluations = RefVector(squashed_shifted_eval) } };
-    const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
-        padding_indicator_array, squashed_claim_batcher, output.challenge, Commitment::one(&builder), transcript);
+    auto opening_claim =
+        Shplemini::compute_batch_opening_claim(
+            padding_indicator_array, squashed_claim_batcher, output.challenge, Commitment::one(&builder), transcript)
+            .batch_opening_claim;
 
-    PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
+    PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript));
 
     if (builder.failed()) {
         info("AVM Recursive verifier builder failed with error: ", builder.err());

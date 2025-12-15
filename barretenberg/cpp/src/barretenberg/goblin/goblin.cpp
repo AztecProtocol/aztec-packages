@@ -6,9 +6,13 @@
 
 #include "goblin.hpp"
 
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
@@ -34,7 +38,13 @@ void Goblin::prove_eccvm()
     BB_BENCH_NAME("Goblin::prove_eccvm");
     ECCVMBuilder eccvm_builder(op_queue);
     ECCVMProver eccvm_prover(eccvm_builder, transcript);
-    goblin_proof.eccvm_proof = eccvm_prover.construct_proof();
+    auto [eccvm_proof, opening_claim] = eccvm_prover.construct_proof();
+    goblin_proof.eccvm_proof = std::move(eccvm_proof);
+
+    // Compute IPA proof for the opening claim
+    auto ipa_transcript = std::make_shared<NativeTranscript>();
+    IPA_PCS::compute_opening_proof(eccvm_prover.key->commitment_key, opening_claim, ipa_transcript);
+    goblin_proof.ipa_proof = ipa_transcript->export_proof();
 
     translation_batching_challenge_v = eccvm_prover.batching_challenge_v;
     evaluation_challenge_x = eccvm_prover.evaluation_challenge_x;
@@ -82,57 +92,25 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 
     MergeRecursiveVerifier merge_verifier{ merge_settings, transcript };
-    auto [pairing_points, merged_table_commitments, degree_check_passed, concatenation_check_passed] =
-        merge_verifier.verify_proof(stdlib_merge_proof, merge_commitments);
+    auto merge_result = merge_verifier.reduce_to_pairing_check(stdlib_merge_proof, merge_commitments);
 
     merge_verification_queue.pop_front(); // remove the processed proof from the queue
 
-    return { pairing_points, merged_table_commitments };
-}
-
-bool Goblin::verify(const GoblinProof& proof,
-                    const MergeCommitments& merge_commitments,
-                    const std::shared_ptr<Transcript>& transcript,
-                    const MergeSettings merge_settings)
-{
-    MergeVerifier merge_verifier(merge_settings, transcript);
-    auto [merge_pairing_points, merged_table_commitments, degree_check_passed, concatenation_check_passed] =
-        merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
-    bool merge_verified = merge_pairing_points.check() && degree_check_passed && concatenation_check_passed;
-
-    ECCVMVerifier eccvm_verifier(transcript);
-    bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
-
-    TranslatorVerifier translator_verifier(transcript);
-
-    bool accumulator_construction_verified = translator_verifier.verify_proof(
-        proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
-
-    bool translation_verified = translator_verifier.verify_translation(eccvm_verifier.translation_evaluations,
-                                                                       eccvm_verifier.translation_masking_term_eval);
-
-    // Verify the consistency between the commitments to polynomials representing the op queue received by translator
-    // and final merge verifier
-    bool op_queue_consistency_verified =
-        translator_verifier.verify_consistency_with_final_merge(merged_table_commitments);
-
-    vinfo("merge verified?: ", merge_verified);
-    vinfo("eccvm verified?: ", eccvm_verified);
-    vinfo("accumulator construction_verified?: ", accumulator_construction_verified);
-    vinfo("translation verified?: ", translation_verified);
-    vinfo("consistency verified?: ", op_queue_consistency_verified);
-
-    return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
-           op_queue_consistency_verified;
+    return { merge_result.pairing_points, merge_result.merged_commitments };
 }
 
 void Goblin::ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const
 {
     BB_ASSERT_EQ(avm_mode, true, "ensure_well_formed_op_queue should only be called for avm");
+    // Add Ultra ops for the Translator (no-op + 3 random ops as prefix for translator accumulation)
     builder.queue_ecc_no_op();
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();
     builder.queue_ecc_random_op();
+    // In the AVM Recursive Verifier case, we don't need ZK; so we place a deterministic non-op as a "hiding_op", it
+    // does not contribute to the actual MSM circuit.
+    using Fq = curve::Grumpkin::ScalarField;
+    builder.queue_ecc_hiding_op(Fq(0), Fq(0));
 }
 
 } // namespace bb

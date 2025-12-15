@@ -36,8 +36,9 @@ function setup_environment {
     echo "INSTANCE_POSTFIX=$INSTANCE_POSTFIX" >> $GITHUB_ENV
     echo "Instance postfix set to: $INSTANCE_POSTFIX"
   fi
-  # Setup SSH key (internal only)
-  if [ "${CI_INTERNAL:-0}" -eq 1 ] && [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
+  # Setup SSH key for connecting to EC2 instances
+  # Note: The key is used to SSH into instances but is only copied INTO instances when CI_ENABLE_DISK_LOGS=1 (internal CI only)
+  if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
     mkdir -p ~/.ssh
     echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
     chmod 600 ~/.ssh/build_instance_key
@@ -97,6 +98,11 @@ function check_cache {
   local cache_name="ci-success-${CI_MODE}-${tree_hash}.tar.gz"
   # Export for use by ci3-post.sh
   echo "CI_CACHE_NAME=$cache_name" >> $GITHUB_ENV
+  # Skip cache for release builds - they must always produce versioned images
+  if [ "$CI_MODE" == "release" ]; then
+    echo "Cache disabled for release builds"
+    return
+  fi
   if has_label "no-cache"; then
     export NO_CACHE=1
     echo "NO_CACHE=$NO_CACHE" >> $GITHUB_ENV
@@ -133,7 +139,7 @@ function main {
     exit 0
   fi
   check_cache
-  echo_header "Run CI"
+  echo_header "Run ${CI_MODE} CI"
   exec ./ci.sh "${CI_MODE}"
 }
 

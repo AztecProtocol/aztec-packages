@@ -84,7 +84,7 @@ impl TailToPublicOutputValidator {
 
         // note_hashes
         assert_split_transformed_arrays_from_sorted_padded_array(
-            prev_data.note_hashes.array,
+            prev_data.note_hashes,
             output_non_revertible.note_hashes,
             output_revertible.note_hashes,
             split_counter,
@@ -94,7 +94,7 @@ impl TailToPublicOutputValidator {
 
         // nullifiers
         assert_split_transformed_arrays_from_sorted_padded_array(
-            prev_data.nullifiers.array,
+            prev_data.nullifiers,
             output_non_revertible.nullifiers,
             output_revertible.nullifiers,
             split_counter,
@@ -104,7 +104,7 @@ impl TailToPublicOutputValidator {
 
         // private_logs
         assert_split_transformed_arrays_from_sorted_padded_array(
-            prev_data.private_logs.array,
+            prev_data.private_logs,
             output_non_revertible.private_logs,
             output_revertible.private_logs,
             split_counter,

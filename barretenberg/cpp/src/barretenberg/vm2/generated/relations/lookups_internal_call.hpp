@@ -48,7 +48,7 @@ struct lookup_internal_call_unwind_call_stack_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_INTERNAL_CALL_UNWIND_CALL_STACK";
     static constexpr std::string_view RELATION_NAME = "internal_call";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_internal_return;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_read_unwind_call_stack;
     static constexpr Column DST_SELECTOR = Column::internal_call_stack_sel;
     static constexpr Column COUNTS = Column::lookup_internal_call_unwind_call_stack_counts;
     static constexpr Column INVERSES = Column::lookup_internal_call_unwind_call_stack_inv;

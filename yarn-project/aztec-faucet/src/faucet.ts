@@ -1,4 +1,6 @@
-import { type ExtendedViemWalletClient, createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';

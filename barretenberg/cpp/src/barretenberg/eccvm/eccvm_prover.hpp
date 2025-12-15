@@ -25,7 +25,6 @@ class ECCVMProver {
     using FF = Flavor::FF;
     using BF = Flavor::BF;
     using Commitment = Flavor::Commitment;
-    using PCS = Flavor::PCS;
     using CommitmentKey = Flavor::CommitmentKey;
     using ProvingKey = Flavor::ProvingKey;
     using Polynomial = Flavor::Polynomial;
@@ -36,10 +35,9 @@ class ECCVMProver {
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using OpeningClaim = ProverOpeningClaim<Flavor::Curve>;
+    using Proof = HonkProof;
 
-    explicit ECCVMProver(CircuitBuilder& builder,
-                         const std::shared_ptr<Transcript>& transcript,
-                         const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
+    explicit ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript);
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();
@@ -49,15 +47,17 @@ class ECCVMProver {
     BB_PROFILE void execute_pcs_rounds();
     BB_PROFILE void execute_transcript_consistency_univariate_opening_round();
 
-    ECCVMProof export_proof();
-    ECCVMProof construct_proof();
+    Proof export_proof();
+    std::pair<Proof, OpeningClaim> construct_proof();
     void compute_translation_opening_claims();
     void commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label);
 
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<Transcript> ipa_transcript;
 
     size_t unmasked_witness_size;
+
+    // The batch opening claim to be verified via IPA
+    OpeningClaim batch_opening_claim;
 
     // Final ShplonkProver consumes an array consisting of Translation Opening Claims and a
     // `multivariate_to_univariate_opening_claim`

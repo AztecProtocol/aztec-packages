@@ -46,7 +46,7 @@ TEST(ExecutionConstrainingTest, Continuity)
         {{ C::precomputed_first_row, 1 }},
         {{ C::execution_sel, 1 }},
         {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }, {C::execution_last, 1}},
+        {{ C::execution_sel, 1 }},
     });
     // clang-format on
 
@@ -60,7 +60,7 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenFirstRow)
         {{ C::execution_sel, 0 }},  // End of trace!
         {{ C::execution_sel, 1 }},
         {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }, {C::execution_last, 1}},
+        {{ C::execution_sel, 1 }},
     });
     // clang-format on
 
@@ -74,29 +74,11 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenInMiddle)
         {{ C::execution_sel, 1 }},
         {{ C::execution_sel, 0 }},  // End of trace!
         {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }, {C::execution_last, 1}},
+        {{ C::execution_sel, 1 }},
     });
     // clang-format on
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
-}
-
-TEST(ExecutionConstrainingTest, ContinuityMultipleLast)
-{
-    // clang-format off
-    TestTraceContainer trace({
-        {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }, {C::execution_last, 1}},
-    });
-    // clang-format on
-
-    // Last is correct.
-    check_relation<execution>(trace, execution::SR_LAST_IS_LAST);
-    // If we add another last, it should fail.
-    trace.set(C::execution_last, /*row=*/1, /*value=*/1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_LAST_IS_LAST), "LAST_IS_LAST.*row 1");
 }
 
 TEST(ExecutionConstrainingTest, TreeStateNotChanged)

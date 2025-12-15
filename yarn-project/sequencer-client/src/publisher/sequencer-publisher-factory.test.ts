@@ -1,7 +1,8 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';
-import type { GovernanceProposerContract, PublisherManager, RollupContract } from '@aztec/ethereum';
+import type { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';

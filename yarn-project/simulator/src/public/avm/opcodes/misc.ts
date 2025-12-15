@@ -56,11 +56,11 @@ export class DebugLog extends Instruction {
       const memoryReads = 1 /* level */ + 1 /* fieldsSize */ + this.messageSize /* message */ + fieldsSize; /* fields */
       if (
         context.persistableState.getDebugLogMemoryReads() + memoryReads >
-        context.environment.config.maxDebugLogMemoryReads
+        context.environment.config.collectionLimits.maxDebugLogMemoryReads
       ) {
         // Regular error on purpose: this is not a recoverable error.
         throw new Error(
-          `Max debug log memory reads exceeded: ${context.persistableState.getDebugLogMemoryReads() + memoryReads} > ${context.environment.config.maxDebugLogMemoryReads}`,
+          `Max debug log memory reads exceeded: ${context.persistableState.getDebugLogMemoryReads() + memoryReads} > ${context.environment.config.collectionLimits.maxDebugLogMemoryReads}`,
         );
       }
       context.persistableState.writeDebugLogMemoryReads(memoryReads);
