@@ -773,9 +773,6 @@ SequentialInsertionResult<NullifierLeafValue> PureRawMerkleDB::insert_indexed_le
     return result;
 }
 
-// This method currently returns a vector of intermediate roots and sibling paths, but in practice we might only
-// need or care about the last one for simulation, this would simplify how we append in this function.
-// todo(ilyas): Given this function says append, perhaps we just want to restrict to NoteHash?
 void PureRawMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves)
 {
     // Invalidate the cached tree roots.
