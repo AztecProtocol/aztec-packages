@@ -5,7 +5,6 @@
 #include <libdeflate.h>
 
 namespace bb {
-namespace {
 
 /**
  * Save modified ivc-inputs.msgpack when VKs are rewritten.
@@ -83,8 +82,6 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
     msgpack::unpack(encoded_data.data(), fsize).get().convert(result);
     return result;
 }
-
-} // anonymous namespace
 
 // TODO(#7371) we should not have so many levels of serialization here.
 std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load(const std::filesystem::path& input_path)
