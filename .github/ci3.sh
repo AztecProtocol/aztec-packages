@@ -98,6 +98,11 @@ function check_cache {
   local cache_name="ci-success-${CI_MODE}-${tree_hash}.tar.gz"
   # Export for use by ci3-post.sh
   echo "CI_CACHE_NAME=$cache_name" >> $GITHUB_ENV
+  # Skip cache for release builds - they must always produce versioned images
+  if [ "$CI_MODE" == "release" ]; then
+    echo "Cache disabled for release builds"
+    return
+  fi
   if has_label "no-cache"; then
     export NO_CACHE=1
     echo "NO_CACHE=$NO_CACHE" >> $GITHUB_ENV
