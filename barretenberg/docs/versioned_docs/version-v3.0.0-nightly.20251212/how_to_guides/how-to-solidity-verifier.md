@@ -60,7 +60,7 @@ You'll likely see a warning advising you to not trust pasted code. While it is a
 
 :::
 
-To compile our the verifier, we can navigate to the compilation tab:
+To compile the verifier, we can navigate to the compilation tab:
 
 ![Compilation Tab](@site/static/img/how-tos/solidity_verifier_2.png)
 
@@ -205,12 +205,12 @@ Some EVM chains manually tested to work with the Barretenberg verifier include:
 - Linea
 - Moonbeam
 
-Meanwhile, some EVM chains chains manually tested that failed to work with the Barretenberg verifier include:
+Meanwhile, some EVM chains manually tested that failed to work with the Barretenberg verifier include:
 
 - zkSync ERA
 - Polygon zkEVM
 
-Pull requests to update this section is welcome and appreciated if you have compatibility updates on existing / new chains to contribute: https://github.com/noir-lang/noir
+Pull requests to update this section are welcome and appreciated if you have compatibility updates on existing / new chains to contribute: https://github.com/noir-lang/noir
 
 ## What's next
 
