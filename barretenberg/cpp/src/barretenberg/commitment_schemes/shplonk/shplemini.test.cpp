@@ -147,7 +147,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 {
     using Curve = TypeParam::Curve;
     using GeminiProver = GeminiProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve, false>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
@@ -265,7 +265,8 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     using ZKData = ZKSumcheckData<TypeParam>;
     using Curve = TypeParam::Curve;
     using ShpleminiProver = ShpleminiProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve, true>;
+    constexpr bool HasZK = true;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, HasZK>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using CK = typename TypeParam::CommitmentKey;
@@ -376,7 +377,8 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     using CK = typename TypeParam::CommitmentKey;
 
     using ShpleminiProver = ShpleminiProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve, true>;
+    constexpr bool HasZK = true;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, HasZK>;
 
     CK ck = create_commitment_key<CK>(4096);
 

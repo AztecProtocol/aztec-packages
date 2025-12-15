@@ -89,8 +89,8 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
                                                                    libra_commitments,
                                                                    sumcheck_output.claimed_libra_evaluation);
 
-    auto pairing_points =
-        PCS::reduce_verify_batch_opening_claim(std::move(shplemini_output.batch_opening_claim), transcript);
+    auto pairing_points = PCS::reduce_verify_batch_opening_claim(
+        std::move(shplemini_output.batch_opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
     // Reconstruct the public inputs
     IO inputs;
     inputs.reconstruct_from_public(verifier_instance->public_inputs);
