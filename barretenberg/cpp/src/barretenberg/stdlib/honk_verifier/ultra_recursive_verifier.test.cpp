@@ -251,7 +251,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Check 1: Perform native verification then perform the pairing on the outputs of the recursive
         // verifier and check that the result agrees.
         bool native_result = false;
-        InnerVerifier native_verifier(verification_key);
+        auto vk_and_hash = std::make_shared<typename InnerFlavor::VKAndHash>(verification_key);
+        InnerVerifier native_verifier(vk_and_hash);
         native_verifier.transcript->enable_manifest();
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             native_verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
@@ -284,13 +285,14 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates());
             OuterProver prover(prover_instance, verification_key);
             auto proof = prover.construct_proof();
+            auto outer_vk_and_hash = std::make_shared<typename OuterFlavor::VKAndHash>(verification_key);
             if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
                 VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
-                OuterVerifier verifier(verification_key, ipa_verification_key);
+                OuterVerifier verifier(outer_vk_and_hash, ipa_verification_key);
                 bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
                 ASSERT_TRUE(result);
             } else {
-                OuterVerifier verifier(verification_key);
+                OuterVerifier verifier(outer_vk_and_hash);
                 bool result = verifier.verify_proof(proof).result;
                 ASSERT_TRUE(result);
             }

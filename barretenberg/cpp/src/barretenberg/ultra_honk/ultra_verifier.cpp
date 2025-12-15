@@ -40,9 +40,14 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
 
     transcript->load_proof(proof);
 
-    // For recursive: extract builder from proof if not already set (for builder access in later operations)
+    // For recursive: extract builder from proof and create verifier_instance lazily
     if constexpr (IsRecursive) {
         builder = proof.back().get_context();
+
+        // Create verifier_instance if not already created
+        if (!verifier_instance) {
+            verifier_instance = std::make_shared<Instance>(builder, stored_vk_and_hash);
+        }
     }
 
     OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript };

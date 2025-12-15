@@ -231,12 +231,13 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto prover_instance = std::make_shared<ProverInstance>(builder);
     auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
     Prover prover(prover_instance, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    Verifier verifier(verification_key);
+    Verifier verifier(vk_and_hash);
     verifier.transcript->enable_manifest();
     [[maybe_unused]] auto verifier_output = verifier.verify_proof(proof);
 
@@ -309,7 +310,8 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
         Prover prover(prover_instance);
         auto proof = prover.construct_proof();
         auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-        Verifier verifier(verification_key);
+        auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
+        Verifier verifier(vk_and_hash);
         EXPECT_TRUE(verifier.verify_proof(proof));
 
         // try deserializing and serializing with no changes and check proof is still valid

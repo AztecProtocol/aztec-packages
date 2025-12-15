@@ -22,6 +22,7 @@
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
+#include <any>
 
 namespace bb::stdlib::recursion::honk {
 
@@ -124,33 +125,49 @@ template <typename Flavor, class IO> class UltraVerifier_ {
         bool reduction_succeeded = false; // Sumcheck and consistency checks
     };
 
-    // Native constructor: takes verification key directly
+    /**
+     * @brief Constructor for both native and recursive verifiers
+     * @param vk_and_hash VKAndHash wrapper containing verification key and its hash
+     * @param ipa_verification_key IPA verification key (native rollup flavors only)
+     * @param transcript Transcript instance (optional, defaults to new transcript)
+     *
+     * For native: verifier_instance created immediately
+     * For recursive: verifier_instance created from builder passed to constructor or extracted from proof
+     */
+    using VKAndHash = typename Flavor::VKAndHash;
     explicit UltraVerifier_(
-        const std::shared_ptr<VerificationKey>& vk,
+        const std::shared_ptr<VKAndHash>& vk_and_hash,
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(),
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
-        : stored_vk(vk)
+        : stored_vk_and_hash(vk_and_hash)
         , transcript(transcript)
         , ipa_verification_key(std::move(ipa_verification_key))
     {
+        // Native: create verifier_instance immediately
         if constexpr (!IsRecursive) {
-            verifier_instance = std::make_shared<Instance>(vk);
+            verifier_instance = std::make_shared<Instance>(vk_and_hash->vk);
             ipa_transcript = std::make_shared<Transcript>();
         }
-        // For recursive: verifier_instance created in reduce_to_claims after extracting builder
+        // Recursive: verifier_instance created lazily from builder in verify_proof
     }
 
-    // Recursive constructor: takes builder pointer and VKAndHash (matches old UltraRecursiveVerifier_ API)
-    template <typename VKAndHash>
+    /**
+     * @brief Constructor for recursive verifiers with explicit builder
+     * @param builder The circuit builder context
+     * @param vk_and_hash VKAndHash wrapper containing verification key and its hash
+     * @param transcript Transcript instance (optional, defaults to new transcript)
+     *
+     * This constructor is only available for recursive flavors and creates the verifier_instance immediately.
+     */
     explicit UltraVerifier_(Builder* builder_ptr,
                             const std::shared_ptr<VKAndHash>& vk_and_hash,
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         requires IsRecursive
-        : stored_vk(vk_and_hash->vk)
+        : stored_vk_and_hash(vk_and_hash)
         , transcript(transcript)
         , builder(builder_ptr)
     {
-        verifier_instance = std::make_shared<Instance>(builder_ptr, vk_and_hash);
+        verifier_instance = std::make_shared<Instance>(builder, vk_and_hash);
     }
 
     /**
@@ -172,13 +189,13 @@ template <typename Flavor, class IO> class UltraVerifier_ {
      */
     Output verify_proof(const Proof& proof, const Proof& ipa_proof = {});
 
-    std::shared_ptr<VerificationKey> stored_vk; // Stored for recursive case
+    std::shared_ptr<VKAndHash> stored_vk_and_hash; // Uniform for both native and recursive
     std::shared_ptr<Instance> verifier_instance;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>(); // Native only
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key;                 // Native only
 
-    // Builder pointer (only used for recursive, nullptr for native)
+    // Builder pointer (extracted from proof for recursive, nullptr for native)
     std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
 };
 

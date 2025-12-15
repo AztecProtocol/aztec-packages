@@ -33,10 +33,11 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
     {
         auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
         auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
 
         Prover prover{ prover_instance, verification_key };
         auto proof = prover.construct_proof();
-        Verifier verifier{ verification_key };
+        Verifier verifier{ vk_and_hash };
         bool result = verifier.verify_proof(proof).result;
         return result;
     }

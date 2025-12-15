@@ -60,15 +60,16 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     void prove_and_verify(const std::shared_ptr<ProverInstance>& prover_instance, bool expected_result)
     {
         auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
         Prover prover(prover_instance, verification_key);
         auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<Flavor>) {
             VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-            Verifier verifier(verification_key, ipa_verification_key);
+            Verifier verifier(vk_and_hash, ipa_verification_key);
             bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
             EXPECT_EQ(result, expected_result);
         } else {
-            Verifier verifier(verification_key);
+            Verifier verifier(vk_and_hash);
             bool result = verifier.verify_proof(proof).result;
             EXPECT_EQ(result, expected_result);
         }

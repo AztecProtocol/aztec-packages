@@ -247,7 +247,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     auto vkey = std::make_shared<RecursiveVerificationKey>(vk_fields);
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
     RecursiveVerifier verifier(&builder, vk_and_hash);
-    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.template verify_proof<IO>(proof_fields);
+    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields);
 
 #ifndef NDEBUG
     native_verification_debug<Flavor>(vkey, proof_fields);
@@ -270,6 +270,7 @@ void native_verification_debug(const std::shared_ptr<typename Flavor::Verificati
     using NativeIO = std::conditional_t<HasIPAAccumulator<Flavor>, bb::RollupIO, bb::DefaultIO>;
 
     auto native_vkey = std::make_shared<NativeVerificationKey>(vkey->get_value());
+    auto native_vk_and_hash = std::make_shared<typename Flavor::NativeFlavor::VKAndHash>(native_vkey);
     HonkProof native_proof = proof_fields.get_value();
 
     HonkProof honk_proof;
@@ -282,7 +283,7 @@ void native_verification_debug(const std::shared_ptr<typename Flavor::Verificati
     }
 
     UltraVerifier_<typename Flavor::NativeFlavor> native_verifier(
-        native_vkey, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
+        native_vk_and_hash, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
     bool is_valid_proof(native_verifier.template verify_proof<NativeIO>(honk_proof, ipa_proof));
 
     info("===== HONK RECURSION CONSTRAINT DEBUG INFO =====");

@@ -424,8 +424,13 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
 
 template <typename FF, typename VerificationKey> class VKAndHash_ {
   public:
-    using Builder = VerificationKey::Builder;
-    using NativeVerificationKey = VerificationKey::NativeVerificationKey;
+    // Type aliases for recursive verification keys (conditionally defined)
+    template <typename T = VerificationKey>
+    using Builder = typename std::enable_if_t<requires { typename T::Builder; }, T>::Builder;
+
+    template <typename T = VerificationKey>
+    using NativeVerificationKey =
+        typename std::enable_if_t<requires { typename T::NativeVerificationKey; }, T>::NativeVerificationKey;
 
     VKAndHash_() = default;
     VKAndHash_(const std::shared_ptr<VerificationKey>& vk)
@@ -438,10 +443,15 @@ template <typename FF, typename VerificationKey> class VKAndHash_ {
         , hash(hash)
     {}
 
-    VKAndHash_(Builder& builder, const std::shared_ptr<NativeVerificationKey>& native_vk)
+    // Constructor for recursive verification keys only (SFINAE)
+    template <typename VK = VerificationKey,
+              typename B = typename VK::Builder,
+              typename NVK = typename VK::NativeVerificationKey>
+    VKAndHash_(B& builder, const std::shared_ptr<NVK>& native_vk)
         : vk(std::make_shared<VerificationKey>(&builder, native_vk))
         , hash(FF::from_witness(&builder, native_vk->hash()))
     {}
+
     std::shared_ptr<VerificationKey> vk;
     FF hash;
 };

@@ -259,12 +259,13 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(builder);
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(prover_instance->get_precomputed());
+    auto vk_and_hash = std::make_shared<typename TypeParam::VKAndHash>(verification_key);
     typename TestFixture::Prover prover(prover_instance, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    typename TestFixture::Verifier verifier(verification_key);
+    typename TestFixture::Verifier verifier(vk_and_hash);
     verifier.transcript->enable_manifest();
     typename TestFixture::Proof honk_proof;
     typename TestFixture::Proof ipa_proof;
@@ -347,9 +348,10 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     // Automatically generate a transcript manifest by constructing a proof
     auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(builder);
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(prover_instance->get_precomputed());
+    auto vk_and_hash = std::make_shared<typename TypeParam::VKAndHash>(verification_key);
     typename TestFixture::Prover prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
-    typename TestFixture::Verifier verifier(verification_key);
+    typename TestFixture::Verifier verifier(vk_and_hash);
     {
         bool result = verifier.verify_proof(proof).result;
         EXPECT_TRUE(result);
