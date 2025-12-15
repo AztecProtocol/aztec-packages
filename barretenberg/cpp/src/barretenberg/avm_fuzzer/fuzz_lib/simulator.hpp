@@ -83,3 +83,5 @@ class JsSimulator : public Simulator {
 };
 
 bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2);
+
+GlobalVariables create_default_globals();
