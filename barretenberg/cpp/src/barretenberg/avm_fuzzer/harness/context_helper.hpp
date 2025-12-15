@@ -1,9 +1,12 @@
 #pragma once
 
+#include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
+#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_hashing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/calldata_hashing.hpp"
+#include "barretenberg/vm2/simulation/gadgets/context_provider.hpp"
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/gt.hpp"
@@ -16,6 +19,7 @@
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
+#include "barretenberg/vm2/simulation/lib/side_effect_tracking_db.hpp"
 
 namespace bb::avm2::fuzzing {
 
@@ -39,7 +43,6 @@ class GadgetFuzzerContextHelper {
   public:
     GadgetFuzzerContextHelper(AztecAddress contract_address = AztecAddress(0),
                               bool is_static = false,
-                              TransactionPhase phase = TransactionPhase::APP_LOGIC,
                               uint32_t start_clk = 0);
     // Commonly used emitters:
     DeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
@@ -53,10 +56,25 @@ class GadgetFuzzerContextHelper {
     GreaterThan greater_than;
     // Side effect tracker:
     SideEffectTracker side_effect_tracker;
-
+    // Memory provider:
+    MemoryProvider memory_provider;
+    // Context provider:
+    std::unique_ptr<simulation::ContextProvider> context_provider;
     // Context:
+    std::unique_ptr<simulation::ContextInterface> make_enqueued_fuzzing_context(
+        AztecAddress address,
+        AztecAddress msg_sender,
+        bool is_static = false,
+        FF transaction_fee = FF(0),
+        std::span<const FF> calldata = {},
+        Gas gas_limit = GAS_LIMIT,
+        Gas gas_used = GAS_USED_BY_PRIVATE,
+        TransactionPhase phase = TransactionPhase::APP_LOGIC);
 
-    std::unique_ptr<simulation::ContextInterface> context;
+    std::unique_ptr<simulation::ContextInterface> make_nested_fuzzing_context(AztecAddress address,
+                                                                              AztecAddress msg_sender,
+                                                                              ContextInterface& parent_context,
+                                                                              Gas gas_limit = GAS_LIMIT);
 
   private:
     // Emitters:
@@ -80,9 +98,13 @@ class GadgetFuzzerContextHelper {
     MerkleCheck merkle_check;
     Poseidon2 poseidon2;
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check;
-};
+    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check;
+    std::unique_ptr<TxBytecodeManager> tx_bytecode_manager;
 
-std::unique_ptr<simulation::ContextInterface> make_fuzzing_context(
-    AztecAddress& contract_address, TransactionPhase phase = TransactionPhase::APP_LOGIC);
+    // Misc:
+    GlobalVariables global_variables;
+    ExecutionHints hints;
+    SideEffectTrackingDB make_empty_merkle_db();
+};
 
 } // namespace bb::avm2::fuzzing
