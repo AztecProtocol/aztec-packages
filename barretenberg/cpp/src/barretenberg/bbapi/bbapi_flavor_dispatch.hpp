@@ -1,10 +1,7 @@
 #pragma once
 /**
  * @file bbapi_flavor_dispatch.hpp
- * @brief Flavor selection logic for stateful proving key operations.
- *
- * This file contains utilities to dispatch to the correct Ultra* flavor
- * based on ProofSystemSettings (oracle hash type, ZK mode, etc.).
+ * @brief Flavor selection for stateful proving key operations.
  */
 
 #include "barretenberg/bbapi/bbapi_shared.hpp"
@@ -18,27 +15,12 @@
 namespace bb::bbapi {
 
 /**
- * @brief Enumeration of supported Ultra flavor types for stateful proving.
- * @details Each flavor represents a different proving system configuration.
+ * @brief Supported Ultra flavor types for stateful proving.
  */
-enum class UltraFlavorType : std::uint8_t {
-    Ultra,         ///< Standard UltraHonk (non-ZK, Poseidon2)
-    UltraZK,       ///< Zero-knowledge UltraHonk (Poseidon2)
-    UltraKeccak,   ///< UltraHonk with Keccak hash (for EVM verification, non-ZK)
-    UltraKeccakZK, ///< UltraHonk with Keccak hash (ZK variant)
-    UltraRollup    ///< Rollup-optimized UltraHonk
-};
+enum class UltraFlavorType : std::uint8_t { Ultra, UltraZK, UltraKeccak, UltraKeccakZK, UltraRollup };
 
 /**
- * @brief Select the appropriate Ultra flavor based on proof system settings.
- * @param settings The proof system configuration (hash type, ZK mode, etc.)
- * @return The corresponding UltraFlavorType enum value
- *
- * @details Selection logic:
- *   - If oracle_hash_type == "keccak": UltraKeccak or UltraKeccakZK
- *   - If oracle_hash_type == "poseidon2": Ultra or UltraZK
- *   - UltraRollup is selected based on explicit flag (future extension)
- *   - disable_zk determines ZK vs non-ZK variant
+ * @brief Select Ultra flavor based on proof system settings.
  */
 inline UltraFlavorType select_ultra_flavor(const ProofSystemSettings& settings)
 {

@@ -1,13 +1,7 @@
 #pragma once
 /**
  * @file bbapi_stateful.hpp
- * @brief Generic abstraction for stateful proving key hydration and proving.
- *
- * This file contains templated structures and functions to support stateful keygen
- * across different flavors (Ultra, UltraZK, Mega, MegaZK).
- *
- * Memory optimization: Uses view-based serialization to avoid copying polynomial
- * coefficients during export. The wire format is identical to owning containers.
+ * @brief Stateful proving key caching for UltraHonk flavors.
  */
 
 #include "barretenberg/bbapi/bbapi_shared.hpp"
@@ -32,8 +26,7 @@
 namespace bb::bbapi {
 
 /**
- * @brief Polynomial data for DESERIALIZATION (owning).
- * @details Used when loading a cached proving key back into memory.
+ * @brief Polynomial data for deserialization (owning).
  */
 struct PolynomialExport {
     std::vector<bb::fr> coefficients;
@@ -44,20 +37,16 @@ struct PolynomialExport {
 };
 
 /**
- * @brief Polynomial view for SERIALIZATION (non-owning, zero-copy).
- * @details References polynomial data directly from ProverInstance memory.
- * Serializes to the same wire format as PolynomialExport.
+ * @brief Polynomial view for serialization (non-owning, zero-copy).
  */
 struct PolynomialExportView {
-    std::span<const bb::fr> coefficients; // View into ProverInstance memory
+    std::span<const bb::fr> coefficients;
     uint64_t start_index;
     uint64_t virtual_size;
 
-    // Custom msgpack serialization - serializes directly from view, no copy
     template <typename Packer> void msgpack_pack(Packer& pk) const
     {
         pk.pack_array(3);
-        // Pack coefficients array
         pk.pack_array(static_cast<uint32_t>(coefficients.size()));
         for (const auto& coeff : coefficients) {
             pk.pack(coeff);
@@ -68,8 +57,7 @@ struct PolynomialExportView {
 };
 
 /**
- * @brief Proving key data for DESERIALIZATION (owning).
- * @details Used when loading a cached proving key back into memory.
+ * @brief Proving key data for deserialization (owning).
  */
 struct DeciderProvingKeyExport {
     std::vector<PolynomialExport> polynomials;
@@ -104,12 +92,10 @@ struct DeciderProvingKeyExport {
 };
 
 /**
- * @brief Proving key view for SERIALIZATION (non-owning, zero-copy).
- * @details References data directly from ProverInstance memory.
- * Serializes to the same wire format as DeciderProvingKeyExport.
+ * @brief Proving key view for serialization (non-owning, zero-copy).
  */
 struct DeciderProvingKeyExportView {
-    std::vector<PolynomialExportView> polynomials; // Views, not copies
+    std::vector<PolynomialExportView> polynomials;
     std::span<const bb::fr> public_inputs;
     bb::RelationParameters<bb::fr> relation_parameters;
     std::span<const bb::fr> gate_challenges;
@@ -178,14 +164,7 @@ struct DeciderProvingKeyExportView {
 };
 
 /**
- * @brief Generic implementation of proving key extraction and serialization.
- * @tparam Flavor The proving system flavor (e.g. UltraFlavor, UltraZKFlavor)
- * @param circuit The circuit input containing bytecode
- * @param settings Proof system settings (unused but kept for API consistency)
- * @return Serialized proving key as byte vector
- *
- * @details Uses zero-copy serialization: creates views into ProverInstance memory
- * and serializes directly to the output buffer. No polynomial coefficient copies.
+ * @brief Extract and serialize proving key from circuit (zero-copy).
  */
 template <typename Flavor>
 std::vector<uint8_t> get_proving_key_serialized(const CircuitInput& circuit, const ProofSystemSettings& /*settings*/)
@@ -201,10 +180,8 @@ std::vector<uint8_t> get_proving_key_serialized(const CircuitInput& circuit, con
     auto builder = acir_format::create_circuit<CircuitBuilder>(program);
     auto prover_instance = std::make_shared<ProverInstance>(builder);
 
-    // Create view-based export (ZERO-COPY: references prover_instance memory)
     DeciderProvingKeyExportView export_view;
 
-    // Create views into precomputed polynomials (no coefficient copies!)
     for (const auto& poly : prover_instance->polynomials.get_precomputed()) {
         export_view.polynomials.push_back(
             PolynomialExportView{ .coefficients = std::span<const bb::fr>(poly.data(), poly.size()),
@@ -212,7 +189,6 @@ std::vector<uint8_t> get_proving_key_serialized(const CircuitInput& circuit, con
                                   .virtual_size = poly.virtual_size() });
     }
 
-    // Create views into other data (no copies!)
     export_view.public_inputs = std::span<const bb::fr>(prover_instance->public_inputs);
     export_view.relation_parameters = prover_instance->relation_parameters;
     export_view.gate_challenges = std::span<const bb::fr>(prover_instance->gate_challenges);
@@ -224,11 +200,8 @@ std::vector<uint8_t> get_proving_key_serialized(const CircuitInput& circuit, con
     export_view.memory_read_records = std::span<const uint32_t>(prover_instance->memory_read_records);
     export_view.memory_write_records = std::span<const uint32_t>(prover_instance->memory_write_records);
 
-    // Serialize directly from views (prover_instance still alive, memory valid)
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, export_view);
-
-    // prover_instance goes out of scope AFTER serialization completes
     return std::vector<uint8_t>(buffer.data(), buffer.data() + buffer.size());
 }
 
