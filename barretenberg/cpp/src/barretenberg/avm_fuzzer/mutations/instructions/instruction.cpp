@@ -6,6 +6,7 @@
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint32_t.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint64_t.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint8_t.hpp"
+#include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 
 AddressingMode generate_addressing_mode(std::mt19937_64& rng)
@@ -209,9 +210,18 @@ FuzzInstruction generate_instruction(std::mt19937_64& rng)
                                          .copy_size_address = generate_result_address_ref(rng),
                                          .cd_start = generate_random_uint16(rng),
                                          .cd_start_address = generate_result_address_ref(rng) };
+    case InstructionGenerationOptions::SENDL2TOL1MSG:
+        return SENDL2TOL1MSG_Instruction{ .recipient = generate_random_field(rng),
+                                          .recipient_address = generate_result_address_ref(rng),
+                                          .content = generate_random_field(rng),
+                                          .content_address = generate_result_address_ref(rng) };
+    case InstructionGenerationOptions::EMITUNENCRYPTEDLOG:
+        return EMITUNENCRYPTEDLOG_Instruction{ .log_size = generate_random_uint8(rng),
+                                               .log_size_address = generate_result_address_ref(rng),
+                                               .log_values = { generate_random_field(rng) },
+                                               .log_values_address_start = generate_random_uint16(rng) };
     }
 }
-
 /// Most of the tags will be equal to the default tag
 void mutate_address_ref(AddressRef& address, std::mt19937_64& rng, std::optional<MemoryTag> default_tag)
 {
@@ -587,6 +597,50 @@ void mutate_calldatacopy_instruction(CALLDATACOPY_Instruction& instruction, std:
     }
 }
 
+void mutate_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction& instruction, std::mt19937_64& rng)
+{
+    SendL2ToL1MsgMutationOptions option = BASIC_SENDL2TOL1MSG_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case SendL2ToL1MsgMutationOptions::recipient:
+        mutate_field(instruction.recipient, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
+        break;
+    case SendL2ToL1MsgMutationOptions::recipient_address:
+        mutate_result_address_ref(instruction.recipient_address, rng);
+        break;
+    case SendL2ToL1MsgMutationOptions::content:
+        mutate_field(instruction.content, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
+        break;
+    case SendL2ToL1MsgMutationOptions::content_address:
+        mutate_result_address_ref(instruction.content_address, rng);
+        break;
+    }
+}
+
+void mutate_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction& instruction, std::mt19937_64& rng)
+{
+    EmitUnencryptedLogMutationOptions option = BASIC_EMITUNENCRYPTEDLOG_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case EmitUnencryptedLogMutationOptions::log_size:
+        mutate_uint8_t(instruction.log_size, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
+        break;
+    case EmitUnencryptedLogMutationOptions::log_size_address:
+        mutate_result_address_ref(instruction.log_size_address, rng);
+        break;
+    case EmitUnencryptedLogMutationOptions::log_values:
+        mutate_vec<bb::avm2::FF>(
+            instruction.log_values,
+            rng,
+            [](bb::avm2::FF& value, std::mt19937_64& rng) {
+                mutate_field(value, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
+            },
+            generate_random_field,
+            BASIC_VEC_MUTATION_CONFIGURATION);
+        break;
+    case EmitUnencryptedLogMutationOptions::log_values_address_start:
+        mutate_uint16_t(instruction.log_values_address_start, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    }
+}
 void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
 {
     std::visit(overloaded_instruction{
@@ -634,6 +688,7 @@ void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
                    [&rng](EMITNOTEHASH_Instruction& instr) { mutate_emit_note_hash_instruction(instr, rng); },
                    [&rng](NOTEHASHEXISTS_Instruction& instr) { mutate_note_hash_exists_instruction(instr, rng); },
                    [&rng](CALLDATACOPY_Instruction& instr) { mutate_calldatacopy_instruction(instr, rng); },
+                   [&rng](SENDL2TOL1MSG_Instruction& instr) { mutate_sendl2tol1msg_instruction(instr, rng); },
                    [](auto&) { throw std::runtime_error("Unknown instruction"); } },
                instruction);
 }
