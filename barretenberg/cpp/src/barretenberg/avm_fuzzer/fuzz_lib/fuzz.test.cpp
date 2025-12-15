@@ -12,6 +12,36 @@
 
 using namespace bb::avm2::fuzzer;
 
+FuzzerWorldStateManager* ws_mgr = nullptr;
+
+SimulatorResult simulate_with_default_tx(std::vector<uint8_t>& bytecode, std::vector<FF> calldata)
+{
+    FuzzerWorldStateManager::initialize();
+    if (ws_mgr == nullptr) {
+        ws_mgr = FuzzerWorldStateManager::getInstance();
+    }
+    FuzzerContractDB contract_db;
+    auto default_class = create_default_class(bytecode);
+    auto default_instance = create_default_instance(default_class.id);
+    auto contract_address = compute_contract_address(default_instance);
+    contract_db.add_contract_class(default_class.id, default_class);
+    contract_db.add_contract_instance(contract_address, default_instance);
+    ws_mgr->register_contract_address(contract_address);
+
+    auto tx = create_default_tx(contract_address, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
+    auto cpp_simulator = CppSimulator();
+
+    ws_mgr->checkpoint();
+    try {
+        auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+        ws_mgr->revert();
+        return result;
+    } catch (...) {
+        ws_mgr->revert();
+        throw;
+    }
+}
+
 namespace arithmetic {
 
 // set(addr 0, 5) set(addr 1, 2) OP(addr 0, addr 1, addr 2) return(addr 2)
@@ -32,19 +62,7 @@ FF get_result_of_instruction(FuzzInstruction instruction,
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     return result.output.at(0);
 }
 
@@ -210,19 +228,7 @@ TEST(fuzz, FDIV8)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 2);
 }
 
@@ -245,19 +251,7 @@ TEST(fuzz, NOT8)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 255);
 }
 
@@ -283,19 +277,7 @@ FF get_result_of_instruction_16(FuzzInstruction instruction,
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     return result.output.at(0);
 }
 
@@ -461,19 +443,7 @@ TEST(fuzz, FDIV16)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 2);
 }
 
@@ -496,19 +466,7 @@ TEST(fuzz, NOT16)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 255);
 }
 } // namespace arithmetic
@@ -539,19 +497,7 @@ TEST(fuzz, CAST8)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 2);
 }
 
@@ -580,19 +526,7 @@ TEST(fuzz, CAST16)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 2);
 }
 } // namespace type_conversion
@@ -614,19 +548,7 @@ TEST(fuzz, SET16)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), test_value);
 }
 // set(0, 0x12345678, U32) return(0)
@@ -645,19 +567,7 @@ TEST(fuzz, SET32)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), test_value);
 }
 
@@ -677,19 +587,7 @@ TEST(fuzz, SET64)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), test_value);
 }
 
@@ -714,19 +612,7 @@ TEST(fuzz, SET128)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), test_value);
 }
 
@@ -746,19 +632,7 @@ TEST(fuzz, SETFF)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), test_value);
 }
 
@@ -786,19 +660,7 @@ TEST(fuzz, MOV8)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), test_value);
 }
 
@@ -827,19 +689,7 @@ TEST(fuzz, MOV16)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), test_value);
 }
 
@@ -868,19 +718,7 @@ TEST(fuzz, JumpToNewBlockSmoke)
     control_flow.process_cfg_instruction(JumpToNewBlock{ .target_program_block_instruction_block_idx = 1 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 11);
 }
 
@@ -913,19 +751,7 @@ TEST(fuzz, JumpToNewBlockSmoke2)
     control_flow.process_cfg_instruction(JumpToNewBlock{ .target_program_block_instruction_block_idx = 2 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 12);
 }
 
@@ -948,19 +774,7 @@ TEST(fuzz, JumpToNewBlockSharesVariables)
     control_flow.process_cfg_instruction(JumpToNewBlock{ .target_program_block_instruction_block_idx = 1 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 10);
 }
 
@@ -1005,31 +819,8 @@ TEST(fuzz, JumpIfToNewBlockSmoke)
                                                             .condition_offset_index = 1 });
     auto bytecode_2 = control_flow2.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-
-    FuzzerContractDB contract_db_1;
-    auto default_class_1 = create_default_class(bytecode_1);
-    auto default_instance_1 = create_default_instance(default_class_1.id);
-    auto contract_address_1 = compute_contract_address(default_instance_1);
-    contract_db_1.add_contract_class(default_class_1.id, default_class_1);
-    contract_db_1.add_contract_instance(contract_address_1, default_instance_1);
-    ws_mgr->register_contract_address(contract_address_1);
-
-    FuzzerContractDB contract_db_2;
-    auto default_class_2 = create_default_class(bytecode_2);
-    auto default_instance_2 = create_default_instance(default_class_2.id);
-    auto contract_address_2 = compute_contract_address(default_instance_2);
-    contract_db_2.add_contract_class(default_class_2.id, default_class_2);
-    contract_db_2.add_contract_instance(contract_address_2, default_instance_2);
-    ws_mgr->register_contract_address(contract_address_2);
-
-    auto tx_1 = create_default_tx(contract_address_1, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result_1 = cpp_simulator.simulate(*ws_mgr, contract_db_1, tx_1);
-    auto tx_2 = create_default_tx(contract_address_2, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator2 = CppSimulator();
-    auto result_2 = cpp_simulator2.simulate(*ws_mgr, contract_db_2, tx_2);
+    auto result_1 = simulate_with_default_tx(bytecode_1, {});
+    auto result_2 = simulate_with_default_tx(bytecode_2, {});
     EXPECT_EQ(result_1.output.at(0), 11);
     EXPECT_EQ(result_2.output.at(0), 12);
 }
@@ -1070,19 +861,7 @@ FF simulate_jump_if_depth_2_helper(uint8_t first_boolean_value, uint8_t second_b
                                                            .condition_offset_index = 1 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     return result.output.at(0);
 }
 
@@ -1121,19 +900,7 @@ FF simulate_jump_to_block_helper(uint8_t condition_value)
     control_flow.process_cfg_instruction(JumpToBlock{ .target_block_idx = 2 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     return result.output.at(0);
 }
 
@@ -1211,19 +978,7 @@ TEST(fuzz, JumpIfToNewBlockWithReturn)
     auto bytecode_true = control_flow_true.build_bytecode(ReturnOptions{
         .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 10 });
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db_true;
-    auto default_class_true = create_default_class(bytecode_true);
-    auto default_instance_true = create_default_instance(default_class_true.id);
-    auto contract_address_true = compute_contract_address(default_instance_true);
-    contract_db_true.add_contract_class(default_class_true.id, default_class_true);
-    contract_db_true.add_contract_instance(contract_address_true, default_instance_true);
-    ws_mgr->register_contract_address(contract_address_true);
-
-    auto tx_true = create_default_tx(contract_address_true, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator_true = CppSimulator();
-    auto result_true = cpp_simulator_true.simulate(*ws_mgr, contract_db_true, tx_true);
+    auto result_true = simulate_with_default_tx(bytecode_true, {});
     EXPECT_EQ(result_true.output.at(0), ff_value);
 
     // Test with condition = false (should return U128 value)
@@ -1251,18 +1006,7 @@ TEST(fuzz, JumpIfToNewBlockWithReturn)
     auto bytecode_false = control_flow_false.build_bytecode(ReturnOptions{
         .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U128, .return_value_offset_index = 20 });
 
-    FuzzerContractDB contract_db_false;
-    auto default_class_false = create_default_class(bytecode_false);
-    auto default_instance_false = create_default_instance(default_class_false.id);
-    auto contract_address_false = compute_contract_address(default_instance_false);
-    contract_db_false.add_contract_class(default_class_false.id, default_class_false);
-    contract_db_false.add_contract_instance(contract_address_false, default_instance_false);
-    ws_mgr->register_contract_address(contract_address_false);
-
-    auto tx_false =
-        create_default_tx(contract_address_false, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator_false = CppSimulator();
-    auto result_false = cpp_simulator_false.simulate(*ws_mgr, contract_db_false, tx_false);
+    auto result_false = simulate_with_default_tx(bytecode_false, {});
     EXPECT_EQ(result_false.output.at(0), expected_u128_value);
 }
 } // namespace control_flow
@@ -1305,19 +1049,7 @@ TEST(fuzz, SstoreThenSload)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 10);
 }
 } // namespace public_storage
@@ -1325,6 +1057,7 @@ TEST(fuzz, SstoreThenSload)
 namespace execution_environment {
 FF getenvvar_helper(uint8_t type, bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::FF)
 {
+
     auto getenvvar_instruction =
         GETENVVAR_Instruction{ .result_address = ResultAddressRef{ .address = 0, .mode = AddressingMode::Direct },
                                .type = type };
@@ -1335,36 +1068,26 @@ FF getenvvar_helper(uint8_t type, bb::avm2::MemoryTag return_value_tag = bb::avm
         ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 0 };
     auto bytecode = control_flow.build_bytecode(return_options);
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     return result.output.at(0);
 }
 
 TEST(fuzz, GetEnvVarSmoke)
 {
-    EXPECT_EQ(getenvvar_helper(0), 42);                                // address, see simulator.cpp globals
-    EXPECT_EQ(getenvvar_helper(1), 100);                               // sender, see simulator.cpp globals
-    EXPECT_EQ(getenvvar_helper(2), 0);                                 // transaction fee, see simulator.cpp globals
-    EXPECT_EQ(getenvvar_helper(3), 1);                                 // chain id, see simulator.cpp globals
-    EXPECT_EQ(getenvvar_helper(4), 1);                                 // version, see simulator.cpp globals
-    EXPECT_EQ(getenvvar_helper(5), 1);                                 // block number, see simulator.cpp globals
+    EXPECT_EQ(
+        getenvvar_helper(0),
+        FF("0x0eef563acf421c26743cea39f09b489599fda1ae169754cd181de40c377ee0af")); // address with bytecode commitment
+    EXPECT_EQ(getenvvar_helper(1), MSG_SENDER);                                    // sender, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(2), TRANSACTION_FEE);                   // transaction fee, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(3), CHAIN_ID);                          // chain id, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(4), VERSION);                           // version, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(5), BLOCK_NUMBER);                      // block number, see simulator.cpp globals
     EXPECT_EQ(getenvvar_helper(6, bb::avm2::MemoryTag::U64), 1000000); // timestamp, see simulator.cpp globals
-    EXPECT_EQ(getenvvar_helper(7), 1);                                 // FEEPERL2GAS = 1, see simulator.cpp gas_fees
-    EXPECT_EQ(getenvvar_helper(8), 1);                                 // FEEPERDAGAS = 1, see simulator.cpp gas_fees
+    EXPECT_EQ(getenvvar_helper(7), FEE_PER_L2_GAS);                    // FEEPERL2GAS = 1, see simulator.cpp gas_fees
+    EXPECT_EQ(getenvvar_helper(8), FEE_PER_DA_GAS);                    // FEEPERDAGAS = 1, see simulator.cpp gas_fees
     EXPECT_EQ(getenvvar_helper(9), 0);                                 // is static call is always false
-    EXPECT_EQ(getenvvar_helper(10), 1000000 - 2 * 6);                  // L2GASLEFT, gas spent on getenvvar + return
-    EXPECT_EQ(getenvvar_helper(11), 1000000);                          // DAGASLEFT, see simulator.cpp
+    EXPECT_EQ(getenvvar_helper(10), GAS_LIMIT.l2_gas - 2 * 6);         // L2GASLEFT, gas spent on getenvvar + return
+    EXPECT_EQ(getenvvar_helper(11), GAS_LIMIT.da_gas);                 // DAGASLEFT, see simulator.cpp
 }
 } // namespace execution_environment
 
@@ -1390,19 +1113,7 @@ TEST(fuzz, EmitNullifierThenNullifierExists)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(ReturnOptions{
         .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 20 });
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 1);
 }
 
@@ -1427,19 +1138,7 @@ TEST(fuzz, EmitNullifierThenNullifierExistsOverwritingPreviousNullifier)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 0 });
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 0);
 }
 
@@ -1460,21 +1159,14 @@ TEST(fuzz, EmitNoteHashThenNoteHashExists)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 0 });
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_FALSE(result.reverted);
-    EXPECT_EQ(result.output.at(0), 1);
+    // TODO(defkit): fix notehashexists
+    // Right now we cannot know the contract address during bytecode construction
+    // because contract address depends on bytecode commitment
+    // So we cannot compute actual unique_note_hash for NOTEHASHEXISTS instruction
+    //
+    // EXPECT_EQ(result.output.at(0), 1);
 }
 } // namespace notes_and_nullifiers
 
@@ -1492,19 +1184,7 @@ TEST(fuzz, CopyCalldataThenReturnData)
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
 
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, { FF(1337) }, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, { FF(1337) });
     EXPECT_EQ(result.output.at(0), 1337);
 }
 
@@ -1527,19 +1207,7 @@ TEST(fuzz, InternalCall)
     control_flow.process_cfg_instruction(internal_call_instruction);
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 313373);
 }
 } // namespace calldata_returndata
@@ -1570,19 +1238,7 @@ TEST(fuzz, InternalCalledBlockUsesInternalReturn)
             .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 0 } });
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 1337);
 }
 
@@ -1614,19 +1270,7 @@ TEST(fuzz, SeveralInternalCalls)
     control_flow.process_cfg_instruction(internal_call_instruction2);
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 313373);
 }
 
@@ -1695,19 +1339,7 @@ TEST(fuzz, Reentrancy)
             .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 } });
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
-    FuzzerWorldStateManager::initialize();
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
-    FuzzerContractDB contract_db;
-    auto default_class = create_default_class(bytecode);
-    auto default_instance = create_default_instance(default_class.id);
-    auto contract_address = compute_contract_address(default_instance);
-    contract_db.add_contract_class(default_class.id, default_class);
-    contract_db.add_contract_instance(contract_address, default_instance);
-    ws_mgr->register_contract_address(contract_address);
-
-    auto tx = create_default_tx(contract_address, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 313373);
 }
 } // namespace internal_calls
@@ -1736,8 +1368,7 @@ TEST(fuzz, DirectWithIndirect)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 2 });
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(bytecode, {});
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 30);
 }
 
@@ -1766,8 +1397,7 @@ TEST(fuzz, DirectWithIndirectRelative)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 2 });
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(bytecode, {});
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 30);
 }
 
@@ -1793,8 +1423,7 @@ TEST(fuzz, IndirectResultCanBeUsedInNextInstruction)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 2 });
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(bytecode, {});
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 400);
 }
 
@@ -1823,8 +1452,44 @@ TEST(fuzz, Memoryaddressing32BitWidth)
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 2 });
-    auto cpp_simulator = CppSimulator();
-    auto result = cpp_simulator.simulate(bytecode, {});
+    auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 200);
 }
 } // namespace avm_addressing
+
+namespace misc {
+// TODO(defkit): get info from world state to be sure that the message will be sent / log emitted
+TEST(fuzz, SendL2ToL1Msg)
+{
+    auto sendl2tol1msg_instruction = SENDL2TOL1MSG_Instruction{
+        .recipient = 100,
+        .recipient_address = ResultAddressRef{ .address = 0, .mode = AddressingMode::Direct },
+        .content = 200,
+        .content_address = ResultAddressRef{ .address = 1, .mode = AddressingMode::Direct }
+    };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ { sendl2tol1msg_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_EQ(result.reverted, false);
+}
+
+TEST(fuzz, EmitUnencryptedLog)
+{
+    auto emitunencryptedlog_instruction =
+        EMITUNENCRYPTEDLOG_Instruction{ .log_size = 1,
+                                        .log_size_address =
+                                            ResultAddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                                        .log_values = { 1 },
+                                        .log_values_address_start = 1 };
+    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ { emitunencryptedlog_instruction } };
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+    auto bytecode = control_flow.build_bytecode(
+        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::FF, .return_value_offset_index = 0 });
+    auto result = simulate_with_default_tx(bytecode, {});
+    EXPECT_EQ(result.reverted, false);
+}
+} // namespace misc
