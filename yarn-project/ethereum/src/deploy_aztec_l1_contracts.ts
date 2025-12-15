@@ -7,6 +7,8 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import type { Fr } from '@aztec/foundation/schemas';
 import { fileURLToPath } from '@aztec/foundation/url';
 
+
+
 import { bn254 } from '@noble/curves/bn254';
 import type { Abi, Narrow } from 'abitype';
 import { spawn } from 'child_process';
@@ -14,6 +16,8 @@ import { dirname, resolve } from 'path';
 import readline from 'readline';
 import type { Hex } from 'viem';
 import { foundry, mainnet } from 'viem/chains';
+
+
 
 import { createEthereumChain, isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
@@ -23,6 +27,10 @@ import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import type { L1TxUtilsConfig } from './l1_tx_utils/config.js';
 import type { ExtendedViemWalletClient } from './types.js';
+
+
+
+
 
 const logger = createLogger('ethereum:deploy_aztec_l1_contracts');
 
@@ -263,6 +271,8 @@ export async function deployAztecL1Contracts(
     ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : ['--verify']),
   ];
   const forgeEnv = {
+    // Protect against root leaving deployment files in docker that cannot be used later.
+    FOUNDRY_BROADCAST: process.getuid?.() === 0 ? 'broadcast-root' : undefined,
     // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
     NETWORK: getActiveNetworkName(),
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
@@ -521,6 +531,8 @@ export const deployRollupForUpgrade = async (
     '--broadcast',
   ];
   const forgeEnv = {
+    // Protect against root leaving deployment files in docker that cannot be used later.
+    FOUNDRY_BROADCAST: process.getuid?.() === 0 ? 'broadcast-root' : undefined,
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
     REGISTRY_ADDRESS: registryAddress.toString(),
