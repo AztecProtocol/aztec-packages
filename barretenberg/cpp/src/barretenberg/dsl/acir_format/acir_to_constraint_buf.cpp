@@ -583,7 +583,7 @@ void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFo
         BB_ASSERT_GT(mul_quads.size(),
                      1U,
                      "acir_format::assert_zero_to_quad_constraints: expected multiple gates but found one.");
-        af.big_quad_constraints.push_back(mul_quads);
+        af.big_quad_constraints.push_back(BigQuadConstraint(mul_quads));
         af.original_opcode_indices.big_quad_constraints.push_back(opcode_index);
     }
 

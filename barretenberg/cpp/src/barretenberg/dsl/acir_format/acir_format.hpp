@@ -33,7 +33,6 @@
 
 namespace acir_format {
 
-using QuadConstraints = mul_quad_<fr>;
 using WitnessVector = std::vector<bb::fr>;
 
 /**
@@ -104,12 +103,12 @@ struct AcirFormat {
     std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> hn_recursion_constraints;
     std::vector<RecursionConstraint> chonk_recursion_constraints;
-    std::vector<QuadConstraints> quad_constraints; // Standard honk arithmetic constraint of width 4
+    std::vector<QuadConstraint> quad_constraints; // Standard honk arithmetic constraint of width 4
     // A vector of vector of mul_quad gates (i.e arithmetic constraints of width 4)
     // Each vector of gates represente a 'big' expression (a polynomial of degree 1 or 2 which does not fit inside one
     // mul_gate) that has been splitted into multiple mul_gates, using w4_shift (the 4th wire of the next gate), to
     // reduce the number of intermediate variables.
-    std::vector<std::vector<QuadConstraints>> big_quad_constraints;
+    std::vector<BigQuadConstraint> big_quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.

@@ -164,10 +164,10 @@ inline std::vector<Acir::Opcode> block_constraint_to_acir_opcodes(const BlockCon
 }
 
 /**
- * @brief Add terms for a QuadConstraints to an Acir::Expression
+ * @brief Add terms for a QuadConstraint to an Acir::Expression
  *
  */
-inline void add_terms_to_expression(Acir::Expression& expr, const QuadConstraints& mul_quad)
+inline void add_terms_to_expression(Acir::Expression& expr, const QuadConstraint& mul_quad)
 {
     // Add multiplication term if both a and b are not constants
     if (mul_quad.a != bb::stdlib::IS_CONSTANT && mul_quad.b != bb::stdlib::IS_CONSTANT &&
@@ -443,7 +443,7 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
                                        } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, BlockConstraint>) {
         return block_constraint_to_acir_opcodes(constraint);
-    } else if constexpr (std::is_same_v<ConstraintType, QuadConstraints>) {
+    } else if constexpr (std::is_same_v<ConstraintType, QuadConstraint>) {
         // Convert a single mul_quad_ to an AssertZero opcode
         Acir::Expression expr{
             .mul_terms = {},
@@ -454,7 +454,7 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
         add_terms_to_expression(expr, constraint);
 
         return { Acir::Opcode{ .value = Acir::Opcode::AssertZero{ .value = expr } } };
-    } else if constexpr (std::is_same_v<ConstraintType, std::vector<QuadConstraints>>) {
+    } else if constexpr (std::is_same_v<ConstraintType, BigQuadConstraint>) {
         // Convert a vector of mul_quad_ (big_quad_constraints) to an AssertZero opcode
         Acir::Expression expr{
             .mul_terms = {},

@@ -38,7 +38,7 @@ class ArithmeticConstraintsTestingFunctions {
     using Builder = Builder_;
     using AcirConstraint = AcirConstraint_;
 
-    static constexpr bool IS_BIG_QUAD = std::is_same_v<AcirConstraint, std::vector<mul_quad_<typename Builder::FF>>>;
+    static constexpr bool IS_BIG_QUAD = std::is_same_v<AcirConstraint, BigQuadConstraint>;
 
     /**
      * @brief Compute the number of elements to overlap between multiplication and linear terms
@@ -281,7 +281,6 @@ class BigQuadConstraintTest
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
 };
 
-using BigQuadConstraint = std::vector<mul_quad_<bb::fr>>;
 using BigQuadConstraintConfigs = testing::Types<
     ArithmeticConstraintParams<UltraCircuitBuilder, BigQuadConstraint, 1, 3, false, false>, // Minimal cases
                                                                                             // requiring 2 gates
@@ -331,7 +330,6 @@ class QuadConstraintTest
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
 };
 
-using QuadConstraint = mul_quad_<bb::fr>;
 using QuadConstraintConfigs = testing::Types<
     ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 1, 0, false, false>,
     ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 1, 1, false, false>,
