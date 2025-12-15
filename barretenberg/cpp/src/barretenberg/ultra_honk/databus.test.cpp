@@ -26,7 +26,7 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
     using FF = Curve::ScalarField;
     using Builder = typename Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor, DefaultIO>;
 
     // Construct and verify a MegaHonk proof for a given circuit
     static bool construct_and_verify_proof(MegaCircuitBuilder& builder)
@@ -37,7 +37,7 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
         Prover prover{ prover_instance, verification_key };
         auto proof = prover.construct_proof();
         Verifier verifier{ verification_key };
-        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        bool result = verifier.verify_proof(proof).result;
         return result;
     }
 

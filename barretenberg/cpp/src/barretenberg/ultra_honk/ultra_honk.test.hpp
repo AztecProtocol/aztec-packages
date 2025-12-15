@@ -30,7 +30,8 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
+    using Verifier = UltraVerifier_<Flavor, IO>;
 
     std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> variables)
     {
@@ -64,11 +65,11 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
         if constexpr (HasIPAAccumulator<Flavor>) {
             VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
             Verifier verifier(verification_key, ipa_verification_key);
-            bool result = verifier.template verify_proof<RollupIO>(proof, prover_instance->ipa_proof).result;
+            bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
             EXPECT_EQ(result, expected_result);
         } else {
             Verifier verifier(verification_key);
-            bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+            bool result = verifier.verify_proof(proof).result;
             EXPECT_EQ(result, expected_result);
         }
     };

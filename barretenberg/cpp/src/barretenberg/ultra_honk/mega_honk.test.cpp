@@ -26,7 +26,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using Point = Curve::AffineElement;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor, DefaultIO>;
     using VerificationKey = typename Flavor::VerificationKey;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
@@ -42,7 +42,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         Prover prover(prover_instance, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
+        bool verified = verifier.verify_proof(proof).result;
 
         return verified;
     }
@@ -109,7 +109,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     }
     typename Flavor::CircuitBuilder builder;
     using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor, DefaultIO>;
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
@@ -141,7 +141,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     auto relation_failures =
         RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
     EXPECT_TRUE(relation_failures.empty());
-    bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+    bool result = verifier.verify_proof(proof).result;
     EXPECT_TRUE(result);
 
     Verifier verifier_copy(verification_key_copy);
@@ -150,7 +150,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     auto relation_failures_copy =
         RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
     EXPECT_TRUE(relation_failures.empty());
-    bool result_copy = verifier_copy.template verify_proof<DefaultIO>(proof_copy).result;
+    bool result_copy = verifier_copy.verify_proof(proof_copy).result;
     EXPECT_TRUE(result_copy);
 }
 
@@ -197,7 +197,7 @@ TYPED_TEST(MegaHonkTests, PolySwap)
         typename TestFixture::Prover prover(prover_instance_1, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        bool result = verifier.verify_proof(proof).result;
         EXPECT_TRUE(result);
     }
 
@@ -207,7 +207,7 @@ TYPED_TEST(MegaHonkTests, PolySwap)
         typename TestFixture::Prover prover(prover_instance_2, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        bool result = verifier.verify_proof(proof).result;
         EXPECT_FALSE(result);
     }
 }

@@ -161,15 +161,24 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     [[nodiscard("Reduction result should be verified")]] ReductionResult reduce_to_claims(const Proof& proof);
 
     /**
-     * @brief Perform verification (native: immediate, recursive: deferred)
+     * @brief Perform verification for IPA-based flavors (rollup)
      * @details
-     * - Native: Calls reduce_to_claims() then performs immediate pairing check + IPA verification,
-     *   returns UltraVerifierOutput with bool result
-     * - Recursive: Calls reduce_to_claims() and returns UltraRecursiveVerifierOutput with pairing
-     *   points for deferred verification in outer circuit
+     * - Native: Takes separate honk_proof and ipa_proof, performs immediate verification
+     * - Recursive: Takes combined proof, splits into honk + ipa, returns pairing points
      * @return Output (UltraVerifierOutput for native, UltraRecursiveVerifierOutput for recursive)
      */
-    Output verify_proof(const Proof& proof, const Proof& ipa_proof = {});
+    Output verify_proof(const Proof& proof, const Proof& ipa_proof = {})
+        requires HasIPAAccumulator<Flavor>;
+
+    /**
+     * @brief Perform verification for non-IPA flavors
+     * @details
+     * - Native: Calls reduce_to_claims() then performs immediate pairing check
+     * - Recursive: Calls reduce_to_claims() and returns pairing points for deferred verification
+     * @return Output (UltraVerifierOutput for native, UltraRecursiveVerifierOutput for recursive)
+     */
+    Output verify_proof(const Proof& proof)
+        requires(!HasIPAAccumulator<Flavor>);
 
     std::shared_ptr<VerificationKey> stored_vk; // Stored for recursive case
     std::shared_ptr<Instance> verifier_instance;
