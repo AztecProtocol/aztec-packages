@@ -17,7 +17,6 @@
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
-#include <any>
 
 namespace bb::stdlib::recursion::honk {
 
