@@ -126,7 +126,14 @@ describe('PXEOracleInterface', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       for (const sender of senders) {
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex);
-        const log = new TxScopedL2Log(TxHash.random(), 0, 0, MIN_BLOCK_NUMBER_OF_A_LOG, PrivateLog.random(tag.value));
+        const log = new TxScopedL2Log(
+          TxHash.random(),
+          0,
+          0,
+          MIN_BLOCK_NUMBER_OF_A_LOG,
+          L2BlockHash.random(),
+          PrivateLog.random(tag.value),
+        );
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS
@@ -135,7 +142,14 @@ describe('PXEOracleInterface', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       const firstSender = senders[0];
       const tag = await computeSiloedTagForIndex(firstSender, recipient.address, contractAddress, tagIndex);
-      const log = new TxScopedL2Log(TxHash.random(), 1, 0, BlockNumber.ZERO, PrivateLog.random(tag.value));
+      const log = new TxScopedL2Log(
+        TxHash.random(),
+        1,
+        0,
+        BlockNumber.ZERO,
+        L2BlockHash.random(),
+        PrivateLog.random(tag.value),
+      );
       logs[tag.toString()].push(log);
       // Accumulated logs intended for recipient: NUM_SENDERS + 1
 
@@ -145,7 +159,14 @@ describe('PXEOracleInterface', () => {
         const sender = senders[i];
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex + 1);
         const blockNumber = BlockNumber(2);
-        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag.value));
+        const log = new TxScopedL2Log(
+          TxHash.random(),
+          0,
+          0,
+          blockNumber,
+          L2BlockHash.random(),
+          PrivateLog.random(tag.value),
+        );
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -157,7 +178,14 @@ describe('PXEOracleInterface', () => {
         const partialAddress = Fr.random();
         const randomRecipient = await computeAddress(keys.publicKeys, partialAddress);
         const tag = await computeSiloedTagForIndex(sender, randomRecipient, contractAddress, tagIndex);
-        const log = new TxScopedL2Log(TxHash.random(), 0, 0, MAX_BLOCK_NUMBER_OF_A_LOG, PrivateLog.random(tag.value));
+        const log = new TxScopedL2Log(
+          TxHash.random(),
+          0,
+          0,
+          MAX_BLOCK_NUMBER_OF_A_LOG,
+          L2BlockHash.random(),
+          PrivateLog.random(tag.value),
+        );
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -948,6 +976,7 @@ describe('PXEOracleInterface', () => {
         randomInt(100),
         randomInt(100),
         BlockNumber(randomInt(100)),
+        L2BlockHash.random(),
         log,
       );
 
