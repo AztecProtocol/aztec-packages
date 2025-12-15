@@ -29,6 +29,8 @@ template <class BuilderType> class Blake3TestingFunctions {
         static std::vector<std::string> get_labels() { return { "None", "Input", "Output" }; }
     };
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     void invalidate_witness(Blake3Constraint& constraint,
                             WitnessVector& witness_values,
                             const InvalidWitness::Target& invalid_witness_target)
