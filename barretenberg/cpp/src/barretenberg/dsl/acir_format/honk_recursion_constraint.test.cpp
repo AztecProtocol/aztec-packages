@@ -31,7 +31,7 @@ using namespace bb;
  * 1. Generate A_1, .., A_{s_1} circuits and set F_i := A_i
  * 2. (For s_2, .., s_N) Generate B_1, .., B_{s_i} circuits where B_i recursively verifies A_i, i <= s_i, and set
  *.   F_i = B_i for i <= s_i
- * 3. Construct a circuit that recursively verifies (F_1, .., F_{s_1}) and prove it using Flavor
+ * 3. Construct a circuit C that recursively verifies (F_1, .., F_{s_1}) and prove it using Flavor
  *
  *
  * All the "inner" circuits F_1, .., F_{s_1} are constructed using the same builder and same flavor. This flavor is
@@ -43,6 +43,13 @@ using namespace bb;
  *
  * NOTE: We add another template parameter: IsRootRollup so that we can force finalization of IPA claims.
  *
+ * EXAMPLE: If N = 1, s_1 = 1, then C = { recursively verify A_1 }. This is what we call vanilla recursion
+ * EXAMPLE: If N = 1, s_1 = 2, IsRootRollup = false, then C = { recursively verify A_1, A_2 }. This is a Base/Merge
+ *          rollup.
+ * EXAMPLE: If N = 1, s_1 = 2, IsRootRollup = true, then C = { recursively verify A_1, A_2  + IPA verification}.
+ *          This is a root rollup.
+ * EXAMPLE: If N = 2, (s_1, s_2) = (2, 1), then C = { recursively verify B_1, A_2 }, where B_1 = { recursively verify
+ *          A_1 }.
  */
 template <typename RecursiveFlavor_, bool IsRootRollup_, size_t N_, std::array<size_t, N_> LayerSizes_>
 class HonkRecursionTestParams {
@@ -69,7 +76,7 @@ class HonkRecursionConstraintTestingFunctions {
 
     // Check that if IsRootRollup is true, then we set the parameters correctly
     static_assert([]() {
-        if (IsRootRollup) {
+        if constexpr (IsRootRollup) {
             return HasIPAAccumulator<RecursiveFlavor> && N == 1 && LayerSizes[0] == 2;
         }
 
@@ -102,6 +109,10 @@ class HonkRecursionConstraintTestingFunctions {
         std::conditional_t<IS_VANILLA_RECURSION, RecursionConstraint, std::vector<RecursionConstraint>>;
     using Builder = RecursiveFlavor::CircuitBuilder;
 
+    // All the circuits have the same number of public inputs, this tests the slicing of public inputs from the proof at
+    // every level
+    static constexpr size_t NUM_PUBLIC_INPUTS = 2;
+
     struct InvalidWitness {
       public:
         enum class Target : uint8_t { None, VKHash, VK, Proof };
@@ -123,6 +134,9 @@ class HonkRecursionConstraintTestingFunctions {
         MockCircuits::add_arithmetic_gates(builder);
         MockCircuits::add_lookup_gates(builder);
 
+        for (size_t idx = 0; idx < NUM_PUBLIC_INPUTS; idx++) {
+            builder.add_public_variable(InnerBuilder::FF::random_element());
+        }
         InnerIO::add_default(builder);
 
         return builder;
@@ -177,6 +191,10 @@ class HonkRecursionConstraintTestingFunctions {
      */
     static std::pair<RecursionConstraint, WitnessVector> circuit_to_recursion_constraint(InnerBuilder& builder)
     {
+        // Add public inputs if needed
+        for (size_t idx = builder.num_public_inputs(); idx < NUM_PUBLIC_INPUTS; idx++) {
+            builder.add_public_variable(InnerBuilder::FF::random_element());
+        }
         auto prover_instance = std::make_shared<InnerProverInstance>(builder);
         auto verification_key = std::make_shared<InnerVerificationKey>(prover_instance->get_precomputed());
 
@@ -205,8 +223,8 @@ class HonkRecursionConstraintTestingFunctions {
         return ProgramMetadata{ .has_ipa_claim = HasIPAAccumulator<RecursiveFlavor> };
     }
 
-    static void invalidate_witness([[maybe_unused]] AcirConstraint& honk_recursion_constraints,
-                                   [[maybe_unused]] WitnessVector& witness_values,
+    static void invalidate_witness(AcirConstraint& honk_recursion_constraints,
+                                   WitnessVector& witness_values,
                                    const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
@@ -232,8 +250,8 @@ class HonkRecursionConstraintTestingFunctions {
             break;
         }
         case InvalidWitness::Target::Proof: {
-            // Invalidate the circuit by modifying the last element of the proof, which is a group element (KZG
-            // commitment)
+            // Invalidate the circuit by modifying the first element of the proof after the public inputs, which is a
+            // group element (vk commitment)
             std::vector<uint32_t> proof_indices;
             if constexpr (IS_VANILLA_RECURSION) {
                 proof_indices = honk_recursion_constraints.proof;
@@ -260,7 +278,7 @@ class HonkRecursionConstraintTestingFunctions {
             for (size_t idx = 0; idx < current_layer_size; idx++) {
                 if (layer_idx == 0) {
                     // If we are at the bottom layer, we create the circuit and then create the recursion constraint
-                    // that verify the circuit
+                    // that verifies the circuit
                     auto [constraint, witnesses] = []() {
                         InnerBuilder builder = create_inner_circuit();
                         return circuit_to_recursion_constraint(builder);
@@ -277,10 +295,9 @@ class HonkRecursionConstraintTestingFunctions {
                         recursion_constraint, /*max_witness_index=*/static_cast<uint32_t>(witnesses.size()) - 1);
 
                     AcirProgram acir_program{ .constraints = acir_format, .witness = witnesses };
-                    ProgramMetadata metadata{ .has_ipa_claim = HasIPAAccumulator<InnerFlavor> };
 
                     std::tie(constraints[idx], witness_vectors[idx]) = [&]() {
-                        auto builder = create_circuit<InnerBuilder>(acir_program, metadata);
+                        auto builder = create_circuit<InnerBuilder>(acir_program, generate_metadata());
                         return circuit_to_recursion_constraint(builder);
                     }();
                 }
@@ -365,13 +382,13 @@ TYPED_TEST(HonkRecursionTestWithPredicate, GateCountSingleHonkRecursion)
         // Verify the gate count was recorded
         EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
-        // Get expected values from shared constants based on predicate mode
+        // Get expected values based on predicate mode
         auto [EXPECTED_GATE_COUNT, EXPECTED_ULTRA_OPS] = HONK_RECURSION_CONSTANTS<RecursiveFlavor>(predicate_mode);
 
         // Assert gate count
         EXPECT_EQ(program.constraints.gates_per_opcode[0], EXPECTED_GATE_COUNT);
 
-        // For MegaBuilder, also assert ECC row count and ultra ops count
+        // For MegaBuilder, also assert ultra ops count
         if constexpr (IsMegaBuilder<Builder>) {
             size_t actual_ultra_ops = builder.op_queue->get_current_subtable_size();
             EXPECT_EQ(actual_ultra_ops, EXPECTED_ULTRA_OPS);

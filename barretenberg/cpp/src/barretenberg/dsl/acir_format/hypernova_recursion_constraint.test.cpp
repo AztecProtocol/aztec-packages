@@ -4,6 +4,7 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"

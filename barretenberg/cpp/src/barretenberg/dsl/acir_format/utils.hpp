@@ -57,6 +57,10 @@ byte_array<Builder> fields_to_bytes(Builder& builder, std::vector<field_t<Builde
 std::vector<uint32_t> add_public_inputs_to_proof(const std::vector<uint32_t>& proof_in,
                                                  const std::vector<uint32_t>& public_inputs);
 
+/// ========== TESTING UTILITIES ========== ///
+
+/// The functions below are helpers for handling witnesses in testing situations
+
 /**
  * @brief Given recursion data (proof, key, key hash, predicate and the number of public inputs) and a proof type,
  * populate a witness vector with these values and return the associated recursion constraint.
@@ -72,10 +76,6 @@ RecursionConstraint recursion_data_to_recursion_constraint(std::vector<bb::fr>& 
                                                            const bb::fr& predicate,
                                                            const size_t num_public_inputs_to_extract,
                                                            const uint32_t proof_type);
-
-/// ========== TESTING UTILITIES ========== ///
-
-/// The functions below are helpers for handling witnesses in testing situations
 
 /**
  * @brief Append values to a witness vector and track their indices.
@@ -136,7 +136,7 @@ std::array<uint32_t, N> add_to_witness_and_track_indices(std::vector<bb::fr>& wi
 
 /// ========== WRITE_VK UTILITIES ========== ///
 
-/// The functions below are helper for write_vk situations
+/// The functions below are helpers for write_vk situations
 
 /**
  * @brief Populate fields in the builder with the given values.

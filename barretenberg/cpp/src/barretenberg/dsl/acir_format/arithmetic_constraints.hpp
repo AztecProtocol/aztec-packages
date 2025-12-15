@@ -18,7 +18,22 @@ namespace acir_format {
 using namespace bb;
 using namespace bb::stdlib;
 
+/**
+ * @brief Standard UltraHonk arithmetic constraint of width 4
+ */
 using QuadConstraint = mul_quad_<bb::fr>;
+
+/**
+ * @brief Constraint representing a polynomial of degree 1 or 2 that does not fit into a standard UltraHonk arithmetic
+ * constraint of width 4
+ *
+ * @details Each BigQuadConstraint represents an expression
+ * \f[
+ *          \sum_{i, j} c_{ij} w_i * w_j + \sum_i c_i w_i + const = 0
+ * \f]
+ * that has been split into multiple QuadConstraint gates using w4_shift (the 4th wire of the next gate) to reduce the
+ * number of intermediate variables. See also the documentation for create_big_quad_constraint
+ */
 class BigQuadConstraint : public std::vector<QuadConstraint> {
   public:
     using Base = std::vector<QuadConstraint>;

@@ -1,10 +1,22 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: completed, auditors: [Federico], date: 2025-12-15 }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
 #include "honk_recursion_constraint.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
+#include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 
 #include <cstddef>
 
@@ -64,19 +76,20 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     if (!predicate.is_constant()) {
         // If the predicate is a witness, we conditionally assign a valid vk, proof and vk hash so that verification
         // suceeds. Note: in doing this, we create some new witnesses that are only used in the conditional assignment.
-        // It would be optimal to hard-code these values in the selector, but due to the randomness needed to generate
+        // It would be optimal to hard-code these values in the selectors, but due to the randomness needed to generate
         // valid ZK proofs, we cannot do that without adding a dependency of the VKs on the witness values. Note that
-        // the new witnesses are used only in the recursive verification, so they don't create a soundness issue and can
-        // be filled with anything as long as they contain a valid vk, proof and vk hash.)
+        // the new witnesses are used only in the recursive verification when the predicate is set to true, so they
+        // don't create a soundness issue and can be filled with anything - as long as they contain a valid vk, proof
+        // and vk hash)
         for (auto [vk_witness, vk_element] : zip_view(vk_fields, honk_vk->to_field_elements())) {
             field_ct valid_vk_witness = field_ct::from_witness(&builder, vk_element);
-            valid_vk_witness.unset_free_witness_tag();
+            valid_vk_witness.unset_free_witness_tag(); // Avoid tooling catching this as a free witness
             vk_witness = field_ct::conditional_assign(predicate, vk_witness, valid_vk_witness);
         }
 
         for (auto [proof_witness, proof_element] : zip_view(proof_fields, honk_proof)) {
             field_ct valid_proof_witness = field_ct::from_witness(&builder, proof_element);
-            valid_proof_witness.unset_free_witness_tag();
+            valid_proof_witness.unset_free_witness_tag(); // Avoid tooling catching this as a free witness
             proof_witness = field_ct::conditional_assign(predicate, proof_witness, valid_proof_witness);
         }
 

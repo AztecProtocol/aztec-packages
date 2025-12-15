@@ -64,42 +64,42 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(const PredicateTes
     if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(722758, 0);
+            return std::make_tuple(722845, 0);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(723905, 0);
+            return std::make_tuple(723996, 0);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(766176, 0);
+            return std::make_tuple(766263, 0);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(767425, 0);
+            return std::make_tuple(767516, 0);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(723077, 0);
+            return std::make_tuple(723164, 0);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(724372, 0);
+            return std::make_tuple(724463, 0);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(23092, 76);
+            return std::make_tuple(23179, 76);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(24239, 76);
+            return std::make_tuple(24330, 76);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(27963, 80);
+            return std::make_tuple(28050, 80);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(29212, 80);
+            return std::make_tuple(29303, 80);
         }
     } else {
         bb::assert_failure("Unhandled recursive flavor.");

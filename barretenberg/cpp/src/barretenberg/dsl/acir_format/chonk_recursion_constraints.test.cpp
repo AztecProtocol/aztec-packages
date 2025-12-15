@@ -1,6 +1,7 @@
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 
 #include <gtest/gtest.h>
