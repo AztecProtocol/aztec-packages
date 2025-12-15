@@ -1,8 +1,6 @@
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
-#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 
 #include <gtest/gtest.h>
@@ -71,8 +69,8 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
         program.constraints.max_witness_index = static_cast<uint32_t>(program.witness.size() - 1);
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(1);
         program.constraints.chonk_recursion_constraints = { constraint };
-        program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
-        mock_opcode_indices(program.constraints);
+        program.constraints.original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{ .chonk_recursion_constraints = { 0 } };
 
         return program;
     }

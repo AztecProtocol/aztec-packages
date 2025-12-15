@@ -7,7 +7,6 @@
 #pragma once
 
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <vector>
 
@@ -48,8 +47,8 @@ byte_array<Builder> fields_to_bytes(Builder& builder, std::vector<field_t<Builde
  * @brief Reconstruct a barretenberg style proof from an ACIR style proof + public inputs
  *
  * @details In barretenberg, proofs start with the public inputs. ACIR represents proofs in the format
- * (public_inputs, proof_without_public_inputs). This function stitches together the indices for the public inputs
- * with those for the proof to transform ACIR-style proofs into barretenberg-style proofs.
+ * (public_inputs, proof_without_public_inputs). This function stitches together the indices of the public inputs
+ * with those of the proof to transform ACIR-style proofs into barretenberg-style proofs.
  *
  * @param proof_in A proof stripped of its public inputs
  * @param public_inputs The public inputs to be reinserted into the proof
@@ -81,13 +80,14 @@ RecursionConstraint recursion_data_to_recursion_constraint(std::vector<bb::fr>& 
 /**
  * @brief Append values to a witness vector and track their indices.
  *
- * @details This function is useful in mocking situations, when we need to add dummy variables to a builder.
+ * @details This function is useful in testing situations, when we need to add witnesses to a builder.
  * @tparam T The input type
  * @param witness The witness vector to append to
  * @param input The input value(s) - either a span of values or a single special type
  * @return std::vector<uint32_t> The witness indices of the appended values
  */
-template <typename T> std::vector<uint32_t> add_to_witness_and_track_indices(WitnessVector& witness, const T& input)
+template <typename T>
+std::vector<uint32_t> add_to_witness_and_track_indices(std::vector<bb::fr>& witness, const T& input)
 {
     std::vector<uint32_t> indices;
 
@@ -114,7 +114,7 @@ template <typename T> std::vector<uint32_t> add_to_witness_and_track_indices(Wit
 /**
  * @brief Add a single value to the witness vector and track its index.
  */
-inline uint32_t add_to_witness_and_track_indices(WitnessVector& witness, const bb::fr& input)
+inline uint32_t add_to_witness_and_track_indices(std::vector<bb::fr>& witness, const bb::fr& input)
 {
     uint32_t index = static_cast<uint32_t>(witness.size());
     witness.emplace_back(input);
@@ -126,7 +126,7 @@ inline uint32_t add_to_witness_and_track_indices(WitnessVector& witness, const b
  * @brief Add a span of values to the witness and track their indices, returning them as a fixed-size array.
  */
 template <typename T, size_t N>
-std::array<uint32_t, N> add_to_witness_and_track_indices(WitnessVector& witness, const T& input)
+std::array<uint32_t, N> add_to_witness_and_track_indices(std::vector<bb::fr>& witness, const T& input)
 {
     std::vector<uint32_t> tracked_indices = add_to_witness_and_track_indices(witness, input);
     std::array<uint32_t, N> indices;

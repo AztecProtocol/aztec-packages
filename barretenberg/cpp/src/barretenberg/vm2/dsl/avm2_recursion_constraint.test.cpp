@@ -1,7 +1,5 @@
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
-#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
@@ -95,9 +93,10 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         constraint_system.max_witness_index = static_cast<uint32_t>(witness.size() - 1);
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(avm_recursion_constraints.size());
         constraint_system.avm_recursion_constraints = avm_recursion_constraints;
-        constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
-
-        mock_opcode_indices(constraint_system);
+        constraint_system.original_opcode_indices.avm_recursion_constraints.reserve(avm_recursion_constraints.size());
+        std::iota(constraint_system.original_opcode_indices.avm_recursion_constraints.begin(),
+                  constraint_system.original_opcode_indices.avm_recursion_constraints.end(),
+                  0);
 
         return program;
     }

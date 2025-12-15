@@ -1,6 +1,5 @@
 #include "ec_operations.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 
 #include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"

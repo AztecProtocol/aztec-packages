@@ -1,6 +1,5 @@
 #include "honk_recursion_constraint.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
@@ -11,7 +10,6 @@
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include "proof_surgeon.hpp"
 
 #include <gtest/gtest.h>
 #include <vector>

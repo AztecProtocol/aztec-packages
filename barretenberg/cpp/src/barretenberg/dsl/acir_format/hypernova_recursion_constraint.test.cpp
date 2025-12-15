@@ -1,6 +1,5 @@
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
@@ -10,7 +9,6 @@
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "honk_recursion_constraint.hpp"
-#include "proof_surgeon.hpp"
 
 #include <gtest/gtest.h>
 #include <vector>
@@ -223,8 +221,10 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         program.constraints.max_witness_index = static_cast<uint32_t>(program.witness.size() - 1);
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(hn_recursion_constraints.size());
         program.constraints.hn_recursion_constraints = hn_recursion_constraints;
-        program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
-        mock_opcode_indices(program.constraints);
+        program.constraints.original_opcode_indices =
+            hn_recursion_constraints.size() == 1
+                ? AcirFormatOriginalOpcodeIndices{ .hn_recursion_constraints = { 0 } }
+                : AcirFormatOriginalOpcodeIndices{ .hn_recursion_constraints = { 0, 1 } };
 
         return program;
     }

@@ -1,6 +1,5 @@
 #include "arithmetic_constraints.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"

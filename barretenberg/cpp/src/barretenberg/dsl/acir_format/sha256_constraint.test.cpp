@@ -1,6 +1,5 @@
 #include "sha256_constraint.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 
 #include <gtest/gtest.h>
@@ -45,9 +44,8 @@ TEST_F(Sha256Tests, TestSha256Compression)
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .sha256_compression = { sha256_compression },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .sha256_compression = { 0 } },
     };
-    mock_opcode_indices(constraint_system);
 
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);

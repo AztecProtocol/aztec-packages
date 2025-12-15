@@ -14,7 +14,6 @@
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
-#include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
 namespace acir_format {
