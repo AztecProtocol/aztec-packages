@@ -487,3 +487,15 @@
 [[redirects]]
     from = "/dev_docs/*"
     to = "/developers/getting_started_on_local_network"
+
+# =============================================================================
+# ERROR CODES
+# Sequential error code redirects for user-friendly error references.
+# Each error code maps to a relevant documentation page.
+# Add new error codes sequentially (1, 2, 3, ...).
+# =============================================================================
+
+# Example (uncomment and modify when adding error codes):
+# [[redirects]]
+#     from = "/errors/1"
+#     to = "/developers/docs/guides/smart_contracts/how_to_define_functions"
