@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
-echo "Installing dependencies..."
 source $(git rev-parse --show-toplevel)/ci3/source
-echo "Source loaded"
+
+log() { echo "[INFO]  $(date -Is) - $*"; }
+err() { echo "[ERROR] $(date -Is) - $*" >&2; }
+die() { err "$*"; exit 1; }
+require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"; }
+
+log "Installing dependencies..."
 
 # if kubectl is not installed, install it
 if ! command -v kubectl &> /dev/null; then
-  echo "Installing kubectl..."
-  curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/$(os)/$(arch)/kubectl"
+  log "Installing kubectl..."
+  curl -sLO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/$(os)/$(arch)/kubectl"
   chmod +x kubectl
   sudo mv kubectl /usr/local/bin/kubectl
 fi
 
 # Install kind if it is not installed
 if ! command -v kind &> /dev/null; then
-  echo "Installing kind..."
-  curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.23.0/kind-$(os)-$(arch)
+  log "Installing kind..."
+  curl -sLo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.23.0/kind-$(os)-$(arch)
   chmod +x ./kind
   sudo mv ./kind /usr/local/bin/kind
 fi
@@ -28,7 +33,7 @@ function get_helm_from_cache {
     elif [ -f ./usr/local/bin/helm ]; then
       sudo mv ./usr/local/bin/helm /usr/local/bin/helm
     else 
-      echo "Could not extract helm from cache"
+      err "Could not extract helm from cache"
       return 1
     fi
     sudo chmod +x /usr/local/bin/helm
@@ -38,16 +43,16 @@ function get_helm_from_cache {
 
 # Install helm if it is not installed
 if ! command -v helm &> /dev/null; then
-  echo "Installing helm..."
+  log "Installing helm..."
 
   # Determine the helm artifact name based on OS and architecture
   helm_artifact="helm-$(os)-$(arch).tar.gz"
   helm_release_url="https://github.com/helm/helm/releases/tag/v3.19.0"
 
   if get_helm_from_cache "$helm_artifact" >/dev/null; then
-    echo "Using cached Helm binary"
+    log "Using cached Helm binary"
   else
-    echo "Downloading Helm from get.helm.sh..."
+    log "Downloading Helm from get.helm.sh..."
     # Download and run the official Helm installer script
     curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
     chmod +x get_helm.sh
@@ -63,9 +68,9 @@ if ! command -v helm &> /dev/null; then
 fi
 
 if ! command -v stern &> /dev/null; then
-  echo "Installing stern..."
+  log "Installing stern..."
   # Download Stern
-  curl -Lo stern.tar.gz https://github.com/stern/stern/releases/download/v1.31.0/stern_1.31.0_$(os)_$(arch).tar.gz
+  curl -sLo stern.tar.gz https://github.com/stern/stern/releases/download/v1.31.0/stern_1.31.0_$(os)_$(arch).tar.gz
 
   # Extract the binary
   tar -xzf stern.tar.gz
@@ -82,8 +87,8 @@ if ! command -v stern &> /dev/null; then
 fi
 
 if ! command -v gcloud &> /dev/null; then
-  echo "Installing gcloud..."
-  curl -Lo google-cloud-cli.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-$os-$(arch).tar.gz
+  log "Installing gcloud..."
+  curl -sLo google-cloud-cli.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-$os-$(arch).tar.gz
   tar -xzf google-cloud-cli.tar.gz
   rm google-cloud-cli.tar.gz
 
@@ -105,19 +110,16 @@ if command -v gcloud &> /dev/null; then
     if dpkg -l google-cloud-cli-gke-gcloud-auth-plugin 2>/dev/null | grep -q "^ii"; then
       : # do nothing
     else
-      echo "Installing GKE auth plugin for kubectl via apt..."
+      log "Installing GKE auth plugin for kubectl via apt..."
       sudo apt-get update
       sudo apt-get install -y google-cloud-cli-gke-gcloud-auth-plugin
     fi
   else
-    echo "Installing GKE auth plugin for kubectl via gcloud components..."
+    log "Installing GKE auth plugin for kubectl via gcloud components..."
     gcloud components install gke-gcloud-auth-plugin
   fi
 fi
 
-
-# Sanity check commands
-require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"; }
 
 require_cmd git
 require_cmd kubectl
