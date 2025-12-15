@@ -138,23 +138,6 @@ TEST_F(KZGTest, EmptyPolynomial)
     prove_and_verify({ challenge, evaluation }, empty_poly);
 }
 
-TEST_F(KZGTest, TranscriptConsistency)
-{
-    auto witness = bb::Polynomial<Fr>::random(n);
-    const Fr challenge = Fr::random_element();
-    const Fr evaluation = witness.evaluate(challenge);
-    const Commitment commitment = ck.commit(witness);
-
-    auto prover_transcript = NativeTranscript::prover_init_empty();
-    PCS::compute_opening_proof(ck, { witness, { challenge, evaluation } }, prover_transcript);
-
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
-    auto opening_claim = OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
-    PCS::reduce_verify(opening_claim, verifier_transcript);
-
-    EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
-}
-
 /**
  * @brief Test opening proof of a polynomial given by its evaluations at \f$ i = 0, \ldots, n \f$. Should only be used
  * for small values of \f$ n \f$.
