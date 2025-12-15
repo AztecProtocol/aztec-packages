@@ -174,9 +174,13 @@ template <typename Curve> class ShpleminiVerifier_ {
 
   public:
     // A struct to return the batch opening claim and the consistency checked flag for ZK flavors
-    struct ShpleminiVerifierOutput {
+    template <bool HasZK> struct ShpleminiVerifierOutput {
         BatchOpeningClaim<Curve> batch_opening_claim;
-        std::optional<bool> consistency_checked;
+    };
+
+    template <> struct ShpleminiVerifierOutput<true> {
+        BatchOpeningClaim<Curve> batch_opening_claim;
+        bool consistency_checked;
     };
 
     /**
@@ -206,8 +210,8 @@ template <typename Curve> class ShpleminiVerifier_ {
      * multivariate evaluation claims is reduced by \f$ 5 \f$.
      *
      */
-    template <typename Transcript>
-    static ShpleminiVerifierOutput compute_batch_opening_claim(
+    template <typename Transcript, bool HasZK = false>
+    static ShpleminiVerifierOutput<HasZK> compute_batch_opening_claim(
         std::span<const Fr> padding_indicator_array,
         ClaimBatcher& claim_batcher,
         const std::vector<Fr>& multivariate_challenge,

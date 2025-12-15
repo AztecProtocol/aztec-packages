@@ -80,15 +80,16 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
 
-    auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                                                   claim_batcher,
-                                                                   sumcheck_output.challenge,
-                                                                   Commitment::one(),
-                                                                   transcript,
-                                                                   Flavor::REPEATED_COMMITMENTS,
-                                                                   Flavor::HasZK,
-                                                                   libra_commitments,
-                                                                   sumcheck_output.claimed_libra_evaluation);
+    auto shplemini_output = Shplemini::template compute_batch_opening_claim<Transcript, Flavor::HasZK>(
+        padding_indicator_array,
+        claim_batcher,
+        sumcheck_output.challenge,
+        Commitment::one(),
+        transcript,
+        Flavor::REPEATED_COMMITMENTS,
+        Flavor::HasZK,
+        libra_commitments,
+        sumcheck_output.claimed_libra_evaluation);
 
     auto pairing_points =
         PCS::reduce_verify_batch_opening_claim(std::move(shplemini_output.batch_opening_claim), transcript);
@@ -104,7 +105,13 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
 
     // Check that verification passed
     bool pairing_check_verified = pairing_points.check();
-    bool consistency_checked = shplemini_output.consistency_checked.value_or(true);
+
+    bool consistency_checked = true;
+
+    if constexpr (Flavor::HasZK) {
+        consistency_checked = shplemini_output.consistency_checked;
+    }
+
     vinfo("sumcheck_verified: ", sumcheck_output.verified);
     vinfo("libra_evals_verified: ", consistency_checked);
     vinfo("pairing_check_verified: ", pairing_check_verified);
