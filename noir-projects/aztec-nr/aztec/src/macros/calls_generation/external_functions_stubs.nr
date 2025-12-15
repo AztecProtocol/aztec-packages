@@ -153,11 +153,9 @@ pub(crate) comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
     }
 }
 
-// Self-call stub generation functions for CallSelf, CallSelfStatic, EnqueueSelf and EnqueueSelfStatic structs
-
-// Note: Unlike for the call registry, the self-call registry stubs directly perform the call instead of returning a
-// call interface struct.
-// TODO(F-131): This ^ is confusing and should be reflected in the naming.
+// Self-call stub generation functions for CallSelf, CallSelfStatic, EnqueueSelf, and EnqueueSelfStatic structs.
+// Unlike the stubs above, the self-call stubs directly perform the call instead of returning a struct that can
+// be later used to perform the call.
 
 /// Creates a stub for calling a private function (or static private function if `is_static` is true) from private
 /// context (for CallSelf<&mut PrivateContext> and CallSelfStatic<&mut PrivateContext>).
@@ -183,18 +181,15 @@ pub comptime fn create_private_self_call_stub(f: FunctionDefinition, is_static: 
     }
 }
 
-// TODO(F-131): Drop the use of the Call in the following 4 functions - it doesn't make sense to not not
-// perform the call directly using the context. I tried doing this already but it became a lot of pain due to the use of
-// slices and them being illegal to return from unconstrained functions. Makes sense to tackle this when cleaning up the
-// call interface code.
-// Note: Once we get rid of the structs we will be able to merge some of the static and non-static stub functions.
-
 /// Creates a stub for calling a public function from public context (for CallSelf<PublicContext>)
 pub comptime fn create_public_self_call_stub(f: FunctionDefinition) -> Quoted {
     let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, _, fn_name_str, _, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
+    // TODO: It makes sense to drop the use of PublicStaticCall struct here and just perform the call directly but
+    // before doing that we need to drop the use of slices from return values because we cannot return slices from
+    // an unconstrained function. This is not a priority right now.
     quote {
         pub fn $fn_name(self, $fn_parameters_list) -> $fn_return_type {
             $serialized_args_array_construction
@@ -217,6 +212,9 @@ pub comptime fn create_public_self_call_static_stub(f: FunctionDefinition) -> Qu
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
+    // TODO: It makes sense to drop the use of PublicStaticCall struct here and just perform the call directly but
+    // before doing that we need to drop the use of slices from return values because we cannot return slices from
+    // an unconstrained function. This is not a priority right now.
     quote {
         pub fn $fn_name(self, $fn_parameters_list) -> $fn_return_type {
             $serialized_args_array_construction
@@ -235,40 +233,44 @@ pub comptime fn create_public_self_call_static_stub(f: FunctionDefinition) -> Qu
 
 /// Creates a static stub for enqueuing a public view function from private context (for EnqueueSelfStatic<&mut PrivateContext>)
 pub comptime fn create_public_self_enqueue_static_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, serialized_args_array_len, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, _serialized_args_array_len, _fn_name_str, _fn_name_len, fn_selector) =
         create_stub_base(f);
 
     quote {
         pub fn $fn_name(self, $fn_parameters_list) {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            let interface: aztec::context::calls::PublicStaticCall<$fn_name_len, $serialized_args_array_len, ()> = aztec::context::calls::PublicStaticCall::new(
+            let calldata = [aztec::protocol_types::traits::ToField::to_field(selector)].concat($serialized_args_array_name);
+            let calldata_hash = aztec::hash::hash_calldata_array(calldata);
+            aztec::oracle::execution_cache::store(calldata, calldata_hash);
+            self.context.call_public_function_with_calldata_hash(
                 self.address,
-                selector,
-                $fn_name_str,
-                $serialized_args_array_name,
+                calldata_hash,
+                /*is_static_call=*/ true,
+                /*hide_msg_sender=*/ false,
             );
-            interface.enqueue_view(self.context);
         }
     }
 }
 
 /// Creates a stub for enqueuing a public function from private context (for EnqueueSelf<&mut PrivateContext>)
 pub comptime fn create_public_self_enqueue_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, serialized_args_array_len, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, _serialized_args_array_len, _fn_name_str, _fn_name_len, fn_selector) =
         create_stub_base(f);
 
     quote {
         pub fn $fn_name(self, $fn_parameters_list) {
             $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
-            let interface: aztec::context::calls::PublicCall<$fn_name_len, $serialized_args_array_len, ()> = aztec::context::calls::PublicCall::new(
+            let calldata = [aztec::protocol_types::traits::ToField::to_field(selector)].concat($serialized_args_array_name);
+            let calldata_hash = aztec::hash::hash_calldata_array(calldata);
+            aztec::oracle::execution_cache::store(calldata, calldata_hash);
+            self.context.call_public_function_with_calldata_hash(
                 self.address,
-                selector,
-                $fn_name_str,
-                $serialized_args_array_name,
+                calldata_hash,
+                /*is_static_call=*/ false,
+                /*hide_msg_sender=*/ false,
             );
-            interface.enqueue(self.context);
         }
     }
 }
