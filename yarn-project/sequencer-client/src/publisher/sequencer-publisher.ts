@@ -109,6 +109,8 @@ export class SequencerPublisher {
 
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
 
+  private isPayloadEmptyCache: Map<string, boolean> = new Map<string, boolean>();
+
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
 
@@ -661,7 +663,16 @@ export class SequencerPublisher {
     const round = await base.computeRound(slotNumber);
     const roundInfo = await base.getRoundInfo(this.rollupContract.address, round);
 
+    if (roundInfo.quorumReached) {
+      return false;
+    }
+
     if (roundInfo.lastSignalSlot >= slotNumber) {
+      return false;
+    }
+
+    if (await this.isPayloadEmpty(payload)) {
+      this.log.warn(`Skipping vote cast for payload with empty code`);
       return false;
     }
 
@@ -722,6 +733,17 @@ export class SequencerPublisher {
       },
     });
     return true;
+  }
+
+  private async isPayloadEmpty(payload: EthAddress): Promise<boolean> {
+    const key = payload.toString();
+    const cached = this.isPayloadEmptyCache.get(key);
+    if (cached) {
+      return cached;
+    }
+    const isEmpty = !(await this.l1TxUtils.getCode(payload));
+    this.isPayloadEmptyCache.set(key, isEmpty);
+    return isEmpty;
   }
 
   /**
