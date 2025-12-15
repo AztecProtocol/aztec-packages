@@ -87,7 +87,7 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
               typename CompileTimeEnabled = std::enable_if_t<(BaseField::modulus >> 255) == uint256_t(0), void>>
     [[nodiscard]] constexpr uint256_t compress() const noexcept;
 
-    static affine_element infinity();
+    static constexpr affine_element infinity();
     constexpr affine_element set_infinity() const noexcept;
     constexpr void self_set_infinity() noexcept;
 

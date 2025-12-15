@@ -13,9 +13,20 @@ import {
   TallySlashingProposerAbi,
 } from '@aztec/l1-artifacts';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
+import { ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
-import { type Hex, type Transaction, decodeFunctionData, hexToBytes, multicall3Abi, toFunctionSelector } from 'viem';
+import {
+  type AbiParameter,
+  type Hex,
+  type Transaction,
+  decodeFunctionData,
+  encodeAbiParameters,
+  hexToBytes,
+  keccak256,
+  multicall3Abi,
+  toFunctionSelector,
+} from 'viem';
 
 import type { ArchiverInstrumentation } from '../instrumentation.js';
 import { getSuccessfulCallsFromDebug } from './debug_tx.js';
@@ -56,12 +67,17 @@ export class CalldataRetriever {
    * @param txHash - Hash of the tx that published it.
    * @param blobHashes - Blob hashes for the checkpoint.
    * @param checkpointNumber - Checkpoint number.
+   * @param expectedHashes - Optional expected hashes from the CheckpointProposed event for validation
    * @returns Checkpoint header and metadata from the calldata, deserialized
    */
   async getCheckpointFromRollupTx(
     txHash: `0x${string}`,
     blobHashes: Buffer[],
     checkpointNumber: CheckpointNumber,
+    expectedHashes: {
+      attestationsHash?: Hex;
+      payloadDigest?: Hex;
+    },
   ): Promise<{
     checkpointNumber: CheckpointNumber;
     archiveRoot: Fr;
@@ -69,10 +85,14 @@ export class CalldataRetriever {
     attestations: CommitteeAttestation[];
     blockHash: string;
   }> {
-    this.logger.trace(`Fetching checkpoint ${checkpointNumber} from rollup tx ${txHash}`);
+    this.logger.trace(`Fetching checkpoint ${checkpointNumber} from rollup tx ${txHash}`, {
+      willValidateHashes: !!expectedHashes.attestationsHash || !!expectedHashes.payloadDigest,
+      hasAttestationsHash: !!expectedHashes.attestationsHash,
+      hasPayloadDigest: !!expectedHashes.payloadDigest,
+    });
     const tx = await this.publicClient.getTransaction({ hash: txHash });
     const proposeCalldata = await this.getProposeCallData(tx, checkpointNumber);
-    return this.decodeAndBuildCheckpoint(proposeCalldata, tx.blockHash!, checkpointNumber);
+    return this.decodeAndBuildCheckpoint(proposeCalldata, tx.blockHash!, checkpointNumber, expectedHashes);
   }
 
   /** Gets rollup propose calldata from a transaction */
@@ -325,16 +345,58 @@ export class CalldataRetriever {
   }
 
   /**
+   * Extracts the CommitteeAttestations struct definition from RollupAbi.
+   * Finds the _attestations parameter by name in the propose function.
+   * Lazy-loaded to avoid issues during module initialization.
+   */
+  private getCommitteeAttestationsStructDef(): AbiParameter {
+    const proposeFunction = RollupAbi.find(item => item.type === 'function' && item.name === 'propose') as
+      | { type: 'function'; name: string; inputs: readonly AbiParameter[] }
+      | undefined;
+
+    if (!proposeFunction) {
+      throw new Error('propose function not found in RollupAbi');
+    }
+
+    // Find the _attestations parameter by name, not by index
+    const attestationsParam = proposeFunction.inputs.find(param => param.name === '_attestations');
+
+    if (!attestationsParam) {
+      throw new Error('_attestations parameter not found in propose function');
+    }
+
+    if (attestationsParam.type !== 'tuple') {
+      throw new Error(`Expected _attestations parameter to be a tuple, got ${attestationsParam.type}`);
+    }
+
+    // Extract the tuple components (struct fields)
+    const tupleParam = attestationsParam as unknown as {
+      type: 'tuple';
+      components?: readonly AbiParameter[];
+    };
+
+    return {
+      type: 'tuple',
+      components: tupleParam.components || [],
+    } as AbiParameter;
+  }
+
+  /**
    * Decodes propose calldata and builds the checkpoint header structure.
    * @param proposeCalldata - The propose function calldata
    * @param blockHash - The L1 block hash containing this transaction
    * @param checkpointNumber - The checkpoint number
+   * @param expectedHashes - Optional expected hashes from the CheckpointProposed event for validation
    * @returns The decoded checkpoint header and metadata
    */
   protected decodeAndBuildCheckpoint(
     proposeCalldata: Hex,
     blockHash: Hex,
     checkpointNumber: CheckpointNumber,
+    expectedHashes: {
+      attestationsHash?: Hex;
+      payloadDigest?: Hex;
+    },
   ): {
     checkpointNumber: CheckpointNumber;
     archiveRoot: Fr;
@@ -365,6 +427,57 @@ export class CalldataRetriever {
       ];
 
     const attestations = CommitteeAttestation.fromPacked(packedAttestations, this.targetCommitteeSize);
+    const header = CheckpointHeader.fromViem(decodedArgs.header);
+    const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
+
+    // Validate attestationsHash if provided (skip for backwards compatibility with older events)
+    if (expectedHashes.attestationsHash) {
+      // Compute attestationsHash: keccak256(abi.encode(CommitteeAttestations))
+      const computedAttestationsHash = keccak256(
+        encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [packedAttestations]),
+      );
+
+      // Compare as buffers to avoid case-sensitivity and string comparison issues
+      const computedBuffer = Buffer.from(hexToBytes(computedAttestationsHash));
+      const expectedBuffer = Buffer.from(hexToBytes(expectedHashes.attestationsHash));
+
+      if (!computedBuffer.equals(expectedBuffer)) {
+        throw new Error(
+          `Attestations hash mismatch for checkpoint ${checkpointNumber}: ` +
+            `computed=${computedAttestationsHash}, expected=${expectedHashes.attestationsHash}`,
+        );
+      }
+
+      this.logger.trace(`Validated attestationsHash for checkpoint ${checkpointNumber}`, {
+        computedAttestationsHash,
+        expectedAttestationsHash: expectedHashes.attestationsHash,
+      });
+    }
+
+    // Validate payloadDigest if provided (skip for backwards compatibility with older events)
+    if (expectedHashes.payloadDigest) {
+      // Use ConsensusPayload to compute the digest - this ensures we match the exact logic
+      // used by the network for signing and verification
+      const consensusPayload = new ConsensusPayload(header, archiveRoot);
+      const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.blockAttestation);
+      const computedPayloadDigest = keccak256(payloadToSign);
+
+      // Compare as buffers to avoid case-sensitivity and string comparison issues
+      const computedBuffer = Buffer.from(hexToBytes(computedPayloadDigest));
+      const expectedBuffer = Buffer.from(hexToBytes(expectedHashes.payloadDigest));
+
+      if (!computedBuffer.equals(expectedBuffer)) {
+        throw new Error(
+          `Payload digest mismatch for checkpoint ${checkpointNumber}: ` +
+            `computed=${computedPayloadDigest}, expected=${expectedHashes.payloadDigest}`,
+        );
+      }
+
+      this.logger.trace(`Validated payloadDigest for checkpoint ${checkpointNumber}`, {
+        computedPayloadDigest,
+        expectedPayloadDigest: expectedHashes.payloadDigest,
+      });
+    }
 
     this.logger.trace(`Decoded propose calldata`, {
       checkpointNumber,
@@ -375,9 +488,6 @@ export class CalldataRetriever {
       packedAttestations,
       targetCommitteeSize: this.targetCommitteeSize,
     });
-
-    const header = CheckpointHeader.fromViem(decodedArgs.header);
-    const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
 
     return {
       checkpointNumber,

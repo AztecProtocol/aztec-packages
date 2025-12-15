@@ -28,11 +28,21 @@ template <typename Flavor> class ECCVMVerifier_ {
     using VerifierCommitments = Flavor::VerifierCommitments;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using Proof = Flavor::Proof;
-    using PCS = Flavor::PCS;
+    using PCS = IPA<Curve, CONST_ECCVM_LOG_N>;
     using TranslatorInputData = TranslatorInputData_<FF>;
 
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
+
+    /**
+     * @brief Result of reducing ECCVM proof to IPA opening claim
+     * @details Contains IPA opening claim for deferred verification and status of internal checks. The IPA claim
+     * must be verified externally. Individual check results are logged via vinfo().
+     */
+    struct ReductionResult {
+        OpeningClaim<Curve> ipa_claim;    // IPA opening claim for deferred verification
+        bool reduction_succeeded = false; // Aggregate of sumcheck, consistency, and translation masking checks
+    };
 
     // Unified constructor for both native and recursive verification
     // For recursive case, extracts builder from proof elements via get_context()
@@ -55,10 +65,18 @@ template <typename Flavor> class ECCVMVerifier_ {
         }
     }
 
-    [[nodiscard("IPA claim should be verified/accumulated")]] OpeningClaim<Curve> verify_proof();
-
-    void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
-    void compute_accumulated_result();
+    /**
+     * @brief Reduce the ECCVM proof to an IPA opening claim
+     * @details The ECCVM proves correct execution of elliptic curve operations accumulated in the op queue. This method
+     * verifies the ECCVM proof's internal checks (sumcheck, translation masking consistency, etc.) and reduces all
+     * polynomial opening claims to a single IPA opening claim via Shplemini and Shplonk. This method does NOT perform
+     * the final IPA verification - it returns an IPA claim that must be verified externally.
+     *
+     * @return ReductionResult containing:
+     *   - ipa_claim: IPA opening claim to be verified externally (in root rollup or natively)
+     *   - reduction_succeeded: true if sumcheck, consistency, and masking checks passed
+     */
+    [[nodiscard("Verification result must be checked")]] ReductionResult reduce_to_ipa_opening();
 
     /**
      * @brief Get the data required by the TranslatorVerifier
@@ -69,10 +87,17 @@ template <typename Flavor> class ECCVMVerifier_ {
         return { evaluation_challenge_x, batching_challenge_v, accumulated_result };
     }
 
+    std::shared_ptr<VerificationKey> get_verification_key() const { return key; }
+    std::shared_ptr<Transcript> get_transcript() const { return transcript; }
+
+  private:
+    void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
+    void compute_accumulated_result();
+
     std::shared_ptr<VerificationKey> key;
     Proof proof;
-
     BF vk_hash;
+    std::shared_ptr<Transcript> transcript;
 
     // Builder pointer (only used for recursive, nullptr for native)
     std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
@@ -82,22 +107,16 @@ template <typename Flavor> class ECCVMVerifier_ {
     static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
     std::array<OpeningClaim<Curve>, NUM_OPENING_CLAIMS> opening_claims;
 
-    // Verification flags (native only, recursive uses circuit assertions)
-    bool sumcheck_verified = false;
-    bool consistency_checked = false;
-    std::shared_ptr<Transcript> transcript;
     TranslationEvaluations_<FF> translation_evaluations;
 
-    bool translation_masking_consistency_checked = false;
-
-  private:
-    // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
+    // Translation evaluation and batching challenges. Propagated to TranslatorVerifier via get_translator_input_data()
     FF evaluation_challenge_x;
     FF batching_challenge_v;
-    // The value ∑ mᵢ(x) ⋅ vⁱ which needs to be propagated to TranslatorVerifier
-    FF translation_masking_term_eval;
-    // The accumulated result computed from translation evaluations, to be used by TranslatorVerifier
     FF accumulated_result;
+
+    // Intermediate verification state
+    FF translation_masking_term_eval;
+    bool translation_masking_consistency_checked = false;
 };
 
 // Type aliases

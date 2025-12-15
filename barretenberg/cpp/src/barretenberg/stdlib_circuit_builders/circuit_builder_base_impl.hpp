@@ -50,7 +50,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF&
     real_variable_index.emplace_back(index);
     next_var_index.emplace_back(REAL_VARIABLE);
     prev_var_index.emplace_back(FIRST_VARIABLE_IN_CLASS);
-    real_variable_tags.emplace_back(DUMMY_TAG);
+    real_variable_tags.emplace_back(DEFAULT_TAG);
     return index;
 }
 
@@ -138,12 +138,13 @@ void CircuitBuilderBase<FF>::assert_equal(const uint32_t a_variable_idx,
     auto a_start_idx = get_first_variable_in_class(a_variable_idx);
     next_var_index[b_real_idx] = a_start_idx;
     prev_var_index[a_start_idx] = b_real_idx;
-    bool no_tag_clash = (real_variable_tags[a_real_idx] == DUMMY_TAG || real_variable_tags[b_real_idx] == DUMMY_TAG ||
-                         real_variable_tags[a_real_idx] == real_variable_tags[b_real_idx]);
+    bool no_tag_clash =
+        (real_variable_tags[a_real_idx] == DEFAULT_TAG || real_variable_tags[b_real_idx] == DEFAULT_TAG ||
+         real_variable_tags[a_real_idx] == real_variable_tags[b_real_idx]);
     if (!no_tag_clash && !failed()) {
         failure(msg);
     }
-    if (real_variable_tags[a_real_idx] == DUMMY_TAG) {
+    if (real_variable_tags[a_real_idx] == DEFAULT_TAG) {
         real_variable_tags[a_real_idx] = real_variable_tags[b_real_idx];
     }
 }

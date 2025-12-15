@@ -26,7 +26,6 @@ import {
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import PublicChonkVerifier from '../../../artifacts/chonk_verifier_public.json' with { type: 'json' };
-import AvmVkJson from '../../../artifacts/keys/avm.vk.json' with { type: 'json' };
 import ParityBase from '../../../artifacts/parity_base.json' with { type: 'json' };
 import ParityRoot from '../../../artifacts/parity_root.json' with { type: 'json' };
 import BlockMergeRollup from '../../../artifacts/rollup_block_merge.json' with { type: 'json' };
@@ -44,7 +43,7 @@ import PrivateTxBaseRollup from '../../../artifacts/rollup_tx_base_private.json'
 import PublicTxBaseRollup from '../../../artifacts/rollup_tx_base_public.json' with { type: 'json' };
 import TxMergeRollup from '../../../artifacts/rollup_tx_merge.json' with { type: 'json' };
 import { PrivateKernelResetVkIndexes } from '../../private_kernel_reset_vks.js';
-import { abiToVKData, jsonToVKData } from '../../utils/vk_json.js';
+import { abiToVKData } from '../../utils/vk_json.js';
 import type { ProtocolCircuitName, ServerProtocolCircuitName } from '../types.js';
 
 export const ServerCircuitVks: Record<ServerProtocolCircuitName, VerificationKeyData> = {
@@ -93,5 +92,3 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolCircuitName, number> = {
   RootRollupArtifact: ROOT_ROLLUP_VK_INDEX,
   ...PrivateKernelResetVkIndexes,
 };
-
-export const AvmVk = jsonToVKData(AvmVkJson);

@@ -70,7 +70,7 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
     // Add range constraint
     for (const auto& [constraint, opcode_idx] :
          zip_view(constraints.range_constraints, constraints.original_opcode_indices.range_constraints)) {
-        builder.create_range_constraint(
+        builder.create_dyadic_range_constraint(
             constraint.witness,
             constraint.num_bits,
             std::format("acir_format::build_constraints: range constraint at opcode index {} failed", opcode_idx));

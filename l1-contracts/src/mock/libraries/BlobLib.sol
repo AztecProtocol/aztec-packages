@@ -3,7 +3,6 @@
 pragma solidity >=0.8.27;
 
 import {BlobLib as CoreBlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
-import {Vm} from "forge-std/Vm.sol";
 
 /**
  * @title BlobLib - Blob Management and Validation Library
@@ -45,8 +44,20 @@ library BlobLib {
    * @return uint256 - The blob base fee
    */
   function getBlobBaseFee() internal view returns (uint256) {
-    if (VM_ADDRESS.code.length > 0) {
-      return Vm(VM_ADDRESS).getBlobBaseFee();
+    // During forge script broadcasts, the VM cheatcode may not work properly
+    // (e.g., when broadcasting to anvil). In that case, we return a default value of 1
+    // to allow deployment to proceed. This is acceptable for e2e testing purposes.
+    // Lasse approved of this kludge to prevent being unable to deploy non-production
+    // contracts in Forge without this.
+    bool isAnvilTestChain = block.chainid == 31_337;
+    if (isAnvilTestChain && VM_ADDRESS.code.length > 0) {
+      // Use low-level staticcall to handle both reverts and empty returns
+      (bool success, bytes memory data) = VM_ADDRESS.staticcall(abi.encodeWithSignature("getBlobBaseFee()"));
+      if (success && data.length >= 32) {
+        return abi.decode(data, (uint256));
+      }
+      // During broadcast to anvil, the cheatcode returns empty data. Return a sensible default.
+      return 1;
     }
     return CoreBlobLib.getBlobBaseFee();
   }
@@ -57,16 +68,24 @@ library BlobLib {
    * @dev     If we are in a foundry test, we use the cheatcode to get the blob hashes
    *          Otherwise, we use the `blobhash` function in assembly
    *
+   *          During forge script broadcasts, the VM cheatcode may not work properly.
+   *          In that case, we return bytes32(0) to allow deployment to proceed.
+   *
    * @return blobHash - The blob hash
    */
   function getBlobHash(uint256 _index) internal view returns (bytes32 blobHash) {
-    if (VM_ADDRESS.code.length > 0) {
-      // We know that this one is ABHORRENT. But it should not exists, and only will
-      // be hit in testing.
-      bytes32[] memory blobHashes = Vm(VM_ADDRESS).getBlobhashes();
-      if (_index < blobHashes.length) {
-        return blobHashes[_index];
+    // See comment above about anvil broadcasts for reasoning here.
+    bool isAnvilTestChain = block.chainid == 31_337;
+    if (isAnvilTestChain && VM_ADDRESS.code.length > 0) {
+      // Use low-level staticcall to handle both reverts and empty returns
+      (bool success, bytes memory data) = VM_ADDRESS.staticcall(abi.encodeWithSignature("getBlobhashes()"));
+      if (success && data.length >= 32) {
+        bytes32[] memory blobHashes = abi.decode(data, (bytes32[]));
+        if (_index < blobHashes.length) {
+          return blobHashes[_index];
+        }
       }
+      // During broadcast to anvil, the cheatcode returns empty data or no blob hashes exist
       return bytes32(0);
     }
     return CoreBlobLib.getBlobHash(_index);

@@ -9,7 +9,6 @@ libs = ['lib']
 solc = "./solc-0.8.27"
 evm_version = 'prague'
 optimizer = true
-
 match_path = "test/**/*.t.sol"
 # Helper to get all the contract names in the src/governance and src/core directories
 # find ./src/governance ./src/core -type f -name "*.sol" -exec grep -h "^contract [A-Za-z]" {} \; | sed -E 's/contract ([A-Za-z0-9_]+).*/"\1"/' | tr "\n" ", "
@@ -60,9 +59,8 @@ fs_permissions = [
   { access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_public_inputs.json" },
   { access = "read", path = "./test/fixtures/boosted_rewards/shares.json" },
   { access = "read", path = "./test/fixtures/boosted_rewards/activity_scores.json" },
-  { access = "read", path = "./script/registration_data.json" },
+  { access = "read", path = "./script/registration_data.json" }
 ]
-
 no_match_contract = "(ScreamAndShoutTest|UniswapPortalTest|MerkleCheck)"
 
 [fmt]
@@ -78,7 +76,6 @@ ignore = ["./lib/**"]
 exclude_lints = [
   "unused-import",   # Mostly in test code
   "incorrect-shift", # Throws warnings on construction of bitmasks
-
   "asm-keccak256", # https://github.com/AztecProtocol/aztec-packages/issues/16808
 
   # Silencing due to just being style changes
@@ -90,7 +87,6 @@ exclude_lints = [
 
 [rpc_endpoints]
 mainnet_fork = "https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c"
-
 
 [profile.production]
 remappings = [

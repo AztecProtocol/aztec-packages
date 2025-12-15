@@ -8,6 +8,11 @@ use crate::context::{gas::GasOpts, private_context::PrivateContext, public_conte
 use crate::hash::{hash_args, hash_calldata_array};
 use crate::oracle::execution_cache;
 
+// Having T associated on the structs and then instantiating it with `std::mem::zeroed()` is ugly but we need to do it
+// like this to avoid forcing users to specify the return type when calling functions on the structs (that's the only
+// way how we can specify the type when we generate the call stubs. The return types are specified in
+// the `external_functions_stubs.nr` file.)
+
 // PrivateCall
 
 #[must_use = "Your private call needs to be passed into the `self.call(...)` method to be executed (e.g. `self.call(MyContract::at(address).my_private_function(...args))`"]

@@ -19,7 +19,7 @@
 #include <unordered_map>
 
 namespace bb {
-static constexpr uint32_t DUMMY_TAG = 0;
+static constexpr uint32_t DEFAULT_TAG = 0;
 
 template <typename FF_> class CircuitBuilderBase {
   public:
@@ -107,12 +107,20 @@ template <typename FF_> class CircuitBuilderBase {
      * @brief `real_variable_tags` is the tagging mechanism for the the multiset-equality check.
      *
      * @details The generalized permutation argument checks both copy constraints and multiset equalities. This is
-     * mediated by a tag; each real variable has a tag. (By default, the tags are set to `DUMMY_TAG == 0`. We assume
-     * that these are not involved in any non-trivial multiset-equality checks.)
-     *
+     * mediated by a tag; each real variable has a tag. (By default, the tags are set to `DEFAULT_TAG == 0`.)
+     * @note We make the following IMPORTANT ASSUMPTIONS about the use of tags in circuits.
+     *   * A usual witness being (non-trivially) tagged corresponds to it being range-constrained. Moreover, the tag
+     *   corresponds to the range constraint itself. This means the following: to every tag of a usual witness there is
+     * a range-constraint, and two witness indices have the same tag means precisely that they are subject to the same
+     * range-constraint.
+     *   * The derived witness `record` (a.k.a. Reed-Solomon fingerprint), occuring in memory operations, depends on FS
+     *   randomness. These members are tagged to verify the fidelity of the memory operations.
+     *   * Any witness with tag `DEFAULT_TAG` is NOT part of any multiset-equality check.
+     * @note In particular, tags ONLY OCCUR for memory operations (where they are only used for the records) and to
+     * specify range constraints.
      */
     std::vector<uint32_t> real_variable_tags;
-    uint32_t current_tag = DUMMY_TAG;
+    uint32_t current_tag = DEFAULT_TAG;
 
     CircuitBuilderBase(bool is_write_vk_mode = false);
 

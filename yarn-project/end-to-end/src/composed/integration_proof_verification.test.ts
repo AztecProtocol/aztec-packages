@@ -1,7 +1,7 @@
 import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
-import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import type { Logger } from '@aztec/foundation/log';
 import { HonkVerifierAbi, HonkVerifierBytecode, IVerifierAbi } from '@aztec/l1-artifacts';
