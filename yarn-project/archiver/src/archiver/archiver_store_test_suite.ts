@@ -28,7 +28,7 @@ import {
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
-import { LogId, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
+import { ContractClassLog, LogId, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import {
   makeContractClassPublic,
@@ -905,6 +905,7 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 2,
+              blockHash: L2BlockHash.fromField(await blocks[2 - 1].block.hash()),
               log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
@@ -912,6 +913,7 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
+              blockHash: L2BlockHash.fromField(await blocks[1 - 1].block.hash()),
               log: makePrivateLog(tags[1]),
               isFromPublic: false,
             }),
@@ -929,11 +931,13 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
+              blockHash: L2BlockHash.fromField(await blocks[1 - 1].block.hash()),
               log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
             expect.objectContaining({
               blockNumber: 1,
+              blockHash: L2BlockHash.fromField(await blocks[1 - 1].block.hash()),
               log: makePublicLog(tags[0]),
               isFromPublic: true,
             }),
@@ -959,11 +963,13 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
+              blockHash: L2BlockHash.fromField(await blocks[1 - 1].block.hash()),
               log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
             expect.objectContaining({
               blockNumber: newBlockNumber,
+              blockHash: L2BlockHash.fromField(await blocks[newBlockNumber - 1].block.hash()),
               log: newLog,
               isFromPublic: false,
             }),
@@ -983,6 +989,7 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
+              blockHash: L2BlockHash.fromField(await blocks[1 - 1].block.hash()),
               log: makePrivateLog(tags[1]),
               isFromPublic: false,
             }),
@@ -1050,6 +1057,17 @@ export function describeArchiverDataStore(
         }
       });
 
+      it('returns block hash on public log ids', async () => {
+        const targetBlock = blocks[0].block;
+        const expectedBlockHash = L2BlockHash.fromField(await targetBlock.hash());
+
+        const logs = (await store.getPublicLogs({ fromBlock: targetBlock.number, toBlock: targetBlock.number + 1 }))
+          .logs;
+
+        expect(logs.length).toBeGreaterThan(0);
+        expect(logs.every(log => log.id.blockHash.equals(expectedBlockHash))).toBe(true);
+      });
+
       it('"fromBlock" and "toBlock" filter params are respected', async () => {
         // Set "fromBlock" and "toBlock"
         const fromBlock = 3;
@@ -1092,8 +1110,14 @@ export function describeArchiverDataStore(
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
         const targetLogIndex = randomInt(numPublicLogs);
+        const targetBlockHash = L2BlockHash.fromField(await blocks[targetBlockIndex].block.hash());
 
-        const afterLog = new LogId(BlockNumber(targetBlockIndex + INITIAL_L2_BLOCK_NUM), targetTxIndex, targetLogIndex);
+        const afterLog = new LogId(
+          BlockNumber(targetBlockIndex + INITIAL_L2_BLOCK_NUM),
+          targetBlockHash,
+          targetTxIndex,
+          targetLogIndex,
+        );
 
         const response = await store.getPublicLogs({ afterLog });
         const logs = response.logs;
@@ -1115,7 +1139,7 @@ export function describeArchiverDataStore(
       it('"txHash" filter param is ignored when "afterLog" is set', async () => {
         // Get random txHash
         const txHash = TxHash.random();
-        const afterLog = new LogId(BlockNumber(1), 0, 0);
+        const afterLog = new LogId(BlockNumber(1), L2BlockHash.random(), 0, 0);
 
         const response = await store.getPublicLogs({ txHash, afterLog });
         expect(response.logs.length).toBeGreaterThan(1);
@@ -1147,20 +1171,25 @@ export function describeArchiverDataStore(
           await store.getPublicLogs({
             fromBlock: BlockNumber(2),
             toBlock: BlockNumber(5),
-            afterLog: new LogId(BlockNumber(4), 0, 0),
+            afterLog: new LogId(BlockNumber(4), L2BlockHash.random(), 0, 0),
           })
         ).logs;
         blockNumbers = new Set(logs.map(log => log.id.blockNumber));
         expect(blockNumbers).toEqual(new Set([4]));
 
-        logs = (await store.getPublicLogs({ toBlock: BlockNumber(5), afterLog: new LogId(BlockNumber(5), 1, 0) })).logs;
+        logs = (
+          await store.getPublicLogs({
+            toBlock: BlockNumber(5),
+            afterLog: new LogId(BlockNumber(5), L2BlockHash.random(), 1, 0),
+          })
+        ).logs;
         expect(logs.length).toBe(0);
 
         logs = (
           await store.getPublicLogs({
             fromBlock: BlockNumber(2),
             toBlock: BlockNumber(5),
-            afterLog: new LogId(BlockNumber(100), 0, 0),
+            afterLog: new LogId(BlockNumber(100), L2BlockHash.random(), 0, 0),
           })
         ).logs;
         expect(logs.length).toBe(0);
@@ -1171,8 +1200,14 @@ export function describeArchiverDataStore(
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
         const targetLogIndex = randomInt(numPublicLogs);
+        const targetBlockHash = L2BlockHash.fromField(await blocks[targetBlockIndex].block.hash());
 
-        const afterLog = new LogId(BlockNumber(targetBlockIndex + INITIAL_L2_BLOCK_NUM), targetTxIndex, targetLogIndex);
+        const afterLog = new LogId(
+          BlockNumber(targetBlockIndex + INITIAL_L2_BLOCK_NUM),
+          targetBlockHash,
+          targetTxIndex,
+          targetLogIndex,
+        );
 
         const response = await store.getPublicLogs({ afterLog, fromBlock: afterLog.blockNumber });
         const logs = response.logs;
@@ -1189,6 +1224,40 @@ export function describeArchiverDataStore(
             }
           }
         }
+      });
+    });
+
+    describe('getContractClassLogs', () => {
+      let targetBlock: L2Block;
+      let expectedContractClassLog: ContractClassLog;
+
+      beforeEach(async () => {
+        await store.addBlocks(blocks);
+
+        targetBlock = blocks[0].block;
+        expectedContractClassLog = await ContractClassLog.random();
+        targetBlock.body.txEffects.forEach((txEffect, index) => {
+          txEffect.contractClassLogs = index === 0 ? [expectedContractClassLog] : [];
+        });
+
+        await store.addLogs([targetBlock]);
+      });
+
+      it('returns block hash on contract class log ids', async () => {
+        const result = await store.getContractClassLogs({
+          fromBlock: targetBlock.number,
+          toBlock: targetBlock.number + 1,
+        });
+
+        expect(result.maxLogsHit).toBeFalsy();
+        expect(result.logs).toHaveLength(1);
+
+        const [{ id, log }] = result.logs;
+        const expectedBlockHash = L2BlockHash.fromField(await targetBlock.hash());
+
+        expect(id.blockHash.equals(expectedBlockHash)).toBe(true);
+        expect(id.blockNumber).toEqual(targetBlock.number);
+        expect(log).toEqual(expectedContractClassLog);
       });
     });
 
