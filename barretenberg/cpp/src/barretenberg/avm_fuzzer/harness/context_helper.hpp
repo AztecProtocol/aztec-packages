@@ -63,8 +63,8 @@ class GadgetFuzzerContextHelper {
     std::unique_ptr<simulation::ContextProvider> context_provider;
     // Context:
     std::unique_ptr<simulation::ContextInterface> make_enqueued_fuzzing_context(
-        AztecAddress address,
-        AztecAddress msg_sender,
+        AztecAddress address = AztecAddress(0),
+        AztecAddress msg_sender = AztecAddress(0),
         bool is_static = false,
         FF transaction_fee = FF(0),
         std::span<const FF> calldata = {},

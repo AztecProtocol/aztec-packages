@@ -264,7 +264,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     // Set up gadgets and event emitters
     GadgetFuzzerContextHelper context_helper;
-    auto context = std::move(context_helper.context);
+    auto context = context_helper.make_enqueued_fuzzing_context();
     auto& internal_call_stack_manager = context->get_internal_call_stack_manager();
     context->set_pc(input.start_pc);
 
