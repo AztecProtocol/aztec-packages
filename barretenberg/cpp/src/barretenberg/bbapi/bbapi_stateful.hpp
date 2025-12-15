@@ -175,9 +175,11 @@ std::vector<uint8_t> get_proving_key_serialized(const CircuitInput& circuit, con
     // Compute bytecode hash for cache validation
     auto bytecode_hash_arr = blake3::blake3s(circuit.bytecode);
 
-    // Build proving key from circuit
+    // Build proving key from circuit (with proper metadata for CRS initialization)
+    bool constexpr has_ipa_claim = HasIPAAccumulator<Flavor>;
+    acir_format::ProgramMetadata metadata{ .has_ipa_claim = has_ipa_claim };
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::vector<uint8_t>(circuit.bytecode)) };
-    auto builder = acir_format::create_circuit<CircuitBuilder>(program);
+    auto builder = acir_format::create_circuit<CircuitBuilder>(program, metadata);
     auto prover_instance = std::make_shared<ProverInstance>(builder);
 
     DeciderProvingKeyExportView export_view;
@@ -236,12 +238,12 @@ std::vector<uint8_t> prove_with_pk(const CircuitInput& circuit,
                        "Please regenerate the proving key with the current bytecode.");
     }
 
-    // Reconstruct circuit from bytecode and witness
+    // Reconstruct circuit from bytecode and witness (with proper metadata for CRS initialization)
+    bool constexpr has_ipa_claim = HasIPAAccumulator<Flavor>;
+    acir_format::ProgramMetadata program_metadata{ .has_ipa_claim = has_ipa_claim };
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::vector<uint8_t>(circuit.bytecode)) };
     program.witness = acir_format::witness_buf_to_witness_vector(std::vector<uint8_t>(witness));
-    // Note: Assuming UltraCircuitBuilder is compatible with the Flavor's builder requirement
-    // For Mega, we might need MegaCircuitBuilder. Flavor::CircuitBuilder handles this.
-    auto builder = acir_format::create_circuit<CircuitBuilder>(program);
+    auto builder = acir_format::create_circuit<CircuitBuilder>(program, program_metadata);
 
     // Reconstruct metadata from proving key
     MetaData metadata;
