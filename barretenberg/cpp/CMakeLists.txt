@@ -28,6 +28,7 @@ option(OMP_MULTITHREADING "Enable OMP multi-threading" OFF)
 option(FUZZING "Build ONLY fuzzing harnesses" OFF)
 option(ENABLE_PAR_ALGOS "Enable parallel algorithms" OFF)
 option(COVERAGE "Enable collecting coverage from tests" OFF)
+option(COVERAGE_AVM "Enable coverage filtered to AVM code only" OFF)
 option(ENABLE_ASAN "Address sanitizer for debugging tricky memory corruption" OFF)
 option(ENABLE_HEAVY_TESTS "Enable heavy tests when collecting coverage" OFF)
 # Note: Must do 'sudo apt-get install libdw-dev' or equivalent
@@ -72,6 +73,10 @@ if(ENABLE_ASAN)
     add_compile_options(-fsanitize=address)
     add_link_options(-fsanitize=address)
     set(DISABLE_ASM ON)
+endif()
+
+if(COVERAGE_AVM)
+    add_compile_options(-DCOVERAGE_AVM)
 endif()
 
 if(FUZZING)
