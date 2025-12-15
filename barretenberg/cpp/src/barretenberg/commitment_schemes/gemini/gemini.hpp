@@ -52,7 +52,7 @@
 namespace bb {
 
 /**
- * @brief Prover output (evalutation pair, witness) that can be passed on to Shplonk batch opening.
+ * @brief Prover output (evaluation pair, witness) that can be passed on to Shplonk batch opening.
  * @details Evaluation pairs {r, A₀₊(r)}, {-r, A₀₋(-r)}, {r^{2^j}, Aⱼ(r^{2^j)}, {-r^{2^j}, Aⱼ(-r^{2^j)}, j = [1,
  * ..., m-1] and witness (Fold) polynomials
  * [
@@ -165,7 +165,9 @@ template <typename Curve> class GeminiProver_ {
         }
 
         /**
-         * @brief Compute batched polynomial A₀ = F + G/X as the linear combination of all polynomials to be opened
+         * @brief Compute batched polynomial A₀ = F + G/X as the linear combination of all polynomials to be opened,
+         * where F is the linear combination of the unshifted polynomials and G is the linear combination of the
+         * to-be-shifted-by-1 polynomials.
          *
          * @param challenge batching challenge
          * @return Polynomial A₀
@@ -266,8 +268,11 @@ template <typename Curve> class GeminiProver_ {
             Fr current_r_shift_pos = r_challenge;
             Fr current_r_shift_neg = -r_challenge;
             for (size_t i = 1; i < batched_group.size(); i++) {
+                // Add r^i * Pᵢ(X) to P₊(X)
                 P_pos.add_scaled(batched_group[i], current_r_shift_pos);
+                // Add (-r)^i * Pᵢ(X) to P₋(X)
                 P_neg.add_scaled(batched_group[i], current_r_shift_neg);
+                // Update the current power of r
                 current_r_shift_pos *= r_challenge;
                 current_r_shift_neg *= -r_challenge;
             }
@@ -321,13 +326,13 @@ template <typename Curve> class GeminiVerifier_ {
      * @param transcript
      * @return A vector of fold commitments \f$ [A_i] \f$ for \f$ i = 1, \ldots, \text{virtual_log_n}-1\f$.
      */
-    static std::vector<Commitment> get_fold_commitments([[maybe_unused]] const size_t virtual_log_n, auto& transcript)
+    static std::vector<Commitment> get_fold_commitments(const size_t virtual_log_n, auto& transcript)
     {
         std::vector<Commitment> fold_commitments;
         fold_commitments.reserve(virtual_log_n - 1);
-        for (size_t i = 0; i < virtual_log_n - 1; ++i) {
+        for (size_t i = 1; i < virtual_log_n; ++i) {
             const Commitment commitment =
-                transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
+                transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i));
             fold_commitments.emplace_back(commitment);
         }
         return fold_commitments;
@@ -358,7 +363,8 @@ template <typename Curve> class GeminiVerifier_ {
      * @brief Compute \f$ A_0(r), A_1(r^2), \ldots, A_{d-1}(r^{2^{d-1}})\f$
      *
      * Recall that \f$ A_0(r) = \sum \rho^i \cdot f_i + \frac{1}{r} \cdot \sum \rho^{i+k} g_i \f$, where \f$
-     * k \f$ is the number of "unshifted" commitments.
+     * k \f$ is the number of "unshifted" commitments. \f$ f_i \f$ are the unshifted polynomials and \f$ g_i \f$ are the
+     * to-be-shifted-by-1 polynomials.
      *
      * @details Initialize `a_pos` = \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) +
      * \sum
@@ -384,9 +390,9 @@ template <typename Curve> class GeminiVerifier_ {
      * @param batched_evaluation The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
      * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$. Depending on the context, might be
      * padded to `virtual_log_n` size.
-     * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{d-1}} \f$.
+     * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 ,\dots, r^{2^{d-1}} \f$.
      * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
-     * @return \f A_{i}}(r^{2^{i}})\f$ \f$ i = 0, \ldots, \text{virtual_log_n} - 1 \f$.
+     * @return \f$ A_{i}(r^{2^{i}})\f$ for \f$ i = 0, \ldots, \text{virtual_log_n} - 1 \f$.
      */
     static std::vector<Fr> compute_fold_pos_evaluations(std::span<const Fr> padding_indicator_array,
                                                         const Fr& batched_evaluation,
@@ -401,11 +407,6 @@ template <typename Curve> class GeminiVerifier_ {
 
         Fr eval_pos_prev = batched_evaluation;
 
-        Fr zero{ 0 };
-        if constexpr (Curve::is_stdlib_type) {
-            zero.convert_constant_to_fixed_witness(fold_neg_evals[0].get_context());
-        }
-
         std::vector<Fr> fold_pos_evaluations;
         fold_pos_evaluations.reserve(virtual_log_n);
 
@@ -417,15 +418,15 @@ template <typename Curve> class GeminiVerifier_ {
             const Fr& challenge_power = challenge_powers[l - 1];
             // Get uₗ₋₁
             const Fr& u = evaluation_point[l - 1];
-            const Fr& eval_neg = evals[l - 1];
             // Get A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾)
+            const Fr& eval_neg = evals[l - 1];
             // Compute the numerator
             Fr eval_pos = ((challenge_power * eval_pos_prev * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
             // Divide by the denominator
             eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
 
             // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
-            // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
+            // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
             eval_pos_prev =
                 padding_indicator_array[l - 1] * eval_pos + (Fr{ 1 } - padding_indicator_array[l - 1]) * eval_pos_prev;
             // If current index is bigger than log_n, we emplace 0, which is later multiplied against

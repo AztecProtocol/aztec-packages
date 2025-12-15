@@ -134,7 +134,7 @@ template <typename Flavor>
 typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor>::reduce_to_pairing_check()
 {
     using PCS = typename Flavor::PCS;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = typename ClaimBatcher::Batch;
     using InterleavedBatch = typename ClaimBatcher::InterleavedBatch;
@@ -209,7 +209,6 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Execute Shplemini
-    bool consistency_checked = false;
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted_without_interleaved(),
                                  sumcheck_output.claimed_evaluations.get_unshifted_without_interleaved() },
@@ -226,16 +225,15 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
         commitment_one = Commitment::one();
     }
 
-    auto opening_claim = Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                                                claim_batcher,
-                                                                sumcheck_output.challenge,
-                                                                commitment_one,
-                                                                transcript,
-                                                                Flavor::REPEATED_COMMITMENTS,
-                                                                Flavor::HasZK,
-                                                                &consistency_checked,
-                                                                libra_commitments,
-                                                                sumcheck_output.claimed_libra_evaluation);
+    auto [opening_claim, consistency_checked] =
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                               claim_batcher,
+                                               sumcheck_output.challenge,
+                                               commitment_one,
+                                               transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
+                                               libra_commitments,
+                                               sumcheck_output.claimed_libra_evaluation);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 
