@@ -29,7 +29,7 @@ describe('e2e_fees fee settings', () => {
 
     testContract = await TestContract.deploy(wallet).send({ from: aliceAddress }).deployed();
     gasSettings = { ...gasSettings, maxFeesPerGas: undefined };
-  }, 60_000);
+  });
 
   afterAll(async () => {
     await t.teardown();
