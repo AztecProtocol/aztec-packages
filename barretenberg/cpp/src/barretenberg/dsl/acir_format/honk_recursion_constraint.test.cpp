@@ -462,3 +462,28 @@ TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, Tampering)
 {
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }
+
+TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, GateCountRootRollup)
+{
+    using Builder = TestFixture::Builder;
+
+    if constexpr (!TestFixture::IsRootRollup) {
+        GTEST_SKIP(); // We have already pinned the gate counts in this situation
+    }
+
+    auto [constraint, witness_values] = TestFixture::generate_constraints();
+
+    AcirFormat constraint_system =
+        constraint_to_acir_format(constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
+
+    AcirProgram program{ constraint_system, witness_values };
+    ProgramMetadata metadata = TestFixture::Base::generate_metadata();
+    metadata.collect_gates_per_opcode = true;
+    auto builder = create_circuit<Builder>(program, metadata);
+
+    // Verify the gate count was recorded
+    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 2);
+
+    // Assert gate count
+    EXPECT_EQ(builder.get_num_finalized_gates_inefficient(), ROOT_ROLLUP_GATE_COUNT);
+}
