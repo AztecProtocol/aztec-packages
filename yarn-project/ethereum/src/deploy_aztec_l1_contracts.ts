@@ -263,6 +263,8 @@ export async function deployAztecL1Contracts(
     ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : ['--verify']),
   ];
   const forgeEnv = {
+    // Protect against root leaving deployment files in docker that cannot be used later.
+    FOUNDRY_BROADCAST: process.getuid?.() === 0 ? 'broadcast-root' : undefined,
     // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
     NETWORK: getActiveNetworkName(),
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
@@ -521,6 +523,8 @@ export const deployRollupForUpgrade = async (
     '--broadcast',
   ];
   const forgeEnv = {
+    // Protect against root leaving deployment files in docker that cannot be used later.
+    FOUNDRY_BROADCAST: process.getuid?.() === 0 ? 'broadcast-root' : undefined,
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
     REGISTRY_ADDRESS: registryAddress.toString(),

@@ -219,21 +219,6 @@ GetLowIndexedLeafResponse HintingRawDB::get_low_indexed_leaf(world_state::Merkle
         .already_present = resp.is_already_present,
     };
 
-    // Note: We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
-    get_sibling_path(tree_id, resp.index);
-
-    if (tree_id == world_state::MerkleTreeId::NULLIFIER_TREE) {
-        // Note: We may need a GetLeafPreimageHint for the nullifier tree when calling nullifier_exists, so collect it
-        // in case. NB: The PureMerkleDB does not perform this, but the nullifier check gadget requires a leaf preimage.
-        // Ts gathers the hint: (state_manager -> checkNullifierExists() -> doMerkleOperations -> public_db_sources ->
-        // checkNullifierExists())
-        get_leaf_preimage_nullifier_tree(resp.index);
-    } else if ((tree_id == world_state::MerkleTreeId::PUBLIC_DATA_TREE) && (!resp.is_already_present)) {
-        // Note: We may need a GetLeafPreimageHint for the public data tree when calling storage_read, so collect it in
-        // case. NB: The PureMerkleDB does not perform this if !is_already_present, but MerkleDB and ts perform it
-        // unconditionally. Ts gathers the hint: (public_db_sources -> storageRead())
-        get_leaf_preimage_public_data_tree(resp.index);
-    }
     return resp;
 }
 
@@ -244,8 +229,6 @@ FF HintingRawDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_
     GetLeafValueKey key = { tree_info, tree_id, leaf_index };
     merkle_hints.get_leaf_value_hints[key] =
         GetLeafValueHint{ .hint_key = tree_info, .tree_id = tree_id, .index = leaf_index, .value = value };
-    // Note: We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
-    get_sibling_path(tree_id, leaf_index);
     return value;
 }
 
@@ -258,8 +241,6 @@ IndexedLeaf<PublicDataLeafValue> HintingRawDB::get_leaf_preimage_public_data_tre
     merkle_hints.get_leaf_preimage_hints_public_data_tree[key] = GetLeafPreimageHint<PublicDataTreeLeafPreimage>{
         .hint_key = tree_info, .index = leaf_index, .leaf_preimage = preimage
     };
-    // Note: We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
-    get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_index);
     return preimage;
 }
 
@@ -271,8 +252,6 @@ IndexedLeaf<NullifierLeafValue> HintingRawDB::get_leaf_preimage_nullifier_tree(i
     merkle_hints.get_leaf_preimage_hints_nullifier_tree[key] = GetLeafPreimageHint<NullifierTreeLeafPreimage>{
         .hint_key = tree_info, .index = leaf_index, .leaf_preimage = preimage
     };
-    // Note: We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
-    get_sibling_path(world_state::MerkleTreeId::NULLIFIER_TREE, leaf_index);
     return preimage;
 }
 
@@ -379,47 +358,19 @@ void HintingRawDB::pad_tree(world_state::MerkleTreeId tree_id, size_t num_leaves
     db.pad_tree(tree_id, num_leaves);
 }
 
-std::vector<AppendLeafResult> HintingRawDB::append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves)
+void HintingRawDB::append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves)
 {
-    AppendOnlyTreeSnapshot tree_info = get_tree_info(tree_id);
+    AppendOnlyTreeSnapshot state_before = get_tree_info(tree_id);
+    AppendLeavesHintKey append_key = { state_before, tree_id, std::vector<FF>(leaves.begin(), leaves.end()) };
+
     // Update underlying db:
-    std::vector<AppendLeafResult> results = db.append_leaves(tree_id, leaves);
+    db.append_leaves(tree_id, leaves);
 
-    // Use results to collect hints:
-    for (uint32_t i = 0; i < leaves.size(); i++) {
-        FF root_after = i == leaves.size() - 1 ? get_tree_info(tree_id).root : results[i + 1].root;
-        // Iterate tree_info to the be state after adding this leaf:
-        tree_info = appendLeafInternal(tree_info, results[i].path, root_after, tree_id, leaves[i]);
-    }
-
-    return results;
-}
-
-AppendOnlyTreeSnapshot HintingRawDB::appendLeafInternal(const AppendOnlyTreeSnapshot& state_before,
-                                                        const SiblingPath& path,
-                                                        const FF& root_after,
-                                                        world_state::MerkleTreeId tree_id,
-                                                        const FF& leaf)
-{
-    // TODO(MW): Taken from raw_data_dbs:
-    // We need to process each leaf individually because we need the sibling path after insertion, to be able to
-    // constraint the insertion.
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13380): This can be changed if the world state
-    // appendLeaves returns the sibling paths.
-    AppendLeavesHintKey append_key = { state_before, tree_id, { leaf } };
-    AppendOnlyTreeSnapshot state_after = { .root = root_after,
-                                           .next_available_leaf_index = state_before.next_available_leaf_index + 1 };
-    merkle_hints.append_leaves_hints[append_key] = AppendLeavesHint{
-        .hint_key = state_before, .state_after = state_after, .tree_id = tree_id, .leaves = { leaf }
-    };
-    // TODO(MW): Storing sibling path hint manually using the result since a get_sibling_path() call here will use the
-    // /current/ db.get_tree_info() (post full append_leaves), which may not match that at result.root. We may not care
-    // about this (see comment in PureRawMerkleDB::append_leaves())
-    GetSiblingPathKey path_key = { state_after, tree_id, state_before.next_available_leaf_index };
-    merkle_hints.get_sibling_path_hints[path_key] = GetSiblingPathHint{
-        .hint_key = state_after, .tree_id = tree_id, .index = state_before.next_available_leaf_index, .path = path
-    };
-    return state_after;
+    merkle_hints.append_leaves_hints[append_key] =
+        AppendLeavesHint{ .hint_key = state_before,
+                          .state_after = get_tree_info(tree_id),
+                          .tree_id = tree_id,
+                          .leaves = std::vector<FF>(leaves.begin(), leaves.end()) };
 }
 
 void HintingRawDB::dump_hints(ExecutionHints& hints)
