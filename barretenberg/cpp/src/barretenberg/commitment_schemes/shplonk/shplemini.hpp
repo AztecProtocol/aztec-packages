@@ -406,11 +406,13 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         // Finalize the batch opening claim
         commitments.emplace_back(g1_identity);
         scalars.emplace_back(constant_term_accumulator);
+
+        BatchOpeningClaim<Curve> batch_opening_claim{ commitments, scalars, shplonk_evaluation_challenge };
+        ShpleminiVerifierOutput output{ batch_opening_claim };
         if constexpr (HasZK) {
-            return { { commitments, scalars, shplonk_evaluation_challenge }, consistency_checked };
-        } else {
-            return { { commitments, scalars, shplonk_evaluation_challenge } };
+            output.consistency_checked = consistency_checked;
         }
+        return output;
     };
 
     /**
