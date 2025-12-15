@@ -17,6 +17,7 @@ class KZGTest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
     using ShplonkProver = ShplonkProver_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using ShpleminiZKVerifier = ShpleminiVerifier_<Curve, true>;
 
     static constexpr size_t n = 16;
     static constexpr size_t log_n = 4;
@@ -288,7 +289,6 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
                                                                               vk.get_g1_identity(),
                                                                               verifier_transcript,
                                                                               /* repeated commitments= */ {},
-                                                                              /* has zk = */ {},
                                                                               /* libra commitments = */ {},
                                                                               /* libra evaluations = */ {},
                                                                               {},

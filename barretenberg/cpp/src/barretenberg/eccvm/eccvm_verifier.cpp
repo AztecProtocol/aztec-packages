@@ -20,7 +20,7 @@ template <typename Flavor>
 typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_to_ipa_opening()
 {
     using Curve = typename Flavor::Curve;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using Shplonk = ShplonkVerifier_<Curve>;
     using OpeningClaim = OpeningClaim<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
@@ -93,18 +93,16 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
     };
 
     auto [sumcheck_batch_opening_claims, consistency_checked] =
-        Shplemini::template compute_batch_opening_claim<Transcript, Flavor::HasZK>(
-            padding_indicator_array,
-            claim_batcher,
-            sumcheck_output.challenge,
-            key->pcs_g1_identity,
-            transcript,
-            Flavor::REPEATED_COMMITMENTS,
-            Flavor::HasZK,
-            libra_commitments,
-            sumcheck_output.claimed_libra_evaluation,
-            sumcheck_output.round_univariate_commitments,
-            sumcheck_output.round_univariate_evaluations);
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                               claim_batcher,
+                                               sumcheck_output.challenge,
+                                               key->pcs_g1_identity,
+                                               transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
+                                               libra_commitments,
+                                               sumcheck_output.claimed_libra_evaluation,
+                                               sumcheck_output.round_univariate_commitments,
+                                               sumcheck_output.round_univariate_evaluations);
 
     // Reduce the accumulator to a single opening claim
     OpeningClaim multivariate_to_univariate_opening_claim =

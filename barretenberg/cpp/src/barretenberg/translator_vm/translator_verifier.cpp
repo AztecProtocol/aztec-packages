@@ -134,7 +134,7 @@ template <typename Flavor>
 typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor>::reduce_to_pairing_check()
 {
     using PCS = typename Flavor::PCS;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = typename ClaimBatcher::Batch;
     using InterleavedBatch = typename ClaimBatcher::InterleavedBatch;
@@ -226,16 +226,14 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     }
 
     auto [opening_claim, consistency_checked] =
-        Shplemini::template compute_batch_opening_claim<Transcript, Flavor::HasZK>(
-            padding_indicator_array,
-            claim_batcher,
-            sumcheck_output.challenge,
-            commitment_one,
-            transcript,
-            Flavor::REPEATED_COMMITMENTS,
-            Flavor::HasZK,
-            libra_commitments,
-            sumcheck_output.claimed_libra_evaluation);
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                               claim_batcher,
+                                               sumcheck_output.challenge,
+                                               commitment_one,
+                                               transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
+                                               libra_commitments,
+                                               sumcheck_output.claimed_libra_evaluation);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 

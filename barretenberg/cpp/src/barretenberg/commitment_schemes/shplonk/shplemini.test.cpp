@@ -147,7 +147,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 {
     using Curve = TypeParam::Curve;
     using GeminiProver = GeminiProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, false>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
@@ -265,7 +265,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     using ZKData = ZKSumcheckData<TypeParam>;
     using Curve = TypeParam::Curve;
     using ShpleminiProver = ShpleminiProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, true>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using CK = typename TypeParam::CommitmentKey;
@@ -346,7 +346,6 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
                                                                               this->vk().get_g1_identity(),
                                                                               verifier_transcript,
                                                                               {},
-                                                                              true,
                                                                               libra_commitments,
                                                                               libra_evaluation)
                                    .batch_opening_claim;
@@ -377,7 +376,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     using CK = typename TypeParam::CommitmentKey;
 
     using ShpleminiProver = ShpleminiProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, true>;
 
     CK ck = create_commitment_key<CK>(4096);
 
@@ -452,7 +451,6 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
                                                                               this->vk().get_g1_identity(),
                                                                               verifier_transcript,
                                                                               {},
-                                                                              true,
                                                                               libra_commitments,
                                                                               libra_evaluation,
                                                                               mock_claims.sumcheck_commitments,

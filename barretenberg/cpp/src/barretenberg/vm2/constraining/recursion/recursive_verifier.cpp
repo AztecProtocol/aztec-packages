@@ -78,7 +78,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     using PCS = typename Flavor::PCS;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using RelationParams = RelationParameters<typename Flavor::FF>;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using stdlib::bool_t;

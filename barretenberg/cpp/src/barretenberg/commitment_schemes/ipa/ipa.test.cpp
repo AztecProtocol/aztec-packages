@@ -20,7 +20,7 @@ class IPATest : public CommitmentTest<Curve> {
 
     using ShplonkProver = ShplonkProver_<Curve>;
     using GeminiProver = GeminiProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, false>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 

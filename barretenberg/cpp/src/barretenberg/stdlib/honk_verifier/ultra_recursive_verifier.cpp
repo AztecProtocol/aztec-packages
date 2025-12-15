@@ -40,7 +40,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
+    using Shplemini = ::bb::ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
@@ -119,7 +119,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                                                                 Commitment::one(builder),
                                                                 transcript,
                                                                 Flavor::REPEATED_COMMITMENTS,
-                                                                Flavor::HasZK,
                                                                 libra_commitments,
                                                                 sumcheck_output.claimed_libra_evaluation)
                              .batch_opening_claim;

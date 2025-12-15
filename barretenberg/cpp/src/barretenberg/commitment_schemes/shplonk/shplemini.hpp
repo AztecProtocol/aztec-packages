@@ -163,7 +163,15 @@ template <typename Curve> class ShpleminiProver_ {
  *
  */
 
-template <typename Curve> class ShpleminiVerifier_ {
+template <typename Curve, bool HasZK> struct ShpleminiVerifierOutput_ {
+    BatchOpeningClaim<Curve> batch_opening_claim;
+};
+template <typename Curve> struct ShpleminiVerifierOutput_<Curve, true> {
+    BatchOpeningClaim<Curve> batch_opening_claim;
+    bool consistency_checked;
+};
+
+template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
@@ -171,18 +179,9 @@ template <typename Curve> class ShpleminiVerifier_ {
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ShpleminiVerifierOutput = ShpleminiVerifierOutput_<Curve, HasZK>;
 
   public:
-    // A struct to return the batch opening claim and the consistency checked flag for ZK flavors
-    template <bool HasZK> struct ShpleminiVerifierOutput {
-        BatchOpeningClaim<Curve> batch_opening_claim;
-    };
-
-    template <> struct ShpleminiVerifierOutput<true> {
-        BatchOpeningClaim<Curve> batch_opening_claim;
-        bool consistency_checked;
-    };
-
     /**
      * @brief This method receives commitments to all prover polynomials, their claimed
      * evaluations, the sumcheck challenge, the group element \f$ [1]_1 \f$, and a pointer to the transcript.
@@ -210,15 +209,14 @@ template <typename Curve> class ShpleminiVerifier_ {
      * multivariate evaluation claims is reduced by \f$ 5 \f$.
      *
      */
-    template <typename Transcript, bool HasZK = false>
-    static ShpleminiVerifierOutput<HasZK> compute_batch_opening_claim(
+    template <typename Transcript>
+    static ShpleminiVerifierOutput compute_batch_opening_claim(
         std::span<const Fr> padding_indicator_array,
         ClaimBatcher& claim_batcher,
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
         const std::shared_ptr<Transcript>& transcript,
         const RepeatedCommitmentsData& repeated_commitments = {},
-        const bool has_zk = false,
         const std::array<Commitment, NUM_LIBRA_COMMITMENTS>& libra_commitments = {},
         const Fr& libra_univariate_evaluation = Fr{ 0 },
         const std::vector<Commitment>& sumcheck_round_commitments = {},
@@ -260,7 +258,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         std::array<Fr, NUM_SMALL_IPA_EVALUATIONS> libra_evaluations;
         // In case of ZK, get the evaluations of Libra univariates from the transcript
-        if (has_zk) {
+        if constexpr (HasZK) {
             libra_evaluations[0] = transcript->template receive_from_prover<Fr>("Libra:concatenation_eval");
             libra_evaluations[1] = transcript->template receive_from_prover<Fr>("Libra:shifted_grand_sum_eval");
             libra_evaluations[2] = transcript->template receive_from_prover<Fr>("Libra:grand_sum_eval");
@@ -282,7 +280,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Compute the powers of ν that are required for batching Gemini, SmallSubgroupIPA, and committed sumcheck
         // univariate opening claims.
         const std::vector<Fr> shplonk_batching_challenge_powers = compute_shplonk_batching_challenge_powers(
-            shplonk_batching_challenge, virtual_log_n, has_zk, committed_sumcheck);
+            shplonk_batching_challenge, virtual_log_n, HasZK, committed_sumcheck);
         // - Get the quotient commitment for the Shplonk batching of Gemini opening claims
         const auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
@@ -373,12 +371,12 @@ template <typename Curve> class ShpleminiVerifier_ {
         constant_term_accumulator +=
             gemini_fold_neg_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
 
-        remove_repeated_commitments(commitments, scalars, repeated_commitments, has_zk);
+        remove_repeated_commitments(commitments, scalars, repeated_commitments, HasZK);
         // An optional boolean flag for SmallSubgroupIPAVerifier to check the consistency of the Libra evaluations
-        std::optional<bool> consistency_checked = std::nullopt;
+        bool consistency_checked = true;
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
         // ShpleminiVerifier, otherwise this argument is set to be empty
-        if (has_zk) {
+        if constexpr (HasZK) {
             add_zk_data(virtual_log_n,
                         commitments,
                         scalars,
@@ -408,8 +406,11 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Finalize the batch opening claim
         commitments.emplace_back(g1_identity);
         scalars.emplace_back(constant_term_accumulator);
-
-        return { { commitments, scalars, shplonk_evaluation_challenge }, consistency_checked };
+        if constexpr (HasZK) {
+            return { { commitments, scalars, shplonk_evaluation_challenge }, consistency_checked };
+        } else {
+            return { { commitments, scalars, shplonk_evaluation_challenge } };
+        }
     };
 
     /**

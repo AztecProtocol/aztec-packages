@@ -28,7 +28,7 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
     using FF = typename Flavor::FF;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
@@ -80,16 +80,14 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
 
-    auto shplemini_output = Shplemini::template compute_batch_opening_claim<Transcript, Flavor::HasZK>(
-        padding_indicator_array,
-        claim_batcher,
-        sumcheck_output.challenge,
-        Commitment::one(),
-        transcript,
-        Flavor::REPEATED_COMMITMENTS,
-        Flavor::HasZK,
-        libra_commitments,
-        sumcheck_output.claimed_libra_evaluation);
+    auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                                                   claim_batcher,
+                                                                   sumcheck_output.challenge,
+                                                                   Commitment::one(),
+                                                                   transcript,
+                                                                   Flavor::REPEATED_COMMITMENTS,
+                                                                   libra_commitments,
+                                                                   sumcheck_output.claimed_libra_evaluation);
 
     auto pairing_points =
         PCS::reduce_verify_batch_opening_claim(std::move(shplemini_output.batch_opening_claim), transcript);
