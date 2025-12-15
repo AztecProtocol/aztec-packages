@@ -5,9 +5,12 @@
 
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 
 using namespace bb::avm2::simulation;
+using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 using namespace bb::crypto::merkle_tree;
 using namespace bb::world_state;
 
@@ -376,6 +379,20 @@ void FuzzerWorldStateManager::register_contract_address(const AztecAddress& cont
         unconstrained_silo_nullifier(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, contract_address);
     auto fork_id = fork_ids.top();
     ws->insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { contract_nullifier }, fork_id);
+}
+
+void FuzzerWorldStateManager::write_fee_payer_balance(const AztecAddress& fee_payer, const FF& balance)
+{
+    if (fee_payer == 0) {
+        return;
+    }
+    FF fee_juice_balance_slot = Poseidon2::hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
+    FF leaf_slot =
+        Poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, FF(FEE_JUICE_ADDRESS), fee_juice_balance_slot });
+
+    // Write to public data tree using current fork
+    auto fork_id = fork_ids.top();
+    ws->update_public_data(PublicDataLeafValue(leaf_slot, balance), fork_id);
 }
 
 } // namespace bb::avm2::fuzzer
