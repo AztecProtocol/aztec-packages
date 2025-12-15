@@ -56,7 +56,8 @@ template <typename Builder> inline constexpr size_t ASSERT_EQUALITY = ZERO_GATE 
 // ========================================
 
 template <typename RecursiveFlavor>
-constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(const PredicateTestCase& mode)
+constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
+    const PredicateTestCase& mode = PredicateTestCase::ConstantTrue)
 {
     using UltraCircuitBuilder = bb::UltraCircuitBuilder;
     using MegaCircuitBuilder = bb::MegaCircuitBuilder;
@@ -101,6 +102,11 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(const PredicateTes
         case PredicateTestCase::WitnessFalse:
             return std::make_tuple(29303, 80);
         }
+    } else if constexpr (std::is_same_v<RecursiveFlavor, bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
+        if (mode != PredicateTestCase::ConstantTrue) {
+            bb::assert_failure("Unhandled mode in MegaZKRecursiveFlavor.");
+        }
+        return std::make_tuple(814519, 0);
     } else {
         bb::assert_failure("Unhandled recursive flavor.");
     }

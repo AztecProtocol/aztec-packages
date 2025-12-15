@@ -117,9 +117,23 @@ class HonkRecursionConstraintTestingFunctions {
       public:
         enum class Target : uint8_t { None, VKHash, VK, Proof };
 
-        static std::vector<Target> get_all() { return { Target::None, Target::VKHash, Target::VK, Target::Proof }; }
+        static std::vector<Target> get_all()
+        {
+            if constexpr (IsRootRollup) {
+                // Only one for Root because it is very heavy
+                return { Target::VKHash };
+            }
+            return { Target::None, Target::VKHash, Target::VK, Target::Proof };
+        }
 
-        static std::vector<std::string> get_labels() { return { "None", "VKHash", "VK", "Proof" }; }
+        static std::vector<std::string> get_labels()
+        {
+            if constexpr (IsRootRollup) {
+                // Only one for Root because it is very heavy
+                return { "VKHash" };
+            }
+            return { "None", "VKHash", "VK", "Proof" };
+        }
     };
 
     /**
@@ -220,7 +234,7 @@ class HonkRecursionConstraintTestingFunctions {
      */
     static ProgramMetadata generate_metadata()
     {
-        return ProgramMetadata{ .has_ipa_claim = HasIPAAccumulator<RecursiveFlavor> };
+        return ProgramMetadata{ .has_ipa_claim = HasIPAAccumulator<RecursiveFlavor> && !IsRootRollup };
     }
 
     static void invalidate_witness(AcirConstraint& honk_recursion_constraints,
@@ -432,27 +446,19 @@ TYPED_TEST_SUITE(HonkRecursionConstraintTestWithoutPredicate, HonkRecursionTypes
 TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, GenerateVKFromConstraints)
 {
     if constexpr (TypeParam::IsRootRollup) {
-        // We need to skip this case because the root rollup case takes too much time.
-        GTEST_SKIP();
-
         TestFixture::template test_vk_independence<UltraZKFlavor>();
+    } else {
+        // The flavor with which we prove the outer circuit (the one verifying F_1, .., F_{s_1}) depends on what type of
+        // data the inner circuits have propagated and the builder.
+        using Flavor = std::conditional_t<IsMegaBuilder<typename TestFixture::Builder>,
+                                          MegaFlavor,
+                                          typename TestFixture::RecursiveFlavor::NativeFlavor>;
+
+        TestFixture::template test_vk_independence<Flavor>();
     }
-
-    // The flavor with which we prove the outer circuit (the one verifying F_1, .., F_{s_1}) depends on what type of
-    // data the inner circuits have propagated and the builder.
-    using Flavor = std::conditional_t<IsMegaBuilder<typename TestFixture::Builder>,
-                                      MegaFlavor,
-                                      typename TestFixture::RecursiveFlavor::NativeFlavor>;
-
-    TestFixture::template test_vk_independence<Flavor>();
 }
 
 TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, Tampering)
 {
-    if constexpr (TypeParam::IsRootRollup) {
-        // We need to skip this case because the root rollup case takes too much time.
-        GTEST_SKIP();
-    }
-
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }
