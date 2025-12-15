@@ -11,44 +11,39 @@ namespace bb::bbapi {
 class StatefulKeygenTest : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    // All flavor settings to test
+    static std::vector<ProofSystemSettings> all_settings()
+    {
+        return {
+            { .ipa_accumulation = true, .oracle_hash_type = "poseidon2", .disable_zk = false },  // UltraRollup
+            { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false }, // UltraZK
+            { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = true },  // Ultra
+            { .ipa_accumulation = false, .oracle_hash_type = "keccak", .disable_zk = false },    // UltraKeccakZK
+            { .ipa_accumulation = false, .oracle_hash_type = "keccak", .disable_zk = true }      // UltraKeccak
+        };
+    }
+
+    static std::string settings_to_string(const ProofSystemSettings& s)
+    {
+        return "ipa=" + std::to_string(s.ipa_accumulation) + ",hash=" + s.oracle_hash_type +
+               ",zk=" + std::to_string(!s.disable_zk);
+    }
 };
 
-/**
- * @brief Test AcirGetProvingKey command
- * @details Verifies that we can generate a proving key from circuit bytecode
- */
-TEST_F(StatefulKeygenTest, AcirGetProvingKey)
-{
-    auto [bytecode, _witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
-
-    bbapi::ProofSystemSettings settings{ .ipa_accumulation = false,
-                                         .oracle_hash_type = "poseidon2",
-                                         .disable_zk = true }; // UltraFlavor
-
-    // Generate proving key
-    auto pk_response =
-        AcirGetProvingKey{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }
-            .execute();
-
-    // Verify proving key was generated
-    EXPECT_FALSE(pk_response.proving_key.empty()) << "Proving key should not be empty";
-    EXPECT_GT(pk_response.proving_key.size(), 100) << "Proving key should be reasonably sized";
-}
-
-// Helper to unpack combined result from vector<uint8_t>
+// Helper to unpack combined result
 std::pair<std::vector<uint256_t>, std::vector<uint256_t>> unpack_combined(const std::vector<uint8_t>& combined)
 {
     if (combined.size() < 4) {
         throw std::runtime_error("Combined result too small");
     }
 
-    // Read num_public_inputs (first 4 bytes, big endian)
     uint32_t num_pub_inputs_be;
     std::memcpy(&num_pub_inputs_be, combined.data(), 4);
     uint32_t num_pub_inputs = ntohl(num_pub_inputs_be);
 
     size_t offset = 4;
-    size_t element_size = 32;
+    constexpr size_t element_size = 32;
     size_t pub_inputs_bytes = num_pub_inputs * element_size;
 
     if (combined.size() < offset + pub_inputs_bytes) {
@@ -67,195 +62,152 @@ std::pair<std::vector<uint256_t>, std::vector<uint256_t>> unpack_combined(const 
     if (remaining_bytes % element_size != 0) {
         throw std::runtime_error("Invalid proof size in combined result");
     }
-    size_t num_proof_elements = remaining_bytes / element_size;
 
     std::vector<uint256_t> proof;
-    for (size_t i = 0; i < num_proof_elements; ++i) {
+    for (size_t i = 0; i < remaining_bytes / element_size; ++i) {
         uint64_t bin_data[4];
         std::memcpy(bin_data, &combined[offset + i * element_size], element_size);
         proof.emplace_back(ntohll(bin_data[3]), ntohll(bin_data[2]), ntohll(bin_data[1]), ntohll(bin_data[0]));
     }
 
-    return std::make_pair(public_inputs, proof);
+    return { public_inputs, proof };
 }
 
 /**
- * @brief Test AcirProveWithPk command
- * @details Verifies that we can prove using a pre-computed proving key
+ * @brief Core test: stateful workflow produces verifiable proofs across all flavors
  */
-TEST_F(StatefulKeygenTest, AcirProveWithPk)
+TEST_F(StatefulKeygenTest, StatefulProveAndVerify)
 {
     auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
-    bbapi::ProofSystemSettings settings{ .ipa_accumulation = false,
-                                         .oracle_hash_type = "poseidon2",
-                                         .disable_zk = true }; // UltraFlavor
+    for (const auto& settings : all_settings()) {
+        SCOPED_TRACE(settings_to_string(settings));
 
-    // Step 1: Generate proving key
-    auto pk_response =
-        AcirGetProvingKey{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }
-            .execute();
+        // Get proving key
+        auto pk_response =
+            AcirGetProvingKey{ .circuit = { .name = "test", .bytecode = bytecode }, .settings = settings }.execute();
+        ASSERT_FALSE(pk_response.proving_key.empty());
 
-    // Step 2: Prove with pre-computed key
-    auto prove_response = AcirProveWithPk{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
-                                           .witness = witness,
-                                           .proving_key = pk_response.proving_key,
-                                           .settings = settings }
-                              .execute();
+        // Prove with cached key
+        auto prove_response = AcirProveWithPk{ .circuit = { .name = "test", .bytecode = bytecode },
+                                               .witness = witness,
+                                               .proving_key = pk_response.proving_key,
+                                               .settings = settings }
+                                  .execute();
 
-    // Verify proof was generated
-    auto [public_inputs, proof] = unpack_combined(prove_response.combined_result);
-    EXPECT_FALSE(proof.empty()) << "Proof should not be empty";
-    // Note: public_inputs may be empty for simple circuits with no declared public inputs
-    // The 16-element pairing point accumulator is internal and not included in inner public inputs
+        auto [public_inputs, proof] = unpack_combined(prove_response.combined_result);
+        ASSERT_FALSE(proof.empty());
+
+        // Verify proof
+        auto vk_response =
+            CircuitComputeVk{ .circuit = { .name = "test", .bytecode = bytecode }, .settings = settings }.execute();
+
+        auto verify_response = CircuitVerify{ .verification_key = vk_response.bytes,
+                                              .public_inputs = public_inputs,
+                                              .proof = proof,
+                                              .settings = settings }
+                                   .execute();
+
+        EXPECT_TRUE(verify_response.verified);
+    }
 }
 
 /**
- * @brief Test stateful workflow: Generate key once, prove multiple times
- * @details This is the key use case for stateful keygen - reusing the proving key
- */
-TEST_F(StatefulKeygenTest, MultipleProofsWithSameKey)
-{
-    // Create ONE circuit bytecode
-    auto [bytecode, witness1] = acir_bincode_mocks::create_simple_circuit_bytecode();
-
-    // Create a SECOND witness for the SAME circuit (different a,b values: 4*5=20 instead of 2*3=6)
-    auto witness2 = acir_bincode_mocks::create_witness_for_simple_circuit(bb::fr(4), bb::fr(5));
-
-    bbapi::ProofSystemSettings settings{ .ipa_accumulation = false,
-                                         .oracle_hash_type = "poseidon2",
-                                         .disable_zk = true };
-
-    // Generate proving key ONCE
-    auto pk_response =
-        AcirGetProvingKey{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }
-            .execute();
-
-    // Prove MULTIPLE times with different witnesses (same circuit structure)
-    auto proof1 = AcirProveWithPk{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
-                                   .witness = witness1,
-                                   .proving_key = pk_response.proving_key,
-                                   .settings = settings }
-                      .execute();
-
-    auto proof2 = AcirProveWithPk{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
-                                   .witness = witness2,
-                                   .proving_key = pk_response.proving_key,
-                                   .settings = settings }
-                      .execute();
-
-    // Both proofs should be valid but different (different witnesses)
-    auto [public_inputs1, proof1_vec] = unpack_combined(proof1.combined_result);
-    auto [public_inputs2, proof2_vec] = unpack_combined(proof2.combined_result);
-
-    EXPECT_FALSE(proof1_vec.empty());
-    EXPECT_FALSE(proof2_vec.empty());
-    // Proofs should differ because witnesses differ
-    EXPECT_NE(proof1_vec, proof2_vec) << "Different witnesses should produce different proofs";
-}
-
-/**
- * @brief Test that stateful keygen produces same proof as one-shot proving
- * @details Verifies correctness by comparing against CircuitProve
+ * @brief Equivalence: stateful and one-shot produce matching public inputs
  */
 TEST_F(StatefulKeygenTest, EquivalenceWithCircuitProve)
 {
     auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
-    bbapi::ProofSystemSettings settings{ .ipa_accumulation = false,
-                                         .oracle_hash_type = "poseidon2",
-                                         .disable_zk = true };
+    for (const auto& settings : all_settings()) {
+        SCOPED_TRACE(settings_to_string(settings));
 
-    // Method 1: Stateful (get key + prove with key)
-    auto pk_response =
-        AcirGetProvingKey{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }
-            .execute();
+        // Stateful path
+        auto pk_response =
+            AcirGetProvingKey{ .circuit = { .name = "test", .bytecode = bytecode }, .settings = settings }.execute();
 
-    auto stateful_proof = AcirProveWithPk{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
-                                           .witness = witness,
-                                           .proving_key = pk_response.proving_key,
-                                           .settings = settings }
-                              .execute();
+        auto stateful_proof = AcirProveWithPk{ .circuit = { .name = "test", .bytecode = bytecode },
+                                               .witness = witness,
+                                               .proving_key = pk_response.proving_key,
+                                               .settings = settings }
+                                  .execute();
 
-    // Method 2: One-shot (CircuitProve)
-    auto vk_response =
-        CircuitComputeVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }.execute();
+        // One-shot path
+        auto vk_response =
+            CircuitComputeVk{ .circuit = { .name = "test", .bytecode = bytecode }, .settings = settings }.execute();
 
-    auto oneshot_proof = CircuitProve{ .circuit = { .name = "test_circuit",
-                                                    .bytecode = bytecode,
-                                                    .verification_key = vk_response.bytes },
-                                       .witness = witness,
-                                       .settings = settings }
-                             .execute();
+        auto oneshot_proof =
+            CircuitProve{ .circuit = { .name = "test", .bytecode = bytecode, .verification_key = vk_response.bytes },
+                          .witness = witness,
+                          .settings = settings }
+                .execute();
 
-    auto [stateful_public_inputs, stateful_proof_data] = unpack_combined(stateful_proof.combined_result);
+        auto [stateful_pub, _] = unpack_combined(stateful_proof.combined_result);
+        auto [oneshot_pub, __] = unpack_combined(oneshot_proof.combined_result);
 
-    // Both methods should produce valid proofs with same public inputs
-    auto [oneshot_public_inputs, oneshot_proof_data] = unpack_combined(oneshot_proof.combined_result);
-    EXPECT_EQ(stateful_public_inputs, oneshot_public_inputs) << "Public inputs mismatch";
-    EXPECT_FALSE(stateful_proof_data.empty()) << "Proof should not be empty";
-
-    auto verify_stateful =
-        CircuitVerify{
-            .verification_key = vk_response.bytes, // Assuming vk_response.bytes is the intended verification key
-            .public_inputs = stateful_public_inputs,
-            .proof = stateful_proof_data,
-            .settings = settings,
-        }
-            .execute();
-
-    auto verify_oneshot = CircuitVerify{ .verification_key = vk_response.bytes,
-                                         .public_inputs = oneshot_public_inputs,
-                                         .proof = oneshot_proof_data,
-                                         .settings = settings }
-                              .execute();
-
-    EXPECT_TRUE(verify_stateful.verified) << "Stateful proof should verify";
-    EXPECT_TRUE(verify_oneshot.verified) << "One-shot proof should verify";
+        EXPECT_EQ(stateful_pub, oneshot_pub) << "Public inputs must match between stateful and one-shot";
+    }
 }
 
 /**
- * @brief Test that bytecode hash mismatch is detected
- * @details Verifies that using a proving key generated for one circuit
- * with a different circuit's bytecode throws an appropriate error
+ * @brief Security: bytecode hash mismatch is caught
  */
 TEST_F(StatefulKeygenTest, BytecodeHashMismatch)
 {
-    // Create two different circuits
     auto [bytecode1, witness1] = acir_bincode_mocks::create_simple_circuit_bytecode(1);
     auto [bytecode2, witness2] = acir_bincode_mocks::create_simple_circuit_bytecode(2);
 
-    bbapi::ProofSystemSettings settings{ .ipa_accumulation = false,
-                                         .oracle_hash_type = "poseidon2",
-                                         .disable_zk = true };
+    // Test with one representative flavor (the validation logic is flavor-agnostic)
+    ProofSystemSettings settings{ .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = true };
 
-    // Generate proving key for circuit 1
     auto pk_response =
-        AcirGetProvingKey{ .circuit = { .name = "test_circuit", .bytecode = bytecode1 }, .settings = settings }
-            .execute();
+        AcirGetProvingKey{ .circuit = { .name = "test", .bytecode = bytecode1 }, .settings = settings }.execute();
 
-    // Try to use it with circuit 2's bytecode - should fail
-    // Note: EXPECT_THROW doesn't work with brace-enclosed initializer lists,
-    // so we use a lambda and manual exception checking
-    bool threw_expected_exception = false;
+    bool threw = false;
     try {
-        AcirProveWithPk prove_cmd;
-        prove_cmd.circuit = { .name = "test_circuit", .bytecode = bytecode2 };
-        prove_cmd.witness = witness2;
-        prove_cmd.proving_key = pk_response.proving_key;
-        prove_cmd.settings = settings;
-        std::move(prove_cmd).execute();
+        AcirProveWithPk cmd;
+        cmd.circuit = { .name = "test", .bytecode = bytecode2 };
+        cmd.witness = witness2;
+        cmd.proving_key = pk_response.proving_key;
+        cmd.settings = settings;
+        std::move(cmd).execute();
     } catch (const std::runtime_error& e) {
-        threw_expected_exception = true;
-        // Verify the error message mentions bytecode hash mismatch
-        std::string error_msg = e.what();
-        EXPECT_TRUE(error_msg.find("Bytecode hash mismatch") != std::string::npos ||
-                    error_msg.find("bytecode") != std::string::npos)
-            << "Error message should mention bytecode hash mismatch, got: " << error_msg;
-    } catch (...) {
-        FAIL() << "Expected std::runtime_error but got different exception type";
+        threw = true;
+        EXPECT_TRUE(std::string(e.what()).find("Bytecode hash") != std::string::npos);
     }
-    EXPECT_TRUE(threw_expected_exception) << "Using proving key with mismatched bytecode should throw";
+    EXPECT_TRUE(threw) << "Mismatched bytecode should throw";
+}
+
+/**
+ * @brief Key reuse: same key, multiple witnesses
+ */
+TEST_F(StatefulKeygenTest, MultipleProofsWithSameKey)
+{
+    auto [bytecode, witness1] = acir_bincode_mocks::create_simple_circuit_bytecode();
+    auto witness2 = acir_bincode_mocks::create_witness_for_simple_circuit(bb::fr(4), bb::fr(5));
+
+    // Test with one representative flavor
+    ProofSystemSettings settings{ .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false };
+
+    auto pk_response =
+        AcirGetProvingKey{ .circuit = { .name = "test", .bytecode = bytecode }, .settings = settings }.execute();
+
+    auto proof1 = AcirProveWithPk{ .circuit = { .name = "test", .bytecode = bytecode },
+                                   .witness = witness1,
+                                   .proving_key = pk_response.proving_key,
+                                   .settings = settings }
+                      .execute();
+
+    auto proof2 = AcirProveWithPk{ .circuit = { .name = "test", .bytecode = bytecode },
+                                   .witness = witness2,
+                                   .proving_key = pk_response.proving_key,
+                                   .settings = settings }
+                      .execute();
+
+    auto [_, proof1_vec] = unpack_combined(proof1.combined_result);
+    auto [__, proof2_vec] = unpack_combined(proof2.combined_result);
+
+    EXPECT_NE(proof1_vec, proof2_vec) << "Different witnesses should produce different proofs";
 }
 
 } // namespace bb::bbapi
