@@ -122,16 +122,6 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     struct ReductionResult {
         PairingPoints pairing_points;     // KZG pairing points for deferred verification
         bool reduction_succeeded = false; // Sumcheck and consistency checks
-
-        // Optional: IPA claim for rollup flavors
-        IPAClaim ipa_claim; // Only populated for HasIPAAccumulator flavors
-
-        // Optional: Kernel data for hiding kernel
-        Commitment kernel_return_data;
-        std::array<Commitment, Flavor::NUM_WIRES> ecc_op_tables;
-
-        // Optional: mega_hash for GoblinAvmIO
-        FF mega_hash;
     };
 
     // Native constructor: takes verification key directly

@@ -42,9 +42,7 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
 
     // For recursive: extract builder from proof if not already set (for builder access in later operations)
     if constexpr (IsRecursive) {
-        if (builder == nullptr) {
-            builder = proof.back().get_context();
-        }
+        builder = proof.back().get_context();
     }
 
     OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript };
@@ -59,6 +57,7 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
             return static_cast<size_t>(verifier_instance->vk->log_circuit_size);
         }
     }();
+
     const size_t log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : log_circuit_size;
     verifier_instance->gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
@@ -131,36 +130,11 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
                 std::move(opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
         }
     }();
-    // Reconstruct the public inputs
-    IO inputs;
-    inputs.reconstruct_from_public(verifier_instance->public_inputs);
-
-    // Aggregate new pairing points with those reconstructed from the public inputs
-    pairing_points.aggregate(inputs.pairing_inputs);
 
     // Build reduction result
     ReductionResult result;
     result.pairing_points = std::move(pairing_points);
     result.reduction_succeeded = sumcheck_output.verified && consistency_checked;
-
-    // Populate optional fields based on IO type
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        result.ipa_claim = inputs.ipa_claim;
-    } else if constexpr (std::is_same_v<IO, HidingKernelIO>) {
-        // Native HidingKernelIO
-        result.kernel_return_data = inputs.kernel_return_data;
-        result.ecc_op_tables = inputs.ecc_op_tables;
-    } else if constexpr (IsRecursive) {
-        // Recursive-only IO types
-        using HidingKernelIOType = stdlib::recursion::honk::HidingKernelIO<Builder>;
-        using GoblinAvmIOType = stdlib::recursion::honk::GoblinAvmIO<Builder>;
-        if constexpr (std::is_same_v<IO, HidingKernelIOType>) {
-            result.kernel_return_data = inputs.kernel_return_data;
-            result.ecc_op_tables = inputs.ecc_op_tables;
-        } else if constexpr (std::is_same_v<IO, GoblinAvmIOType>) {
-            result.mega_hash = inputs.mega_hash;
-        }
-    }
 
     return result;
 }
@@ -197,33 +171,32 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
         // Reduce to claims (common logic)
         auto reduction_result = reduce_to_claims(honk_proof);
 
-        // Recursive path: Return pairing points for deferred verification
-        // Note: Do NOT call reconstruct_from_public again here - it was already called in reduce_to_claims
-        // and calling it again would create duplicate circuit variables for pairing points
-        Output output;
-        output.points_accumulator = reduction_result.pairing_points;
+        // Recursive path: Reconstruct inputs and aggregate pairing points
+        IO inputs;
+        inputs.reconstruct_from_public(verifier_instance->public_inputs);
 
+        // Construct output from inputs (initializes points_accumulator from inputs.pairing_inputs)
+        Output output(inputs);
+
+        // Aggregate new pairing points with accumulated ones
+        output.points_accumulator.aggregate(reduction_result.pairing_points);
+
+        // Set IPA proof for rollup flavors
         if constexpr (HasIPAAccumulator<Flavor>) {
-            output.ipa_claim = reduction_result.ipa_claim;
             output.ipa_proof = extracted_ipa_proof;
-        } else {
-            // Check if this is HidingKernelIO - use type alias to avoid nested template parsing issues
-            using HidingKernelIOType = stdlib::recursion::honk::HidingKernelIO<Builder>;
-            if constexpr (std::is_same_v<IO, HidingKernelIOType>) {
-                output.kernel_return_data = reduction_result.kernel_return_data;
-                output.ecc_op_tables = reduction_result.ecc_op_tables;
-            } else {
-                using GoblinAvmIOType = stdlib::recursion::honk::GoblinAvmIO<Builder>;
-                if constexpr (std::is_same_v<IO, GoblinAvmIOType>) {
-                    output.mega_hash = reduction_result.mega_hash;
-                }
-            }
         }
 
         return output;
     } else {
         // Native path: Immediate pairing verification
         auto reduction_result = reduce_to_claims(proof);
+
+        // Reconstruct inputs to extract IO-specific fields and aggregate pairing points
+        IO inputs;
+        inputs.reconstruct_from_public(verifier_instance->public_inputs);
+
+        // Aggregate new pairing points with those from public inputs (if any)
+        reduction_result.pairing_points.aggregate(inputs.pairing_inputs);
 
         bool pairing_verified = reduction_result.pairing_points.check();
 
@@ -237,14 +210,14 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
         if constexpr (HasIPAAccumulator<Flavor>) {
             ipa_transcript->load_proof(ipa_proof);
             bool ipa_result =
-                IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, reduction_result.ipa_claim, ipa_transcript);
+                IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, inputs.ipa_claim, ipa_transcript);
             if (!ipa_result) {
                 info("IPA verification failed!");
             }
             output.result &= ipa_result;
         } else if constexpr (std::is_same_v<IO, HidingKernelIO>) {
-            output.kernel_return_data = reduction_result.kernel_return_data;
-            output.ecc_op_tables = reduction_result.ecc_op_tables;
+            output.kernel_return_data = inputs.kernel_return_data;
+            output.ecc_op_tables = inputs.ecc_op_tables;
         }
 
         return output;
