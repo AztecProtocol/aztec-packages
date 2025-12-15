@@ -6,16 +6,11 @@
 
 #pragma once
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/flavor/mega_flavor.hpp"
-#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/honk_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
@@ -164,6 +159,15 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     };
 
     /**
+     * @brief Result of padding computation
+     * @details Contains virtual log_n and padding indicator array for sumcheck/shplemini
+     */
+    struct PaddingData {
+        size_t log_n;
+        std::vector<FF> padding_indicator_array;
+    };
+
+    /**
      * @brief Unified constructor for both native and recursive verifiers
      * @param vk_and_hash VKAndHash wrapper containing verification key and its hash
      * @param transcript Transcript instance (optional, defaults to new transcript)
@@ -190,11 +194,22 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     }
 
     /**
+     * @brief Compute log_n and padding indicator array based on flavor configuration
+     * @details Handles all combinations of native/recursive, ZK/non-ZK, and padding/no-padding:
+     * - Non-ZK flavors: log_n from USE_PADDING, all 1s array
+     * - ZK without padding: log_n from VK, all 1s array
+     * - Native ZK with padding: VIRTUAL_LOG_N, simple loop comparison
+     * - Recursive ZK with padding: VIRTUAL_LOG_N, in-circuit Lagrange computation
+     * @return PaddingData containing log_n and padding_indicator_array
+     */
+    PaddingData process_padding() const;
+
+    /**
      * @brief Reduce ultra proof to verification claims (works for both native and recursive)
      * @details Contains all shared verification logic: Oink, Sumcheck, Shplemini
      * @return ReductionResult with pairing points and IPA claim for deferred verification
      */
-    [[nodiscard("Reduction result should be verified")]] ReductionResult reduce_to_claims(const Proof& proof);
+    [[nodiscard("Reduction result should be verified")]] ReductionResult reduce_to_pairing_check(const Proof& proof);
 
     /**
      * @brief Perform ultra verification for non-IPA flavors

@@ -8,13 +8,12 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
@@ -22,12 +21,56 @@
 namespace bb {
 
 /**
+ * @brief Compute log_n and padding indicator array based on flavor configuration
+ * @details Handles all combinations of native/recursive, ZK/non-ZK, and padding/no-padding
+ * @return PaddingData containing log_n and padding_indicator_array
+ */
+template <typename Flavor, class IO>
+typename UltraVerifier_<Flavor, IO>::PaddingData UltraVerifier_<Flavor, IO>::process_padding() const
+{
+    using FF = typename Flavor::FF;
+    using Curve = typename Flavor::Curve;
+
+    auto vk_ptr = verifier_instance->get_vk();
+
+    // Determine log_n based on whether padding is employed
+    const size_t log_n = [&]() {
+        if constexpr (Flavor::USE_PADDING) {
+            return static_cast<size_t>(Flavor::VIRTUAL_LOG_N);
+        } else if constexpr (!IsRecursive) {
+            return static_cast<size_t>(vk_ptr->log_circuit_size);
+        }
+    }();
+
+    // Construct the padding indicator array
+    // - Non-ZK flavors: all 1s (no masking needed)
+    // - ZK without padding: all 1s (log_n == log_circuit_size, no padded region)
+    // - ZK with padding: computed to mask padded rounds (1s for real, 0s for padding)
+    std::vector<FF> padding_indicator_array(log_n, FF{ 1 });
+    if constexpr (Flavor::HasZK && Flavor::USE_PADDING) {
+        if constexpr (IsRecursive) {
+            // Recursive: use in-circuit computation via Lagrange polynomials
+            padding_indicator_array =
+                stdlib::compute_padding_indicator_array<Curve, Flavor::VIRTUAL_LOG_N>(vk_ptr->log_circuit_size);
+        } else {
+            // Native: simple loop comparison
+            const size_t log_circuit_size = static_cast<size_t>(vk_ptr->log_circuit_size);
+            for (size_t idx = 0; idx < log_n; idx++) {
+                padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
+            }
+        }
+    }
+
+    return PaddingData{ log_n, std::move(padding_indicator_array) };
+}
+
+/**
  * @brief Reduce ultra proof to verification claims (works for both native and recursive)
  * @details Contains all shared verification logic: Oink, Sumcheck, Shplemini
  * @return ReductionResult with pairing points and IPA claim for deferred verification
  */
 template <typename Flavor, class IO>
-typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>::reduce_to_claims(
+typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>::reduce_to_pairing_check(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
     using FF = typename Flavor::FF;
@@ -43,34 +86,20 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript };
     oink_verifier.verify();
 
-    // Determine the number of rounds in the sumcheck based on whether or not padding is employed
-    const size_t log_circuit_size = [this]() {
-        if constexpr (IsRecursive) {
-            return static_cast<size_t>(
-                static_cast<uint32_t>(verifier_instance->get_vk()->log_circuit_size.get_value()));
-        } else {
-            return static_cast<size_t>(verifier_instance->vk->log_circuit_size);
-        }
-    }();
+    // Compute padding data (log_n and padding_indicator_array)
+    auto [log_n, padding_indicator_array] = process_padding();
 
-    const size_t log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : log_circuit_size;
+    // Get VK pointer for commitments
+    auto vk_ptr = verifier_instance->get_vk();
+
     verifier_instance->gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 
     // Get the witness commitments that the verifier needs to verify
-    auto vk_ptr = verifier_instance->get_vk();
     VerifierCommitments commitments{ vk_ptr, verifier_instance->witness_commitments };
     // For ZK flavors: set gemini_masking_poly commitment from accumulator
     if constexpr (Flavor::HasZK) {
         commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
-    }
-
-    // Construct the padding indicator array
-    std::vector<FF> padding_indicator_array(log_n, 1);
-    if constexpr (Flavor::HasZK) {
-        for (size_t idx = 0; idx < log_n; idx++) {
-            padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
-        }
     }
 
     // Construct the sumcheck verifier
@@ -117,18 +146,11 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
                                                                 sumcheck_output.claimed_libra_evaluation);
 
     // Reduce to pairing points (different MSM size for native)
-    auto pairing_points = [&]() {
-        if constexpr (IsRecursive) {
-            return PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
-        } else {
-            return PCS::reduce_verify_batch_opening_claim(
-                std::move(opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
-        }
-    }();
 
     // Build reduction result
     ReductionResult result;
-    result.pairing_points = std::move(pairing_points);
+    result.pairing_points =
+        PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
     result.reduction_succeeded = sumcheck_output.verified && consistency_checked;
 
     return result;
@@ -146,7 +168,8 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
     requires(!HasIPAAccumulator<Flavor>)
 {
     // Reduce to claims
-    auto reduction_result = reduce_to_claims(proof);
+    auto reduction_result = reduce_to_pairing_check(proof);
+    vinfo("UltraVerifier: reduction to pairing check succeeded ", reduction_result.reduction_succeeded);
 
     // Reconstruct inputs
     IO inputs;
@@ -165,8 +188,6 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
     } else {
         // Native: Perform immediate pairing verification
         bool pairing_verified = pairing_points.check();
-
-        vinfo("sumcheck_verified: ", reduction_result.reduction_succeeded);
         vinfo("pairing_check_verified: ", pairing_verified);
 
         UltraVerifierOutput output;
@@ -195,7 +216,8 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
     requires(HasIPAAccumulator<Flavor>)
 {
     // Reduce to claims
-    auto reduction_result = reduce_to_claims(proof);
+    auto reduction_result = reduce_to_pairing_check(proof);
+    vinfo("UltraVerifier: reduction to pairing check succeeded ", reduction_result.reduction_succeeded);
 
     // Reconstruct inputs
     IO inputs;
@@ -215,8 +237,6 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
     } else {
         // Native: Perform immediate pairing verification
         bool pairing_verified = pairing_points.check();
-
-        vinfo("sumcheck_verified: ", reduction_result.reduction_succeeded);
         vinfo("pairing_check_verified: ", pairing_verified);
 
         UltraVerifierOutput output;
