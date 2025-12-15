@@ -24,7 +24,7 @@ ChonkRecursiveVerifier::Output ChonkRecursiveVerifier::verify(const StdlibProof&
     std::shared_ptr<Transcript> chonk_rec_verifier_transcript(std::make_shared<Transcript>());
 
     // Perform recursive decider verification
-    MegaVerifier verifier{ builder, stdlib_mega_vk_and_hash, chonk_rec_verifier_transcript };
+    MegaVerifier verifier{ stdlib_mega_vk_and_hash, chonk_rec_verifier_transcript };
     MegaVerifier::Output mega_output = verifier.verify_proof(proof.mega_proof);
 
     // Perform databus consistency checks

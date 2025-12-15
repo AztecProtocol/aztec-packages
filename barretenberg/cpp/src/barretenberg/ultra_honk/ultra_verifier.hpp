@@ -164,12 +164,12 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     };
 
     /**
-     * @brief Constructor for both native and recursive verifiers
+     * @brief Unified constructor for both native and recursive verifiers
      * @param vk_and_hash VKAndHash wrapper containing verification key and its hash
      * @param transcript Transcript instance (optional, defaults to new transcript)
      *
      * For native: verifier_instance created immediately
-     * For recursive: verifier_instance created from builder passed to constructor or extracted from proof
+     * For recursive: builder extracted from vk_and_hash, then verifier_instance created
      */
     using VKAndHash = typename Flavor::VKAndHash;
     explicit UltraVerifier_(const std::shared_ptr<VKAndHash>& vk_and_hash,
@@ -177,31 +177,16 @@ template <typename Flavor, class IO> class UltraVerifier_ {
         : stored_vk_and_hash(vk_and_hash)
         , transcript(transcript)
     {
-        // Native: create verifier_instance immediately
         if constexpr (!IsRecursive) {
+            // Native: create verifier_instance immediately
             verifier_instance = std::make_shared<Instance>(vk_and_hash->vk);
             ipa_transcript = std::make_shared<Transcript>();
+        } else {
+            // Recursive: extract builder from VKAndHash and create verifier_instance
+            // Safe since VKAndHash contains field_t elements (hash) with builder context
+            builder = vk_and_hash->hash.get_context();
+            verifier_instance = std::make_shared<Instance>(builder, vk_and_hash);
         }
-        // Recursive: verifier_instance created lazily from builder in verify_proof
-    }
-
-    /**
-     * @brief Constructor for recursive verifiers with explicit builder
-     * @param builder The circuit builder context
-     * @param vk_and_hash VKAndHash wrapper containing verification key and its hash
-     * @param transcript Transcript instance (optional, defaults to new transcript)
-     *
-     * This constructor is only available for recursive flavors and creates the verifier_instance immediately.
-     */
-    explicit UltraVerifier_(Builder* builder_ptr,
-                            const std::shared_ptr<VKAndHash>& vk_and_hash,
-                            const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
-        requires IsRecursive
-        : stored_vk_and_hash(vk_and_hash)
-        , transcript(transcript)
-        , builder(builder_ptr)
-    {
-        verifier_instance = std::make_shared<Instance>(builder, vk_and_hash);
     }
 
     /**

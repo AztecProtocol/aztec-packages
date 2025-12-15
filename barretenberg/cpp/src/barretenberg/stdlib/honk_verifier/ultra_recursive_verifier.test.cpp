@@ -158,7 +158,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         auto honk_vk = std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
         auto stdlib_vk_and_hash = std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, honk_vk);
         // Instantiate the recursive verifier using the native verification key
-        RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
+        RecursiveVerifier verifier{ stdlib_vk_and_hash };
 
         // Spot check some values in the recursive VK to ensure it was constructed correctly
         EXPECT_EQ(static_cast<uint64_t>(verifier.verifier_instance->vk_and_hash->vk->log_circuit_size.get_value()),
@@ -197,7 +197,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             OuterBuilder outer_circuit;
             auto stdlib_vk_and_hash =
                 std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
-            RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
+            RecursiveVerifier verifier{ stdlib_vk_and_hash };
 
             typename RecursiveVerifier::Output verifier_output =
                 verify_inner_proof(inner_proof, verification_key, outer_circuit, verifier);
@@ -248,7 +248,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         OuterBuilder outer_circuit;
         auto stdlib_vk_and_hash =
             std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
-        RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
+        RecursiveVerifier verifier{ stdlib_vk_and_hash };
         verifier.transcript->enable_manifest();
 
         VerifierOutput output = verify_inner_proof(inner_proof, verification_key, outer_circuit, verifier);
@@ -350,7 +350,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             OuterBuilder outer_circuit;
             auto stdlib_vk_and_hash =
                 std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, inner_verification_key);
-            RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
+            RecursiveVerifier verifier{ stdlib_vk_and_hash };
             VerifierOutput output = verify_inner_proof(inner_proof, inner_verification_key, outer_circuit, verifier);
 
             // Wrong Gemini witnesses lead to the pairing check failure in non-ZK case but don't break any
@@ -397,7 +397,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             OuterBuilder outer_circuit;
             auto stdlib_vk_and_hash =
                 std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, inner_verification_key);
-            RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
+            RecursiveVerifier verifier{ stdlib_vk_and_hash };
             VerifierOutput output = verify_inner_proof(inner_proof, inner_verification_key, outer_circuit, verifier);
 
             if (idx == 0) {

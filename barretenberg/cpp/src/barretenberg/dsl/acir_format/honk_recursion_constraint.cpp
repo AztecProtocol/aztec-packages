@@ -246,7 +246,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(vk_fields);
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
-    RecursiveVerifier verifier(&builder, vk_and_hash);
+    RecursiveVerifier verifier(vk_and_hash);
     UltraRecursiveVerifierOutput<Builder> verifier_output = [&]() {
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [honk_proof, ipa_proof] = split_rollup_proof(proof_fields, vkey);

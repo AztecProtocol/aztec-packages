@@ -123,9 +123,8 @@ class ChonkRecursiveVerifier {
         }
     };
 
-    ChonkRecursiveVerifier(Builder* builder, const std::shared_ptr<RecursiveVKAndHash>& stdlib_mega_vk_and_hash)
-        : builder(builder)
-        , stdlib_mega_vk_and_hash(stdlib_mega_vk_and_hash) {};
+    ChonkRecursiveVerifier(const std::shared_ptr<RecursiveVKAndHash>& stdlib_mega_vk_and_hash)
+        : stdlib_mega_vk_and_hash(stdlib_mega_vk_and_hash) {};
 
     /**
      * @brief Recursively verify a Chonk proof and return deferred verification data
@@ -144,7 +143,6 @@ class ChonkRecursiveVerifier {
     [[nodiscard("IPA claim and pairing points must be accumulated")]] Output verify(const StdlibProof&);
 
   private:
-    Builder* builder;
     // VK and hash of the hiding kernel
     std::shared_ptr<RecursiveVKAndHash> stdlib_mega_vk_and_hash;
 };
