@@ -101,7 +101,13 @@ struct RollupStore {
 }
 
 interface IRollupCore {
-  event CheckpointProposed(uint256 indexed checkpointNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes);
+  event CheckpointProposed(
+    uint256 indexed checkpointNumber,
+    bytes32 indexed archive,
+    bytes32[] versionedBlobHashes,
+    bytes32 payloadDigest,
+    bytes32 attestationsHash
+  );
   event L2ProofVerified(uint256 indexed checkpointNumber, address indexed proverId);
   event CheckpointInvalidated(uint256 indexed checkpointNumber);
   event RewardConfigUpdated(RewardConfig rewardConfig);
