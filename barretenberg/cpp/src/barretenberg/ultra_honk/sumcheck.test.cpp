@@ -79,12 +79,12 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     builder.create_gates_from_plookup_accumulators(
         plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
 
-    // Add a sort gate (simply checks that consecutive inputs have a difference of < 4)
+    // Add a `enforce_small_deltas` gate (simply checks that consecutive inputs have a difference of < 4)
     a_idx = builder.add_variable(FF(0));
     b_idx = builder.add_variable(FF(1));
     c_idx = builder.add_variable(FF(2));
     d_idx = builder.add_variable(FF(3));
-    builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    builder.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
 
     // Add an elliptic curve addition gate
     grumpkin::g1::affine_element p1 = grumpkin::g1::affine_element::random_element();
