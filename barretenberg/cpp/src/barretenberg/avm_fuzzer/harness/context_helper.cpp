@@ -107,7 +107,7 @@ std::unique_ptr<ContextInterface> GadgetFuzzerContextHelper::make_enqueued_fuzzi
 
 // A lighter version of ContextProvider::make_nested_context
 std::unique_ptr<ContextInterface> GadgetFuzzerContextHelper::make_nested_fuzzing_context(
-    AztecAddress address, AztecAddress msg_sender, ContextInterface& parent_context, Gas gas_limit)
+    AztecAddress address, AztecAddress msg_sender, ContextInterface& parent_context, bool is_static, Gas gas_limit)
 {
 
     auto merkle_db = make_empty_merkle_db();
@@ -118,7 +118,7 @@ std::unique_ptr<ContextInterface> GadgetFuzzerContextHelper::make_nested_fuzzing
         parent_context.get_address(),
         msg_sender,
         parent_context.get_transaction_fee(),
-        parent_context.get_is_static(),
+        is_static,
         gas_limit,
         parent_context.get_globals(),
         std::make_unique<BytecodeManager>(address, *tx_bytecode_manager),

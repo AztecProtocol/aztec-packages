@@ -47,10 +47,9 @@ using bb::avm2::MemoryValue;
 
 using external_call_rel = bb::avm2::external_call<FF>;
 
-// TODO(MW):
-// const uint8_t max_flat_calls = 5;
-// const uint8_t max_nested_calls = 5;
-// const uint8_t max_total_calls = max_flat_calls * max_nested_calls;
+const uint8_t max_flat_calls = 3;
+const uint8_t max_nested_calls = 2;
+const uint8_t max_total_calls = max_flat_calls * max_nested_calls;
 
 // Constant instructions:
 const auto dummy_instr = bb::avm2::testing::InstructionBuilder(WireOpCode::ADD_8)
@@ -59,22 +58,16 @@ const auto dummy_instr = bb::avm2::testing::InstructionBuilder(WireOpCode::ADD_8
                              .operand<uint8_t>(0)
                              .build();
 
-struct ExternalCallFuzzerInput {
-    uint32_t start_pc = 0;
+struct ExternalCallFuzzerInstance {
     AztecAddress contract_address;
     MemoryValue l2_gas = MemoryValue::from<uint32_t>(0);
     MemoryValue da_gas = MemoryValue::from<uint32_t>(0);
     bool is_static;
-    // // Number i where we have (INTERNALCALL -> (INTERNALCALL -> INTERNALRETURN) xj -> INTERNALRETURN) xi
-    // uint8_t num_flat_calls = 1;
-    // // Number j where we have (INTERNALCALL -> (INTERNALCALL -> INTERNALRETURN) xj -> INTERNALRETURN) xi
-    // uint8_t num_nested_calls = 0;
 
-    ExternalCallFuzzerInput() = default;
+    ExternalCallFuzzerInstance() = default;
 
     void print() const
     {
-        info("start_pc: ", start_pc);
         info("contract_address: ", contract_address);
         info("l2_gas: ", l2_gas.to_string());
         info("da_gas: ", da_gas.to_string());
@@ -84,8 +77,6 @@ struct ExternalCallFuzzerInput {
     void to_buffer(uint8_t* buffer) const
     {
         size_t offset = 0;
-        std::memcpy(buffer + offset, &start_pc, sizeof(start_pc));
-        offset += sizeof(start_pc);
         std::memcpy(buffer + offset, &contract_address, sizeof(contract_address));
         offset += sizeof(contract_address);
         std::memcpy(buffer + offset, &l2_gas, sizeof(l2_gas));
@@ -96,12 +87,10 @@ struct ExternalCallFuzzerInput {
         offset += sizeof(is_static);
     }
 
-    static ExternalCallFuzzerInput from_buffer(const uint8_t* buffer)
+    static ExternalCallFuzzerInstance from_buffer(const uint8_t* buffer)
     {
-        ExternalCallFuzzerInput input;
+        ExternalCallFuzzerInstance input;
         size_t offset = 0;
-        std::memcpy(&input.start_pc, buffer + offset, sizeof(input.start_pc));
-        offset += sizeof(input.start_pc);
         std::memcpy(&input.contract_address, buffer + offset, sizeof(input.contract_address));
         offset += sizeof(input.contract_address);
         std::memcpy(&input.l2_gas, buffer + offset, sizeof(input.l2_gas));
@@ -114,6 +103,104 @@ struct ExternalCallFuzzerInput {
         return input;
     }
 };
+
+struct ExternalCallFuzzerInput {
+    uint32_t start_pc = 0;
+    // Number i where we have (CALL/STATICCALL -> (CALL/STATICCALL -> RETURN) xj -> RETURN) xi
+    uint8_t num_flat_calls = 1;
+    // Number j where we have (CALL/STATICCALL -> (CALL/STATICCALL -> RETURN) xj -> RETURN) xi
+    uint8_t num_nested_calls = 0;
+
+    std::array<ExternalCallFuzzerInstance, max_total_calls> call_instances{};
+
+    ExternalCallFuzzerInput() = default;
+
+    void print() const
+    {
+        info("start_pc: ", start_pc);
+        info("num_flat_calls: ", int(num_flat_calls));
+        info("num_nested_calls: ", int(num_nested_calls));
+        for (size_t i = 0; i < call_instances.size(); i++) {
+            info("call_instance ", i, ": ");
+            call_instances[i].print();
+        }
+    }
+
+    void to_buffer(uint8_t* buffer) const
+    {
+        size_t offset = 0;
+        std::memcpy(buffer + offset, &start_pc, sizeof(start_pc));
+        offset += sizeof(start_pc);
+        std::memcpy(buffer + offset, &num_flat_calls, sizeof(num_flat_calls));
+        offset += sizeof(num_flat_calls);
+        std::memcpy(buffer + offset, &num_nested_calls, sizeof(num_nested_calls));
+        offset += sizeof(num_nested_calls);
+        for (const auto& call_instance : call_instances) {
+            call_instance.to_buffer(buffer + offset);
+            offset += sizeof(ExternalCallFuzzerInstance);
+        }
+    }
+
+    static ExternalCallFuzzerInput from_buffer(const uint8_t* buffer)
+    {
+        ExternalCallFuzzerInput input;
+        size_t offset = 0;
+        std::memcpy(&input.start_pc, buffer + offset, sizeof(input.start_pc));
+        offset += sizeof(input.start_pc);
+        std::memcpy(&input.num_flat_calls, buffer + offset, sizeof(input.num_flat_calls));
+        offset += sizeof(input.num_flat_calls);
+        std::memcpy(&input.num_nested_calls, buffer + offset, sizeof(input.num_nested_calls));
+        offset += sizeof(input.num_nested_calls);
+        for (auto& call_instance : input.call_instances) {
+            call_instance = ExternalCallFuzzerInstance::from_buffer(buffer + offset);
+            offset += sizeof(ExternalCallFuzzerInstance);
+        }
+
+        return input;
+    }
+};
+
+// Mutate a single random call instance
+void mutate_call_instance(ExternalCallFuzzerInput& input, std::mt19937 rng)
+{
+    // Modify a random call instance (using num_events to ensure it's used in a run)
+    size_t num_events =
+        static_cast<size_t>(input.num_flat_calls) * (input.num_nested_calls == 0 ? 1 : input.num_nested_calls);
+    std::uniform_int_distribution<size_t> index_dist(0, num_events - 1);
+    size_t value_idx = index_dist(rng);
+    std::uniform_int_distribution<int> inner_mutation_dist(0, 3);
+    int inner_mutation_choice = inner_mutation_dist(rng);
+    switch (inner_mutation_choice) {
+    case 0: {
+        // Modify l2 gas
+        // TODO(MW): fuzz tags?
+        std::uniform_int_distribution<uint32_t> gas_dist(0, std::numeric_limits<uint32_t>::max());
+        input.call_instances[value_idx].l2_gas = MemoryValue::from<uint32_t>(gas_dist(rng));
+        break;
+    }
+    case 1: {
+        // Modify da gas
+        // TODO(MW): fuzz tags?
+        std::uniform_int_distribution<uint32_t> gas_dist(0, std::numeric_limits<uint32_t>::max());
+        input.call_instances[value_idx].da_gas = MemoryValue::from<uint32_t>(gas_dist(rng));
+        break;
+    }
+    case 2: {
+        // Modify contract address
+        std::uniform_int_distribution<uint64_t> addr_dist(0, std::numeric_limits<uint64_t>::max());
+        input.call_instances[value_idx].contract_address =
+            FF(addr_dist(rng), addr_dist(rng), addr_dist(rng), addr_dist(rng));
+        break;
+    }
+    case 3: {
+        // Toggle is_static
+        input.call_instances[value_idx].is_static = !input.call_instances[value_idx].is_static;
+        break;
+    }
+    default:
+        break;
+    }
+}
 
 extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max_size, unsigned int seed)
 {
@@ -128,40 +215,38 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     // Deserialize current input
     ExternalCallFuzzerInput input = ExternalCallFuzzerInput::from_buffer(data);
 
+    if (input.num_flat_calls == 0) {
+        // TODO(MW): Somehow the number of flat calls can be set as 0, todo more robustly
+        // ensure this does not happen (counter?)
+        input.num_flat_calls++;
+    }
+
     // Choose random mutation
-    std::uniform_int_distribution<int> mutation_dist(0, 4);
+    std::uniform_int_distribution<int> mutation_dist(0, 3);
     int mutation_choice = mutation_dist(rng);
 
     switch (mutation_choice) {
     case 0: {
+        // Modify number of flat internal calls
+        std::uniform_int_distribution<uint8_t> num_flat_calls_dist(1, max_flat_calls);
+        input.num_flat_calls = num_flat_calls_dist(rng);
+        break;
+    }
+    case 1: {
+        // Modify number of nested internal calls
+        std::uniform_int_distribution<uint8_t> num_nested_calls_dist(0, max_nested_calls);
+        input.num_nested_calls = num_nested_calls_dist(rng);
+        break;
+    }
+    case 2: {
         // Modify initial context pc
         std::uniform_int_distribution<uint32_t> start_pc_dist(0, std::numeric_limits<uint32_t>::max());
         input.start_pc = start_pc_dist(rng);
         break;
     }
-    case 1: {
-        // Modify l2 gas
-        // TODO(MW): fuzz tags?
-        std::uniform_int_distribution<uint32_t> gas_dist(0, std::numeric_limits<uint32_t>::max());
-        input.l2_gas = MemoryValue::from<uint32_t>(gas_dist(rng));
-        break;
-    }
-    case 2: {
-        // Modify da gas
-        // TODO(MW): fuzz tags?
-        std::uniform_int_distribution<uint32_t> gas_dist(0, std::numeric_limits<uint32_t>::max());
-        input.da_gas = MemoryValue::from<uint32_t>(gas_dist(rng));
-        break;
-    }
     case 3: {
-        // Modify contract address
-        std::uniform_int_distribution<uint64_t> addr_dist(0, std::numeric_limits<uint64_t>::max());
-        input.contract_address = FF(addr_dist(rng), addr_dist(rng), addr_dist(rng), addr_dist(rng));
-        break;
-    }
-    case 4: {
-        // Toggle is_static
-        input.is_static = !input.is_static;
+        // Modify a random calldata instance
+        mutate_call_instance(input, rng);
         break;
     }
     default:
@@ -182,18 +267,25 @@ ContextEvent fill_context_event(std::unique_ptr<ContextInterface>& context)
 {
     return {
         .id = context->get_context_id(),
+        .parent_id = context->get_parent_id(),
         .pc = context->get_pc(),
         .gas_used = context->get_gas_used(),
         .gas_limit = context->get_gas_limit(),
     };
 }
 
-void fuzz_call(std::vector<ExecutionEvent>& ex_events,
-               GadgetFuzzerContextHelper& helper,
-               ExecutionComponentsProvider& execution_components,
-               ExternalCallFuzzerInput input)
+std::unique_ptr<ContextInterface> fuzz_call(std::vector<ExecutionEvent>& ex_events,
+                                            GadgetFuzzerContextHelper& helper,
+                                            std::unique_ptr<ContextInterface>& parent_context,
+                                            ExecutionComponentsProvider& execution_components,
+                                            ExternalCallFuzzerInstance input)
 {
     auto allocated_l2_gas_read = input.l2_gas;
+    // TODO(MW): remove hack
+    // Either handle OOG exception (not executing opcode for one call?) or clamp l2 gas to > 3312 (return gas)
+    if (allocated_l2_gas_read.as<uint32_t>() < 3312) {
+        allocated_l2_gas_read = MemoryValue::from<uint32_t>(allocated_l2_gas_read.as<uint32_t>() + 4000);
+    }
     auto allocated_da_gas_read = input.da_gas;
     auto instr = bb::avm2::testing::InstructionBuilder(input.is_static ? WireOpCode::STATICCALL : WireOpCode::CALL)
                      .operand<uint8_t>(2)
@@ -203,9 +295,6 @@ void fuzz_call(std::vector<ExecutionEvent>& ex_events,
                      .operand<uint8_t>(20)
                      .build();
 
-    auto parent_context =
-        helper.make_enqueued_fuzzing_context(input.contract_address, input.contract_address, input.is_static);
-    parent_context->set_pc(input.start_pc);
     ExecutionEvent ex_event = { .wire_instruction = instr, .before_context_event = fill_context_event(parent_context) };
     AddressingEvent addressing_event;
     GasEvent gas_event;
@@ -225,7 +314,7 @@ void fuzz_call(std::vector<ExecutionEvent>& ex_events,
         Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
 
     auto child_context = helper.make_nested_fuzzing_context(
-        input.contract_address, input.contract_address, *parent_context, new_gas_limit);
+        input.contract_address, input.contract_address, *parent_context, input.is_static, new_gas_limit);
 
     // Execution.execute post-dispatch:
     parent_context->set_pc(parent_context->get_next_pc());
@@ -242,6 +331,46 @@ void fuzz_call(std::vector<ExecutionEvent>& ex_events,
                                     .after_context_event = fill_context_event(child_context) };
 
     ex_events.push_back(nested_event);
+
+    return child_context;
+}
+
+void fuzz_return(std::vector<ExecutionEvent>& ex_events,
+                 std::unique_ptr<ContextInterface>& context,
+                 ExecutionComponentsProvider& execution_components)
+{
+    auto instr = bb::avm2::testing::InstructionBuilder(WireOpCode::RETURN)
+                     .operand<uint8_t>(30) // ret_size_offset
+                     .operand<uint8_t>(40) // ret_offset
+                     .build();
+
+    ExecutionEvent ex_event = { .wire_instruction = instr, .before_context_event = fill_context_event(context) };
+    GasEvent gas_event;
+
+    // Execution.execute pre - dispatch
+    context->set_next_pc(context->get_pc() + static_cast<uint32_t>(instr.size_in_bytes()));
+    auto gas_tracker = execution_components.make_gas_tracker(gas_event, ex_event.wire_instruction, *context);
+
+    // Execution.ret
+    gas_tracker->consume_gas();
+
+    // TODO(MW): Mimic set execution result to set gas_used and check w asserts for nested returns:
+
+    // set_execution_result({ .rd_offset = ret_offset,
+    //                    .rd_size = rd_size.as<uint32_t>(),
+    //                    .gas_used = context.get_gas_used(),
+    //                    .success = true,
+    //                    .halting_pc = context.get_pc(),
+    //                    .halting_message = std::nullopt });
+
+    context->halt();
+
+    // Execution.execute post-dispatch:
+    context->set_pc(context->get_next_pc());
+    ex_event.inputs = { MemoryValue::from<uint32_t>(10) /* =rd_size, TODO(MW): fuzz? */ };
+    ex_event.after_context_event = fill_context_event(context);
+
+    ex_events.push_back(ex_event);
 }
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
@@ -256,13 +385,31 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     // Set up gadgets and event emitters
     GadgetFuzzerContextHelper context_helper;
+    auto context = context_helper.make_enqueued_fuzzing_context();
+    context->set_pc(input.start_pc);
     InstructionInfoDB instruction_info_db;
     ExecutionComponentsProvider execution_components(context_helper.greater_than, instruction_info_db);
     std::vector<ExecutionEvent> ex_events;
 
     try {
-        // TODO(MW): Multiple + nested calls
-        fuzz_call(ex_events, context_helper, execution_components, input);
+        size_t current_call_idx = 0;
+        for (auto i = 0; i < input.num_flat_calls; i++) {
+            auto child_context = fuzz_call(
+                ex_events, context_helper, context, execution_components, input.call_instances[current_call_idx++]);
+            if (input.num_nested_calls > 0) {
+                fuzz_call(ex_events,
+                          context_helper,
+                          child_context,
+                          execution_components,
+                          input.call_instances[current_call_idx++]);
+                fuzz_return(ex_events, child_context, execution_components);
+                // TODO(MW): Handle exit call for nested?
+            }
+            fuzz_return(ex_events, context, execution_components);
+            // This fuzzer doesn't test beyond the external_call.pil relations/lookups, so we don't need a
+            // handle_exit_call() after the top level
+        }
+
     } catch (const std::exception& e) {
         // No opcode errors to test here (TODO(MW): correct?)
         return 0;
