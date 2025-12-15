@@ -4,9 +4,9 @@ import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
+import { CheckpointedL2Block, PublishedL2Block } from '../block/checkpointed_l2_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
-import { PublishedL2Block } from '../block/published_l2_block.js';
 import { ValidateBlockResultSchema } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
@@ -85,6 +85,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(z.union([BlockNumberSchema, z.literal('latest')]))
     .returns(BlockHeader.schema.optional()),
+  getCheckpointedBlock: z.function().args(BlockNumberSchema).returns(CheckpointedL2Block.schema.optional()),
   getBlocks: z
     .function()
     .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
@@ -93,7 +94,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(CheckpointNumberSchema, schemas.Integer)
     .returns(z.array(PublishedCheckpoint.schema)),
-  getCheckpointByArchive: z.function().args(schemas.Fr).returns(Checkpoint.schema.optional()),
   getPublishedBlocks: z
     .function()
     .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))

@@ -1,3 +1,5 @@
+import { isDefined } from '@aztec/foundation/types';
+
 import {
   PrivateKernelResetDimensions,
   type PrivateKernelResetDimensionsConfig,
@@ -8,10 +10,6 @@ interface DimensionOption {
   dimensions: PrivateKernelResetDimensions;
   cost: number;
   remainder?: PrivateKernelResetDimensions;
-}
-
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
 }
 
 function computeCost(dimensions: PrivateKernelResetDimensions, config: PrivateKernelResetDimensionsConfig) {

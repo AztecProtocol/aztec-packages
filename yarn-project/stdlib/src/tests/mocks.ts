@@ -20,10 +20,9 @@ import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { CommitteeAttestation, L2BlockHeader, L2BlockNew } from '../block/index.js';
+import { CommitteeAttestation, L2BlockHeader, L2BlockNew, PublishedL2Block } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { CommitteeAttestationsAndSigners } from '../block/proposal/attestations_and_signers.js';
-import { PublishedL2Block } from '../block/published_l2_block.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
 import { computeContractAddressFromInstance } from '../contract/contract_address.js';
@@ -396,6 +395,7 @@ export async function mockCheckpointAndMessages(
     numTxsPerBlock = 1,
     numL1ToL2Messages = 1,
     makeBlockOptions = () => ({}),
+    previousArchive,
     ...options
   }: {
     startBlockNumber?: BlockNumber;
@@ -403,11 +403,15 @@ export async function mockCheckpointAndMessages(
     numTxsPerBlock?: number;
     numL1ToL2Messages?: number;
     makeBlockOptions?: (blockNumber: BlockNumber) => Partial<Parameters<typeof L2BlockNew.random>[1]>;
+    previousArchive?: AppendOnlyTreeSnapshot;
   } & Partial<Parameters<typeof Checkpoint.random>[1]> &
     Partial<Parameters<typeof L2BlockNew.random>[1]> = {},
 ) {
   const slotNumber = options.slotNumber ?? SlotNumber(checkpointNumber * 10);
   const blocksAndMessages = [];
+  // Track the previous block's archive to ensure consecutive blocks have consistent archive roots.
+  // The current block's header.lastArchive must equal the previous block's archive.
+  let lastArchive: AppendOnlyTreeSnapshot | undefined = previousArchive;
   for (let i = 0; i < numBlocks; i++) {
     const blockNumber = BlockNumber(startBlockNumber + i);
     const { block, messages } = {
@@ -418,9 +422,12 @@ export async function mockCheckpointAndMessages(
         slotNumber,
         ...options,
         ...makeBlockOptions(blockNumber),
+        ...(lastArchive ? { lastArchive } : {}),
       }),
       messages: mockL1ToL2Messages(numL1ToL2Messages),
     };
+    // Update lastArchive for the next block
+    lastArchive = block.archive;
     blocksAndMessages.push({ block, messages });
   }
 
@@ -428,8 +435,13 @@ export async function mockCheckpointAndMessages(
   const inHash = computeInHashFromL1ToL2Messages(messages);
   const checkpoint = await Checkpoint.random(checkpointNumber, { numBlocks: 0, slotNumber, inHash, ...options });
   checkpoint.blocks = blocksAndMessages.map(({ block }) => block);
+  // Set the checkpoint's archive to match the last block's archive for proper chaining.
+  // When the archiver reconstructs checkpoints from L1, it uses the checkpoint's archive root
+  // from the L1 event to set the last block's archive. Without this, the archive chain breaks.
+  checkpoint.archive = lastArchive!;
 
-  return { checkpoint, messages };
+  // Return lastArchive so callers can chain it across multiple checkpoints
+  return { checkpoint, messages, lastArchive };
 }
 
 export const randomContractArtifact = (): ContractArtifact => ({

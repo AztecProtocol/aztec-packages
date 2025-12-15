@@ -1,4 +1,5 @@
 // Ignoring import issue to fix portable inferred type issue in zod schema
+import { CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -6,13 +7,67 @@ import { z } from 'zod';
 
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import { L2Block } from './l2_block.js';
+import { L2BlockNew } from './l2_block_new.js';
 import { CommitteeAttestation } from './proposal/committee_attestation.js';
 
 /**
- * @deprecated `PublishedCheckpoint` is what will be retrieved from L1.
- * L2 blocks do not need to link to L1PublishedData directly.
- * TODO: Create another type (AttestedL2Block?) for an L2 block and its attestations.
+ * Encapsulates an L2 Block along with the checkpoint data associated with it.
  */
+export class CheckpointedL2Block {
+  constructor(
+    public checkpointNumber: CheckpointNumber,
+    public block: L2BlockNew,
+    public l1: L1PublishedData,
+    public attestations: CommitteeAttestation[],
+  ) {}
+  static get schema() {
+    return z
+      .object({
+        checkpointNumber: CheckpointNumberSchema,
+        block: L2BlockNew.schema,
+        l1: L1PublishedData.schema,
+        attestations: z.array(CommitteeAttestation.schema),
+      })
+      .transform(obj => CheckpointedL2Block.fromFields(obj));
+  }
+
+  static fromBuffer(bufferOrReader: Buffer | BufferReader): CheckpointedL2Block {
+    const reader = BufferReader.asReader(bufferOrReader);
+    const checkpointNumber = reader.readNumber();
+    const block = reader.readObject(L2BlockNew);
+    const l1BlockNumber = reader.readBigInt();
+    const l1BlockHash = reader.readString();
+    const l1Timestamp = reader.readBigInt();
+    const attestations = reader.readVector(CommitteeAttestation);
+    return new CheckpointedL2Block(
+      CheckpointNumber(checkpointNumber),
+      block,
+      new L1PublishedData(l1BlockNumber, l1Timestamp, l1BlockHash),
+      attestations,
+    );
+  }
+
+  static fromFields(fields: FieldsOf<CheckpointedL2Block>) {
+    return new CheckpointedL2Block(
+      CheckpointNumber(fields.checkpointNumber),
+      fields.block,
+      fields.l1,
+      fields.attestations,
+    );
+  }
+
+  public toBuffer(): Buffer {
+    return serializeToBuffer(
+      this.block,
+      this.l1.blockNumber,
+      this.l1.blockHash,
+      this.l1.timestamp,
+      this.attestations.length,
+      this.attestations,
+    );
+  }
+}
+
 export class PublishedL2Block {
   constructor(
     public block: L2Block,
