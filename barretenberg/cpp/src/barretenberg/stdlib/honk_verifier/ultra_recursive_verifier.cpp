@@ -7,6 +7,7 @@
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
@@ -148,6 +149,7 @@ template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuil
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>;
 
 // UltraRecursiveFlavor_ specializations
 template UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
@@ -210,5 +212,11 @@ template UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>:
     bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>::
     verify_proof<GoblinAvmIO<UltraCircuitBuilder>>(
         const UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>::StdlibProof& proof);
+
+// MegaAvmRecursiveFlavor_ specialization with GoblinAvmIO
+template UltraRecursiveVerifier_<bb::MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
+    bb::MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>::
+    verify_proof<GoblinAvmIO<UltraCircuitBuilder>>(
+        const UltraRecursiveVerifier_<bb::MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>::StdlibProof& proof);
 
 } // namespace bb::stdlib::recursion::honk

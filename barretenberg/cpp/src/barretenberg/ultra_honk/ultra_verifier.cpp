@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -149,6 +150,7 @@ template class UltraVerifier_<UltraKeccakZKFlavor>;
 template class UltraVerifier_<UltraRollupFlavor>;
 template class UltraVerifier_<MegaFlavor>;
 template class UltraVerifier_<MegaZKFlavor>;
+template class UltraVerifier_<MegaAvmFlavor>;
 
 template UltraVerifier_<UltraFlavor>::UltraVerifierOutput UltraVerifier_<UltraFlavor>::verify_proof<DefaultIO>(
     const Proof& proof, const Proof& ipa_proof);
