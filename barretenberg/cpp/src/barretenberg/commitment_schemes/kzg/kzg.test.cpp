@@ -17,6 +17,7 @@ class KZGTest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
     using ShplonkProver = ShplonkProver_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using ShpleminiZKVerifier = ShpleminiVerifier_<Curve, true>;
 
     static constexpr size_t n = 16;
     static constexpr size_t log_n = 4;
@@ -74,6 +75,25 @@ TEST_F(KZGTest, ZeroEvaluation)
     prove_and_verify({ challenge, Fr::zero() }, witness);
 }
 
+TEST_F(KZGTest, WrongEvaluationFails)
+{
+    auto witness = bb::Polynomial<Fr>::random(n);
+    const Fr challenge = Fr::random_element();
+    const Fr evaluation = witness.evaluate(challenge);
+    const Fr wrong_evaluation = evaluation + Fr::random_element();
+    // Prove with the wrong evaluation
+    Commitment commitment = ck.commit(witness);
+    auto prover_transcript = NativeTranscript::prover_init_empty();
+    PCS::compute_opening_proof(ck, { witness, { challenge, wrong_evaluation } }, prover_transcript);
+
+    auto opening_claim = OpeningClaim<Curve>{ { challenge, wrong_evaluation }, commitment };
+    // Run the verifier
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    auto pairing_point = PCS::reduce_verify(opening_claim, verifier_transcript);
+    // Make sure that the pairing check fails
+    EXPECT_EQ(vk.pairing_check(pairing_point[0], pairing_point[1]), false);
+}
+
 TEST_F(KZGTest, ZeroPolynomial)
 {
     static constexpr size_t POLY_SIZE = 10;
@@ -89,6 +109,15 @@ TEST_F(KZGTest, ZeroPolynomial)
     const Fr evaluation = zero.evaluate(challenge);
 
     prove_and_verify({ challenge, evaluation }, zero);
+}
+
+TEST_F(KZGTest, EvalAtZero)
+{
+    // Check that the evaluation at zero matched the constant term
+    auto witness = bb::Polynomial<Fr>::random(n);
+    auto constant_term = witness.at(0);
+    const Fr challenge = Fr::zero();
+    prove_and_verify({ challenge, constant_term }, witness);
 }
 
 TEST_F(KZGTest, ConstantPolynomial)
@@ -186,7 +215,8 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
                                                                               mock_claims.claim_batcher,
                                                                               mle_opening_point,
                                                                               vk.get_g1_identity(),
-                                                                              verifier_transcript);
+                                                                              verifier_transcript)
+                                   .batch_opening_claim;
 
     const auto pairing_points =
         PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
@@ -242,12 +272,11 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
                                                                               vk.get_g1_identity(),
                                                                               verifier_transcript,
                                                                               /* repeated commitments= */ {},
-                                                                              /* has zk = */ {},
-                                                                              nullptr,
                                                                               /* libra commitments = */ {},
                                                                               /* libra evaluations = */ {},
                                                                               {},
-                                                                              {});
+                                                                              {})
+                                   .batch_opening_claim;
     const auto pairing_points =
         PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
@@ -311,7 +340,8 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
                                                                               mle_opening_point,
                                                                               vk.get_g1_identity(),
                                                                               verifier_transcript,
-                                                                              repeated_commitments);
+                                                                              repeated_commitments)
+                                   .batch_opening_claim;
 
     const auto pairing_points =
         PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
