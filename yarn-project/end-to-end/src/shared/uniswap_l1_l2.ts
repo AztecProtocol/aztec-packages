@@ -6,7 +6,8 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { type DeployL1ContractsReturnType, deployL1Contract } from '@aztec/ethereum/deploy-l1-contracts';
+import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { extractEvent } from '@aztec/ethereum/utils';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
@@ -46,7 +47,7 @@ export type UniswapSetupContext = {
   /** The sponsor wallet. */
   sponsorAddress: AztecAddress;
   /**  */
-  deployL1ContractsValues: DeployL1ContractsReturnType;
+  deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   /** Cheat codes instance. */
   cheatCodes: CheatCodes;
 };
@@ -76,7 +77,7 @@ export const uniswapL1L2TestSuite = (
     let daiCrossChainHarness: CrossChainTestHarness;
     let wethCrossChainHarness: CrossChainTestHarness;
 
-    let deployL1ContractsValues: DeployL1ContractsReturnType;
+    let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
     let rollup: RollupContract;
     let uniswapPortal: GetContractReturnType<typeof UniswapPortalAbi, ExtendedViemWalletClient>;
     let uniswapPortalAddress: EthAddress;

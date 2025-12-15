@@ -44,6 +44,7 @@ class Goblin {
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
     using RecursiveTranscript = MegaStdlibTranscript;
     using TranslatorInputData = TranslatorInputData_<fq>;
+    using IPA_PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     CommitmentKey<curve::BN254> commitment_key;
@@ -114,20 +115,6 @@ class Goblin {
         const RecursiveMergeCommitments& merge_commitments,
         const std::shared_ptr<RecursiveTranscript>& transcript,
         const MergeSettings merge_settings = MergeSettings::PREPEND);
-
-    /**
-     * @brief Verify a full Goblin proof (Merge, ECCVM + IPA, Translator)
-     *
-     * @param proof The complete Goblin proof containing Merge, ECCVM, IPA, and Translator proofs
-     * @param merge_commitments The input commitments for the Merge verifier (t and T_prev tables)
-     * @param transcript Shared transcript for Fiat-Shamir
-     * @param merge_settings How the ecc op subtable was merged (PREPEND or APPEND)
-     * @return true if all sub-proofs verify successfully
-     */
-    static bool verify(const GoblinProof& proof,
-                       const MergeCommitments& merge_commitments,
-                       const std::shared_ptr<Transcript>& transcript,
-                       const MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
      * @brief Add required initial ops to the op queue for AVM mode.

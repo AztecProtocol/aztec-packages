@@ -11,11 +11,12 @@ use crate::{
 };
 use protocol_types::{address::AztecAddress, traits::Packable};
 
-/// A message with information about a note that has just been created. This message **MUST** be delivered to a
-/// recipient in order to not lose the private note information.
+/// A message with information about a note that was created in the current contract call. This message **MUST** be
+/// delivered to a recipient in order to not lose the private note information.
 ///
 /// Use [NoteMessage::deliver] to select a delivery mechanism. The same message can be delivered to multiple
 /// recipients.
+#[must_use = "Unused NoteMessage result - use the `deliver` function to prevent the note information from being lost forever"]
 pub struct NoteMessage<Note> {
     pub(crate) new_note: NewNote<Note>,
 
@@ -137,6 +138,7 @@ where
 /// Same as [NoteMessage], except this type also handles the possibility where the note may not have been actually
 /// created depending on runtime conditions (e.g. a token transfer change note is not created if there is no change).
 /// Other than that, it and [MaybeNoteMessage::delivery] behave the exact same way as [NoteMessage].
+#[must_use = "Unused NoteMessage result - use the `deliver` function to prevent the note information from being lost forever"]
 pub struct MaybeNoteMessage<Note> {
     // We can't simply create an `Option` of `NoteMessage` because that type includes a mutable reference to the
     // `context`. All `Option` methods (map, or, etc.) have if-else expressions in which they might return the contents,

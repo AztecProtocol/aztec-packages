@@ -783,11 +783,11 @@ impl TestEnvironment {
                 RetrievedNote {
                     note,
                     contract_address,
+                    owner,
                     randomness,
+                    storage_slot,
                     metadata: SettledNoteMetadata::new(note_nonce).into(),
                 },
-                owner,
-                storage_slot,
             );
 
             let inner_nullifier =

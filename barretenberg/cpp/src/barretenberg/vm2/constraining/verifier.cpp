@@ -47,7 +47,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using PCS = Flavor::PCS;
     using Curve = Flavor::Curve;
     using VerifierCommitments = Flavor::VerifierCommitments;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
@@ -56,9 +56,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     transcript->load_proof(proof);
 
-    // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the line below.
     FF vk_hash = key->hash();
-    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
     vinfo("AVM vk hash in verifier: ", vk_hash);
 
     // Check public inputs size.
@@ -169,8 +168,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
                                                                   .evaluations = RefVector(squashed_unshifted_eval) },
                                          .shifted = ClaimBatch{ .commitments = RefVector(squashed_shifted),
                                                                 .evaluations = RefVector(squashed_shifted_eval) } };
-    auto opening_claim = Shplemini::compute_batch_opening_claim(
-        padding_indicator_array, squashed_claim_batcher, output.challenge, Commitment::one(), transcript);
+    auto opening_claim =
+        Shplemini::compute_batch_opening_claim(
+            padding_indicator_array, squashed_claim_batcher, output.challenge, Commitment::one(), transcript)
+            .batch_opening_claim;
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
     VerifierCommitmentKey pcs_vkey{};

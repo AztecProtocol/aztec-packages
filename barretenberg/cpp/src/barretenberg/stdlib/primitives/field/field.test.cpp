@@ -142,7 +142,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // -1 has maximum bit length
         run_test(-1, fr::modulus.get_msb(), false);
         run_test(-1, 128, false);
-        run_test(-1, fr::modulus.get_msb() + 1, true);
+        // -1/2 has "second maximal" bit length
+        run_test(-1 / 2, fr::modulus.get_msb(), true);
     }
 
     static void test_bool_conversion()

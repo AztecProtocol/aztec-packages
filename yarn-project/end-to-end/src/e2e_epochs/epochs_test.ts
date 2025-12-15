@@ -95,7 +95,7 @@ export class EpochsTestContext {
       : DEFAULT_L1_BLOCK_TIME;
     const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
     const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
-    const aztecEpochDuration = opts.aztecEpochDuration ?? 8;
+    const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
     return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs };
   }
@@ -114,8 +114,6 @@ export class EpochsTestContext {
       checkIntervalMs: 50,
       archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
       worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,
-      skipProtocolContracts: true,
-      salt: 1,
       aztecEpochDuration,
       aztecSlotDuration,
       ethereumSlotDuration,

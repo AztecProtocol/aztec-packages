@@ -26,8 +26,6 @@ locals {
     ["--l1-chain-id", tostring(var.L1_CHAIN_ID)],
     ["--validators", var.VALIDATORS],
     ["--json"], # Always output JSON for easier parsing
-    ["--create-verification-json", "/tmp/l1-verify"],
-    var.SALT != null ? ["--salt", tostring(var.SALT)] : [],
     var.SPONSORED_FPC ? ["--sponsored-fpc"] : [],
     var.TEST_ACCOUNTS ? ["--test-accounts"] : [],
     var.REAL_VERIFIER ? ["--real-verifier"] : []

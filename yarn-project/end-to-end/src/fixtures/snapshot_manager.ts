@@ -13,7 +13,11 @@ import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/serv
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { deployMulticall3 } from '@aztec/ethereum/contracts';
-import type { DeployL1ContractsArgs, DeployL1ContractsReturnType } from '@aztec/ethereum/deploy-l1-contracts';
+import {
+  type DeployAztecL1ContractsArgs,
+  type DeployAztecL1ContractsReturnType,
+  deployAztecL1Contracts,
+} from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { SecretValue } from '@aztec/foundation/config';
@@ -22,6 +26,8 @@ import { tryRmDir } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ProverNode } from '@aztec/prover-node';
 import { getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -44,7 +50,6 @@ import { foundry } from 'viem/chains';
 import { MNEMONIC, TEST_MAX_TX_POOL_SIZE, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
-import { setupL1Contracts } from './setup_l1_contracts.js';
 import {
   type SetupOptions,
   createAndSyncProverNode,
@@ -61,7 +66,7 @@ export type SubsystemsContext = {
   aztecNode: AztecNodeService;
   aztecNodeConfig: AztecNodeConfig;
   wallet: TestWallet;
-  deployL1ContractsValues: DeployL1ContractsReturnType;
+  deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
@@ -83,7 +88,7 @@ export function createSnapshotManager(
   testName: string,
   dataPath?: string,
   config: Partial<SetupOptions> = {},
-  deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
+  deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {
     initialValidators: [],
   },
 ) {
@@ -112,7 +117,7 @@ class MockSnapshotManager implements ISnapshotManager {
   constructor(
     testName: string,
     private config: Partial<AztecNodeConfig> = {},
-    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {},
+    private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
   ) {
     this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
     this.logger.warn(`No data path given, will not persist any snapshots.`);
@@ -160,7 +165,7 @@ class SnapshotManager implements ISnapshotManager {
     testName: string,
     private dataPath: string,
     private config: Partial<SetupOptions> = {},
-    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {},
+    private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
   ) {
     this.livePath = join(this.dataPath, 'live', testName);
     this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
@@ -286,7 +291,7 @@ async function setupFromFresh(
   statePath: string | undefined,
   logger: Logger,
   { numberOfInitialFundedAccounts = 10, ...opts }: SetupOptions = {},
-  deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
+  deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {
     initialValidators: [],
   },
 ): Promise<SubsystemsContext> {
@@ -326,13 +331,14 @@ async function setupFromFresh(
   const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+  const publisherPrivKeyHex = `0x${publisherPrivKey!.toString('hex')}` satisfies `0x${string}`;
 
   const l1Client = createExtendedL1Client([aztecNodeConfig.l1RpcUrls[0]], hdAccount, foundry);
 
   const validatorPrivKey = getPrivateKeyFromIndex(0);
   const proverNodePrivateKey = getPrivateKeyFromIndex(0);
 
-  aztecNodeConfig.publisherPrivateKeys = [new SecretValue<`0x${string}`>(`0x${publisherPrivKey!.toString('hex')}`)];
+  aztecNodeConfig.publisherPrivateKeys = [new SecretValue(publisherPrivKeyHex)];
   aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${validatorPrivKey!.toString('hex')}`]);
   aztecNodeConfig.coinbase = opts.coinbase ?? EthAddress.fromString(`${hdAccount.address}`);
 
@@ -348,7 +354,7 @@ async function setupFromFresh(
   const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls, dateProvider);
 
   // Deploy our L1 contracts.
-  logger.verbose('Deploying L1 contracts...');
+  logger.verbose('Deploying Aztec L1 contracts...');
   if (opts.l1StartTime) {
     await ethCheatCodes.warp(opts.l1StartTime, { resetBlockInterval: true });
   }
@@ -360,16 +366,28 @@ async function setupFromFresh(
     opts.initialAccountFeeJuice,
   );
 
+  const vkTreeRoot = getVKTreeRoot();
   await deployMulticall3(l1Client, logger);
 
-  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
+  // Define args, defaulted to our environment variables.
+  const args: DeployAztecL1ContractsArgs = {
     ...getL1ContractsConfigEnvVars(),
-    genesisArchiveRoot,
-    feeJuicePortalInitialBalance: fundingNeeded,
-    salt: opts.salt,
     ...deployL1ContractsArgs,
+    vkTreeRoot,
+    genesisArchiveRoot,
+    protocolContractsHash,
     initialValidators: opts.initialValidators,
-  });
+    feeJuicePortalInitialBalance: fundingNeeded,
+    realVerifier: false,
+  };
+
+  const deployL1ContractsValues = await deployAztecL1Contracts(
+    aztecNodeConfig.l1RpcUrls[0],
+    publisherPrivKeyHex,
+    foundry.id,
+    args,
+  );
+
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.rollupVersion = deployL1ContractsValues.rollupVersion;
 
@@ -393,7 +411,7 @@ async function setupFromFresh(
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
-  const telemetry = getEndToEndTestTelemetryClient(opts.metricsPort);
+  const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort);
 
   // Setup blob sink service
   const blobSink = await createBlobSinkServer(
@@ -523,7 +541,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   );
   await watcher.start();
 
-  const telemetry = initTelemetryClient(getTelemetryConfig());
+  const telemetry = await initTelemetryClient(getTelemetryConfig());
   const blobSink = await createBlobSinkServer(
     {
       l1ChainId: aztecNodeConfig.l1ChainId,

@@ -3,7 +3,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { SentTx } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import { addL1Validator } from '@aztec/cli/l1';
+import { addL1Validator } from '@aztec/cli/l1/validators';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -63,7 +63,6 @@ describe('e2e_p2p_network', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
       },
-      mockZkPassportVerifier: true,
     });
 
     await t.addBootstrapNode();

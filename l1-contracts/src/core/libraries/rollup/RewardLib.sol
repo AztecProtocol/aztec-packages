@@ -3,8 +3,9 @@
 pragma solidity >=0.8.27;
 
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {CompressedFeeHeader, FeeHeaderLib, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";

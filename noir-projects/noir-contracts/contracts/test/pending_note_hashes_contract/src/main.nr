@@ -130,8 +130,7 @@ pub contract PendingNoteHashes {
     fn get_then_nullify_note(expected_value: Field, owner: AztecAddress) -> Field {
         let owner_balance = self.storage.balances.at(owner);
 
-        let mut options = NoteGetterOptions::new();
-        options = options.set_limit(1);
+        let options = NoteGetterOptions::new().set_limit(1);
         let note = owner_balance.pop_notes(options).get(0);
 
         assert(expected_value == note.value);

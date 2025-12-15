@@ -95,7 +95,7 @@ unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) {}
 
 #[oracle(utilityGetNotes)]
 unconstrained fn get_notes_oracle<Note, let M: u32, let MaxNotes: u32>(
-    _owner: AztecAddress,
+    _owner: Option<AztecAddress>,
     _storage_slot: Field,
     _num_selects: u8,
     _select_by_indexes: [u8; M],
@@ -122,7 +122,7 @@ where
 {}
 
 pub unconstrained fn get_notes<Note, let M: u32, let MaxNotes: u32>(
-    owner: AztecAddress,
+    owner: Option<AztecAddress>,
     storage_slot: Field,
     num_selects: u8,
     select_by_indexes: [u8; M],

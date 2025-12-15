@@ -8,11 +8,11 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type KeyStoreConfig, keyStoreConfigMappings } from '@aztec/node-keystore';
-import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p';
+import { type KeyStoreConfig, keyStoreConfigMappings } from '@aztec/node-keystore/config';
+import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
-import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client';
+import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 
 import {
   type PublisherConfig,

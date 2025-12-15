@@ -45,7 +45,7 @@ export async function startProverBroker(
   config.l1Contracts = addresses;
   config.rollupVersion = rollupConfig.rollupVersion;
 
-  const client = initTelemetryClient(getTelemetryClientConfig());
+  const client = await initTelemetryClient(getTelemetryClientConfig());
   const broker = await createAndStartProvingBroker(config, client);
 
   if (options.autoUpdate !== 'disabled' && options.autoUpdateUrl) {

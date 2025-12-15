@@ -67,7 +67,7 @@ export async function startProverNode(
     );
   }
 
-  const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
+  const telemetry = await initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
 
   let broker: ProvingJobBroker;
   if (proverConfig.proverBrokerUrl) {

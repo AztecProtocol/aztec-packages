@@ -38,7 +38,6 @@ class ECCVMFlavor {
     using CycleGroup = bb::g1;
     using Curve = curve::Grumpkin;
     using G1 = typename Curve::Group;
-    using PCS = IPA<Curve>;
     using FF = typename Curve::ScalarField;
     using BF = typename Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
@@ -819,8 +818,11 @@ class ECCVMFlavor {
       public:
         bool operator==(const VerificationKey&) const = default;
 
-        // IPA verification key requires one more point.
-        VerifierCommitmentKey pcs_verification_key = VerifierCommitmentKey(ECCVM_FIXED_SIZE + 1);
+        // Identity point for PCS operations (Shplemini/Shplonk)
+        Commitment pcs_g1_identity = []() {
+            auto pcs_vk = VerifierCommitmentKey(1); // Just need the identity (first point)
+            return pcs_vk.get_g1_identity();
+        }();
 
         // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
         VerificationKey()

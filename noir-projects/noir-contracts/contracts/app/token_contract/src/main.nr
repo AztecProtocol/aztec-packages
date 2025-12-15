@@ -243,7 +243,10 @@ pub contract Token {
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
-        self.emit(Transfer { from, to, amount }, to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.emit(Transfer { from, to, amount }).deliver_to(
+            to,
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
     }
 
     #[internal("private")]

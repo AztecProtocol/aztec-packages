@@ -105,8 +105,8 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
 
     // Construct output
     HonkRecursionConstraintOutput<Builder> output;
-    output.points_accumulator = verification_output.points_accumulator;
-    output.ipa_claim = verification_output.opening_claim;
+    output.points_accumulator = verification_output.pairing_points;
+    output.ipa_claim = verification_output.ipa_claim;
     output.ipa_proof = verification_output.ipa_proof;
 
     return output;

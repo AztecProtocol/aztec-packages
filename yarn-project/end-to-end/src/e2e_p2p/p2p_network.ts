@@ -9,8 +9,8 @@ import {
   RollupContract,
   type TallySlashingProposerContract,
 } from '@aztec/ethereum/contracts';
-import type { Operator } from '@aztec/ethereum/deploy-l1-contracts';
-import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contracts';
+import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { MultiAdderArtifact } from '@aztec/ethereum/l1-artifacts';
 import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
 import { ChainMonitor } from '@aztec/ethereum/test';
@@ -93,7 +93,6 @@ export class P2PNetworkTest {
     // If set enable metrics collection
     private metricsPort?: number,
     startProverNode?: boolean,
-    mockZkPassportVerifier?: boolean,
   ) {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
@@ -122,7 +121,6 @@ export class P2PNetworkTest {
           initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
         slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
         aztecTargetCommitteeSize: numberOfValidators,
-        salt: 420,
         metricsPort: metricsPort,
         numberOfInitialFundedAccounts: 2,
         startProverNode,
@@ -141,7 +139,6 @@ export class P2PNetworkTest {
         aztecTargetCommitteeSize: numberOfValidators,
         initialValidators: [],
         zkPassportArgs: {
-          mockZkPassportVerifier,
           zkPassportDomain: zkPassportParams.domain,
           zkPassportScope: zkPassportParams.scope,
         },
@@ -157,7 +154,6 @@ export class P2PNetworkTest {
     metricsPort,
     initialConfig,
     startProverNode,
-    mockZkPassportVerifier,
   }: {
     testName: string;
     numberOfNodes: number;
@@ -166,7 +162,6 @@ export class P2PNetworkTest {
     metricsPort?: number;
     initialConfig?: SetupOptions;
     startProverNode?: boolean;
-    mockZkPassportVerifier?: boolean;
   }) {
     const port = basePort || (await getPort());
 
@@ -187,7 +182,6 @@ export class P2PNetworkTest {
       numberOfNodes,
       metricsPort,
       startProverNode,
-      mockZkPassportVerifier,
     );
   }
 
@@ -200,7 +194,7 @@ export class P2PNetworkTest {
 
   async addBootstrapNode() {
     await this.snapshotManager.snapshot('add-bootstrap-node', async ({ aztecNodeConfig }) => {
-      const telemetry = getEndToEndTestTelemetryClient(this.metricsPort);
+      const telemetry = await getEndToEndTestTelemetryClient(this.metricsPort);
       this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
         BOOTSTRAP_NODE_PRIVATE_KEY,
         this.bootNodePort,
@@ -448,7 +442,7 @@ export class P2PNetworkTest {
     slashFactory: SlashFactoryContract;
   }> {
     if (!this.ctx.deployL1ContractsValues) {
-      throw new Error('DeployL1ContractsValues not set');
+      throw new Error('DeployAztecL1ContractsValues not set');
     }
 
     const rollup = new RollupContract(

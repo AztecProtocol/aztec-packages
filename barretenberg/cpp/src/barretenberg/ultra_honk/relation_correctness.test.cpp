@@ -82,13 +82,13 @@ template <typename Flavor> void create_some_lookup_gates(auto& circuit_builder)
 
 template <typename Flavor> void create_some_delta_range_constraint_gates(auto& circuit_builder)
 {
-    // Add a sort gate (simply checks that consecutive inputs have a difference of < 4)
+    // Add an `enforce_small_deltas` gate (simply checks that consecutive inputs have a difference of < 4)
     using FF = typename Flavor::FF;
     auto a_idx = circuit_builder.add_variable(FF(0));
     auto b_idx = circuit_builder.add_variable(FF(1));
     auto c_idx = circuit_builder.add_variable(FF(2));
     auto d_idx = circuit_builder.add_variable(FF(3));
-    circuit_builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    circuit_builder.enforce_small_deltas({ a_idx, b_idx, c_idx, d_idx });
 }
 
 template <typename Flavor> void create_some_RAM_gates(auto& circuit_builder)

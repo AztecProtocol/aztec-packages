@@ -3,7 +3,7 @@ import { type AztecNode, type NodeInfo, createAztecNodeClient } from '@aztec/azt
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
-import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';

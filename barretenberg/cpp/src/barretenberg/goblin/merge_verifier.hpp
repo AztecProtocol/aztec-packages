@@ -54,13 +54,13 @@ template <typename Curve> class MergeVerifier_ {
 
     /**
      * @brief Result of merge verification
-     * @details Contains pairing points for KZG verification, merged table commitments, and degree check status
+     * @details Contains pairing points for KZG verification, merged table commitments, and aggregate check status.
+     * Individual check results are logged internally by the verifier.
      */
-    struct VerificationResult {
+    struct ReductionResult {
         PairingPoints pairing_points;
         TableCommitments merged_commitments;
-        bool degree_check_passed;
-        bool concatenation_check_passed;
+        bool reduction_succeeded = false; // Aggregate of degree and concatenation checks
     };
 
     MergeSettings settings;
@@ -73,14 +73,23 @@ template <typename Curve> class MergeVerifier_ {
     {}
 
     /**
-     * @brief Verify the merge proof
-     * @tparam Transcript The transcript type (NativeTranscript or StdlibTranscript<Builder>)
-     * @param proof The proof to verify (HonkProof for native, stdlib::Proof<Builder> for recursive)
-     * @param input_commitments The input commitments for the merge
-     * @param transcript Shared transcript for Fiat-Shamir
-     * @return VerificationResult containing pairing points, merged commitments, and degree check status
+     * @brief Reduce the merge proof to a pairing check
+     * @details Verifies the merge protocol's degree and concatenation checks, then reduces the polynomial opening
+     * claims to a KZG pairing check. This method does NOT perform the final pairing verification - it returns
+     * pairing points that must be verified externally
+     *
+     * The merge protocol proves that for each wire column j:
+     *   M_j(X) = L_j(X) + X^k * R_j(X)  (concatenation identity)
+     *   deg(L_j) < k                     (degree bound)
+     *
+     * @param proof The merge proof (HonkProof for native, stdlib::Proof<Builder> for recursive)
+     * @param input_commitments The input commitments
+     * @return ReductionResult containing:
+     *   - pairing_points: KZG pairing check points to be verified externally
+     *   - merged_commitments: Commitments [M_1]...[M_4] to the merged op queue tables
+     *   - reduction_succeeded: true if degree and concatenation checks passed
      */
-    [[nodiscard("Verification result should be checked")]] VerificationResult verify_proof(
+    [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check(
         const Proof& proof, const InputCommitments& input_commitments);
 
   private:

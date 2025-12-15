@@ -1,4 +1,3 @@
-#include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
@@ -173,45 +172,46 @@ class TranslatorRecursiveTests : public ::testing::Test {
         stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
         auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
 
-        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key->proving_key);
-        RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
-
         // Create recursive verifier inputs
         auto recursive_inputs =
             create_recursive_verifier_inputs(&outer_circuit, prover, evaluation_challenge_x, batching_challenge_v);
 
         // Verify proof recursively
         stdlib::Proof<OuterBuilder> stdlib_proof_for_verifier(outer_circuit, proof);
-        typename RecursiveVerifier::PairingPoints pairing_points =
-            verifier.verify_proof(stdlib_proof_for_verifier,
-                                  recursive_inputs.evaluation_challenge_x,
-                                  recursive_inputs.batching_challenge_v,
-                                  recursive_inputs.accumulated_result,
-                                  recursive_inputs.op_queue_commitments);
+        RecursiveVerifier verifier{ transcript,
+                                    stdlib_proof_for_verifier,
+                                    recursive_inputs.evaluation_challenge_x,
+                                    recursive_inputs.batching_challenge_v,
+                                    recursive_inputs.accumulated_result,
+                                    recursive_inputs.op_queue_commitments };
+        auto recursive_result = verifier.reduce_to_pairing_check();
 
         stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
-        inputs.pairing_inputs = pairing_points;
+        inputs.pairing_inputs = recursive_result.pairing_points;
         inputs.set_public();
 
         // Verify with native verifier and compare results
         auto native_verifier_transcript = std::make_shared<Transcript>(proof);
-        InnerVerifier native_verifier(verification_key, native_verifier_transcript);
-        bool native_result = native_verifier.verify_proof(proof,
-                                                          evaluation_challenge_x,
-                                                          batching_challenge_v,
-                                                          recursive_inputs.accumulated_result_native,
-                                                          recursive_inputs.native_op_queue_commitments);
+        InnerVerifier native_verifier(native_verifier_transcript,
+                                      proof,
+                                      evaluation_challenge_x,
+                                      batching_challenge_v,
+                                      recursive_inputs.accumulated_result_native,
+                                      recursive_inputs.native_op_queue_commitments);
+        auto native_result = native_verifier.reduce_to_pairing_check();
+        bool native_verified = native_result.pairing_points.check() && native_result.reduction_succeeded;
 
         NativeVerifierCommitmentKey pcs_vkey{};
-        auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
-        EXPECT_EQ(recursive_result, native_result);
+        auto recursive_verified = pcs_vkey.pairing_check(recursive_result.pairing_points.P0.get_value(),
+                                                         recursive_result.pairing_points.P1.get_value());
+        EXPECT_EQ(recursive_verified, native_verified);
 
-        // Verify VK consistency
-        EXPECT_EQ(static_cast<uint64_t>(verifier.key->log_circuit_size.get_value()),
-                  verification_key->log_circuit_size);
-        EXPECT_EQ(static_cast<uint64_t>(verifier.key->num_public_inputs.get_value()),
-                  verification_key->num_public_inputs);
-        for (auto [vk_poly, native_vk_poly] : zip_view(verifier.key->get_all(), verification_key->get_all())) {
+        // Verify VK consistency between recursive and native verifiers
+        auto recursive_vk = verifier.get_verification_key();
+        auto native_vk = native_verifier.get_verification_key();
+        EXPECT_EQ(static_cast<uint64_t>(recursive_vk->log_circuit_size.get_value()), native_vk->log_circuit_size);
+        EXPECT_EQ(static_cast<uint64_t>(recursive_vk->num_public_inputs.get_value()), native_vk->num_public_inputs);
+        for (auto [vk_poly, native_vk_poly] : zip_view(recursive_vk->get_all(), native_vk->get_all())) {
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
 

@@ -1,22 +1,18 @@
 import { getPublicClient } from '@aztec/ethereum/client';
 import { GSEContract } from '@aztec/ethereum/contracts';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import type { Anvil } from '@viem/anvil';
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
-import { deployL1Contracts } from '../deploy_l1_contracts.js';
+import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ViemClient } from '../types.js';
 
 describe('Governance', () => {
   let anvil: Anvil;
   let rpcUrl: string;
-  let privateKey: PrivateKeyAccount;
-  let logger: Logger;
   let publicClient: ViemClient;
 
   let vkTreeRoot: Fr;
@@ -24,9 +20,8 @@ describe('Governance', () => {
   let gseAddress: `0x${string}`;
 
   beforeAll(async () => {
-    logger = createLogger('ethereum:test:governance');
     // this is the 6th address that gets funded by the junk mnemonic
-    privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    const privateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
     vkTreeRoot = Fr.random();
     protocolContractsHash = Fr.random();
 
@@ -34,9 +29,8 @@ describe('Governance', () => {
 
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
 
-    const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
+    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
       ...DefaultL1ContractsConfig,
-      salt: undefined,
       vkTreeRoot,
       protocolContractsHash,
       genesisArchiveRoot: Fr.random(),
@@ -47,7 +41,7 @@ describe('Governance', () => {
   });
 
   afterAll(async () => {
-    await anvil.stop().catch(err => createLogger('cleanup').error(err));
+    await anvil.stop().catch(() => {});
   });
 
   describe('ReadOnlyGovernanceContract', () => {
