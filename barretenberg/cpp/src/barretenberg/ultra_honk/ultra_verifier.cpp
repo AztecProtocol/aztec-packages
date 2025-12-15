@@ -140,21 +140,20 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
 }
 
 /**
- * @brief Perform verification for IPA-based flavors (rollup)
+ * @brief Perform ultra verification
  * @details
- * - Native: Takes separate honk_proof and ipa_proof, performs immediate verification with IPA
- * - Recursive: Takes combined proof, splits into honk + ipa, returns pairing points for deferred verification
+ * - Native: Performs immediate pairing verification (+ IPA for rollup flavors)
+ * - Recursive: Returns pairing points for deferred verification
  */
 template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_proof(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof,
     const typename UltraVerifier_<Flavor, IO>::Proof& ipa_proof)
-    requires HasIPAAccumulator<Flavor>
 {
-    // Recursive-only: Split combined proof into honk_proof and ipa_proof
+    // IPA-specific: Recursive proof surgery to extract honk_proof and ipa_proof from concatenated proof
     Proof honk_proof_to_verify;
     Proof extracted_ipa_proof;
-    if constexpr (IsRecursive) {
+    if constexpr (HasIPAAccumulator<Flavor> && IsRecursive) {
         const size_t num_public_inputs =
             static_cast<uint32_t>(verifier_instance->get_vk()->num_public_inputs.get_value());
         const size_t HONK_PROOF_LENGTH = Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() - IPA_PROOF_LENGTH;
@@ -177,58 +176,17 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
     auto pairing_points = inputs.pairing_inputs;
     pairing_points.aggregate(reduction_result.pairing_points);
 
+    // Common: Branch on recursive vs native
     if constexpr (IsRecursive) {
         // Recursive: Construct output and return for deferred verification
         Output output(inputs);
         output.points_accumulator = std::move(pairing_points);
-        output.ipa_proof = extracted_ipa_proof;
-        return output;
-    } else {
-        // Native: Immediate verification
-        bool pairing_verified = pairing_points.check();
 
-        vinfo("sumcheck_verified: ", reduction_result.reduction_succeeded);
-        vinfo("pairing_check_verified: ", pairing_verified);
-
-        // IPA verification
-        ipa_transcript->load_proof(ipa_proof);
-        bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, inputs.ipa_claim, ipa_transcript);
-        if (!ipa_result) {
-            info("IPA verification failed!");
+        // IPA-specific: Store extracted IPA proof for outer circuit
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            output.ipa_proof = extracted_ipa_proof;
         }
 
-        UltraVerifierOutput output;
-        output.result = reduction_result.reduction_succeeded && pairing_verified && ipa_result;
-        return output;
-    }
-}
-
-/**
- * @brief Perform verification for non-IPA flavors
- * @details
- * - Native: Performs immediate pairing verification, may extract HidingKernelIO data
- * - Recursive: Returns pairing points for deferred verification, may extract HidingKernelIO or GoblinAvmIO data
- */
-template <typename Flavor, class IO>
-typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_proof(
-    const typename UltraVerifier_<Flavor, IO>::Proof& proof)
-    requires(!HasIPAAccumulator<Flavor>)
-{
-    // Common: Reduce to claims
-    auto reduction_result = reduce_to_claims(proof);
-
-    // Common: Reconstruct inputs
-    IO inputs;
-    inputs.reconstruct_from_public(verifier_instance->public_inputs);
-
-    // Common: Aggregate pairing points (inputs first, then reduction)
-    auto pairing_points = inputs.pairing_inputs;
-    pairing_points.aggregate(reduction_result.pairing_points);
-
-    if constexpr (IsRecursive) {
-        // Recursive: Construct output from inputs
-        Output output(inputs);
-        output.points_accumulator = std::move(pairing_points);
         return output;
     } else {
         // Native: Perform immediate pairing verification
@@ -240,7 +198,18 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
         UltraVerifierOutput output;
         output.result = reduction_result.reduction_succeeded && pairing_verified;
 
-        // Extract HidingKernelIO data if applicable
+        // IPA-specific: Perform IPA verification for rollup flavors
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            ipa_transcript->load_proof(ipa_proof);
+            bool ipa_result =
+                IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, inputs.ipa_claim, ipa_transcript);
+            if (!ipa_result) {
+                info("IPA verification failed!");
+            }
+            output.result &= ipa_result;
+        }
+
+        // HidingKernelIO-specific: Extract kernel return data and ecc op tables
         if constexpr (std::is_same_v<IO, HidingKernelIO>) {
             output.kernel_return_data = inputs.kernel_return_data;
             output.ecc_op_tables = inputs.ecc_op_tables;
