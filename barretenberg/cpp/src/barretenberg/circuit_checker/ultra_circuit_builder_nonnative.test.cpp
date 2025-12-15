@@ -213,8 +213,8 @@ TEST_F(UltraCircuitBuilderNonNative, Multiplication)
             builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
         } else {
             // Fallback to default range checks
-            builder.decompose_into_default_range(lo_1_idx, 72);
-            builder.decompose_into_default_range(hi_1_idx, 72);
+            builder.create_limbed_range_constraint(lo_1_idx, 72);
+            builder.create_limbed_range_constraint(hi_1_idx, 72);
         }
 
         EXPECT_TRUE(CircuitChecker::check(builder));
@@ -247,8 +247,8 @@ TEST_F(UltraCircuitBuilderNonNative, MultiplicationLargeCarryRegression)
     BB_ASSERT(is_high_70_bits == false); // Regression should hit this case
 
     // Decompose into default range: these should work even if the limbs are > 2^70
-    builder.decompose_into_default_range(lo_1_idx, 72);
-    builder.decompose_into_default_range(hi_1_idx, 72);
+    builder.create_limbed_range_constraint(lo_1_idx, 72);
+    builder.create_limbed_range_constraint(hi_1_idx, 72);
     EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Using NNF range check should fail here
@@ -275,8 +275,8 @@ TEST_F(UltraCircuitBuilderNonNative, BlockSelectorIsolation)
     if (is_low_70_bits && is_high_70_bits) {
         builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
     } else {
-        builder.decompose_into_default_range(lo_1_idx, 72);
-        builder.decompose_into_default_range(hi_1_idx, 72);
+        builder.create_limbed_range_constraint(lo_1_idx, 72);
+        builder.create_limbed_range_constraint(hi_1_idx, 72);
     }
 
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -487,8 +487,8 @@ TEST_F(UltraCircuitBuilderNonNative, MultiplicationInvalidWitnessFailure)
         const auto [lo_idx, hi_idx] = create_non_native_multiplication(builder, a, b, q, r, modulus);
 
         // Add range constraints
-        builder.decompose_into_default_range(lo_idx, 72);
-        builder.decompose_into_default_range(hi_idx, 72);
+        builder.create_limbed_range_constraint(lo_idx, 72);
+        builder.create_limbed_range_constraint(hi_idx, 72);
 
         EXPECT_FALSE(CircuitChecker::check(builder));
     };

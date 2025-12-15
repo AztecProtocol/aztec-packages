@@ -1,15 +1,10 @@
-import { createExtendedL1Client } from '@aztec/ethereum/client';
-import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
-import { RollupContract, decodeSlashConsensusVotes } from '@aztec/ethereum/contracts';
-import type { DeployL1ContractsArgs } from '@aztec/ethereum/deploy-l1-contracts';
-import { deployL1Contracts } from '@aztec/ethereum/deploy-l1-contracts';
 import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingProposerAbi';
@@ -19,13 +14,17 @@ import { type Hex, type TypedDataDefinition, encodeFunctionData, hashTypedData }
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { createExtendedL1Client } from '../client.js';
+import { DefaultL1ContractsConfig } from '../config.js';
+import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
+import { RollupContract, decodeSlashConsensusVotes } from './index.js';
 import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 
 describe('TallySlashingProposer', () => {
   let anvil: Anvil;
   let rpcUrl: string;
+  let deployerPrivateKeyRaw: Hex;
   let deployerPrivateKey: PrivateKeyAccount;
-  let logger: Logger;
   let writeClient: ExtendedViemWalletClient;
 
   let validatorsPrivateKeys: PrivateKeyAccount[];
@@ -36,7 +35,7 @@ describe('TallySlashingProposer', () => {
   let rollup: RollupContract;
   let tallySlashingProposer: TallySlashingProposerContract;
   let tallySlashingProposerAddress: EthAddress;
-  let testConfig: DeployL1ContractsArgs;
+  let testConfig: DeployAztecL1ContractsArgs;
 
   const mockSignature = {
     v: 27,
@@ -48,8 +47,8 @@ describe('TallySlashingProposer', () => {
   const testSlashingRoundSize = 192;
 
   beforeAll(async () => {
-    logger = createLogger('ethereum:test:tally_slashing_proposer');
-    deployerPrivateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    deployerPrivateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
+    deployerPrivateKey = privateKeyToAccount(deployerPrivateKeyRaw);
 
     ({ anvil, rpcUrl } = await startAnvil());
 
@@ -65,7 +64,6 @@ describe('TallySlashingProposer', () => {
 
     testConfig = {
       ...DefaultL1ContractsConfig,
-      salt: undefined,
       vkTreeRoot: Fr.random(),
       protocolContractsHash: Fr.random(),
       genesisArchiveRoot: Fr.random(),
@@ -81,7 +79,7 @@ describe('TallySlashingProposer', () => {
       })),
     };
 
-    const deployed = await deployL1Contracts([rpcUrl], deployerPrivateKey, foundry, logger, testConfig);
+    const deployed = await deployAztecL1Contracts(rpcUrl, deployerPrivateKeyRaw, foundry.id, testConfig);
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
     rollupCheatCodes = new RollupCheatCodes(cheatCodes, deployed.l1ContractAddresses);
 

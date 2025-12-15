@@ -33,13 +33,6 @@ variable "L1_CHAIN_ID" {
   default     = 31337
 }
 
-variable "SALT" {
-  description = "Salt for deployment"
-  type        = number
-  nullable    = true
-  default     = null
-}
-
 variable "VALIDATORS" {
   description = "Comma-separated list of validators"
   type        = string

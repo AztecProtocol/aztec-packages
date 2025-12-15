@@ -79,7 +79,7 @@ TEST(UltraCircuitBuilder, CheckCircuitShowcase)
     EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Now let's create a range constraint for b
-    builder.create_new_range_constraint(b, 0xbeef);
+    builder.create_small_range_constraint(b, 0xbeef);
 
     // We can check if this works
     EXPECT_TRUE(CircuitChecker::check(builder));

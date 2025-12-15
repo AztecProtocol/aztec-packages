@@ -914,7 +914,7 @@ void field_t<Builder>::create_range_constraint(const size_t num_bits, std::strin
         if (is_constant()) {
             BB_ASSERT_LT(uint256_t(get_value()).get_msb(), num_bits, msg);
         } else {
-            context->decompose_into_default_range(
+            context->create_limbed_range_constraint(
                 normalize().witness_index, num_bits, bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
         }
     }

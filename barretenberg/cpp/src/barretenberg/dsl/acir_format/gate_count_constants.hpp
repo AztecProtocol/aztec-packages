@@ -83,7 +83,7 @@ inline constexpr std::tuple<size_t, size_t, size_t> HONK_RECURSION_CONSTANTS = [
 // ========================================
 
 // Gate count for Chonk recursive verification (UltraRollup builder)
-inline constexpr size_t CHONK_RECURSION_GATES = 2495201;
+inline constexpr size_t CHONK_RECURSION_GATES = 2495032;
 
 // ========================================
 // Hypernova Recursion Constants

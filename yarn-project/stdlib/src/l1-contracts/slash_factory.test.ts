@@ -1,12 +1,12 @@
 import { createExtendedL1Client, getPublicClient } from '@aztec/ethereum/client';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
-import { deployL1Contracts } from '@aztec/ethereum/deploy-l1-contracts';
+import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { EthCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient, ViemClient } from '@aztec/ethereum/types';
 import { tryExtractEvent } from '@aztec/ethereum/utils';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
 
@@ -23,7 +23,6 @@ describe('SlashFactory', () => {
   let anvil: Anvil;
   let rpcUrl: string;
   let privateKey: PrivateKeyAccount;
-  let logger: Logger;
   let publicClient: ViemClient;
   let writeClient: ExtendedViemWalletClient;
   let cheatCodes: EthCheatCodes;
@@ -48,17 +47,16 @@ describe('SlashFactory', () => {
   };
 
   beforeAll(async () => {
-    logger = createLogger('ethereum:test:slash_factory');
-    privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    const privateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
+    privateKey = privateKeyToAccount(privateKeyRaw);
 
     ({ anvil, rpcUrl } = await startAnvil());
 
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
 
-    const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
+    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
       ...DefaultL1ContractsConfig,
-      salt: undefined,
       vkTreeRoot: Fr.random(),
       protocolContractsHash: Fr.random(),
       genesisArchiveRoot: Fr.random(),

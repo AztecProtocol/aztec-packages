@@ -39,8 +39,6 @@ describe('e2e_snapshot_sync', () => {
       aztecEpochDuration: 64,
       startProverNode: false,
       realProofs: false,
-      skipProtocolContracts: true,
-      salt: 1,
     });
 
     log = context.logger;

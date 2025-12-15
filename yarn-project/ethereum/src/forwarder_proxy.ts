@@ -7,7 +7,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { type Hex, extractChain } from 'viem';
 import { anvil, mainnet, sepolia } from 'viem/chains';
 
-import { L1Deployer } from './deploy_l1_contracts.js';
+import { L1Deployer } from './deploy_l1_contract.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
 export const FORWARDER_SOLIDITY_SOURCE = `

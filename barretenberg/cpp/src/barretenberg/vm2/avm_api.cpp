@@ -72,13 +72,8 @@ bool AvmAPI::verify(const AvmProof& proof, const PublicInputs& pi, const AvmVeri
 
 AvmAPI::AvmVerificationKey AvmAPI::get_verification_key()
 {
-    vinfo("Generating trace...");
-    AvmTraceGenHelper tracegen_helper;
-    auto trace = tracegen_helper.generate_precomputed_columns();
-
-    vinfo("Computing verification key...");
     AvmProvingHelper proving_helper;
-    return proving_helper.compute_verification_key(trace);
+    return proving_helper.get_verification_key();
 }
 
 } // namespace bb::avm2

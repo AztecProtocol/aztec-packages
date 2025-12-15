@@ -28,9 +28,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
     // Helper function to create and verify native proof
     struct NativeProofResult {
-        using AvmVerificationKey = AvmFlavor::VerificationKey;
         typename InnerProver::Proof proof;
-        std::shared_ptr<AvmVerificationKey> verification_key;
         std::vector<std::vector<FF>> public_inputs_cols;
     };
 
@@ -51,9 +49,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
             const bool verified = verifier.verify_proof(proof, public_inputs_cols);
 
-            return std::pair<bool, NativeProofResult>{
-                verified, NativeProofResult{ proof, verification_key, public_inputs_cols }
-            };
+            return std::pair<bool, NativeProofResult>{ verified, NativeProofResult{ proof, public_inputs_cols } };
         }();
 
         ASSERT_TRUE(cached_verified) << "native proof verification failed";
@@ -89,7 +85,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     std::cout << "Time taken (native proof): " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count()
               << "s" << std::endl;
 
-    auto [proof, verification_key, public_inputs_cols] = proof_result;
+    auto [proof, public_inputs_cols] = proof_result;
     proof.insert(proof.begin(), 0); // TODO(#14234)[Unconditional PIs validation]: remove this
 
     // Construct stdlib representations of the proof, public inputs and verification key
@@ -107,19 +103,12 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
         public_inputs_ct.push_back(vec_ct);
     }
 
-    auto key_fields_native = verification_key->to_field_elements();
-    std::vector<UltraFF> outer_key_fields;
-    for (const auto& f : key_fields_native) {
-        UltraFF val = UltraFF::from_witness(&outer_circuit, f);
-        outer_key_fields.push_back(val);
-    }
-
     // Construct the AVM recursive verifier and verify the proof
     // Scoped to free memory of AvmRecursiveVerifier.
     auto verifier_output = [&]() {
         std::cout << "Constructing AvmRecursiveVerifier and verifying proof..." << std::endl;
         std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-        AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
+        AvmRecursiveVerifier avm_rec_verifier(outer_circuit);
         auto result = avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time taken (recursive verification): "
@@ -187,7 +176,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
     std::cout << "Time taken (native proof): " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count()
               << "s" << std::endl;
 
-    auto [proof, verification_key, public_inputs_cols] = proof_result;
+    auto [proof, public_inputs_cols] = proof_result;
     // Set fallback / disable PI validation
     proof.insert(proof.begin(),
                  1); // TODO(#14234)[Unconditional PIs validation]: PI validation is disabled for this test.
@@ -208,19 +197,12 @@ TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
         public_inputs_ct.push_back(vec_ct);
     }
 
-    auto key_fields_native = verification_key->to_field_elements();
-    std::vector<UltraFF> outer_key_fields;
-    for (const auto& f : key_fields_native) {
-        UltraFF val = UltraFF::from_witness(&outer_circuit, f);
-        outer_key_fields.push_back(val);
-    }
-
     // Construct the AVM recursive verifier and verify the proof
     // Scoped to free memory of AvmRecursiveVerifier.
     auto verifier_output = [&]() {
         std::cout << "Constructing AvmRecursiveVerifier and verifying proof..." << std::endl;
         std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-        AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
+        AvmRecursiveVerifier avm_rec_verifier(outer_circuit);
         auto result = avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time taken (recursive verification): "
@@ -285,7 +267,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursionFailsWithWrongPIs)
     std::cout << "Time taken (native proof): " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count()
               << "s" << std::endl;
 
-    auto [proof, verification_key, public_inputs_cols] = proof_result;
+    auto [proof, public_inputs_cols] = proof_result;
     // PI validation is enabled.
     proof.insert(proof.begin(), 0); // TODO(#14234)[Unconditional PIs validation]: remove this
 
@@ -306,19 +288,12 @@ TEST_F(AvmRecursiveTests, GoblinRecursionFailsWithWrongPIs)
     // Mutate some PI entry so that we can confirm that PI validation is enabled and fails!
     public_inputs_ct[1][5] += 1;
 
-    auto key_fields_native = verification_key->to_field_elements();
-    std::vector<UltraFF> outer_key_fields;
-    for (const auto& f : key_fields_native) {
-        UltraFF val = UltraFF::from_witness(&outer_circuit, f);
-        outer_key_fields.push_back(val);
-    }
-
     // Construct the AVM recursive verifier and verify the proof
     // Scoped to free memory of AvmRecursiveVerifier.
     {
         std::cout << "Constructing AvmRecursiveVerifier and verifying proof..." << std::endl;
         std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-        AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
+        AvmRecursiveVerifier avm_rec_verifier(outer_circuit);
         auto result = avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Time taken (recursive verification): "
