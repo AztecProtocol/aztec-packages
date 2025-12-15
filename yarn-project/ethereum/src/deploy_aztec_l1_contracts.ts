@@ -13,7 +13,7 @@ import { spawn } from 'child_process';
 import { dirname, resolve } from 'path';
 import readline from 'readline';
 import type { Hex } from 'viem';
-import { foundry, mainnet } from 'viem/chains';
+import { foundry, mainnet, sepolia } from 'viem/chains';
 
 import { createEthereumChain, isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
@@ -246,6 +246,7 @@ export async function deployAztecL1Contracts(
   const FORGE_SCRIPT = 'script/deploy/DeployAztecL1Contracts.s.sol';
   await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
 
+  const shouldVerify = chainId === mainnet.id || chainId === sepolia.id;
   // From heuristic testing. More caused issues with anvil.
   const MAGIC_ANVIL_BATCH_SIZE = 12;
   // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
@@ -260,7 +261,8 @@ export async function deployAztecL1Contracts(
     '--rpc-url',
     rpcUrl,
     '--broadcast',
-    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : ['--verify']),
+    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
+    ...(shouldVerify ? ['--verify'] : []),
   ];
   const forgeEnv = {
     // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
