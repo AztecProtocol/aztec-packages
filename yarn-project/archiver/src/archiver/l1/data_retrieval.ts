@@ -261,10 +261,17 @@ async function processCheckpointProposedLogs(
 
     // The value from the event and contract will match only if the checkpoint is in the chain.
     if (archive === archiveFromChain) {
+      // Build expected hashes object (fields may be undefined for backwards compatibility with older events)
+      const expectedHashes = {
+        attestationsHash: log.args.attestationsHash,
+        payloadDigest: log.args.payloadDigest,
+      };
+
       const checkpoint = await calldataRetriever.getCheckpointFromRollupTx(
         log.transactionHash!,
         blobHashes,
         checkpointNumber,
+        expectedHashes,
       );
       const checkpointBlobData = await getCheckpointBlobDataFromBlobs(
         blobSinkClient,
