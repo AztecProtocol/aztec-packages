@@ -5,6 +5,7 @@ global:
   # When deploying, override the namespace to where spartan will deploy to, this will apply all chaos experiments to all pods within that namespace
   # run deployment with --values global.namespace=your-namespace
   targetNamespace: smoke
+  chaosResourceNamespace: chaos-mesh
   chaosMeshNamespace: chaos-mesh
 
 # Network shaping configuration
