@@ -47,14 +47,19 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
 
     static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
-    // The plookup range proof requires work linear in range size, thus cannot be used directly for
+    // The plookup-style range proof requires work linear in range size, thus cannot be used directly for
     // large ranges such as 2^64. For such ranges the element will be decomposed into smaller
     // chuncks according to the parameter below
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 14;
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_STEP_SIZE = 3;
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_SIZE = (1 << DEFAULT_PLOOKUP_RANGE_BITNUM) - 1;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = 68;
-
+    // We offer two types of range constraints: small (which can be non-dyadic) and general. The below constants
+    // determine their max values.
+    static constexpr size_t MAX_SMALL_RANGE_CONSTRAINT_VAL = (1 << 16) - 1;
+    static constexpr size_t MAX_NUM_BITS_RANGE_CONSTRAINT =
+        253; // the Grumpkin scalar field modulus is between 2^253 and 2^254 and has 254 bits. Therefore the largest
+             // non-vacuous dyadic range-constraint we can enforce is 2^253 - 1, i.e., `num_bits == 253`.
     enum MEMORY_SELECTORS {
         MEM_NONE,
         RAM_CONSISTENCY_CHECK,
@@ -75,10 +80,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     };
 
     struct RangeList {
-        uint64_t target_range;
-        uint32_t range_tag;
-        uint32_t tau_tag;
-        std::vector<uint32_t> variable_indices;
+        uint64_t target_range; // range constraint will be for the range [0, target_range], i.e., is inclusive of
+                               // `target_range`.
+        uint32_t range_tag;    // Every variable that is range-constrained to a given `target_range` has the same tag,
+                               // namely, `range_tag`. Never `DEFAULT_TAG`.
+        uint32_t tau_tag;      // Tag assigned to the sorted reference set. Never `DEFAULT_TAG`.
+        std::vector<uint32_t>
+            variable_indices; // All variable-indices constrained to this range. During processing, this will be
+                              // mutated: replaced by real-variable-indices, then deduplicated.
         bool operator==(const RangeList& other) const noexcept
         {
             return target_range == other.target_range && range_tag == other.range_tag && tau_tag == other.tau_tag &&
@@ -215,9 +224,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         : CircuitBuilderBase<FF>(size_hint, is_write_vk_mode)
     {
         this->set_zero_idx(put_constant_variable(FF::zero()));
-        this->_tau.insert(
-            { DUMMY_TAG, DUMMY_TAG }); // The identity permutation on the set `{DUMMY_TAG}`. We assume that the
-                                       // `DUMMY_TAG` is not involved in any non-trivial multiset-equality checks.
+        // The identity permutation on the set `{DEFAULT_TAG}`. We therefore assume that the
+        // `DEFAULT_TAG` is not involved in any non-trivial multiset-equality checks.
+        this->set_tau_at_index(DEFAULT_TAG, DEFAULT_TAG);
     };
 
     /**
@@ -252,7 +261,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         // Add the const zero variable after the acir witness has been
         // incorporated into variables.
         this->set_zero_idx(put_constant_variable(FF::zero()));
-        this->_tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
+        this->set_tau_at_index(DEFAULT_TAG,
+                               DEFAULT_TAG); // tau fixes the `DEFAULT_TAG`, as we assume that `DEFAULT_TAG` is not
+                                             // involved in any non-trivial multiset-equality checks.
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other) = default;
@@ -298,41 +309,51 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void fix_witness(const uint32_t witness_index, const FF& witness_value);
 
-    void create_new_range_constraint(const uint32_t variable_index,
-                                     const uint64_t target_range,
-                                     std::string const msg = "create_new_range_constraint");
-    void create_range_constraint(const uint32_t variable_index, const size_t num_bits, std::string const& msg)
+    /**
+     * @brief Range-constraints for small ranges, where the upper bound (`target_range`) need not be dyadic. Max
+     * possible value is 2^16 - 1. Adds variable to a RangeList for batched processing.
+     * @details Constrains variable to [0, target_range], where `target_range < 2^14`. The constraint is deferred:
+     * variables are collected into RangeLists (grouped by target_range), then processed together in
+     * `process_range_lists()` which creates the actual delta-range gates. This batching is efficient because multiple
+     * variables sharing the same range can share the "staircase" of multiples-of-3 values.
+     * @warning This will yield an UNSATISFIABLE CIRCUIT if `variable_index` does not appear in any of the wires. If
+     * `variable_index` is not used in any gate, its tag would never appear in the permutation polynomials, yielding an
+     * unsatisfiable circuit: the GPA would fail because the range constraint increases the sorted set size by one while
+     * the non-sorted set (given by wire indices) would remain unchanged. If `variable_index` has not been used
+     * elsewhere, must add a dummy gate, e.g. `create_unconstrained_gate(blocks.arithmetic, variable_index,
+     * this->zero_idx(), this->zero_idx(), this->zero_idx());`
+     * @note Only suitable for small ranges (≤ DEFAULT_PLOOKUP_RANGE_SIZE). For larger ranges, use
+     * `create_limbed_range_constraint` which decomposes into smaller limbs.
+     * @note The tag of `variable_index` is `DEFAULT_TAG` if it has never been range-constrained and a non-trivial value
+     * else. In other words, the non-trivial tags that occur for witnesses in the first phase of witness-generation
+     * _precisely_ correspond to existing ranges (a.k.a. `target_range`s) being used in range-constraints.
+     */
+    void create_small_range_constraint(const uint32_t variable_index,
+                                       const uint64_t target_range,
+                                       std::string const msg = "create_small_range_constraint");
+
+    /**
+     * @brief Entry point for range constraints where the upper bound is a power of 2 (i.e., dyadic). Dispatches to
+     * appropriate implementation based on range size.
+     * @details
+     *   - 1 bit: uses a boolean gate (x * (x - 1) = 0)
+     *   - ≤ DEFAULT_PLOOKUP_RANGE_BITNUM bits: uses `create_new_range_constraint` (batched delta-range)
+     *   - > DEFAULT_PLOOKUP_RANGE_BITNUM bits: uses `create_limbed_range_constraint` (first decompose into limbs)
+     * @note The upper bound of the range is specified via `num_bits`, i.e., the range-constrained constructed is for `1
+     * << num_bits -1`.
+     */
+    void create_dyadic_range_constraint(const uint32_t variable_index, const size_t num_bits, std::string const& msg)
     {
         if (num_bits == 1) {
             create_bool_gate(variable_index);
         } else if (num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM) {
-            /**
-             * N.B. if `variable_index` is not used in any arithmetic constraints, this will create an unsatisfiable
-             *      circuit!
-             *      this range constraint will increase the size of the 'sorted set' of range-constrained integers by 1.
-             *      The 'non-sorted set' of range-constrained integers is a subset of the wire indices of all arithmetic
-             *      gates. No arithmetic gate => size imbalance between sorted and non-sorted sets. Checking for this
-             *      and throwing an error would require a refactor of the Composer to catelog all 'orphan' variables not
-             *      assigned to gates.
-             *
-             * TODO(Suyash):
-             *    The following is a temporary fix to make sure the range constraints on numbers with
-             *    num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM is correctly enforced in the circuit.
-             *    Longer term, as Zac says, we would need to refactor the composer to fix this.
-             **/
-            create_arithmetic_gate(arithmetic_triple_<FF>{
-                .a = variable_index,
-                .b = variable_index,
-                .c = variable_index,
-                .q_m = 0,
-                .q_l = 1,
-                .q_r = -1,
-                .q_o = 0,
-                .q_c = 0,
-            });
-            create_new_range_constraint(variable_index, (1ULL << num_bits) - 1, msg);
+            // Add an unconstrained gate to ensure variable_index appears in a wire. (See warning in
+            // `create_small_range_constraint` for more details.)
+            create_unconstrained_gate(
+                blocks.arithmetic, variable_index, this->zero_idx(), this->zero_idx(), this->zero_idx());
+            create_small_range_constraint(variable_index, (1ULL << num_bits) - 1, msg);
         } else {
-            decompose_into_default_range(variable_index, num_bits, DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
+            create_limbed_range_constraint(variable_index, num_bits, DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
         }
     }
 
@@ -420,11 +441,19 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         const uint32_t key_a_index,
         std::optional<uint32_t> key_b_index = std::nullopt);
 
-    std::vector<uint32_t> decompose_into_default_range(
+    /**
+     * @brief Range-constrain a variable to [0, 2^num_bits - 1] by decomposing into smaller limbs.
+     * @details For large ranges, direct range-checking is too expensive (scales linearly in the `target_range`).
+     * Instead, we decompose the value into limbs of `target_range_bitnum` bits, call `create_new_range_constraint` on
+     * each limb, and add arithmetic gates proving the limbs reconstruct the original value.
+     *
+     * @return The variable indices of the limbs.
+     */
+    std::vector<uint32_t> create_limbed_range_constraint(
         const uint32_t variable_index,
         const uint64_t num_bits,
         const uint64_t target_range_bitnum = DEFAULT_PLOOKUP_RANGE_BITNUM,
-        std::string const& msg = "decompose_into_default_range");
+        std::string const& msg = "create_limbed_range_constraint");
 
     /**
      * @brief Create a gate with no constraints but with possibly non-trivial wire values
@@ -452,10 +481,31 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_unconstrained_gates(const std::vector<uint32_t>& variable_index);
 
     /**
-     * sort constraints for (batched) range checks.
+     * @brief Check for a sequence of variables that the neighboring differences are in {0, 1, 2, 3} via the delta_range
+     * block.
+     *
+     * @param variable_indices
      */
-    void create_sort_constraint(const std::vector<uint32_t>& variable_index);
-    void create_sort_constraint_with_edges(const std::vector<uint32_t>& variable_index, const FF&, const FF&);
+    void enforce_small_deltas(const std::vector<uint32_t>& variable_indices);
+    /**
+     * @brief Constrain consecutive variable differences to be in {0, 1, 2, 3}, _with_ boundary checks.
+     *
+     * @details Enforces that:
+     *   1. variable_indices[0] == start
+     *   2. variable_indices[i+1] - variable_indices[i] ∈ {0, 1, 2, 3} for all adjacent pairs
+     *   3. variable_indices[last] == end
+     *
+     * This is the core primitive for batched range checks: given a sorted list with bounded deltas
+     * starting at 0 and ending at N, all elements are proven to lie in [0, N].
+     *
+     * @param variable_indices The sequence of variable indices to constrain. Must have size > NUM_WIRES
+     *                         and divisible by NUM_WIRES (pad if necessary).
+     * @param start The required value of the first element.
+     * @param end The required value of the last element.
+     */
+    void create_sort_constraint_with_edges(const std::vector<uint32_t>& variable_indices,
+                                           const FF& start,
+                                           const FF& end);
 
     /**
      * Generalized Permutation Methods
@@ -468,7 +518,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             return;
         }
 
-        BB_ASSERT_EQ(this->real_variable_tags[this->real_variable_index[variable_index]], DUMMY_TAG);
+        BB_ASSERT_EQ(this->real_variable_tags[this->real_variable_index[variable_index]], DEFAULT_TAG);
         this->real_variable_tags[this->real_variable_index[variable_index]] = tag;
     }
     /**
@@ -485,9 +535,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * @brief Add a transposition to tau.
      *
+     * @details Adds a simple transposition to the tau permutation, namely, swaps `tag_index_1` and `tag_index_2`.
+     *
      * @param tag_index_1
      * @param tag_index_2
      * @return uint32_t
+     * @note This is the only operation we need in our builders as our tau-permutations are products _disjoint_
+     * transpositions. Indeed, they are only used in memory operations and range constraints, where we simply check that
+     * the multisets of unsorted and sorted witnesses (or records) are the same.
      */
     void set_tau_transposition(const uint32_t tag_index_1, const uint32_t tag_index_2)
     {

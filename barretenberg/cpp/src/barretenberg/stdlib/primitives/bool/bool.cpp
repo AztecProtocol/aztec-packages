@@ -47,7 +47,7 @@ bool_t<Builder>::bool_t(const witness_t<Builder>& value, const bool& use_range_c
 
     if (use_range_constraint) {
         // Create a range constraint gate
-        context->create_new_range_constraint(witness_index, 1, "bool_t: witness value is not 0 or 1");
+        context->create_small_range_constraint(witness_index, 1, "bool_t: witness value is not 0 or 1");
     } else {
         // Create an arithmetic gate to enforce the relation x^2 = x
         context->create_bool_gate(witness_index);
