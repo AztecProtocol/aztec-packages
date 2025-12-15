@@ -74,7 +74,7 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     using FF = typename Flavor::FF;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
@@ -117,7 +117,6 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
 
-    bool consistency_checked = true;
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
@@ -132,23 +131,24 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         }
     }();
 
-    auto opening_claim = Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                                                claim_batcher,
-                                                                sumcheck_output.challenge,
-                                                                one_commitment,
-                                                                transcript,
-                                                                Flavor::REPEATED_COMMITMENTS,
-                                                                Flavor::HasZK,
-                                                                &consistency_checked,
-                                                                libra_commitments,
-                                                                sumcheck_output.claimed_libra_evaluation);
-
-    // Reduce to pairing points (different MSM size for native)
+    auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                                                   claim_batcher,
+                                                                   sumcheck_output.challenge,
+                                                                   one_commitment,
+                                                                   transcript,
+                                                                   Flavor::REPEATED_COMMITMENTS,
+                                                                   libra_commitments,
+                                                                   sumcheck_output.claimed_libra_evaluation);
 
     // Build reduction result
     ReductionResult result;
-    result.pairing_points =
-        PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
+    result.pairing_points = PCS::reduce_verify_batch_opening_claim(
+        std::move(shplemini_output.batch_opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
+
+    bool consistency_checked = true;
+    if constexpr (Flavor::HasZK) {
+        consistency_checked = shplemini_output.consistency_checked;
+    }
     result.reduction_succeeded = sumcheck_output.verified && consistency_checked;
 
     return result;

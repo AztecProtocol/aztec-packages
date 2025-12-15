@@ -11,11 +11,20 @@ import { withHexPrefix } from '@aztec/foundation/string';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { Signature } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
+import { ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { ContentCommitment } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { type Hex, type Transaction, encodeFunctionData, multicall3Abi, toFunctionSelector } from 'viem';
+import {
+  type Hex,
+  type Transaction,
+  encodeAbiParameters,
+  encodeFunctionData,
+  keccak256,
+  multicall3Abi,
+  toFunctionSelector,
+} from 'viem';
 
 import type { ArchiverInstrumentation } from '../instrumentation.js';
 import { CalldataRetriever } from './calldata_retriever.js';
@@ -43,8 +52,13 @@ class TestCalldataRetriever extends CalldataRetriever {
     return await super.extractCalldataViaTrace(txHash);
   }
 
-  public override decodeAndBuildCheckpoint(proposeCalldata: Hex, blockHash: Hex, checkpointNumber: CheckpointNumber) {
-    return super.decodeAndBuildCheckpoint(proposeCalldata, blockHash, checkpointNumber);
+  public override decodeAndBuildCheckpoint(
+    proposeCalldata: Hex,
+    blockHash: Hex,
+    checkpointNumber: CheckpointNumber,
+    expectedHashes: { attestationsHash?: Hex; payloadDigest?: Hex },
+  ) {
+    return super.decodeAndBuildCheckpoint(proposeCalldata, blockHash, checkpointNumber, expectedHashes);
   }
 }
 
@@ -145,7 +159,7 @@ describe('CalldataRetriever', () => {
 
       publicClient.getTransaction.mockResolvedValue(tx);
 
-      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber);
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {});
 
       expect(result.checkpointNumber).toBe(checkpointNumber);
       expect(result.header).toBeInstanceOf(CheckpointHeader);
@@ -168,7 +182,7 @@ describe('CalldataRetriever', () => {
 
       publicClient.getTransaction.mockResolvedValue(tx);
 
-      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber);
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {});
 
       expect(result.checkpointNumber).toBe(checkpointNumber);
       expect(result.header).toBeInstanceOf(CheckpointHeader);
@@ -210,7 +224,7 @@ describe('CalldataRetriever', () => {
         },
       ]);
 
-      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber);
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {});
 
       expect(result.checkpointNumber).toBe(checkpointNumber);
       expect(debugClient.request).toHaveBeenCalledWith({ method: 'trace_transaction', params: [txHash] });
@@ -234,7 +248,7 @@ describe('CalldataRetriever', () => {
       // Mock both trace methods to fail
       debugClient.request.mockRejectedValue(new Error(`Method not available`));
 
-      await expect(retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber)).rejects.toThrow(
+      await expect(retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {})).rejects.toThrow(
         'Failed to trace transaction',
       );
     });
@@ -242,9 +256,133 @@ describe('CalldataRetriever', () => {
     it('should throw when transaction retrieval fails', async () => {
       publicClient.getTransaction.mockRejectedValue(new Error('Transaction not found'));
 
-      await expect(retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber)).rejects.toThrow(
+      await expect(retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {})).rejects.toThrow(
         'Transaction not found',
       );
+    });
+
+    it('should validate attestationsHash when provided', async () => {
+      const attestations = makeViemCommitteeAttestations();
+      const proposeCalldata = makeProposeCalldata(undefined, attestations);
+      const tx = makeMulticall3Transaction([{ target: rollupAddress.toString(), callData: proposeCalldata }]);
+
+      publicClient.getTransaction.mockResolvedValue(tx);
+
+      // Compute the expected attestationsHash
+      const expectedAttestationsHash = keccak256(
+        encodeAbiParameters(
+          [
+            {
+              type: 'tuple',
+              components: [
+                { name: 'signatureIndices', type: 'bytes' },
+                { name: 'signaturesOrAddresses', type: 'bytes' },
+              ],
+            },
+          ],
+          [
+            {
+              signatureIndices: attestations.signatureIndices,
+              signaturesOrAddresses: attestations.signaturesOrAddresses,
+            },
+          ],
+        ),
+      );
+
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {
+        attestationsHash: expectedAttestationsHash,
+      });
+
+      expect(result.checkpointNumber).toBe(checkpointNumber);
+      expect(result.header).toBeInstanceOf(CheckpointHeader);
+    });
+
+    it('should throw when attestationsHash does not match', async () => {
+      const attestations = makeViemCommitteeAttestations();
+      const proposeCalldata = makeProposeCalldata(undefined, attestations);
+      const tx = makeMulticall3Transaction([{ target: rollupAddress.toString(), callData: proposeCalldata }]);
+
+      publicClient.getTransaction.mockResolvedValue(tx);
+
+      // Use a different (wrong) attestationsHash
+      const wrongAttestationsHash = '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex;
+
+      await expect(
+        retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {
+          attestationsHash: wrongAttestationsHash,
+        }),
+      ).rejects.toThrow('Attestations hash mismatch');
+    });
+
+    it('should work with empty expectedHashes for backwards compatibility', async () => {
+      const proposeCalldata = makeProposeCalldata();
+      const tx = makeMulticall3Transaction([{ target: rollupAddress.toString(), callData: proposeCalldata }]);
+
+      publicClient.getTransaction.mockResolvedValue(tx);
+
+      // Call with empty expectedHashes (simulating old event format without hash fields)
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {});
+
+      expect(result.checkpointNumber).toBe(checkpointNumber);
+      expect(result.header).toBeInstanceOf(CheckpointHeader);
+      // Should succeed without validation when hashes are not provided
+    });
+
+    it('should validate payloadDigest when provided', async () => {
+      const header = makeViemHeader();
+      const attestations = makeViemCommitteeAttestations();
+      const archiveRoot = Fr.random();
+      const archive = archiveRoot.toString() as Hex;
+      const feeAssetPriceModifier = BigInt(0);
+
+      // Create propose calldata with known values
+      const proposeCalldata = encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'propose',
+        args: [
+          {
+            archive,
+            oracleInput: { feeAssetPriceModifier },
+            header,
+          },
+          attestations,
+          [], // signers
+          Signature.random().toViemSignature(),
+          '0x' as Hex, // blobInput
+        ],
+      });
+
+      const tx = makeMulticall3Transaction([{ target: rollupAddress.toString(), callData: proposeCalldata }]);
+      publicClient.getTransaction.mockResolvedValue(tx);
+
+      // Compute the expected payloadDigest using ConsensusPayload (same logic as the validator)
+      const checkpointHeader = CheckpointHeader.fromViem(header);
+      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot);
+      const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.blockAttestation);
+      const expectedPayloadDigest = keccak256(payloadToSign);
+
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {
+        payloadDigest: expectedPayloadDigest,
+      });
+
+      expect(result.checkpointNumber).toBe(checkpointNumber);
+      expect(result.header).toBeInstanceOf(CheckpointHeader);
+    });
+
+    it('should throw when payloadDigest does not match', async () => {
+      const proposeCalldata = makeProposeCalldata();
+      const tx = makeMulticall3Transaction([{ target: rollupAddress.toString(), callData: proposeCalldata }]);
+
+      publicClient.getTransaction.mockResolvedValue(tx);
+
+      // Use a different (wrong) payloadDigest
+      const wrongPayloadDigest = '0x0000000000000000000000000000000000000000000000000000000000000002' as Hex;
+
+      await expect(
+        retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {
+          payloadDigest: wrongPayloadDigest,
+        }),
+      ).rejects.toThrow('Payload digest mismatch');
     });
   });
   describe('tryDecodeMulticall3', () => {
@@ -944,7 +1082,7 @@ describe('CalldataRetriever', () => {
     it('should correctly decode propose calldata and build checkpoint', () => {
       const proposeCalldata = makeProposeCalldata();
 
-      const result = retriever.decodeAndBuildCheckpoint(proposeCalldata, blockHash, checkpointNumber);
+      const result = retriever.decodeAndBuildCheckpoint(proposeCalldata, blockHash, checkpointNumber, {});
 
       expect(result.checkpointNumber).toBe(checkpointNumber);
       expect(result.header).toBeInstanceOf(CheckpointHeader);
@@ -957,7 +1095,7 @@ describe('CalldataRetriever', () => {
       const attestations = makeViemCommitteeAttestations();
       const proposeCalldata = makeProposeCalldata(undefined, attestations);
 
-      const result = retriever.decodeAndBuildCheckpoint(proposeCalldata, blockHash, checkpointNumber);
+      const result = retriever.decodeAndBuildCheckpoint(proposeCalldata, blockHash, checkpointNumber, {});
 
       expect(result.attestations).toHaveLength(TARGET_COMMITTEE_SIZE);
     });
@@ -968,13 +1106,13 @@ describe('CalldataRetriever', () => {
       );
       const invalidCalldata = (invalidateBadSelector + '0'.repeat(120)) as Hex;
 
-      expect(() => retriever.decodeAndBuildCheckpoint(invalidCalldata, blockHash, checkpointNumber)).toThrow();
+      expect(() => retriever.decodeAndBuildCheckpoint(invalidCalldata, blockHash, checkpointNumber, {})).toThrow();
     });
 
     it('should throw when calldata is malformed', () => {
       const malformedCalldata = '0xinvalid' as Hex;
 
-      expect(() => retriever.decodeAndBuildCheckpoint(malformedCalldata, blockHash, checkpointNumber)).toThrow();
+      expect(() => retriever.decodeAndBuildCheckpoint(malformedCalldata, blockHash, checkpointNumber, {})).toThrow();
     });
   });
 
@@ -987,7 +1125,7 @@ describe('CalldataRetriever', () => {
 
       publicClient.getTransaction.mockResolvedValue(tx);
 
-      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber);
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {});
 
       expect(result).toBeDefined();
       expect(result.checkpointNumber).toBe(checkpointNumber);
@@ -1060,7 +1198,7 @@ describe('CalldataRetriever', () => {
         ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
       );
 
-      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber);
+      const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {});
 
       expect(result).toBeDefined();
       expect(result.checkpointNumber).toBe(checkpointNumber);

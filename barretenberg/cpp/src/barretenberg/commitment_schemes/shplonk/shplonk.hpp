@@ -427,7 +427,7 @@ template <typename Curve> class ShplonkVerifier_ {
      */
     void update(const LinearCombinationOfClaims& update_data, const Fr& inverse_vanishing_eval)
     {
-
+        BB_ASSERT_LT(pow_idx, pows_of_nu.size(), "Shplonk verifier: pow_idx out of bounds");
         // Compute \nu^{i-1} / (z - x)
         auto scalar_factor = pows_of_nu[pow_idx] * inverse_vanishing_eval;
 
@@ -435,6 +435,7 @@ template <typename Curve> class ShplonkVerifier_ {
             // \nu^{i-1} * a_j / (z - x)
             auto scaling_factor = scalar_factor * coefficient;
             // s_{i_j} -= \nu^{i-1} * a_j / (z - x)
+            BB_ASSERT_LT(index + 1, scalars.size(), "Shplonk verifier: index out of bounds");
             scalars[index + 1] -= scaling_factor;
         }
 
@@ -461,10 +462,7 @@ template <typename Curve> class ShplonkVerifier_ {
         if constexpr (Curve::is_stdlib_type) {
             result = GroupElement::batch_mul(commitments, scalars);
         } else {
-            result = GroupElement::zero();
-            for (const auto& [commitment, scalar] : zip_view(commitments, scalars)) {
-                result += commitment * scalar;
-            }
+            result = batch_mul_native<Curve>(commitments, scalars);
         }
 
         return { { z_challenge, evaluation }, result };
