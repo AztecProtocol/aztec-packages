@@ -115,23 +115,21 @@ if [[ -n "$OTEL_COLLECTOR_URL" ]]; then
   export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="$OTEL_COLLECTOR_URL/v1/metrics"
 fi
 
-cat <<EOF > /home/$SSH_USER/start.sh
+cat <<'EOF' > /home/$SSH_USER/start.sh
 #!/usr/bin/env bash
 source ./tag.sh
 echo "Starting bootnode container..."
 
 # Try primary URL first, fallback to metadata.aztec.network if unreachable
-JSON=$(curl -s --fail http://static.aztec.network/$NETWORK_NAME/bootnodes.json 2>/dev/null)
-if [ -z "$JSON" ]; then
+if ! curl -s --fail -O https://raw.githubusercontent.com/AztecProtocol/networks/refs/heads/main/network_config.json 2>/dev/null; then
   echo "Primary URL unreachable, trying fallback..."
-  JSON=$(curl -s --fail https://metadata.aztec.network/network_config.json 2>/dev/null)
-  if [ -z "$JSON" ]; then
+  if ! curl -s --fail -O https://metadata.aztec.network/network_config.json 2>/dev/null; then
     echo "Error: Could not fetch bootnode data from any source"
     exit 1
   fi
 fi
 
-export BOOTSTRAP_NODES=$(echo "$JSON" | jq -r '.bootnodes | join(",")')
+export BOOTSTRAP_NODES=$(cat network_config.json | jq -r ".$NETWORK_NAME.bootnodes | join(",")")
 echo "Bootnode enrs: $BOOTSTRAP_NODES"
 
 docker system prune -f
