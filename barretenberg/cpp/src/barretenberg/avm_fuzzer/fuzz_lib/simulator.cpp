@@ -90,7 +90,7 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
 {
 
     const PublicSimulatorConfig config{
-        .skip_fee_enforcement = true, // Should try enable this
+        .skip_fee_enforcement = true, // This is disabled once we need a prover fuzzer
         .collect_call_metadata = true,
         .collect_public_inputs = true,
     };
@@ -131,7 +131,7 @@ SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
 JsSimulator* JsSimulator::instance = nullptr;
 JsSimulator::JsSimulator(std::string& simulator_path)
     : simulator_path(simulator_path)
-    , process("LOG_LEVEL=silent node " + simulator_path) // + d" 2>&1 /dev/null")
+    , process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
 {}
 
 JsSimulator* JsSimulator::getInstance()

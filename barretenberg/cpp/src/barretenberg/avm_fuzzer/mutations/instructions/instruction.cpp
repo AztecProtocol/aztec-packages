@@ -689,6 +689,7 @@ void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
                    [&rng](NOTEHASHEXISTS_Instruction& instr) { mutate_note_hash_exists_instruction(instr, rng); },
                    [&rng](CALLDATACOPY_Instruction& instr) { mutate_calldatacopy_instruction(instr, rng); },
                    [&rng](SENDL2TOL1MSG_Instruction& instr) { mutate_sendl2tol1msg_instruction(instr, rng); },
+                   [&rng](EMITUNENCRYPTEDLOG_Instruction& instr) { mutate_emitunencryptedlog_instruction(instr, rng); },
                    [](auto&) { throw std::runtime_error("Unknown instruction"); } },
                instruction);
 }
