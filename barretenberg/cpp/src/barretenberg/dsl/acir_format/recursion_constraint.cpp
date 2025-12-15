@@ -32,14 +32,12 @@ HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
     BB_ASSERT(!has_honk_recursion_constraints || !has_hn_recursion_constraints,
               "Invalid circuit: both honk and ivc recursion constraints present.");
     // AVM constraints are not handled when using MegaBuilder
-    if (has_avm_recursion_constraints) {
-        info("WARNING: this circuit contains unhandled avm_recursion_constraints!");
-    }
-    // Chonk constraints are not handled when using MegaBuilder
-    if (has_chonk_recursion_constraints) {
-        info("WARNING: this circuit contains unhandled chonk_recursion_constraints!");
-    }
+    BB_ASSERT(!has_avm_recursion_constraints,
+              "Invalid circuit: avm recursion constraints are not supported with MegaBuilder.");
 
+    // Chonk constraints are not handled when using MegaBuilder
+    BB_ASSERT(!has_chonk_recursion_constraints,
+              "Invalid circuit: chonk recursion constraints are not supported with MegaBuilder.");
     HonkRecursionConstraintsOutput<MegaCircuitBuilder> output;
 
     for (const auto& [constraint, opcode_idx] : zip_view(honk_recursion_data.first, honk_recursion_data.second)) {

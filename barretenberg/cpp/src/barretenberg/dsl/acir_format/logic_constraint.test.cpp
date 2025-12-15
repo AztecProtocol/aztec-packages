@@ -41,10 +41,21 @@ class LogicConstraintTestingFunctions {
 
         static std::vector<Target> get_all()
         {
+            if constexpr (num_bits == bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) {
+                return { Target::None, Target::Inputs };
+            }
+
             return { Target::None, Target::Inputs, Target::Input1BitSize, Target::Input2BitSize };
         }
 
-        static std::vector<std::string> get_labels() { return { "None", "Inputs", "Input1BitSize", "Input2BitSize" }; }
+        static std::vector<std::string> get_labels()
+        {
+            if constexpr (num_bits == bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) {
+                return { "None", "Inputs" };
+            }
+
+            return { "None", "Inputs", "Input1BitSize", "Input2BitSize" };
+        }
     };
 
     static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
@@ -118,19 +129,32 @@ class LogicConstraintTestingFunctions {
 
 template <InputConstancy Constancy>
 using LogicTestConfigs =
-    testing::Types<LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 251, false>, // Ultra, AND, max bits
+    testing::Types<LogicConstraintTestParams<UltraCircuitBuilder,
+                                             Constancy,
+                                             bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH,
+                                             false>,                                      // Ultra, AND, max bits
                    LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 128, false>, // Ultra, AND, random bits
                    LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 16, false>,  // Ultra, AND, < 32 bits
                    LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 1, false>,   // Ultra, AND, min bits
-                   LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 251, true>,  // Ultra, XOR
+                   LogicConstraintTestParams<UltraCircuitBuilder,
+                                             Constancy,
+                                             bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH,
+                                             true>, // Ultra, XOR
                    LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 128, true>,
                    LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 16, true>,
                    LogicConstraintTestParams<UltraCircuitBuilder, Constancy, 1, true>,
-                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 251, false>, // Mega, AND
+                   LogicConstraintTestParams<MegaCircuitBuilder,
+                                             Constancy,
+                                             bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH,
+                                             false>, // Mega, AND
                    LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 128, false>,
                    LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 16, false>,
                    LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 1, false>,
-                   LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 251, true>, // Mega, XOR
+                   LogicConstraintTestParams<MegaCircuitBuilder,
+                                             Constancy,
+                                             bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH,
+                                             true>, // Mega,
+                                                    // XOR
                    LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 128, true>,
                    LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 16, true>,
                    LogicConstraintTestParams<MegaCircuitBuilder, Constancy, 1, true>>;
@@ -225,8 +249,8 @@ TYPED_TEST(LogicConstraintTestsBothConstant, GenerateVKFromConstraints)
 
 TYPED_TEST(LogicConstraintTestsBothConstant, Tampering)
 {
-    // We need to test tampering by hand because when both inputs are constant making the bit size invalid will not make
-    // the builder fail, it will raise an error.
+    // We need to test tampering by hand because when both inputs are constant making the bit size invalid will not
+    // make the builder fail, it will raise an error.
     {
         auto [circuit_checker_result, builder_failed, builder_err] =
             TestFixture::test_constraints(TestFixture::InvalidWitnessTarget::None);

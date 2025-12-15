@@ -129,6 +129,8 @@ template <typename T, size_t N>
 std::array<uint32_t, N> add_to_witness_and_track_indices(std::vector<bb::fr>& witness, const T& input)
 {
     std::vector<uint32_t> tracked_indices = add_to_witness_and_track_indices(witness, input);
+    BB_ASSERT_LTE(tracked_indices.size(), N, "Number of witnesses added is greater than the size of the output array.");
+
     std::array<uint32_t, N> indices;
     std::ranges::copy(tracked_indices, indices.begin());
     return indices;

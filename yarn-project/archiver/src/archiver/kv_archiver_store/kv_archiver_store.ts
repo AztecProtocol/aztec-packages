@@ -31,7 +31,7 @@ import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
-export const ARCHIVER_DB_VERSION = 4;
+export const ARCHIVER_DB_VERSION = 5;
 export const MAX_FUNCTION_SIGNATURES = 1000;
 export const MAX_FUNCTION_NAME_LEN = 256;
 

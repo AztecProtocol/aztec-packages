@@ -88,6 +88,12 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
     field_ct vk_hash = field_ct::from_witness_index(&builder, input.key_hash);
 
     if (builder.is_write_vk_mode()) {
+        BB_ASSERT_GTE(input.proof.size(),
+                      IO::PUBLIC_INPUTS_SIZE,
+                      "create_chonk_recursion_constraints: fewer proof elements than public inputs.");
+        BB_ASSERT_LTE(input.public_inputs.size(),
+                      SIZE_MAX - IO::PUBLIC_INPUTS_SIZE,
+                      "create_chonk_recursion_constraints: too many public inputs.");
         size_t total_pub_inputs_size = input.public_inputs.size() + IO::PUBLIC_INPUTS_SIZE;
         size_t proof_size_without_pub_inputs = input.proof.size() - IO::PUBLIC_INPUTS_SIZE;
 

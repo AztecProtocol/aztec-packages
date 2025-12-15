@@ -58,7 +58,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> avm_recursion_constraints;
     std::vector<size_t> hn_recursion_constraints;
     std::vector<size_t> chonk_recursion_constraints;
-    std::vector<size_t> arithmetic_triple_constraints;
     std::vector<size_t> quad_constraints;
     std::vector<size_t> big_quad_constraints;
     // Multiple opcode indices per block:
@@ -167,7 +166,6 @@ struct ProgramMetadata {
                // should propagate an IPA claim. In our codebase, circuits that propagate IPA claims are the ones whose
                // proof is constructed/verified using Rollup flavors.
     bool collect_gates_per_opcode = false;
-    size_t size_hint = 0;
 };
 
 /**
