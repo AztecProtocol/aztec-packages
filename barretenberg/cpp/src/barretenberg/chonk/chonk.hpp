@@ -53,7 +53,6 @@ class Chonk : public IVCBase {
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using MegaProver = UltraProver_<Flavor>;
-    using MegaVerifier = UltraVerifier_<Flavor>;
     using Transcript = NativeTranscript;
     // Recursive types
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;

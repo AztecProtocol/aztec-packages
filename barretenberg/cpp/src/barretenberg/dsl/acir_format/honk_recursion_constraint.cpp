@@ -166,10 +166,10 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     using bool_ct = bb::stdlib::bool_t<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVKAndHash = Flavor::VKAndHash;
-    using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
     using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
                                   stdlib::recursion::honk::RollupIO,
                                   stdlib::recursion::honk::DefaultIO<Builder>>;
+    using RecursiveVerifier = bb::UltraVerifier_<Flavor, IO>;
 
     BB_ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
     BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK, HasIPAAccumulator<Flavor>);
@@ -247,7 +247,14 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     auto vkey = std::make_shared<RecursiveVerificationKey>(vk_fields);
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
     RecursiveVerifier verifier(&builder, vk_and_hash);
-    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields);
+    UltraRecursiveVerifierOutput<Builder> verifier_output = [&]() {
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            auto [honk_proof, ipa_proof] = split_rollup_proof(proof_fields, vkey);
+            return verifier.verify_proof(honk_proof, ipa_proof);
+        } else {
+            return verifier.verify_proof(proof_fields);
+        }
+    }();
 
 #ifndef NDEBUG
     native_verification_debug<Flavor>(vkey, proof_fields);

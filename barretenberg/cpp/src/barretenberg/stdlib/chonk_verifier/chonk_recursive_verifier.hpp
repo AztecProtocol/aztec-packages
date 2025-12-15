@@ -35,7 +35,7 @@ class ChonkRecursiveVerifier {
     using RecursiveFlavor = MegaZKRecursiveFlavor_<Builder>; // The Hiding kernel verifier algorithm is MegaZK
     using RecursiveVerifierInstance = RecursiveVerifierInstance_<RecursiveFlavor>;
     using RecursiveVerificationKey = RecursiveVerifierInstance::VerificationKey;
-    using MegaVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
+    using MegaVerifier = UltraRecursiveVerifier_<RecursiveFlavor, HidingKernelIO<Builder>>;
     using GoblinVerifier = GoblinRecursiveVerifier;
     using Flavor = RecursiveFlavor::NativeFlavor;
     using VerificationKey = Flavor::VerificationKey;

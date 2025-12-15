@@ -40,6 +40,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
+    using InnerProof = std::vector<InnerFF>;
 
     // IO types for native verifiers (non-templated, in bb:: namespace)
     using NativeInnerIO = std::conditional_t<HasIPAAccumulator<InnerFlavor>, bb::RollupIO, bb::DefaultIO>;
@@ -103,6 +104,26 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         InnerIO::add_default(builder);
 
         return builder;
+    }
+
+    /**
+     * @brief Verify an inner proof in the outer recursive circuit
+     * @details Handles proof splitting for IPA flavors and converts native proofs to stdlib
+     */
+    static VerifierOutput verify_inner_proof(const InnerProof& inner_proof,
+                                             const std::shared_ptr<typename InnerFlavor::VerificationKey>& vk,
+                                             OuterBuilder& outer_circuit,
+                                             RecursiveVerifier& verifier)
+    {
+        if constexpr (HasIPAAccumulator<InnerFlavor>) {
+            auto [native_honk_proof, native_ipa_proof] = split_rollup_proof(inner_proof, vk);
+            OuterStdlibProof stdlib_honk_proof(outer_circuit, native_honk_proof);
+            OuterStdlibProof stdlib_ipa_proof(outer_circuit, native_ipa_proof);
+            return verifier.verify_proof(stdlib_honk_proof, stdlib_ipa_proof);
+        } else {
+            OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
+            return verifier.verify_proof(stdlib_inner_proof);
+        }
     }
 
   public:
@@ -178,8 +199,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
             RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
 
-            OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-            typename RecursiveVerifier::Output verifier_output = verifier.verify_proof(stdlib_inner_proof);
+            typename RecursiveVerifier::Output verifier_output =
+                verify_inner_proof(inner_proof, verification_key, outer_circuit, verifier);
 
             // IO of outer_circuit
             OuterIO inputs;
@@ -230,8 +251,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
         verifier.transcript->enable_manifest();
 
-        OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-        VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
+        VerifierOutput output = verify_inner_proof(inner_proof, verification_key, outer_circuit, verifier);
 
         // IO of outer_circuit
         OuterIO inputs;
@@ -331,8 +351,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             auto stdlib_vk_and_hash =
                 std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, inner_verification_key);
             RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
-            OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-            VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
+            VerifierOutput output = verify_inner_proof(inner_proof, inner_verification_key, outer_circuit, verifier);
 
             // Wrong Gemini witnesses lead to the pairing check failure in non-ZK case but don't break any
             // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
@@ -379,8 +398,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             auto stdlib_vk_and_hash =
                 std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, inner_verification_key);
             RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
-            OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
-            VerifierOutput output = verifier.verify_proof(stdlib_inner_proof);
+            VerifierOutput output = verify_inner_proof(inner_proof, inner_verification_key, outer_circuit, verifier);
 
             if (idx == 0) {
                 // We expect the circuit check to fail due to the bad proof.

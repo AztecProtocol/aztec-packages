@@ -75,6 +75,44 @@ template <typename Flavor> struct UltraVerifierInstanceType<Flavor, true> {
     using type = bb::stdlib::recursion::honk::RecursiveVerifierInstance_<Flavor>;
 };
 
+/**
+ * @brief Split a combined rollup proof into honk and IPA components
+ * @details For rollup flavors, proofs are concatenated: [honk_proof | ipa_proof]
+ * This helper extracts them based on the verification key's public input count.
+ * Works for both native and recursive (stdlib) proofs/VKs.
+ *
+ * @tparam Proof The proof type (native std::vector<fr> or stdlib::Proof<Builder>)
+ * @tparam VK The verification key type (native or recursive)
+ * @param combined_proof The concatenated proof
+ * @param vk The verification key (to determine split point from num_public_inputs)
+ * @return std::pair<Proof, Proof> The {honk_proof, ipa_proof} pair
+ */
+template <typename Proof, class VK> auto split_rollup_proof(const Proof& combined_proof, const std::shared_ptr<VK>& vk)
+{
+    // Get num_public_inputs - works for both native and recursive VKs
+    size_t num_public_inputs = [&]() {
+        if constexpr (requires { vk->num_public_inputs.get_value(); }) {
+            // Recursive VK: field_t<Builder>
+            return static_cast<size_t>(static_cast<uint32_t>(vk->num_public_inputs.get_value()));
+        } else {
+            // Native VK: uint32_t
+            return static_cast<size_t>(vk->num_public_inputs);
+        }
+    }();
+
+    // Calculate split point
+    const size_t HONK_PROOF_LENGTH = UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() - IPA_PROOF_LENGTH;
+    const std::ptrdiff_t honk_proof_with_pub_inputs_length =
+        static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
+
+    // Extract proofs (infer type from combined_proof)
+    using ProofVec = std::decay_t<decltype(combined_proof)>;
+    ProofVec honk_proof(combined_proof.begin(), combined_proof.begin() + honk_proof_with_pub_inputs_length);
+    ProofVec ipa_proof(combined_proof.begin() + honk_proof_with_pub_inputs_length, combined_proof.end());
+
+    return std::make_pair(honk_proof, ipa_proof);
+}
+
 template <typename Flavor, class IO> class UltraVerifier_ {
   public:
     using FF = typename Flavor::FF;
@@ -185,26 +223,19 @@ template <typename Flavor, class IO> class UltraVerifier_ {
         requires(!HasIPAAccumulator<Flavor>);
 
     /**
-     * @brief Perform ultra verification for IPA flavors (rollup) - recursive with combined proof
-     * @details For recursive verifiers, the proof contains both honk and ipa proofs concatenated
-     *
-     * @param proof The combined proof (contains both honk and ipa proofs)
-     * @return Output (UltraRecursiveVerifierOutput for recursive)
-     */
-    Output verify_proof(const Proof& proof)
-        requires(HasIPAAccumulator<Flavor> && IsRecursive);
-
-    /**
-     * @brief Perform ultra verification for IPA flavors (rollup) - native with separate proofs
+     * @brief Perform ultra verification for IPA flavors (rollup)
      * @details
      * - Native: Calls reduce_to_claims() then performs immediate pairing check + IPA verification
+     * - Recursive: Calls reduce_to_claims() and returns pairing points and IPA proof for deferred verification
      *
      * @param proof The honk proof
      * @param ipa_proof IPA proof (passed separately)
-     * @return Output (UltraVerifierOutput for native)
+     * @return Output (UltraVerifierOutput for native, UltraRecursiveVerifierOutput for recursive)
+     *
+     * @note Use split_rollup_proof() helper to extract proofs if you have a combined proof
      */
     Output verify_proof(const Proof& proof, const Proof& ipa_proof)
-        requires(HasIPAAccumulator<Flavor> && !IsRecursive);
+        requires(HasIPAAccumulator<Flavor>);
 
     std::shared_ptr<VKAndHash> stored_vk_and_hash; // Uniform for both native and recursive
     std::shared_ptr<Instance> verifier_instance;
@@ -226,6 +257,6 @@ using UltraStarknetVerifier = UltraVerifier_<UltraStarknetFlavor, DefaultIO>;
 using UltraStarknetZKVerifier = UltraVerifier_<UltraStarknetZKFlavor, DefaultIO>;
 #endif
 using MegaVerifier = UltraVerifier_<MegaFlavor, DefaultIO>;
-using MegaZKVerifier = UltraVerifier_<MegaZKFlavor, DefaultIO>;
+using MegaZKVerifier = UltraVerifier_<MegaZKFlavor, HidingKernelIO>;
 
 } // namespace bb

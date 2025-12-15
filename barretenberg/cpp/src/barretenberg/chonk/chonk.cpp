@@ -533,9 +533,9 @@ bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
     std::shared_ptr<Goblin::Transcript> chonk_verifier_transcript = std::make_shared<Goblin::Transcript>();
 
     // Step 1: Verify the Hiding kernel proof
-    MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, chonk_verifier_transcript };
-    auto [mega_verified, kernel_return_data, T_prev_commitments] =
-        verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
+    auto vk_and_hash_mega = std::make_shared<MegaZKFlavor::VKAndHash>(vk.mega);
+    MegaZKVerifier verifier{ vk_and_hash_mega, chonk_verifier_transcript };
+    auto [mega_verified, kernel_return_data, T_prev_commitments] = verifier.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     if (!mega_verified) {
         info("Chonk verification failed at Mega step");
