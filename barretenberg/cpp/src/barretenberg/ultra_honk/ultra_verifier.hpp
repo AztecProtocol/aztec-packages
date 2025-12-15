@@ -128,20 +128,16 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     /**
      * @brief Constructor for both native and recursive verifiers
      * @param vk_and_hash VKAndHash wrapper containing verification key and its hash
-     * @param ipa_verification_key IPA verification key (native rollup flavors only)
      * @param transcript Transcript instance (optional, defaults to new transcript)
      *
      * For native: verifier_instance created immediately
      * For recursive: verifier_instance created from builder passed to constructor or extracted from proof
      */
     using VKAndHash = typename Flavor::VKAndHash;
-    explicit UltraVerifier_(
-        const std::shared_ptr<VKAndHash>& vk_and_hash,
-        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(),
-        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
+    explicit UltraVerifier_(const std::shared_ptr<VKAndHash>& vk_and_hash,
+                            const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         : stored_vk_and_hash(vk_and_hash)
         , transcript(transcript)
-        , ipa_verification_key(std::move(ipa_verification_key))
     {
         // Native: create verifier_instance immediately
         if constexpr (!IsRecursive) {
@@ -178,22 +174,42 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     [[nodiscard("Reduction result should be verified")]] ReductionResult reduce_to_claims(const Proof& proof);
 
     /**
-     * @brief Perform ultra verification
+     * @brief Perform ultra verification for non-IPA flavors
      * @details
-     * - Native: Calls reduce_to_claims() then performs immediate pairing check (+ IPA for rollup flavors)
+     * - Native: Calls reduce_to_claims() then performs immediate pairing check
      * - Recursive: Calls reduce_to_claims() and returns pairing points for deferred verification
-     *
-     * For IPA flavors, the second parameter allows passing ipa_proof separately (for backward compatibility).
      *
      * @return Output (UltraVerifierOutput for native, UltraRecursiveVerifierOutput for recursive)
      */
-    Output verify_proof(const Proof& proof, const Proof& ipa_proof = {});
+    Output verify_proof(const Proof& proof)
+        requires(!HasIPAAccumulator<Flavor>);
+
+    /**
+     * @brief Perform ultra verification for IPA flavors (rollup) - recursive with combined proof
+     * @details For recursive verifiers, the proof contains both honk and ipa proofs concatenated
+     *
+     * @param proof The combined proof (contains both honk and ipa proofs)
+     * @return Output (UltraRecursiveVerifierOutput for recursive)
+     */
+    Output verify_proof(const Proof& proof)
+        requires(HasIPAAccumulator<Flavor> && IsRecursive);
+
+    /**
+     * @brief Perform ultra verification for IPA flavors (rollup) - native with separate proofs
+     * @details
+     * - Native: Calls reduce_to_claims() then performs immediate pairing check + IPA verification
+     *
+     * @param proof The honk proof
+     * @param ipa_proof IPA proof (passed separately)
+     * @return Output (UltraVerifierOutput for native)
+     */
+    Output verify_proof(const Proof& proof, const Proof& ipa_proof)
+        requires(HasIPAAccumulator<Flavor> && !IsRecursive);
 
     std::shared_ptr<VKAndHash> stored_vk_and_hash; // Uniform for both native and recursive
     std::shared_ptr<Instance> verifier_instance;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>(); // Native only
-    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key;                 // Native only
 
     // Builder pointer (extracted from proof for recursive, nullptr for native)
     std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;

@@ -282,9 +282,14 @@ void native_verification_debug(const std::shared_ptr<typename Flavor::Verificati
         honk_proof = native_proof;
     }
 
-    UltraVerifier_<typename Flavor::NativeFlavor> native_verifier(
-        native_vk_and_hash, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
-    bool is_valid_proof(native_verifier.template verify_proof<NativeIO>(honk_proof, ipa_proof));
+    UltraVerifier_<typename Flavor::NativeFlavor, NativeIO> native_verifier(native_vk_and_hash);
+    bool is_valid_proof = [&]() {
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            return native_verifier.verify_proof(honk_proof, ipa_proof).result;
+        } else {
+            return native_verifier.verify_proof(honk_proof).result;
+        }
+    }();
 
     info("===== HONK RECURSION CONSTRAINT DEBUG INFO =====");
     std::string flavor;

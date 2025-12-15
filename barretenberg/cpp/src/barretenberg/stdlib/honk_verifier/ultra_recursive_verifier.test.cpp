@@ -255,7 +255,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         InnerVerifier native_verifier(vk_and_hash);
         native_verifier.transcript->enable_manifest();
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            native_verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
             native_result = native_verifier.verify_proof(inner_proof, output.ipa_proof.get_value()).result;
         } else {
             native_result = native_verifier.verify_proof(inner_proof).result;
@@ -286,20 +285,18 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             OuterProver prover(prover_instance, verification_key);
             auto proof = prover.construct_proof();
             auto outer_vk_and_hash = std::make_shared<typename OuterFlavor::VKAndHash>(verification_key);
+            OuterVerifier verifier(outer_vk_and_hash);
             if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-                VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
-                OuterVerifier verifier(outer_vk_and_hash, ipa_verification_key);
                 bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
                 ASSERT_TRUE(result);
             } else {
-                OuterVerifier verifier(outer_vk_and_hash);
                 bool result = verifier.verify_proof(proof).result;
                 ASSERT_TRUE(result);
             }
         }
         // Check the size of the recursive verifier
         if constexpr (std::same_as<RecursiveFlavor, MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
-            uint32_t NUM_GATES_EXPECTED = 814520;
+            uint32_t NUM_GATES_EXPECTED = 814275; // Reduced from 814520 after ultra verifier unification
             ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()), NUM_GATES_EXPECTED)
                 << "MegaZKHonk Recursive verifier changed in Ultra gate count! Update this value if you "
                    "are sure this is expected.";

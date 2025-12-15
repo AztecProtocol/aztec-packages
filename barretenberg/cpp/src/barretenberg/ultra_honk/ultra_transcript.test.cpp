@@ -270,7 +270,6 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     typename TestFixture::Proof honk_proof;
     typename TestFixture::Proof ipa_proof;
     if constexpr (HasIPAAccumulator<TypeParam>) {
-        verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
         const size_t HONK_PROOF_LENGTH = TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS() - IPA_PROOF_LENGTH;
         const size_t num_public_inputs = static_cast<uint32_t>(verification_key->num_public_inputs);
         // The extra calculation is for the IPA proof length.
@@ -353,8 +352,13 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     auto proof = prover.construct_proof();
     typename TestFixture::Verifier verifier(vk_and_hash);
     {
-        bool result = verifier.verify_proof(proof).result;
-        EXPECT_TRUE(result);
+        if constexpr (HasIPAAccumulator<TypeParam>) {
+            bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
+            EXPECT_TRUE(result);
+        } else {
+            bool result = verifier.verify_proof(proof).result;
+            EXPECT_TRUE(result);
+        }
     }
 
     const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : prover_instance->log_dyadic_size();
@@ -367,8 +371,13 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
 
     proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     {
-        bool result = verifier.verify_proof(proof).result;
-        EXPECT_TRUE(result); // we have changed nothing so proof is still valid
+        if constexpr (HasIPAAccumulator<TypeParam>) {
+            bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
+            EXPECT_TRUE(result); // we have changed nothing so proof is still valid
+        } else {
+            bool result = verifier.verify_proof(proof).result;
+            EXPECT_TRUE(result); // we have changed nothing so proof is still valid
+        }
     }
 
     Commitment one_group_val = Commitment::one();
@@ -377,16 +386,26 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
     proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     {
-        bool result = verifier.verify_proof(proof).result;
-        EXPECT_TRUE(result); // we have not serialized it back to the proof so it should still be fine
+        if constexpr (HasIPAAccumulator<TypeParam>) {
+            bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
+            EXPECT_TRUE(result); // we have not serialized it back to the proof so it should still be fine
+        } else {
+            bool result = verifier.verify_proof(proof).result;
+            EXPECT_TRUE(result); // we have not serialized it back to the proof so it should still be fine
+        }
     }
 
     prover.transcript->serialize_full_transcript();
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
     proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     {
-        bool result = verifier.verify_proof(proof).result;
-        EXPECT_FALSE(result); // the proof is now wrong after serializing it
+        if constexpr (HasIPAAccumulator<TypeParam>) {
+            bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
+            EXPECT_FALSE(result); // the proof is now wrong after serializing it
+        } else {
+            bool result = verifier.verify_proof(proof).result;
+            EXPECT_FALSE(result); // the proof is now wrong after serializing it
+        }
     }
 
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs, virtual_log_n);
