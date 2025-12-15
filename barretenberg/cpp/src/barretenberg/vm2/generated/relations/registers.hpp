@@ -20,8 +20,7 @@ template <typename FF_> class registersImpl {
     {
         using C = ColumnAndShifts;
 
-        return ((in.get(C::execution_sel_should_read_registers) + in.get(C::execution_sel_should_write_registers)))
-            .is_zero();
+        return (in.get(C::execution_sel_should_read_registers)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
