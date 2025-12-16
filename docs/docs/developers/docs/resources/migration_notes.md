@@ -9,6 +9,40 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Note fields are now public
+
+All note struct fields are now public, and the `new()` constructor methods and getter methods have been removed. Notes should be instantiated using struct literal syntax, and fields should be accessed directly.
+
+The motivation for this change has been enshrining of randomness which lead to the `new` method being unnecessary boilerplate.
+
+**Affected notes:**
+
+- `UintNote` - `value` is now public, `new()` and `get_value()` removed
+- `AddressNote` - `address` is now public, `new()` and `get_address()` removed
+- `FieldNote` - `value` is now public, `new()` and `value()` removed
+
+**Migration:**
+
+```diff
+- let note = UintNote::new(100);
++ let note = UintNote { value: 100 };
+
+- let value = note.get_value();
++ let value = note.value;
+
+- let address_note = AddressNote::new(owner);
++ let address_note = AddressNote { address: owner };
+
+- let address = address_note.get_address();
++ let address = address_note.address;
+
+- let field_note = FieldNote::new(42);
++ let field_note = FieldNote { value: 42 };
+
+- let value = field_note.value();
++ let value = field_note.value;
+```
+
 ### [Aztec.nr] `emit` renamed to `deliver`
 
 Private state variable functions that created notes and returned their messages no longer return a `NoteEmission` but instead a `NoteMessage`. These messages are delivered to their recipient via `deliver` instead of `emit`. The verb 'emit' remains for things like emitting events.
@@ -534,6 +568,66 @@ The method now only accepts:
 Return value of `getNotes` used to be defined as `Promise<UniqueNote[]>` and now it's defined as `Promise<UniqueNote[]>`.
 `NoteDao` is mostly a super-set of `UniqueNote` but it doesn't contain a `recipient`.
 Having the recipient in the return value has been redundant as the same outcome can be achieved by populating the `scopes` array in `NoteFilter` with the `recipient` value.
+
+#### Changes to `getPrivateEvents`
+
+The signature of `getPrivateEvents` has changed for two reasons:
+
+1. To align it with how other query methods that include filtering by block range work (for example, `AztecNode#getPublicLogs`)
+2. To enrich the returned private events with metadata.
+
+```diff
+getPrivateEvents<T>(
+-    contractAddress: AztecAddress,
+-    eventMetadata: EventMetadataDefinition,
+-    from: number,
+-    numBlocks: number,
+-    recipients: AztecAddress[],
+-  ): Promise<T[]>;
++    eventFilter: PrivateEventFilter,
++  ): Promise<PrivateEvent<T>[]>;
+```
+
+`PrivateEvent<T>` bundles together an ABI decoded event of type `T`, with `metadata` of type `InTx`:
+
+```ts
+export type InBlock = {
+  l2BlockNumber: BlockNumber;
+  l2BlockHash: L2BlockHash;
+};
+
+export type InTx = InBlock & {
+  txHash: TxHash;
+};
+
+export type PrivateEvent<T> = {
+  event: T;
+  metadata: InTx;
+};
+```
+
+You will need to update any calls to `Wallet#getPrivateEvents` accordingly. See below for before/after comparison which conserves
+semantics.
+
+Pay special attention to the fact that the old method expects a `numBlocks` parameter that instructs it to
+return `numBlocks` blocks after `fromBlock`, whereas the new version expects an (exclusive) `toBlock` block number.
+
+Also note we're replacing _recipient_ terminology with _scope_. While underlying data types are equivalent (they are Aztec addresses), they have different semantics. Messages have a recipient who will be able to receive and process them. As a result of processing messages for a given recipient address, PXE might discover events. Those events are then said to be _in scope_ for that address.
+
+```diff
+- const events = await context.client.getPrivateEvents(contractAddress, eventMetadata, 42, 10, [recipient]);
+- doSomethingWithAnEvent(events[0]);
+
++ const events = await context.client.getPrivateEvents(eventMetadata, {
++   contractAddress,
++   fromBlock: BlockNumber(42),
++   toBlock: BlockNumber(42 + 10),
++   scopes: [scope],
++ });
++ doSomethingWithAnEvent(events[0].event);
+```
+
+Please refer to the wallet interface js-docs for further details.
 
 ### [CLI] Command refactor
 

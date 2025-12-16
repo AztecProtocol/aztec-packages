@@ -1,5 +1,4 @@
 import { type Logger, createLogger, logLevel } from '@aztec/foundation/log';
-import { writeTestData } from '@aztec/foundation/testing/files';
 import { avmSimulate } from '@aztec/native';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import {
@@ -126,12 +125,6 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     // Deserialize the msgpack result
     this.log.debug(`Deserializing C++ from buffer (size: ${resultBuffer.length})...`);
     const cppResultJSON: object = deserializeFromMessagePack(resultBuffer);
-    // Write testdata if AZTEC_WRITE_TESTDATA=1.
-    writeTestData(
-      `barretenberg/cpp/src/barretenberg/vm2/testing/tx_result_${txHash}.testdata.bin`,
-      resultBuffer,
-      /*raw=*/ true,
-    );
     this.log.debug(`Deserializing C++ result to PublicTxResult...`);
     const cppResult = PublicTxResult.fromPlainObject(cppResultJSON);
     this.log.debug(`Done.`);

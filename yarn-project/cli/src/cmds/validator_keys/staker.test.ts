@@ -1,8 +1,9 @@
 /* eslint-disable camelcase */
 import { GSEContract } from '@aztec/ethereum';
-import { computeBn254G1PublicKey, computeBn254G2PublicKey, deriveBlsKeyFromMnemonic } from '@aztec/foundation/crypto';
+import { deriveBlsKeyFromMnemonic } from '@aztec/foundation/crypto/bls';
+import { computeBn254G1PublicKey, computeBn254G2PublicKey } from '@aztec/foundation/crypto/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import type { AttesterAccount, BLSAccount, EthAccount } from '@aztec/node-keystore/types';
 
 import { wordlist } from '@scure/bip39/wordlists/english.js';

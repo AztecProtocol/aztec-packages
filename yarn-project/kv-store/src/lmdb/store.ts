@@ -1,4 +1,4 @@
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { createLogger } from '@aztec/foundation/log';
 
 import { promises as fs, mkdirSync } from 'fs';

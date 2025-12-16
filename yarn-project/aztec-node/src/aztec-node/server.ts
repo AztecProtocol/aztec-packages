@@ -19,8 +19,8 @@ import {
 } from '@aztec/ethereum';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, pick } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { count } from '@aztec/foundation/string';
@@ -929,7 +929,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex ? BlockNumber(InboxLeaf.l2BlockFromIndex(messageIndex)) : undefined;
+    return messageIndex
+      ? BlockNumber.fromCheckpointNumber(InboxLeaf.checkpointNumberFromIndex(messageIndex))
+      : undefined;
   }
 
   /**

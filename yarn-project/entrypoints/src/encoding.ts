@@ -1,7 +1,7 @@
 import { GeneratorIndex } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { HashedValues } from '@aztec/stdlib/tx';

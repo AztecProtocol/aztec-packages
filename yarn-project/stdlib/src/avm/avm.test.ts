@@ -1,4 +1,4 @@
-import { randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { getPathToFile, readTestData, writeTestData } from '@aztec/foundation/testing/files';

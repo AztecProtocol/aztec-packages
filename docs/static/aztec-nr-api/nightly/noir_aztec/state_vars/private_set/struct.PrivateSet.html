@@ -148,7 +148,7 @@ inserted, to the outside world.
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_set/struct.PrivateSet.html" class="struct">PrivateSet</a>&lt;Note, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="insert" class="code-header">pub fn <a href="#insert"><span class="fn">insert</span></a>(self, note: Note) -> <a href="../../../noir_aztec/note/note_emission/struct.NoteEmission.html" class="struct">NoteEmission</a>&lt;Note&gt;
+<div class="padded-methods"><code id="insert" class="code-header">pub fn <a href="#insert"><span class="fn">insert</span></a>(self, note: Note) -> <a href="../../../noir_aztec/note/note_message/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
@@ -164,7 +164,7 @@ PrivateSet.</li>
 </ul>
 <h4>Returns</h4>
 <ul>
-<li>NoteEmission<Note> - A type-safe wrapper which makes it clear to the
+<li>NoteMessage<Note> - A type-safe wrapper which makes it clear to the
 smart contract dev that they now have a choice: they
 need to decide whether they would like to send the contents of the newly-
 created note to someone, or not. If they would like to, they have some
@@ -174,9 +174,8 @@ further choices:
 <li>What kind of encryption scheme to use? (Currently only AES128 is supported)</li>
 <li>Whether to <em>constrain</em> delivery of the note, or not.
 At the moment, aztec-nr provides limited options.
-You can call <code>.emit()</code> on the returned type to encrypt and log the note, or
-<code>.discard()</code> to skip emission.
-See NoteEmission for more details.</li>
+You can call <code>.deliver()</code> on the returned type to encrypt and log the note.
+See NoteMessage for more details.</li>
 </ul>
 <blockquote>
 <p>Note: We're planning a <em>significant</em> refactor of this syntax, to make the
@@ -345,7 +344,7 @@ from the i</li>
 </ul>
 <h4>Returns</h4>
 <ul>
-<li>NoteEmission<Note> - A type-safe wrapper which makes it clear to the
+<li>NoteMessage<Note> - A type-safe wrapper which makes it clear to the
 smart contract dev that they now have a choice: they
 need to decide whether they would like to send the contents of the newly-
 created note to someone, or not. If they would like to, they have some
@@ -355,7 +354,7 @@ further choices:
 <li>What kind of encryption scheme to use? (Currently only AES128 is supported)</li>
 <li>Whether to <em>constrain</em> delivery of the note, or not.
 At the moment, aztec-nr provides limited options.
-See NoteEmission for further details.</li>
+See NoteMessage for further details.</li>
 </ul>
 <blockquote>
 <p>Note: We're planning a <em>significant</em> refactor of this syntax, to make the

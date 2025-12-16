@@ -4,10 +4,10 @@ import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
@@ -275,7 +275,6 @@ describe('sequencer', () => {
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
-      getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
     });
 
