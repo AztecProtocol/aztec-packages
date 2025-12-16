@@ -34,7 +34,7 @@ jobs:
           # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # Fetch PR commits depth (we'll deepen by 1 in squash script if needed)
-          fetch-depth: ${{ github.event.pull_request.commits || 1 }}
+          fetch-depth: ${{ github.event.pull_request.commits || 0 }}
           persist-credentials: false
 
       - name: Run
