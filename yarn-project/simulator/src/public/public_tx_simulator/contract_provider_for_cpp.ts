@@ -86,7 +86,12 @@ export class ContractProviderForCpp implements ContractProvider {
     // Parse address and selector strings
     const aztecAddr = AztecAddress.fromString(address);
     const selectorFr = Fr.fromString(selector);
-    const functionSelector = FunctionSelector.fromField(selectorFr);
+    const functionSelector = FunctionSelector.fromFieldOrUndefined(selectorFr);
+
+    if (!functionSelector) {
+      this.log.debug(`calldata[0] is not a function selector: ${selector}`);
+      return undefined;
+    }
 
     // Fetch debug function name from the contracts DB
     const name = await this.contractsDB.getDebugFunctionName(aztecAddr, functionSelector);

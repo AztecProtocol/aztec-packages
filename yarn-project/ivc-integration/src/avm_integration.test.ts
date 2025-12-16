@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester, bulkTest, executeAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
-import { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { AvmCircuitInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { RecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state/native';
@@ -33,6 +33,15 @@ import {
 jest.setTimeout(120_000);
 
 const logger = createLogger('ivc-integration:test:avm-integration');
+
+const simConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
+  skipFeeEnforcement: false,
+  collectCallMetadata: true, // For results.
+  collectDebugLogs: false,
+  collectHints: true, // Required for proving!
+  collectPublicInputs: true, // Required for proving!
+  collectStatistics: false,
+});
 
 async function proveMockPublicBaseRollup(
   avmCircuitInputs: AvmCircuitInputs,
@@ -107,7 +116,13 @@ describe('AVM Integration', () => {
     bbWorkingDirectory = await getWorkingDirectory('bb-avm-integration-');
 
     worldStateService = await NativeWorldStateService.tmp();
-    simTester = await PublicTxSimulationTester.create(worldStateService);
+    simTester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined, // default
+      /*metrics=*/ undefined,
+      /*useCppSimulator=*/ true,
+      simConfig,
+    );
   });
 
   afterEach(async () => {
