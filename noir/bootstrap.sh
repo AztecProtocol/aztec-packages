@@ -124,6 +124,32 @@ function release {
   done
 }
 
+# Port release: re-tag NPM packages from source version to target dist tag.
+function port_release {
+  local source_ref=${1:-$SOURCE_REF}
+  local target_ref=${2:-$TARGET_REF}
+
+  echo_header "noir port_release: $source_ref -> $target_ref"
+
+  local source_version=${source_ref#v}
+  local target_dist_tag=$(REF_NAME=$target_ref dist_tag)
+
+  for package in $js_projects; do
+    # Packages are published as @aztec/noir-* not @noir-lang/*.
+    local npm_package="@aztec/noir-${package#*/}"
+
+    # Check if source version exists on NPM.
+    if ! npm view "$npm_package@$source_version" version >/dev/null 2>&1; then
+      echo "Warning: $npm_package@$source_version not found on NPM, skipping."
+      continue
+    fi
+
+    # Tag existing version with target dist tag.
+    echo "Tagging $npm_package@$source_version as $target_dist_tag..."
+    do_or_dryrun npm dist-tag add "$npm_package@$source_version" "$target_dist_tag"
+  done
+}
+
 case "$cmd" in
   "clean")
     # Double `f` needed to delete the nested git repository.

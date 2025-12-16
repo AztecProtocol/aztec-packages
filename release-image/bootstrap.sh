@@ -76,6 +76,46 @@ function release {
   fi
 }
 
+# Port release: re-tag Docker images from source version to target version/dist_tag.
+function port_release {
+  local source_ref=${1:-$SOURCE_REF}
+  local target_ref=${2:-$TARGET_REF}
+
+  echo_header "release-image port_release: $source_ref -> $target_ref"
+
+  if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
+    echo "Missing DOCKERHUB_PASSWORD."
+    exit 1
+  fi
+  echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
+
+  local source_tag=${source_ref#v}
+  local target_tag=${target_ref#v}
+  local target_dist_tag=$(REF_NAME=$target_ref dist_tag)
+
+  # Check if source manifest exists.
+  if ! docker manifest inspect "aztecprotocol/aztec:$source_tag" &>/dev/null; then
+    echo "Error: aztecprotocol/aztec:$source_tag not found on Docker Hub."
+    exit 1
+  fi
+
+  # Create manifest for target tag using source arch-specific images.
+  echo "Creating manifest for aztecprotocol/aztec:$target_tag..."
+  docker manifest rm "aztecprotocol/aztec:$target_tag" &>/dev/null || true
+  do_or_dryrun docker manifest create "aztecprotocol/aztec:$target_tag" \
+    --amend "aztecprotocol/aztec:$source_tag-amd64" \
+    --amend "aztecprotocol/aztec:$source_tag-arm64"
+  do_or_dryrun docker manifest push "aztecprotocol/aztec:$target_tag"
+
+  # Create manifest for target dist_tag.
+  echo "Creating manifest for aztecprotocol/aztec:$target_dist_tag..."
+  docker manifest rm "aztecprotocol/aztec:$target_dist_tag" &>/dev/null || true
+  do_or_dryrun docker manifest create "aztecprotocol/aztec:$target_dist_tag" \
+    --amend "aztecprotocol/aztec:$source_tag-amd64" \
+    --amend "aztecprotocol/aztec:$source_tag-arm64"
+  do_or_dryrun docker manifest push "aztecprotocol/aztec:$target_dist_tag"
+}
+
 function push {
   echo_header "release-image push"
 

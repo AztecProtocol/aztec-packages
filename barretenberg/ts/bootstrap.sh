@@ -63,6 +63,32 @@ function release {
   retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
 }
 
+# Port release: re-tag NPM package from source version to target dist tag.
+function port_release {
+  local source_ref=${1:-$SOURCE_REF}
+  local target_ref=${2:-$TARGET_REF}
+
+  echo_header "bb.js port_release: $source_ref -> $target_ref"
+
+  local source_version=${source_ref#v}
+  local target_version=${target_ref#v}
+
+  # Compute target dist tag from target_ref.
+  local target_dist_tag=$(REF_NAME=$target_ref dist_tag)
+
+  local package_name=$(jq -r '.name' package.json)
+
+  # Check if source version exists on NPM.
+  if ! npm view "$package_name@$source_version" version >/dev/null 2>&1; then
+    echo "Error: $package_name@$source_version not found on NPM."
+    exit 1
+  fi
+
+  # Tag existing version with target dist tag.
+  echo "Tagging $package_name@$source_version as $target_dist_tag..."
+  do_or_dryrun npm dist-tag add "$package_name@$source_version" "$target_dist_tag"
+}
+
 function cross_copy {
   ./scripts/copy_cross.sh
 }

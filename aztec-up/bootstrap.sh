@@ -48,6 +48,32 @@ function release {
   fi
 }
 
+# Port release: copy S3 artifacts from source version to target version/dist_tag.
+function port_release {
+  local source_ref=${1:-$SOURCE_REF}
+  local target_ref=${2:-$TARGET_REF}
+
+  echo_header "aztec-up port_release: $source_ref -> $target_ref"
+
+  local source_version=${source_ref#v}
+  local target_version=${target_ref#v}
+  local target_dist_tag=$(REF_NAME=$target_ref dist_tag)
+
+  # Copy from source version to target version.
+  echo "Copying S3 files from $source_version to $target_version..."
+  do_or_dryrun aws s3 sync "s3://install.aztec.network/$source_version/" "s3://install.aztec.network/$target_version/"
+
+  if [[ "$target_dist_tag" != "latest" ]]; then
+    # Also copy to dist_tag directory, if not latest.
+    echo "Copying S3 files to $target_dist_tag..."
+    do_or_dryrun aws s3 sync "s3://install.aztec.network/$source_version/" "s3://install.aztec.network/$target_dist_tag/"
+  else
+    # Copy to root for latest.
+    echo "Copying S3 files to root (latest)..."
+    do_or_dryrun aws s3 sync "s3://install.aztec.network/$source_version/" "s3://install.aztec.network/"
+  fi
+}
+
 case "$cmd" in
   "")
     ;;

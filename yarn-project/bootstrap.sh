@@ -234,6 +234,33 @@ function release {
   release_packages "$(dist_tag)" "${REF_NAME#v}"
 }
 
+# Port release: re-tag NPM packages from source version to target dist tag.
+function port_release {
+  local source_ref=${1:-$SOURCE_REF}
+  local target_ref=${2:-$TARGET_REF}
+
+  echo_header "yarn-project port_release: $source_ref -> $target_ref"
+
+  local source_version=${source_ref#v}
+  local target_dist_tag=$(REF_NAME=$target_ref dist_tag)
+
+  echo "Computing packages to port..."
+  local packages=$(get_projects topological)
+  for package in $packages; do
+    local package_name=$(jq -r .name "$package/package.json")
+
+    # Check if source version exists on NPM.
+    if ! npm view "$package_name@$source_version" version >/dev/null 2>&1; then
+      echo "Warning: $package_name@$source_version not found on NPM, skipping."
+      continue
+    fi
+
+    # Tag existing version with target dist tag.
+    echo "Tagging $package_name@$source_version as $target_dist_tag..."
+    do_or_dryrun npm dist-tag add "$package_name@$source_version" "$target_dist_tag"
+  done
+}
+
 case "$cmd" in
   "clean")
     [ -n "${1:-}" ] && cd $1

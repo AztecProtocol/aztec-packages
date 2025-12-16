@@ -1,0 +1,68 @@
+name: Port Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Source release tag (e.g., v1.2.3-rc.1)"
+        required: true
+        type: string
+      target_ref:
+        description: "Target release tag (e.g., v1.2.3)"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run (don't actually publish)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: port-release-${{ github.event.inputs.target_ref }}
+  cancel-in-progress: false
+
+jobs:
+  port-release:
+    name: Port Release (${{ github.event.inputs.source_ref }} -> ${{ github.event.inputs.target_ref }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate inputs
+        run: |
+          # Validate source_ref is a valid semver
+          if ! [[ "${{ github.event.inputs.source_ref }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "Error: source_ref must be a valid semver tag (e.g., v1.2.3 or v1.2.3-rc.1)"
+            exit 1
+          fi
+          # Validate target_ref is a valid semver
+          if ! [[ "${{ github.event.inputs.target_ref }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "Error: target_ref must be a valid semver tag (e.g., v1.2.3)"
+            exit 1
+          fi
+          echo "Porting release from ${{ github.event.inputs.source_ref }} to ${{ github.event.inputs.target_ref }}"
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.inputs.source_ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Port Release
+        env:
+          SOURCE_REF: ${{ github.event.inputs.source_ref }}
+          TARGET_REF: ${{ github.event.inputs.target_ref }}
+          DRY_RUN: ${{ github.event.inputs.dry_run && '1' || '0' }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          GH_TOKEN: ${{ github.token }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          ./bootstrap.sh port_release "$SOURCE_REF" "$TARGET_REF"

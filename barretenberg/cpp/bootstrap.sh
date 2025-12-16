@@ -378,6 +378,32 @@ function release {
   do_or_dryrun gh release upload $REF_NAME build-release/* --clobber
 }
 
+# Port release: download artifacts from source release and upload to target release.
+function port_release {
+  local source_ref=${1:-$SOURCE_REF}
+  local target_ref=${2:-$TARGET_REF}
+
+  echo_header "bb cpp port_release: $source_ref -> $target_ref"
+
+  # Create temporary directory for artifacts.
+  local tmpdir=$(mktemp -d)
+  trap "rm -rf $tmpdir" EXIT
+
+  # Download artifacts from source release.
+  echo "Downloading artifacts from $source_ref..."
+  gh release download "$source_ref" --dir "$tmpdir" --pattern "barretenberg-*.tar.gz" || {
+    echo "Warning: Could not download all barretenberg artifacts from $source_ref"
+  }
+
+  # Upload to target release.
+  if [ -n "$(ls -A $tmpdir 2>/dev/null)" ]; then
+    echo "Uploading artifacts to $target_ref..."
+    do_or_dryrun gh release upload "$target_ref" "$tmpdir"/* --clobber
+  else
+    echo "No artifacts found to port."
+  fi
+}
+
 function bench_ivc {
   # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
   # Sample usage (CI=1 required for bench results to be visible; exclude NO_WASM=1 to run wasm benchmarks):

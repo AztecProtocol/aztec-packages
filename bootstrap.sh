@@ -488,6 +488,58 @@ function release_dryrun {
   DRY_RUN=1 release
 }
 
+# Port a release from one REF_NAME to another.
+# This republishes artifacts from a source release under a new target release tag.
+# Usage: ./bootstrap.sh port_release <source_ref> <target_ref>
+# Example: ./bootstrap.sh port_release v1.2.3-rc.1 v1.2.3
+function port_release {
+  local source_ref=${1:-}
+  local target_ref=${2:-}
+
+  if [ -z "$source_ref" ] || [ -z "$target_ref" ]; then
+    echo "Usage: ./bootstrap.sh port_release <source_ref> <target_ref>"
+    echo "Example: ./bootstrap.sh port_release v1.2.3-rc.1 v1.2.3"
+    exit 1
+  fi
+
+  if ! semver check "$source_ref"; then
+    echo "Error: source_ref '$source_ref' is not a valid semver tag."
+    exit 1
+  fi
+
+  if ! semver check "$target_ref"; then
+    echo "Error: target_ref '$target_ref' is not a valid semver tag."
+    exit 1
+  fi
+
+  echo_header "port release: $source_ref -> $target_ref"
+  set -x
+
+  # Export for use in submodules.
+  export SOURCE_REF="$source_ref"
+  export TARGET_REF="$target_ref"
+
+  # Set REF_NAME to target for release_github and dist_tag.
+  export REF_NAME="$target_ref"
+
+  # Ensure we have a github release for our target REF_NAME.
+  release_github
+
+  projects=(
+    barretenberg/cpp
+    barretenberg/ts
+    noir
+    yarn-project
+    aztec-up
+    playground
+    release-image
+  )
+
+  for project in "${projects[@]}"; do
+    $project/bootstrap.sh port_release "$source_ref" "$target_ref"
+  done
+}
+
 case "$cmd" in
   "clean")
     echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
