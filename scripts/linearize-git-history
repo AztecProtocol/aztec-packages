@@ -1,0 +1,555 @@
+#!/usr/bin/env bash
+# Linearize git history by rebasing away merge commits.
+#
+# This script creates a linear version of git history by:
+# 1. Forking off HEAD~num_commits
+# 2. Walking commits in first-parent order
+# 3. For each top-level commit, ensure our tree matches the commit's first-parent tree
+# 4. PR merge commits → squash into single commit (diff from first-parent)
+# 5. Merge-train commits → recurse into them, processing PR commits found
+# 6. Sync merges → skip (they don't introduce new content, just sync state)
+# 7. Regular commits → cherry-pick as-is
+#
+# Key insight: Before processing any top-level commit, we align our tree to match
+# what the commit expects (its first-parent's tree). This keeps state fixups small
+# and localized rather than accumulating drift.
+#
+# Usage: scripts/linearize-git-history <num_commits> [--push]
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+NC='\033[0m' # No Color
+
+log_info() { echo -e "${BLUE}INFO:${NC} $*"; }
+log_success() { echo -e "${GREEN}SUCCESS:${NC} $*"; }
+log_warn() { echo -e "${YELLOW}WARN:${NC} $*"; }
+log_error() { echo -e "${RED}ERROR:${NC} $*" >&2; }
+log_fixup() { echo -e "${MAGENTA}FIXUP:${NC} $*"; }
+
+# Parse arguments
+num_commits=""
+push_result=0
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --push)
+            push_result=1
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 <num_commits> [--push]"
+            echo ""
+            echo "Create a linearized version of git history."
+            echo ""
+            echo "Arguments:"
+            echo "  num_commits    Number of commits from HEAD to rewrite"
+            echo "  --push         Push the result to origin/next-linear-git"
+            echo ""
+            echo "The script will:"
+            echo "  - Fork off HEAD~num_commits"
+            echo "  - For each commit, align tree state before processing"
+            echo "  - PR merge commits become squashed single commits"
+            echo "  - Merge-train commits are flattened by recursing into them"
+            echo "  - Sync merges are skipped (they just sync state)"
+            exit 0
+            ;;
+        *)
+            if [[ -z "$num_commits" ]]; then
+                num_commits="$1"
+            else
+                log_error "Unknown argument: $1"
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$num_commits" ]]; then
+    log_error "Usage: $0 <num_commits> [--push]"
+    exit 1
+fi
+
+if ! [[ "$num_commits" =~ ^[0-9]+$ ]]; then
+    log_error "num_commits must be a positive integer"
+    exit 1
+fi
+
+# Target branch name
+TARGET_BRANCH="next-linear-git"
+
+# Save original branch to return to later
+original_branch=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$original_branch" == "HEAD" ]]; then
+    original_branch=$(git rev-parse HEAD)
+fi
+
+# Get the starting point (fork point)
+fork_point=$(git rev-parse "HEAD~$num_commits")
+log_info "Fork point: $fork_point (HEAD~$num_commits)"
+log_info "Will linearize $num_commits commits from HEAD"
+
+# Get the current HEAD
+current_head=$(git rev-parse HEAD)
+log_info "Current HEAD: $current_head"
+
+# Create a working branch from the fork point
+work_branch="linearize-work-$$"
+log_info "Creating working branch: $work_branch"
+git checkout -B "$work_branch" "$fork_point" --quiet
+
+# Counters
+processed=0
+fixups=0
+squashed=0
+skipped=0
+
+# Helper to safely increment counters
+incr() { (($1++)) || true; }
+
+# Cleanup function
+cleanup_on_error() {
+    log_error "Cleaning up..."
+    git cherry-pick --abort 2>/dev/null || true
+    git reset --hard HEAD 2>/dev/null || true
+    git checkout "$original_branch" --quiet 2>/dev/null || true
+    git branch -D "$work_branch" 2>/dev/null || true
+}
+
+# Function to check if a commit is a merge commit
+is_merge_commit() {
+    local commit="$1"
+    local parent_count
+    parent_count=$(git cat-file -p "$commit" | grep -c "^parent")
+    [[ "$parent_count" -gt 1 ]]
+}
+
+# Function to check if a commit is a PR merge (has PR number but NOT merge-train)
+is_pr_merge() {
+    local commit="$1"
+    local message
+    message=$(git log -1 --format="%s" "$commit")
+    # Has PR number but is NOT a merge-train merge
+    [[ "$message" =~ \#[0-9]+ ]] && ! [[ "$message" =~ merge-train/ ]]
+}
+
+# Function to check if a commit is a sync merge (e.g., "Merge branch 'next' into ...")
+# These don't introduce new content, just sync state from the main branch
+is_sync_merge() {
+    local commit="$1"
+    local message
+    message=$(git log -1 --format="%s" "$commit")
+    [[ "$message" =~ ^Merge\ branch ]] && ! [[ "$message" =~ \#[0-9]+ ]]
+}
+
+# Function to get the first child commit of a merge (for author info)
+get_first_child_of_merge() {
+    local merge_commit="$1"
+    local first_parent second_parent
+    first_parent=$(git rev-parse "${merge_commit}^1")
+    second_parent=$(git rev-parse "${merge_commit}^2")
+
+    # Get first non-merge commit from the merged branch
+    git rev-list --reverse --no-merges "${first_parent}..${second_parent}" | head -1
+}
+
+# Function to align our tree to match a target tree
+# This is used for top-level commits to ensure we're in the right state
+align_tree_to() {
+    local target_tree="$1"
+    local reason="$2"
+
+    local current_tree
+    current_tree=$(git rev-parse "HEAD^{tree}")
+
+    if [[ "$current_tree" == "$target_tree" ]]; then
+        return 0  # Already aligned
+    fi
+
+    # Create a fixup commit that sets our tree to match the target
+    local new_commit
+    new_commit=$(git commit-tree "$target_tree" -p HEAD -m "state fixup: $reason")
+    git reset --hard "$new_commit" --quiet
+    log_fixup "Tree alignment: $reason"
+    incr fixups
+    return 0
+}
+
+# Function to apply a commit's diff (for PR merge squashing)
+apply_commit_diff() {
+    local commit="$1"
+    local message="$2"
+    local author_name="$3"
+    local author_email="$4"
+    local timestamp="$5"
+
+    local short_hash
+    short_hash=$(git rev-parse --short "$commit")
+    local first_parent
+    first_parent=$(git rev-parse "${commit}^1")
+
+    # Get all files that changed between first parent and merge commit
+    local changed_files
+    changed_files=$(git diff --name-only "$first_parent" "$commit" 2>/dev/null || true)
+
+    if [[ -z "$changed_files" ]]; then
+        log_warn "No changes in PR merge: $short_hash - $message"
+        return 0
+    fi
+
+    # Apply each file's final state from the merge commit
+    local files_applied=0
+    for file in $changed_files; do
+        if git cat-file -e "${commit}:${file}" 2>/dev/null; then
+            mkdir -p "$(dirname "$file")" 2>/dev/null || true
+            git show "${commit}:${file}" > "$file" 2>/dev/null || true
+            git add "$file" 2>/dev/null || true
+            ((files_applied++)) || true
+        elif git cat-file -e "${first_parent}:${file}" 2>/dev/null; then
+            # File was deleted in the merge
+            if [[ -f "$file" ]]; then
+                git rm -f "$file" 2>/dev/null || true
+                ((files_applied++)) || true
+            fi
+        fi
+    done
+
+    if [[ "$files_applied" -gt 0 ]] && ! git diff --cached --quiet 2>/dev/null; then
+        GIT_COMMITTER_DATE="$timestamp" \
+        GIT_AUTHOR_DATE="$timestamp" \
+        GIT_AUTHOR_NAME="$author_name" \
+        GIT_AUTHOR_EMAIL="$author_email" \
+        git commit -m "$message" --no-verify 2>/dev/null || true
+        log_success "Squashed PR: $short_hash - $message"
+        incr squashed
+        return 0
+    else
+        log_warn "No staged changes for PR merge: $short_hash"
+        return 0
+    fi
+}
+
+# Function to cherry-pick a commit (used for nested commits in merge-trains)
+# This does NOT do proactive tree alignment - only reactive conflict handling
+cherry_pick_nested() {
+    local commit="$1"
+    local timestamp="${2:-}"
+    local short_hash message author_date author_name author_email
+
+    short_hash=$(git rev-parse --short "$commit")
+    message=$(git log -1 --format="%s" "$commit")
+    author_date=$(git log -1 --format="%aD" "$commit")
+    author_name=$(git log -1 --format="%an" "$commit")
+    author_email=$(git log -1 --format="%ae" "$commit")
+
+    if [[ -z "$timestamp" ]]; then
+        timestamp=$(git log -1 --format="%cD" "$commit")
+    fi
+
+    # Try simple cherry-pick first
+    local cp_output
+    if cp_output=$(GIT_COMMITTER_DATE="$timestamp" \
+       GIT_AUTHOR_DATE="$author_date" \
+       GIT_AUTHOR_NAME="$author_name" \
+       GIT_AUTHOR_EMAIL="$author_email" \
+       git cherry-pick "$commit" 2>&1); then
+        log_success "Cherry-picked: $short_hash - $message"
+        incr processed
+        return 0
+    fi
+
+    # Check if this is a "nothing to commit" situation
+    if echo "$cp_output" | grep -q "nothing to commit"; then
+        git cherry-pick --skip 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
+        log_info "Skipping (already applied): $short_hash - $message"
+        incr skipped
+        return 0
+    fi
+
+    # Get conflicting files and abort
+    local unmerged_files deleted_by_us deleted_by_them conflicting_files
+    unmerged_files=$(git diff --name-only --diff-filter=U 2>/dev/null || true)
+    deleted_by_us=$(git diff --name-only --diff-filter=DU 2>/dev/null || true)
+    deleted_by_them=$(git diff --name-only --diff-filter=UD 2>/dev/null || true)
+    git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
+
+    conflicting_files="$unmerged_files $deleted_by_us $deleted_by_them"
+    conflicting_files=$(echo "$conflicting_files" | tr ' ' '\n' | grep -v '^$' | sort -u | tr '\n' ' ')
+
+    if [[ -n "$conflicting_files" ]]; then
+        log_warn "Conflict in nested: $short_hash - applying directly"
+
+        # Just apply the commit's changes directly
+        local commit_tree_files
+        commit_tree_files=$(git diff --name-only "${commit}^" "$commit" 2>/dev/null || true)
+        for file in $commit_tree_files; do
+            if git cat-file -e "${commit}:${file}" 2>/dev/null; then
+                mkdir -p "$(dirname "$file")" 2>/dev/null || true
+                git show "${commit}:${file}" > "$file" 2>/dev/null || true
+                git add "$file" 2>/dev/null || true
+            elif [[ -f "$file" ]]; then
+                git rm -f "$file" 2>/dev/null || true
+            fi
+        done
+
+        if ! git diff --cached --quiet 2>/dev/null; then
+            GIT_COMMITTER_DATE="$timestamp" \
+            GIT_AUTHOR_DATE="$author_date" \
+            GIT_AUTHOR_NAME="$author_name" \
+            GIT_AUTHOR_EMAIL="$author_email" \
+            git commit -m "$message" --no-verify 2>/dev/null || true
+            log_success "Cherry-picked (direct): $short_hash - $message"
+            incr processed
+            return 0
+        fi
+    fi
+
+    # Check if commit is empty
+    local diff_stat
+    diff_stat=$(git diff --stat "${commit}^" "$commit" 2>/dev/null || true)
+    if [[ -z "$diff_stat" ]]; then
+        log_info "Skipping empty commit: $short_hash - $message"
+        incr skipped
+        return 0
+    fi
+
+    log_error "Failed to apply nested: $short_hash - $message"
+    incr skipped
+    return 0
+}
+
+# Function to process a top-level non-merge commit
+# This does proactive tree alignment before cherry-picking
+process_top_level_commit() {
+    local commit="$1"
+    local short_hash message author_date author_name author_email timestamp
+    local commit_parent commit_parent_tree
+
+    short_hash=$(git rev-parse --short "$commit")
+    message=$(git log -1 --format="%s" "$commit")
+    author_date=$(git log -1 --format="%aD" "$commit")
+    author_name=$(git log -1 --format="%an" "$commit")
+    author_email=$(git log -1 --format="%ae" "$commit")
+    timestamp=$(git log -1 --format="%cD" "$commit")
+
+    # Get the commit's parent tree - this is what the commit expects to be applied on top of
+    commit_parent=$(git rev-parse "${commit}^" 2>/dev/null || echo "$commit")
+    commit_parent_tree=$(git rev-parse "${commit_parent}^{tree}")
+
+    # Align our tree to match what this commit expects
+    align_tree_to "$commit_parent_tree" "before $short_hash"
+
+    # Now cherry-pick should work cleanly
+    if GIT_COMMITTER_DATE="$timestamp" \
+       GIT_AUTHOR_DATE="$author_date" \
+       GIT_AUTHOR_NAME="$author_name" \
+       GIT_AUTHOR_EMAIL="$author_email" \
+       git cherry-pick "$commit" 2>/dev/null; then
+        log_success "Cherry-picked: $short_hash - $message"
+        incr processed
+        return 0
+    fi
+
+    # If still failing, just apply the commit's tree directly
+    git cherry-pick --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null || true
+
+    local commit_tree
+    commit_tree=$(git rev-parse "${commit}^{tree}")
+
+    local new_commit
+    new_commit=$(git commit-tree "$commit_tree" -p HEAD -m "$message")
+
+    # Set author info properly
+    GIT_COMMITTER_DATE="$timestamp" \
+    GIT_AUTHOR_DATE="$author_date" \
+    GIT_AUTHOR_NAME="$author_name" \
+    GIT_AUTHOR_EMAIL="$author_email" \
+    git reset --hard "$new_commit" --quiet
+
+    log_success "Applied (tree copy): $short_hash - $message"
+    incr processed
+    return 0
+}
+
+# Function to process a PR merge commit (squash it)
+# This also does proactive tree alignment
+process_pr_merge() {
+    local commit="$1"
+    local short_hash message timestamp author_name author_email
+    local first_parent first_parent_tree
+
+    short_hash=$(git rev-parse --short "$commit")
+    message=$(git log -1 --format="%s" "$commit")
+    timestamp=$(git log -1 --format="%cD" "$commit")
+
+    # Get author from first child commit if available
+    local first_child
+    first_child=$(get_first_child_of_merge "$commit")
+    if [[ -n "$first_child" ]]; then
+        author_name=$(git log -1 --format="%an" "$first_child")
+        author_email=$(git log -1 --format="%ae" "$first_child")
+    else
+        author_name=$(git log -1 --format="%an" "$commit")
+        author_email=$(git log -1 --format="%ae" "$commit")
+    fi
+
+    # Align to first parent's tree before applying the PR diff
+    first_parent=$(git rev-parse "${commit}^1")
+    first_parent_tree=$(git rev-parse "${first_parent}^{tree}")
+    align_tree_to "$first_parent_tree" "before PR $short_hash"
+
+    log_info "Squashing PR merge: $short_hash - $message"
+    apply_commit_diff "$commit" "$message" "$author_name" "$author_email" "$timestamp"
+}
+
+# Function to recursively process commits from a merge (for non-PR merges like merge-train)
+# Nested commits do NOT get proactive tree alignment - they use reactive conflict handling
+process_merge_children() {
+    local merge_commit="$1"
+    local first_parent second_parent
+    first_parent=$(git rev-parse "${merge_commit}^1")
+    second_parent=$(git rev-parse "${merge_commit}^2")
+
+    # Get all commits from the merged branch in topological order
+    local commits_to_process
+    mapfile -t commits_to_process < <(git rev-list --reverse --topo-order "${first_parent}..${second_parent}")
+
+    local merge_timestamp
+    merge_timestamp=$(git log -1 --format="%cD" "$merge_commit")
+
+    for child_commit in "${commits_to_process[@]}"; do
+        if is_merge_commit "$child_commit"; then
+            if is_pr_merge "$child_commit"; then
+                # PR merge inside merge-train - squash it (with tree alignment)
+                process_pr_merge "$child_commit"
+            elif is_sync_merge "$child_commit"; then
+                # Sync merge - skip it
+                local child_short
+                child_short=$(git rev-parse --short "$child_commit")
+                log_info "Skipping sync merge: $child_short"
+            else
+                # Other non-PR merge - recurse into it
+                local child_short
+                child_short=$(git rev-parse --short "$child_commit")
+                log_info "Recursing into nested merge: $child_short"
+                process_merge_children "$child_commit"
+            fi
+        else
+            # Regular commit inside merge-train - cherry-pick (no proactive alignment)
+            cherry_pick_nested "$child_commit" "$merge_timestamp"
+        fi
+    done
+}
+
+# Function to process a merge-train merge
+# This aligns to first parent tree, then processes children
+process_merge_train() {
+    local commit="$1"
+    local short_hash first_parent first_parent_tree
+
+    short_hash=$(git rev-parse --short "$commit")
+    first_parent=$(git rev-parse "${commit}^1")
+    first_parent_tree=$(git rev-parse "${first_parent}^{tree}")
+
+    # Align to first parent's tree before processing merge-train contents
+    align_tree_to "$first_parent_tree" "before merge-train $short_hash"
+
+    process_merge_children "$commit"
+}
+
+# Get list of commits to process (from fork_point to current_head, first-parent only)
+log_info "Collecting commits to process..."
+mapfile -t commits < <(git rev-list --reverse --first-parent "${fork_point}..${current_head}")
+
+log_info "Processing ${#commits[@]} top-level commits..."
+
+for commit in "${commits[@]}"; do
+    message=$(git log -1 --format="%s" "$commit")
+    short_hash=$(git rev-parse --short "$commit")
+
+    if is_merge_commit "$commit"; then
+        if is_pr_merge "$commit"; then
+            # PR merge - squash into single commit (with tree alignment)
+            process_pr_merge "$commit"
+        elif is_sync_merge "$commit"; then
+            # Top-level sync merge - align tree and skip
+            local first_parent first_parent_tree
+            first_parent=$(git rev-parse "${commit}^1")
+            first_parent_tree=$(git rev-parse "${first_parent}^{tree}")
+            # For sync merges, align to the MERGE result (not first parent)
+            # since sync merges bring in state from main branch
+            local commit_tree
+            commit_tree=$(git rev-parse "${commit}^{tree}")
+            align_tree_to "$commit_tree" "sync merge $short_hash"
+            log_info "Applied sync merge state: $short_hash - $message"
+        else
+            # Non-PR merge (merge-train, etc) - process with tree alignment
+            log_info "Flattening merge: $short_hash - $message"
+            process_merge_train "$commit"
+        fi
+    else
+        # Regular non-merge commit - process with tree alignment
+        process_top_level_commit "$commit"
+    fi
+done
+
+# Final state alignment (should be minimal or none if we did everything right)
+log_info ""
+log_info "Checking final state alignment..."
+
+final_tree=$(git rev-parse "HEAD^{tree}")
+target_tree=$(git rev-parse "${current_head}^{tree}")
+
+if [[ "$final_tree" != "$target_tree" ]]; then
+    log_warn "Final tree differs from target - creating state fixup"
+    new_commit=$(git commit-tree "$target_tree" -p HEAD -m "state fixup: align with original HEAD")
+    git reset --hard "$new_commit"
+    log_fixup "Created final alignment commit"
+    incr fixups
+
+    final_tree=$(git rev-parse "HEAD^{tree}")
+    if [[ "$final_tree" == "$target_tree" ]]; then
+        log_success "Final tree matches target"
+    else
+        log_error "Failed to align trees"
+    fi
+else
+    log_success "Final tree already matches target"
+fi
+
+log_info ""
+log_info "Summary:"
+log_info "  Commits cherry-picked: $processed"
+log_info "  PR merges squashed: $squashed"
+log_info "  Commits skipped (already applied): $skipped"
+log_info "  State fixups created: $fixups"
+
+# Move to target branch
+log_info "Moving result to branch: $TARGET_BRANCH"
+git branch -f "$TARGET_BRANCH" "$work_branch"
+
+# Clean up working branch
+git checkout "$TARGET_BRANCH" --quiet
+git branch -D "$work_branch" 2>/dev/null || true
+
+# Count merge commits in result
+result_merges=$(git rev-list --count --merges "${fork_point}..HEAD")
+log_info "Merge commits in result: $result_merges"
+
+if [[ "$push_result" -eq 1 ]]; then
+    log_info "Pushing to origin/$TARGET_BRANCH..."
+    git push origin "$TARGET_BRANCH" --force-with-lease
+    log_success "Pushed to origin/$TARGET_BRANCH"
+else
+    log_info ""
+    log_info "Linear history is now on branch: $TARGET_BRANCH"
+    log_info "To push: git push origin $TARGET_BRANCH --force-with-lease"
+fi
+
+log_success "Done!"
