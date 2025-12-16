@@ -141,7 +141,7 @@ function test_cmds {
     local cmd_env=""
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser) ]]; then
+    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser|blob-sink/src/server) ]]; then
       prefix+=":ISOLATE=1:NAME=$test"
     fi
 
