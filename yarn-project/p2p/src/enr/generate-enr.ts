@@ -2,9 +2,9 @@ import type { LogFn } from '@aztec/foundation/log';
 import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
 import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
+import { ENR, SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
-import { ENR, SignableENR } from '@nethermindeth/enr';
 
 import { AZTEC_ENR_CLIENT_VERSION_KEY, AZTEC_ENR_KEY } from '../types/index.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';

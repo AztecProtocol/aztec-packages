@@ -3,8 +3,8 @@ import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
+import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
-import type { ENR } from '@nethermindeth/enr';
 
 import type { P2PConfig } from '../config.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';
