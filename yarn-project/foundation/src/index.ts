@@ -1,5 +1,6 @@
 // Reexport all folders at the root for packages targeting CommonJS
 export * as asyncMap from './async-map/index.js';
+export * as brandedTypes from './branded-types/index.js';
 export * as bigintBuffer from './bigint-buffer/index.js';
 export * as collection from './collection/index.js';
 export * as committable from './committable/index.js';

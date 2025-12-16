@@ -9,6 +9,7 @@ import {
   createEthereumChain,
 } from '@aztec/ethereum';
 import { maxBigint } from '@aztec/foundation/bigint';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { merge, pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -466,7 +467,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       }
 
       const pruneFromSlotNumber = header.globalVariables.slotNumber.toBigInt();
-      const pruneFromEpochNumber = getEpochAtSlot(pruneFromSlotNumber, this.l1constants);
+      const pruneFromEpochNumber: EpochNumber = getEpochAtSlot(pruneFromSlotNumber, this.l1constants);
 
       const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
 
@@ -726,7 +727,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
           });
           const provenSlotNumber =
             localBlockForDestinationProvenBlockNumber.header.globalVariables.slotNumber.toBigInt();
-          const provenEpochNumber = getEpochAtSlot(provenSlotNumber, this.l1constants);
+          const provenEpochNumber: EpochNumber = getEpochAtSlot(provenSlotNumber, this.l1constants);
           this.emit(L2BlockSourceEvents.L2BlockProven, {
             type: L2BlockSourceEvents.L2BlockProven,
             blockNumber: provenBlockNumber,
@@ -1049,13 +1050,13 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     );
   }
 
-  public getL2EpochNumber(): Promise<bigint | undefined> {
+  public getL2EpochNumber(): Promise<EpochNumber | undefined> {
     return Promise.resolve(
       this.l1Timestamp === undefined ? undefined : getEpochNumberAtTimestamp(this.l1Timestamp, this.l1constants),
     );
   }
 
-  public async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
+  public async getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]> {
     const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1constants);
     const blocks: L2Block[] = [];
 
@@ -1073,7 +1074,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return blocks.reverse();
   }
 
-  public async getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
+  public async getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
     const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1constants);
     const blocks: BlockHeader[] = [];
 
@@ -1091,7 +1092,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return blocks.reverse();
   }
 
-  public async isEpochComplete(epochNumber: bigint): Promise<boolean> {
+  public async isEpochComplete(epochNumber: EpochNumber): Promise<boolean> {
     // The epoch is complete if the current L2 block is the last one in the epoch (or later)
     const header = await this.getBlockHeader('latest');
     const slot = header?.globalVariables.slotNumber.toBigInt();
