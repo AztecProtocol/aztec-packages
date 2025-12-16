@@ -80,7 +80,7 @@ export async function addressingWithIndirectThenRelativeTagIssueTest(tester: Pub
   ]);
 
   const txLabel = 'AddressingWithIndirectThenRelativeTagInvalid';
-  return await testCustomBytecode(bytecode, tester, txLabel);
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 
 // First instruction sets UINT32_MAX at offset 0 (base address) with tag U32.
@@ -112,7 +112,7 @@ export async function addressingWithRelativeOverflowAndIndirectTagIssueTest(test
   ]);
 
   const txLabel = 'AddressingWithRelativeOverflowAndIndirectTagInvalid';
-  return await testCustomBytecode(bytecode, tester, txLabel);
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 
 export async function pcOutOfRangeTest(tester: PublicTxSimulationTester) {

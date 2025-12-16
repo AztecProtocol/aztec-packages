@@ -26,7 +26,7 @@ namespace bb::avm2::simulation {
  * - BASE_ADDRESS_INVALID: the base address is invalid
  * - RELATIVE_COMPUTATION_OOB: the relative address computation overflowed
  * - INVALID_ADDRESS_AFTER_INDIRECTION: the address obtained after applying indirection is invalid
- * Note: We do not stop processing the other operands if an error occurs as we need
+ * Note: We always process all operands even if an error occurs in one of them as we need
  * error information for each operand in the event to correctly perform the trace generation.
  */
 std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryInterface& memory)
@@ -129,11 +129,10 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
             // Then indirection.
             // That is, if indirection is used, resolved_operands[i] = memory[after_relative[i]].
             // We first store the after_relative values as is, and then we'll update them if they are indirect.
-            resolution_info.resolved_operand =
-                Operand::from(static_cast<MemoryAddress>(resolution_info.after_relative));
+            const auto after_relative_address = static_cast<MemoryAddress>(resolution_info.after_relative);
+            resolution_info.resolved_operand = Operand::from(after_relative_address);
             if (is_operand_indirect(instruction.indirect, i)) {
-                resolution_info.resolved_operand =
-                    memory.get(static_cast<MemoryAddress>(resolution_info.after_relative));
+                resolution_info.resolved_operand = memory.get(after_relative_address);
                 // Check the tag of the resolved operand.
                 if (!memory.is_valid_address(resolution_info.resolved_operand)) {
                     throw AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
@@ -145,10 +144,10 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
             // - after_relative is in the valid address range.
             // - resolved_operand is a valid address.
         } catch (const AddressingEventError& e) {
-            vinfo("Addressing error: ", to_string(e), " at operand ", i);
-            vinfo("Base address: ", event.base_address.to_string());
-            vinfo("After relative: ", resolution_info.after_relative);
-            vinfo("Resolved operand: ", resolution_info.resolved_operand.to_string());
+            debug("Addressing error: ", to_string(e), " at operand ", i);
+            debug("Base address: ", event.base_address.to_string());
+            debug("After relative: ", resolution_info.after_relative);
+            debug("Resolved operand: ", resolution_info.resolved_operand.to_string());
             resolution_info.error = e;
         }
     }

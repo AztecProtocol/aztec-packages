@@ -15,7 +15,7 @@ enum class AddressingEventError : uint8_t {
     // The base address (mem[0]) points to a MemoryValue not of the
     // right tag (not MemoryAddressTag).
     BASE_ADDRESS_INVALID,
-    // The relative computation overflowed.
+    // The relative computation overflowed the max memory address.
     RELATIVE_COMPUTATION_OOB,
     // The address obtained after applying indirection points to
     // a MemoryValue not of the right tag (not MemoryAddressTag).
