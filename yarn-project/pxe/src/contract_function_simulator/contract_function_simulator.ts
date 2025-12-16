@@ -74,6 +74,7 @@ import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
+import { getFunctionArtifact } from './oracle/common.js';
 import { Oracle } from './oracle/oracle.js';
 import { executePrivateFunction, verifyCurrentClassId } from './oracle/private_execution.js';
 import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
@@ -124,7 +125,7 @@ export class ContractFunctionSimulator {
       anchorBlockHeader,
     );
 
-    const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
+    const entryPointArtifact = await getFunctionArtifact(contractAddress, selector, this.contractDataProvider);
 
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
@@ -235,7 +236,7 @@ export class ContractFunctionSimulator {
   ): Promise<Fr[]> {
     await verifyCurrentClassId(call.to, this.executionDataProvider, this.contractDataProvider, anchorBlockHeader);
 
-    const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(call.to, call.selector);
+    const entryPointArtifact = await getFunctionArtifact(call.to, call.selector, this.contractDataProvider);
 
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);

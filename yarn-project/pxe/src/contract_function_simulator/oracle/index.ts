@@ -2,6 +2,7 @@ import type { Oracle } from './oracle.js';
 
 export * from './oracle.js';
 export * from './interfaces.js';
+export * from './common.js';
 
 /**
  * A conditional type that takes a type `T` and returns a union of its method names.

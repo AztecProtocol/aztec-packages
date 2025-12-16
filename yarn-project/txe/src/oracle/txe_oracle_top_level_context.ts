@@ -17,6 +17,7 @@ import {
   ORACLE_VERSION,
   PXEOracleInterface,
   enrichPublicSimulationError,
+  getFunctionArtifact,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
@@ -599,7 +600,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       to: targetContractAddress,
     };
 
-    const entryPointArtifact = await this.pxeOracleInterface.getFunctionArtifact(call.to, call.selector);
+    const entryPointArtifact = await getFunctionArtifact(call.to, call.selector, this.contractDataProvider);
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
     }

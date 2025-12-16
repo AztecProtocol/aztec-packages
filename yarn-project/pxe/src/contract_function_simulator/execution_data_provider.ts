@@ -2,7 +2,7 @@ import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { Point } from '@aztec/foundation/curves/grumpkin';
-import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
@@ -82,19 +82,6 @@ export interface ExecutionDataProvider {
     status: NoteStatus,
     scopes?: AztecAddress[],
   ): Promise<NoteData[]>;
-
-  /**
-   * Retrieve the artifact information of a specific function within a contract.
-   * The function is identified by its selector, which is a unique identifier generated from the function signature.
-   *
-   * @param contractAddress - The contract address.
-   * @param selector - The corresponding function selector.
-   * @returns A Promise that resolves to a FunctionArtifact object.
-   */
-  getFunctionArtifact(
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<FunctionArtifactWithContractName>;
 
   /**
    * Generates a stable function name for debug purposes.

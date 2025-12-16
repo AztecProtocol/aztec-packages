@@ -47,7 +47,7 @@ describe('Oracle Version Check test suite', () => {
         ...OracleVersionCheckContractArtifact.functions.find(f => f.name === 'private_function')!,
         contractName: OracleVersionCheckContractArtifact.name,
       };
-      executionDataProvider.getFunctionArtifact.mockResolvedValue(privateFunctionArtifact);
+      contractDataProvider.getFunctionArtifact.mockResolvedValue(privateFunctionArtifact);
 
       // Form the execution request for the private function
       const selector = await FunctionSelector.fromNameAndParameters(
@@ -87,7 +87,7 @@ describe('Oracle Version Check test suite', () => {
         ...OracleVersionCheckContractArtifact.functions.find(f => f.name === 'utility_function')!,
         contractName: OracleVersionCheckContractArtifact.name,
       };
-      executionDataProvider.getFunctionArtifact.mockResolvedValue(utilityFunctionArtifact);
+      contractDataProvider.getFunctionArtifact.mockResolvedValue(utilityFunctionArtifact);
 
       // Form the execution request for the utility function
       const execRequest: FunctionCall = {

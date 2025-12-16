@@ -310,7 +310,8 @@ describe('Private Execution test suite', () => {
     executionDataProvider.getLastUsedIndexAsSender.mockImplementation((_secret: DirectionalAppTaggingSecret) => {
       return Promise.resolve(undefined);
     });
-    executionDataProvider.getFunctionArtifact.mockImplementation(async (address, selector) => {
+
+    contractDataProvider.getFunctionArtifact.mockImplementation(async (address, selector) => {
       const contract = contracts[address.toString()];
       if (!contract) {
         throw new Error(`Contract not found: ${address}`);
@@ -574,7 +575,7 @@ describe('Private Execution test suite', () => {
       expect(result.returnValues).toEqual([new Fr(privateIncrement)]);
 
       // First fetch of the function artifact is the parent contract
-      expect(executionDataProvider.getFunctionArtifact.mock.calls[1]).toEqual([childAddress, childSelector]);
+      expect(contractDataProvider.getFunctionArtifact.mock.calls[1]).toEqual([childAddress, childSelector]);
       expect(result.nestedExecutionResults).toHaveLength(1);
       expect(result.nestedExecutionResults[0].returnValues).toEqual([new Fr(privateIncrement)]);
       expect(result.publicInputs.privateCallRequests.array[0].callContext).toEqual(

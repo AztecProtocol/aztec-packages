@@ -1,3 +1,4 @@
+import type { FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance } from '@aztec/stdlib/contract';
 
@@ -14,4 +15,20 @@ export async function getContractInstance(
     throw new Error(`No contract instance found for address ${address.toString()}`);
   }
   return instance;
+}
+
+export async function getFunctionArtifact(
+  contractAddress: AztecAddress,
+  selector: FunctionSelector,
+  contractDataProvider: ContractDataProvider,
+): Promise<FunctionArtifactWithContractName> {
+  const artifact = await contractDataProvider.getFunctionArtifact(contractAddress, selector);
+  if (!artifact) {
+    throw new Error(`Function artifact not found for contract ${contractAddress} and selector ${selector}.`);
+  }
+  const debug = await contractDataProvider.getFunctionDebugMetadata(contractAddress, selector);
+  return {
+    ...artifact,
+    debug,
+  };
 }

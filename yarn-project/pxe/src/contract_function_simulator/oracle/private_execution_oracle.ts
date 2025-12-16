@@ -33,6 +33,7 @@ import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
+import { getFunctionArtifact } from './common.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
@@ -512,9 +513,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.anchorBlockHeader,
     );
 
-    const targetArtifact = await this.executionDataProvider.getFunctionArtifact(
+    const targetArtifact = await getFunctionArtifact(
       targetContractAddress,
       functionSelector,
+      this.contractDataProvider,
     );
 
     const derivedTxContext = this.txContext.clone();

@@ -4,10 +4,10 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
-import { EventSelector, type FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
+import { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockParameter, DataInBlock, L2Block } from '@aztec/stdlib/block';
-import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
@@ -82,14 +82,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return completeAddress;
   }
 
-  async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    const instance = await this.contractDataProvider.getContractInstance(address);
-    if (!instance) {
-      throw new Error(`No contract instance found for address ${address.toString()}`);
-    }
-    return instance;
-  }
-
   async getNotes(
     contractAddress: AztecAddress,
     owner: AztecAddress | undefined,
@@ -118,21 +110,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         index,
       }),
     );
-  }
-
-  async getFunctionArtifact(
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<FunctionArtifactWithContractName> {
-    const artifact = await this.contractDataProvider.getFunctionArtifact(contractAddress, selector);
-    if (!artifact) {
-      throw new Error(`Function artifact not found for contract ${contractAddress} and selector ${selector}.`);
-    }
-    const debug = await this.contractDataProvider.getFunctionDebugMetadata(contractAddress, selector);
-    return {
-      ...artifact,
-      debug,
-    };
   }
 
   /**
