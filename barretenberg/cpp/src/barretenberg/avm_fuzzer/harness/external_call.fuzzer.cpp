@@ -1,4 +1,5 @@
 #include "barretenberg/vm2/generated/relations/external_call.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/generated/relations/internal_call.hpp"
@@ -50,6 +51,8 @@ using external_call_rel = bb::avm2::external_call<FF>;
 const uint8_t max_flat_calls = 3;
 const uint8_t max_nested_calls = 2;
 const uint8_t max_total_calls = max_flat_calls * max_nested_calls;
+// To avoid OOG error:
+const uint32_t min_l2_gas = AVM_CALL_BASE_L2_GAS + AVM_RETURN_BASE_L2_GAS;
 
 // Constant instructions:
 const auto dummy_instr = bb::avm2::testing::InstructionBuilder(WireOpCode::ADD_8)
@@ -60,7 +63,7 @@ const auto dummy_instr = bb::avm2::testing::InstructionBuilder(WireOpCode::ADD_8
 
 struct ExternalCallFuzzerInstance {
     AztecAddress contract_address;
-    MemoryValue l2_gas = MemoryValue::from<uint32_t>(0);
+    MemoryValue l2_gas = MemoryValue::from<uint32_t>(min_l2_gas);
     MemoryValue da_gas = MemoryValue::from<uint32_t>(0);
     bool is_static;
 
@@ -172,15 +175,13 @@ void mutate_call_instance(ExternalCallFuzzerInput& input, std::mt19937 rng)
     int inner_mutation_choice = inner_mutation_dist(rng);
     switch (inner_mutation_choice) {
     case 0: {
-        // Modify l2 gas
-        // TODO(MW): fuzz tags?
-        std::uniform_int_distribution<uint32_t> gas_dist(0, std::numeric_limits<uint32_t>::max());
+        // Modify l2 gas (a minimum of min_l2_gas to avoid OOG error)
+        std::uniform_int_distribution<uint32_t> gas_dist(min_l2_gas, std::numeric_limits<uint32_t>::max());
         input.call_instances[value_idx].l2_gas = MemoryValue::from<uint32_t>(gas_dist(rng));
         break;
     }
     case 1: {
         // Modify da gas
-        // TODO(MW): fuzz tags?
         std::uniform_int_distribution<uint32_t> gas_dist(0, std::numeric_limits<uint32_t>::max());
         input.call_instances[value_idx].da_gas = MemoryValue::from<uint32_t>(gas_dist(rng));
         break;
@@ -281,11 +282,6 @@ std::unique_ptr<ContextInterface> fuzz_call(std::vector<ExecutionEvent>& ex_even
                                             ExternalCallFuzzerInstance input)
 {
     auto allocated_l2_gas_read = input.l2_gas;
-    // TODO(MW): remove hack
-    // Either handle OOG exception (not executing opcode for one call?) or clamp l2 gas to > 3312 (return gas)
-    if (allocated_l2_gas_read.as<uint32_t>() < 3312) {
-        allocated_l2_gas_read = MemoryValue::from<uint32_t>(allocated_l2_gas_read.as<uint32_t>() + 4000);
-    }
     auto allocated_da_gas_read = input.da_gas;
     auto instr = bb::avm2::testing::InstructionBuilder(input.is_static ? WireOpCode::STATICCALL : WireOpCode::CALL)
                      .operand<uint8_t>(2)
