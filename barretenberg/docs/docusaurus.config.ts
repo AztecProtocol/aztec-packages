@@ -89,7 +89,7 @@ const config: Config = {
           lastVersion: versions[1],
           versions: {
             [versions[0]]: {
-              ...(versions[0].includes("nightly") && { path: "nightly" }),
+              path: "nightly",
             },
             ...(process.env.ENV === "dev" && {
               current: {
