@@ -205,6 +205,21 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         prover.transcript->test_set_proof_parsing_state(0, proof_length);
         return prover.export_proof();
     }
+
+    /**
+     * @brief Helper to get verification result, handling IPA accumulator conditional logic
+     */
+    bool get_verification_result(Verifier& verifier,
+                                 const Proof& proof,
+                                 const std::shared_ptr<ProverInstance>& prover_instance)
+    {
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            return verifier.verify_proof(proof, prover_instance->ipa_proof).result;
+        } else {
+            (void)prover_instance; // suppress unused warning
+            return verifier.verify_proof(proof).result;
+        }
+    }
 };
 
 TYPED_TEST_SUITE(UltraTranscriptTests, FlavorTypes);
@@ -351,15 +366,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     typename TestFixture::Prover prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
     typename TestFixture::Verifier verifier(vk_and_hash);
-    {
-        if constexpr (HasIPAAccumulator<TypeParam>) {
-            bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
-            EXPECT_TRUE(result);
-        } else {
-            bool result = verifier.verify_proof(proof).result;
-            EXPECT_TRUE(result);
-        }
-    }
+    EXPECT_TRUE(TestFixture::get_verification_result(verifier, proof, prover_instance));
 
     const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : prover_instance->log_dyadic_size();
 
@@ -370,43 +377,22 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     verifier.transcript = std::make_shared<typename Flavor:let : Transcript>();
 
     proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
-    {
-        if constexpr (HasIPAAccumulator<TypeParam>) {
-            bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
-            EXPECT_TRUE(result); // we have changed nothing so proof is still valid
-        } else {
-            bool result = verifier.verify_proof(proof).result;
-            EXPECT_TRUE(result); // we have changed nothing so proof is still valid
-        }
-    }
+    // we have changed nothing so proof is still valid
+    EXPECT_TRUE(TestFixture::get_verification_result(verifier, proof, prover_instance));
 
     Commitment one_group_val = Commitment::one();
     FF rand_val = FF::random_element();
     prover.transcript->z_perm_comm = one_group_val * rand_val;             // choose random object to modify
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
     proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
-    {
-        if constexpr (HasIPAAccumulator<TypeParam>) {
-            bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
-            EXPECT_TRUE(result); // we have not serialized it back to the proof so it should still be fine
-        } else {
-            bool result = verifier.verify_proof(proof).result;
-            EXPECT_TRUE(result); // we have not serialized it back to the proof so it should still be fine
-        }
-    }
+    // we have not serialized it back to the proof so it should still be fine
+    EXPECT_TRUE(TestFixture::get_verification_result(verifier, proof, prover_instance));
 
     prover.transcript->serialize_full_transcript();
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
     proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
-    {
-        if constexpr (HasIPAAccumulator<TypeParam>) {
-            bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
-            EXPECT_FALSE(result); // the proof is now wrong after serializing it
-        } else {
-            bool result = verifier.verify_proof(proof).result;
-            EXPECT_FALSE(result); // the proof is now wrong after serializing it
-        }
-    }
+    // the proof is now wrong after serializing it
+    EXPECT_FALSE(TestFixture::get_verification_result(verifier, proof, prover_instance));
 
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs, virtual_log_n);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
