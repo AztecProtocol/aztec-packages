@@ -52,6 +52,7 @@ void add_default_instruction_block_if_empty(FuzzerData& fuzzer_data, std::mt1993
         instruction_block.reserve(num_tags);
         // Add one set per memory tag type
         for (uint32_t i = 0; i < num_tags; i++) {
+            // TODO: Randomize address, value. Keep address < 255 so it can be used anywhere.
             auto tag = static_cast<ValueTag>(i);
             instruction_block.push_back(SET_8_Instruction{
                 .value_tag = tag,
