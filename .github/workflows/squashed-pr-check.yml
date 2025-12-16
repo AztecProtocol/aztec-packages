@@ -3,6 +3,7 @@ name: Squashed PR Check
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
+  merge_group:
 
 jobs:
   check-squashed:
