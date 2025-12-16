@@ -37,7 +37,7 @@ describe('e2e_escrow_contract', () => {
     escrowPublicKeys = (await deriveKeys(escrowSecretKey)).publicKeys;
     const escrowDeployment = EscrowContract.deployWithPublicKeys(escrowPublicKeys, wallet, owner);
     const escrowInstance = await escrowDeployment.getInstance();
-    await wallet.registerAccount(escrowSecretKey, await computePartialAddress(escrowInstance));
+    await wallet.registerKeysForEscrowContract(escrowSecretKey, await computePartialAddress(escrowInstance));
     escrowContract = await escrowDeployment.send({ from: owner }).deployed();
     logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 

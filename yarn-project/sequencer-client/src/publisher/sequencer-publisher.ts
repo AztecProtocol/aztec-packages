@@ -5,7 +5,6 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import {
   type EmpireSlashingProposerContract,
   FormattedViemError,
-  type GasPrice,
   type GovernanceProposerContract,
   type IEmpireBase,
   type L1BlobInputs,
@@ -98,7 +97,7 @@ interface RequestWithExpiry {
   blobConfig?: L1BlobInputs;
   checkSuccess: (
     request: L1TxRequest,
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice; stats?: TransactionStats; errorMsg?: string },
+    result?: { receipt: TransactionReceipt; stats?: TransactionStats; errorMsg?: string },
   ) => boolean;
 }
 
@@ -285,7 +284,7 @@ export class SequencerPublisher {
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice } | FormattedViemError,
+    result?: { receipt: TransactionReceipt } | FormattedViemError,
   ) {
     const actionsListStr = requests.map(r => r.action).join(', ');
     if (result instanceof FormattedViemError) {

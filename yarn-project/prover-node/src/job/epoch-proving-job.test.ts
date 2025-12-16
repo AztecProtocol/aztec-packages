@@ -50,7 +50,7 @@ describe('epoch-proving-job', () => {
   const proverId = EthAddress.random();
 
   // Subject factory
-  const createJob = (opts: { deadline?: Date; parallelBlockLimit?: number } = {}) => {
+  const createJob = (opts: { deadline?: Date; parallelBlockLimit?: number; skipSubmitProof?: boolean } = {}) => {
     const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
 
     const data: EpochProvingJobData = {
@@ -70,7 +70,7 @@ describe('epoch-proving-job', () => {
       l2BlockSource,
       metrics,
       opts.deadline,
-      { parallelBlockLimit: opts.parallelBlockLimit ?? 32 },
+      { parallelBlockLimit: opts.parallelBlockLimit ?? 32, skipSubmitProof: opts.skipSubmitProof },
     );
   };
 
@@ -212,5 +212,14 @@ describe('epoch-proving-job', () => {
     expect(job.getState()).toEqual('reorg');
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
     expect(prover.cancel).toHaveBeenCalled();
+  });
+
+  it('skips publishing when skipSubmitProof is enabled', async () => {
+    const job = createJob({ skipSubmitProof: true });
+    await job.run();
+
+    expect(job.getState()).toEqual('completed');
+    expect(prover.finalizeEpoch).toHaveBeenCalled();
+    expect(publisher.submitEpochProof).not.toHaveBeenCalled();
   });
 });

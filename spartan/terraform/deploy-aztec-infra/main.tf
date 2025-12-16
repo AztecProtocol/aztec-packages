@@ -182,6 +182,7 @@ locals {
         "broker.node.env.NETWORK"                 = var.NETWORK
         "agent.node.proverRealProofs"             = var.PROVER_REAL_PROOFS
         "agent.node.env.NETWORK"                  = var.NETWORK
+        "agent.replicaCount"                      = var.PROVER_REPLICAS
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"

@@ -74,6 +74,7 @@ import {
   type GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
 import {
+  type AllowedElement,
   type ClientProtocolCircuitVerifier,
   type L2LogsSource,
   type Service,
@@ -504,6 +505,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve(this.p2pClient.getEnr()?.encodeTxt());
+  }
+
+  public async getAllowedPublicSetup(): Promise<AllowedElement[]> {
+    return this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
   }
 
   /**

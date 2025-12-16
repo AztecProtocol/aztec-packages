@@ -10,7 +10,7 @@ use crate::{
 pub struct NullifierLeafPreimage {
     pub nullifier: Field,
     pub next_nullifier: Field,
-    pub next_index: u32,
+    pub next_index: Field,
 }
 
 impl Empty for NullifierLeafPreimage {
@@ -48,7 +48,7 @@ impl IndexedTreeLeafPreimage<Field> for NullifierLeafPreimage {
         (self.next_nullifier == 0) & (self.next_index == 0)
     }
 
-    fn update_pointers(self, next_key: Field, next_index: u32) -> Self {
+    fn update_pointers(self, next_key: Field, next_index: Field) -> Self {
         Self { nullifier: self.nullifier, next_nullifier: next_key, next_index }
     }
 
@@ -80,11 +80,11 @@ impl NullifierLeafPreimage {
     }
 
     pub fn serialize(self) -> [Field; NULLIFIER_LEAF_PREIMAGE_LENGTH] {
-        [self.nullifier, self.next_nullifier, self.next_index as Field]
+        [self.nullifier, self.next_nullifier, self.next_index]
     }
 
     pub fn deserialize(fields: [Field; NULLIFIER_LEAF_PREIMAGE_LENGTH]) -> Self {
-        Self { nullifier: fields[0], next_nullifier: fields[1], next_index: fields[2] as u32 }
+        Self { nullifier: fields[0], next_nullifier: fields[1], next_index: fields[2] }
     }
 }
 

@@ -37,7 +37,7 @@ impl IndexedTreeLeafPreimage<Field> for TestLeafPreimage {
         (self.next_value == 0)
     }
 
-    fn update_pointers(self, next_value: Field, _next_index: u32) -> Self {
+    fn update_pointers(self, next_value: Field, _next_index: Field) -> Self {
         Self { value: self.value, next_value }
     }
 

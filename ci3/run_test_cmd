@@ -9,6 +9,9 @@ source $ci3/source_refname
 # This can cause issues with proper cleanup (e.g. killing docker client processes as they run).
 set -m
 
+# Ensure SCENARIO_TESTS is always defined
+SCENARIO_TESTS=${SCENARIO_TESTS:-0}
+
 cmd=$1
 is_merge_queue=0
 [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]] && is_merge_queue=1
@@ -205,6 +208,20 @@ function fail {
   line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
   track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+
+  # notify slack if scenario test failed
+  if [ "$SCENARIO_TESTS" -eq 1 ] && [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+    read -r -d '' data <<EOF
+    {
+      "channel": "#alerts-next-scenario",
+      "text": "Scenario test FAILED on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` ${CI_REDIS_AVAILABLE:+http://ci.aztec-labs.com/$log_key}"
+    }
+EOF
+    curl -X POST https://slack.com/api/chat.postMessage \
+      -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+      -H "Content-type: application/json" \
+      --data "$data" &>/dev/null
+  fi
 
   exit $code
 }

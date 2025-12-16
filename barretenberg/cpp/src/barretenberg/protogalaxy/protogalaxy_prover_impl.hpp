@@ -140,25 +140,48 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
     // solution is to simply reverse the order or the terms in the linear combination by swapping the polynomials and
     // the lagrange coefficients between the accumulator and the incoming key.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1417): make this swapping logic more robust.
-    if (incoming->get_overflow_size() > accumulator->get_overflow_size()) {
+    bool swap_polys = incoming->get_overflow_size() > accumulator->get_overflow_size();
+    if (swap_polys) {
         std::swap(accumulator->polynomials, incoming->polynomials); // swap the polys
         std::swap(lagranges[0], lagranges[1]);                 // swap the lagrange coefficients so the sum is unchanged
         accumulator->set_dyadic_size(incoming->dyadic_size()); // update dyadic size of accumulator
         accumulator->set_overflow_size(incoming->get_overflow_size()); // swap overflow size
     }
 
-    // Fold the proving key polynomials
-    parallel_for([&accumulator, &lagranges](const ThreadChunk& chunk) {
-        for (auto& poly : accumulator->polynomials.get_unshifted()) {
-            poly.multiply_chunk(chunk, lagranges[0]);
-        }
-    });
+    // Fold the prover polynomials
 
-    // This cannot be combined with the previous parallel_for because add_scaled_chunk is by the key_poly size
-    parallel_for([&accumulator, &lagranges, &incoming](const ThreadChunk& chunk) {
-        for (auto [acc_poly, key_poly] :
-             zip_view(accumulator->polynomials.get_unshifted(), incoming->polynomials.get_unshifted())) {
-            acc_poly.add_scaled_chunk(chunk, key_poly, lagranges[1]);
+    // Convert the polynomials into spans to remove boundary checks and if checks that normally apply when calling
+    // getter/setters in Polynomial (see SharedShiftedVirtualZeroesArray::get)
+    auto accumulator_polys = accumulator->polynomials.get_unshifted();
+    auto key_polys = incoming->polynomials.get_unshifted();
+    const size_t num_polys = key_polys.size();
+
+    std::vector<PolynomialSpan<FF>> acc_spans;
+    std::vector<PolynomialSpan<FF>> key_spans;
+    acc_spans.reserve(num_polys);
+    key_spans.reserve(num_polys);
+    for (size_t i = 0; i < num_polys; ++i) {
+        acc_spans.emplace_back(static_cast<PolynomialSpan<FF>>(accumulator_polys[i]));
+        key_spans.emplace_back(static_cast<PolynomialSpan<FF>>(key_polys[i]));
+    }
+
+    parallel_for([&acc_spans, &key_spans, &lagranges, &combiner_challenge, &swap_polys](const ThreadChunk& chunk) {
+        for (auto [acc_poly, key_poly] : zip_view(acc_spans, key_spans)) {
+            size_t offset = acc_poly.start_index;
+            for (size_t idx : chunk.range(acc_poly.size(), offset)) {
+                if ((idx < key_poly.start_index) || (idx >= key_poly.end_index())) {
+                    acc_poly[idx] *= lagranges[0];
+                } else {
+                    // acc * lagranges[0] + key * lagranges[1] =
+                    // acc + (key - acc) * combiner_challenge (if !swap_polys)
+                    // key + (acc - key) * combiner_challenge (if swap_polys)
+                    if (swap_polys) {
+                        acc_poly[idx] = key_poly[idx] + (acc_poly[idx] - key_poly[idx]) * combiner_challenge;
+                    } else {
+                        acc_poly[idx] = acc_poly[idx] + (key_poly[idx] - acc_poly[idx]) * combiner_challenge;
+                    }
+                }
+            }
         }
     });
 

@@ -24,7 +24,7 @@ use dep::aztec::{
 // macro support is expanded.
 
 /// A private note representing a numeric value associated to an account (e.g. a token balance).
-#[derive(Eq, Serialize, Packable)]
+#[derive(Deserialize, Eq, Serialize, Packable)]
 #[custom_note]
 pub struct UintNote {
     // The ordering of these fields is important given that it must:
@@ -68,23 +68,26 @@ impl NoteHash for UintNote {
     fn compute_nullifier(
         self,
         context: &mut PrivateContext,
-        note_hash_for_nullify: Field,
+        note_hash_for_nullification: Field,
     ) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
         let secret = context.request_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
-            [note_hash_for_nullify, secret],
+            [note_hash_for_nullification, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER,
         )
     }
 
-    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
+    unconstrained fn compute_nullifier_unconstrained(
+        self,
+        note_hash_for_nullification: Field,
+    ) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
         let secret = get_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
-            [note_hash_for_nullify, secret],
+            [note_hash_for_nullification, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER,
         )
     }

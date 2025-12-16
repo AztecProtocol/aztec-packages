@@ -278,7 +278,7 @@ impl TestBuilder {
         };
         let expected_archive_root = root_from_sibling_path(
             block_header.hash(),
-            pi.previous_archive.next_available_leaf_index as Field,
+            pi.previous_archive.next_available_leaf_index,
             self.new_archive_sibling_path,
         );
         assert_eq(pi.new_archive.root, expected_archive_root);

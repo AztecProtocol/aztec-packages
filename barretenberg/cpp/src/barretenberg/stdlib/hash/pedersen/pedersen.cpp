@@ -11,8 +11,22 @@ namespace bb::stdlib {
 
 using namespace bb;
 
-template <typename C>
-field_t<C> pedersen_hash<C>::hash(const std::vector<field_ct>& inputs, const GeneratorContext context)
+/**
+ * @brief Computes a pedersen hash of the provided inputs
+ * @details The pedersen hash is computed as the x-coordinate of the point: P = \sum_i inputs[i] * G_i + len * H, where
+ * G_i and H are generator points of the Grumpkin curve and len is the number of inputs. The len * H term is included to
+ * avoid the trivial collision that otherwise results from negating all inputs. See crypto::pedersen_hash for more
+ * details.
+ * @note: The inputs are elements of the bn254 scalar field but are interpreted as scalars in the Grumpkin scalar field
+ * (represented by cycle_scalar).
+ *
+ * @tparam Builder
+ * @param inputs The field elements to be hashed
+ * @param context (optional) context for generator selection/construction
+ * @return field_t<Builder> The x-coordinate of the resulting pedersen hash point
+ */
+template <typename Builder>
+field_t<Builder> pedersen_hash<Builder>::hash(const std::vector<field_ct>& inputs, const GeneratorContext context)
 {
     using cycle_scalar = typename cycle_group::cycle_scalar;
     using Curve = EmbeddedCurve;
@@ -23,51 +37,16 @@ field_t<C> pedersen_hash<C>::hash(const std::vector<field_ct>& inputs, const Gen
     std::vector<cycle_group> points;
     scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(field_ct(inputs.size())));
     points.emplace_back(crypto::pedersen_hash_base<Curve>::length_generator);
-    for (size_t i = 0; i < inputs.size(); ++i) {
-        scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(inputs[i]));
-        // constructs constant cycle_group objects (non-witness)
-        points.emplace_back(base_points[i]);
+    for (const auto [point, scalar] : zip_view(base_points, inputs)) {
+        scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(scalar));
+        // Construct circuit-constant cycle_group objects (non-witness)
+        points.emplace_back(point);
     }
 
     auto result = cycle_group::batch_mul(points, scalars);
     return result.x;
 }
 
-/**
- * @brief Hash a byte_array.
- *
- * TODO(@zac-williamson #2796) Once Poseidon is implemented, replace this method with a more canonical hash algorithm
- * (that is less efficient)
- */
-template <typename C>
-field_t<C> pedersen_hash<C>::hash_buffer(const stdlib::byte_array<C>& input, GeneratorContext context)
-{
-    const size_t num_bytes = input.size();
-    const size_t bytes_per_element = 31;
-    size_t num_elements = static_cast<size_t>(num_bytes % bytes_per_element != 0) + (num_bytes / bytes_per_element);
-
-    std::vector<field_ct> elements;
-    for (size_t i = 0; i < num_elements; ++i) {
-        size_t bytes_to_slice = 0;
-        if (i == num_elements - 1) {
-            bytes_to_slice = num_bytes - (i * bytes_per_element);
-        } else {
-            bytes_to_slice = bytes_per_element;
-        }
-        auto element = static_cast<field_ct>(input.slice(i * bytes_per_element, bytes_to_slice));
-        elements.emplace_back(element);
-    }
-    field_ct hashed;
-    if (elements.size() < 2) {
-        hashed = hash(elements, context);
-    } else {
-        hashed = hash({ elements[0], elements[1] }, context);
-        for (size_t i = 2; i < elements.size(); ++i) {
-            hashed = hash({ hashed, elements[i] }, context);
-        }
-    }
-    return hashed;
-}
 template class pedersen_hash<bb::UltraCircuitBuilder>;
 template class pedersen_hash<bb::MegaCircuitBuilder>;
 
