@@ -27,11 +27,11 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
+import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
-import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 import { WINDOW_HALF_SIZE } from '../tagging/constants.js';
 import { SiloedTag } from '../tagging/siloed_tag.js';
@@ -65,7 +65,7 @@ describe('PXEOracleInterface', () => {
   let privateEventDataProvider: PrivateEventDataProvider;
   let contractDataProvider: ContractDataProvider;
   let noteDataProvider: NoteDataProvider;
-  let syncDataProvider: SyncDataProvider;
+  let anchorBlockDataProvider: AnchorBlockDataProvider;
   let taggingDataProvider: TaggingDataProvider;
   let capsuleDataProvider: CapsuleDataProvider;
   let keyStore: KeyStore;
@@ -89,7 +89,7 @@ describe('PXEOracleInterface', () => {
     addressDataProvider = new AddressDataProvider(store);
     privateEventDataProvider = new PrivateEventDataProvider(store);
     noteDataProvider = await NoteDataProvider.create(store);
-    syncDataProvider = new SyncDataProvider(store);
+    anchorBlockDataProvider = new AnchorBlockDataProvider(store);
     taggingDataProvider = new TaggingDataProvider(store);
     capsuleDataProvider = new CapsuleDataProvider(store);
     keyStore = new KeyStore(store);
@@ -99,7 +99,7 @@ describe('PXEOracleInterface', () => {
       contractDataProvider,
       noteDataProvider,
       capsuleDataProvider,
-      syncDataProvider,
+      anchorBlockDataProvider,
       taggingDataProvider,
       addressDataProvider,
       privateEventDataProvider,
@@ -1193,21 +1193,8 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  describe('getAnchorBlockHeader', () => {
-    it('returns the anchor block header and not a header from aztec node', async () => {
-      const blockNumber = BlockNumber(42);
-      const header = BlockHeader.empty({
-        globalVariables: GlobalVariables.empty({ blockNumber }),
-      });
-      await syncDataProvider.setHeader(header);
-
-      const result = await pxeOracleInterface.getAnchorBlockHeader();
-      expect(result).toEqual(header);
-    });
-  });
-
   const setSyncedBlockNumber = (blockNumber: BlockNumber) => {
-    return syncDataProvider.setHeader(
+    return anchorBlockDataProvider.setHeader(
       BlockHeader.empty({
         globalVariables: GlobalVariables.empty({ blockNumber }),
       }),

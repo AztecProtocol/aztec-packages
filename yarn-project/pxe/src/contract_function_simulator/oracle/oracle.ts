@@ -112,9 +112,9 @@ export class Oracle {
     return [values.map(toACVMField)];
   }
 
-  async utilityGetUtilityContext(): Promise<(ACVMField | ACVMField[])[]> {
-    const context = await this.handlerAsUtility().utilityGetUtilityContext();
-    return context.toNoirRepresentation();
+  utilityGetUtilityContext(): Promise<(ACVMField | ACVMField[])[]> {
+    const context = this.handlerAsUtility().utilityGetUtilityContext();
+    return Promise.resolve(context.toNoirRepresentation());
   }
 
   async utilityGetKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {

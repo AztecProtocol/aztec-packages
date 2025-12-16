@@ -5,23 +5,23 @@ import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler 
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEConfig } from '../config/index.js';
+import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
-import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 
 /**
- * The Synchronizer class orchestrates synchronization between the PXE and Aztec node, maintaining an up-to-date
+ * The BlockSynchronizer class orchestrates synchronization between PXE and Aztec node, maintaining an up-to-date
  * view of the L2 chain state. It handles block header retrieval, chain reorganizations, and provides an interface
  * for querying sync status.
  */
-export class Synchronizer implements L2BlockStreamEventHandler {
+export class BlockSynchronizer implements L2BlockStreamEventHandler {
   private log: Logger;
   private isSyncing: Promise<void> | undefined;
   protected readonly blockStream: L2BlockStream;
 
   constructor(
     private node: AztecNode,
-    private syncDataProvider: SyncDataProvider,
+    private anchorBlockDataProvider: AnchorBlockDataProvider,
     private noteDataProvider: NoteDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private l2TipsStore: L2TipsKVStore,
@@ -30,7 +30,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
   ) {
     this.log =
       !loggerOrSuffix || typeof loggerOrSuffix === 'string'
-        ? createLogger(loggerOrSuffix ? `pxe:synchronizer:${loggerOrSuffix}` : `pxe:synchronizer`)
+        ? createLogger(loggerOrSuffix ? `pxe:block_synchronizer:${loggerOrSuffix}` : `pxe:block_synchronizer`)
         : loggerOrSuffix;
     this.blockStream = this.createBlockStream(config);
   }
@@ -56,13 +56,13 @@ export class Synchronizer implements L2BlockStreamEventHandler {
           archive: lastBlock.archive.root.toString(),
           header: lastBlock.header.toInspect(),
         });
-        await this.syncDataProvider.setHeader(lastBlock.getBlockHeader());
+        await this.anchorBlockDataProvider.setHeader(lastBlock.getBlockHeader());
         break;
       }
       case 'chain-pruned': {
         this.log.warn(`Pruning data after block ${event.block.number} due to reorg`);
         // We first unnullify and then remove so that unnullified notes that were created after the block number end up deleted.
-        const lastSynchedBlockNumber = await this.syncDataProvider.getBlockNumber();
+        const lastSynchedBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
         await this.noteDataProvider.rollbackNotesAndNullifiers(event.block.number, lastSynchedBlockNumber);
         // Remove all note tagging indexes to force a full resync. This is suboptimal, but unless we track the
         // block number in which each index is used it's all we can do.
@@ -72,7 +72,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
         if (!newHeader) {
           this.log.error(`Block header not found for block number ${event.block.number} during chain prune`);
         } else {
-          await this.syncDataProvider.setHeader(newHeader);
+          await this.anchorBlockDataProvider.setHeader(newHeader);
         }
         break;
       }
@@ -82,6 +82,11 @@ export class Synchronizer implements L2BlockStreamEventHandler {
   /**
    * Syncs PXE and the node by downloading the metadata of the latest blocks, allowing simulations to use
    * recent data (e.g. notes), and handling any reorgs that might have occurred.
+   *
+   * Note this BlockSynchronizer is designed to let its users control when a synchronization is run,
+   * so this component doesn't proactively stay up to date with the blockchain.
+   *
+   * We do this so PXE can ensure data consistency.
    */
   public async sync() {
     if (this.isSyncing !== undefined) {
@@ -104,18 +109,14 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     let currentHeader;
 
     try {
-      currentHeader = await this.syncDataProvider.getBlockHeader();
+      currentHeader = await this.anchorBlockDataProvider.getBlockHeader();
     } catch {
       this.log.debug('Header is not set, requesting from the node');
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      await this.syncDataProvider.setHeader((await this.node.getBlockHeader(BlockNumber.ZERO))!);
+      await this.anchorBlockDataProvider.setHeader((await this.node.getBlockHeader(BlockNumber.ZERO))!);
     }
     await this.blockStream.sync();
-  }
-
-  public getSynchedBlockNumber() {
-    return this.syncDataProvider.getBlockNumber();
   }
 }

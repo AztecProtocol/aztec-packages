@@ -2,7 +2,7 @@ import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { SyncDataProvider } from '@aztec/pxe/server';
+import { AnchorBlockDataProvider } from '@aztec/pxe/server';
 import { L2Block } from '@aztec/stdlib/block';
 import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -22,13 +22,13 @@ export class TXEStateMachine {
     public node: AztecNode,
     public synchronizer: TXESynchronizer,
     public archiver: TXEArchiver,
-    public syncDataProvider: SyncDataProvider,
+    public anchorBlockDataProvider: AnchorBlockDataProvider,
   ) {}
 
   public static async create(db: AztecAsyncKVStore) {
     const archiver = new TXEArchiver(db);
     const synchronizer = await TXESynchronizer.create();
-    const syncDataProvider = new SyncDataProvider(db);
+    const anchorBlockDataProvider = new AnchorBlockDataProvider(db);
 
     const aztecNodeConfig = {} as AztecNodeConfig;
 
@@ -55,7 +55,7 @@ export class TXEStateMachine {
       log,
     );
 
-    return new this(node, synchronizer, archiver, syncDataProvider);
+    return new this(node, synchronizer, archiver, anchorBlockDataProvider);
   }
 
   public async handleL2Block(block: L2Block) {
@@ -72,7 +72,7 @@ export class TXEStateMachine {
     await Promise.all([
       this.synchronizer.handleL2Block(block.toL2Block()),
       this.archiver.addCheckpoints([publishedCheckpoint], undefined),
-      this.syncDataProvider.setHeader(block.header.toBlockHeader()),
+      this.anchorBlockDataProvider.setHeader(block.getBlockHeader()),
     ]);
   }
 }

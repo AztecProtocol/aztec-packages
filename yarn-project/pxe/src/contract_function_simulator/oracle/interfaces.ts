@@ -63,7 +63,7 @@ export interface IMiscOracle {
 export interface IUtilityExecutionOracle {
   isUtility: true;
 
-  utilityGetUtilityContext(): Promise<UtilityContext>;
+  utilityGetUtilityContext(): UtilityContext;
   utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest>;
   utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance>;
   utilityGetMembershipWitness(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined>;
