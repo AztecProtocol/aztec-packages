@@ -36,8 +36,8 @@
       "name": "Debug CIVC transaction",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/bb",
-      "args": ["prove", "--scheme", "client_ivc", "--output_path", ".", "--ivc_inputs_path", "ivc-inputs.msgpack"],
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-fast-no-avm/bin/bb",
+      "args": ["prove", "--scheme", "client_ivc", "--output_path", ".", "--ivc_inputs_path", "ivc-inputs.msgpack", "--print_bench"],
       "cwd": "${workspaceFolder}/yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"

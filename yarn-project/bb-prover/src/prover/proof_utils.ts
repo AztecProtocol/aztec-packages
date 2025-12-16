@@ -14,12 +14,7 @@ import assert from 'assert';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
-import {
-  CLIENT_IVC_PROOF_FILE_NAME,
-  PROOF_FIELDS_FILENAME,
-  PROOF_FILENAME,
-  PUBLIC_INPUTS_FILENAME,
-} from '../bb/execute.js';
+import { CLIENT_IVC_PROOF_FILE_NAME, PROOF_FILENAME, PUBLIC_INPUTS_FILENAME } from '../bb/execute.js';
 
 /**
  * Create a ClientIvcProof proof file.
@@ -43,6 +38,14 @@ export async function writeClientIVCProofToOutputDirectory(clientIvcProof: Clien
   await fs.writeFile(path.join(directory, CLIENT_IVC_PROOF_FILE_NAME), clientIvcProofBuffer);
 }
 
+function splitBufferIntoFields(buffer: Buffer): Fr[] {
+  const fields: Fr[] = [];
+  for (let i = 0; i < buffer.length / Fr.SIZE_IN_BYTES; i++) {
+    fields.push(Fr.fromBuffer(buffer.subarray(i * Fr.SIZE_IN_BYTES, (i + 1) * Fr.SIZE_IN_BYTES)));
+  }
+  return fields;
+}
+
 export async function readProofAsFields<PROOF_LENGTH extends number>(
   filePath: string,
   vkData: VerificationKeyData,
@@ -51,15 +54,13 @@ export async function readProofAsFields<PROOF_LENGTH extends number>(
 ): Promise<RecursiveProof<PROOF_LENGTH>> {
   const publicInputsFilename = path.join(filePath, PUBLIC_INPUTS_FILENAME);
   const proofFilename = path.join(filePath, PROOF_FILENAME);
-  const proofFieldsFilename = path.join(filePath, PROOF_FIELDS_FILENAME);
 
-  const [binaryPublicInputs, binaryProof, proofString] = await Promise.all([
+  const [binaryPublicInputs, binaryProof] = await Promise.all([
     fs.readFile(publicInputsFilename),
     fs.readFile(proofFilename),
-    fs.readFile(proofFieldsFilename, { encoding: 'utf-8' }),
   ]);
 
-  const json = JSON.parse(proofString);
+  const fieldsWithoutPublicInputs = splitBufferIntoFields(binaryProof);
 
   let numPublicInputs = vkData.numPublicInputs - PAIRING_POINTS_SIZE;
   assert(
@@ -72,19 +73,16 @@ export async function readProofAsFields<PROOF_LENGTH extends number>(
     numPublicInputs -= IPA_CLAIM_SIZE;
   }
 
-  assert(json.length == proofLength, `Proof length mismatch: ${json.length} != ${proofLength}`);
-
-  const fieldsWithoutPublicInputs = json.map(Fr.fromHexString);
+  assert(
+    fieldsWithoutPublicInputs.length == proofLength,
+    `Proof length mismatch: ${fieldsWithoutPublicInputs.length} != ${proofLength}`,
+  );
 
   // Concat binary public inputs and binary proof
   // This buffer will have the form: [binary public inputs, binary proof]
   const binaryProofWithPublicInputs = Buffer.concat([binaryPublicInputs, binaryProof]);
   logger.debug(
-    `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, raw length: ${binaryProofWithPublicInputs.length}`,
-  );
-  assert(
-    binaryProofWithPublicInputs.length == numPublicInputs * 32 + proofLength * 32,
-    `Proof length mismatch: ${binaryProofWithPublicInputs.length} != ${numPublicInputs * 32 + proofLength * 32}`,
+    `Circuit path: ${filePath}, complete proof length: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}`,
   );
   return new RecursiveProof(
     fieldsWithoutPublicInputs,

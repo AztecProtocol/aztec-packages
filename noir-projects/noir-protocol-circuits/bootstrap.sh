@@ -41,6 +41,11 @@ function on_exit {
 }
 trap on_exit EXIT
 
+function hex_to_fields_json {
+  # 1. split encoded hex into 64-character lines 3. encode as JSON array of hex strings
+  fold -w64 | jq -R -s -c 'split("\n") | map(select(length > 0)) | map("0x" + .)'
+}
+
 function compile {
   set -euo pipefail
   local dir=$1
@@ -106,11 +111,13 @@ function compile {
     SECONDS=0
     outdir=$(mktemp -d)
     trap "rm -rf $outdir" EXIT
-    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o $outdir --output_format bytes_and_fields"
+    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o $outdir"
     echo_stderr $vk_cmd
     dump_fail "$vk_cmd"
     vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
-    vk_fields=$(cat $outdir/vk_fields.json)
+    # Split the hex-encoded vk bytes into fields boundaries (but still hex-encoded), first making 64-character lines and then encoding as JSON.
+    # This used to be done by barretenberg itself, but with serialization now always being in field elements we can do it outside of bb.
+    vk_fields=$(echo "$vk_bytes" | hex_to_fields_json)
     # echo_stderr $vkf_cmd
     jq -n --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
@@ -119,7 +126,7 @@ function compile {
       local verifier_path="$key_dir/${name}_verifier.sol"
       SECONDS=0
       # Generate solidity verifier for this contract.
-      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path
+      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path --optimized
       echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
@@ -137,7 +144,7 @@ function compile {
     fi
   fi
 }
-export -f compile
+export -f hex_to_fields_json compile
 
 function build {
   set -eu

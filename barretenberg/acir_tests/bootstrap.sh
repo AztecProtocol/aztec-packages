@@ -21,6 +21,11 @@ tests_hash=$(hash_str \
     ../ts/.rebuild_patterns \
     ../noir/))
 
+function hex_to_fields_json {
+  # 1. split encoded hex into 64-character lines 3. encode as JSON array of hex strings
+  fold -w64 | jq -R -s -c 'split("\n") | map(select(length > 0)) | map("0x" + .)'
+}
+
 # Generate inputs for a given recursively verifying program.
 function run_proof_generation {
   local program=$1
@@ -28,7 +33,6 @@ function run_proof_generation {
   local bb=$(realpath ../cpp/$native_build_dir/bin/bb)
   local outdir=$(mktemp -d)
   trap "rm -rf $outdir" EXIT
-  local adjustment=16
   local ipa_accumulation_flag=""
 
   cd ./acir_tests/assert_statement
@@ -37,35 +41,37 @@ function run_proof_generation {
 
   # Adjust settings based on program type
   if [[ $program == *"rollup"* ]]; then
-      adjustment=26
       ipa_accumulation_flag="--ipa_accumulation"
   fi
   # If the test program has zk in it's name would like to use the zk prover, so we empty the flag in this case.
   if [[ $program == *"zk"* ]]; then
     disable_zk=""
   fi
-  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk $ipa_accumulation_flag --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
   echo_stderr "$prove_cmd"
   dump_fail "$prove_cmd"
 
-  local vk_fields=$(cat "$outdir/vk_fields.json")
-  local vk_hash_fields=$(cat "$outdir/vk_hash_fields.json")
-  local public_inputs_fields=$(cat "$outdir/public_inputs_fields.json")
-  local proof_fields=$(cat "$outdir/proof_fields.json")
 
-  generate_toml "$program" "$vk_fields" "$vk_hash_fields" "$proof_fields" "$public_inputs_fields"
+  # Split the hex-encoded vk bytes into fields boundaries (but still hex-encoded), first making 64-character lines and then encoding as JSON.
+  # This used to be done by barretenberg itself, but with serialization now always being in field elements we can do it outside of bb.
+  local vk_fields=$(cat "$outdir/vk" | xxd -p -c 0 | hex_to_fields_json)
+  local vk_hash_field="\"0x$(cat "$outdir/vk_hash" | xxd -p -c 0)\""
+  local public_inputs_fields=$(cat "$outdir/public_inputs" | xxd -p -c 0 | hex_to_fields_json)
+  local proof_fields=$(cat "$outdir/proof" | xxd -p -c 0 | hex_to_fields_json)
+
+  generate_toml "$program" "$vk_fields" "$vk_hash_field" "$proof_fields" "$public_inputs_fields"
 }
 
 function generate_toml {
   local program=$1
   local vk_fields=$2
-  local vk_hash_fields=$3
+  local vk_hash_field=$3
   local proof_fields=$4
-  local num_inner_public_inputs=$5
+  local public_inputs_fields=$5
   local output_file="../$program/Prover.toml"
 
   jq -nr \
-      --arg key_hash "$vk_hash_fields" \
+      --arg key_hash "$vk_hash_field" \
       --argjson vk_f "$vk_fields" \
       --argjson public_inputs_f "$public_inputs_fields" \
       --argjson proof_f "$proof_fields" \
@@ -79,7 +85,6 @@ function generate_toml {
 }
 
 function regenerate_recursive_inputs {
-  local program=$1
   # Compile the assert_statement test as it's used for the recursive tests.
   cd ./acir_tests/assert_statement
   local nargo=$(realpath ../../../../noir/noir-repo/target/release/nargo)
@@ -91,7 +96,7 @@ function regenerate_recursive_inputs {
   parallel 'run_proof_generation {}' ::: $(ls internal_test_programs)
 }
 
-export -f regenerate_recursive_inputs run_proof_generation generate_toml
+export -f hex_to_fields_json regenerate_recursive_inputs run_proof_generation generate_toml
 
 function compile {
   echo_header "Compiling acir_tests"
@@ -152,7 +157,7 @@ function test_cmds {
   for t in assert_statement a_1_mul slices verify_honk_proof; do
     echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t --disable_zk"
     echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t"
-    echo "$sol_prefix USE_OPTIMIZED_CONTRACT=true $scripts/bb_prove_sol_verify.sh $t"
+    echo "$sol_prefix USE_OPTIMIZED_CONTRACT=true $scripts/bb_prove_sol_verify.sh $t --disable_zk"
   done
   # prove with bb cli and verify with bb.js classes
   echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh a_1_mul"
@@ -160,10 +165,10 @@ function test_cmds {
 
   # bb.js browser tests. Isolate because server.
   local browser_prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
-  echo "$browser_prefix:NAME=chrome_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof chrome"
-  echo "$browser_prefix:NAME=chrome_a_1_mul $scripts/browser_prove.sh a_1_mul chrome"
-  echo "$browser_prefix:NAME=webkit_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof webkit"
-  echo "$browser_prefix:NAME=webkit_a_1_mul $scripts/browser_prove.sh a_1_mul webkit"
+  echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome"
+  echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
+  echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof webkit"
+  echo "$browser_prefix $scripts/browser_prove.sh a_1_mul webkit"
 
   # bb.js tests.
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
