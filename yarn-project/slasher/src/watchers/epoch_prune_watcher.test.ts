@@ -1,5 +1,4 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { L2Block, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
@@ -72,7 +71,7 @@ describe('EpochPruneWatcher', () => {
 
   it('should emit WANT_TO_SLASH_EVENT when a validator is in a pruned epoch when data is unavailable', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
-    const epochNumber = EpochNumber(1);
+    const epochNumber = 1n;
 
     const block = await L2Block.random(
       12, // block number
@@ -91,7 +90,7 @@ describe('EpochPruneWatcher', () => {
     });
 
     l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
-      epochNumber: EpochNumber(1),
+      epochNumber,
       blocks: [block],
       type: L2BlockSourceEvents.L2PruneDetected,
     });
@@ -104,13 +103,13 @@ describe('EpochPruneWatcher', () => {
         validator: EthAddress.fromString(committee[0]),
         amount: dataWithholdingPenalty,
         offenseType: OffenseType.DATA_WITHHOLDING,
-        epochOrSlot: BigInt(epochNumber),
+        epochOrSlot: epochNumber,
       },
       {
         validator: EthAddress.fromString(committee[1]),
         amount: dataWithholdingPenalty,
         offenseType: OffenseType.DATA_WITHHOLDING,
-        epochOrSlot: BigInt(epochNumber),
+        epochOrSlot: epochNumber,
       },
     ] satisfies WantToSlashArgs[]);
   });
@@ -137,11 +136,11 @@ describe('EpochPruneWatcher', () => {
     epochCache.getCommitteeForEpoch.mockResolvedValue({
       committee: committee.map(EthAddress.fromString),
       seed: 0n,
-      epoch: EpochNumber(1),
+      epoch: 1n,
     });
 
     l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
-      epochNumber: EpochNumber(1),
+      epochNumber: 1n,
       blocks: [block],
       type: L2BlockSourceEvents.L2PruneDetected,
     });
@@ -193,11 +192,11 @@ describe('EpochPruneWatcher', () => {
     epochCache.getCommitteeForEpoch.mockResolvedValue({
       committee: committee.map(EthAddress.fromString),
       seed: 0n,
-      epoch: EpochNumber(1),
+      epoch: 1n,
     });
 
     l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
-      epochNumber: EpochNumber(1),
+      epochNumber: 1n,
       blocks: [blockFromL1],
       type: L2BlockSourceEvents.L2PruneDetected,
     });

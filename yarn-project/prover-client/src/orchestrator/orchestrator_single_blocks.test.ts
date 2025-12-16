@@ -1,5 +1,4 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -26,7 +25,7 @@ describe('prover/orchestrator/blocks', () => {
       } = await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
 
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex
@@ -52,7 +51,7 @@ describe('prover/orchestrator/blocks', () => {
       } = await context.makeCheckpoint(1, { numTxsPerBlock: 1 });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
 
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex
@@ -84,7 +83,7 @@ describe('prover/orchestrator/blocks', () => {
       });
 
       const finalBlobChallenges = await context.getFinalBlobChallenges();
-      context.orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
 
       await context.orchestrator.startNewCheckpoint(
         0, // checkpointIndex

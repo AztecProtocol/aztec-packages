@@ -1,4 +1,3 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
@@ -25,7 +24,7 @@ export class ProvingJobController {
   constructor(
     private jobId: ProvingJobId,
     private inputs: ProvingJobInputs,
-    private epochNumber: EpochNumber,
+    private epochNumber: number,
     private startedAt: number,
     private circuitProver: ServerCircuitProver,
     private onComplete: () => void,

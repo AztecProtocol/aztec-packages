@@ -356,12 +356,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
 
     const committees = await this.collectCommitteesActiveDuringRound(slashedRound);
     const epochsForCommittees = getEpochsForRound(slashedRound, this.settings);
-    const votes = getSlashConsensusVotesFromOffenses(
-      offensesToSlash,
-      committees,
-      epochsForCommittees.map(e => BigInt(e)),
-      this.settings,
-    );
+    const votes = getSlashConsensusVotesFromOffenses(offensesToSlash, committees, epochsForCommittees, this.settings);
     if (votes.every(v => v === 0)) {
       this.log.warn(`Computed votes for offenses are all zero. Skipping vote.`, {
         slotNumber,

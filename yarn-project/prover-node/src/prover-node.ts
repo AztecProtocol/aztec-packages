@@ -1,6 +1,5 @@
 import type { Archiver } from '@aztec/archiver';
 import type { RollupContract } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import type { Fr } from '@aztec/foundation/fields';
@@ -115,7 +114,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * @param epochNumber - The epoch number that was just completed.
    * @returns false if there is an error, true otherwise
    */
-  async handleEpochReadyToProve(epochNumber: EpochNumber): Promise<boolean> {
+  async handleEpochReadyToProve(epochNumber: bigint): Promise<boolean> {
     try {
       this.log.debug(`Running jobs as ${epochNumber} is ready to prove`, {
         jobs: Array.from(this.jobs.values()).map(job => `${job.getEpochNumber()}:${job.getId()}`),
@@ -185,8 +184,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   /**
    * Starts a proving process and returns immediately.
    */
-  public async startProof(epochNumber: EpochNumber) {
-    const job = await this.createProvingJob(epochNumber, { skipEpochCheck: true });
+  public async startProof(epochNumber: number | bigint) {
+    const job = await this.createProvingJob(BigInt(epochNumber), { skipEpochCheck: true });
     void this.runJob(job);
   }
 
@@ -239,20 +238,21 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   /**
    * Returns an array of jobs being processed.
    */
-  public getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: EpochNumber }[]> {
+  public getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]> {
     return Promise.resolve(
       Array.from(this.jobs.entries()).map(([uuid, job]) => ({
         uuid,
         status: job.getState(),
-        epochNumber: job.getEpochNumber(),
+        epochNumber: Number(job.getEpochNumber()),
       })),
     );
   }
 
   protected async getActiveJobsForEpoch(
-    epochNumber: EpochNumber,
+    epochBigInt: bigint,
   ): Promise<{ uuid: string; status: EpochProvingJobState }[]> {
     const jobs = await this.getJobs();
+    const epochNumber = Number(epochBigInt);
     return jobs.filter(job => job.epochNumber === epochNumber && !EpochProvingJobTerminalState.includes(job.status));
   }
 
@@ -263,8 +263,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     }
   }
 
-  @trackSpan('ProverNode.createProvingJob', epochNumber => ({ [Attributes.EPOCH_NUMBER]: epochNumber }))
-  private async createProvingJob(epochNumber: EpochNumber, opts: { skipEpochCheck?: boolean } = {}) {
+  @trackSpan('ProverNode.createProvingJob', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
+  private async createProvingJob(epochNumber: bigint, opts: { skipEpochCheck?: boolean } = {}) {
     this.checkMaximumPendingJobs();
 
     this.publisher = await this.publisherFactory.create();
@@ -300,8 +300,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     return this.l2BlockSource.getL1Constants();
   }
 
-  @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: epochNumber }))
-  private async gatherEpochData(epochNumber: EpochNumber): Promise<EpochProvingJobData> {
+  @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
+  private async gatherEpochData(epochNumber: bigint): Promise<EpochProvingJobData> {
     const blocks = await this.gatherBlocks(epochNumber);
     const txArray = await this.gatherTxs(epochNumber, blocks);
     const txs = new Map<string, Tx>(txArray.map(tx => [tx.getTxHash().toString(), tx]));
@@ -313,7 +313,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     return { blocks, txs, l1ToL2Messages, epochNumber, previousBlockHeader, attestations };
   }
 
-  private async gatherBlocks(epochNumber: EpochNumber) {
+  private async gatherBlocks(epochNumber: bigint) {
     const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
     if (blocks.length === 0) {
       throw new EmptyEpochError(epochNumber);
@@ -321,7 +321,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     return blocks;
   }
 
-  private async gatherTxs(epochNumber: EpochNumber, blocks: L2Block[]) {
+  private async gatherTxs(epochNumber: bigint, blocks: L2Block[]) {
     const deadline = new Date(this.dateProvider.now() + this.config.txGatheringTimeoutMs);
     const txProvider = this.p2pClient.getTxProvider();
     const txsByBlock = await Promise.all(blocks.map(block => txProvider.getTxsForBlock(block, { deadline })));
@@ -336,7 +336,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     throw new Error(`Txs not found for epoch ${epochNumber}: ${missingTxs.map(hash => hash.toString()).join(', ')}`);
   }
 
-  private async gatherMessages(epochNumber: EpochNumber, blocks: L2Block[]) {
+  private async gatherMessages(epochNumber: bigint, blocks: L2Block[]) {
     const messages = await Promise.all(blocks.map(b => this.l1ToL2MessageSource.getL1ToL2Messages(b.number)));
     const messageCount = sum(messages.map(m => m.length));
     this.log.verbose(`Gathered all ${messageCount} messages for epoch ${epochNumber}`, { epochNumber });
@@ -347,7 +347,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     return messagesByBlock;
   }
 
-  private async gatherPreviousBlockHeader(epochNumber: EpochNumber, initialBlock: L2Block) {
+  private async gatherPreviousBlockHeader(epochNumber: bigint, initialBlock: L2Block) {
     const previousBlockNumber = initialBlock.number - 1;
     const header = await (previousBlockNumber === 0
       ? this.worldState.getCommitted().getInitialHeader()
@@ -405,7 +405,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 }
 
 class EmptyEpochError extends Error {
-  constructor(epochNumber: EpochNumber) {
+  constructor(epochNumber: bigint) {
     super(`No blocks found for epoch ${epochNumber}`);
     this.name = 'EmptyEpochError';
   }

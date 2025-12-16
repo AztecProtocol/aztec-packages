@@ -1,6 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { RollupContract, SlasherContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -127,7 +126,9 @@ describe('TallySlasherClient', () => {
 
     // Create mock EpochCache
     mockEpochCache = mockDeep<EpochCache>();
-    mockEpochCache.getCommitteeForEpoch.mockImplementation(epoch => Promise.resolve({ committee, seed: 0n, epoch }));
+    mockEpochCache.getCommitteeForEpoch.mockImplementation((epoch: bigint) =>
+      Promise.resolve({ committee, seed: 0n, epoch }),
+    );
     mockEpochCache.getL1Constants.mockReturnValue({
       l1StartBlock: 0n,
       l1GenesisTime: 0n,
@@ -257,17 +258,17 @@ describe('TallySlasherClient', () => {
         mockEpochCache.getCommitteeForEpoch.mockResolvedValueOnce({
           committee: undefined,
           seed: 0n,
-          epoch: EpochNumber(0),
+          epoch: 0n,
         });
 
         const action = await tallySlasherClient.getVoteOffensesAction(currentSlot);
 
         // Should have called getCommitteeForEpoch for each epoch in the target round
         // For round 3 with epochDuration=32 and roundSize=128: epochs [12, 13, 14, 15]
-        expect(mockEpochCache.getCommitteeForEpoch).toHaveBeenCalledWith(EpochNumber(12));
-        expect(mockEpochCache.getCommitteeForEpoch).toHaveBeenCalledWith(EpochNumber(13));
-        expect(mockEpochCache.getCommitteeForEpoch).toHaveBeenCalledWith(EpochNumber(14));
-        expect(mockEpochCache.getCommitteeForEpoch).toHaveBeenCalledWith(EpochNumber(15));
+        expect(mockEpochCache.getCommitteeForEpoch).toHaveBeenCalledWith(12n);
+        expect(mockEpochCache.getCommitteeForEpoch).toHaveBeenCalledWith(13n);
+        expect(mockEpochCache.getCommitteeForEpoch).toHaveBeenCalledWith(14n);
+        expect(mockEpochCache.getCommitteeForEpoch).toHaveBeenCalledWith(15n);
 
         expect(action).toBeDefined();
         assert(action?.type === 'vote-offenses');

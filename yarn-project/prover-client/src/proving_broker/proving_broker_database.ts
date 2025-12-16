@@ -1,4 +1,3 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobSettledResult } from '@aztec/stdlib/interfaces/server';
 
 /**
@@ -15,7 +14,7 @@ export interface ProvingBrokerDatabase {
    * Deletes all proving jobs belonging to epochs older than the given epoch
    * @param epochNumber - The epoch number beyond which jobs should be deleted
    */
-  deleteAllProvingJobsOlderThanEpoch(epochNumber: EpochNumber): Promise<void>;
+  deleteAllProvingJobsOlderThanEpoch(epochNumber: number): Promise<void>;
 
   /**
    * Returns an iterator over all saved proving jobs

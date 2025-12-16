@@ -1,4 +1,3 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
@@ -388,8 +387,8 @@ export class RollupContract {
     return this.rollup.read.getCurrentSampleSeed();
   }
 
-  async getCurrentEpoch(): Promise<EpochNumber> {
-    return EpochNumber.fromBigInt(await this.rollup.read.getCurrentEpoch());
+  getCurrentEpoch() {
+    return this.rollup.read.getCurrentEpoch();
   }
 
   async getCurrentEpochCommittee(): Promise<readonly `0x${string}`[] | undefined> {
@@ -452,16 +451,16 @@ export class RollupContract {
     return this.rollup.read.getAvailableValidatorFlushes();
   }
 
-  async getNextFlushableEpoch(): Promise<EpochNumber> {
-    return EpochNumber.fromBigInt(await this.rollup.read.getNextFlushableEpoch());
+  getNextFlushableEpoch() {
+    return this.rollup.read.getNextFlushableEpoch();
   }
 
-  async getCurrentEpochNumber(): Promise<EpochNumber> {
-    return EpochNumber.fromBigInt(await this.rollup.read.getCurrentEpoch());
+  getCurrentEpochNumber(): Promise<bigint> {
+    return this.rollup.read.getCurrentEpoch();
   }
 
-  async getEpochNumberForCheckpoint(checkpointNumber: bigint): Promise<EpochNumber> {
-    return EpochNumber.fromBigInt(await this.rollup.read.getEpochForCheckpoint([BigInt(checkpointNumber)]));
+  getEpochNumberForCheckpoint(checkpointNumber: bigint) {
+    return this.rollup.read.getEpochForCheckpoint([BigInt(checkpointNumber)]);
   }
 
   async getRollupAddresses(): Promise<L1RollupContractAddresses> {
@@ -501,8 +500,8 @@ export class RollupContract {
     return EthAddress.fromString(await this.rollup.read.getFeeAssetPortal());
   }
 
-  public async getEpochNumberForSlotNumber(slotNumber: bigint): Promise<EpochNumber> {
-    return EpochNumber.fromBigInt(await this.rollup.read.getEpochAtSlot([slotNumber]));
+  public async getEpochNumberForSlotNumber(slotNumber: bigint): Promise<bigint> {
+    return await this.rollup.read.getEpochAtSlot([slotNumber]);
   }
 
   getEpochProofPublicInputs(
@@ -642,7 +641,7 @@ export class RollupContract {
   }
 
   /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
-  public getHasSubmittedProof(epochNumber: EpochNumber, numberOfCheckpointsInEpoch: number, prover: Hex | EthAddress) {
+  public getHasSubmittedProof(epochNumber: number, numberOfCheckpointsInEpoch: number, prover: Hex | EthAddress) {
     if (prover instanceof EthAddress) {
       prover = prover.toString();
     }

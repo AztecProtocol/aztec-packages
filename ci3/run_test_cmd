@@ -10,14 +10,12 @@ source $ci3/source_refname
 # This can cause issues with proper cleanup (e.g. killing docker client processes as they run).
 set -m
 
-cmd=$1
-[ -z "$cmd" ] && exit 0
-
-is_merge_queue=0
-[[ "$REF_NAME" =~ ^gh-readonly-queue/ ]] && is_merge_queue=1
-
 # Ensure SCENARIO_TESTS is always defined
 SCENARIO_TESTS=${SCENARIO_TESTS:-0}
+
+cmd=$1
+is_merge_queue=0
+[[ "$REF_NAME" =~ ^gh-readonly-queue/ ]] && is_merge_queue=1
 
 # Extract the first token and export any variable assignments.
 hash_part="${cmd%% *}"

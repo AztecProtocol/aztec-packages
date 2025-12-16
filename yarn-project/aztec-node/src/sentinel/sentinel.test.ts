@@ -1,5 +1,4 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { compactArray, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -43,7 +42,7 @@ describe('sentinel', () => {
   let sentinel: TestSentinel;
 
   let slot: bigint;
-  let epoch: EpochNumber;
+  let epoch: bigint;
   let ts: bigint;
   let l1Constants: L1RollupConstants;
   const config: Pick<
@@ -65,7 +64,7 @@ describe('sentinel', () => {
     store = new SentinelStore(kvStore, { historyLength: 10, historicProvenPerformanceLength: 5 });
 
     slot = 10n;
-    epoch = EpochNumber(0);
+    epoch = 0n;
     ts = BigInt(Math.ceil(Date.now() / 1000));
     l1Constants = {
       l1StartBlock: 1n,
@@ -334,8 +333,8 @@ describe('sentinel', () => {
           { slot: 2n, status: 'attestation-sent' },
         ];
         const mockProvenPerformance = [
-          { epoch: EpochNumber(1), missed: 2, total: 10 },
-          { epoch: EpochNumber(2), missed: 1, total: 8 },
+          { epoch: 1n, missed: 2, total: 10 },
+          { epoch: 2n, missed: 1, total: 8 },
         ];
 
         jest.spyOn(store, 'getHistory').mockResolvedValue(mockHistory);
@@ -402,8 +401,8 @@ describe('sentinel', () => {
       it('should return proven performance data from store', async () => {
         const mockHistory: ValidatorStatusHistory = [{ slot: 1n, status: 'block-mined' }];
         const mockProvenPerformance = [
-          { epoch: EpochNumber(5), missed: 3, total: 12 },
-          { epoch: EpochNumber(6), missed: 0, total: 15 },
+          { epoch: 5n, missed: 3, total: 12 },
+          { epoch: 6n, missed: 0, total: 15 },
         ];
 
         jest.spyOn(store, 'getHistory').mockResolvedValue(mockHistory);
@@ -495,7 +494,7 @@ describe('sentinel', () => {
         validator,
         amount: config.slashInactivityPenalty,
         offenseType: OffenseType.INACTIVITY,
-        epochOrSlot: BigInt(epochNumber),
+        epochOrSlot: 1n,
       });
 
       expect(emitSpy).toHaveBeenCalledTimes(1);
@@ -519,15 +518,15 @@ describe('sentinel', () => {
       it('should return true when validator has required consecutive epochs of inactivity', async () => {
         // Mock performance data: validator inactive for 3 consecutive epochs
         const mockPerformance = [
-          { epoch: EpochNumber(5), missed: 8, total: 10 }, // 80% missed (inactive)
-          { epoch: EpochNumber(4), missed: 9, total: 10 }, // 90% missed (inactive)
-          { epoch: EpochNumber(3), missed: 8, total: 10 }, // 80% missed (inactive)
-          { epoch: EpochNumber(2), missed: 5, total: 10 }, // 50% missed (active)
+          { epoch: 5n, missed: 8, total: 10 }, // 80% missed (inactive)
+          { epoch: 4n, missed: 9, total: 10 }, // 90% missed (inactive)
+          { epoch: 3n, missed: 8, total: 10 }, // 80% missed (inactive)
+          { epoch: 2n, missed: 5, total: 10 }, // 50% missed (active)
         ];
 
         jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
 
-        const result = await sentinel.checkPastInactivity(validator1, EpochNumber(6), 3);
+        const result = await sentinel.checkPastInactivity(validator1, 6n, 3);
 
         expect(result).toBe(true);
       });
@@ -535,15 +534,15 @@ describe('sentinel', () => {
       it('should return false when validator has not been inactive for required consecutive epochs', async () => {
         // Mock performance data: validator active in middle epoch
         const mockPerformance = [
-          { epoch: EpochNumber(5), missed: 8, total: 10 }, // 80% missed (inactive)
-          { epoch: EpochNumber(4), missed: 5, total: 10 }, // 50% missed (active)
-          { epoch: EpochNumber(3), missed: 8, total: 10 }, // 80% missed (inactive)
-          { epoch: EpochNumber(2), missed: 5, total: 10 }, // 50% missed (active)
+          { epoch: 5n, missed: 8, total: 10 }, // 80% missed (inactive)
+          { epoch: 4n, missed: 5, total: 10 }, // 50% missed (active)
+          { epoch: 3n, missed: 8, total: 10 }, // 80% missed (inactive)
+          { epoch: 2n, missed: 5, total: 10 }, // 50% missed (active)
         ];
 
         jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
 
-        const result = await sentinel.checkPastInactivity(validator1, EpochNumber(6), 3);
+        const result = await sentinel.checkPastInactivity(validator1, 6n, 3);
 
         expect(result).toBe(false);
       });
@@ -551,27 +550,27 @@ describe('sentinel', () => {
       it('should return false when insufficient historical data', async () => {
         // Mock performance data: only 2 epochs available, but need 3
         const mockPerformance = [
-          { epoch: EpochNumber(5), missed: 8, total: 10 }, // 80% missed (inactive)
-          { epoch: EpochNumber(4), missed: 9, total: 10 }, // 90% missed (inactive)
+          { epoch: 5n, missed: 8, total: 10 }, // 80% missed (inactive)
+          { epoch: 4n, missed: 9, total: 10 }, // 90% missed (inactive)
         ];
 
         jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
 
-        const result = await sentinel.checkPastInactivity(validator1, EpochNumber(6), 3);
+        const result = await sentinel.checkPastInactivity(validator1, 6n, 3);
 
         expect(result).toBe(false);
       });
 
       it('should return false on first inactive epoch', async () => {
         const mockPerformance = [
-          { epoch: EpochNumber(5), missed: 8, total: 10 }, // 80% missed (inactive)
-          { epoch: EpochNumber(4), missed: 9, total: 10 }, // 90% missed (inactive)
+          { epoch: 5n, missed: 8, total: 10 }, // 80% missed (inactive)
+          { epoch: 4n, missed: 9, total: 10 }, // 90% missed (inactive)
         ];
 
         jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
 
         // We are checking at epoch 4, so no past epochs
-        const result = await sentinel.checkPastInactivity(validator1, EpochNumber(4), 2);
+        const result = await sentinel.checkPastInactivity(validator1, 4n, 2);
 
         expect(result).toBe(false);
       });
@@ -579,37 +578,37 @@ describe('sentinel', () => {
       it('should return true when there is a gap in epochs since validators are not chosen for every committee', async () => {
         // Mock performance data: gap in epoch 4
         const mockPerformance = [
-          { epoch: EpochNumber(5), missed: 8, total: 10 }, // 80% missed (inactive)
-          { epoch: EpochNumber(3), missed: 8, total: 10 }, // 80% missed (inactive) - missing epoch 4
-          { epoch: EpochNumber(2), missed: 8, total: 10 }, // 80% missed (inactive)
+          { epoch: 5n, missed: 8, total: 10 }, // 80% missed (inactive)
+          { epoch: 3n, missed: 8, total: 10 }, // 80% missed (inactive) - missing epoch 4
+          { epoch: 2n, missed: 8, total: 10 }, // 80% missed (inactive)
         ];
 
         jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
 
-        const result = await sentinel.checkPastInactivity(validator1, EpochNumber(6), 3);
+        const result = await sentinel.checkPastInactivity(validator1, 6n, 3);
 
         expect(result).toBe(true);
       });
 
       it('should work with threshold of 0 used when there are no past epochs to inspect', async () => {
         jest.spyOn(store, 'getProvenPerformance').mockResolvedValue([]);
-        const result = await sentinel.checkPastInactivity(validator1, EpochNumber(6), 0);
+        const result = await sentinel.checkPastInactivity(validator1, 6n, 0);
         expect(result).toBe(true);
       });
 
       it('should only consider past epochs', async () => {
         // Mock performance data: validator inactive for 3 consecutive epochs
         const mockPerformance = [
-          { epoch: EpochNumber(5), missed: 8, total: 10 }, // 80% missed (inactive)
-          { epoch: EpochNumber(4), missed: 9, total: 10 }, // 90% missed (inactive)
-          { epoch: EpochNumber(3), missed: 8, total: 10 }, // 80% missed (inactive)
-          { epoch: EpochNumber(2), missed: 5, total: 10 }, // 50% missed (active)
+          { epoch: 5n, missed: 8, total: 10 }, // 80% missed (inactive)
+          { epoch: 4n, missed: 9, total: 10 }, // 90% missed (inactive)
+          { epoch: 3n, missed: 8, total: 10 }, // 80% missed (inactive)
+          { epoch: 2n, missed: 5, total: 10 }, // 50% missed (active)
         ];
 
         jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
 
         // Query on epoch 5, so we only consider past ones and don't get to threshold
-        const result = await sentinel.checkPastInactivity(validator1, EpochNumber(5), 3);
+        const result = await sentinel.checkPastInactivity(validator1, 5n, 3);
 
         expect(result).toBe(false);
       });
@@ -625,16 +624,16 @@ describe('sentinel', () => {
           if (validator.equals(validator1)) {
             // Validator1: inactive for 2+ consecutive epochs - should be slashed
             return Promise.resolve([
-              { epoch: EpochNumber(5), missed: 8, total: 10 }, // 80% missed (inactive)
-              { epoch: EpochNumber(4), missed: 9, total: 10 }, // 90% missed (inactive)
-              { epoch: EpochNumber(3), missed: 5, total: 10 }, // 50% missed (active)
+              { epoch: 5n, missed: 8, total: 10 }, // 80% missed (inactive)
+              { epoch: 4n, missed: 9, total: 10 }, // 90% missed (inactive)
+              { epoch: 3n, missed: 5, total: 10 }, // 50% missed (active)
             ]);
           } else {
             // Validator2: inactive only in current epoch - should NOT be slashed
             return Promise.resolve([
-              { epoch: EpochNumber(5), missed: 8, total: 10 }, // 80% missed (inactive)
-              { epoch: EpochNumber(4), missed: 5, total: 10 }, // 50% missed (active)
-              { epoch: EpochNumber(3), missed: 5, total: 10 }, // 50% missed (active)
+              { epoch: 5n, missed: 8, total: 10 }, // 80% missed (inactive)
+              { epoch: 4n, missed: 5, total: 10 }, // 50% missed (active)
+              { epoch: 3n, missed: 5, total: 10 }, // 50% missed (active)
             ]);
           }
         });
@@ -647,7 +646,7 @@ describe('sentinel', () => {
           [validator2.toString()]: { missed: 8, total: 10 }, // 80% missed
         };
 
-        await sentinel.handleProvenPerformance(EpochNumber(5), currentEpochPerformance);
+        await sentinel.handleProvenPerformance(5n, currentEpochPerformance);
 
         // Should only slash validator1 (2 consecutive epochs), not validator2 (1 epoch)
         expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
@@ -666,9 +665,9 @@ describe('sentinel', () => {
 
         // Mock performance data: validators only inactive for 2 epochs
         jest.spyOn(store, 'getProvenPerformance').mockResolvedValue([
-          { epoch: EpochNumber(5), missed: 8, total: 10 }, // 80% missed (inactive)
-          { epoch: EpochNumber(4), missed: 9, total: 10 }, // 90% missed (inactive)
-          { epoch: EpochNumber(3), missed: 5, total: 10 }, // 50% missed (active)
+          { epoch: 5n, missed: 8, total: 10 }, // 80% missed (inactive)
+          { epoch: 4n, missed: 9, total: 10 }, // 90% missed (inactive)
+          { epoch: 3n, missed: 5, total: 10 }, // 50% missed (active)
         ]);
 
         const emitSpy = jest.spyOn(sentinel, 'emit');
@@ -677,7 +676,7 @@ describe('sentinel', () => {
           [validator1.toString()]: { missed: 8, total: 10 }, // 80% missed
         };
 
-        await sentinel.handleProvenPerformance(EpochNumber(5), currentEpochPerformance);
+        await sentinel.handleProvenPerformance(5n, currentEpochPerformance);
 
         // Should not emit any slash events
         expect(emitSpy).not.toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, expect.anything());
@@ -706,7 +705,7 @@ class TestSentinel extends Sentinel {
     return Promise.resolve();
   }
 
-  public override getSlotActivity(slot: bigint, epoch: EpochNumber, proposer: EthAddress, committee: EthAddress[]) {
+  public override getSlotActivity(slot: bigint, epoch: bigint, proposer: EthAddress, committee: EthAddress[]) {
     return super.getSlotActivity(slot, epoch, proposer, committee);
   }
 
@@ -727,7 +726,7 @@ class TestSentinel extends Sentinel {
     return super.computeStats(opts);
   }
 
-  public override handleProvenPerformance(epoch: EpochNumber, performance: ValidatorsEpochPerformance) {
+  public override handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
     return super.handleProvenPerformance(epoch, performance);
   }
 
@@ -743,11 +742,7 @@ class TestSentinel extends Sentinel {
     return this.initialSlot;
   }
 
-  public override checkPastInactivity(
-    validator: EthAddress,
-    currentEpoch: EpochNumber,
-    requiredConsecutiveEpochs: number,
-  ) {
+  public override checkPastInactivity(validator: EthAddress, currentEpoch: bigint, requiredConsecutiveEpochs: number) {
     return super.checkPastInactivity(validator, currentEpoch, requiredConsecutiveEpochs);
   }
 }

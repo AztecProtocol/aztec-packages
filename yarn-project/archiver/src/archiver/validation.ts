@@ -1,5 +1,4 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import type { Logger } from '@aztec/foundation/log';
 import {
@@ -28,7 +27,7 @@ export async function validateBlockAttestations(
   const blockHash = await block.hash().then(hash => hash.toString());
   const archiveRoot = block.archive.root.toString();
   const slot = block.header.getSlot();
-  const epoch: EpochNumber = getEpochAtSlot(slot, constants);
+  const epoch = getEpochAtSlot(slot, constants);
   const { committee, seed } = await epochCache.getCommitteeForEpoch(epoch);
   const logData = { blockNumber: block.number, slot, epoch, blockHash, archiveRoot };
 

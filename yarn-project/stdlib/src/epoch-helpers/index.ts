@@ -1,5 +1,3 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
-
 import { z } from 'zod';
 
 import { type ZodFor, schemas } from '../schemas/index.js';
@@ -48,21 +46,21 @@ export function getSlotAtTimestamp(ts: bigint, constants: Pick<L1RollupConstants
 export function getEpochNumberAtTimestamp(
   ts: bigint,
   constants: Pick<L1RollupConstants, 'epochDuration' | 'slotDuration' | 'l1GenesisTime'>,
-): EpochNumber {
+) {
   return getEpochAtSlot(getSlotAtTimestamp(ts, constants), constants);
 }
 
 /** Returns the epoch number for a given slot. */
-export function getEpochAtSlot(slot: bigint, constants: Pick<L1RollupConstants, 'epochDuration'>): EpochNumber {
-  return EpochNumber.fromBigInt(slot / BigInt(constants.epochDuration));
+export function getEpochAtSlot(slot: bigint, constants: Pick<L1RollupConstants, 'epochDuration'>) {
+  return slot / BigInt(constants.epochDuration);
 }
 
 /** Returns the range of L2 slots (inclusive) for a given epoch number. */
 export function getSlotRangeForEpoch(
-  epochNumber: EpochNumber,
+  epochNumber: bigint,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
 ): [bigint, bigint] {
-  const startSlot = BigInt(epochNumber) * BigInt(constants.epochDuration);
+  const startSlot = epochNumber * BigInt(constants.epochDuration);
   return [startSlot, startSlot + BigInt(constants.epochDuration) - 1n];
 }
 
@@ -71,7 +69,7 @@ export function getSlotRangeForEpoch(
  * Note that the endTimestamp is the start timestamp of the last L1 slot for the epoch.
  */
 export function getTimestampRangeForEpoch(
-  epochNumber: EpochNumber,
+  epochNumber: bigint,
   constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'epochDuration' | 'ethereumSlotDuration'>,
 ): [bigint, bigint] {
   const [startSlot, endSlot] = getSlotRangeForEpoch(epochNumber, constants);
@@ -88,7 +86,7 @@ export function getTimestampRangeForEpoch(
  * Returns the start timestamp for a given epoch number.
  */
 export function getStartTimestampForEpoch(
-  epochNumber: EpochNumber,
+  epochNumber: bigint,
   constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'epochDuration'>,
 ) {
   const [startSlot] = getSlotRangeForEpoch(epochNumber, constants);
@@ -100,10 +98,10 @@ export function getStartTimestampForEpoch(
  * See l1-contracts/src/core/libraries/TimeLib.sol
  */
 export function getProofSubmissionDeadlineEpoch(
-  epochNumber: EpochNumber,
+  epochNumber: bigint,
   constants: Pick<L1RollupConstants, 'proofSubmissionEpochs'>,
-): EpochNumber {
-  return EpochNumber(epochNumber + constants.proofSubmissionEpochs + 1);
+) {
+  return epochNumber + BigInt(constants.proofSubmissionEpochs + 1);
 }
 
 /**
@@ -111,7 +109,7 @@ export function getProofSubmissionDeadlineEpoch(
  * Computed as the start of the given epoch plus the proof submission window.
  */
 export function getProofSubmissionDeadlineTimestamp(
-  epochNumber: EpochNumber,
+  epochNumber: bigint,
   constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'epochDuration' | 'proofSubmissionEpochs'>,
 ) {
   // See l1-contracts/src/core/libraries/TimeLib.sol:

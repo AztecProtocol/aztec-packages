@@ -1,5 +1,4 @@
 import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { AbortError } from '@aztec/foundation/error';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -300,7 +299,7 @@ describe('ProvingAgent', () => {
     const inputs: ProvingJobInputs = { type: ProvingRequestType.PARITY_BASE, inputs: makeParityBasePrivateInputs() };
     const job: ProvingJob = {
       id: randomBytes(8).toString('hex') as ProvingJobId,
-      epochNumber: EpochNumber(1),
+      epochNumber: 1,
       type: ProvingRequestType.PARITY_BASE,
       inputsUri: randomBytes(8).toString('hex') as ProofUri,
     };

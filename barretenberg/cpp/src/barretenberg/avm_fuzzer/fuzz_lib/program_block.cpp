@@ -798,15 +798,6 @@ void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
 {
-    this->terminator_type = TerminatorType::RETURN;
-    // if the block is called by INTERNALCALL, just insert INTERNALRETURN
-    if (caller != nullptr) {
-        auto internalreturn_instruction =
-            bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALRETURN).build();
-        instructions.push_back(internalreturn_instruction);
-        return;
-    }
-
     auto return_addr = memory_manager.get_memory_offset_16_bit(return_value_tag.value, return_value_offset_index);
     if (!return_addr.has_value()) {
         return_addr = std::optional<uint16_t>(0);
@@ -827,20 +818,14 @@ void ProgramBlock::finalize_with_return(uint8_t return_size,
                                   .build();
     instructions.push_back(return_instruction);
 
-    // set INTERNALRETURN after RETURN if this block was called by INTERNALCALL
-    if (caller != nullptr) {
-        auto internalreturn_instruction =
-            bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALRETURN).build();
-        instructions.push_back(internalreturn_instruction);
-    }
+    terminated = true;
 }
 
 void ProgramBlock::finalize_with_jump(ProgramBlock* target_block, bool copy_memory_manager)
 {
-    this->terminator_type = TerminatorType::JUMP;
+    terminated = true;
     successors.push_back(target_block);
     target_block->predecessors.push_back(this);
-    target_block->caller = this->caller;
     if (copy_memory_manager) {
         target_block->memory_manager = memory_manager;
     }
@@ -851,44 +836,16 @@ void ProgramBlock::finalize_with_jump_if(ProgramBlock* target_then_block,
                                          uint16_t condition_offset,
                                          bool copy_memory_manager)
 {
-    this->terminator_type = TerminatorType::JUMP_IF;
+    terminated = true;
     successors.push_back(target_then_block);
     successors.push_back(target_else_block);
     this->condition_offset_index = condition_offset;
     target_then_block->predecessors.push_back(this);
     target_else_block->predecessors.push_back(this);
-    target_then_block->caller = this->caller;
-    target_else_block->caller = this->caller;
     if (copy_memory_manager) {
         target_then_block->memory_manager = memory_manager;
         target_else_block->memory_manager = memory_manager;
     }
-}
-
-void ProgramBlock::insert_internal_call(ProgramBlock* target_block)
-{
-    auto internalcall_instruction =
-        bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALCALL).operand(0U).build();
-    instructions.push_back(internalcall_instruction);
-    internal_call_instruction_indicies_to_patch[instructions.size() - 1] = target_block;
-    this->successors.push_back(target_block);
-    target_block->predecessors.push_back(this);
-    target_block->caller = this->caller;
-}
-
-void ProgramBlock::patch_internal_calls()
-{
-    for (auto [instruction_index, target_block] : internal_call_instruction_indicies_to_patch) {
-        auto internalcall_instruction = instructions.at(instruction_index);
-        if (target_block->offset == -1) {
-            throw std::runtime_error("Target block offset is not set, should not happen");
-        }
-        auto internalcall_instruction_builder =
-            bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::INTERNALCALL)
-                .operand(static_cast<uint32_t>(target_block->offset));
-        instructions.at(instruction_index) = internalcall_instruction_builder.build();
-    }
-    internal_call_instruction_indicies_to_patch.clear();
 }
 
 std::optional<uint16_t> ProgramBlock::get_terminating_condition_value()

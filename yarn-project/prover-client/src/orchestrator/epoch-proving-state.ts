@@ -5,7 +5,6 @@ import type {
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
@@ -67,7 +66,7 @@ export class EpochProvingState {
   >();
 
   constructor(
-    public readonly epochNumber: EpochNumber,
+    public readonly epochNumber: number,
     public readonly totalNumCheckpoints: number,
     private readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
     private onCheckpointBlobAccumulatorSet: (checkpoint: CheckpointProvingState) => void,

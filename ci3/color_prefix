@@ -19,25 +19,9 @@ job_name="$1"
 shift
 command="$@"
 
-# Run the command in background, capturing its PID for signal forwarding
-# Output goes to process substitution which handles prefixing
-cmd_pid=""
-
-# Signal handler - forward signal to command and exit
-function cleanup {
-  set +e
-  if [ -n "$cmd_pid" ]; then
-    kill -TERM "$cmd_pid" 2>/dev/null
-    wait $cmd_pid 2>/dev/null
-    cmd_pid=
-  fi
-  exit 130
-}
-trap cleanup SIGTERM SIGINT
-
-# Compute color from job name hash.
+# Compute color from job name hash (same algorithm as Makefile)
 # Picks a color between 20 and 231 (avoiding very dark/light colors)
-function compute_color {
+compute_color() {
   local name="$1"
   local hash=$(printf '%s' "$name" | cksum | cut -d' ' -f1)
   echo $(( (hash % 212) + 20 ))
@@ -45,15 +29,14 @@ function compute_color {
 
 color=$(compute_color "$job_name")
 
-# Execute command with output going to process substitution for prefixing
-# Run in background so we can capture PID, then wait for it
-stdbuf -oL -eL bash -c "$command" > >(
+# Execute command with line buffering and prefix each line with colored job name
+# stdbuf ensures immediate output without buffering
+# Merge stderr to stdout, then prefix each line
+set -o pipefail
+stdbuf -oL -eL bash -c "$command" 2>&1 | \
   while IFS= read -r line; do
     printf '\033[38;5;%sm[%s]\033[0m %s\n' "$color" "$job_name" "$line"
   done
-) 2>&1 &
-cmd_pid=$!
 
-# Wait for command and capture exit code
-wait $cmd_pid 2>/dev/null
-exit $?
+# Preserve the command's exit code
+exit ${PIPESTATUS[0]}

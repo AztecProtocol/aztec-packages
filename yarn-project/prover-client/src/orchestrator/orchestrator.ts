@@ -6,7 +6,6 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
 } from '@aztec/constants';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
 import { Fr } from '@aztec/foundation/fields';
@@ -118,7 +117,7 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   public startNewEpoch(
-    epochNumber: EpochNumber,
+    epochNumber: number,
     totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
   ) {

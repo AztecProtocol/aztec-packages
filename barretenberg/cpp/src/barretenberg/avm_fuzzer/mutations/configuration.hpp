@@ -402,21 +402,19 @@ enum class CFGInstructionGenerationOptions {
     JumpIfToBlock,
     FinalizeWithReturn,
     SwitchToNonTerminatedBlock,
-    InsertInternalCall,
 };
 
-using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 8>;
+using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 7>;
 
 constexpr CFGInstructionGenerationConfig BASIC_CFG_INSTRUCTION_GENERATION_CONFIGURATION =
     CFGInstructionGenerationConfig({
-        { CFGInstructionGenerationOptions::InsertSimpleInstructionBlock, 60 },
-        { CFGInstructionGenerationOptions::JumpToNewBlock, 20 },
-        { CFGInstructionGenerationOptions::JumpIfToNewBlock, 20 },
-        { CFGInstructionGenerationOptions::JumpToBlock, 15 },
-        { CFGInstructionGenerationOptions::JumpIfToBlock, 15 },
-        { CFGInstructionGenerationOptions::FinalizeWithReturn, 7 },
-        { CFGInstructionGenerationOptions::SwitchToNonTerminatedBlock, 8 },
-        { CFGInstructionGenerationOptions::InsertInternalCall, 3 },
+        { CFGInstructionGenerationOptions::InsertSimpleInstructionBlock, 6 },
+        { CFGInstructionGenerationOptions::JumpToNewBlock, 2 },
+        { CFGInstructionGenerationOptions::JumpIfToNewBlock, 2 },
+        { CFGInstructionGenerationOptions::JumpToBlock, 1 },
+        { CFGInstructionGenerationOptions::JumpIfToBlock, 1 },
+        { CFGInstructionGenerationOptions::FinalizeWithReturn, 1 },
+        { CFGInstructionGenerationOptions::SwitchToNonTerminatedBlock, 1 },
     });
 
 enum class JumpIfToBlockMutationOptions { target_then_block_idx, target_else_block_idx, condition_offset_index };

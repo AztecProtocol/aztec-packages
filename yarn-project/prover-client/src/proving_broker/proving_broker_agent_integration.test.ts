@@ -1,4 +1,3 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { randomInt, sha256 } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
@@ -67,7 +66,7 @@ describe('ProvingBroker <-> ProvingAgent integration', () => {
 
     jest.spyOn(prover, 'getBaseParityProof').mockImplementation((inputs, signal) => {
       const inputsHash = sha256(inputs.toBuffer());
-      const id = makeProvingJobId(EpochNumber(0), ProvingRequestType.PARITY_BASE, inputsHash.toString('hex'));
+      const id = makeProvingJobId(0, ProvingRequestType.PARITY_BASE, inputsHash.toString('hex'));
       // job was given to two agents
       if (deferreds[id]) {
         duplicateJobs.push(id);
@@ -82,7 +81,7 @@ describe('ProvingBroker <-> ProvingAgent integration', () => {
       while (true) {
         const inputs = makeParityBasePrivateInputs(randomInt(Number.MAX_SAFE_INTEGER));
         const inputsHash = sha256(inputs.toBuffer());
-        const id = makeProvingJobId(EpochNumber(0), ProvingRequestType.PARITY_BASE, inputsHash.toString('hex'));
+        const id = makeProvingJobId(0, ProvingRequestType.PARITY_BASE, inputsHash.toString('hex'));
         if (jobs[id]) {
           continue;
         }
@@ -91,7 +90,7 @@ describe('ProvingBroker <-> ProvingAgent integration', () => {
           id,
           type: ProvingRequestType.PARITY_BASE,
           inputsUri: await store.saveProofInput(id, ProvingRequestType.PARITY_BASE, inputs),
-          epochNumber: EpochNumber(0),
+          epochNumber: 0,
         };
         await broker.enqueueProvingJob(jobs[id]);
         break;

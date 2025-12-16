@@ -1,5 +1,4 @@
 import { RollupContract } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -62,7 +61,7 @@ describe('prover-node', () => {
   let address: EthAddress;
 
   // List of all jobs ever created by the test prover node and their dependencies
-  let jobs: { job: MockProxy<EpochProvingJob>; epochNumber: EpochNumber }[];
+  let jobs: { job: MockProxy<EpochProvingJob>; epochNumber: bigint }[];
 
   const createProverNode = () =>
     new TestProverNode(
@@ -180,26 +179,26 @@ describe('prover-node', () => {
   });
 
   it('starts a proof on a finished epoch', async () => {
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
-    expect(jobs[0].epochNumber).toEqual(EpochNumber.fromBigInt(10n));
+    await proverNode.handleEpochReadyToProve(10n);
+    expect(jobs[0].epochNumber).toEqual(10n);
     expect(jobs[0].job.getDeadline()).toEqual(new Date((l1GenesisTime + 10 + 2) * 1000));
     expect(proverNode.totalJobCount).toEqual(1);
   });
 
   it('requests a publisher for each epoch', async () => {
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+    await proverNode.handleEpochReadyToProve(10n);
     expect(publisherFactory.create).toHaveBeenCalledTimes(1);
   });
 
   it('does not start a proof if there are no blocks in the epoch', async () => {
     l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+    await proverNode.handleEpochReadyToProve(10n);
     expect(proverNode.totalJobCount).toEqual(0);
   });
 
   it('does not start a proof if there is a tx missing from coordinator', async () => {
     txProvider.getTxsForBlock.mockResolvedValue({ missingTxs: [TxHash.random()], txs: [] });
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+    await proverNode.handleEpochReadyToProve(10n);
     expect(proverNode.totalJobCount).toEqual(0);
   });
 
@@ -207,8 +206,8 @@ describe('prover-node', () => {
     const firstJob = promiseWithResolvers<void>();
     proverNode.nextJobRun = () => firstJob.promise;
     proverNode.nextJobState = 'processing';
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+    await proverNode.handleEpochReadyToProve(10n);
+    await proverNode.handleEpochReadyToProve(10n);
 
     firstJob.resolve();
     expect(proverNode.totalJobCount).toEqual(1);
@@ -216,14 +215,14 @@ describe('prover-node', () => {
 
   it('restarts a proof on a reorg', async () => {
     proverNode.nextJobState = 'reorg';
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+    await proverNode.handleEpochReadyToProve(10n);
     await retryUntil(() => proverNode.totalJobCount === 2, 'job retried', 5);
     expect(proverNode.totalJobCount).toEqual(2);
   });
 
   it('does not restart a proof on an error', async () => {
     proverNode.nextJobState = 'failed';
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+    await proverNode.handleEpochReadyToProve(10n);
     await sleep(1000);
     expect(proverNode.totalJobCount).toEqual(1);
   });
@@ -258,9 +257,9 @@ describe('prover-node', () => {
       return super.triggerMonitors();
     }
 
-    public override getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: EpochNumber }[]> {
+    public override getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]> {
       return Promise.resolve(
-        jobs.map(j => ({ uuid: j.job.getId(), status: j.job.getState(), epochNumber: j.epochNumber })),
+        jobs.map(j => ({ uuid: j.job.getId(), status: j.job.getState(), epochNumber: Number(j.epochNumber) })),
       );
     }
   }

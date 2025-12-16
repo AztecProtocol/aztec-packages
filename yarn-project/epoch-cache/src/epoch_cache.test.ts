@@ -1,5 +1,4 @@
 import type { RollupContract, ViemPublicClient } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -11,7 +10,7 @@ import type { GetBlockReturnType } from 'viem';
 import { EpochCache, type EpochCommitteeInfo } from './epoch_cache.js';
 
 class TestEpochCache extends EpochCache {
-  public seedCache(epoch: EpochNumber, committeeInfo: EpochCommitteeInfo): void {
+  public seedCache(epoch: bigint, committeeInfo: EpochCommitteeInfo): void {
     this.cache.set(epoch, committeeInfo);
   }
 
@@ -75,7 +74,7 @@ describe('EpochCache', () => {
 
     epochCache = new TestEpochCache(rollupContract, testConstants);
     // Initialize the cache with the initial epoch's committee
-    epochCache.seedCache(EpochNumber(0), { epoch: EpochNumber(0), committee: testCommittee, seed: 0n });
+    epochCache.seedCache(0n, { epoch: 0n, committee: testCommittee, seed: 0n });
   });
 
   afterEach(() => {
@@ -185,7 +184,7 @@ describe('EpochCache', () => {
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1); // Called again for new epoch
     rollupContract.getCommitteeAt.mockClear();
 
-    // Should return the previous epoch still cached (1n is a slot number, not an epoch)
+    // Should return the previous epoch still cached
     const { committee: initialCommitteeRerequested } = await epochCache.getCommittee(1n);
     expect(initialCommitteeRerequested).toEqual(testCommittee);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0); // Cached

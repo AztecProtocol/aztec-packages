@@ -5,7 +5,6 @@ import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig, InboxContract, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
@@ -724,13 +723,13 @@ describe('Archiver', () => {
     await archiver.start(false);
 
     // Epoch should not yet be complete
-    expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(false);
+    expect(await archiver.isEpochComplete(0n)).toBe(false);
 
     // Wait until block 1 is processed
     await waitUntilArchiverBlock(1);
 
     // Epoch should not be complete
-    expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(false);
+    expect(await archiver.isEpochComplete(0n)).toBe(false);
   });
 
   it('reports an epoch as complete if the current L2 block is in the last slot of the epoch', async () => {
@@ -757,13 +756,13 @@ describe('Archiver', () => {
     await archiver.start(false);
 
     // Epoch should not yet be complete
-    expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(false);
+    expect(await archiver.isEpochComplete(0n)).toBe(false);
 
     // Wait until block 1 is processed
     await waitUntilArchiverBlock(1);
 
     // Epoch should be complete once block was synced
-    expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(true);
+    expect(await archiver.isEpochComplete(0n)).toBe(true);
   });
 
   it('reports an epoch as pending if the current L1 block is not the last one on the epoch and no L2 block landed', async () => {
@@ -776,7 +775,7 @@ describe('Archiver', () => {
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT]);
 
     await archiver.start(true);
-    expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(false);
+    expect(await archiver.isEpochComplete(0n)).toBe(false);
   });
 
   it('reports an epoch as complete if the current L1 block is the last one on the epoch and no L2 block landed', async () => {
@@ -789,7 +788,7 @@ describe('Archiver', () => {
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT]);
 
     await archiver.start(true);
-    expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(true);
+    expect(await archiver.isEpochComplete(0n)).toBe(true);
   });
 
   // Regression for https://github.com/AztecProtocol/aztec-packages/issues/12631
@@ -816,14 +815,14 @@ describe('Archiver', () => {
 
     await archiver.start(false);
 
-    expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(false);
-    while (!(await archiver.isEpochComplete(EpochNumber(0)))) {
+    expect(await archiver.isEpochComplete(0n)).toBe(false);
+    while (!(await archiver.isEpochComplete(0n))) {
       // No sleep, we want to know exactly when the epoch completes
     }
 
     // Once epoch is flagged as complete, block number must be 1
     expect(await archiver.getBlockNumber()).toEqual(1);
-    expect(await archiver.isEpochComplete(EpochNumber(0))).toBe(true);
+    expect(await archiver.isEpochComplete(0n)).toBe(true);
   });
 
   it('starts new loop if latest L1 block has advanced beyond what a non-archive L1 node tracks', async () => {

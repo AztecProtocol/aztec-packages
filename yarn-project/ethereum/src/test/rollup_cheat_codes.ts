@@ -1,6 +1,5 @@
 import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
@@ -56,9 +55,9 @@ export class RollupCheatCodes {
   }
 
   /** Returns the current epoch */
-  public async getEpoch(): Promise<EpochNumber> {
+  public async getEpoch() {
     const slotNumber = await this.getSlot();
-    return EpochNumber.fromBigInt(await this.rollup.read.getEpochAtSlot([slotNumber]));
+    return await this.rollup.read.getEpochAtSlot([slotNumber]);
   }
 
   /**
@@ -112,7 +111,7 @@ export class RollupCheatCodes {
    * @param opts - Options
    */
   public async advanceToEpoch(
-    epoch: EpochNumber | bigint | number,
+    epoch: bigint | number,
     opts: {
       /** Offset in seconds */
       offset?: number;

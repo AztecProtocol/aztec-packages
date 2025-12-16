@@ -1,6 +1,5 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -183,7 +182,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number - 1 : -1)?.getBlockHeader());
   }
 
-  getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]> {
+  getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
     const epochDuration = DefaultL1ContractsConfig.aztecEpochDuration;
     const [start, end] = getSlotRangeForEpoch(epochNumber, { epochDuration });
     const blocks = this.l2Blocks.filter(b => {
@@ -193,7 +192,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(blocks);
   }
 
-  async getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
+  async getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
     const blocks = await this.getBlocksForEpoch(epochNumber);
     return blocks.map(b => b.getBlockHeader());
   }
@@ -269,7 +268,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     };
   }
 
-  getL2EpochNumber(): Promise<EpochNumber> {
+  getL2EpochNumber(): Promise<bigint> {
     throw new Error('Method not implemented.');
   }
 
@@ -277,7 +276,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     throw new Error('Method not implemented.');
   }
 
-  isEpochComplete(_epochNumber: EpochNumber): Promise<boolean> {
+  isEpochComplete(_epochNumber: bigint): Promise<boolean> {
     throw new Error('Method not implemented.');
   }
 

@@ -6,7 +6,6 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/aztec.js/protocol';
 import type { Operator } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -27,7 +26,7 @@ jest.setTimeout(1000 * 60 * 10);
 const NODE_COUNT = 8;
 const COMMITTEE_SIZE = 3;
 const TX_COUNT = 2;
-const EPOCH = EpochNumber(4);
+const EPOCH = 4n;
 
 // Spawns NODE_COUNT validator nodes, connected via a mocked gossip sub network, but sets
 // committee size to 3. Warps to immediately before the beginning of an epoch, and checks

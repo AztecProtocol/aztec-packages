@@ -188,7 +188,6 @@ service:
   p2p:
     enabled: true
     nodePortEnabled: false
-    publicIP: true
     port: 40400
     announcePort: 40400
 

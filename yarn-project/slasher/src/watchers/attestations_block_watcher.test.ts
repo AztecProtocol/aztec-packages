@@ -1,5 +1,4 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import {
@@ -61,7 +60,7 @@ describe('AttestationsBlockWatcher', () => {
       reason: 'insufficient-attestations',
       block: l2BlockInfo,
       committee,
-      epoch: EpochNumber(1),
+      epoch: 1n,
       seed: 0n,
       attestors: [],
       attestations: [],
@@ -93,7 +92,7 @@ describe('AttestationsBlockWatcher', () => {
       reason: 'invalid-attestation',
       block: l2BlockInfo,
       committee,
-      epoch: EpochNumber(1),
+      epoch: 1n,
       seed: 0n,
       attestors: [],
       invalidIndex: 0,
@@ -127,7 +126,7 @@ describe('AttestationsBlockWatcher', () => {
       reason: 'insufficient-attestations',
       block: l2BlockInfo,
       committee,
-      epoch: EpochNumber(1),
+      epoch: 1n,
       seed: 0n,
       attestors: [],
       attestations: [],
@@ -158,7 +157,7 @@ describe('AttestationsBlockWatcher', () => {
       reason: 'insufficient-attestations',
       block: childBlockInfo,
       committee: [proposer2, attestor1, attestor2],
-      epoch: EpochNumber(1),
+      epoch: 1n,
       seed: 0n,
       attestors: [attestor1, attestor2],
       attestations: [],
@@ -206,7 +205,7 @@ describe('AttestationsBlockWatcher', () => {
       reason: 'insufficient-attestations',
       block: l2BlockInfo,
       committee,
-      epoch: EpochNumber(1),
+      epoch: 1n,
       seed: 0n,
       attestors: [],
       attestations: [],
@@ -235,7 +234,7 @@ describe('AttestationsBlockWatcher', () => {
       reason: 'insufficient-attestations',
       block: l2BlockInfo,
       committee,
-      epoch: EpochNumber(1),
+      epoch: 1n,
       seed: 0n,
       attestors: [],
       attestations: [],

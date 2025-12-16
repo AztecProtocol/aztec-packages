@@ -1,6 +1,5 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -75,7 +74,7 @@ export class EpochProvingJob implements Traceable {
     return this.state;
   }
 
-  public getEpochNumber(): EpochNumber {
+  public getEpochNumber(): bigint {
     return this.data.epochNumber;
   }
 
@@ -107,7 +106,7 @@ export class EpochProvingJob implements Traceable {
    * Proves the given epoch and submits the proof to L1.
    */
   @trackSpan('EpochProvingJob.run', function () {
-    return { [Attributes.EPOCH_NUMBER]: this.data.epochNumber };
+    return { [Attributes.EPOCH_NUMBER]: Number(this.data.epochNumber) };
   })
   public async run() {
     this.scheduleDeadlineStop();
@@ -116,7 +115,7 @@ export class EpochProvingJob implements Traceable {
     }
 
     const attestations = this.attestations.map(attestation => attestation.toViem());
-    const epochNumber = this.epochNumber;
+    const epochNumber = Number(this.epochNumber);
     const epochSizeBlocks = this.blocks.length;
     const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.txEffects.length, 0);
     const [fromBlock, toBlock] = [this.blocks[0].number, this.blocks.at(-1)!.number];

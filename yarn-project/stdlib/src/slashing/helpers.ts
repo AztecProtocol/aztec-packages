@@ -1,5 +1,3 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
-
 import { type L1RollupConstants, getEpochAtSlot, getSlotRangeForEpoch } from '../epoch-helpers/index.js';
 import type { SlasherConfig } from '../interfaces/slasher.js';
 import { type Offense, OffenseType } from './types.js';
@@ -17,7 +15,7 @@ export function getRoundForSlot(
 
 /** Returns the voting round(s) lower and upper bounds (inclusive) covered by the given epoch */
 export function getRoundsForEpoch(
-  epoch: EpochNumber,
+  epoch: bigint,
   constants: { slashingRoundSize: number; epochDuration: number },
 ): [bigint, bigint] {
   const [start, end] = getSlotRangeForEpoch(epoch, constants);
@@ -30,13 +28,13 @@ export function getRoundsForEpoch(
 export function getEpochsForRound(
   round: bigint,
   constants: { slashingRoundSize: number; epochDuration: number },
-): EpochNumber[] {
-  const epochs: EpochNumber[] = [];
+): bigint[] {
+  const epochs: bigint[] = [];
   const firstSlot = round * BigInt(constants.slashingRoundSize);
   const lastSlot = firstSlot + BigInt(constants.slashingRoundSize) - 1n;
   const startEpoch = getEpochAtSlot(firstSlot, constants);
   const endEpoch = getEpochAtSlot(lastSlot, constants);
-  for (let epoch = startEpoch; epoch <= endEpoch; epoch = EpochNumber(epoch + 1)) {
+  for (let epoch = startEpoch; epoch <= endEpoch; epoch++) {
     epochs.push(epoch);
   }
   return epochs;

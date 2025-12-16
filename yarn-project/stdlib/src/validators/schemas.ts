@@ -66,7 +66,7 @@ export const SingleValidatorStatsSchema = z.object({
     z.object({
       missed: schemas.Integer,
       total: schemas.Integer,
-      epoch: schemas.EpochNumber,
+      epoch: schemas.BigInt,
     }),
   ),
   lastProcessedSlot: schemas.BigInt.optional(),

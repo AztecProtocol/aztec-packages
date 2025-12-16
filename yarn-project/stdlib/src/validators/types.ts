@@ -1,4 +1,3 @@
-import type { EpochNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
 export type ValidatorStatusType = 'block' | 'attestation';
@@ -40,7 +39,7 @@ export type ValidatorsEpochPerformance = Record<`0x${string}`, { missed: number;
 
 export type SingleValidatorStats = {
   validator: ValidatorStats;
-  allTimeProvenPerformance: { missed: number; total: number; epoch: EpochNumber }[];
+  allTimeProvenPerformance: { missed: number; total: number; epoch: bigint }[];
   lastProcessedSlot?: bigint;
   initialSlot?: bigint;
   slotWindow: number;

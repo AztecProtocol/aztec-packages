@@ -1,4 +1,3 @@
-import type { EpochNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
@@ -118,27 +117,27 @@ export interface L2BlockSource {
   /**
    * Returns the current L2 epoch number based on the currently synced L1 timestamp.
    */
-  getL2EpochNumber(): Promise<EpochNumber | undefined>;
+  getL2EpochNumber(): Promise<bigint | undefined>;
 
   /**
    * Returns all blocks for a given epoch.
    * @dev Use this method only with recent epochs, since it walks the block list backwards.
    * @param epochNumber - The epoch number to return blocks for.
    */
-  getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]>;
+  getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]>;
 
   /**
    * Returns all block headers for a given epoch.
    * @dev Use this method only with recent epochs, since it walks the block list backwards.
    * @param epochNumber - The epoch number to return headers for.
    */
-  getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]>;
+  getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]>;
 
   /**
    * Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
    * @param epochNumber - The epoch number to check.
    */
-  isEpochComplete(epochNumber: EpochNumber): Promise<boolean>;
+  isEpochComplete(epochNumber: bigint): Promise<boolean>;
 
   /**
    * Returns the tips of the L2 chain.
@@ -233,12 +232,12 @@ export type L2BlockProvenEvent = {
   type: 'l2BlockProven';
   blockNumber: bigint;
   slotNumber: bigint;
-  epochNumber: EpochNumber;
+  epochNumber: bigint;
 };
 
 export type L2BlockPruneEvent = {
   type: 'l2PruneDetected';
-  epochNumber: EpochNumber;
+  epochNumber: bigint;
   blocks: L2Block[];
 };
 

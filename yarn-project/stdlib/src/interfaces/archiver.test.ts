@@ -1,4 +1,3 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -148,21 +147,21 @@ describe('ArchiverApiSchema', () => {
 
   it('getL2EpochNumber', async () => {
     const result = await context.client.getL2EpochNumber();
-    expect(result).toBe(EpochNumber(1));
+    expect(result).toBe(1n);
   });
 
   it('getBlocksForEpoch', async () => {
-    const result = await context.client.getBlocksForEpoch(EpochNumber(1));
+    const result = await context.client.getBlocksForEpoch(1n);
     expect(result).toEqual([expect.any(L2Block)]);
   });
 
   it('getBlockHeadersForEpoch', async () => {
-    const result = await context.client.getBlockHeadersForEpoch(EpochNumber(1));
+    const result = await context.client.getBlockHeadersForEpoch(1n);
     expect(result).toEqual([expect.any(BlockHeader)]);
   });
 
   it('isEpochComplete', async () => {
-    const result = await context.client.isEpochComplete(EpochNumber(1));
+    const result = await context.client.isEpochComplete(1n);
     expect(result).toBe(true);
   });
 
@@ -371,20 +370,20 @@ class MockArchiver implements ArchiverApi {
   getL2SlotNumber(): Promise<bigint> {
     return Promise.resolve(1n);
   }
-  getL2EpochNumber(): Promise<EpochNumber | undefined> {
-    return Promise.resolve(EpochNumber(1));
+  getL2EpochNumber(): Promise<bigint> {
+    return Promise.resolve(1n);
   }
-  async getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]> {
-    expect(epochNumber).toEqual(EpochNumber(1));
+  async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
+    expect(epochNumber).toEqual(1n);
     return [await L2Block.random(Number(epochNumber))];
   }
-  async getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
-    expect(epochNumber).toEqual(EpochNumber(1));
+  async getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
+    expect(epochNumber).toEqual(1n);
     const block = await L2Block.random(Number(epochNumber));
     return [block.getBlockHeader()];
   }
-  isEpochComplete(epochNumber: EpochNumber): Promise<boolean> {
-    expect(epochNumber).toEqual(EpochNumber(1));
+  isEpochComplete(epochNumber: bigint): Promise<boolean> {
+    expect(epochNumber).toEqual(1n);
     return Promise.resolve(true);
   }
   getL2Tips(): Promise<L2Tips> {

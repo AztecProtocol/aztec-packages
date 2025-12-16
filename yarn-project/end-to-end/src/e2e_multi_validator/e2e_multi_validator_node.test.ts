@@ -14,7 +14,6 @@ import {
   createExtendedL1Client,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -165,9 +164,7 @@ describe('e2e_multi_validator_node', () => {
     ]);
 
     await cheatCodes.rollup.advanceToEpoch(
-      EpochNumber.fromBigInt(
-        BigInt(await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochsForValidatorSet + 1),
-      ),
+      (await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochsForValidatorSet + 1),
     );
 
     // check that the committee is undefined

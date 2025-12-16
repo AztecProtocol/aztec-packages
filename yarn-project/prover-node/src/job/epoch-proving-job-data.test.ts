@@ -1,4 +1,3 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
@@ -16,7 +15,7 @@ describe('EpochProvingJobData', () => {
     const txs = new Map<string, Tx>(txArray.map(tx => [tx.getTxHash().toString(), tx]));
 
     const jobData: EpochProvingJobData = {
-      epochNumber: EpochNumber.fromBigInt(3n),
+      epochNumber: 3n,
       blocks: await timesAsync(4, i => L2Block.random(i + 1)),
       txs,
       l1ToL2Messages: {

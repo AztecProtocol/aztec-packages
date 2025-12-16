@@ -1,7 +1,6 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -64,7 +63,7 @@ describe('slash inactivity test', () => {
     logger.warn(`Retrieving committee for next epoch (current epoch is ${startEpoch})`);
     return await retryUntil(
       async () => {
-        const nextEpoch = EpochNumber.fromBigInt(BigInt(await rollup.getCurrentEpoch()) + 1n);
+        const nextEpoch = (await rollup.getCurrentEpoch()) + 1n;
         const nextEpochStartTimestamp = getStartTimestampForEpoch(nextEpoch, constants);
         const committee = await rollup.getCommitteeAt(nextEpochStartTimestamp);
 
@@ -157,8 +156,8 @@ describe('slash inactivity test', () => {
 
     // Wait for an epoch, then reenable the validator, otherwise it will get slashed for every epoch
     // for the slashed round, plus the slash offset, plus the execution delay, which would kick them out.
-    const lastSlotBeforeNextEpoch = getSlotRangeForEpoch(EpochNumber.fromBigInt(BigInt(epoch) + 1n), constants)[0] - 1n;
-    logger.warn(`Waiting until end of epoch ${BigInt(epoch) + 1n} at slot ${lastSlotBeforeNextEpoch}`);
+    const lastSlotBeforeNextEpoch = getSlotRangeForEpoch(epoch + 1n, constants)[0] - 1n;
+    logger.warn(`Waiting until end of epoch ${epoch + 1n} at slot ${lastSlotBeforeNextEpoch}`);
     await monitor.waitUntilL2Slot(lastSlotBeforeNextEpoch);
     await updateSequencersConfig(config, { disabledValidators: [] });
     logger.warn(`Updated sequencer configs to reenable ${offlineValidator}`);

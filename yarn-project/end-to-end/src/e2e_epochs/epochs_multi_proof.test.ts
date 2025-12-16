@@ -1,6 +1,5 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
@@ -70,7 +69,7 @@ describe('e2e_epochs/epochs_multi_proof', () => {
     // Wait until the start of epoch one and collect info on epoch zero
     await test.waitUntilEpochStarts(1);
     await sleep(L1_BLOCK_TIME_IN_S * 1000);
-    const [_firstEpochStartSlot, firstEpochEndSlot] = getSlotRangeForEpoch(EpochNumber(0), constants);
+    const [_firstEpochStartSlot, firstEpochEndSlot] = getSlotRangeForEpoch(0n, constants);
     const firstEpochBlocks = await context.aztecNode
       .getBlocks(1, test.epochDuration)
       .then(blocks => blocks.filter(block => block.header.getSlot() <= firstEpochEndSlot));
@@ -82,7 +81,7 @@ describe('e2e_epochs/epochs_multi_proof', () => {
     await retryUntil(
       async () => {
         const haveSubmitted = await Promise.all(
-          proverIds.map(proverId => rollup.getHasSubmittedProof(EpochNumber(0), firstEpochLength, proverId)),
+          proverIds.map(proverId => rollup.getHasSubmittedProof(0, firstEpochLength, proverId)),
         );
         logger.info(`Proof submissions: ${haveSubmitted.join(', ')}`);
         return haveSubmitted.every(submitted => submitted);

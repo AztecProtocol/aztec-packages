@@ -1,4 +1,3 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
@@ -568,7 +567,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     this.reEnqueueExpiredJobs();
     const oldestEpochToKeep = this.oldestEpochToKeep();
     if (oldestEpochToKeep > 0) {
-      await this.database.deleteAllProvingJobsOlderThanEpoch(EpochNumber(oldestEpochToKeep));
+      await this.database.deleteAllProvingJobsOlderThanEpoch(oldestEpochToKeep);
       this.logger.trace(`Deleted all epochs older than ${oldestEpochToKeep}`);
     }
   }

@@ -4,7 +4,6 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
@@ -1190,7 +1189,7 @@ export function describeArchiverDataStore(
           valid: false,
           block: randomBlockInfo(1),
           committee: [EthAddress.random(), EthAddress.random()],
-          epoch: EpochNumber(123),
+          epoch: 123n,
           seed: 456n,
           attestors: [EthAddress.random()],
           attestations: [CommitteeAttestation.random()],
@@ -1209,7 +1208,7 @@ export function describeArchiverDataStore(
           block: randomBlockInfo(2),
           committee: [EthAddress.random()],
           attestors: [EthAddress.random()],
-          epoch: EpochNumber(789),
+          epoch: 789n,
           seed: 101n,
           attestations: [CommitteeAttestation.random()],
           reason: 'invalid-attestation',
@@ -1228,7 +1227,7 @@ export function describeArchiverDataStore(
           valid: false,
           block: randomBlockInfo(3),
           committee: [EthAddress.random()],
-          epoch: EpochNumber(999),
+          epoch: 999n,
           seed: 888n,
           attestors: [EthAddress.random()],
           attestations: [CommitteeAttestation.random()],
@@ -1247,7 +1246,7 @@ export function describeArchiverDataStore(
           valid: false,
           block: randomBlockInfo(4),
           committee: [],
-          epoch: EpochNumber(0),
+          epoch: 0n,
           seed: 0n,
           attestors: [],
           attestations: [],

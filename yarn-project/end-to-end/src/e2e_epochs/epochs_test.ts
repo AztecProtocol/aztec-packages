@@ -9,7 +9,6 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig, type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
@@ -280,7 +279,7 @@ export class EpochsTestContext {
 
   /** Waits until the epoch begins (ie until the immediately previous L1 block is mined). */
   public async waitUntilEpochStarts(epoch: number) {
-    const [start] = getTimestampRangeForEpoch(EpochNumber(epoch), this.constants);
+    const [start] = getTimestampRangeForEpoch(BigInt(epoch), this.constants);
     this.logger.info(`Waiting until L1 timestamp ${start} is reached as the start of epoch ${epoch}`);
     await waitUntilL1Timestamp(
       this.l1Client,
@@ -314,7 +313,7 @@ export class EpochsTestContext {
 
   /** Waits until the last slot of the proof submission window for a given epoch. */
   public async waitUntilLastSlotOfProofSubmissionWindow(epochNumber: number | bigint) {
-    const deadline = getProofSubmissionDeadlineTimestamp(EpochNumber.fromBigInt(BigInt(epochNumber)), this.constants);
+    const deadline = getProofSubmissionDeadlineTimestamp(BigInt(epochNumber), this.constants);
     const oneSlotBefore = deadline - BigInt(this.constants.slotDuration);
     const date = new Date(Number(oneSlotBefore) * 1000);
     this.logger.info(`Waiting until last slot of submission window for epoch ${epochNumber} at ${date}`, {

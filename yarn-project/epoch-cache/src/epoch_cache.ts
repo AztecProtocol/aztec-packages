@@ -1,5 +1,4 @@
 import { NoCommitteeError, RollupContract, createEthereumChain } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -18,7 +17,7 @@ import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } fr
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 
 export type EpochAndSlot = {
-  epoch: EpochNumber;
+  epoch: bigint;
   slot: bigint;
   ts: bigint;
 };
@@ -26,7 +25,7 @@ export type EpochAndSlot = {
 export type EpochCommitteeInfo = {
   committee: EthAddress[] | undefined;
   seed: bigint;
-  epoch: EpochNumber;
+  epoch: bigint;
 };
 
 export type SlotTag = 'now' | 'next' | bigint;
@@ -35,8 +34,8 @@ export interface EpochCacheInterface {
   getCommittee(slot: SlotTag | undefined): Promise<EpochCommitteeInfo>;
   getEpochAndSlotNow(): EpochAndSlot;
   getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint };
-  getProposerIndexEncoding(epoch: EpochNumber, slot: bigint, seed: bigint): `0x${string}`;
-  computeProposerIndex(slot: bigint, epoch: EpochNumber, seed: bigint, size: bigint): bigint;
+  getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}`;
+  computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint;
   getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
     currentProposer: EthAddress | undefined;
     nextProposer: EthAddress | undefined;
@@ -58,8 +57,7 @@ export interface EpochCacheInterface {
  * Note: This class is very dependent on the system clock being in sync.
  */
 export class EpochCache implements EpochCacheInterface {
-  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
-  protected cache: Map<EpochNumber, EpochCommitteeInfo> = new Map();
+  protected cache: Map<bigint, EpochCommitteeInfo> = new Map();
   private allValidators: Set<string> = new Set();
   private lastValidatorRefresh = 0;
   private readonly log: Logger = createLogger('epoch-cache');
@@ -165,7 +163,7 @@ export class EpochCache implements EpochCacheInterface {
     };
   }
 
-  public getCommitteeForEpoch(epoch: EpochNumber): Promise<EpochCommitteeInfo> {
+  public getCommitteeForEpoch(epoch: bigint): Promise<EpochCommitteeInfo> {
     const [startSlot] = getSlotRangeForEpoch(epoch, this.l1constants);
     return this.getCommittee(startSlot);
   }
@@ -207,7 +205,7 @@ export class EpochCache implements EpochCacheInterface {
     }
   }
 
-  private async computeCommittee(when: { epoch: EpochNumber; ts: bigint }): Promise<EpochCommitteeInfo> {
+  private async computeCommittee(when: { epoch: bigint; ts: bigint }): Promise<EpochCommitteeInfo> {
     const { ts, epoch } = when;
     const [committeeHex, seed, l1Timestamp] = await Promise.all([
       this.rollup.getCommitteeAt(ts),
@@ -228,18 +226,18 @@ export class EpochCache implements EpochCacheInterface {
   /**
    * Get the ABI encoding of the proposer index - see ValidatorSelectionLib.sol computeProposerIndex
    */
-  getProposerIndexEncoding(epoch: EpochNumber, slot: bigint, seed: bigint): `0x${string}` {
+  getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}` {
     return encodeAbiParameters(
       [
         { type: 'uint256', name: 'epoch' },
         { type: 'uint256', name: 'slot' },
         { type: 'uint256', name: 'seed' },
       ],
-      [BigInt(epoch), slot, seed],
+      [epoch, slot, seed],
     );
   }
 
-  public computeProposerIndex(slot: bigint, epoch: EpochNumber, seed: bigint, size: bigint): bigint {
+  public computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint {
     // if committe size is 0, then mod 1 is 0
     if (size === 0n) {
       return 0n;

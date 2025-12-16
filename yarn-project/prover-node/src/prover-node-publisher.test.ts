@@ -1,6 +1,5 @@
 import { BatchedBlob } from '@aztec/blob-lib';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -174,7 +173,7 @@ describe('prover-node-publisher', () => {
 
       const result = await publisher
         .submitEpochProof({
-          epochNumber: EpochNumber(2),
+          epochNumber: 2,
           fromBlock,
           toBlock,
           publicInputs: ourPublicInputs,
@@ -266,7 +265,7 @@ describe('prover-node-publisher', () => {
     });
 
     const result = await publisher.submitEpochProof({
-      epochNumber: EpochNumber(2),
+      epochNumber: 2,
       fromBlock: 2,
       toBlock: 2,
       publicInputs: ourPublicInputs,

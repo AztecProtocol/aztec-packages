@@ -1,5 +1,4 @@
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -34,7 +33,7 @@ describe('prover/orchestrator/single-checkpoint', () => {
     });
 
     const finalBlobChallenges = await context.getFinalBlobChallenges();
-    context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
+    context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
 
     await context.orchestrator.startNewCheckpoint(
       0, // checkpointIndex
@@ -80,7 +79,7 @@ describe('prover/orchestrator/single-checkpoint', () => {
     });
 
     const finalBlobChallenges = await context.getFinalBlobChallenges();
-    context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
+    context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
 
     await context.orchestrator.startNewCheckpoint(
       0, // checkpointIndex

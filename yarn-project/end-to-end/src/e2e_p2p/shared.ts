@@ -7,7 +7,6 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { Tx, TxStatus } from '@aztec/aztec.js/tx';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { EmpireSlashingProposerContract, RollupContract, TallySlashingProposerContract } from '@aztec/ethereum';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync, unique } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import { pluralize } from '@aztec/foundation/string';
@@ -214,9 +213,9 @@ export async function awaitCommitteeKicked({
 
   if (slashingProposer.type === 'empire') {
     // Await for the slash payload to be created if empire (no payload is created on tally until execution time)
-    const targetEpoch = BigInt(await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1n;
+    const targetEpoch = (await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1n;
     logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
-    await cheatCodes.advanceToEpoch(EpochNumber.fromBigInt(targetEpoch));
+    await cheatCodes.advanceToEpoch(targetEpoch);
 
     const slashPayloadEvents = await retryUntil(
       async () => {
@@ -240,7 +239,7 @@ export async function awaitCommitteeKicked({
     const firstEpochInOffenseRound = offenseEpoch - (offenseEpoch % slashingRoundSizeInEpochs);
     const targetEpoch = firstEpochInOffenseRound + slashingOffsetInEpochs;
     logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
-    await cheatCodes.advanceToEpoch(EpochNumber(targetEpoch), { offset: -aztecSlotDuration / 2 });
+    await cheatCodes.advanceToEpoch(targetEpoch, { offset: -aztecSlotDuration / 2 });
   }
 
   const attestersPre = await rollup.getAttesters();
@@ -270,9 +269,7 @@ export async function awaitCommitteeKicked({
 
   logger.info(`Advancing to check current committee`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToEpoch(
-    EpochNumber.fromBigInt(BigInt(await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1n),
-  );
+  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1n);
   await cheatCodes.debugRollup();
 
   const committeeNextEpoch = await rollup.getCurrentEpochCommittee();

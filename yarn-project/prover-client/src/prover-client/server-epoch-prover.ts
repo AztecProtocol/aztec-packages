@@ -1,5 +1,4 @@
 import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/fields';
 import type { EthAddress } from '@aztec/stdlib/block';
 import type { EpochProver } from '@aztec/stdlib/interfaces/server';
@@ -19,7 +18,7 @@ export class ServerEpochProver implements EpochProver {
   ) {}
 
   startNewEpoch(
-    epochNumber: EpochNumber,
+    epochNumber: number,
     totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
   ): void {

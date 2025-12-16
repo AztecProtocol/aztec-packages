@@ -1,5 +1,4 @@
 import { NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
@@ -69,7 +68,7 @@ class MockProvingJobSource implements ProvingJobSource {
       id: 'a-job-id',
       type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
       inputsUri: 'inputs-uri' as ProofUri,
-      epochNumber: EpochNumber(1),
+      epochNumber: 1,
     });
   }
   heartbeat(jobId: string): Promise<void> {

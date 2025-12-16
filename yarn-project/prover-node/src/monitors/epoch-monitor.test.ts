@@ -1,4 +1,3 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { BlockHeader } from '@aztec/stdlib/tx';
@@ -56,7 +55,7 @@ describe('EpochMonitor', () => {
     lastEpochComplete = 0n;
 
     await epochMonitor.work();
-    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(EpochNumber(0));
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(0n);
   });
 
   it('does not trigger epoch sync on startup', async () => {
@@ -80,7 +79,7 @@ describe('EpochMonitor', () => {
     lastEpochComplete = 3n;
     await epochMonitor.work();
 
-    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(EpochNumber(3));
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
   });
 
   it('does not accidentally trigger for epoch zero on an empty epoch', async () => {
@@ -99,12 +98,12 @@ describe('EpochMonitor', () => {
     handler.handleEpochReadyToProve.mockResolvedValue(false);
 
     await epochMonitor.work();
-    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(EpochNumber(3));
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
     expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(1);
 
     // It will be called again with the same epoch number
     await epochMonitor.work();
-    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(EpochNumber(3));
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
     expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(2);
   });
 
@@ -114,7 +113,7 @@ describe('EpochMonitor', () => {
     lastEpochComplete = 3n;
 
     await epochMonitor.work();
-    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(EpochNumber(3));
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
 
     await epochMonitor.work();
     expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(1);
@@ -135,7 +134,7 @@ describe('EpochMonitor', () => {
     lastEpochComplete = 3n;
 
     await epochMonitor.work();
-    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(EpochNumber(3));
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
 
     lastEpochComplete = 4n;
     await epochMonitor.work();
@@ -149,7 +148,7 @@ describe('EpochMonitor', () => {
     lastEpochComplete = 3n;
 
     await epochMonitor.work();
-    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(EpochNumber(3));
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
 
     provenBlockNumber = 5;
     await epochMonitor.work();
@@ -163,7 +162,7 @@ describe('EpochMonitor', () => {
 
     // Initial sync for epoch 3
     await epochMonitor.work();
-    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(EpochNumber(3));
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
     expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(1);
 
     // We signal epoch 4 has completed, but the proven chain still hasn't moved
@@ -185,7 +184,7 @@ describe('EpochMonitor', () => {
     // And the new epoch finishes
     lastEpochComplete = 6n;
     await epochMonitor.work();
-    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(EpochNumber(6));
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(6n);
     expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(2);
   });
 });

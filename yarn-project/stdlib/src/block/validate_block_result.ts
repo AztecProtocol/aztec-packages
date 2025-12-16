@@ -1,4 +1,3 @@
-import { EpochNumber, EpochNumberSchema } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -17,7 +16,7 @@ export type ValidateBlockNegativeResult =
       /** Committee members at the epoch this block was proposed */
       committee: EthAddress[];
       /** Epoch in which this block was proposed */
-      epoch: EpochNumber;
+      epoch: bigint;
       /** Proposer selection seed for the epoch */
       seed: bigint;
       /** List of committee members who signed this block proposal */
@@ -34,7 +33,7 @@ export type ValidateBlockNegativeResult =
       /** Committee members at the epoch this block was proposed */
       committee: EthAddress[];
       /** Epoch in which this block was proposed */
-      epoch: EpochNumber;
+      epoch: bigint;
       /** Proposer selection seed for the epoch */
       seed: bigint;
       /** List of committee members who signed this block proposal */
@@ -50,13 +49,13 @@ export type ValidateBlockNegativeResult =
 /** Result type for validating a block attestations */
 export type ValidateBlockResult = { valid: true } | ValidateBlockNegativeResult;
 
-export const ValidateBlockResultSchema: ZodFor<ValidateBlockResult> = z.union([
+export const ValidateBlockResultSchema = z.union([
   z.object({ valid: z.literal(true) }),
   z.object({
     valid: z.literal(false),
     block: BlockInfoSchema,
     committee: z.array(schemas.EthAddress),
-    epoch: EpochNumberSchema,
+    epoch: schemas.BigInt,
     seed: schemas.BigInt,
     attestors: z.array(schemas.EthAddress),
     attestations: z.array(CommitteeAttestation.schema),
@@ -66,14 +65,14 @@ export const ValidateBlockResultSchema: ZodFor<ValidateBlockResult> = z.union([
     valid: z.literal(false),
     block: BlockInfoSchema,
     committee: z.array(schemas.EthAddress),
-    epoch: EpochNumberSchema,
+    epoch: schemas.BigInt,
     seed: schemas.BigInt,
     attestors: z.array(schemas.EthAddress),
     attestations: z.array(CommitteeAttestation.schema),
     reason: z.literal('invalid-attestation'),
     invalidIndex: z.number(),
   }),
-]);
+]) satisfies ZodFor<ValidateBlockResult>;
 
 export function serializeValidateBlockResult(result: ValidateBlockResult): Buffer {
   if (result.valid) {
@@ -107,7 +106,7 @@ export function deserializeValidateBlockResult(bufferOrReader: Buffer | BufferRe
   const reason = reader.readString() as 'insufficient-attestations' | 'invalid-attestation';
   const block = deserializeBlockInfo(reader.readBuffer());
   const committee = reader.readVector(EthAddress);
-  const epoch = EpochNumber(reader.readNumber());
+  const epoch = reader.readBigInt();
   const seed = reader.readBigInt();
   const attestors = reader.readVector(EthAddress);
   const attestations = reader.readVector(CommitteeAttestation);

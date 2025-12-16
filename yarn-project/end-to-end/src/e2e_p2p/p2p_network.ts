@@ -16,7 +16,6 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -293,9 +292,7 @@ export class P2PNetworkTest {
       });
 
       await cheatCodes.rollup.advanceToEpoch(
-        EpochNumber.fromBigInt(
-          BigInt(await cheatCodes.rollup.getEpoch()) + (await rollup.read.getLagInEpochsForValidatorSet()) + 1n,
-        ),
+        (await cheatCodes.rollup.getEpoch()) + (await rollup.read.getLagInEpochsForValidatorSet()) + 1n,
       );
 
       // Send and await a tx to make sure we mine a block for the warp to correctly progress.

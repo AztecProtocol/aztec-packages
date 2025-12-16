@@ -1,5 +1,4 @@
 import { BatchedBlob } from '@aztec/blob-lib';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
@@ -58,7 +57,7 @@ describe('epoch-proving-job', () => {
     const data: EpochProvingJobData = {
       blocks,
       txs: txsMap,
-      epochNumber: EpochNumber(epochNumber),
+      epochNumber: BigInt(epochNumber),
       l1ToL2Messages: fromEntries(blocks.map(b => [b.number, []])),
       previousBlockHeader: initialHeader,
       attestations,

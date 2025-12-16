@@ -1,5 +1,4 @@
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -35,7 +34,7 @@ describe('prover/orchestrator/multi-checkpoints', () => {
 
         logger.info(`Starting new epoch with ${numCheckpoints} checkpoints`);
         const finalBlobChallenges = await context.getFinalBlobChallenges();
-        context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
+        context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
 
         for (let i = 0; i < checkpoints.length; i++) {
           const {
@@ -90,7 +89,7 @@ describe('prover/orchestrator/multi-checkpoints', () => {
           const epochNumber = epochIndex + 1;
           const { checkpoints, finalBlobChallenges } = epochs[epochIndex];
           logger.info(`Starting epoch ${epochNumber} with ${checkpoints.length} checkpoints`);
-          context.orchestrator.startNewEpoch(EpochNumber(epochNumber), checkpoints.length, finalBlobChallenges);
+          context.orchestrator.startNewEpoch(epochNumber, checkpoints.length, finalBlobChallenges);
 
           for (let i = 0; i < checkpoints.length; i++) {
             const {

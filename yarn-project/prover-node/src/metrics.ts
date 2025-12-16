@@ -97,7 +97,7 @@ export class ProverNodeRewardsMetrics {
       // look at the prev epoch so that we get an accurate value, after proof submission window has closed
       // For example, if proof submission window is 1 epoch, and we are in epoch 2, we should be looking at epoch 0.
       // Similarly, if the proof submission window is 0, and we are in epoch 1, we should be looking at epoch 0.
-      const closedEpoch = BigInt(epoch) - BigInt(this.proofSubmissionEpochs) - 1n;
+      const closedEpoch = epoch - BigInt(this.proofSubmissionEpochs) - 1n;
       const rewards = await this.rollup.getSpecificProverRewardsForEpoch(closedEpoch, this.coinbase);
 
       const fmt = parseFloat(formatUnits(rewards, 18));

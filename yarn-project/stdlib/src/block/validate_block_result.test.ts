@@ -1,4 +1,3 @@
-import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { randomBlockInfo } from './l2_block_info.js';
@@ -24,7 +23,7 @@ describe('ValidateBlockResult', () => {
         reason: 'invalid-attestation',
         block: randomBlockInfo(),
         committee: [EthAddress.random(), EthAddress.random()],
-        epoch: EpochNumber(1),
+        epoch: 1n,
         seed: 2n,
         attestors: [EthAddress.random(), EthAddress.random()],
         invalidIndex: 4,
@@ -41,7 +40,7 @@ describe('ValidateBlockResult', () => {
         reason: 'insufficient-attestations',
         block: randomBlockInfo(),
         committee: [EthAddress.random(), EthAddress.random()],
-        epoch: EpochNumber(1),
+        epoch: 1n,
         seed: 2n,
         attestors: [EthAddress.random(), EthAddress.random()],
         attestations: [CommitteeAttestation.random(), CommitteeAttestation.random()],
