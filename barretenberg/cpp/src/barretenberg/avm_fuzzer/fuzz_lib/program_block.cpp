@@ -1,5 +1,6 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/program_block.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/contract_db_proxy.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
@@ -1065,6 +1066,81 @@ void ProgramBlock::process_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Ins
     instructions.push_back(emitunencryptedlog_instruction);
 }
 
+void ProgramBlock::process_call_instruction(CALL_Instruction instruction)
+{
+    FF function_address =
+        bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(instruction.function_index);
+    auto set_function_address_instruction =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = ResultAddressRef{ .address = instruction.address_offset,
+                                                                .mode = AddressingMode::Direct },
+                            .value = function_address };
+    this->process_set_ff_instruction(set_function_address_instruction);
+    auto set_l2_gas_instruction =
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                            .result_address = ResultAddressRef{ .address = instruction.l2_gas_address,
+                                                                .mode = AddressingMode::Direct },
+                            .value = instruction.l2_gas };
+    this->process_set_32_instruction(set_l2_gas_instruction);
+    auto set_da_gas_instruction =
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                            .result_address = ResultAddressRef{ .address = instruction.da_gas_address,
+                                                                .mode = AddressingMode::Direct },
+                            .value = instruction.da_gas };
+    this->process_set_32_instruction(set_da_gas_instruction);
+    auto set_arg_size_instruction =
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                            .result_address = ResultAddressRef{ .address = instruction.arg_size_offset,
+                                                                .mode = AddressingMode::Direct },
+                            .value = static_cast<uint32_t>(instruction.args.size()) };
+    this->process_set_32_instruction(set_arg_size_instruction);
+
+    uint16_t arg_index = 0;
+    for (const auto& arg : instruction.args) {
+        auto set_arg_instruction = SET_FF_Instruction{
+            .value_tag = bb::avm2::MemoryTag::FF,
+            .result_address = ResultAddressRef{ .address = static_cast<uint32_t>(instruction.args_offset + arg_index),
+                                                .mode = AddressingMode::Direct },
+            .value = arg
+        };
+        this->process_set_ff_instruction(set_arg_instruction);
+        arg_index++;
+    }
+    auto call_instruction_builde = instruction.is_static_call
+                                       ? bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::STATICCALL)
+                                       : bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALL);
+    auto call_instruction = call_instruction_builde.operand(instruction.l2_gas_address)
+                                .operand(instruction.da_gas_address)
+                                .operand(instruction.address_offset)
+                                .operand(instruction.arg_size_offset)
+                                .operand(instruction.args_offset)
+                                .build();
+    instructions.push_back(call_instruction);
+}
+
+void ProgramBlock::process_returndatasize_with_returndatacopy_instruction(
+    RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction)
+{
+    auto returndatasize_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::RETURNDATASIZE)
+                                          .operand(instruction.copy_size_offset)
+                                          .build();
+    instructions.push_back(returndatasize_instruction);
+    auto rd_start_set_instruction =
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                            .result_address = ResultAddressRef{ .address = instruction.rd_start_offset,
+                                                                .mode = AddressingMode::Direct },
+                            .value = instruction.rd_start };
+    this->process_set_32_instruction(rd_start_set_instruction);
+    auto returndatacopy_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::RETURNDATACOPY)
+                                          .operand(instruction.copy_size_offset)
+                                          .operand(instruction.rd_start_offset)
+                                          .operand(instruction.dst_address)
+                                          .build();
+    // TODO(defkit): function can return more than one value :D
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, instruction.dst_address);
+    instructions.push_back(returndatacopy_instruction);
+}
+
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
@@ -1236,6 +1312,10 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
             },
             [this](EMITUNENCRYPTEDLOG_Instruction instruction) {
                 return this->process_emitunencryptedlog_instruction(instruction);
+            },
+            [this](CALL_Instruction instruction) { return this->process_call_instruction(instruction); },
+            [this](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction) {
+                return this->process_returndatasize_with_returndatacopy_instruction(instruction);
             },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },

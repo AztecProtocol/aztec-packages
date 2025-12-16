@@ -220,6 +220,21 @@ FuzzInstruction generate_instruction(std::mt19937_64& rng)
                                                .log_size_address = generate_result_address_ref(rng),
                                                .log_values = { generate_random_field(rng) },
                                                .log_values_address_start = generate_random_uint16(rng) };
+    case InstructionGenerationOptions::CALL:
+        return CALL_Instruction{ .function_index = generate_random_uint16(rng),
+                                 .address_offset = generate_random_uint16(rng),
+                                 .l2_gas = generate_random_uint32(rng),
+                                 .l2_gas_address = generate_random_uint16(rng),
+                                 .da_gas = generate_random_uint32(rng),
+                                 .da_gas_address = generate_random_uint16(rng),
+                                 .arg_size_offset = generate_random_uint16(rng),
+                                 .args_offset = generate_random_uint16(rng),
+                                 .args = { generate_random_field(rng) },
+                                 .is_static_call = rng() % 2 == 0 };
+    case InstructionGenerationOptions::RETURNDATASIZE_WITH_RETURNDATACOPY:
+        return RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction{ .copy_size_offset = generate_random_uint16(rng),
+                                                               .dst_address = generate_random_uint16(rng),
+                                                               .rd_start_offset = generate_random_uint16(rng) };
     }
 }
 /// Most of the tags will be equal to the default tag
@@ -641,6 +656,69 @@ void mutate_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction& instr
         break;
     }
 }
+
+void mutate_call_instruction(CALL_Instruction& instruction, std::mt19937_64& rng)
+{
+    CallMutationOptions option = BASIC_CALL_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case CallMutationOptions::function_index:
+        mutate_uint16_t(instruction.function_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case CallMutationOptions::address_offset:
+        mutate_uint16_t(instruction.address_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case CallMutationOptions::l2_gas:
+        mutate_uint32_t(instruction.l2_gas, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
+        break;
+    case CallMutationOptions::l2_gas_address:
+        mutate_uint16_t(instruction.l2_gas_address, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case CallMutationOptions::da_gas:
+        mutate_uint32_t(instruction.da_gas, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
+        break;
+    case CallMutationOptions::da_gas_address:
+        mutate_uint16_t(instruction.da_gas_address, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case CallMutationOptions::arg_size_offset:
+        mutate_uint16_t(instruction.arg_size_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case CallMutationOptions::args:
+        mutate_vec<bb::avm2::FF>(
+            instruction.args,
+            rng,
+            [](bb::avm2::FF& value, std::mt19937_64& rng) {
+                mutate_field(value, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
+            },
+            generate_random_field,
+            BASIC_VEC_MUTATION_CONFIGURATION);
+        break;
+    case CallMutationOptions::args_offset:
+        mutate_uint16_t(instruction.args_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case CallMutationOptions::is_static_call:
+        // with 0.5 probability, set to true, otherwise false
+        instruction.is_static_call = rng() % 2 == 0;
+        break;
+    }
+}
+
+void mutate_returndatasize_with_returndatacopy_instruction(RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction& instruction,
+                                                           std::mt19937_64& rng)
+{
+    ReturndatasizeWithReturndatacopyMutationOptions option =
+        BASIC_RETURNDATASIZE_WITH_RETURNDATACOPY_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case ReturndatasizeWithReturndatacopyMutationOptions::copy_size_offset:
+        mutate_uint16_t(instruction.copy_size_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case ReturndatasizeWithReturndatacopyMutationOptions::dst_address:
+        mutate_uint16_t(instruction.dst_address, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case ReturndatasizeWithReturndatacopyMutationOptions::rd_start_offset:
+        mutate_uint16_t(instruction.rd_start_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    }
+}
 void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
 {
     std::visit(overloaded_instruction{
@@ -689,6 +767,9 @@ void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
                    [&rng](NOTEHASHEXISTS_Instruction& instr) { mutate_note_hash_exists_instruction(instr, rng); },
                    [&rng](CALLDATACOPY_Instruction& instr) { mutate_calldatacopy_instruction(instr, rng); },
                    [&rng](SENDL2TOL1MSG_Instruction& instr) { mutate_sendl2tol1msg_instruction(instr, rng); },
+                   [&rng](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction& instr) {
+                       mutate_returndatasize_with_returndatacopy_instruction(instr, rng);
+                   },
                    [](auto&) { throw std::runtime_error("Unknown instruction"); } },
                instruction);
 }

@@ -5,6 +5,8 @@
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/contract_db_proxy.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
@@ -26,6 +28,9 @@ extern "C" int LLVMFuzzerInitialize(int*, char***)
     std::string simulator_path_str(simulator_path);
     JsSimulator::initialize(simulator_path_str);
     FuzzerWorldStateManager::initialize();
+    for (const auto& function : PREDEFINED_FUNCTIONS) {
+        ContractDBProxy::register_contract_from_bytecode(function);
+    }
     return 0;
 }
 
@@ -40,7 +45,7 @@ SimulatorResult fuzz(const uint8_t* buffer, size_t size)
 
     FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
     ws_mgr->fork();
-    auto res = fuzz(deserialized_data);
+    auto res = fuzz_against_ts_simulator(deserialized_data);
     ws_mgr->reset_world_state();
 
     return res;
