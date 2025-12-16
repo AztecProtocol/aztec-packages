@@ -1,4 +1,4 @@
-#include "barretenberg/stdlib/transcript/transcript.hpp"
+#include "transcript.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;

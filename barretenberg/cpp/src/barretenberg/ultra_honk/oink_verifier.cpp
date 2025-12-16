@@ -8,12 +8,12 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
-#include "barretenberg/flavor/mega_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/flavor/ultra_keccak_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
-#include "barretenberg/flavor/ultra_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 
 namespace bb {
 
@@ -25,7 +25,7 @@ namespace bb {
  * @tparam Flavor
  * @return OinkOutput<Flavor>
  */
-template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
+template <typename Flavor> void OinkVerifier<Flavor>::verify()
 {
     // Execute the Verifier rounds
     execute_preamble_round();
@@ -44,14 +44,24 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
  * @brief Get circuit size, public input size, and public inputs from transcript
  *
  */
-template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
+template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
-    FF vk_hash = verifier_instance->vk->hash_through_transcript(domain_separator, *transcript);
+    auto vk = verifier_instance->get_vk();
+
+    FF vk_hash = vk->hash_through_transcript(domain_separator, *transcript);
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
     vinfo("vk hash in Oink verifier: ", vk_hash);
 
+    // For recursive flavors, assert that the VK hash matches
+    if constexpr (IsRecursiveFlavor<Flavor>) {
+        vinfo("expected vk hash: ", verifier_instance->vk_and_hash->hash);
+        verifier_instance->vk_and_hash->hash.assert_equal(vk_hash);
+    }
+
+    size_t num_public_inputs = get_num_public_inputs();
+
     std::vector<FF> public_inputs;
-    for (size_t i = 0; i < verifier_instance->vk->num_public_inputs; ++i) {
+    for (size_t i = 0; i < num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
@@ -64,7 +74,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_
  * only received after adding memory records. In the Goblin Flavor, we also receive the ECC OP wires and the
  * DataBus columns.
  */
-template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_round()
+template <typename Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_round()
 {
     // Get commitments to first three wire polynomials
     witness_comms.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_l);
@@ -90,7 +100,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_wire_comm
  * @brief Get sorted witness-table accumulator and fourth wire commitments
  *
  */
-template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
+template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
 {
     // Get eta challenges
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
@@ -111,7 +121,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_sorted_li
  * @brief Get log derivative inverse polynomial and its commitment, if MegaFlavor
  *
  */
-template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
+template <typename Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
 {
     // Get permutation challenges
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
@@ -134,12 +144,12 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_log_deriv
  * @brief Compute lookup grand product delta and get permutation and lookup grand product commitments
  *
  */
-template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
+template <typename Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
 {
-    const FF public_input_delta = compute_public_input_delta<Flavor>(verifier_instance->public_inputs,
-                                                                     relation_parameters.beta,
-                                                                     relation_parameters.gamma,
-                                                                     verifier_instance->vk->pub_inputs_offset);
+    auto vk = verifier_instance->get_vk();
+
+    const FF public_input_delta = compute_public_input_delta<Flavor>(
+        verifier_instance->public_inputs, relation_parameters.beta, relation_parameters.gamma, vk->pub_inputs_offset);
 
     relation_parameters.public_input_delta = public_input_delta;
 
@@ -147,7 +157,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_grand_pro
     witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_perm);
 }
 
-template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkVerifier<Flavor>::generate_alphas_round()
+template <typename Flavor> typename Flavor::SubrelationSeparators OinkVerifier<Flavor>::generate_alphas_round()
 {
     // Get the relation separation challenges for sumcheck/combiner computation
     std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
@@ -161,6 +171,7 @@ template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkV
     return alphas;
 }
 
+// Native flavor instantiations
 template class OinkVerifier<UltraFlavor>;
 template class OinkVerifier<UltraZKFlavor>;
 template class OinkVerifier<UltraKeccakFlavor>;
@@ -172,5 +183,16 @@ template class OinkVerifier<UltraKeccakZKFlavor>;
 template class OinkVerifier<UltraRollupFlavor>;
 template class OinkVerifier<MegaFlavor>;
 template class OinkVerifier<MegaZKFlavor>;
+
+// Recursive flavor instantiations
+template class OinkVerifier<UltraRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<UltraRecursiveFlavor_<MegaCircuitBuilder>>;
+template class OinkVerifier<MegaRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+template class OinkVerifier<MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
+template class OinkVerifier<MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
 
 } // namespace bb

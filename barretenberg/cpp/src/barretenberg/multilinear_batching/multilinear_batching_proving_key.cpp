@@ -4,6 +4,6 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "transcript.hpp"
-
-void __make_not_empty_cpp_appease_mac_clang() {}
+#include "multilinear_batching_proving_key.hpp"
+#include "barretenberg/common/assert.hpp"
+namespace bb {} // namespace bb

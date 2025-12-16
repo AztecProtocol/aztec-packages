@@ -13,8 +13,8 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 
 namespace bb {
@@ -149,7 +149,7 @@ class TranslatorRecursiveFlavor {
     // Reuse the VerifierCommitments from Translator
     using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from Translator
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = UltraStdlibTranscript;
 
     using VKAndHash = VKAndHash_<VerificationKey, FF>;
 };
