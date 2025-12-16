@@ -134,10 +134,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
   });
 
   it('collects attestations for validators in proposer node when block is not published', async () => {
-    // Ensure all nodes see each other, especially the sentinel
-    await t.waitForP2PMeshConnectivity([...nodes, sentinel]);
-
-    // Stop the second node, this means the first node won't be able to propose since won't achieve quorum
+    // Stop the second node, this means the first block won't be able to propose
     await tryStop(nodes[1]);
 
     await t.monitor.run();

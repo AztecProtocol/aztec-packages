@@ -13,6 +13,13 @@ A **two-phase pipeline** with complete control over output:
 1. **Parse** (Node.js) - Extract structure and JSDoc from TypeScript source
 2. **Transform** (Python) - Convert structured data to formatted Markdown
 
+### 2. TypeDoc Approach
+
+Industry-standard TypeDoc with single-file merge:
+
+1. **Generate** (TypeDoc) - Use TypeDoc to generate markdown files
+2. **Merge** (Node.js) - Combine into single file with custom script
+
 ## Quick Start
 
 ### Custom Approach (Default)
@@ -26,6 +33,19 @@ A **two-phase pipeline** with complete control over output:
 
 # Generate to specific version
 ./scripts/aztecjs_reference_generation/update_docs.sh v2.0.2
+```
+
+### TypeDoc Approach
+
+```bash
+# Generate to current docs (most common)
+./scripts/aztecjs_reference_generation/update_typedoc_docs.sh current
+
+# Generate to all versions
+./scripts/aztecjs_reference_generation/update_typedoc_docs.sh all
+
+# Generate to specific version
+./scripts/aztecjs_reference_generation/update_typedoc_docs.sh v2.0.2
 ```
 
 ### Convenience Script (Testing - Custom Approach)
@@ -52,6 +72,16 @@ cd scripts/aztecjs_reference_generation
 - **`update_docs.sh`** - Deployment script for production
 
 - **`verify_docs.py`** - Verification tool
+
+### TypeDoc Approach Scripts
+
+- **`update_typedoc_docs.sh`** - Main deployment script for TypeDoc approach
+
+- **`../merge_typedoc.js`** - Merge TypeDoc files into single markdown (~270 LOC)
+
+- **`../../typedoc.json`** - TypeDoc configuration (~30 LOC)
+
+- **`../../typedoc.tsconfig.json`** - TypeDoc TypeScript configuration
 
 ## Documentation Structure
 
@@ -144,7 +174,34 @@ Returns exit code 0 if no errors, 1 if errors found.
 ### Generated Files
 
 Both approaches generate to:
-- `docs/developers/docs/aztec-js/aztec_js_reference.md` (Custom)
+- `docs/developers/docs/aztec-js/aztec_js_reference_autogen.md` (Custom)
+- `docs/developers/docs/aztec-js/aztec_js_reference_typedoc.md` (TypeDoc)
+
+You can use both side-by-side and let users choose their preference!
+
+## TypeDoc Configuration
+
+### Configuration File: `typedoc.json`
+
+Key settings:
+```json
+{
+  "plugin": ["typedoc-plugin-markdown"],
+  "entryPoints": ["../yarn-project/aztec.js/src"],
+  "entryPointStrategy": "expand",
+  "exclude": ["**/*.test.ts", "**/__tests__/**"],
+  "flattenOutputFiles": true,
+  "hidePageHeader": true,
+  "hideBreadcrumbs": true
+}
+```
+
+### Customization
+
+To modify TypeDoc output:
+1. Edit `../../typedoc.json` for TypeDoc options (50+ available)
+2. Edit `../merge_typedoc.js` to change merge behavior
+3. Edit `update_typedoc_docs.sh` to change front-matter
 
 ## Troubleshooting
 
@@ -160,4 +217,22 @@ Both approaches generate to:
 ```bash
 # Check excludeDirs and excludeFiles in parse_typescript.js
 # Verify files are not in test directories
+```
+
+### TypeDoc Approach
+
+**Issue: TypeDoc generation fails**
+```bash
+# Check TypeScript project compiles
+cd ../../../yarn-project/aztec.js && yarn tsc -b
+
+# Verify typedoc.json configuration
+yarn typedoc --options typedoc.json --help
+```
+
+**Issue: Missing types or incomplete output**
+```bash
+# TypeDoc may skip types that aren't referenced
+# Check entryPointStrategy in typedoc.json
+# Consider using "expand" strategy for all files
 ```

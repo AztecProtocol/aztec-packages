@@ -17,37 +17,12 @@ const path = require("path");
 // @ts-ignore
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
+const versions = require("./versions.json");
 
-// Load separate version files for each docs instance
-const developerVersions = require("./developer_versions.json");
-const networkVersions = require("./network_versions.json");
-
-// Find specific versions dynamically for Developer docs
-const nightlyVersion = developerVersions.find((v) => v.includes("nightly"));
-const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
-
-// Find specific versions dynamically for Network docs
-const ignitionVersion = networkVersions.find((v) => v.includes("ignition"));
-const testnetVersion = networkVersions.find((v) => !v.includes("ignition"));
-
-// Always serve from processed-docs (with resolved macros)
-// Preprocessing runs on both `yarn start` and `yarn build`
-const docsPath = "processed-docs/docs";
-const developerDocsPath = "processed-docs/docs-developers";
-const networkDocsPath = "processed-docs/docs-network";
-
-// Shared remark/rehype plugins configuration
-const remarkPlugins = [math];
-const rehypePlugins = [
-  [
-    katex,
-    {
-      throwOnError: true,
-      globalGroup: true,
-      macros,
-    },
-  ],
-];
+// Find specific versions dynamically to avoid array index issues
+const nightlyVersion = versions.find((v) => v.includes("nightly"));
+const devnetVersion = versions.find((v) => v.includes("devnet"));
+const ignitionVersion = versions.find((v) => v.includes("ignition"));
 
 const config = {
   title: "Privacy-first zkRollup | Aztec Documentation",
@@ -74,7 +49,7 @@ const config = {
   markdown: {
     mermaid: true,
     hooks: {
-      onBrokenMarkdownLinks: "throw",
+      onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
     },
   },
   themes: ["@docusaurus/theme-mermaid", "docusaurus-theme-search-typesense"],
@@ -83,15 +58,68 @@ const config = {
       "@docusaurus/preset-classic",
       /** @type {import('@docusaurus/preset-classic').Options} */
       {
-        // Disable docs from preset - we use separate plugins for multi-instance
-        docs: false,
+        docs: {
+          path: process.env.ENV === "dev" ? "docs" : "processed-docs",
+          sidebarPath: "./sidebars.js",
+          editUrl: (params) => {
+            return (
+              `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs/` +
+              params.docPath
+            );
+          },
+          routeBasePath: "/",
+          include: ["**/*.{md,mdx}"],
+          // Don't show latest since nightlies are published
+          // Hide current version in Netlify production, show in dev and PR previews
+          // Netlify sets CONTEXT
+          includeCurrentVersion: process.env.CONTEXT !== "production",
+          // Ignition should be the default version
+          lastVersion: ignitionVersion,
+          versions: {
+            ...(nightlyVersion && {
+              [nightlyVersion]: {
+                path: "nightly",
+                banner: "unreleased",
+              },
+            }),
+            ...(devnetVersion && {
+              [devnetVersion]: {
+                label: "Devnet (v3.0.0-devnet.5)",
+                path: "devnet",
+                banner: "none",
+              },
+            }),
+            "v2.1.4": {
+              path: "testnet",
+              label: "Testnet (v2.1.4)",
+              banner: "none",
+            },
+            "v2.1.5-ignition": {
+              label: "Ignition (v2.1.5)",
+              banner: "none",
+            },
+            ...(process.env.CONTEXT !== "production" && {
+              current: {
+                label: "dev",
+                path: "dev",
+              },
+            }),
+          },
+          remarkPlugins: [math],
+          rehypePlugins: [
+            [
+              katex,
+              {
+                throwOnError: true,
+                globalGroup: true,
+                macros,
+              },
+            ],
+          ],
+        },
         blog: false,
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
-        },
-        // Enable pages for root-level content (index.mdx, ignition_info, etc.)
-        pages: {
-          path: "src/pages",
         },
       },
     ],
@@ -106,114 +134,17 @@ const config = {
     },
   ],
   plugins: [
-    // Developer docs instance - nightly/devnet versions
-    [
-      "@docusaurus/plugin-content-docs",
-      {
-        id: "developer",
-        path: developerDocsPath,
-        routeBasePath: "developers",
-        sidebarPath: "./sidebars-developer.js",
-        editUrl: (params) => {
-          return (
-            `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs-developers/` +
-            params.docPath
-          );
-        },
-        // Version configuration for Build docs
-        includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion: devnetVersion,
-        versions: {
-          ...(nightlyVersion && {
-            [nightlyVersion]: {
-              path: "nightly",
-              banner: "unreleased",
-            },
-          }),
-          ...(devnetVersion && {
-            [devnetVersion]: {
-              label: `Devnet (${devnetVersion})`,
-              path: "",
-              banner: "none",
-            },
-          }),
-          ...(process.env.CONTEXT !== "production" && {
-            current: {
-              label: "dev",
-              path: "dev",
-            },
-          }),
-        },
-        remarkPlugins,
-        rehypePlugins,
-      },
-    ],
-    // Network docs instance (node operators) - testnet/ignition versions
-    [
-      "@docusaurus/plugin-content-docs",
-      {
-        id: "network",
-        path: networkDocsPath,
-        routeBasePath: "network",
-        sidebarPath: "./sidebars-network.js",
-        editUrl: (params) => {
-          return (
-            `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs-network/` +
-            params.docPath
-          );
-        },
-        // Version configuration for Network docs
-        includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion: ignitionVersion,
-        versions: {
-          ...(ignitionVersion && {
-            [ignitionVersion]: {
-              label: `Ignition (${ignitionVersion.replace("-ignition", "")})`,
-              path: "",
-              banner: "none",
-            },
-          }),
-          ...(testnetVersion && {
-            [testnetVersion]: {
-              label: `Testnet (${testnetVersion})`,
-              path: "testnet",
-              banner: "none",
-            },
-          }),
-          ...(process.env.CONTEXT !== "production" && {
-            current: {
-              label: "dev",
-              path: "dev",
-            },
-          }),
-        },
-        remarkPlugins,
-        rehypePlugins,
-      },
-    ],
-    // Root pages (index, ignition_info, etc.) - no versioning
-    [
-      "@docusaurus/plugin-content-docs",
-      {
-        id: "root",
-        path: docsPath,
-        routeBasePath: "/",
-        sidebarPath: false, // No sidebar for root pages
-        remarkPlugins,
-        rehypePlugins,
-      },
-    ],
     [
       "docusaurus-plugin-llms",
       {
         generateLLMsTxt: true,
         generateLLMsFullTxt: true,
         docsDir: devnetVersion
-          ? `developer_versioned_docs/version-${devnetVersion}/`
-          : `developer_versioned_docs/version-${developerVersions[0]}/`,
+          ? `versioned_docs/version-${devnetVersion}/`
+          : `versioned_docs/version-${versions[0]}/`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
-        version: devnetVersion || developerVersions[0],
+        version: devnetVersion || versions[0],
         pathTransformation: {
           ignorePaths: ["docs"],
         },
@@ -231,7 +162,9 @@ const config = {
     ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
-  customFields: {},
+  customFields: {
+    ENV: process.env.ENV,
+  },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
@@ -268,28 +201,28 @@ const config = {
           src: "img/Aztec Wordmark_Dark.svg",
         },
         items: [
-          // Unified version dropdown - shows context-aware versions based on current section
           {
-            type: "custom-unifiedVersionDropdown",
+            type: "docsVersionDropdown",
             position: "left",
+            dropdownActiveClassDisabled: true,
           },
-          // Developer sidebar link
           {
             type: "docSidebar",
             sidebarId: "sidebar",
-            docsPluginId: "developer",
             position: "left",
             label: "Build",
           },
-
-          // Network sidebar link
           {
             type: "docSidebar",
-            sidebarId: "sidebar",
-            docsPluginId: "network",
+            sidebarId: "nodesSidebar",
             position: "left",
             label: "Run a node",
           },
+          // {
+          //   to: "/try_testnet",
+          //   label: "Try Testnet",
+          //   position: "right",
+          // },
           {
             to: "/ignition_info",
             label: "Ignition Info",

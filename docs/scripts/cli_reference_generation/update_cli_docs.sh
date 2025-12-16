@@ -48,15 +48,17 @@ case "$CLI_NAME" in
   aztec)
     DISPLAY_NAME="Aztec CLI"
     TITLE="Aztec CLI Reference"
-    OUTPUT_FILE="cli_reference.md"
+    OUTPUT_FILE="cli_reference_autogen.md"
     SIDEBAR_POSITION="3"
+    MANUAL_REF_FILE="cli_reference.md"
     COMMAND="aztec"
     ;;
   aztec-wallet)
     DISPLAY_NAME="Aztec Wallet CLI"
-    TITLE="Reference"
-    OUTPUT_FILE="cli_wallet_reference.md"
+    TITLE="Aztec Wallet CLI Reference"
+    OUTPUT_FILE="cli_wallet_reference_autogen.md"
     SIDEBAR_POSITION="10"
+    MANUAL_REF_FILE="cli_wallet_reference.md"
     COMMAND="aztec-wallet"
     ;;
 esac
@@ -85,7 +87,7 @@ TAGS+="]"
 
 cat > "$TEMP_WITH_FRONTMATTER" << EOF
 ---
-title: ${TITLE}
+title: ${TITLE} (Auto-generated)
 description: Comprehensive auto-generated reference for the ${DISPLAY_NAME} command-line interface with all commands and options.
 tags: ${TAGS}
 sidebar_position: ${SIDEBAR_POSITION}
@@ -94,6 +96,10 @@ sidebar_position: ${SIDEBAR_POSITION}
 # ${TITLE}
 
 *This documentation is auto-generated from the \`${COMMAND}\` CLI help output.*
+
+:::info
+This is an auto-generated reference. For a more curated guide with examples and best practices, see the [manual ${DISPLAY_NAME} reference](${MANUAL_REF_FILE}).
+:::
 
 EOF
 

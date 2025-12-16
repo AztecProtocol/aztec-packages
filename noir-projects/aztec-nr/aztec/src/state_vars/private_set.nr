@@ -269,15 +269,13 @@ where
     ///
     pub fn pop_notes<PreprocessorArgs, FilterArgs, let M: u32>(
         self,
-        mut options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
+        options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
     ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
         Note: Packable<N = M>,
     {
-        std::static_assert(options.owner.is_none(), "Owner cannot be set in pop_notes");
-
-        let options = options.set_owner(self.owner);
-        let (retrieved_notes, note_hashes) = get_notes(self.context, self.storage_slot, options);
+        let (retrieved_notes, note_hashes) =
+            get_notes(self.context, self.owner, self.storage_slot, options);
         // We iterate in a range 0..options.limit instead of 0..notes.len() because options.limit is known at compile
         // time and hence will result in fewer constraints when set to a lower value than
         // MAX_NOTE_HASH_READ_REQUESTS_PER_CALL.
@@ -287,7 +285,7 @@ where
                 let note_hash = note_hashes.get_unchecked(i);
                 // We immediately destroy the note without doing any of the read request checks `remove` typically
                 // performs because we know that the `get_notes` call has already placed those constraints.
-                destroy_note_unsafe(self.context, retrieved_note, note_hash);
+                destroy_note_unsafe(self.context, retrieved_note, self.owner, note_hash);
             }
         }
 
@@ -328,10 +326,10 @@ where
     ///     easier ways to customize your own note encryption options.
     ///
     pub fn remove(self, retrieved_note: RetrievedNote<Note>) {
-        let note_hash_read = compute_note_hash_read(retrieved_note, self.storage_slot);
+        let note_hash_read = compute_note_hash_read(retrieved_note, self.owner, self.storage_slot);
         self.context.assert_has_been_requested(note_hash_read);
 
-        destroy_note_unsafe(self.context, retrieved_note, note_hash_read);
+        destroy_note_unsafe(self.context, retrieved_note, self.owner, note_hash_read);
     }
 
     /// Returns a filtered collection of notes from the set.
@@ -396,15 +394,12 @@ where
     ///
     pub fn get_notes<PreprocessorArgs, FilterArgs, let M: u32>(
         self,
-        mut options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
+        options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
     ) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
         Note: Packable<N = M>,
     {
-        std::static_assert(options.owner.is_none(), "Owner cannot be set in get_notes");
-
-        let options = options.set_owner(self.owner);
-        get_notes(self.context, self.storage_slot, options).0
+        get_notes(self.context, self.owner, self.storage_slot, options).0
     }
 }
 
@@ -426,14 +421,11 @@ where
     ///
     pub unconstrained fn view_notes(
         self,
-        mut options: NoteViewerOptions<Note, <Note as Packable>::N>,
+        options: NoteViewerOptions<Note, <Note as Packable>::N>,
     ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE>
     where
         Note: Packable,
     {
-        std::static_assert(options.owner.is_none(), "Owner cannot be set in view_notes");
-
-        let options = options.set_owner(self.owner);
-        view_notes(self.storage_slot, options)
+        view_notes(self.owner, self.storage_slot, options)
     }
 }

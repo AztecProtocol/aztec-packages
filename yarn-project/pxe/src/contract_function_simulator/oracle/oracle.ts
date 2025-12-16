@@ -240,8 +240,7 @@ export class Oracle {
   }
 
   async utilityGetNotes(
-    [ownerSome]: ACVMField[],
-    [ownerValue]: ACVMField[],
+    [owner]: ACVMField[],
     [storageSlot]: ACVMField[],
     [numSelects]: ACVMField[],
     selectByIndexes: ACVMField[],
@@ -259,10 +258,8 @@ export class Oracle {
     [maxNotes]: ACVMField[],
     [packedRetrievedNoteLength]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    // Parse Option<AztecAddress>: ownerSome is 0 for None, 1 for Some
-    const owner = Fr.fromString(ownerSome).toNumber() === 1 ? AztecAddress.fromString(ownerValue) : undefined;
     const noteDatas = await this.handlerAsUtility().utilityGetNotes(
-      owner,
+      AztecAddress.fromString(owner),
       Fr.fromString(storageSlot),
       +numSelects,
       selectByIndexes.map(s => +s),

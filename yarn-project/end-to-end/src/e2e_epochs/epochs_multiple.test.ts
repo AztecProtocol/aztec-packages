@@ -1,6 +1,6 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 
 import { jest } from '@jest/globals';
 
@@ -28,27 +28,35 @@ describe('e2e_epochs/epochs_multiple', () => {
 
   it('successfully proves multiple epochs', async () => {
     const targetProvenEpochs = process.env.TARGET_PROVEN_EPOCHS ? parseInt(process.env.TARGET_PROVEN_EPOCHS) : 3;
-    let epochNumber = 0;
-    logger.info(`Testing for ${targetProvenEpochs} epochs to be proven`);
+    const targetProvenCheckpointNumber = CheckpointNumber(targetProvenEpochs * test.epochDuration);
 
-    while (epochNumber < targetProvenEpochs) {
+    let provenCheckpointNumber = CheckpointNumber(0);
+    let epochNumber = 0;
+    logger.info(`Waiting for ${targetProvenEpochs} epochs to be proven at ${targetProvenCheckpointNumber} checkpoints`);
+    while (provenCheckpointNumber < targetProvenCheckpointNumber) {
       logger.info(`Waiting for the end of epoch ${epochNumber}`);
       await test.waitUntilEpochStarts(epochNumber + 1);
-      const epochEndCheckpointNumber = (await test.monitor.run()).checkpointNumber;
-      logger.info(`Epoch ${epochNumber} ended with pending checkpoint number ${epochEndCheckpointNumber}`);
-
-      await test.waitUntilProvenCheckpointNumber(epochEndCheckpointNumber, 240);
-      expect(await rollup.getProvenCheckpointNumber()).toBeGreaterThanOrEqual(epochEndCheckpointNumber);
-      logger.info(`Reached proven checkpoint number ${epochEndCheckpointNumber}, epoch ${epochNumber} is now proven`);
+      const epochTargetCheckpointNumber = await rollup.getCheckpointNumber();
+      logger.info(`Epoch ${epochNumber} ended with PENDING checkpoint number ${epochTargetCheckpointNumber}`);
+      await test.waitUntilCheckpointNumber(
+        epochTargetCheckpointNumber,
+        test.L2_SLOT_DURATION_IN_S * (epochTargetCheckpointNumber + 4),
+      );
+      provenCheckpointNumber = epochTargetCheckpointNumber;
+      logger.info(
+        `Reached PENDING checkpoint ${epochTargetCheckpointNumber}, proving should now start, waiting for PROVEN checkpoint to reach ${provenCheckpointNumber}`,
+      );
+      await test.waitUntilProvenCheckpointNumber(provenCheckpointNumber, 240);
+      expect(await rollup.getProvenCheckpointNumber()).toBeGreaterThanOrEqual(provenCheckpointNumber);
+      logger.info(`Reached PROVEN checkpoint number ${provenCheckpointNumber}, epoch ${epochNumber} is now proven`);
       epochNumber++;
 
       // Verify the state syncs
-      await test.waitForNodeToSync(BlockNumber.fromCheckpointNumber(epochEndCheckpointNumber), 'proven');
-      await test.verifyHistoricBlock(BlockNumber.fromCheckpointNumber(epochEndCheckpointNumber), true);
+      await test.waitForNodeToSync(BlockNumber(Number(provenCheckpointNumber)), 'proven');
+      await test.verifyHistoricBlock(BlockNumber(Number(provenCheckpointNumber)), true);
 
-      // Check that finalized blocks are purged from world state
-      // Right now finalization means a checkpoint is two L2 epochs deep. If this rule changes then this test needs to be updated.
-      const provenBlockNumber = BlockNumber.fromCheckpointNumber(epochEndCheckpointNumber);
+      // right now finalization means a checkpoint is two L2 epochs deep. If this rule changes then we need this test needs to be updated
+      const provenBlockNumber = Number(provenCheckpointNumber);
       const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2, 0);
       const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1, 1);
       const expectedBlockRemoved = expectedOldestHistoricBlock - 1;

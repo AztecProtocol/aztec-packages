@@ -59,9 +59,8 @@ pub contract Child {
 
     #[external("private")]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
-        let options = NoteGetterOptions::new()
-            .select(FieldNote::properties().value, Comparator.EQ, amount)
-            .set_limit(1);
+        let mut options = NoteGetterOptions::new();
+        options = options.select(FieldNote::properties().value, Comparator.EQ, amount).set_limit(1);
         let retrieved_notes = self.storage.private_values.at(owner).get_notes(options);
         retrieved_notes.get(0).note.value
     }

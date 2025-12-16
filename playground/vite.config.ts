@@ -147,11 +147,9 @@ export default defineConfig(({ mode }) => {
         // PR: https://github.com/AztecProtocol/aztec-packages/pull/18782.
         // Not sure why this triggered raise in artifact size, but will not deal with this now as Grego's feedback is
         // greatly needed here.
-        // - Dec 2025: bumped from 4500 --> 4600 as SimpleToken grew a bit again.
-        // PR: https://github.com/AztecProtocol/aztec-packages/pull/18815
         {
           pattern: /.*/,
-          maxSizeKB: 4600,
+          maxSizeKB: 4500,
           description: 'Detect if json artifacts or bb.js wasm get out of control',
         },
       ]),

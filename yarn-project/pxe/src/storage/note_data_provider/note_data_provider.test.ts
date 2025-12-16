@@ -181,20 +181,6 @@ describe('NoteDataProvider', () => {
       expect(new Set(getIndexes(res))).toEqual(new Set([1n, 2n, 4n])); // note1, note2, and note4
     });
 
-    it('deduplicates notes that appear in multiple scopes', async () => {
-      // note 1 has been added to scope 1 in setup so we add it to scope 2 to then be able to test deduplication
-      await provider.addNotes([note1], SCOPE_2);
-
-      const res = await provider.getNotes({
-        contractAddress: CONTRACT_A,
-        scopes: [SCOPE_1, SCOPE_2],
-      });
-
-      // Note 1 should be present exactly once in the result
-      const note1Matches = res.filter(n => n.equals(note1));
-      expect(note1Matches.length).toBe(1);
-    });
-
     it('filters notes by status, returning ACTIVE by default and both ACTIVE and NULLIFIED when requested', async () => {
       const nullifiers = [mkNullifier(note2)];
       await expect(provider.applyNullifiers(nullifiers)).resolves.toEqual([note2]);

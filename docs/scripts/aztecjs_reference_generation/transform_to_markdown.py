@@ -85,24 +85,19 @@ Each section is organized by module, with classes, interfaces, types, and functi
         for folder in self.data.get("folders", []):
             folder_name = folder.get("name", "")
             folder_path = folder.get("path", folder_name)  # Full path for nested folders
-            # For folder header like "## Account", Docusaurus generates anchor "#account"
-            folder_slug = folder_path.lower().replace('/', '').replace('_', '')
+            folder_slug = self.slugify(folder_path)
             folder_display = folder_path.replace('/', ' / ').title()
             lines.append(f"- [{folder_display}](#{folder_slug})")
 
             # Add files as sub-items
             for file in folder.get("files", []):
-                file_path = file.get("path", "")
-
-                # For file header like "### `account/account_contract.ts`"
-                # Docusaurus removes backticks and special chars: "#accountaccount_contractts"
-                file_slug = file_path.lower().replace('/', '').replace('.', '').replace('_', '').replace('-', '')
+                file_name = file.get("name", "").replace(".ts", "")
+                file_slug = self.slugify(f"{folder_path}-{file_name}")
 
                 # List the exports for this file
                 for export in file.get("exports", []):
                     export_name = export.get("name", "")
-                    # For export header like "#### AccountContract", Docusaurus generates "#accountcontract"
-                    export_slug = export_name.lower().replace('_', '').replace('-', '')
+                    export_slug = self.slugify(f"{folder_path}-{file_name}-{export_name}")
                     lines.append(f"  - [{export_name}](#{export_slug})")
 
         return "\n".join(lines)
