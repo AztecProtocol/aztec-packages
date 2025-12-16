@@ -464,3 +464,46 @@ TYPED_TEST(UltraHonkTests, RangeConstraintSmallVariable)
 
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
+
+/**
+ * @brief Test that native verifier detects VK hash mismatch
+ * @details The VKAndHash stores a precomputed hash of the VK. During verification,
+ * the oink verifier computes a fresh hash and compares it. If they don't match,
+ * a BB_ASSERT_EQ should trigger, catching potential VK tampering or corruption.
+ */
+TYPED_TEST(UltraHonkTests, NativeVKHashMismatchDetected)
+{
+    using Flavor = TypeParam;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
+    using Builder = typename Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
+    using Verifier = UltraVerifier_<Flavor, IO>;
+
+    // Create a simple circuit
+    Builder builder;
+    MockCircuits::add_arithmetic_gates(builder);
+    this->set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    // Create prover instance and VK
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    // Create prover and prove
+    Prover prover(prover_instance, vk);
+    auto proof = prover.construct_proof();
+    auto vk_and_hash = std::make_shared<VKAndHash>(vk);
+
+    // Corrupt the stored hash
+    vk_and_hash->hash = fr::random_element();
+
+    // Verification should fail with BB_ASSERT_EQ detecting the mismatch
+    Verifier verifier(vk_and_hash);
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(proof, prover_instance->ipa_proof), "VK Hash Mismatch");
+    } else {
+        EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(proof), "VK Hash Mismatch");
+    }
+}

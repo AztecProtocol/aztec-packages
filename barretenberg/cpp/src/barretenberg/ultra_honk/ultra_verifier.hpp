@@ -182,7 +182,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     {
         if constexpr (!IsRecursive) {
             // Native: create verifier_instance immediately
-            verifier_instance = std::make_shared<Instance>(vk_and_hash->vk);
+            verifier_instance = std::make_shared<Instance>(vk_and_hash);
             ipa_transcript = std::make_shared<Transcript>();
         } else {
             // Recursive: extract builder from VKAndHash and create verifier_instance
