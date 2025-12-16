@@ -1,3 +1,4 @@
+import type { FileStoreBlobClient } from '@aztec/blob-sink/filestore';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
@@ -51,6 +52,7 @@ export function createValidatorClient(
     dateProvider: DateProvider;
     epochCache: EpochCache;
     keyStoreManager: KeystoreManager | undefined;
+    fileStoreBlobUploadClient?: FileStoreBlobClient;
   },
 ) {
   if (config.disableValidator || !deps.keyStoreManager) {
@@ -67,6 +69,7 @@ export function createValidatorClient(
     deps.l1ToL2MessageSource,
     txProvider,
     deps.keyStoreManager,
+    deps.fileStoreBlobUploadClient,
     deps.dateProvider,
     deps.telemetry,
   );

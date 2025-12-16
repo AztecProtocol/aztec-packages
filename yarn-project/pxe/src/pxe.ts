@@ -12,10 +12,8 @@ import {
   type ContractArtifact,
   EventSelector,
   FunctionCall,
-  FunctionSelector,
   FunctionType,
   decodeFunctionSignature,
-  encodeArguments,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -35,8 +33,6 @@ import type {
   PrivateKernelExecutionProofOutput,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
-import type { NotesFilter } from '@aztec/stdlib/note';
-import { NoteDao } from '@aztec/stdlib/note';
 import {
   type ContractOverrides,
   type InTx,
@@ -66,6 +62,7 @@ import { readCurrentClassId } from './contract_function_simulator/oracle/private
 import { ProxiedContractDataProviderFactory } from './contract_function_simulator/proxied_contract_data_source.js';
 import { ProxiedNodeFactory } from './contract_function_simulator/proxied_node.js';
 import { PXEOracleInterface } from './contract_function_simulator/pxe_oracle_interface.js';
+import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
 import {
@@ -108,6 +105,7 @@ export class PXE {
     private protocolContractsProvider: ProtocolContractsProvider,
     private log: Logger,
     private jobQueue: SerialQueue,
+    public debug: PXEDebugUtils,
   ) {}
 
   /**
@@ -151,6 +149,8 @@ export class PXE {
       loggerOrSuffix,
     );
 
+    const debugUtils = new PXEDebugUtils(contractDataProvider, noteDataProvider);
+
     const jobQueue = new SerialQueue();
 
     const pxe = new PXE(
@@ -170,7 +170,10 @@ export class PXE {
       protocolContractsProvider,
       log,
       jobQueue,
+      debugUtils,
     );
+
+    debugUtils.setPXE(pxe);
 
     pxe.jobQueue.start();
 
@@ -252,31 +255,6 @@ export class PXE {
   async #isContractInitialized(address: AztecAddress): Promise<boolean> {
     const initNullifier = await siloNullifier(address, address.toField());
     return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
-  }
-
-  async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
-    const contract = await this.contractDataProvider.getContract(to);
-    if (!contract) {
-      throw new Error(
-        `Unknown contract ${to}: add it to PXE by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
-      );
-    }
-
-    const functionDao = contract.functions.find(f => f.name === functionName);
-    if (!functionDao) {
-      throw new Error(`Unknown function ${functionName} in contract ${contract.name}.`);
-    }
-
-    return {
-      name: functionDao.name,
-      args: encodeArguments(functionDao, args),
-      selector: await FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
-      type: functionDao.functionType,
-      to,
-      hideMsgSender: false,
-      isStatic: functionDao.isStatic,
-      returnTypes: functionDao.returnTypes,
-    };
   }
 
   // Executes the entrypoint private function, as well as all nested private
@@ -664,25 +642,6 @@ export class PXE {
   }
 
   /**
-   * A debugging utility to get notes based on the provided filter.
-   *
-   * Note that this should not be used in production code because the structure of notes is considered to be
-   * an implementation detail of contracts. This is only meant to be used for debugging purposes. If you need to obtain
-   * note-related information in production code, please implement a custom utility function on your contract and call
-   * that function instead (e.g. `get_balance(owner: AztecAddress) -> u128` utility function on a Token contract).
-   *
-   * @param filter - The filter to apply to the notes.
-   * @returns The requested notes.
-   */
-  public async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
-    // We need to manually trigger private state sync to have a guarantee that all the notes are available.
-    const call = await this.#getFunctionCall('sync_private_state', [], filter.contractAddress);
-    await this.simulateUtility(call);
-
-    return this.noteDataProvider.getNotes(filter);
-  }
-
-  /**
    * Proves the private portion of a simulated transaction, ready to send to the network
    * (where validators prove the public portion).
    *
@@ -1066,7 +1025,7 @@ export class PXE {
     filter: PrivateEventFilter,
   ): Promise<PackedPrivateEvent[]> {
     // We need to manually trigger private state sync to have a guarantee that all the events are available.
-    const call = await this.#getFunctionCall('sync_private_state', [], filter.contractAddress);
+    const call = await this.contractDataProvider.getFunctionCall('sync_private_state', [], filter.contractAddress);
     await this.simulateUtility(call);
 
     const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockDataProvider).validate(filter);
