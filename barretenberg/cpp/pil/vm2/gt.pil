@@ -17,6 +17,18 @@ namespace gt;
     pol commit sel;
     sel * (1 - sel) = 0;
 
+    // This is used to decouple generation of inverses of lookups into this trace.
+    pol commit sel_sha256;
+    pol commit sel_addressing;
+    pol commit sel_alu;
+    pol commit sel_others;  // Any other lookup into this trace.
+    sel_sha256 * (1 - sel_sha256) = 0;
+    sel_addressing * (1 - sel_addressing) = 0;
+    sel_alu * (1 - sel_alu) = 0;
+    sel_others * (1 - sel_others) = 0;
+    // If any of the above selectors is 1, then sel must be 1.
+    (sel_sha256 + sel_addressing + sel_alu + sel_others) * (1 - sel) = 0;
+
     #[skippable_if]
     sel = 0;
 
@@ -45,4 +57,4 @@ namespace gt;
     #[GT_RESULT]
     sel * ( (A_GT_B - A_LTE_B) * res + A_LTE_B - abs_diff ) = 0;
     #[GT_RANGE]
-    sel { abs_diff, num_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+    sel { abs_diff, num_bits } in range_check.sel_gt { range_check.value, range_check.rng_chk_bits };

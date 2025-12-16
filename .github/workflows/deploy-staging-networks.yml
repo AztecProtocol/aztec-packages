@@ -124,6 +124,7 @@ jobs:
           BOT_SWAPS_FOLLOW_CHAIN=PENDING
           BOT_SWAPS_TX_INTERVAL_SECONDS=350
 
+          FLUSH_ENTRY_QUEUE=false
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
@@ -174,11 +175,12 @@ jobs:
           OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
           VERIFY_CONTRACTS=true
           ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
-
           STORE_SNAPSHOT_URL="${{ secrets.GCS_TESTNET_SNAPSHOT_URL }}/staging-ignition/"
           DEPLOY_INTERNAL_BOOTNODE=false
           BOT_TRANSFERS_REPLICAS=0
           BOT_SWAPS_REPLICAS=0
+          DEPLOY_INTERNAL_BOOTNODE=false
+          FLUSH_ENTRY_QUEUE=false
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
@@ -233,6 +235,7 @@ jobs:
           DEPLOY_INTERNAL_BOOTNODE=false
           BOT_TRANSFERS_REPLICAS=0
           BOT_SWAPS_REPLICAS=0
+          FLUSH_ENTRY_QUEUE=false
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
