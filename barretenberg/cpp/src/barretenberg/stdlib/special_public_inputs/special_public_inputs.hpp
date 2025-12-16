@@ -46,7 +46,7 @@ std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_ecc_op_tabl
     std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_tables;
     for (auto& table_commitment : empty_tables) {
         table_commitment = bn254<Builder>::Group::point_at_infinity(&builder);
-        // Robustness: verify the native value is actually at infinity
+        // Sanity check: Verify the native value is actually at infinity
         BB_ASSERT(table_commitment.get_value().is_point_at_infinity(),
                   "empty_ecc_op_tables: T_prev must be initialized to point at infinity");
     }

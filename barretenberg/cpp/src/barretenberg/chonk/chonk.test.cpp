@@ -187,6 +187,10 @@ class ChonkTests : public ::testing::Test {
      * @details Accumulates circuits, extracts the specified field from Tail kernel's proof,
      * generates the final proof (which creates HidingKernel), and verifies the field
      * propagated correctly to the HidingKernel's proof.
+     *
+     * Note: This test does not perform proof tampering. Changing the public inputs of HidingKernel
+     * would lead to wrong challenges throughout the proof, so instead we verify that the expected
+     * input from the Tail kernel matches the expected output in the HidingKernel.
      */
     static void test_hiding_kernel_io_propagation(HidingKernelIOField field_to_test)
     {

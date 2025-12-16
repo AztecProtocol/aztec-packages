@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// =====================
-
 #pragma once
 
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
@@ -15,7 +9,7 @@
 namespace bb::stdlib::recursion::honk {
 
 /**
- * @brief Native representation and serde for KernelIO public inputs
+ * @brief **For test purposes only**: Native representation and serde for KernelIO public inputs
  * @details Used for testing and verification with native bb::fr vectors.
  * Mirrors the structure of stdlib KernelIO but works with native types.
  */
