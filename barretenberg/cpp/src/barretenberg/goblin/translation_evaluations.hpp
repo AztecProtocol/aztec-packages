@@ -26,9 +26,6 @@ template <typename BF> struct TranslationEvaluations_ {
     std::array<std::string, NUM_TRANSLATION_EVALUATIONS> labels = {
         "Translation:op", "Translation:Px", "Translation:Py", "Translation:z1", "Translation:z2"
     };
-    ;
-
-    MSGPACK_FIELDS(op, Px, Py, z1, z2);
 };
 
 /**
@@ -39,8 +36,6 @@ template <typename FF> struct TranslatorInputData_ {
     FF evaluation_challenge_x;
     FF batching_challenge_v;
     FF accumulated_result;
-
-    MSGPACK_FIELDS(evaluation_challenge_x, batching_challenge_v, accumulated_result);
 };
 
 /**
