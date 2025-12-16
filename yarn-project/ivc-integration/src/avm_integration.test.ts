@@ -1,15 +1,11 @@
 import { AztecClientBackend, Barretenberg } from '@aztec/bb.js';
-import {
-  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  CHONK_PROOF_LENGTH,
-  CHONK_VK_LENGTH_IN_FIELDS,
-} from '@aztec/constants';
+import { CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester, bulkTest, executeAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
-import { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { AvmCircuitInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { RecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state/native';
@@ -38,6 +34,15 @@ jest.setTimeout(120_000);
 
 const logger = createLogger('ivc-integration:test:avm-integration');
 
+const simConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
+  skipFeeEnforcement: false,
+  collectCallMetadata: true, // For results.
+  collectDebugLogs: false,
+  collectHints: true, // Required for proving!
+  collectPublicInputs: true, // Required for proving!
+  collectStatistics: false,
+});
+
 async function proveMockPublicBaseRollup(
   avmCircuitInputs: AvmCircuitInputs,
   bbWorkingDirectory: string,
@@ -46,7 +51,7 @@ async function proveMockPublicBaseRollup(
   chonkProof: RecursiveProof<typeof CHONK_PROOF_LENGTH>,
   skipPublicInputsValidation: boolean = false,
 ) {
-  const { vk, proof, publicInputs } = await proveAvm(
+  const { proof, publicInputs } = await proveAvm(
     avmCircuitInputs,
     bbWorkingDirectory,
     logger,
@@ -63,7 +68,6 @@ async function proveMockPublicBaseRollup(
       proof: mapRecursiveProofToNoir(chonkProof),
       vk_data: mapVerificationKeyToNoir(chonkVk, CHONK_VK_LENGTH_IN_FIELDS),
     },
-    verification_key: mapVerificationKeyToNoir(vk, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
     proof: mapAvmProofToNoir(proof),
     public_inputs: mapAvmCircuitPublicInputsToNoir(publicInputs),
   });
@@ -112,7 +116,13 @@ describe('AVM Integration', () => {
     bbWorkingDirectory = await getWorkingDirectory('bb-avm-integration-');
 
     worldStateService = await NativeWorldStateService.tmp();
-    simTester = await PublicTxSimulationTester.create(worldStateService);
+    simTester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined, // default
+      /*metrics=*/ undefined,
+      /*useCppSimulator=*/ true,
+      simConfig,
+    );
   });
 
   afterEach(async () => {

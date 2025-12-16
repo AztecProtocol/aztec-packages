@@ -205,7 +205,8 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
       cppGasUsed: cppResult.gasUsed.totalGas.l2Gas,
     });
 
-    return tsResult;
+    // Return cpp result as it has more detailed metadata / revert reasons
+    return cppResult;
   }
 }
 

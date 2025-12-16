@@ -38,10 +38,10 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
 
     byte_array_ct output_bytes = bb::stdlib::Blake3s<Builder>::hash(arr);
 
-    // Convert byte array to vector of field_t
-
-    for (size_t i = 0; i < output_bytes.size(); ++i) {
-        output_bytes[i].assert_equal(field_ct::from_witness_index(&builder, constraint.result[i]));
+    for (const auto& [output_byte, result_byte_idx] : zip_view(output_bytes.bytes(), constraint.result)) {
+        // Constrain each output byte to equal the corresponding witness
+        // This equality also constrains the result witnesses to be bytes
+        output_byte.assert_equal(field_ct::from_witness_index(&builder, result_byte_idx));
     }
 }
 

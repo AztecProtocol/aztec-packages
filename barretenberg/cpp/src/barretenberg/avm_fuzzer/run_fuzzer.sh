@@ -30,6 +30,7 @@ if [ "$COMMAND" = "list-targets" ]; then
     echo "  bitwise - Bitwise fuzzer (harness_bitwise_fuzzer)"
     echo "  ecc - ECC fuzzer (harness_ecc_fuzzer)"
     echo "  gt - Greater Than fuzzer (harness_gt_fuzzer)"
+    echo "  merkle_check - Merkle Check fuzzer (harness_merkle_check_fuzzer)"
     exit 0
 fi
 
@@ -62,9 +63,10 @@ case "$FUZZER_ALIAS" in
     bitwise) FUZZER_TYPE="harness_bitwise_fuzzer" ;;
     ecc) FUZZER_TYPE="harness_ecc_fuzzer" ;;
     gt) FUZZER_TYPE="harness_gt_fuzzer" ;;
+    merkle_check) FUZZER_TYPE="harness_merkle_check_fuzzer" ;;
     *)
         echo "Error: Invalid fuzzer type '$FUZZER_ALIAS'"
-        echo "Valid options: 'avm', 'alu', 'bitwise', 'ecc' or 'gt'"
+        echo "Valid options: 'avm', 'alu', 'bitwise', 'ecc', 'gt' or 'merkle_check'"
         exit 1
         ;;
 esac
@@ -133,7 +135,6 @@ cd "$BUILD_DIR"
 
 # Default fuzzer parameters
 TIMEOUT=5
-LEN_CONTROL=500
 WORKERS=1 # EVERYTHING TUNED TO 1 BY DEFAULT UNTIL DIFFERENTIAL FUZZER WORKS IN PARALLEL
 JOBS=1 # EVERYTHING TUNED TO 1 BY DEFAULT UNTIL DIFFERENTIAL FUZZER WORKS IN PARALLEL
 ENTROPIC=1
@@ -150,7 +151,6 @@ echo "Crashes directory: $CRASHES_DIR"
 if [ "$COMMAND" = "fuzz" ]; then
     echo "Parameters:"
     echo "  -timeout=$TIMEOUT"
-    echo "  -len_control=$LEN_CONTROL"
     echo "  -workers=$WORKERS"
     echo "  -jobs=$JOBS"
     echo "  -entropic=$ENTROPIC"
@@ -177,7 +177,6 @@ else
     # Normal fuzzing with full parameters
     FUZZER_CMD+=(
         -timeout=$TIMEOUT
-        -len_control=$LEN_CONTROL
         -workers=$WORKERS
         -jobs=$JOBS
         -entropic=$ENTROPIC

@@ -4,7 +4,8 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { CustomRange } from '@aztec/kv-store';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block, ValidateBlockResult } from '@aztec/stdlib/block';
+import type { CheckpointedL2Block, L2BlockNew, ValidateBlockResult } from '@aztec/stdlib/block';
+import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractInstanceUpdateWithAddress,
@@ -13,18 +14,18 @@ import type {
   UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
-import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogFilter, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { BlockHeader, type IndexedTxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
+import type { CheckpointData } from './kv_archiver_store/block_store.js';
 import type { InboxMessage } from './structs/inbox_message.js';
-import type { PublishedL2Block } from './structs/published.js';
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
  */
 export type ArchiverL1SynchPoint = {
-  /** Number of the last L1 block that added a new L2 block metadata.  */
+  /** Number of the last L1 block that added a new L2 checkpoint metadata.  */
   blocksSynchedTo?: bigint;
   /** Last L1 block checked for L1 to L2 messages. */
   messagesSynchedTo?: L1BlockId;
@@ -45,34 +46,87 @@ export interface ArchiverDataStore {
    * @param opts.force - If true, the blocks will be added even if they have gaps.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: PublishedL2Block[], opts?: { force?: boolean }): Promise<boolean>;
+  addBlocks(blocks: L2BlockNew[], opts?: { force?: boolean }): Promise<boolean>;
 
   /**
-   * Unwinds blocks from the database
-   * @param from -  The tip of the chain, passed for verification purposes,
-   *                ensuring that we don't end up deleting something we did not intend
-   * @param blocksToUnwind - The number of blocks we are to unwind
+   * Appends new checkpoints, and their blocks to the store's collection
+   * @param checkpoints The collectionn of checkpoints to be added
    * @returns True if the operation is successful
    */
-  unwindBlocks(from: BlockNumber, blocksToUnwind: number): Promise<boolean>;
+  addCheckpoints(checkpoints: PublishedCheckpoint[]): Promise<boolean>;
+
+  /**
+   * Retrieves all blocks for the requested chackpoint
+   * @param checkpointNumber Retreieves all blocks for the given checkpoint
+   * @returns The collection of blocks for the requested checkpoint if available (undefined otherwise)
+   */
+  getBlocksForCheckpoint(checkpointNumber: CheckpointNumber): Promise<L2BlockNew[] | undefined>;
+
+  /**
+   * Returns an array of checkpoint objects
+   * @param from The first checkpoint number to be retrieved
+   * @param limit The maximum number of chackpoints to retrieve
+   * @returns The array of requested checkpoint data objects
+   */
+  getRangeOfCheckpoints(from: CheckpointNumber, limit: number): Promise<CheckpointData[]>;
+
+  /**
+   * Unwinds checkpoints from the database
+   * @param from -  The tip of the chain, passed for verification purposes,
+   *                ensuring that we don't end up deleting something we did not intend
+   * @param checkpointsToUnwind - The number of checkpoints we are to unwind
+   * @returns True if the operation is successful
+   */
+  unwindCheckpoints(from: CheckpointNumber, checkpointsToUnwind: number): Promise<boolean>;
 
   /**
    * Returns the block for the given number, or undefined if not exists.
    * @param number - The block number to return.
    */
-  getPublishedBlock(number: BlockNumber): Promise<PublishedL2Block | undefined>;
+  getCheckpointedBlock(number: number): Promise<CheckpointedL2Block | undefined>;
 
   /**
    * Returns the block for the given hash, or undefined if not exists.
    * @param blockHash - The block hash to return.
    */
-  getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined>;
+  getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined>;
 
   /**
    * Returns the block for the given archive root, or undefined if not exists.
    * @param archive - The archive root to return.
    */
-  getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined>;
+  getCheckpointedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined>;
+
+  /**
+   * Returns checkpoint data for the requested checkpoint number
+   * @param checkpointNumber - The checkpoint requested
+   * @returns The checkpoint data or undefined if not found
+   */
+  getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined>;
+
+  /**
+   * Returns the number of the latest block
+   * @returns The number of the latest block
+   */
+  getLatestBlockNumber(): Promise<BlockNumber>;
+
+  /**
+   * Returns the block for the given number, or undefined if not exists.
+   * @param number - The block number to return.
+   */
+  getBlock(number: number): Promise<L2BlockNew | undefined>;
+
+  /**
+   * Returns the block for the given hash, or undefined if not exists.
+   * @param blockHash - The block hash to return.
+   */
+  getBlockByHash(blockHash: Fr): Promise<L2BlockNew | undefined>;
+
+  /**
+   * Returns the block for the given archive root, or undefined if not exists.
+   * @param archive - The archive root to return.
+   */
+  getBlockByArchive(archive: Fr): Promise<L2BlockNew | undefined>;
 
   /**
    * Gets up to `limit` amount of published L2 blocks starting from `from`.
@@ -80,7 +134,7 @@ export interface ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getPublishedBlocks(from: BlockNumber, limit: number): Promise<PublishedL2Block[]>;
+  getBlocks(from: number, limit: number): Promise<L2BlockNew[]>;
 
   /**
    * Gets up to `limit` amount of L2 block headers starting from `from`.
@@ -121,8 +175,8 @@ export interface ArchiverDataStore {
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(blocks: L2Block[]): Promise<boolean>;
-  deleteLogs(blocks: L2Block[]): Promise<boolean>;
+  addLogs(blocks: L2BlockNew[]): Promise<boolean>;
+  deleteLogs(blocks: L2BlockNew[]): Promise<boolean>;
 
   /**
    * Append L1 to L2 messages to the store.
@@ -152,14 +206,6 @@ export interface ArchiverDataStore {
   getTotalL1ToL2MessageCount(): Promise<bigint>;
 
   /**
-   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
-   * @param from - The block number from which to begin retrieving logs.
-   * @param limit - The maximum number of blocks to retrieve logs from.
-   * @returns An array of private logs from the specified range of blocks.
-   */
-  getPrivateLogs(from: BlockNumber, limit: number): Promise<PrivateLog[]>;
-
-  /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
    * @param logsPerTag - The number of logs to return per tag. Defaults to everything
@@ -186,25 +232,37 @@ export interface ArchiverDataStore {
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
-  getSynchedL2BlockNumber(): Promise<BlockNumber>;
+  getCheckpointedL2BlockNumber(): Promise<BlockNumber>;
 
   /**
-   * Gets the number of the latest proven L2 block processed.
-   * @returns The number of the latest proven L2 block processed.
+   * Gets the number of the latest published checkpoint processed.
+   * @returns The number of the latest published checkpoint processed
    */
-  getProvenL2BlockNumber(): Promise<BlockNumber>;
+  getSynchedCheckpointNumber(): Promise<CheckpointNumber>;
 
   /**
-   * Stores the number of the latest proven L2 block processed.
-   * @param l2BlockNumber - The number of the latest proven L2 block processed.
+   * Gets the number of the latest proven checkpoint processed.
+   * @returns The number of the latest proven checkpoint processed.
    */
-  setProvenL2BlockNumber(l2BlockNumber: BlockNumber): Promise<void>;
+  getProvenCheckpointNumber(): Promise<CheckpointNumber>;
 
   /**
-   * Stores the l1 block number that blocks have been synched until
+   * Returns the number of the most recent proven block
+   * @returns The number of the most recent proven block
+   */
+  getProvenBlockNumber(): Promise<BlockNumber>;
+
+  /**
+   * Stores the number of the latest proven checkpoint processed.
+   * @param checkpointNumber - The number of the latest proven checkpoint processed.
+   */
+  setProvenCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void>;
+
+  /**
+   * Stores the l1 block number that checkpoints have been synched until
    * @param l1BlockNumber  - The l1 block number
    */
-  setBlockSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void>;
+  setCheckpointSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void>;
 
   /**
    * Stores the l1 block that messages have been synched until

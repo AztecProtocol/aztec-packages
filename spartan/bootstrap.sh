@@ -104,6 +104,22 @@ function network_tests {
   network_test_cmds | filter_test_cmds | parallelize 1
 }
 
+function network_bench_cmds {
+  echo "$hash:TIMEOUT=3600 BENCH_OUTPUT=bench-out/n_tps.bench.json TPS_TARGET=0.5,1,2 TEST_DURATION=600 $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+}
+
+function network_bench {
+  rm -rf bench-out
+  mkdir -p bench-out
+
+  local env_file="$1"
+  source_network_env $env_file
+
+  echo_header "spartan bench"
+  gcp_auth
+  network_bench_cmds | parallelize 1
+}
+
 function ensure_eth_balances {
   amount="$1"
   # if ETHEREUM_HOST is not set, use the first RPC URL
@@ -167,9 +183,9 @@ case "$cmd" in
     single_test $test_file
     ;;
 
-  "network_tests")
+  network_tests|network_bench)
     env_file="$1"
-    network_tests $env_file
+    $cmd $env_file
     ;;
   "kind")
     if ! kubectl config get-clusters | grep -q "^kind-kind$" || ! docker ps | grep -q "kind-control-plane"; then
@@ -260,7 +276,7 @@ case "$cmd" in
     ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-tx-drop.yaml ten-tps${NAME_POSTFIX:-}
   ;;
   "test-kind-upgrade-rollup-version")
-    OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \
+    OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_k8s.sh kind src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version${NAME_POSTFIX:-}
     ;;
@@ -294,7 +310,7 @@ case "$cmd" in
       ./scripts/test_k8s.sh gke src/spartan/4epochs.test.ts ci-1tps.yaml ${NAMESPACE:-"four-epochs${NAME_POSTFIX:-}"}
     ;;
   "test-gke-upgrade-rollup-version")
-    OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \
+    OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_k8s.sh gke src/spartan/upgrade_rollup_version.test.ts ci.yaml ${NAMESPACE:-"upgrade-rollup-version${NAME_POSTFIX:-}"}
     ;;

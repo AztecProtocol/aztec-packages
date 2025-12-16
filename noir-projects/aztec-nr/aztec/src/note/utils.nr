@@ -8,16 +8,13 @@ use protocol_types::hash::{
 };
 
 /// Returns the note hash that must be used to issue a private kernel read request for a note.
-pub fn compute_note_hash_read<Note>(
-    retrieved_note: RetrievedNote<Note>,
-    storage_slot: Field,
-) -> NoteHashRead
+pub fn compute_note_hash_read<Note>(retrieved_note: RetrievedNote<Note>) -> NoteHashRead
 where
     Note: NoteHash,
 {
     let note_hash = retrieved_note.note.compute_note_hash(
         retrieved_note.owner,
-        storage_slot,
+        retrieved_note.storage_slot,
         retrieved_note.randomness,
     );
 
@@ -39,16 +36,13 @@ where
 
 /// Returns the note hash that must be used to compute a note's nullifier when calling `NoteHash::compute_nullifier` or
 /// `NoteHash::compute_nullifier_unconstrained`.
-pub fn compute_note_hash_for_nullification<Note>(
-    retrieved_note: RetrievedNote<Note>,
-    storage_slot: Field,
-) -> Field
+pub fn compute_note_hash_for_nullification<Note>(retrieved_note: RetrievedNote<Note>) -> Field
 where
     Note: NoteHash,
 {
     compute_note_hash_for_nullification_from_note_hash_read(
         retrieved_note,
-        compute_note_hash_read(retrieved_note, storage_slot),
+        compute_note_hash_read(retrieved_note),
     )
 }
 
@@ -83,14 +77,12 @@ pub fn compute_note_hash_for_nullification_from_note_hash_read<Note>(
 /// Computes a note's siloed nullifier, i.e. the one that will be inserted into the nullifier tree.
 pub fn compute_siloed_note_nullifier<Note>(
     retrieved_note: RetrievedNote<Note>,
-    storage_slot: Field,
     context: &mut PrivateContext,
 ) -> Field
 where
     Note: NoteHash,
 {
-    let note_hash_for_nullification =
-        compute_note_hash_for_nullification(retrieved_note, storage_slot);
+    let note_hash_for_nullification = compute_note_hash_for_nullification(retrieved_note);
     let inner_nullifier = retrieved_note.note.compute_nullifier(
         context,
         retrieved_note.owner,

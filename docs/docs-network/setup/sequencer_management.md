@@ -286,6 +286,7 @@ KEY_STORE_DIRECTORY=./keys
 LOG_LEVEL=info
 ETHEREUM_HOSTS=[your Ethereum mainnet execution endpoint, or a comma separated list if you have multiple]
 L1_CONSENSUS_HOST_URLS=[your Ethereum mainnet consensus endpoint, or a comma separated list if you have multiple]
+ETHEREUM_DEBUG_HOSTS=[your trace capable L1 execution endpoint]
 P2P_IP=[your external IP address]
 P2P_PORT=40400
 AZTEC_PORT=8080
@@ -296,6 +297,12 @@ AZTEC_ADMIN_PORT=8880
 Find your public IP address with: `curl ipv4.icanhazip.com`
 :::
 
+:::warning
+In order to retrieve blocks posted to L1 via non-standard contract interactions, it is necessary to have access to an L1 rpc endpoint with 'trace' capability (either `trace_transaction` or `debug_traceTransaction`). The variable `ETHEREUM_DEBUG_HOSTS` is used to provide these url/s to the node. If not provided, the value of this will default to that set in `ETHEREUM_HOSTS`. The node will validate whether it is able to execute a trace call on the provided url/s, if not, it looks to the value set in `ETHEREUM_ALLOW_NO_DEBUG_HOSTS` to determine whether this should prevent the node from starting. By default `ETHEREUM_ALLOW_NO_DEBUG_HOSTS` is `true`, allowing the node to start. Any url provided in `ETHEREUM_DEBUG_HOSTS` will only be used in the case of having to execute a trace, it won't be used in regular L1 interactions.
+
+Note - if the node does not have access to an rpc url that is capable of trace calls and it encounters a block posted via a transaction using non-standard contract interactions, it may become stuck and unable to progress the chain.
+:::
+
 ### Step 5: Create Docker Compose File
 
 Create a `docker-compose.yml` file in your `aztec-sequencer` directory:
@@ -303,7 +310,7 @@ Create a `docker-compose.yml` file in your `aztec-sequencer` directory:
 ```yaml
 services:
   aztec-sequencer:
-    image: "aztecprotocol/aztec:2.1.5"
+    image: "aztecprotocol/aztec:2.1.9"
     container_name: "aztec-sequencer"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
@@ -318,6 +325,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
       L1_CONSENSUS_HOST_URLS: ${L1_CONSENSUS_HOST_URLS}
+      ETHEREUM_DEBUG_HOSTS: ${ETHEREUM_DEBUG_HOSTS}
       P2P_IP: ${P2P_IP}
       P2P_PORT: ${P2P_PORT}
       AZTEC_PORT: ${AZTEC_PORT}

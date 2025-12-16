@@ -70,7 +70,7 @@ class HintingRawDB final : public LowLevelMerkleDBInterface {
         const PublicDataLeafValue& leaf_value) override;
     SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
         const NullifierLeafValue& leaf_value) override;
-    std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) override;
+    void append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) override;
     void pad_tree(MerkleTreeId tree_id, size_t num_leaves) override;
 
     void create_checkpoint() override;
@@ -88,11 +88,6 @@ class HintingRawDB final : public LowLevelMerkleDBInterface {
 
     // Private helper methods.
     AppendOnlyTreeSnapshot get_tree_info(MerkleTreeId tree_id) const;
-    AppendOnlyTreeSnapshot appendLeafInternal(const AppendOnlyTreeSnapshot& state_before,
-                                              const SiblingPath& path,
-                                              const FF& root_after,
-                                              MerkleTreeId tree_id,
-                                              const FF& leaf);
 };
 
 } // namespace bb::avm2::simulation

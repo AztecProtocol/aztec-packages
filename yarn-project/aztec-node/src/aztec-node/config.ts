@@ -136,7 +136,7 @@ function createKeyStoreFromWeb3Signer(config: ConfigRequiredToBuildKeyStore): Ke
 function createKeyStoreFromPrivateKeys(config: ConfigRequiredToBuildKeyStore): KeyStore | undefined {
   const validatorKeyStores: ValidatorKeyStore[] = [];
   const ethPrivateKeys = config.validatorPrivateKeys
-    ? config.validatorPrivateKeys.getValue().map(x => ethPrivateKeySchema.parse(x))
+    ? config.validatorPrivateKeys.getValue().map((x: string) => ethPrivateKeySchema.parse(x))
     : [];
 
   if (!ethPrivateKeys.length) {
@@ -146,7 +146,7 @@ function createKeyStoreFromPrivateKeys(config: ConfigRequiredToBuildKeyStore): K
   const feeRecipient = config.feeRecipient ?? AztecAddress.ZERO;
 
   const publisherKeys = config.publisherPrivateKeys
-    ? config.publisherPrivateKeys.map(k => ethPrivateKeySchema.parse(k.getValue()))
+    ? config.publisherPrivateKeys.map((k: { getValue: () => string }) => ethPrivateKeySchema.parse(k.getValue()))
     : [];
 
   validatorKeyStores.push({

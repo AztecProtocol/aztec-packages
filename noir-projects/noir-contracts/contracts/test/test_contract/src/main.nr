@@ -254,7 +254,7 @@ pub contract Test {
 
         let header = self.context.get_anchor_block_header();
 
-        header.prove_note_inclusion(retrieved_notes.get(0), storage_slot);
+        header.prove_note_inclusion(retrieved_notes.get(0));
     }
 
     #[external("private")]
@@ -326,7 +326,7 @@ pub contract Test {
             value4: fields[4],
         };
 
-        self.emit(event, owner, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.emit(event).deliver_to(owner, MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs

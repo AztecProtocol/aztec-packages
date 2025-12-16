@@ -92,7 +92,7 @@ constexpr uint256_t affine_element<Fq, Fr, T>::compress() const noexcept
     return out;
 }
 
-template <class Fq, class Fr, class T> affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::infinity()
+template <class Fq, class Fr, class T> constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::infinity()
 {
     affine_element e{};
     e.self_set_infinity();

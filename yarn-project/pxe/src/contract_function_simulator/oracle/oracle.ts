@@ -112,9 +112,9 @@ export class Oracle {
     return [values.map(toACVMField)];
   }
 
-  async utilityGetUtilityContext(): Promise<(ACVMField | ACVMField[])[]> {
-    const context = await this.handlerAsUtility().utilityGetUtilityContext();
-    return context.toNoirRepresentation();
+  utilityGetUtilityContext(): Promise<(ACVMField | ACVMField[])[]> {
+    const context = this.handlerAsUtility().utilityGetUtilityContext();
+    return Promise.resolve(context.toNoirRepresentation());
   }
 
   async utilityGetKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {
@@ -279,7 +279,17 @@ export class Oracle {
       +status,
     );
 
-    const returnDataAsArrayOfPackedRetrievedNotes = noteDatas.map(packAsRetrievedNote);
+    const returnDataAsArrayOfPackedRetrievedNotes = noteDatas.map(noteData =>
+      packAsRetrievedNote({
+        contractAddress: noteData.contractAddress,
+        owner: noteData.owner,
+        randomness: noteData.randomness,
+        storageSlot: noteData.storageSlot,
+        noteNonce: noteData.noteNonce,
+        index: noteData.index,
+        note: noteData.note,
+      }),
+    );
 
     // Now we convert each sub-array to an array of ACVMField
     const returnDataAsArrayOfACVMFieldArrays = returnDataAsArrayOfPackedRetrievedNotes.map(subArray =>

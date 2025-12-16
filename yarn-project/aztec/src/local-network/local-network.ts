@@ -1,19 +1,20 @@
 #!/usr/bin/env -S node --no-warnings
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { EthAddress } from '@aztec/aztec.js/addresses';
+import { AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node/config';
+import { Fr } from '@aztec/aztec.js/fields';
+import { createLogger } from '@aztec/aztec.js/log';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { waitForPublicClient } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { NULL_KEY } from '@aztec/ethereum/constants';
-import { deployMulticall3 } from '@aztec/ethereum/contracts';
-import { deployL1Contracts } from '@aztec/ethereum/deploy-l1-contracts';
+import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { type LogFn, createLogger } from '@aztec/foundation/log';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import type { LogFn } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
@@ -26,7 +27,7 @@ import {
 import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, http as httpViemTransport } from 'viem';
+import { type Hex, createPublicClient, fallback, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount, privateKeyToAddress } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -47,42 +48,26 @@ const localAnvil = foundry;
  */
 export async function deployContractsToL1(
   aztecNodeConfig: AztecNodeConfig,
-  hdAccount: HDAccount | PrivateKeyAccount,
-  contractDeployLogger = logger,
+  privateKey: Hex,
   opts: {
     assumeProvenThroughBlockNumber?: number;
-    salt?: number;
     genesisArchiveRoot?: Fr;
     feeJuicePortalInitialBalance?: bigint;
   } = {},
 ) {
-  const chain =
-    aztecNodeConfig.l1RpcUrls.length > 0
-      ? createEthereumChain(aztecNodeConfig.l1RpcUrls, aztecNodeConfig.l1ChainId)
-      : { chainInfo: localAnvil };
-
   await waitForPublicClient(aztecNodeConfig);
 
-  const l1Contracts = await deployL1Contracts(
-    aztecNodeConfig.l1RpcUrls,
-    hdAccount,
-    chain.chainInfo,
-    contractDeployLogger,
-    {
-      ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
-      ...aztecNodeConfig,
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractsHash,
-      genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-      salt: opts.salt,
-      feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
-      aztecTargetCommitteeSize: 0, // no committee in local network
-      slasherFlavor: 'none', // no slashing in local network
-      realVerifier: false,
-    },
-  );
-
-  await deployMulticall3(l1Contracts.l1Client, logger);
+  const l1Contracts = await deployAztecL1Contracts(aztecNodeConfig.l1RpcUrls[0], privateKey, foundry.id, {
+    ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
+    ...aztecNodeConfig,
+    vkTreeRoot: getVKTreeRoot(),
+    protocolContractsHash,
+    genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+    feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
+    aztecTargetCommitteeSize: 0, // no committee in local network
+    slasherFlavor: 'none', // no slashing in local network
+    realVerifier: false,
+  });
 
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
   aztecNodeConfig.rollupVersion = l1Contracts.rollupVersion;
@@ -94,8 +79,6 @@ export async function deployContractsToL1(
 export type LocalNetworkConfig = AztecNodeConfig & {
   /** Mnemonic used to derive the L1 deployer private key.*/
   l1Mnemonic: string;
-  /** Salt used to deploy L1 contracts.*/
-  deployAztecContractsSalt: string;
   /** Whether to deploy test accounts on local network start.*/
   testAccounts: boolean;
 };
@@ -154,12 +137,15 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   let watcher: AnvilTestWatcher | undefined = undefined;
   const dateProvider = new TestDateProvider();
   if (!aztecNodeConfig.p2pEnabled) {
-    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
-      assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
-      genesisArchiveRoot,
-      salt: config.deployAztecContractsSalt ? parseInt(config.deployAztecContractsSalt) : undefined,
-      feeJuicePortalInitialBalance: fundingNeeded,
-    });
+    const l1ContractAddresses = await deployContractsToL1(
+      aztecNodeConfig,
+      aztecNodeConfig.validatorPrivateKeys.getValue()[0],
+      {
+        assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
+        genesisArchiveRoot,
+        feeJuicePortalInitialBalance: fundingNeeded,
+      },
+    );
 
     const chain =
       aztecNodeConfig.l1RpcUrls.length > 0

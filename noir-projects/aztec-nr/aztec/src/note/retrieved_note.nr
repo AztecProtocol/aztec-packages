@@ -1,15 +1,15 @@
 use crate::note::note_metadata::NoteMetadata;
 use protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 
-/// A container of a note and the metadata that is along with a storage slot required to prove existence of the note,
-/// regardless of whether the note is pending (created in the current transaction) or settled (created in a previous
-/// transaction).
+/// A container for a note and the corresponding metadata that can be used to prove the note's existence, regardless of
+/// whether the note is pending (created in the current transaction) or settled (created in a previous transaction).
 #[derive(Deserialize, Eq, Serialize, Packable)]
 pub struct RetrievedNote<Note> {
     pub note: Note,
     pub contract_address: AztecAddress,
     pub owner: AztecAddress,
     pub randomness: Field,
+    pub storage_slot: Field,
     pub metadata: NoteMetadata,
 }
 
@@ -31,9 +31,10 @@ mod test {
     /// straightforward to fix if the format, for whatever reason, changes.
     #[test]
     unconstrained fn packing_retrieved_note_matches_typescript() {
-        // The following 4 values are an input to the typescript function `packAsRetrievedNote`
+        // The following 5 values are an input to the typescript function `packAsRetrievedNote`
         let contract_address = AztecAddress::from_field(1);
         let randomness = 42;
+        let storage_slot = 100;
         let note_nonce = 2;
         let index = Option::<Field>::none(); // Transient note
         let packed_note = [3, 4];
@@ -51,6 +52,7 @@ mod test {
             contract_address,
             owner,
             randomness,
+            storage_slot,
             metadata: note_metadata,
         };
 
@@ -62,6 +64,7 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000001,
             0x0000000000000000000000000000000000000000000000000000000000000005,
             0x000000000000000000000000000000000000000000000000000000000000002a,
+            0x0000000000000000000000000000000000000000000000000000000000000064,
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x0000000000000000000000000000000000000000000000000000000000000002,
         ];

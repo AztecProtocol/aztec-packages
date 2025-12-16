@@ -5,13 +5,12 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import type {
   EthAddress,
-  L2Block,
   L2BlockId,
+  L2BlockNew,
   L2BlockSource,
   L2BlockStream,
   L2BlockStreamEvent,
   L2Tips,
-  PublishedL2Block,
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
@@ -217,7 +216,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug(`Handling block stream event ${event.type}`);
     switch (event.type) {
       case 'blocks-added':
-        await this.handleLatestL2Blocks(event.blocks);
+        await this.handleLatestL2Blocks(event.blocks.map(b => b.block.toL2Block()));
         break;
       case 'chain-finalized': {
         // TODO (alexg): I think we can prune the block hashes map here
@@ -225,7 +224,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         const from = BlockNumber((await this.getSyncedFinalizedBlockNum()) + 1);
         const limit = event.block.number - from + 1;
         if (limit > 0) {
-          await this.handleFinalizedL2Blocks(await this.l2BlockSource.getBlocks(from, limit));
+          const oldBlocks = await this.l2BlockSource.getBlocks(from, limit);
+          await this.handleFinalizedL2Blocks(oldBlocks.map(b => b.toL2Block()));
         }
         break;
       }
@@ -697,10 +697,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
    * @returns Empty promise.
    */
-  private async markTxsAsMinedFromBlocks(blocks: L2Block[]): Promise<void> {
+  private async markTxsAsMinedFromBlocks(blocks: L2BlockNew[]): Promise<void> {
     for (const block of blocks) {
       const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
-      await this.txPool.markAsMined(txHashes, block.getBlockHeader());
+      await this.txPool.markAsMined(txHashes, block.header);
     }
   }
 
@@ -709,21 +709,21 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
    * @returns Empty promise.
    */
-  private async handleLatestL2Blocks(blocks: PublishedL2Block[]): Promise<void> {
+  private async handleLatestL2Blocks(blocks: L2BlockNew[]): Promise<void> {
     if (!blocks.length) {
       return Promise.resolve();
     }
 
-    await this.markTxsAsMinedFromBlocks(blocks.map(b => b.block));
-    await this.startCollectingMissingTxs(blocks.map(b => b.block));
+    await this.markTxsAsMinedFromBlocks(blocks);
+    await this.startCollectingMissingTxs(blocks);
 
-    const lastBlock = blocks.at(-1)!.block;
+    const lastBlock = blocks.at(-1)!;
 
     await Promise.all(
       blocks.map(async block =>
         this.setBlockHash({
-          number: block.block.number,
-          hash: await block.block.hash().then(h => h.toString()),
+          number: block.number,
+          hash: await block.hash().then(h => h.toString()),
         }),
       ),
     );
@@ -735,7 +735,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   /** Request txs for unproven blocks so the prover node has more chances to get them. */
-  private async startCollectingMissingTxs(blocks: L2Block[]): Promise<void> {
+  private async startCollectingMissingTxs(blocks: L2BlockNew[]): Promise<void> {
     try {
       // TODO(#15435): If the archiver has lagged behind L1, the reported proven block number may
       // be much lower than the actual one, and it does not update until the pending chain is
@@ -768,7 +768,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param blocks - A list of finalized L2 blocks.
    * @returns Empty promise.
    */
-  private async handleFinalizedL2Blocks(blocks: L2Block[]): Promise<void> {
+  private async handleFinalizedL2Blocks(blocks: L2BlockNew[]): Promise<void> {
     if (!blocks.length) {
       return Promise.resolve();
     }

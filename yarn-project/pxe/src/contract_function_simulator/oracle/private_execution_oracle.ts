@@ -71,7 +71,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
     /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
-    protected readonly anchorBlockHeader: BlockHeader,
+    protected override readonly anchorBlockHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
     capsules: Capsule[],
@@ -86,7 +86,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private senderForTags?: AztecAddress,
     private simulator?: CircuitSimulator,
   ) {
-    super(callContext.contractAddress, authWitnesses, capsules, executionDataProvider, log, scopes);
+    super(callContext.contractAddress, authWitnesses, capsules, anchorBlockHeader, executionDataProvider, log, scopes);
   }
 
   public getPrivateContextInputs(): PrivateContextInputs {

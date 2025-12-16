@@ -1,16 +1,11 @@
 import { AztecClientBackend, Barretenberg } from '@aztec/bb.js';
-import {
-  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  CHONK_PROOF_LENGTH,
-  CHONK_VK_LENGTH_IN_FIELDS,
-  ULTRA_VK_LENGTH_IN_FIELDS,
-} from '@aztec/constants';
+import { CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS, ULTRA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester, bulkTest } from '@aztec/simulator/public/fixtures';
-import { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
+import { AvmCircuitInputs, AvmCircuitPublicInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { RecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state/native';
@@ -43,11 +38,19 @@ jest.setTimeout(150_000);
 
 const logger = createLogger('ivc-integration:test:rollup-native');
 
+const simConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
+  skipFeeEnforcement: false,
+  collectCallMetadata: true, // For results.
+  collectDebugLogs: false,
+  collectHints: true, // Required for proving!
+  collectPublicInputs: true, // Required for proving!
+  collectStatistics: false,
+});
+
 describe('Rollup IVC Integration', () => {
   let bbBinaryPath: string;
 
   let chonkProof: RecursiveProof<typeof CHONK_PROOF_LENGTH>;
-  let avmVK: VerificationKeyAsFields;
   let avmProof: Fr[];
   let avmPublicInputs: AvmCircuitPublicInputs;
 
@@ -78,17 +81,23 @@ describe('Rollup IVC Integration', () => {
     const avmWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-avm-');
 
     const worldStateService = await NativeWorldStateService.tmp();
-    const simTester = await PublicTxSimulationTester.create(worldStateService);
+    const simTester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined, // default
+      /*metrics=*/ undefined,
+      /*useCppSimulator=*/ true,
+      simConfig,
+    );
     const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
     await worldStateService.close();
     expect(avmSimulationResult.revertCode.isOK()).toBe(true);
 
     const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs!);
-    ({
-      vk: avmVK,
-      proof: avmProof,
-      publicInputs: avmPublicInputs,
-    } = await proveAvm(avmCircuitInputs, avmWorkingDirectory, logger));
+    ({ proof: avmProof, publicInputs: avmPublicInputs } = await proveAvm(
+      avmCircuitInputs,
+      avmWorkingDirectory,
+      logger,
+    ));
   });
 
   beforeEach(async () => {
@@ -130,7 +139,6 @@ describe('Rollup IVC Integration', () => {
         proof: mapRecursiveProofToNoir(chonkProof),
         vk_data: mapVerificationKeyToNoir(ivcVk, CHONK_VK_LENGTH_IN_FIELDS),
       },
-      verification_key: mapVerificationKeyToNoir(avmVK, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
       proof: mapAvmProofToNoir(avmProof),
       public_inputs: mapAvmCircuitPublicInputsToNoir(avmPublicInputs),
     });

@@ -29,7 +29,6 @@ describe(`deploys and transfers a private only token`, () => {
       2, // Deploy 2 accounts.
       {
         numberOfInitialFundedAccounts: 2, // Fund 2 accounts.
-        skipProtocolContracts: true,
         stateLoad: undefined,
       },
       {},

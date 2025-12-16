@@ -368,7 +368,7 @@ function processConstantsCpp(
 ): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    if (CPP_CONSTANTS.includes(key) || (key.startsWith('AVM_') && key !== 'AVM_VK_INDEX')) {
+    if (CPP_CONSTANTS.includes(key) || key.startsWith('AVM_')) {
       if (BigInt(value) <= 2n ** 31n - 1n) {
         code.push(`#define ${key} ${value}`);
       } else if (BigInt(value) <= 2n ** 64n - 1n) {

@@ -1,5 +1,5 @@
+import type { PublishedL2Block } from '../checkpointed_l2_block.js';
 import type { L2BlockId, L2Tips } from '../l2_block_source.js';
-import type { PublishedL2Block } from '../published_l2_block.js';
 
 /** Interface to the local view of the chain. Implemented by world-state and l2-tips-store. */
 export interface L2BlockStreamLocalDataProvider {

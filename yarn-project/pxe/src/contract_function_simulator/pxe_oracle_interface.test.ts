@@ -27,11 +27,11 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
+import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
-import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 import { WINDOW_HALF_SIZE } from '../tagging/constants.js';
 import { SiloedTag } from '../tagging/siloed_tag.js';
@@ -65,7 +65,7 @@ describe('PXEOracleInterface', () => {
   let privateEventDataProvider: PrivateEventDataProvider;
   let contractDataProvider: ContractDataProvider;
   let noteDataProvider: NoteDataProvider;
-  let syncDataProvider: SyncDataProvider;
+  let anchorBlockDataProvider: AnchorBlockDataProvider;
   let taggingDataProvider: TaggingDataProvider;
   let capsuleDataProvider: CapsuleDataProvider;
   let keyStore: KeyStore;
@@ -89,7 +89,7 @@ describe('PXEOracleInterface', () => {
     addressDataProvider = new AddressDataProvider(store);
     privateEventDataProvider = new PrivateEventDataProvider(store);
     noteDataProvider = await NoteDataProvider.create(store);
-    syncDataProvider = new SyncDataProvider(store);
+    anchorBlockDataProvider = new AnchorBlockDataProvider(store);
     taggingDataProvider = new TaggingDataProvider(store);
     capsuleDataProvider = new CapsuleDataProvider(store);
     keyStore = new KeyStore(store);
@@ -99,7 +99,7 @@ describe('PXEOracleInterface', () => {
       contractDataProvider,
       noteDataProvider,
       capsuleDataProvider,
-      syncDataProvider,
+      anchorBlockDataProvider,
       taggingDataProvider,
       addressDataProvider,
       privateEventDataProvider,
@@ -126,7 +126,14 @@ describe('PXEOracleInterface', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       for (const sender of senders) {
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex);
-        const log = new TxScopedL2Log(TxHash.random(), 0, 0, MIN_BLOCK_NUMBER_OF_A_LOG, PrivateLog.random(tag.value));
+        const log = new TxScopedL2Log(
+          TxHash.random(),
+          0,
+          0,
+          MIN_BLOCK_NUMBER_OF_A_LOG,
+          L2BlockHash.random(),
+          PrivateLog.random(tag.value),
+        );
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS
@@ -135,7 +142,14 @@ describe('PXEOracleInterface', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       const firstSender = senders[0];
       const tag = await computeSiloedTagForIndex(firstSender, recipient.address, contractAddress, tagIndex);
-      const log = new TxScopedL2Log(TxHash.random(), 1, 0, BlockNumber.ZERO, PrivateLog.random(tag.value));
+      const log = new TxScopedL2Log(
+        TxHash.random(),
+        1,
+        0,
+        BlockNumber.ZERO,
+        L2BlockHash.random(),
+        PrivateLog.random(tag.value),
+      );
       logs[tag.toString()].push(log);
       // Accumulated logs intended for recipient: NUM_SENDERS + 1
 
@@ -145,7 +159,14 @@ describe('PXEOracleInterface', () => {
         const sender = senders[i];
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex + 1);
         const blockNumber = BlockNumber(2);
-        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag.value));
+        const log = new TxScopedL2Log(
+          TxHash.random(),
+          0,
+          0,
+          blockNumber,
+          L2BlockHash.random(),
+          PrivateLog.random(tag.value),
+        );
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -157,7 +178,14 @@ describe('PXEOracleInterface', () => {
         const partialAddress = Fr.random();
         const randomRecipient = await computeAddress(keys.publicKeys, partialAddress);
         const tag = await computeSiloedTagForIndex(sender, randomRecipient, contractAddress, tagIndex);
-        const log = new TxScopedL2Log(TxHash.random(), 0, 0, MAX_BLOCK_NUMBER_OF_A_LOG, PrivateLog.random(tag.value));
+        const log = new TxScopedL2Log(
+          TxHash.random(),
+          0,
+          0,
+          MAX_BLOCK_NUMBER_OF_A_LOG,
+          L2BlockHash.random(),
+          PrivateLog.random(tag.value),
+        );
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -948,6 +976,7 @@ describe('PXEOracleInterface', () => {
         randomInt(100),
         randomInt(100),
         BlockNumber(randomInt(100)),
+        L2BlockHash.random(),
         log,
       );
 
@@ -1164,21 +1193,8 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  describe('getAnchorBlockHeader', () => {
-    it('returns the anchor block header and not a header from aztec node', async () => {
-      const blockNumber = BlockNumber(42);
-      const header = BlockHeader.empty({
-        globalVariables: GlobalVariables.empty({ blockNumber }),
-      });
-      await syncDataProvider.setHeader(header);
-
-      const result = await pxeOracleInterface.getAnchorBlockHeader();
-      expect(result).toEqual(header);
-    });
-  });
-
   const setSyncedBlockNumber = (blockNumber: BlockNumber) => {
-    return syncDataProvider.setHeader(
+    return anchorBlockDataProvider.setHeader(
       BlockHeader.empty({
         globalVariables: GlobalVariables.empty({ blockNumber }),
       }),

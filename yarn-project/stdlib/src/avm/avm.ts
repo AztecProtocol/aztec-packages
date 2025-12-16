@@ -1148,7 +1148,7 @@ export class CallStackMetadata {
     const { stack, leaf } = failingCall;
     const aztecCallStack = stack.map(call => ({
       contractAddress: AztecAddress.fromField(call.contractAddress),
-      functionSelector: call.calldata.length > 0 ? FunctionSelector.fromField(call.calldata[0]) : undefined,
+      functionSelector: call.calldata.length > 0 ? FunctionSelector.fromFieldOrUndefined(call.calldata[0]) : undefined,
     }));
 
     // The Noir call stack is the internal call stack at exit of the failing call
@@ -1162,17 +1162,37 @@ export class CallStackMetadata {
     );
   }
 
+  /**
+   * Finds the "rightmost deepest" revert in the call tree.
+   *
+   * At each level, we select the LAST (rightmost) reverted call, then recurse into its
+   * nested calls to find the deepest reverted leaf along that path. The chain stops
+   * when we encounter a non-reverted call (since you can choose not to rethrow).
+   *
+   * Examples (X = reverted, O = passed):
+   *
+   * 1. [X, X, X] at depth 1 -> returns the last X (rightmost)
+   *
+   * 2. [X(depth2), X, X] where first X has a nested revert -> returns the last X at depth 1,
+   *    NOT the deeper revert in the first X (rightmost takes priority over depth)
+   *
+   * 3. X -> X -> X -> O -> O -> X (nested chain)
+   *    Returns the 3rd X, because the O's break the reverted chain (they didn't rethrow)
+   *
+   * @param calls - Array of call metadata at the current level
+   * @param parentStack - Accumulated stack of parent calls (for building the result)
+   * @returns The deepest reverted call along the rightmost reverted path, or undefined if none
+   */
   private findDeepestRevert(
     calls: CallStackMetadata[],
     parentStack: CallStackMetadata[] = [],
   ): { stack: CallStackMetadata[]; leaf: CallStackMetadata } | undefined {
-    for (const call of calls) {
-      if (call.reverted) {
-        const nested = this.findDeepestRevert(call.nested, [...parentStack, call]);
-        return nested || { stack: [...parentStack, call], leaf: call };
-      }
+    const lastReverted = calls.findLast(call => call.reverted);
+    if (!lastReverted) {
+      return undefined;
     }
-    return undefined;
+    const currentStack = [...parentStack, lastReverted];
+    return this.findDeepestRevert(lastReverted.nested, currentStack) || { stack: currentStack, leaf: lastReverted };
   }
 }
 

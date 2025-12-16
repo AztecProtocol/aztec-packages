@@ -11,7 +11,7 @@ import type { CheatCodes } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import type { DeployL1ContractsReturnType } from '@aztec/ethereum/deploy-l1-contracts';
+import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -38,7 +38,7 @@ describe('e2e_multi_validator_node', () => {
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
   let logger: Logger;
-  let deployL1ContractsValues: DeployL1ContractsReturnType;
+  let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   let rollup: RollupContract;
   let cheatCodes: CheatCodes;
   const artifact = StatefulTestContractArtifact;
@@ -128,7 +128,7 @@ describe('e2e_multi_validator_node', () => {
     });
     expect(tx.blockNumber).toBeDefined();
 
-    const dataStore = ((aztecNode as AztecNodeService).getBlockSource() as Archiver).dataStore;
+    const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const [block] = await dataStore.getPublishedBlocks(tx.blockNumber!, tx.blockNumber!);
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
@@ -191,7 +191,7 @@ describe('e2e_multi_validator_node', () => {
     });
     expect(tx.blockNumber).toBeDefined();
 
-    const dataStore = ((aztecNode as AztecNodeService).getBlockSource() as Archiver).dataStore;
+    const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const [block] = await dataStore.getPublishedBlocks(tx.blockNumber!, tx.blockNumber!);
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations

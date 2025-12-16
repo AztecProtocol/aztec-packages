@@ -121,12 +121,17 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     const epochProverManager = (proverNode as TestProverNode).prover;
     const originalCreate = epochProverManager.createEpochProver.bind(epochProverManager);
     const finalizeEpochPromise = promiseWithResolvers<void>();
+    let hasFinalizeEpochWaited = false;
     jest.spyOn(epochProverManager, 'createEpochProver').mockImplementation(() => {
       const prover = originalCreate();
       jest.spyOn(prover, 'finalizeEpoch').mockImplementation(async () => {
-        const seconds = L2_SLOT_DURATION_IN_S * (test.epochDuration * 2); // Forgive me for I have sinned.
-        logger.warn(`Finalize epoch: sleeping ${seconds}s.`);
-        await sleep(seconds * 1000);
+        if (!hasFinalizeEpochWaited) {
+          // Note the following is very fragile, as it relies on timing.
+          const seconds = L2_SLOT_DURATION_IN_S * (test.epochDuration + 1); // Forgive me for I have sinned.
+          logger.warn(`Finalize epoch: sleeping ${seconds}s.`);
+          await sleep(seconds * 1000);
+        }
+        hasFinalizeEpochWaited = true;
         logger.warn(`Finalize epoch: returning.`);
         finalizeEpochPromise.resolve();
         const ourPublicInputs = RootRollupPublicInputs.random();

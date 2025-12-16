@@ -16,7 +16,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
-import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -35,7 +35,6 @@ import { NoBlobBodiesFoundError } from '../errors.js';
 import type { ArchiverInstrumentation } from '../instrumentation.js';
 import type { DataRetrieval } from '../structs/data_retrieval.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
-import type { L1PublishedData } from '../structs/published.js';
 import { CalldataRetriever } from './calldata_retriever.js';
 
 export type RetrievedCheckpoint = {
@@ -261,10 +260,17 @@ async function processCheckpointProposedLogs(
 
     // The value from the event and contract will match only if the checkpoint is in the chain.
     if (archive === archiveFromChain) {
+      // Build expected hashes object (fields may be undefined for backwards compatibility with older events)
+      const expectedHashes = {
+        attestationsHash: log.args.attestationsHash,
+        payloadDigest: log.args.payloadDigest,
+      };
+
       const checkpoint = await calldataRetriever.getCheckpointFromRollupTx(
         log.transactionHash!,
         blobHashes,
         checkpointNumber,
+        expectedHashes,
       );
       const checkpointBlobData = await getCheckpointBlobDataFromBlobs(
         blobSinkClient,
@@ -274,11 +280,11 @@ async function processCheckpointProposedLogs(
         logger,
       );
 
-      const l1: L1PublishedData = {
-        blockNumber: log.blockNumber,
-        blockHash: log.blockHash,
-        timestamp: await getL1BlockTime(publicClient, log.blockNumber),
-      };
+      const l1 = new L1PublishedData(
+        log.blockNumber,
+        await getL1BlockTime(publicClient, log.blockNumber),
+        log.blockHash,
+      );
 
       retrievedCheckpoints.push({ ...checkpoint, checkpointBlobData, l1, chainId, version });
       logger.trace(`Retrieved checkpoint ${checkpointNumber} from L1 tx ${log.transactionHash}`, {
