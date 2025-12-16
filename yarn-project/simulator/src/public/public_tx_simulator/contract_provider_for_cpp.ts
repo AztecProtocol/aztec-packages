@@ -18,7 +18,7 @@ export class ContractProviderForCpp implements ContractProvider {
   ) {}
 
   public getContractInstance = async (address: string): Promise<Buffer | undefined> => {
-    this.log.debug(`Contract provider callback: getContractInstance(${address})`);
+    this.log.trace(`Contract provider callback: getContractInstance(${address})`);
 
     const aztecAddr = AztecAddress.fromString(address);
 
@@ -33,7 +33,7 @@ export class ContractProviderForCpp implements ContractProvider {
   };
 
   public getContractClass = async (classId: string): Promise<Buffer | undefined> => {
-    this.log.debug(`Contract provider callback: getContractClass(${classId})`);
+    this.log.trace(`Contract provider callback: getContractClass(${classId})`);
 
     // Parse classId string to Fr
     const classIdFr = Fr.fromString(classId);
@@ -50,7 +50,7 @@ export class ContractProviderForCpp implements ContractProvider {
   };
 
   public addContracts = async (contractDeploymentDataBuffer: Buffer): Promise<void> => {
-    this.log.debug(`Contract provider callback: addContracts`);
+    this.log.trace(`Contract provider callback: addContracts`);
 
     const rawData: any = deserializeFromMessagePack(contractDeploymentDataBuffer);
 
@@ -58,12 +58,12 @@ export class ContractProviderForCpp implements ContractProvider {
     const contractDeploymentData = ContractDeploymentData.fromPlainObject(rawData);
 
     // Add contracts to the contracts DB
-    this.log.debug(`Calling contractsDB.addContracts`);
+    this.log.trace(`Calling contractsDB.addContracts`);
     await this.contractsDB.addContracts(contractDeploymentData);
   };
 
   public getBytecodeCommitment = async (classId: string): Promise<Buffer | undefined> => {
-    this.log.debug(`Contract provider callback: getBytecodeCommitment(${classId})`);
+    this.log.trace(`Contract provider callback: getBytecodeCommitment(${classId})`);
 
     // Parse classId string to Fr
     const classIdFr = Fr.fromString(classId);
@@ -81,7 +81,7 @@ export class ContractProviderForCpp implements ContractProvider {
   };
 
   public getDebugFunctionName = async (address: string, selector: string): Promise<string | undefined> => {
-    this.log.debug(`Contract provider callback: getDebugFunctionName(${address}, ${selector})`);
+    this.log.trace(`Contract provider callback: getDebugFunctionName(${address}, ${selector})`);
 
     // Parse address and selector strings
     const aztecAddr = AztecAddress.fromString(address);
@@ -89,7 +89,7 @@ export class ContractProviderForCpp implements ContractProvider {
     const functionSelector = FunctionSelector.fromFieldOrUndefined(selectorFr);
 
     if (!functionSelector) {
-      this.log.debug(`calldata[0] is not a function selector: ${selector}`);
+      this.log.trace(`calldata[0] is not a function selector: ${selector}`);
       return undefined;
     }
 
@@ -97,7 +97,7 @@ export class ContractProviderForCpp implements ContractProvider {
     const name = await this.contractsDB.getDebugFunctionName(aztecAddr, functionSelector);
 
     if (!name) {
-      this.log.debug(`Debug function name not found for ${address}:${selector}`);
+      this.log.trace(`Debug function name not found for ${address}:${selector}`);
       return undefined;
     }
 
@@ -105,17 +105,17 @@ export class ContractProviderForCpp implements ContractProvider {
   };
 
   public createCheckpoint = (): Promise<void> => {
-    this.log.debug(`Contract provider callback: createCheckpoint`);
+    this.log.trace(`Contract provider callback: createCheckpoint`);
     return Promise.resolve(this.contractsDB.createCheckpoint());
   };
 
   public commitCheckpoint = (): Promise<void> => {
-    this.log.debug(`Contract provider callback: commitCheckpoint`);
+    this.log.trace(`Contract provider callback: commitCheckpoint`);
     return Promise.resolve(this.contractsDB.commitCheckpoint());
   };
 
   public revertCheckpoint = (): Promise<void> => {
-    this.log.debug(`Contract provider callback: revertCheckpoint`);
+    this.log.trace(`Contract provider callback: revertCheckpoint`);
     return Promise.resolve(this.contractsDB.revertCheckpoint());
   };
 }
