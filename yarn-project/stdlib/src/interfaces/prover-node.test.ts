@@ -64,9 +64,11 @@ class MockProverNode implements ProverNodeApi {
 
   getL2Tips(): Promise<L2Tips> {
     return Promise.resolve({
-      latest: { number: BlockNumber(1), hash: `0x01` },
-      proven: { number: BlockNumber(1), hash: `0x01` },
-      finalized: { number: BlockNumber(1), hash: `0x01` },
+      blocks: {
+        latest: { number: BlockNumber(1), hash: `0x01` },
+        proven: { number: BlockNumber(1), hash: `0x01` },
+        finalized: { number: BlockNumber(1), hash: `0x01` },
+      },
     });
   }
 

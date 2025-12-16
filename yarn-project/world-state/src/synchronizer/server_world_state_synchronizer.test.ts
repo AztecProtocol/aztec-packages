@@ -93,15 +93,7 @@ describe('ServerWorldStateSynchronizer', () => {
   });
 
   const pushBlocks = async (from: number, to: number) => {
-    const blocks = checkpoints
-      .flatMap(c => c.checkpoint.blocks)
-      .filter(b => b.number >= from && b.number <= to)
-      .map(
-        b =>
-          ({
-            block: { toL2Block: () => b },
-          }) as any as PublishedL2Block,
-      );
+    const blocks = checkpoints.flatMap(c => c.checkpoint.blocks).filter(b => b.number >= from && b.number <= to);
     await server.handleBlockStreamEvent({
       type: 'blocks-added',
       blocks,
@@ -270,6 +262,6 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
   }
 
   public override getL2Tips() {
-    return Promise.resolve({ latest: this.latest, proven: this.proven, finalized: this.finalized });
+    return Promise.resolve({ blocks: { latest: this.latest, proven: this.proven, finalized: this.finalized } });
   }
 }

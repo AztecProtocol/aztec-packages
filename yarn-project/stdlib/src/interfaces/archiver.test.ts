@@ -374,6 +374,15 @@ class MockArchiver implements ArchiverApi {
       }),
     ];
   }
+
+  getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined> {
+    return L2BlockNew.random(BlockNumber(number));
+  }
+  async getL2BlocksNew(from: BlockNumber, _1: number, _2?: boolean): Promise<L2BlockNew[]> {
+    const block = await L2BlockNew.random(from);
+    return [block];
+  }
+
   async getPublishedBlockByHash(_blockHash: Fr): Promise<PublishedL2Block | undefined> {
     return PublishedL2Block.fromFields({
       block: await L2Block.random(BlockNumber(1)),
@@ -432,9 +441,11 @@ class MockArchiver implements ArchiverApi {
   }
   getL2Tips(): Promise<L2Tips> {
     return Promise.resolve({
-      latest: { number: BlockNumber(1), hash: `0x01` },
-      proven: { number: BlockNumber(1), hash: `0x01` },
-      finalized: { number: BlockNumber(1), hash: `0x01` },
+      blocks: {
+        latest: { number: BlockNumber(1), hash: `0x01` },
+        proven: { number: BlockNumber(1), hash: `0x01` },
+        finalized: { number: BlockNumber(1), hash: `0x01` },
+      },
     });
   }
   getL2BlockHash(blockNumber: BlockNumber): Promise<string | undefined> {

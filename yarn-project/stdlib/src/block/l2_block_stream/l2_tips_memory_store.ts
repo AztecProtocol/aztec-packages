@@ -1,8 +1,8 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 
-import type { L2Block } from '../l2_block.js';
-import type { L2BlockId, L2BlockTag, L2Tips } from '../l2_block_source.js';
+import type { L2BlockNew } from '../l2_block_new.js';
+import type { CheckpointId, L2BlockId, L2BlockTag, L2Tips } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 
 /**
@@ -12,6 +12,7 @@ import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalD
 export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
   protected readonly l2TipsStore: Map<L2BlockTag, BlockNumber> = new Map();
   protected readonly l2BlockHashesStore: Map<number, string> = new Map();
+  protected l2Checkpoint: CheckpointId | undefined = undefined;
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
     return Promise.resolve(this.l2BlockHashesStore.get(number));
@@ -19,9 +20,12 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
 
   public getL2Tips(): Promise<L2Tips> {
     return Promise.resolve({
-      latest: this.getL2Tip('latest'),
-      finalized: this.getL2Tip('finalized'),
-      proven: this.getL2Tip('proven'),
+      blocks: {
+        latest: this.getL2Tip('latest'),
+        finalized: this.getL2Tip('finalized'),
+        proven: this.getL2Tip('proven'),
+      },
+      checkpoint: this.l2Checkpoint,
     });
   }
 
@@ -41,13 +45,16 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
       case 'blocks-added': {
-        const blocks = event.blocks.map(b => b.block);
+        const blocks = event.blocks;
         for (const block of blocks) {
           this.l2BlockHashesStore.set(block.number, await this.computeBlockHash(block));
         }
         this.l2TipsStore.set('latest', blocks.at(-1)!.number);
         break;
       }
+      case 'checkpoint-added':
+        this.l2Checkpoint = event.checkpoint;
+        break;
       case 'chain-pruned':
         this.saveTag('latest', event.block);
         break;
@@ -72,7 +79,7 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
     }
   }
 
-  protected computeBlockHash(block: L2Block) {
+  protected computeBlockHash(block: L2BlockNew) {
     return block.hash().then(hash => hash.toString());
   }
 }

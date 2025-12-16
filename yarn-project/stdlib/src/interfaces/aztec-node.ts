@@ -24,6 +24,7 @@ import { type BlockParameter, BlockParameterSchema } from '../block/block_parame
 import { PublishedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
+import { L2BlockNew } from '../block/l2_block_new.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
 import {
   type ContractClassPublic,
@@ -71,7 +72,7 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
 export interface AztecNode
-  extends Pick<L2BlockSource, 'getBlocks' | 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'> {
+  extends Pick<L2BlockSource, 'getBlocks' | 'getL2BlocksNew' | 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'> {
   /**
    * Returns the tips of the L2 chain.
    */
@@ -577,6 +578,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .function()
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(PublishedL2Block.schema)),
+
+  getL2BlocksNew: z
+    .function()
+    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
+    .returns(z.array(L2BlockNew.schema)),
 
   getCurrentBaseFees: z.function().returns(GasFees.schema),
 

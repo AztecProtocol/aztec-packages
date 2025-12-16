@@ -1,8 +1,10 @@
 import { recoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
+import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
+import type { CheckpointedL2Block } from './checkpointed_l2_block.js';
 import type { L2Block } from './l2_block.js';
 import type { CommitteeAttestation } from './proposal/committee_attestation.js';
 
@@ -29,14 +31,14 @@ export type AttestationInfo =
     };
 
 /**
- * Extracts attestation information from a published L2 block.
+ * Extracts attestation information from a published checkpoint.
  * Returns info for each attestation, preserving array indices.
  */
-export function getAttestationInfoFromPublishedL2Block(block: {
+export function getAttestationInfoFromPublishedCheckpoint(block: {
   attestations: CommitteeAttestation[];
-  block: L2Block;
+  checkpoint: Checkpoint;
 }): AttestationInfo[] {
-  const payload = ConsensusPayload.fromBlock(block.block);
+  const payload = ConsensusPayload.fromCheckpoint(block.checkpoint);
   return getAttestationInfoFromPayload(payload, block.attestations);
 }
 

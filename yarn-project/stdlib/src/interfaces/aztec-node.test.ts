@@ -23,7 +23,7 @@ import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { PublishedL2Block } from '../block/checkpointed_l2_block.js';
 import type { DataInBlock } from '../block/in_block.js';
-import { type BlockParameter, CommitteeAttestation, L2BlockHash } from '../block/index.js';
+import { type BlockParameter, CommitteeAttestation, L2BlockHash, L2BlockNew } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
@@ -521,10 +521,17 @@ class MockAztecNode implements AztecNode {
 
   getL2Tips(): Promise<L2Tips> {
     return Promise.resolve({
-      latest: { number: BlockNumber(1), hash: `0x01` },
-      proven: { number: BlockNumber(1), hash: `0x01` },
-      finalized: { number: BlockNumber(1), hash: `0x01` },
+      blocks: {
+        latest: { number: BlockNumber(1), hash: `0x01` },
+        proven: { number: BlockNumber(1), hash: `0x01` },
+        finalized: { number: BlockNumber(1), hash: `0x01` },
+      },
     });
+  }
+
+  async getL2BlocksNew(from: BlockNumber, _1: number, _2?: boolean): Promise<L2BlockNew[]> {
+    const block = await L2BlockNew.random(from);
+    return [block];
   }
 
   findLeavesIndexes(

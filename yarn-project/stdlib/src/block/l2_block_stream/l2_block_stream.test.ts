@@ -275,7 +275,9 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
   }
 
   public getL2Tips(): Promise<L2Tips> {
-    return Promise.resolve(this);
+    return Promise.resolve({
+      blocks: this,
+    });
   }
 }
 

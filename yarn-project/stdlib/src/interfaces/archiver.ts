@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { CheckpointedL2Block, PublishedL2Block } from '../block/checkpointed_l2_block.js';
 import { L2Block } from '../block/l2_block.js';
+import { L2BlockNew } from '../block/l2_block_new.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import { ValidateBlockResultSchema } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
@@ -98,6 +99,11 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
     .returns(z.array(PublishedL2Block.schema)),
+  getL2BlockNew: z.function().args(BlockNumberSchema).returns(L2BlockNew.schema),
+  getL2BlocksNew: z
+    .function()
+    .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
+    .returns(z.array(L2BlockNew.schema)),
   getPublishedBlockByHash: z.function().args(schemas.Fr).returns(PublishedL2Block.schema.optional()),
   getPublishedBlockByArchive: z.function().args(schemas.Fr).returns(PublishedL2Block.schema.optional()),
   getBlockHeaderByHash: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),

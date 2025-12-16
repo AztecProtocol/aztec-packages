@@ -9,6 +9,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CommitteeAttestation,
   L2Block,
+  L2BlockNew,
   type L2BlockSource,
   type L2Tips,
   PublishedL2Block,
@@ -89,6 +90,20 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
 
   getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<PublishedL2Block[]> {
     return this.retrievePublishedBlocks(from, limit, proven);
+  }
+
+  getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined> {
+    return this.store.getBlock(number);
+  }
+
+  async getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
+    const blocks = await this.store.getBlocks(from, limit);
+
+    if (proven === true) {
+      const provenBlockNumber = await this.store.getProvenBlockNumber();
+      return blocks.filter(b => b.number <= provenBlockNumber);
+    }
+    return blocks;
   }
 
   private async retrievePublishedBlocks(

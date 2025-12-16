@@ -13,7 +13,7 @@ export class L2BlockStream {
   private hasStarted = false;
 
   constructor(
-    private l2BlockSource: Pick<L2BlockSource, 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'>,
+    private l2BlockSource: Pick<L2BlockSource, 'getL2BlocksNew' | 'getBlockHeader' | 'getL2Tips'>,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
     private readonly log = createLogger('types:block_stream'),
@@ -62,34 +62,37 @@ export class L2BlockStream {
       const sourceTips = await this.l2BlockSource.getL2Tips();
       const localTips = await this.localData.getL2Tips();
       this.log.trace(`Running L2 block stream`, {
-        sourceLatest: sourceTips.latest.number,
-        localLatest: localTips.latest.number,
-        sourceFinalized: sourceTips.finalized.number,
-        localFinalized: localTips.finalized.number,
-        sourceProven: sourceTips.proven.number,
-        localProven: localTips.proven.number,
-        sourceLatestHash: sourceTips.latest.hash,
-        localLatestHash: localTips.latest.hash,
-        sourceProvenHash: sourceTips.proven.hash,
-        localProvenHash: localTips.proven.hash,
-        sourceFinalizedHash: sourceTips.finalized.hash,
-        localFinalizedHash: localTips.finalized.hash,
+        sourceLatest: sourceTips.blocks.latest.number,
+        localLatest: localTips.blocks.latest.number,
+        sourceFinalized: sourceTips.blocks.finalized.number,
+        localFinalized: localTips.blocks.finalized.number,
+        sourceProven: sourceTips.blocks.proven.number,
+        localProven: localTips.blocks.proven.number,
+        sourceLatestHash: sourceTips.blocks.latest.hash,
+        localLatestHash: localTips.blocks.latest.hash,
+        sourceProvenHash: sourceTips.blocks.proven.hash,
+        localProvenHash: localTips.blocks.proven.hash,
+        sourceFinalizedHash: sourceTips.blocks.finalized.hash,
+        localFinalizedHash: localTips.blocks.finalized.hash,
       });
 
       // Check if there was a reorg and emit a chain-pruned event if so.
-      let latestBlockNumber = localTips.latest.number;
-      const sourceCache = new BlockHashCache([sourceTips.latest]);
+      let latestBlockNumber = localTips.blocks.latest.number;
+      let latestCheckpointNumber = localTips.checkpoint?.number;
+      const sourceCache = new BlockHashCache([sourceTips.blocks.latest]);
       while (!(await this.areBlockHashesEqualAt(latestBlockNumber, { sourceCache }))) {
         latestBlockNumber--;
       }
 
-      if (latestBlockNumber < localTips.latest.number) {
-        latestBlockNumber = BlockNumber(Math.min(latestBlockNumber, sourceTips.latest.number)); // see #13471
+      if (latestBlockNumber < localTips.blocks.latest.number) {
+        latestBlockNumber = BlockNumber(Math.min(latestBlockNumber, sourceTips.blocks.latest.number)); // see #13471
         const hash = sourceCache.get(latestBlockNumber) ?? (await this.getBlockHashFromSource(latestBlockNumber));
         if (latestBlockNumber !== 0 && !hash) {
           throw new Error(`Block hash not found in block source for block number ${latestBlockNumber}`);
         }
-        this.log.verbose(`Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.latest.number}.`);
+        this.log.verbose(
+          `Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.blocks.latest.number}.`,
+        );
         await this.emitEvent({ type: 'chain-pruned', block: makeL2BlockId(latestBlockNumber, hash) });
       }
 
@@ -111,34 +114,45 @@ export class L2BlockStream {
         // last finalized block however in order to guarantee that we will eventually find a block in which our local
         // store matches the source.
         // If the last finalized block is behind our local tip, there is nothing to skip.
-        nextBlockNumber = Math.max(sourceTips.finalized.number, nextBlockNumber);
+        nextBlockNumber = Math.max(sourceTips.blocks.finalized.number, nextBlockNumber);
       }
 
       // Request new blocks from the source.
-      while (nextBlockNumber <= sourceTips.latest.number) {
-        const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.latest.number - nextBlockNumber + 1);
+      while (nextBlockNumber <= sourceTips.blocks.latest.number) {
+        const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.blocks.latest.number - nextBlockNumber + 1);
         this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit} proven=${this.opts.proven}`);
-        const blocks = await this.l2BlockSource.getPublishedBlocks(
-          BlockNumber(nextBlockNumber),
-          limit,
-          this.opts.proven,
-        );
+        const blocks = await this.l2BlockSource.getL2BlocksNew(BlockNumber(nextBlockNumber), limit, this.opts.proven);
         if (blocks.length === 0) {
           break;
         }
         await this.emitEvent({ type: 'blocks-added', blocks });
-        nextBlockNumber = blocks.at(-1)!.block.number + 1;
+        nextBlockNumber = blocks.at(-1)!.number + 1;
+      }
+
+      // Update the checkpointed tips
+      if (
+        localTips.checkpoint !== undefined &&
+        sourceTips.checkpoint !== undefined &&
+        localTips.checkpoint.number !== sourceTips.checkpoint.number
+      ) {
+        await this.emitEvent({
+          type: 'checkpoint-added',
+          checkpoint: sourceTips.checkpoint,
+        });
       }
 
       // Update the proven and finalized tips.
-      if (localTips.proven !== undefined && sourceTips.proven.number !== localTips.proven.number) {
+      if (localTips.blocks.proven !== undefined && sourceTips.blocks.proven.number !== localTips.blocks.proven.number) {
         await this.emitEvent({
           type: 'chain-proven',
-          block: sourceTips.proven,
+          block: sourceTips.blocks.proven,
         });
       }
-      if (localTips.finalized !== undefined && sourceTips.finalized.number !== localTips.finalized.number) {
-        await this.emitEvent({ type: 'chain-finalized', block: sourceTips.finalized });
+      if (
+        localTips.blocks.finalized !== undefined &&
+        sourceTips.blocks.finalized.number !== localTips.blocks.finalized.number
+      ) {
+        await this.emitEvent({ type: 'chain-finalized', block: sourceTips.blocks.finalized });
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -186,7 +200,7 @@ export class L2BlockStream {
 
   private async emitEvent(event: L2BlockStreamEvent) {
     this.log.debug(
-      `Emitting ${event.type} (${event.type === 'blocks-added' ? event.blocks.length : event.block.number})`,
+      `Emitting ${event.type} (${event.type === 'blocks-added' ? event.blocks.length : event.type === 'checkpoint-added' ? event.checkpoint.number : event.block.number})`,
     );
     await this.handler.handleBlockStreamEvent(event);
     if (!this.isRunning() && !this.isSyncing) {

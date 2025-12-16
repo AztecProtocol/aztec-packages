@@ -160,7 +160,7 @@ export class ServerWorldStateSynchronizer
   }
 
   public async getLatestBlockNumber() {
-    return (await this.getL2Tips()).latest.number;
+    return (await this.getL2Tips()).blocks.latest.number;
   }
 
   public async stopSync() {
@@ -257,9 +257,11 @@ export class ServerWorldStateSynchronizer
     const latestBlockId: L2BlockId = { number: status.unfinalizedBlockNumber, hash: unfinalizedBlockHash! };
 
     return {
-      latest: latestBlockId,
-      finalized: { number: status.finalizedBlockNumber, hash: '' },
-      proven: { number: this.provenBlockNumber ?? status.finalizedBlockNumber, hash: '' }, // TODO(palla/reorg): Using finalized as proven for now
+      blocks: {
+        latest: latestBlockId,
+        finalized: { number: status.finalizedBlockNumber, hash: '' },
+        proven: { number: this.provenBlockNumber ?? status.finalizedBlockNumber, hash: '' }, // TODO(palla/reorg): Using finalized as proven for now
+      },
     };
   }
 
@@ -267,7 +269,7 @@ export class ServerWorldStateSynchronizer
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
       case 'blocks-added':
-        await this.handleL2Blocks(event.blocks.map(b => b.block.toL2Block()));
+        await this.handleL2Blocks(event.blocks);
         break;
       case 'chain-pruned':
         await this.handleChainPruned(event.block.number);

@@ -2,7 +2,7 @@ import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type L2Block, type L2BlockId, PublishedL2Block } from '@aztec/stdlib/block';
+import { type L2Block, type L2BlockId, L2BlockNew, PublishedL2Block } from '@aztec/stdlib/block';
 import { L1PublishedData } from '@aztec/stdlib/checkpoint';
 
 import { jestExpect as expect } from '@jest/expect';
@@ -16,12 +16,10 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     tipsStore = await makeTipsStore();
   });
 
-  const makeBlock = (number: number): PublishedL2Block =>
-    PublishedL2Block.fromFields({
-      block: { number: BlockNumber(number), hash: () => Promise.resolve(new Fr(number)) } as L2Block,
-      l1: new L1PublishedData(BigInt(number), BigInt(number), `0x${number}`),
-      attestations: [],
-    });
+  const makeBlock = async (number: number): Promise<L2BlockNew> => {
+    const block = await L2BlockNew.random(BlockNumber(number));
+    return block;
+  };
 
   const makeBlockId = (number: number): L2BlockId => ({
     number: BlockNumber(number),
@@ -45,7 +43,10 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
   });
 
   it('stores chain tips', async () => {
-    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: times(20, i => makeBlock(i + 1)) });
+    await tipsStore.handleBlockStreamEvent({
+      type: 'blocks-added',
+      blocks: await Promise.all(times(20, i => makeBlock(i + 1))),
+    });
 
     await tipsStore.handleBlockStreamEvent({ type: 'chain-finalized', block: makeBlockId(5) });
     await tipsStore.handleBlockStreamEvent({ type: 'chain-proven', block: makeBlockId(8) });
@@ -56,7 +57,10 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
   });
 
   it('sets latest tip from blocks added', async () => {
-    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: times(3, i => makeBlock(i + 1)) });
+    await tipsStore.handleBlockStreamEvent({
+      type: 'blocks-added',
+      blocks: await Promise.all(times(3, i => makeBlock(i + 1))),
+    });
 
     const tips = await tipsStore.getL2Tips();
     expect(tips).toEqual(makeTips(3, 0, 0));
@@ -67,7 +71,10 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
   });
 
   it('clears block hashes when setting finalized chain', async () => {
-    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: times(5, i => makeBlock(i + 1)) });
+    await tipsStore.handleBlockStreamEvent({
+      type: 'blocks-added',
+      blocks: await Promise.all(times(5, i => makeBlock(i + 1))),
+    });
     await tipsStore.handleBlockStreamEvent({ type: 'chain-proven', block: makeBlockId(3) });
     await tipsStore.handleBlockStreamEvent({ type: 'chain-finalized', block: makeBlockId(3) });
 
@@ -84,7 +91,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
   // Regression test for #13142
   it('does not blow up when setting proven chain on an unseen block number', async () => {
-    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: [makeBlock(5)] });
+    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: [await makeBlock(5)] });
     await tipsStore.handleBlockStreamEvent({ type: 'chain-proven', block: makeBlockId(3) });
 
     const tips = await tipsStore.getL2Tips();
