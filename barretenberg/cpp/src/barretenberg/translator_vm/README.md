@@ -336,6 +336,87 @@ The circuit's regularity (2-row cycles, uniform structure) allows using Lagrange
 
 ---
 
+## Interleaving: The Key Optimization
+
+The Translator must range-constrain approximately 64 different microlimb sets using permutation argument. The permutation argument's degree equals $1 + \text{NUM\_COLS}$, where NUM_COLS is the number of columns being permuted:
+
+$$
+z_{\textsf{perm}}[i+1] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{ordered}[j] + \beta + \gamma) =
+z_{\textsf{perm}}[i] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{interleaved}[j] + \beta + \gamma)
+$$
+
+**The Problem:** Permuting all ~64 microlimb columns simultaneously yields degree $1 + 64 = 65$, making sumcheck impractical.
+
+**The Solution:** Interleave 16 logical column groups into the same 5 physical wires across 16 circuit segments. Each segment performs an independent permutation check with degree $1 + 5 = 6$ (or 7 with Lagrange selector). This reduces the relation degree by 9×.
+
+### Circuit Structure
+
+```
+Mini-circuit size:  2^13 = 8,192 rows    (actual computation)
+Full circuit size:  2^17 = 131,072 rows  (16× larger for interleaving)
+FULL_SIZE = MINI_SIZE × INTERLEAVING_GROUP_SIZE = 8,192 × 16
+```
+
+To compute the interleaved polynomials, we group 16 polynomials together and interleave their coefficients. Consider the following 16 polynomials each of size $n=2^{13}$ in the mini-circuit:
+
+$$
+\newcommand{\arraystretch}{1.2}
+\begin{array}{|c|c|c|c|c|c|}
+\hline
+\textsf{index} & \textsf{poly 1} & \textsf{poly 2} & \textsf{poly 3} & \ldots & \textsf{poly 16} \\
+\hline
+0 & \textcolor{skyblue}{a_0} & \textcolor{orange}{b_0} & \textcolor{lightgreen}{c_0} & \quad \ldots \quad & \textcolor{firebrick}{p_0} \\
+1 & \textcolor{skyblue}{a_1} & \textcolor{orange}{b_1} & \textcolor{lightgreen}{c_1} & \quad \ldots \quad & \textcolor{firebrick}{p_1} \\
+2 & \textcolor{skyblue}{a_2} & \textcolor{orange}{b_2} & \textcolor{lightgreen}{c_2} & \quad \ldots \quad & \textcolor{firebrick}{p_2} \\
+3 & \textcolor{skyblue}{a_3} & \textcolor{orange}{b_3} & \textcolor{lightgreen}{c_3} & \quad \ldots \quad & \textcolor{firebrick}{p_3} \\[5pt]
+\vdots & \vdots & \vdots & \vdots & \ddots & \vdots \\[5pt]
+n-1 & \textcolor{skyblue}{a_{n-1}} & \textcolor{orange}{b_{n-1}} & \textcolor{lightgreen}{c_{n-1}} & \quad \ldots \quad & \textcolor{firebrick}{p_{n-1}} \\
+\hline
+\end{array}
+\quad \longrightarrow \quad
+\begin{array}{|c|c|c|}
+\hline
+\textsf{group} & \textsf{index} & \textsf{interleaved} \\
+\hline
+0 & 0 & \textcolor{skyblue}{a_0} \\
+0 & 1 & \textcolor{orange}{b_0} \\
+0 & 2 & \textcolor{lightgreen}{c_0} \\
+\vdots & \vdots & \vdots \\[3pt]
+1 & 15 & \textcolor{firebrick}{p_0} \\ \hline
+1 & 4 & \textcolor{skyblue}{a_1} \\
+1 & 5 & \textcolor{orange}{b_1} \\
+1 & 6 & \textcolor{lightgreen}{c_1} \\
+\vdots & \vdots & \vdots \\[3pt]
+1 & 7 & \textcolor{firebrick}{p_1} \\ \hline
+\vdots & \vdots & \vdots \\[5pt]
+\vdots & \vdots & \vdots \\ \hline
+n-1 & 4n-4 & \textcolor{skyblue}{a_{n-1}} \\
+n-1 & 4n-3 & \textcolor{orange}{b_{n-1}} \\
+n-1 & 4n-2 & \textcolor{lightgreen}{c_{n-1}} \\
+\vdots & \vdots & \vdots \\[3pt]
+n-1 & 4n-1 & \textcolor{firebrick}{p_{n-1}} \\
+\hline
+\end{array}
+$$
+
+The resulting interleaved polynomial has size $16n = 2^{17}$.
+For 64 microlimb columns, we have 4 groups of 16 columns each, resulting in four interleaved polynomials. Note that the interleaved polynomials are "physical" wires in the circuit trace: we refer to them as virtual polynomials. Each of these groups performs an independent permutation check:
+
+- **Numerator:** 4 interleaved wires + 1 extra = 5 terms
+- **Denominator:** 5 ordered wires = 5 terms
+- **Degree:** $1 + 5 = 6$ (or 7 with Lagrange)
+
+The permutation argument verifies that within each group, the interleaved values are a permutation of the ordered (sorted) values. Due to interleaving, the total circuit size increases 16×, requiring more zero-padding (enforced by Relation 7). Interleaving trades circuit size (inexpensive) for relation degree (expensive). The 16× size increase is acceptable given the 9× degree reduction.
+
+> $\textcolor{orange}{\textsf{Effect on Commitment Scheme}}$: The interleaved polynomials do not require separate commitments. During proving key construction, the prover computes them for use in sumcheck. In the Gemini PCS phase, the prover sends only **two additional field element evaluations** $P_+(r^{16})$ and $P_-(r^{16})$ where $r$ is the Gemini challenge:
+> $$P_{\pm}(x) = \sum_{i=0}^{15} (\pm r)^i \cdot p_{i}(x)$$
+> The verifier reconstructs full batched polynomial evaluations as $A_0(r) = A_{0+}(r) + P_+(r^{16})$ and $A_0(-r) = A_{0-}(-r) + P_-(r^{16})$. Since $P_{\pm}(r^{16})$ relates to evaluations $p_i(r^{16})$ already in the Gemini protocol, no additional commitments are needed. The PCS proof grows by only **2 field elements**.
+>
+> For polynomials $p_0, \dots, p_{15}$ of size $n$, the interleaved polynomial of size $16n$ is:
+> $$p_{\textsf{interleaved}}(x) = \sum_{i=0}^{15} x^i \cdot p_{i}(x^{16})$$
+
+---
+
 ## Witness Generation and Proving Key Construction
 
 This section details how the Translator circuit's witness polynomials are populated and how zero-knowledge is achieved through masking.
@@ -1250,86 +1331,5 @@ This ensures the multisets balance:
 
 - **Numerator:** 4 interleaved + 1 extra (with 5 copies of each step value)
 - **Denominator:** 5 ordered (each with 1 copy of each step value)
-
----
-
-## Interleaving: The Key Optimization
-
-The Translator must range-constrain approximately 64 different microlimb sets using permutation argument. The permutation argument's degree equals $1 + \text{NUM\_COLS}$, where NUM_COLS is the number of columns being permuted:
-
-$$
-z_{\textsf{perm}}[i+1] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{ordered}[j] + \beta + \gamma) =
-z_{\textsf{perm}}[i] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{interleaved}[j] + \beta + \gamma)
-$$
-
-**The Problem:** Permuting all ~64 microlimb columns simultaneously yields degree $1 + 64 = 65$, making sumcheck impractical.
-
-**The Solution:** Interleave 16 logical column groups into the same 5 physical wires across 16 circuit segments. Each segment performs an independent permutation check with degree $1 + 5 = 6$ (or 7 with Lagrange selector). This reduces the relation degree by 9×.
-
-### Circuit Structure
-
-```
-Mini-circuit size:  2^13 = 8,192 rows    (actual computation)
-Full circuit size:  2^17 = 131,072 rows  (16× larger for interleaving)
-FULL_SIZE = MINI_SIZE × INTERLEAVING_GROUP_SIZE = 8,192 × 16
-```
-
-To compute the interleaved polynomials, we group 16 polynomials together and interleave their coefficients. Consider the following 16 polynomials each of size $n=2^{13}$ in the mini-circuit:
-
-$$
-\newcommand{\arraystretch}{1.2}
-\begin{array}{|c|c|c|c|c|c|}
-\hline
-\textsf{index} & \textsf{poly 1} & \textsf{poly 2} & \textsf{poly 3} & \ldots & \textsf{poly 16} \\
-\hline
-0 & \textcolor{skyblue}{a_0} & \textcolor{orange}{b_0} & \textcolor{lightgreen}{c_0} & \quad \ldots \quad & \textcolor{firebrick}{p_0} \\
-1 & \textcolor{skyblue}{a_1} & \textcolor{orange}{b_1} & \textcolor{lightgreen}{c_1} & \quad \ldots \quad & \textcolor{firebrick}{p_1} \\
-2 & \textcolor{skyblue}{a_2} & \textcolor{orange}{b_2} & \textcolor{lightgreen}{c_2} & \quad \ldots \quad & \textcolor{firebrick}{p_2} \\
-3 & \textcolor{skyblue}{a_3} & \textcolor{orange}{b_3} & \textcolor{lightgreen}{c_3} & \quad \ldots \quad & \textcolor{firebrick}{p_3} \\[5pt]
-\vdots & \vdots & \vdots & \vdots & \ddots & \vdots \\[5pt]
-n-1 & \textcolor{skyblue}{a_{n-1}} & \textcolor{orange}{b_{n-1}} & \textcolor{lightgreen}{c_{n-1}} & \quad \ldots \quad & \textcolor{firebrick}{p_{n-1}} \\
-\hline
-\end{array}
-\quad \longrightarrow \quad
-\begin{array}{|c|c|c|}
-\hline
-\textsf{group} & \textsf{index} & \textsf{interleaved} \\
-\hline
-0 & 0 & \textcolor{skyblue}{a_0} \\
-0 & 1 & \textcolor{orange}{b_0} \\
-0 & 2 & \textcolor{lightgreen}{c_0} \\
-\vdots & \vdots & \vdots \\[3pt]
-1 & 15 & \textcolor{firebrick}{p_0} \\ \hline
-1 & 4 & \textcolor{skyblue}{a_1} \\
-1 & 5 & \textcolor{orange}{b_1} \\
-1 & 6 & \textcolor{lightgreen}{c_1} \\
-\vdots & \vdots & \vdots \\[3pt]
-1 & 7 & \textcolor{firebrick}{p_1} \\ \hline
-\vdots & \vdots & \vdots \\[5pt]
-\vdots & \vdots & \vdots \\ \hline
-n-1 & 4n-4 & \textcolor{skyblue}{a_{n-1}} \\
-n-1 & 4n-3 & \textcolor{orange}{b_{n-1}} \\
-n-1 & 4n-2 & \textcolor{lightgreen}{c_{n-1}} \\
-\vdots & \vdots & \vdots \\[3pt]
-n-1 & 4n-1 & \textcolor{firebrick}{p_{n-1}} \\
-\hline
-\end{array}
-$$
-
-The resulting interleaved polynomial has size $16n = 2^{17}$.
-For 64 microlimb columns, we have 4 groups of 16 columns each, resulting in four interleaved polynomials. Note that the interleaved polynomials are "physical" wires in the circuit trace: we refer to them as virtual polynomials. Each of these groups performs an independent permutation check:
-
-- **Numerator:** 4 interleaved wires + 1 extra = 5 terms
-- **Denominator:** 5 ordered wires = 5 terms
-- **Degree:** $1 + 5 = 6$ (or 7 with Lagrange)
-
-The permutation argument verifies that within each group, the interleaved values are a permutation of the ordered (sorted) values. Due to interleaving, the total circuit size increases 16×, requiring more zero-padding (enforced by Relation 7). Interleaving trades circuit size (inexpensive) for relation degree (expensive). The 16× size increase is acceptable given the 9× degree reduction.
-
-> $\textcolor{orange}{\textsf{Effect on Commitment Scheme}}$: The interleaved polynomials do not require separate commitments. During proving key construction, the prover computes them for use in sumcheck. In the Gemini PCS phase, the prover sends only **two additional field element evaluations** $P_+(r^{16})$ and $P_-(r^{16})$ where $r$ is the Gemini challenge:
-> $$P_{\pm}(x) = \sum_{i=0}^{15} (\pm r)^i \cdot p_{i}(x)$$
-> The verifier reconstructs full batched polynomial evaluations as $A_0(r) = A_{0+}(r) + P_+(r^{16})$ and $A_0(-r) = A_{0-}(-r) + P_-(r^{16})$. Since $P_{\pm}(r^{16})$ relates to evaluations $p_i(r^{16})$ already in the Gemini protocol, no additional commitments are needed. The PCS proof grows by only **2 field elements**.
->
-> For polynomials $p_0, \dots, p_{15}$ of size $n$, the interleaved polynomial of size $16n$ is:
-> $$p_{\textsf{interleaved}}(x) = \sum_{i=0}^{15} x^i \cdot p_{i}(x^{16})$$
 
 ---
