@@ -50,7 +50,6 @@ export class AnvilTestWatcher {
   }
 
   setIsMarkingAsProven(isMarkingAsProven: boolean) {
-    this.logger.warn(`Watcher is now ${isMarkingAsProven ? 'marking' : 'not marking'} blocks as proven`);
     this.isMarkingAsProven = isMarkingAsProven;
   }
 
