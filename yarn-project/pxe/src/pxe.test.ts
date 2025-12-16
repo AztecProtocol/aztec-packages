@@ -178,8 +178,9 @@ describe('PXE', () => {
       // class id of a contract instance
       node.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
 
-      // Used to sync private logs from the node.
-      node.getLogsByTags.mockResolvedValue([]);
+      // Used to sync private logs from the node - the return array needs to have the same length as the number of tags
+      // on the input.
+      node.getLogsByTags.mockImplementation((tags: Fr[]) => Promise.resolve(tags.map(() => [])));
 
       // Necessary to sync contract private state
       await pxe.registerContractClass(TestContractArtifact);
