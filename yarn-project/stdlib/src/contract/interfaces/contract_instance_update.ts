@@ -3,7 +3,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../../aztec-address/index.js';
-import { type ZodFor, schemas } from '../../schemas/index.js';
+import { schemas, zodFor } from '../../schemas/index.js';
 import type { UInt64 } from '../../types/shared.js';
 
 /**
@@ -20,12 +20,14 @@ export interface ContractInstanceUpdate {
 
 export type ContractInstanceUpdateWithAddress = ContractInstanceUpdate & { address: AztecAddress };
 
-export const ContractInstanceUpdateSchema = z.object({
-  prevContractClassId: schemas.Fr,
-  newContractClassId: schemas.Fr,
-  timestampOfChange: schemas.BigInt,
-}) satisfies ZodFor<ContractInstanceUpdate>;
+export const ContractInstanceUpdateSchema = zodFor<ContractInstanceUpdate>()(
+  z.object({
+    prevContractClassId: schemas.Fr,
+    newContractClassId: schemas.Fr,
+    timestampOfChange: schemas.BigInt,
+  }),
+);
 
-export const ContractInstanceUpdateWithAddressSchema = ContractInstanceUpdateSchema.and(
-  z.object({ address: schemas.AztecAddress }),
-) satisfies ZodFor<ContractInstanceUpdateWithAddress>;
+export const ContractInstanceUpdateWithAddressSchema = zodFor<ContractInstanceUpdateWithAddress>()(
+  ContractInstanceUpdateSchema.and(z.object({ address: schemas.AztecAddress })),
+);
