@@ -1,6 +1,5 @@
 ---
 title: Common Patterns
-sidebar_position: 7
 description: Explore common design patterns for writing secure and efficient Aztec smart contracts.
 ---
 
@@ -40,7 +39,7 @@ Note - you could also create a note and send it to the user. The problem is ther
 
 ### Reading public storage in private
 
-You can read public storage in private domain by leveraging the private getters of `PublicImmutable` (for values that never change) and `DelayedPublicMutable` (for values that change infrequently, see [delayed public mutable state](../../../../reference/smart_contract_reference/storage/delayed_public_mutable.md) for details) state variables.
+You can read public storage in private domain by leveraging the private getters of `PublicImmutable` (for values that never change) and `DelayedPublicMutable` (for values that change infrequently, see [delayed public mutable state](../storage_types.md#delayed-public-mutable) for details) state variables.
 Values that change frequently (`PublicMutable`) cannot be read in private as for those we need access to the tip of the chain and only a sequencer has access to that (and sequencer executes only public functions).
 
 E.g. when using `PublicImmutable`
@@ -76,7 +75,7 @@ In this situation, try to mark the public function as `internal`. This ensures y
 
 ### Moving public data into the private domain
 
-See [partial notes](../../../../../aztec/concepts/advanced/storage/partial_notes.md). Partial notes are how public balances are transferred to private [in the NFT contract](../../../../tutorials/contract_tutorials/nft_contract.md).
+See [partial notes](../../../../aztec/concepts/advanced/storage/partial_notes.md). Partial notes are how public balances are transferred to private [in the NFT contract](../../../tutorials/contract_tutorials/nft_contract.md).
 
 ### Discovering my notes
 
@@ -111,7 +110,7 @@ Hence, it's necessary to add a "randomness" field to your note to prevent such a
 
 ### L1 -- L2 interactions
 
-Refer to [Token Portal codealong tutorial on bridging tokens between L1 and L2](../../../../tutorials/js_tutorials/token_bridge.md) and/or [Uniswap smart contract example that shows how to swap on L1 using funds on L2](../../../../tutorials/js_tutorials/uniswap/index.md). Both examples show how to:
+Refer to [Token Portal codealong tutorial on bridging tokens between L1 and L2](../../../tutorials/js_tutorials/token_bridge.md) and/or [Uniswap smart contract example that shows how to swap on L1 using funds on L2](../../../tutorials/js_tutorials/uniswap/index.md). Both examples show how to:
 
 1. L1 -> L2 message flow
 2. L2 -> L1 message flow
@@ -125,7 +124,7 @@ To send a note to someone, they need to have a key which we can encrypt the note
 There are several patterns here:
 
 1. Give the contract a key and share it amongst all participants. This leaks privacy, as anyone can see all the notes in the contract.
-2. `transfer_to_public` funds into the contract - this is used in the [Uniswap smart contract example where a user sends private funds into a Uniswap Portal contract which eventually withdraws to L1 to swap on L1 Uniswap](../../../../tutorials/js_tutorials/uniswap/index.md). This works like Ethereum - to achieve contract composability, you move funds into the public domain. This way the contract doesn't even need keys.
+2. `transfer_to_public` funds into the contract - this is used in the [Uniswap smart contract example where a user sends private funds into a Uniswap Portal contract which eventually withdraws to L1 to swap on L1 Uniswap](../../../tutorials/js_tutorials/uniswap/index.md). This works like Ethereum - to achieve contract composability, you move funds into the public domain. This way the contract doesn't even need keys.
 
 There are several other designs we are discussing through [in this discourse post](https://discourse.aztec.network/t/how-to-handle-private-escrows-between-two-parties/2440) but they need some changes in the protocol or in our demo contract. If you are interested in this discussion, please participate in the discourse post!
 
@@ -147,7 +146,7 @@ PS: when calling from private to public, `msg_sender` is the contract address wh
 
 In the [Prevent the same user flow from happening twice using nullifier](#prevent-the-same-user-flow-from-happening-twice-using-nullifiers), we recommended using nullifiers. But what you put in the nullifier is also as important.
 
-E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked via a preimage attack as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](../../../../../aztec/concepts/accounts/keys.md#nullifier-keys).
+E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked via a preimage attack as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](../../../../aztec/concepts/accounts/keys.md#nullifier-keys).
 
 Here is an example from the voting contract:
 

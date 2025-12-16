@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/aztec.js';
+import { AztecAddress, Fr } from '@aztec/aztec.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -10,11 +10,16 @@ import {
   PrivateEventDataProvider,
   TaggingDataProvider,
 } from '@aztec/pxe/server';
+import type { PrivateContextInputs } from '@aztec/stdlib/kernel';
+import { makeGlobalVariables } from '@aztec/stdlib/testing';
+import type { UInt32 } from '@aztec/stdlib/types';
 
 import { TXE } from './oracle/txe_oracle.js';
+import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
+import type { TXETypedOracle } from './oracle/txe_typed_oracle.js';
 import { TXEStateMachine } from './state_machine/index.js';
 import { TXEService } from './txe_service/txe_service.js';
-import { type ForeignCallArgs, type ForeignCallResult, toForeignCallResult } from './util/encoding.js';
+import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountDataProvider } from './util/txe_account_data_provider.js';
 import { TXEContractDataProvider } from './util/txe_contract_data_provider.js';
 
@@ -45,15 +50,6 @@ enum SessionState {
   UTILITY,
 }
 
-const STATE_TRANSITION_FUNCTIONS = [
-  'txeSetTopLevelTXEContext',
-  'txeSetPrivateTXEContext',
-  'txeSetPublicTXEContext',
-  'txeSetUtilityTXEContext',
-] as const;
-
-type TXESessionStateTransitionFunction = (typeof STATE_TRANSITION_FUNCTIONS)[number];
-
 type MethodNames<T> = {
   [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never;
 }[keyof T];
@@ -62,19 +58,29 @@ type MethodNames<T> = {
  * The name of an oracle function that TXE supports, which are a combination of PXE oracles, non-transpiled AVM opcodes,
  * and custom TXE oracles.
  */
-export type TXEOracleFunctionName = MethodNames<TXEService> | TXESessionStateTransitionFunction;
+export type TXEOracleFunctionName = MethodNames<TXEService>;
+
+export interface TXESessionStateHandler {
+  setTopLevelContext(): Promise<void>;
+  setPublicContext(contractAddress?: AztecAddress): Promise<void>;
+  setPrivateContext(contractAddress?: AztecAddress, historicalBlockNumber?: UInt32): Promise<PrivateContextInputs>;
+  setUtilityContext(contractAddress?: AztecAddress): Promise<void>;
+}
+
+const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
 
 /**
  * A `TXESession` corresponds to a Noir `#[test]` function, and handles all of its oracle calls, stores test-specific
  * state, etc., independent of all other tests running in parallel.
  */
-export class TXESession {
+export class TXESession implements TXESessionStateHandler {
   state = SessionState.TOP_LEVEL;
 
   constructor(
     private logger: Logger,
     private stateMachine: TXEStateMachine,
-    private service: TXEService,
+    private oracleHandler: TXETypedOracle,
+    private legacyTXEOracle: TXE,
   ) {}
 
   static async init(protocolContracts: ProtocolContract[]) {
@@ -97,8 +103,6 @@ export class TXESession {
 
     const stateMachine = await TXEStateMachine.create(store);
 
-    const contractAddress = await AztecAddress.random();
-
     const txeOracle = new TXE(
       keyStore,
       contractDataProvider,
@@ -108,13 +112,13 @@ export class TXESession {
       addressDataProvider,
       privateEventDataProvider,
       accountDataProvider,
-      contractAddress,
+      DEFAULT_ADDRESS,
       await stateMachine.synchronizer.nativeWorldStateService.fork(),
       stateMachine,
     );
     await txeOracle.txeAdvanceBlocksBy(1);
 
-    return new TXESession(createLogger('txe:session'), stateMachine, new TXEService(txeOracle));
+    return new TXESession(createLogger('txe:session'), stateMachine, txeOracle, txeOracle);
   }
 
   /**
@@ -123,61 +127,95 @@ export class TXESession {
    * @param inputs The inputs of the oracle.
    * @returns The oracle return values.
    */
-  async processFunction(functionName: TXEOracleFunctionName, inputs: ForeignCallArgs): Promise<ForeignCallResult> {
-    // TXE state transition oracles are handled directly here instead of delegating to TXE service.
-    if (STATE_TRANSITION_FUNCTIONS.some(f => f == functionName)) {
-      this.state = this.processStateTransition(functionName as TXESessionStateTransitionFunction);
-      this.logger.debug(`Transitioned to state ${SessionState[this.state]}`);
+  processFunction(functionName: TXEOracleFunctionName, inputs: ForeignCallArgs): Promise<ForeignCallResult> {
+    return (new TXEService(this, this.oracleHandler) as any)[functionName](...inputs);
+  }
 
-      return toForeignCallResult([]);
+  async setTopLevelContext(): Promise<void> {
+    if (this.state == SessionState.PRIVATE) {
+      await this.oracleHandler.txeAdvanceBlocksBy(1);
+      this.oracleHandler.txeSetContractAddress(DEFAULT_ADDRESS);
+    } else if (this.state == SessionState.PUBLIC) {
+      const block = await (this.oracleHandler as TXEOraclePublicContext).close();
+
+      await this.stateMachine.handleL2Block(block);
+
+      this.legacyTXEOracle.baseFork = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
+      this.legacyTXEOracle.txeSetContractAddress(DEFAULT_ADDRESS);
+      this.legacyTXEOracle.setBlockNumber(block.number + 1);
+
+      this.oracleHandler = this.legacyTXEOracle;
+    } else if (this.state == SessionState.UTILITY) {
+      this.oracleHandler.txeSetContractAddress(DEFAULT_ADDRESS);
+    } else if (this.state == SessionState.TOP_LEVEL) {
+      throw new Error(`Expected to be in state other than ${SessionState[SessionState.TOP_LEVEL]}`);
     } else {
-      // Check if the function exists on the txeService before calling it
-      // TODO: why does the zod validation in the txe dispatcher not do this already?
-      if (typeof (this.service as any)[functionName] !== 'function') {
-        const availableMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(this.service))
-          .filter(name => typeof (this.service as any)[name] === 'function' && name !== 'constructor')
-          .sort();
-
-        throw new Error(
-          `TXE function '${functionName}' is not available. ` + `Available methods: ${availableMethods.join(', ')}`,
-        );
-      }
-
-      return await (this.service as any)[functionName](...inputs);
+      throw new Error(`Unexpected state '${this.state}'`);
     }
+
+    this.state = SessionState.TOP_LEVEL;
+    this.logger.debug(`Entered state ${SessionState[this.state]}`);
   }
 
-  processStateTransition(functionName: TXESessionStateTransitionFunction): SessionState {
-    switch (functionName) {
-      case 'txeSetTopLevelTXEContext':
-        this.assertNotInTopLevelState();
-        return SessionState.TOP_LEVEL;
+  async setPublicContext(contractAddress?: AztecAddress): Promise<void> {
+    this.assertInTopLevelState();
 
-      case 'txeSetPrivateTXEContext':
-        this.assertInTopLevelState();
-        return SessionState.PRIVATE;
+    const globalVariables = makeGlobalVariables(undefined, {
+      blockNumber: await this.legacyTXEOracle.utilityGetBlockNumber(),
+      timestamp: await this.legacyTXEOracle.utilityGetTimestamp(),
+      version: await this.legacyTXEOracle.utilityGetVersion(),
+      chainId: await this.legacyTXEOracle.utilityGetChainId(),
+    });
 
-      case 'txeSetPublicTXEContext':
-        this.assertInTopLevelState();
-        return SessionState.PUBLIC;
+    const txRequestHash = new Fr(globalVariables.blockNumber + 6969);
 
-      case 'txeSetUtilityTXEContext':
-        this.assertInTopLevelState();
-        return SessionState.UTILITY;
-    }
+    this.oracleHandler = new TXEOraclePublicContext(
+      contractAddress ?? DEFAULT_ADDRESS,
+      await this.stateMachine.synchronizer.nativeWorldStateService.fork(),
+      txRequestHash,
+      globalVariables,
+    );
+
+    this.state = SessionState.PUBLIC;
+    this.logger.debug(`Entered state ${SessionState[this.state]}`);
   }
 
-  assertInTopLevelState() {
+  async setPrivateContext(
+    contractAddress?: AztecAddress,
+    historicalBlockNumber?: UInt32,
+  ): Promise<PrivateContextInputs> {
+    this.assertInTopLevelState();
+
+    if (contractAddress) {
+      this.oracleHandler.txeSetContractAddress(contractAddress);
+    }
+
+    const privateContextInputs = await this.oracleHandler.txeGetPrivateContextInputs(historicalBlockNumber);
+
+    this.state = SessionState.PRIVATE;
+    this.logger.debug(`Entered state ${SessionState[this.state]}`);
+
+    return privateContextInputs;
+  }
+
+  setUtilityContext(contractAddress?: AztecAddress): Promise<void> {
+    this.assertInTopLevelState();
+
+    if (contractAddress) {
+      this.oracleHandler.txeSetContractAddress(contractAddress);
+    }
+
+    this.state = SessionState.UTILITY;
+    this.logger.debug(`Entered state ${SessionState[this.state]}`);
+
+    return Promise.resolve();
+  }
+
+  private assertInTopLevelState() {
     if (this.state != SessionState.TOP_LEVEL) {
       throw new Error(
         `Expected to be in state ${SessionState[SessionState.TOP_LEVEL]}, but got '${SessionState[this.state]}' instead`,
       );
-    }
-  }
-
-  assertNotInTopLevelState() {
-    if (this.state == SessionState.TOP_LEVEL) {
-      throw new Error(`Expected to be in state other than ${SessionState[SessionState.TOP_LEVEL]}`);
     }
   }
 }
