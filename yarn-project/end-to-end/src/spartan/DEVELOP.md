@@ -63,7 +63,7 @@ The export is important there. The `AZTEC_DOCKER_IMAGE` env var is used as both:
 # Deploy stuff
 
 ```bash
-./spartan/bootstrap.sh network_deploy scenario.local.env
+./spartan/bootstrap.sh network_deploy scenario.local
 ```
 
 That will take 1-3 minutes. But at the end you should have everything you need.
@@ -103,10 +103,10 @@ With the cluster running, you can now easily run tests.
 
 ```bash
 # run one
-./spartan/bootstrap.sh single_test scenario.local.env spartan/smoke.test.ts
+./spartan/bootstrap.sh single_test scenario.local spartan/smoke.test.ts
 
 # run all (serially)
-./spartan/bootstrap.sh network_tests scenario.local.env
+./spartan/bootstrap.sh network_tests scenario.local
 ```
 
 Right now, I recommend running the smoke test first, always, as it waits for the committee to exist.

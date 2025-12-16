@@ -4,7 +4,7 @@ import type { Logger } from '@aztec/foundation/log';
 
 import { type EncodeFunctionDataParameters, type Hex, encodeFunctionData, multicall3Abi } from 'viem';
 
-import type { L1BlobInputs, L1GasConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
+import type { L1BlobInputs, L1TxConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { FormattedViemError, formatViemError } from '../utils.js';
 import { RollupContract } from './rollup.js';
@@ -15,7 +15,7 @@ export class Multicall3 {
   static async forward(
     requests: L1TxRequest[],
     l1TxUtils: L1TxUtils,
-    gasConfig: L1GasConfig | undefined,
+    gasConfig: L1TxConfig | undefined,
     blobConfig: L1BlobInputs | undefined,
     rollupAddress: Hex,
     logger: Logger,
@@ -37,10 +37,7 @@ export class Multicall3 {
 
     try {
       const { receipt, state } = await l1TxUtils.sendAndMonitorTransaction(
-        {
-          to: MULTI_CALL_3_ADDRESS,
-          data: encodedForwarderData,
-        },
+        { to: MULTI_CALL_3_ADDRESS, data: encodedForwarderData },
         gasConfig,
         blobConfig,
       );

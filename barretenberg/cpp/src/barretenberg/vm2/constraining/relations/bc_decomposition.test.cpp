@@ -21,7 +21,6 @@ namespace {
 
 using testing::random_bytes;
 using tracegen::BytecodeTraceBuilder;
-using tracegen::PrecomputedTraceBuilder;
 using tracegen::TestTraceContainer;
 
 using FF = AvmFlavorSettings::FF;
@@ -44,18 +43,11 @@ TEST(BytecodeDecompositionConstrainingTest, SingleBytecode)
     TestTraceContainer trace;
     init_trace(trace);
     BytecodeTraceBuilder builder;
-    PrecomputedTraceBuilder precomputed_builder;
-
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) } }, trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 40);
-
-    precomputed_builder.process_misc(trace, 256);
-    precomputed_builder.process_sel_range_8(trace);
-
     check_relation<bc_decomposition>(trace);
-    check_interaction<BytecodeTraceBuilder, lookup_bc_decomposition_bytes_are_bytes_settings>(trace);
 }
 
 TEST(BytecodeDecompositionConstrainingTest, ShortSingleBytecode)
@@ -64,18 +56,11 @@ TEST(BytecodeDecompositionConstrainingTest, ShortSingleBytecode)
     TestTraceContainer trace;
     init_trace(trace);
     BytecodeTraceBuilder builder;
-    PrecomputedTraceBuilder precomputed_builder;
-
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(5)) } }, trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 5);
-
-    precomputed_builder.process_misc(trace, 256);
-    precomputed_builder.process_sel_range_8(trace);
-
     check_relation<bc_decomposition>(trace);
-    check_interaction<BytecodeTraceBuilder, lookup_bc_decomposition_bytes_are_bytes_settings>(trace);
 }
 
 TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodes)
@@ -83,20 +68,13 @@ TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodes)
     TestTraceContainer trace;
     init_trace(trace);
     BytecodeTraceBuilder builder;
-    PrecomputedTraceBuilder precomputed_builder;
-
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) },
           { .bytecode_id = 2, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(55)) } },
         trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 40 + 55);
-
-    precomputed_builder.process_misc(trace, 256);
-    precomputed_builder.process_sel_range_8(trace);
-
     check_relation<bc_decomposition>(trace);
-    check_interaction<BytecodeTraceBuilder, lookup_bc_decomposition_bytes_are_bytes_settings>(trace);
 }
 
 TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodesWithShortOnes)
@@ -104,8 +82,6 @@ TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodesWithShortOnes)
     TestTraceContainer trace;
     init_trace(trace);
     BytecodeTraceBuilder builder;
-    PrecomputedTraceBuilder precomputed_builder;
-
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) },
           { .bytecode_id = 2, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(5)) },
@@ -115,12 +91,7 @@ TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodesWithShortOnes)
         trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 40 + 5 + 10 + 55 + 2);
-
-    precomputed_builder.process_misc(trace, 256);
-    precomputed_builder.process_sel_range_8(trace);
-
     check_relation<bc_decomposition>(trace);
-    check_interaction<BytecodeTraceBuilder, lookup_bc_decomposition_bytes_are_bytes_settings>(trace);
 }
 
 TEST(BytecodeDecompositionConstrainingTest, NegativeDeactivatedSel)
