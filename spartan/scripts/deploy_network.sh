@@ -341,7 +341,7 @@ EOF
 terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" init -reconfigure >/dev/null
 EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address 2>/dev/null | grep -E '^0x[a-fA-F0-9]{40}$' || true)
 
-if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
+if [[ ( -n "${EXISTING_REGISTRY}" || "${USE_NETWORK_CONFIG:-true}" == "true" ) && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
   log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
 else
   if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then

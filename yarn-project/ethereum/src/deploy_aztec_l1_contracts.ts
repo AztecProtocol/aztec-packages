@@ -10,7 +10,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { bn254 } from '@noble/curves/bn254';
 import type { Abi, Narrow } from 'abitype';
 import { spawn } from 'child_process';
-import { cp, mkdtemp, rm, stat } from 'fs/promises';
+import { cp, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { dirname, join, resolve } from 'path';
 import readline from 'readline';
@@ -80,17 +80,9 @@ function runProcess<T>(
 /**
  * Copies the foundry cache folder to a temporary location to avoid conflicts when running forge in parallel.
  * The cache folder is small metadata that links to the out folder, so this is a fast operation.
- * Returns the path to the temporary cache folder, or undefined if the cache folder doesn't exist.
  */
-async function copyFoundryCacheToTemp(l1ContractsPath: string): Promise<string | undefined> {
+async function copyFoundryCacheToTemp(l1ContractsPath: string): Promise<string> {
   const cacheFolder = join(l1ContractsPath, 'cache');
-  try {
-    await stat(cacheFolder);
-  } catch {
-    // Cache folder doesn't exist, nothing to copy
-    return undefined;
-  }
-
   const tempCacheFolder = await mkdtemp(join(tmpdir(), 'foundry-cache-'));
   await cp(cacheFolder, tempCacheFolder, { recursive: true });
   return tempCacheFolder;
@@ -268,38 +260,41 @@ export async function deployAztecL1Contracts(
   const FORGE_SCRIPT = 'script/deploy/DeployAztecL1Contracts.s.sol';
   await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
 
-  // From heuristic testing. More caused issues with anvil.
-  const MAGIC_ANVIL_BATCH_SIZE = 12;
-  // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
-  // On sepolia and mainnet, we verify on etherscan (if etherscan API key is in env)
-  const forgeArgs = [
-    'script',
-    FORGE_SCRIPT,
-    '--sig',
-    'run()',
-    '--private-key',
-    privateKey,
-    '--rpc-url',
-    rpcUrl,
-    '--broadcast',
-    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
-    ...(verifyContracts ? ['--verify'] : []),
-  ];
-  const forgeEnv = {
-    // Protect against root leaving deployment files in docker that cannot be used later.
-    FOUNDRY_BROADCAST: process.getuid?.() === 0 ? 'broadcast-root' : undefined,
-    // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
-    NETWORK: getActiveNetworkName(),
-    FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
-    ...getDeployAztecL1ContractsEnvVars(args),
-  };
-  const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
-  if (!result) {
-    throw new Error('Forge script did not output deployment result');
-  }
-  logger.info(`Deployed L1 contracts with L1 addresses: ${jsonStringify(result)}`);
+  // Copy cache to temp location to avoid conflicts when running forge in parallel
+  const tempCachePath = await copyFoundryCacheToTemp(l1ContractsPath);
 
-  const rollup = new RollupContract(l1Client, result.rollupAddress);
+  try {
+    // From heuristic testing. More caused issues with anvil.
+    const MAGIC_ANVIL_BATCH_SIZE = 12;
+    // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
+    // On sepolia and mainnet, we verify on etherscan (if etherscan API key is in env)
+    const forgeArgs = [
+      'script',
+      FORGE_SCRIPT,
+      '--sig',
+      'run()',
+      '--private-key',
+      privateKey,
+      '--rpc-url',
+      rpcUrl,
+      '--broadcast',
+      ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
+      ...(verifyContracts ? ['--verify'] : []),
+    ];
+    const forgeEnv = {
+      // Protect against root leaving deployment files in docker that cannot be used later.
+      FOUNDRY_BROADCAST: process.getuid?.() === 0 ? 'broadcast-root' : tempCachePath,
+      // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
+      NETWORK: getActiveNetworkName(),
+      FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
+      FOUNDRY_CACHE_PATH: tempCachePath,
+      ...getDeployAztecL1ContractsEnvVars(args),
+    };
+    const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+    if (!result) {
+      throw new Error('Forge script did not output deployment result');
+    }
+    logger.info(`Deployed L1 contracts with L1 addresses: ${jsonStringify(result)}`);
 
     const rollup = new RollupContract(l1Client, result.rollupAddress);
 
@@ -358,9 +353,7 @@ export async function deployAztecL1Contracts(
       },
     };
   } finally {
-    if (tempCachePath) {
-      await rm(tempCachePath, { recursive: true, force: true });
-    }
+    await rm(tempCachePath, { recursive: true, force: true });
   }
 }
 
@@ -581,8 +574,6 @@ export const deployRollupForUpgrade = async (
       slashFactoryAddress: result.slashFactoryAddress,
     };
   } finally {
-    if (tempCachePath) {
-      await rm(tempCachePath, { recursive: true, force: true });
-    }
+    await rm(tempCachePath, { recursive: true, force: true });
   }
 };
