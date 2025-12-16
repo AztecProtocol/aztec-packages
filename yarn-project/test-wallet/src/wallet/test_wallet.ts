@@ -252,7 +252,7 @@ export abstract class BaseTestWallet extends BaseWallet {
    * @returns The requested notes.
    */
   getNotes(filter: NotesFilter): Promise<NoteDao[]> {
-    return this.pxe.getNotes(filter);
+    return this.pxe.debug.getNotes(filter);
   }
 
   /**

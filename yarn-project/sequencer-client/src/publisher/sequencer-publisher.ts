@@ -1127,9 +1127,11 @@ export class SequencerPublisher {
 
     // Send the blobs to the blob sink preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
     // tx fails but it does get mined. We make sure that the blobs are sent to the blob sink regardless of the tx outcome.
-    void this.blobSinkClient.sendBlobsToBlobSink(encodedData.blobs).catch(_err => {
-      this.log.error('Failed to send blobs to blob sink');
-    });
+    void Promise.resolve().then(() =>
+      this.blobSinkClient.sendBlobsToBlobSink(encodedData.blobs).catch(_err => {
+        this.log.error('Failed to send blobs to blob sink');
+      }),
+    );
 
     return this.addRequest({
       action: 'propose',

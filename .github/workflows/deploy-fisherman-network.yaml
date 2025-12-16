@@ -108,9 +108,6 @@ jobs:
           terraform_version: "1.7.5"
           terraform_wrapper: false # Disable the wrapper that adds debug output, this messes with reading terraform output
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
       - name: Set environment variables
         run: |
           # Set environment variables for ignition-fisherman.env

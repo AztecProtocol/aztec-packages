@@ -11,7 +11,7 @@
       "gasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" }
     },
     "tx": {
-      "hash": "0x02440a894870f8078ce6065f76c2f598e2f3df9719f1a78038057c20eb096516",
+      "hash": "0x0fe93625c73eb2fd8131834fac90f24341cc1b87bdfa9c09f7f61c7f5f943bc5",
       "gasSettings": {
         "gasLimits": { "daGas": 12582912, "l2Gas": 6000000 },
         "teardownGasLimits": { "daGas": 0, "l2Gas": 0 },
@@ -34,9 +34,9 @@
             "msgSender": "0x000000000000000000000000000000000000000000000000000000000000002a",
             "contractAddress": "0x03deefb26b3b88ef515e0ce5bd1402ea3a7c12569597cddb19ce6260444d625f",
             "isStaticCall": false,
-            "calldataHash": "0x210b9efa10b8e4522089aa9b227e18fb47dbf4c9a53b37225416d7900600be65"
+            "calldataHash": "0x0d11f0bac132909f8a77a45be32a0dfad89702d957f3f1963b790545be3f966c"
           },
-          "calldata": ["0x000000000000000000000000000000000000000000000000000000000d6ab3ae"]
+          "calldata": []
         }
       ],
       "teardownEnqueuedCall": null,
@@ -856,7 +856,7 @@
         "msgSender": "0x000000000000000000000000000000000000000000000000000000000000002a",
         "contractAddress": "0x03deefb26b3b88ef515e0ce5bd1402ea3a7c12569597cddb19ce6260444d625f",
         "isStaticCall": false,
-        "calldataHash": "0x210b9efa10b8e4522089aa9b227e18fb47dbf4c9a53b37225416d7900600be65"
+        "calldataHash": "0x0d11f0bac132909f8a77a45be32a0dfad89702d957f3f1963b790545be3f966c"
       },
       {
         "msgSender": "0x0000000000000000000000000000000000000000000000000000000000000000",

@@ -224,6 +224,7 @@ export async function deployAztecL1Contracts(
   privateKey: `0x${string}`,
   chainId: number,
   args: DeployAztecL1ContractsArgs,
+  verifyContracts = false,
 ): Promise<DeployAztecL1ContractsReturnType> {
   logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
@@ -267,39 +268,38 @@ export async function deployAztecL1Contracts(
   const FORGE_SCRIPT = 'script/deploy/DeployAztecL1Contracts.s.sol';
   await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
 
-  // Copy cache to temp location to avoid conflicts when running forge in parallel
-  const tempCachePath = await copyFoundryCacheToTemp(l1ContractsPath);
+  // From heuristic testing. More caused issues with anvil.
+  const MAGIC_ANVIL_BATCH_SIZE = 12;
+  // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
+  // On sepolia and mainnet, we verify on etherscan (if etherscan API key is in env)
+  const forgeArgs = [
+    'script',
+    FORGE_SCRIPT,
+    '--sig',
+    'run()',
+    '--private-key',
+    privateKey,
+    '--rpc-url',
+    rpcUrl,
+    '--broadcast',
+    ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
+    ...(verifyContracts ? ['--verify'] : []),
+  ];
+  const forgeEnv = {
+    // Protect against root leaving deployment files in docker that cannot be used later.
+    FOUNDRY_BROADCAST: process.getuid?.() === 0 ? 'broadcast-root' : undefined,
+    // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
+    NETWORK: getActiveNetworkName(),
+    FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
+    ...getDeployAztecL1ContractsEnvVars(args),
+  };
+  const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  if (!result) {
+    throw new Error('Forge script did not output deployment result');
+  }
+  logger.info(`Deployed L1 contracts with L1 addresses: ${jsonStringify(result)}`);
 
-  try {
-    // From heuristic testing. More caused issues with anvil.
-    const MAGIC_ANVIL_BATCH_SIZE = 12;
-    // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
-    // On sepolia and mainnet, we verify on etherscan (if etherscan API key is in env)
-    const forgeArgs = [
-      'script',
-      FORGE_SCRIPT,
-      '--sig',
-      'run()',
-      '--private-key',
-      privateKey,
-      '--rpc-url',
-      rpcUrl,
-      '--broadcast',
-      ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : ['--verify']),
-    ];
-    const forgeEnv = {
-      // Env vars required by l1-contracts/script/deploy/DeploymentConfiguration.sol.
-      NETWORK: getActiveNetworkName(),
-      FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
-      FOUNDRY_CACHE_PATH: tempCachePath,
-      FOUNDRY_BROADCAST: tempCachePath,
-      ...getDeployAztecL1ContractsEnvVars(args),
-    };
-    const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
-    if (!result) {
-      throw new Error('Forge script did not output deployment result');
-    }
-    logger.info(`Deployed L1 contracts with L1 addresses: ${jsonStringify(result)}`);
+  const rollup = new RollupContract(l1Client, result.rollupAddress);
 
     const rollup = new RollupContract(l1Client, result.rollupAddress);
 

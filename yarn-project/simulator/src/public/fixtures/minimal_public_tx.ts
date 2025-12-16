@@ -6,7 +6,7 @@ import { TypeTag } from '../avm/avm_memory_types.js';
 import { Add, Return, Set } from '../avm/opcodes/index.js';
 import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
 import { Opcode } from '../avm/serialization/instruction_serialization.js';
-import { testCustomBytecode } from './custom_bytecode_tester.js';
+import { deployAndExecuteCustomBytecode } from './custom_bytecode_tester.js';
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
 export async function executeAvmMinimalPublicTx(tester: PublicTxSimulationTester): Promise<PublicTxResult> {
@@ -17,7 +17,7 @@ export async function executeAvmMinimalPublicTx(tester: PublicTxSimulationTester
     new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 2),
   ]);
 
-  const result = await testCustomBytecode(minimalBytecode, tester, 'MinimalTx', 'AvmMinimalContract');
+  const result = await deployAndExecuteCustomBytecode(minimalBytecode, tester, 'MinimalTx', 'AvmMinimalContract');
 
   // Modify the protocol contracts to be all zeros
   result.hints!.protocolContracts = ProtocolContracts.empty();
