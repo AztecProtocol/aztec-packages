@@ -34,20 +34,20 @@ template <typename FF> class retrieved_bytecodes_tree_check : public Relation<re
   public:
     static constexpr const std::string_view NAME = "retrieved_bytecodes_tree_check";
 
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_EXISTS_CHECK = 9;
-    static constexpr size_t SR_NEXT_CLASS_ID_IS_ZERO_CHECK = 11;
-
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_EXISTS_CHECK:
+        case 9:
             return "EXISTS_CHECK";
-        case SR_NEXT_CLASS_ID_IS_ZERO_CHECK:
+        case 11:
             return "NEXT_CLASS_ID_IS_ZERO_CHECK";
         }
         return std::to_string(index);
     }
+
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_EXISTS_CHECK = 9;
+    static constexpr size_t SR_NEXT_CLASS_ID_IS_ZERO_CHECK = 11;
 };
 
 } // namespace bb::avm2

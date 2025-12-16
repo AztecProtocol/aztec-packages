@@ -91,9 +91,6 @@
       "path": "../telemetry-client"
     },
     {
-      "path": "../test-wallet"
-    },
-    {
       "path": "../txe"
     },
     {

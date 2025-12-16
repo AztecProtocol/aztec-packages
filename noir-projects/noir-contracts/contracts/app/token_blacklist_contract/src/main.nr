@@ -18,14 +18,13 @@ use aztec::macros::aztec;
 pub contract TokenBlacklist {
     // Libs
     use aztec::{
+        event::event_interface::MessageDelivery,
         hash::compute_secret_hash,
         macros::{
             functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
-        messages::{
-            discovery::private_notes::attempt_note_discovery, message_delivery::MessageDelivery,
-        },
+        messages::discovery::private_notes::attempt_note_discovery,
         note::{
             note_getter_options::NoteGetterOptions,
             note_interface::{NoteHash, NoteProperties, NoteType},

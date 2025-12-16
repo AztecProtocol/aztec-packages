@@ -38,7 +38,6 @@ using ::testing::TestWithParam;
 using testing::TestMemoryTree;
 
 using simulation::build_public_data_slots_tree;
-using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
@@ -135,7 +134,7 @@ TEST_P(WrittenPublicDataSlotsReadPositiveTests, Positive)
 
     NiceMock<MockRangeCheck> range_check;
 
-    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_event_emitter;
@@ -178,7 +177,7 @@ TEST_F(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteAppend)
 
     NiceMock<MockRangeCheck> range_check;
 
-    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_event_emitter;
@@ -225,7 +224,7 @@ TEST_F(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteMembership)
 
     NiceMock<MockRangeCheck> range_check;
 
-    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_event_emitter;

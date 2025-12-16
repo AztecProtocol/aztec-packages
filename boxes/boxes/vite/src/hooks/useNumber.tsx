@@ -10,10 +10,10 @@ export function useNumber({ contract }: { contract: Contract }) {
     e.preventDefault();
 
     setWait(true);
-    const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
+    const deployerWallet = await deployerEnv.getWallet();
     const viewTxReceipt = await contract!.methods
-      .getNumber(defaultAccountAddress)
-      .simulate({ from: defaultAccountAddress });
+      .getNumber(deployerWallet.getCompleteAddress().address)
+      .simulate({ from: deployerWallet.getAddress() });
     toast(`Number is: ${viewTxReceipt.value}`);
     setWait(false);
   };
@@ -28,11 +28,12 @@ export function useNumber({ contract }: { contract: Contract }) {
       setWait(true);
 
       const value = BigInt(el.value);
-      const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
+      const deployerWallet = await deployerEnv.getWallet();
+
       await toast.promise(
         contract!.methods
-          .setNumber(value, defaultAccountAddress)
-          .send({ from: defaultAccountAddress })
+          .setNumber(value, deployerWallet.getCompleteAddress().address)
+          .send({ from: deployerWallet.getAddress() })
           .wait(),
         {
           pending: "Setting number...",

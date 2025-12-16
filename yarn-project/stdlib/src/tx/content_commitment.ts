@@ -75,10 +75,6 @@ export class ContentCommitment {
     return new ContentCommitment(reader.readField(), reader.readField(), reader.readField());
   }
 
-  static random(): ContentCommitment {
-    return new ContentCommitment(Fr.random(), Fr.random(), Fr.random());
-  }
-
   static empty(): ContentCommitment {
     return new ContentCommitment(Fr.zero(), Fr.zero(), Fr.zero());
   }

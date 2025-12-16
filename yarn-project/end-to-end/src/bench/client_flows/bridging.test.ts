@@ -1,4 +1,4 @@
-import { AztecAddress, type SimulateMethodOptions, type Wallet } from '@aztec/aztec.js';
+import { AccountWallet, type SimulateMethodOptions } from '@aztec/aztec.js';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -13,10 +13,8 @@ jest.setTimeout(300_000);
 
 describe('Bridging benchmark', () => {
   const t = new ClientFlowsBenchmark('bridging');
-  // The wallet used by the user to interact
-  let userWallet: Wallet;
   // The admin that aids in the setup of the test
-  let adminAddress: AztecAddress;
+  let adminWallet: AccountWallet;
   // FPC that accepts bananas
   let bananaFPC: FPCContract;
   // BananaCoin Token contract, which we want to use to pay for the bridging
@@ -31,7 +29,7 @@ describe('Bridging benchmark', () => {
     await t.applyDeployBananaTokenSnapshot();
     await t.applyFPCSetupSnapshot();
     await t.applyDeploySponsoredFPCSnapshot();
-    ({ userWallet, bananaFPC, bananaCoin, adminAddress, sponsoredFPC } = await t.setup());
+    ({ bananaFPC, bananaCoin, adminWallet, sponsoredFPC } = await t.setup());
   });
 
   afterAll(async () => {
@@ -45,24 +43,24 @@ describe('Bridging benchmark', () => {
   function bridgingBenchmark(accountType: AccountType) {
     return describe(`Bridging benchmark for ${accountType}`, () => {
       // Our benchmarking user
-      let benchysAddress: AztecAddress;
+      let benchysWallet: AccountWallet;
       // Helpers for the bridging
       let crossChainTestHarness: CrossChainTestHarness;
 
       beforeEach(async () => {
-        benchysAddress = await t.createAndFundBenchmarkingAccountOnUserWallet(accountType);
+        benchysWallet = await t.createAndFundBenchmarkingWallet(accountType);
         // Benchy has FeeJuice now, so it can deploy the Token and bridge. This is required because
         // the brigde has an owner, which is the only one that can claim
-        crossChainTestHarness = await t.createCrossChainTestHarness(benchysAddress);
+        crossChainTestHarness = await t.createCrossChainTestHarness(benchysWallet);
         // Fund benchy with bananas, so they can pay for the bridging using the private FPC
-        await t.mintPrivateBananas(1000n * 10n ** 18n, benchysAddress);
+        await t.mintPrivateBananas(1000n * 10n ** 18n, benchysWallet.getAddress());
         // Register admin as sender in benchy's wallet, since we need it to discover the minted bananas
-        await userWallet.registerSender(adminAddress);
+        await benchysWallet.registerSender(adminWallet.getAddress());
         // Register both FPC and BananCoin on the user's PXE so we can simulate and prove
-        await userWallet.registerContract(bananaFPC);
-        await userWallet.registerContract(bananaCoin);
+        await benchysWallet.registerContract(bananaFPC);
+        await benchysWallet.registerContract(bananaCoin);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
-        await userWallet.registerContract(sponsoredFPC);
+        await benchysWallet.registerContract(sponsoredFPC);
       });
 
       function privateClaimTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
@@ -81,8 +79,8 @@ describe('Bridging benchmark', () => {
           // 3. Consume L1 -> L2 message and mint private tokens on L2
           const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
           const options: SimulateMethodOptions = {
-            from: benchysAddress,
-            fee: { paymentMethod: await paymentMethod.forWallet(userWallet, benchysAddress) },
+            from: benchysWallet.getAddress(),
+            fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
           };
 
           const { recipient, claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex } = claim;
@@ -114,7 +112,7 @@ describe('Bridging benchmark', () => {
 
             // 4. Check the balance
 
-            const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysAddress);
+            const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysWallet.getAddress());
             expect(balance).toBe(bridgeAmount);
           }
         });

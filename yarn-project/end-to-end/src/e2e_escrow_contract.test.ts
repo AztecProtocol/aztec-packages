@@ -1,4 +1,12 @@
-import { type AztecAddress, BatchCall, Fr, type Logger, type PXE, type Wallet, deriveKeys } from '@aztec/aztec.js';
+import {
+  type AccountWallet,
+  type AztecAddress,
+  BatchCall,
+  Fr,
+  type Logger,
+  type PXE,
+  deriveKeys,
+} from '@aztec/aztec.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { computePartialAddress } from '@aztec/stdlib/contract';
@@ -9,7 +17,8 @@ import { setup } from './fixtures/utils.js';
 
 describe('e2e_escrow_contract', () => {
   let pxe: PXE;
-  let wallet: Wallet;
+  let wallet: AccountWallet;
+  let recipientWallet: AccountWallet;
 
   let logger: Logger;
   let teardown: () => Promise<void>;
@@ -27,7 +36,7 @@ describe('e2e_escrow_contract', () => {
     ({
       teardown,
       pxe,
-      wallet,
+      wallets: [wallet, recipientWallet],
       accounts: [owner, recipient],
       logger,
     } = await setup(2));
@@ -45,7 +54,7 @@ describe('e2e_escrow_contract', () => {
     // Deploy Token contract and mint funds for the escrow contract
     token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({ from: owner }).deployed();
 
-    await mintTokensToPrivate(token, owner, escrowContract.address, 100n);
+    await mintTokensToPrivate(token, owner, wallet, escrowContract.address, 100n);
 
     logger.info(`Token contract deployed at ${token.address}`);
   });
@@ -67,7 +76,10 @@ describe('e2e_escrow_contract', () => {
 
   it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
-      escrowContract.methods.withdraw(token.address, 30, recipient).simulate({ from: recipient }),
+      escrowContract
+        .withWallet(recipientWallet)
+        .methods.withdraw(token.address, 30, recipient)
+        .simulate({ from: recipient }),
     ).rejects.toThrow();
   });
 
@@ -75,7 +87,7 @@ describe('e2e_escrow_contract', () => {
     logger.info(`Minting funds in token contract to ${owner}`);
     const mintAmount = 50n;
 
-    await mintTokensToPrivate(token, owner, owner, mintAmount);
+    await mintTokensToPrivate(token, owner, wallet, owner, mintAmount);
 
     await expectTokenBalance(wallet, token, owner, 50n, logger);
 

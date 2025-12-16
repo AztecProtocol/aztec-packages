@@ -1,12 +1,9 @@
-import { type AztecAddress, Contract } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, type AztecAddress, Contract } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 
-import type { CLIWallet } from '../utils/wallet.js';
-
 export async function createAuthwit(
-  wallet: CLIWallet,
-  from: AztecAddress,
+  wallet: AccountWalletWithSecretKey,
   functionName: string,
   caller: AztecAddress,
   functionArgsIn: any[],
@@ -30,7 +27,7 @@ export async function createAuthwit(
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const action = contract.methods[functionName](...functionArgs);
 
-  const witness = await wallet.createAuthWit(from, { caller, action });
+  const witness = await wallet.createAuthWit({ caller, action });
 
   log(`Created authorization witness for action ${functionName} on contract ${contractAddress} for caller ${caller}`);
 

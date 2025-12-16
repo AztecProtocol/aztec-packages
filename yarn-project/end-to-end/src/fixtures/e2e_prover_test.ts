@@ -1,6 +1,19 @@
+import {
+  SchnorrAccountContractArtifact,
+  getSchnorrAccount,
+  getSchnorrWalletWithSecretKey,
+} from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
-import { AztecAddress, type AztecNode, EthAddress, type Logger, type PXE, createLogger } from '@aztec/aztec.js';
+import {
+  type AccountWalletWithSecretKey,
+  type AztecNode,
+  type CompleteAddress,
+  EthAddress,
+  type Logger,
+  type PXE,
+  createLogger,
+} from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import {
   BBCircuitVerifier,
@@ -18,7 +31,6 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import type { PXEService } from '@aztec/pxe/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, getContract } from 'viem';
@@ -56,9 +68,9 @@ export class FullProverTest {
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
   logger: Logger;
-  wallet!: TestWallet;
-  accounts: AztecAddress[] = [];
-  deployedAccounts!: InitialAccountData[];
+  deployedAccounts: InitialAccountData[] = [];
+  wallets: AccountWalletWithSecretKey[] = [];
+  accounts: CompleteAddress[] = [];
   fakeProofsAsset!: TokenContract;
   tokenSim!: TokenSimulator;
   aztecNode!: AztecNode;
@@ -103,11 +115,13 @@ export class FullProverTest {
     await this.snapshotManager.snapshot(
       '2_accounts',
       deployAccounts(2, this.logger),
-      ({ deployedAccounts }, { wallet }) => {
+      async ({ deployedAccounts }, { pxe }) => {
         this.deployedAccounts = deployedAccounts;
-        this.accounts = deployedAccounts.map(a => a.address);
-        this.wallet = wallet;
-        return Promise.resolve();
+        this.wallets = await Promise.all(
+          deployedAccounts.map(a => getSchnorrWalletWithSecretKey(pxe, a.secret, a.signingKey, a.salt)),
+        );
+        this.accounts = this.wallets.map(w => w.getCompleteAddress());
+        this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
       },
     );
 
@@ -117,17 +131,17 @@ export class FullProverTest {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallet, this.accounts.slice(0, 2));
+        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2));
 
         this.logger.verbose(`Deploying TokenContract...`);
         const asset = await TokenContract.deploy(
-          this.wallet,
+          this.wallets[0],
           this.accounts[0],
           FullProverTest.TOKEN_NAME,
           FullProverTest.TOKEN_SYMBOL,
           FullProverTest.TOKEN_DECIMALS,
         )
-          .send({ from: this.accounts[0] })
+          .send({ from: this.wallets[0].getAddress() })
           .deployed();
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
@@ -135,19 +149,19 @@ export class FullProverTest {
       },
       async ({ tokenContractAddress }) => {
         // Restore the token contract state.
-        this.fakeProofsAsset = await TokenContract.at(tokenContractAddress, this.wallet);
+        this.fakeProofsAsset = await TokenContract.at(tokenContractAddress, this.wallets[0]);
         this.logger.verbose(`Token contract address: ${this.fakeProofsAsset.address}`);
 
         this.tokenSim = new TokenSimulator(
           this.fakeProofsAsset,
-          this.wallet,
-          this.accounts[0],
+          this.wallets[0],
+          this.wallets[0].getAddress(),
           this.logger,
-          this.accounts,
+          this.accounts.map(a => a.address),
         );
 
-        expect(await this.fakeProofsAsset.methods.get_admin().simulate({ from: this.accounts[0] })).toBe(
-          this.accounts[0].toBigInt(),
+        expect(await this.fakeProofsAsset.methods.get_admin().simulate({ from: this.accounts[0].address })).toBe(
+          this.accounts[0].address.toBigInt(),
         );
       },
     );
@@ -224,13 +238,30 @@ export class FullProverTest {
       this.logger.debug(`Contract address ${this.fakeProofsAsset.address}`);
       await result.pxe.registerContract(this.fakeProofsAsset);
 
-      const provenWallet = new TestWallet(result.pxe);
-
       for (let i = 0; i < 2; i++) {
-        await provenWallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
-        await this.wallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
+        await result.pxe.registerAccount(
+          this.deployedAccounts[i].secret,
+          this.wallets[i].getCompleteAddress().partialAddress,
+        );
+        await this.pxe.registerAccount(
+          this.deployedAccounts[i].secret,
+          this.wallets[i].getCompleteAddress().partialAddress,
+        );
       }
 
+      const account = await getSchnorrAccount(
+        result.pxe,
+        this.deployedAccounts[0].secret,
+        this.deployedAccounts[0].signingKey,
+        this.deployedAccounts[0].salt,
+      );
+
+      await result.pxe.registerContract({
+        instance: account.getInstance(),
+        artifact: SchnorrAccountContractArtifact,
+      });
+
+      const provenWallet = await account.getWallet();
       const asset = await TokenContract.at(this.fakeProofsAsset.address, provenWallet);
       this.provenComponents.push({
         pxe: result.pxe,
@@ -337,12 +368,15 @@ export class FullProverTest {
 
         this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
         await asset.methods
-          .mint_to_public(accounts[0], privateAmount + publicAmount)
-          .send({ from: accounts[0] })
+          .mint_to_public(accounts[0].address, privateAmount + publicAmount)
+          .send({ from: accounts[0].address })
           .wait();
 
         this.logger.verbose(`Transferring ${privateAmount} to private...`);
-        await asset.methods.transfer_to_private(accounts[0], privateAmount).send({ from: accounts[0] }).wait();
+        await asset.methods
+          .transfer_to_private(accounts[0].address, privateAmount)
+          .send({ from: accounts[0].address })
+          .wait();
 
         this.logger.verbose(`Minting complete.`);
 
@@ -351,7 +385,7 @@ export class FullProverTest {
       async ({ amount }) => {
         const {
           fakeProofsAsset: asset,
-          accounts: [address],
+          accounts: [{ address }],
           tokenSim,
         } = this;
         tokenSim.mintPublic(address, amount);

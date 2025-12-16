@@ -27,7 +27,6 @@ using tracegen::ExecutionTraceBuilder;
 using tracegen::NullifierTreeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
 
-using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
@@ -110,7 +109,7 @@ TEST(NullifierExistsConstrainingTest, Interactions)
     NiceMock<MockMerkleCheck> merkle_check;
 
     NiceMock<MockRangeCheck> range_check;
-    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
+    EventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt(range_check, event_emitter);
 
     EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;

@@ -7,9 +7,6 @@
   },
   "references": [
     {
-      "path": "../accounts"
-    },
-    {
       "path": "../archiver"
     },
     {
@@ -37,16 +34,16 @@
       "path": "../p2p"
     },
     {
-      "path": "../protocol-contracts"
-    },
-    {
       "path": "../stdlib"
     },
     {
-      "path": "../test-wallet"
+      "path": "../world-state"
     },
     {
-      "path": "../world-state"
+      "path": "../accounts"
+    },
+    {
+      "path": "../protocol-contracts"
     }
   ],
   "include": ["src", "src/**/*.json"],

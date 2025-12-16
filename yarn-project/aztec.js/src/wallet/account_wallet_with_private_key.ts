@@ -1,23 +1,25 @@
 import type { Fr } from '@aztec/foundation/fields';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { computeAddressSecret, deriveMasterIncomingViewingSecretKey } from '@aztec/stdlib/keys';
 
-import { BaseAccount } from './account.js';
-import type { Salt } from './index.js';
-import type { AccountInterface } from './interface.js';
+import type { Salt } from '../account/index.js';
+import type { AccountInterface } from '../account/interface.js';
+import { AccountWallet } from './account_wallet.js';
 
 /**
- * Extends {@link Account} with the encryption private key. Not required for
+ * Extends {@link AccountWallet} with the encryption private key. Not required for
  * implementing the wallet interface but useful for testing purposes or exporting
  * an account to another pxe.
  */
-export class AccountWithSecretKey extends BaseAccount {
+export class AccountWalletWithSecretKey extends AccountWallet {
   constructor(
+    pxe: PXE,
     account: AccountInterface,
     private secretKey: Fr,
     /** Deployment salt for this account contract. */
     public readonly salt: Salt,
   ) {
-    super(account);
+    super(pxe, account);
   }
 
   /** Returns the encryption private key associated with this account. */

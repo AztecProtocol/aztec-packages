@@ -42,15 +42,15 @@ describe.skip('AVM proven gadgets test', () => {
     }
   });
 
-  it('keccak_hash_1400', async () => {
+  it('keccak_hash_2400', async () => {
     const result = await tester.executeTxWithLabel(
-      /*txLabel=*/ 'AvmGadgetsTest/keccak_hash_1400',
+      /*txLabel=*/ 'AvmGadgetsTest/keccak_hash_2400',
       /*sender=*/ sender,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
         {
           address: avmGadgetsTestContract.address,
-          fnName: 'keccak_hash_1400',
+          fnName: 'keccak_hash_2400',
           args: [/*input=*/ Array.from({ length: 2400 }, () => randomInt(2 ** 8))],
         },
       ],
@@ -58,31 +58,31 @@ describe.skip('AVM proven gadgets test', () => {
     expect(result.revertCode.isOK()).toBe(true);
   }, 180_000);
 
-  it('sha256_hash_1536', async () => {
+  it('sha256_hash_2500', async () => {
     const result = await tester.executeTxWithLabel(
-      /*txLabel=*/ 'AvmGadgetsTest/sha256_hash_1536',
+      /*txLabel=*/ 'AvmGadgetsTest/sha256_hash_2500',
       /*sender=*/ sender,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
         {
           address: avmGadgetsTestContract.address,
-          fnName: 'sha256_hash_1536',
-          args: [/*input=*/ Array.from({ length: 1536 }, () => randomInt(2 ** 8))],
+          fnName: 'sha256_hash_2500',
+          args: [/*input=*/ Array.from({ length: 2500 }, () => randomInt(2 ** 8))],
         },
       ],
     );
     expect(result.revertCode.isOK()).toBe(true);
   }, 180_000);
 
-  it('poseidon2_hash_1000fields', async () => {
+  it('poseidon2_hash_2000fields', async () => {
     const result = await tester.executeTxWithLabel(
-      /*txLabel=*/ 'AvmGadgetsTest/poseidon2_hash_1000fields',
+      /*txLabel=*/ 'AvmGadgetsTest/poseidon2_hash_2000fields',
       /*sender=*/ sender,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
         {
           address: avmGadgetsTestContract.address,
-          fnName: 'poseidon2_hash_1000fields',
+          fnName: 'poseidon2_hash_2000fields',
           args: [/*input=*/ Array.from({ length: 2000 }, () => randomInt(2 ** 8))],
         },
       ],

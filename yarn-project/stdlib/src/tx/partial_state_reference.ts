@@ -64,14 +64,6 @@ export class PartialStateReference {
     );
   }
 
-  static random(): PartialStateReference {
-    return new PartialStateReference(
-      AppendOnlyTreeSnapshot.random(),
-      AppendOnlyTreeSnapshot.random(),
-      AppendOnlyTreeSnapshot.random(),
-    );
-  }
-
   toViem(): ViemPartialStateReference {
     return {
       noteHashTree: this.noteHashTree.toViem(),

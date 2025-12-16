@@ -3,7 +3,7 @@ use aztec::macros::aztec;
 #[aztec]
 contract BoxReact {
     use aztec::{
-        messages::message_delivery::MessageDelivery,
+        event::event_interface::MessageDelivery,
         macros::{functions::{initializer, private, utility}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::{Map, PrivateMutable},

@@ -20,14 +20,14 @@ const qosAlerts: AlertConfig[] = [
 
 describe('e2e_token_contract transfer public', () => {
   const t = new TokenContractTest('transfer_in_public');
-  let { asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t;
+  let { asset, tokenSim, admin, adminAddress, account1, account1Address, badAccount } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t);
+    ({ asset, tokenSim, admin, adminAddress, account1, account1Address, badAccount } = t);
   });
 
   afterAll(async () => {
@@ -70,13 +70,11 @@ describe('e2e_token_contract transfer public', () => {
     const authwitNonce = Fr.random();
 
     // docs:start:authwit_public_transfer_example
-    const action = asset.methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
+    const action = asset
+      .withWallet(account1)
+      .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
 
-    const validateActionInteraction = await wallet.setPublicAuthWit(
-      adminAddress,
-      { caller: account1Address, action },
-      true,
-    );
+    const validateActionInteraction = await admin.setPublicAuthWit({ caller: account1Address, action }, true);
     await validateActionInteraction.send({ from: adminAddress }).wait();
     // docs:end:authwit_public_transfer_example
 
@@ -87,8 +85,9 @@ describe('e2e_token_contract transfer public', () => {
 
     // Check that the message hash is no longer valid.
     await expect(
-      asset.methods
-        .transfer_in_public(adminAddress, account1Address, amount, authwitNonce)
+      asset
+        .withWallet(account1)
+        .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce)
         .simulate({ from: account1Address }),
     ).rejects.toThrow(/unauthorized/);
   });
@@ -123,8 +122,9 @@ describe('e2e_token_contract transfer public', () => {
       const amount = balance0 + 1n;
       const authwitNonce = Fr.random();
       await expect(
-        asset.methods
-          .transfer_in_public(adminAddress, account1Address, amount, authwitNonce)
+        asset
+          .withWallet(account1)
+          .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce)
           .simulate({ from: account1Address }),
       ).rejects.toThrow(/unauthorized/);
     });
@@ -136,14 +136,21 @@ describe('e2e_token_contract transfer public', () => {
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
-      const action = asset.methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
+      const action = asset
+        .withWallet(account1)
+        .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
 
       const intent = { caller: account1Address, action };
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const validateActionInteraction = await wallet.setPublicAuthWit(adminAddress, intent, true);
+      const validateActionInteraction = await admin.setPublicAuthWit(intent, true);
       await validateActionInteraction.send({ from: adminAddress }).wait();
 
-      const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
+      const witness = await admin.createAuthWit({ caller: account1Address, action });
+
+      expect(await admin.lookupValidity(adminAddress, intent, witness)).toEqual({
+        isValidInPrivate: true,
+        isValidInPublic: true,
+      });
 
       // Perform the transfer
       await expect(action.simulate({ from: account1Address, authWitnesses: [witness] })).rejects.toThrow(
@@ -164,13 +171,11 @@ describe('e2e_token_contract transfer public', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
+      const action = asset
+        .withWallet(account1)
+        .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
 
-      const validateActionInteraction = await wallet.setPublicAuthWit(
-        adminAddress,
-        { caller: adminAddress, action },
-        true,
-      );
+      const validateActionInteraction = await admin.setPublicAuthWit({ caller: adminAddress, action }, true);
       await validateActionInteraction.send({ from: adminAddress }).wait();
 
       // Perform the transfer
@@ -190,12 +195,10 @@ describe('e2e_token_contract transfer public', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
-      const validateActionInteraction = await wallet.setPublicAuthWit(
-        adminAddress,
-        { caller: adminAddress, action },
-        true,
-      );
+      const action = asset
+        .withWallet(account1)
+        .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
+      const validateActionInteraction = await admin.setPublicAuthWit({ caller: adminAddress, action }, true);
       await validateActionInteraction.send({ from: adminAddress }).wait();
 
       // Perform the transfer
@@ -213,25 +216,20 @@ describe('e2e_token_contract transfer public', () => {
       expect(amount).toBeGreaterThan(0n);
       const authwitNonce = Fr.random();
 
-      const action = asset.methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
+      const action = asset
+        .withWallet(account1)
+        .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
 
-      const validateActionInteraction = await wallet.setPublicAuthWit(
-        adminAddress,
-        { caller: account1Address, action },
-        true,
-      );
+      const validateActionInteraction = await admin.setPublicAuthWit({ caller: account1Address, action }, true);
       await validateActionInteraction.send({ from: adminAddress }).wait();
 
-      const cancelActionInteraction = await wallet.setPublicAuthWit(
-        adminAddress,
-        { caller: account1Address, action },
-        false,
-      );
+      const cancelActionInteraction = await admin.setPublicAuthWit({ caller: account1Address, action }, false);
       await cancelActionInteraction.send({ from: adminAddress }).wait();
 
       await expect(
-        asset.methods
-          .transfer_in_public(adminAddress, account1Address, amount, authwitNonce)
+        asset
+          .withWallet(account1)
+          .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce)
           .simulate({ from: account1Address }),
       ).rejects.toThrow(/unauthorized/);
     });
@@ -242,20 +240,14 @@ describe('e2e_token_contract transfer public', () => {
       expect(amount).toBeGreaterThan(0n);
       const authwitNonce = Fr.random();
 
-      const action = asset.methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
+      const action = asset
+        .withWallet(account1)
+        .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
 
-      const validateActionInteraction = await wallet.setPublicAuthWit(
-        adminAddress,
-        { caller: account1Address, action },
-        true,
-      );
+      const validateActionInteraction = await admin.setPublicAuthWit({ caller: account1Address, action }, true);
       await validateActionInteraction.send({ from: adminAddress }).wait();
 
-      const cancelActionInteraction = await wallet.setPublicAuthWit(
-        adminAddress,
-        { caller: account1Address, action },
-        false,
-      );
+      const cancelActionInteraction = await admin.setPublicAuthWit({ caller: account1Address, action }, false);
       await cancelActionInteraction.send({ from: adminAddress }).wait();
 
       await expect(action.simulate({ from: account1Address })).rejects.toThrow(/unauthorized/);
@@ -265,8 +257,9 @@ describe('e2e_token_contract transfer public', () => {
       const authwitNonce = Fr.random();
 
       await expect(
-        asset.methods
-          .transfer_in_public(badAccount.address, account1Address, 0, authwitNonce)
+        asset
+          .withWallet(account1)
+          .methods.transfer_in_public(badAccount.address, account1Address, 0, authwitNonce)
           .simulate({ from: account1Address }),
       ).rejects.toThrow(/unauthorized/);
     });

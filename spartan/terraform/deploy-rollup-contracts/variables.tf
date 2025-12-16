@@ -20,8 +20,8 @@ variable "L1_RPC_URLS" {
   type        = string
 }
 
-variable "PRIVATE_KEY" {
-  description = "Private key for deployment"
+variable "MNEMONIC" {
+  description = "Mnemonic for deployment"
   type        = string
   sensitive   = true
 }

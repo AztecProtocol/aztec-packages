@@ -34,20 +34,20 @@ template <typename FF> class nullifier_exists : public Relation<nullifier_exists
   public:
     static constexpr const std::string_view NAME = "nullifier_exists";
 
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_NULLIFIER_EXISTS_U1_OUTPUT_TAG = 0;
-    static constexpr size_t SR_NULLIFIER_EXISTS_SUCCESS = 1;
-
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_NULLIFIER_EXISTS_U1_OUTPUT_TAG:
+        case 0:
             return "NULLIFIER_EXISTS_U1_OUTPUT_TAG";
-        case SR_NULLIFIER_EXISTS_SUCCESS:
+        case 1:
             return "NULLIFIER_EXISTS_SUCCESS";
         }
         return std::to_string(index);
     }
+
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_NULLIFIER_EXISTS_U1_OUTPUT_TAG = 0;
+    static constexpr size_t SR_NULLIFIER_EXISTS_SUCCESS = 1;
 };
 
 } // namespace bb::avm2

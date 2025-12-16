@@ -120,6 +120,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   private l1BlockNumber: bigint | undefined;
   private l1Timestamp: bigint | undefined;
+  private pendingChainValidationStatus: ValidateBlockResult = { valid: true };
   private initialSyncComplete: boolean = false;
 
   public readonly tracer: Tracer;
@@ -341,8 +342,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     // ********** Events that are processed per L2 block **********
     if (currentL1BlockNumber > blocksSynchedTo) {
-      // First we retrieve new L2 blocks and store them in the DB. This will also update the
-      // pending chain validation status, proven block number, and synched L1 block number.
+      // First we retrieve new L2 blocks
       const rollupStatus = await this.handleL2blocks(blocksSynchedTo, currentL1BlockNumber);
       // Then we prune the current epoch if it'd reorg on next submission.
       // Note that we don't do this before retrieving L2 blocks because we may need to retrieve
@@ -355,11 +355,21 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         currentL1Timestamp,
       );
 
+      // Update the pending chain validation status with the last block validation result.
+      // Again, we only update if validation status changed, so in a sequence of invalid blocks
+      // we keep track of the first invalid block so we can invalidate that one if needed.
+      if (
+        rollupStatus.validationResult &&
+        rollupStatus.validationResult?.valid !== this.pendingChainValidationStatus.valid
+      ) {
+        this.pendingChainValidationStatus = rollupStatus.validationResult;
+      }
+
       // And lastly we check if we are missing any L2 blocks behind us due to a possible L1 reorg.
       // We only do this if rollup cant prune on the next submission. Otherwise we will end up
       // re-syncing the blocks we have just unwound above. We also dont do this if the last block is invalid,
       // since the archiver will rightfully refuse to sync up to it.
-      if (!rollupCanPrune && rollupStatus.validationResult?.valid) {
+      if (!rollupCanPrune && this.pendingChainValidationStatus.valid) {
         await this.checkForNewBlocksBeforeL1SyncPoint(rollupStatus, blocksSynchedTo, currentL1BlockNumber);
       }
 
@@ -613,7 +623,6 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   private async handleL2blocks(blocksSynchedTo: bigint, currentL1BlockNumber: bigint) {
     const localPendingBlockNumber = await this.getBlockNumber();
-    const initialValidationResult: ValidateBlockResult | undefined = await this.store.getPendingChainValidationStatus();
     const [provenBlockNumber, provenArchive, pendingBlockNumber, pendingArchive, archiveForLocalPendingBlockNumber] =
       await this.rollup.status(BigInt(localPendingBlockNumber), { blockNumber: currentL1BlockNumber });
     const rollupStatus = {
@@ -621,7 +630,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       provenArchive,
       pendingBlockNumber: Number(pendingBlockNumber),
       pendingArchive,
-      validationResult: initialValidationResult,
+      validationResult: undefined as ValidateBlockResult | undefined,
     };
     this.log.trace(`Retrieved rollup status at current L1 block ${currentL1BlockNumber}.`, {
       localPendingBlockNumber,
@@ -800,15 +809,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
         // Only update the validation result if it has changed, so we can keep track of the first invalid block
         // in case there is a sequence of more than one invalid block, as we need to invalidate the first one.
-        // There is an exception though: if an invalid block is invalidated and replaced with another invalid block,
-        // we need to update the validation result, since we need to be able to invalidate the new one.
-        // See test 'chain progresses if an invalid block is invalidated with an invalid one' for more info.
-        if (
-          rollupStatus.validationResult?.valid !== validationResult.valid ||
-          (!rollupStatus.validationResult.valid &&
-            !validationResult.valid &&
-            rollupStatus.validationResult.block.blockNumber === validationResult.block.blockNumber)
-        ) {
+        if (rollupStatus.validationResult?.valid !== validationResult.valid) {
           rollupStatus.validationResult = validationResult;
         }
 
@@ -827,7 +828,6 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
           // We keep consuming blocks if we find an invalid one, since we do not listen for BlockInvalidated events
           // We just pretend the invalid ones are not there and keep consuming the next blocks
-          // Note that this breaks if the committee ever attests to a descendant of an invalid block
           continue;
         }
 
@@ -841,9 +841,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       }
 
       try {
-        const updatedValidationResult =
-          rollupStatus.validationResult === initialValidationResult ? undefined : rollupStatus.validationResult;
-        const [processDuration] = await elapsed(() => this.store.addBlocks(validBlocks, updatedValidationResult));
+        const [processDuration] = await elapsed(() => this.store.addBlocks(validBlocks));
         this.instrumentation.processNewBlocks(
           processDuration / validBlocks.length,
           validBlocks.map(b => b.block),
@@ -1230,12 +1228,12 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return this.store.getDebugFunctionName(address, selector);
   }
 
-  async getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
-    return (await this.store.getPendingChainValidationStatus()) ?? { valid: true };
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+    return Promise.resolve(this.pendingChainValidationStatus);
   }
 
   isPendingChainInvalid(): Promise<boolean> {
-    return this.getPendingChainValidationStatus().then(status => !status.valid);
+    return Promise.resolve(this.pendingChainValidationStatus.valid === false);
   }
 
   async getL2Tips(): Promise<L2Tips> {
@@ -1353,7 +1351,6 @@ export class ArchiverStoreHelper
       | 'backupTo'
       | 'close'
       | 'transactionAsync'
-      | 'addBlocks'
     >
 {
   #log = createLogger('archiver:block-helper');
@@ -1496,16 +1493,13 @@ export class ArchiverStoreHelper
     return true;
   }
 
-  public addBlocks(blocks: PublishedL2Block[], pendingChainValidationStatus?: ValidateBlockResult): Promise<boolean> {
+  public addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
     // Add the blocks to the store. Store will throw if the blocks are not in order, there are gaps,
     // or if the previous block is not in the store.
     return this.store.transactionAsync(async () => {
       await this.store.addBlocks(blocks);
 
       const opResults = await Promise.all([
-        // Update the pending chain validation status if provided
-        pendingChainValidationStatus && this.store.setPendingChainValidationStatus(pendingChainValidationStatus),
-        // Add any logs emitted during the retrieved blocks
         this.store.addLogs(blocks.map(block => block.block)),
         // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
         ...blocks.map(async block => {
@@ -1545,8 +1539,6 @@ export class ArchiverStoreHelper
     const blocks = await this.getPublishedBlocks(from - blocksToUnwind + 1, blocksToUnwind);
 
     const opResults = await Promise.all([
-      // Prune rolls back to the last proven block, which is by definition valid
-      this.store.setPendingChainValidationStatus({ valid: true }),
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
       ...blocks.map(async block => {
         const contractClassLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
@@ -1663,12 +1655,5 @@ export class ArchiverStoreHelper
   }
   getLastL1ToL2Message(): Promise<InboxMessage | undefined> {
     return this.store.getLastL1ToL2Message();
-  }
-  getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined> {
-    return this.store.getPendingChainValidationStatus();
-  }
-  setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void> {
-    this.#log.debug(`Setting pending chain validation status to valid ${status?.valid}`, status);
-    return this.store.setPendingChainValidationStatus(status);
   }
 }

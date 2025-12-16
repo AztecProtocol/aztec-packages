@@ -35,9 +35,6 @@
     },
     {
       "path": "../telemetry-client"
-    },
-    {
-      "path": "../test-wallet"
     }
   ],
   "include": ["src"]

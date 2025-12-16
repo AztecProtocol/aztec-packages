@@ -1,5 +1,7 @@
-import { generateSchnorrAccounts, getDeployedTestAccounts } from '@aztec/accounts/testing';
+import { getSchnorrAccount, getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
+import { generateSchnorrAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
+  type AccountWalletWithSecretKey,
   type AztecAddress,
   type AztecNode,
   FeeJuicePaymentMethodWithClaim,
@@ -8,7 +10,6 @@ import {
   L1FeeJuicePortalManager,
   type PXE,
   SponsoredFeePaymentMethod,
-  type Wallet,
   createAztecNodeClient,
   createCompatibleClient,
   retryUntil,
@@ -18,19 +19,18 @@ import type { Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { createPXEService } from '@aztec/pxe/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet } from '@aztec/test-wallet';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { getSponsoredFPCAddress, registerSponsoredFPC } from '../fixtures/utils.js';
 
-export interface TestAccounts {
+export interface TestWallets {
   pxe: PXE;
-  wallet: TestWallet;
-  accounts: AztecAddress[];
-  tokenContract: TokenContract;
+  wallets: AccountWalletWithSecretKey[];
+  tokenAdminWallet: TokenContract;
   tokenAdminAddress: AztecAddress;
   tokenName: string;
+  recipientWallet: AccountWalletWithSecretKey;
   recipientAddress: AztecAddress;
   tokenAddress: AztecAddress;
 }
@@ -39,86 +39,83 @@ const TOKEN_NAME = 'USDC';
 const TOKEN_SYMBOL = 'USD';
 const TOKEN_DECIMALS = 18n;
 
-export async function setupTestAccountsWithTokens(
+export async function setupTestWalletsWithTokens(
   pxeUrl: string,
   mintAmount: bigint,
   logger: Logger,
-): Promise<TestAccounts> {
-  const ACCOUNT_COUNT = 1; // TODO fix this to allow for 16 wallets again
+): Promise<TestWallets> {
+  const WALLET_COUNT = 1; // TODO fix this to allow for 16 wallets again
 
   const pxe = await createCompatibleClient(pxeUrl, logger);
-  const wallet = new TestWallet(pxe);
 
-  const [recipientAccount, ...accounts] = (await getDeployedTestAccounts(pxe)).slice(0, ACCOUNT_COUNT + 1);
+  const [recipientWallet, ...wallets] = (await getDeployedTestAccountsWallets(pxe)).slice(0, WALLET_COUNT + 1);
 
-  const tokenAdmin = accounts[0];
-  const tokenAddress = await deployTokenAndMint(
-    wallet,
-    accounts.map(acc => acc.address),
-    tokenAdmin.address,
-    mintAmount,
-    undefined,
-    logger,
-  );
-  const tokenContract = await TokenContract.at(tokenAddress, wallet);
+  const tokenAdmin = wallets[0];
+  const tokenAddress = await deployTokenAndMint(wallets, tokenAdmin.getAddress(), mintAmount, undefined, logger);
+  const tokenAdminWallet = await TokenContract.at(tokenAddress, tokenAdmin);
 
   return {
     pxe,
-    accounts: accounts.map(acc => acc.address),
-    wallet,
-    tokenAdminAddress: tokenAdmin.address,
+    wallets,
+    tokenAdminWallet,
+    tokenAdminAddress: tokenAdmin.getAddress(),
     tokenName: TOKEN_NAME,
     tokenAddress,
-    tokenContract,
-    recipientAddress: recipientAccount.address,
+    recipientAddress: recipientWallet.getAddress(),
+    recipientWallet,
   };
 }
 
-export async function deploySponsoredTestAccounts(
+export async function deploySponsoredTestWallets(
   pxe: PXE,
   mintAmount: bigint,
   logger: Logger,
   numberOfFundedWallets = 1,
-): Promise<TestAccounts> {
-  const wallet = new TestWallet(pxe);
+): Promise<TestWallets> {
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
-  const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
-  const fundedAccounts = await Promise.all(funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt)));
+  const recipientWallet = await getSchnorrWalletWithSecretKey(
+    pxe,
+    recipient.secret,
+    recipient.signingKey,
+    recipient.salt,
+  );
+  const fundedAccounts = await Promise.all(funded.map(a => getSchnorrAccount(pxe, a.secret, a.signingKey, a.salt)));
 
-  await registerSponsoredFPC(wallet);
+  await registerSponsoredFPC(pxe);
 
-  await Promise.all(
+  const wallets = await Promise.all(
     fundedAccounts.map(async a => {
+      const wallet = await a.getWallet();
       const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-      await recipientAccount.deploy({ fee: { paymentMethod } }).wait({ timeout: 2400 }); // increase timeout on purpose in order to account for two empty epochs
+      await a.deploy({ fee: { paymentMethod } }).wait({ timeout: 2400 }); // increase timeout on purpose in order to account for two empty epochs
       logger.info(`Account deployed at ${a.getAddress()}`);
+      return wallet;
     }),
   );
 
-  const tokenAdmin = fundedAccounts[0];
+  const tokenAdmin = wallets[0];
   const tokenAddress = await deployTokenAndMint(
-    wallet,
-    fundedAccounts.map(acc => acc.getAddress()),
+    wallets,
     tokenAdmin.getAddress(),
     mintAmount,
     new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()),
     logger,
   );
-  const tokenContract = await TokenContract.at(tokenAddress, wallet);
+  const tokenAdminWallet = await TokenContract.at(tokenAddress, tokenAdmin);
 
   return {
     pxe,
-    wallet,
-    accounts: fundedAccounts.map(acc => acc.getAddress()),
+    wallets,
     tokenAdminAddress: tokenAdmin.getAddress(),
+    tokenAdminWallet,
     tokenName: TOKEN_NAME,
     tokenAddress,
-    tokenContract,
-    recipientAddress: recipientAccount.getAddress(),
+    recipientWallet,
+    recipientAddress: recipientWallet.getAddress(),
   };
 }
 
-export async function deployTestAccountsWithTokens(
+export async function deployTestWalletWithTokens(
   pxeUrl: string,
   nodeUrl: string,
   l1RpcUrls: string[],
@@ -126,14 +123,18 @@ export async function deployTestAccountsWithTokens(
   mintAmount: bigint,
   logger: Logger,
   numberOfFundedWallets = 1,
-): Promise<TestAccounts> {
+): Promise<TestWallets> {
   const pxe = await createCompatibleClient(pxeUrl, logger);
   const node = createAztecNodeClient(nodeUrl);
-  const wallet = new TestWallet(pxe);
 
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
-  const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
-  const fundedAccounts = await Promise.all(funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt)));
+  const recipientWallet = await getSchnorrWalletWithSecretKey(
+    pxe,
+    recipient.secret,
+    recipient.signingKey,
+    recipient.salt,
+  );
+  const fundedAccounts = await Promise.all(funded.map(a => getSchnorrAccount(pxe, a.secret, a.signingKey, a.salt)));
 
   const claims = await Promise.all(
     fundedAccounts.map(a => bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, pxe, a.getAddress(), undefined, logger)),
@@ -144,34 +145,29 @@ export async function deployTestAccountsWithTokens(
   await advanceL2Block(node);
   await advanceL2Block(node);
 
-  await Promise.all(
+  const wallets = await Promise.all(
     fundedAccounts.map(async (a, i) => {
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.getAddress(), claims[i]);
+      const wallet = await a.getWallet();
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claims[i]);
       await a.deploy({ fee: { paymentMethod } }).wait();
       logger.info(`Account deployed at ${a.getAddress()}`);
+      return wallet;
     }),
   );
 
-  const tokenAdmin = fundedAccounts[0];
-  const tokenAddress = await deployTokenAndMint(
-    wallet,
-    fundedAccounts.map(acc => acc.getAddress()),
-    tokenAdmin.getAddress(),
-    mintAmount,
-    undefined,
-    logger,
-  );
-  const tokenContract = await TokenContract.at(tokenAddress, wallet);
+  const tokenAdmin = wallets[0];
+  const tokenAddress = await deployTokenAndMint(wallets, tokenAdmin.getAddress(), mintAmount, undefined, logger);
+  const tokenAdminWallet = await TokenContract.at(tokenAddress, tokenAdmin);
 
   return {
     pxe,
-    wallet,
-    accounts: fundedAccounts.map(acc => acc.getAddress()),
+    wallets,
     tokenAdminAddress: tokenAdmin.getAddress(),
+    tokenAdminWallet,
     tokenName: TOKEN_NAME,
     tokenAddress,
-    tokenContract,
-    recipientAddress: recipientAccount.getAddress(),
+    recipientWallet,
+    recipientAddress: recipientWallet.getAddress(),
   };
 }
 
@@ -216,15 +212,14 @@ async function advanceL2Block(node: AztecNode, nodeAdmin?: AztecNodeAdmin) {
 }
 
 async function deployTokenAndMint(
-  wallet: Wallet,
-  accounts: AztecAddress[],
+  wallets: AccountWalletWithSecretKey[],
   admin: AztecAddress,
   mintAmount: bigint,
   paymentMethod: FeePaymentMethod | undefined,
   logger: Logger,
 ) {
   logger.verbose(`Deploying TokenContract...`);
-  const tokenContract = await TokenContract.deploy(wallet, admin, TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS)
+  const tokenContract = await TokenContract.deploy(wallets[0], admin, TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS)
     .send({
       from: admin,
       fee: {
@@ -235,12 +230,12 @@ async function deployTokenAndMint(
 
   const tokenAddress = tokenContract.address;
 
-  logger.verbose(`Minting ${mintAmount} public assets to the ${accounts.length} accounts...`);
+  logger.verbose(`Minting ${mintAmount} public assets to the ${wallets.length} wallets...`);
 
   await Promise.all(
-    accounts.map(async acc =>
-      (await TokenContract.at(tokenAddress, wallet)).methods
-        .mint_to_public(acc, mintAmount)
+    wallets.map(async w =>
+      (await TokenContract.at(tokenAddress, w)).methods
+        .mint_to_public(w.getAddress(), mintAmount)
         .send({ from: admin, fee: { paymentMethod } })
         .wait({ timeout: 600 }),
     ),
@@ -252,26 +247,30 @@ async function deployTokenAndMint(
 }
 
 export async function performTransfers({
-  testAccounts,
+  testWallets,
   rounds,
   transferAmount,
   logger,
   feePaymentMethod,
 }: {
-  testAccounts: TestAccounts;
+  testWallets: TestWallets;
   rounds: number;
   transferAmount: bigint;
   logger: Logger;
   feePaymentMethod?: FeePaymentMethod;
 }) {
-  const recipient = testAccounts.recipientAddress;
+  const recipient = testWallets.recipientWallet.getAddress();
   // Default to sponsored fee payment if no fee method is provided
   const defaultFeePaymentMethod = feePaymentMethod || new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+
   for (let i = 0; i < rounds; i++) {
-    const txs = testAccounts.accounts.map(async acc =>
-      (await TokenContract.at(testAccounts.tokenAddress, testAccounts.wallet)).methods
-        .transfer_in_public(acc, recipient, transferAmount, 0)
-        .prove({ from: acc, fee: { paymentMethod: defaultFeePaymentMethod } }),
+    const txs = testWallets.wallets.map(async w =>
+      (await TokenContract.at(testWallets.tokenAddress, w)).methods
+        .transfer_in_public(w.getAddress(), recipient, transferAmount, 0)
+        .prove({
+          from: w.getAddress(),
+          fee: { paymentMethod: defaultFeePaymentMethod },
+        }),
     );
 
     const provenTxs = await Promise.all(txs);

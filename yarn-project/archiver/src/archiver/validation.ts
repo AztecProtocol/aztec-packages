@@ -20,7 +20,6 @@ export async function validateBlockAttestations(
   logger?: Logger,
 ): Promise<ValidateBlockResult> {
   const attestations = getAttestationsFromPublishedL2Block(publishedBlock);
-  const attestors = attestations.map(a => a.getSender());
   const { block } = publishedBlock;
   const blockHash = await block.hash().then(hash => hash.toString());
   const archiveRoot = block.archive.root.toString();
@@ -52,17 +51,7 @@ export async function validateBlockAttestations(
     if (!committeeSet.has(signer)) {
       logger?.warn(`Attestation from non-committee member ${signer} at slot ${slot}`, { committee });
       const reason = 'invalid-attestation';
-      return {
-        valid: false,
-        reason,
-        invalidIndex: i,
-        block: publishedBlock.block.toBlockInfo(),
-        committee,
-        seed,
-        epoch,
-        attestors,
-        attestations: publishedBlock.attestations,
-      };
+      return { valid: false, reason, invalidIndex: i, block: publishedBlock, committee, seed, epoch, attestations };
     }
   }
 
@@ -73,16 +62,7 @@ export async function validateBlockAttestations(
       ...logData,
     });
     const reason = 'insufficient-attestations';
-    return {
-      valid: false,
-      reason,
-      block: publishedBlock.block.toBlockInfo(),
-      committee,
-      seed,
-      epoch,
-      attestors,
-      attestations: publishedBlock.attestations,
-    };
+    return { valid: false, reason, block: publishedBlock, committee, seed, epoch, attestations };
   }
 
   logger?.debug(`Block attestations validated successfully for block ${block.number} at slot ${slot}`, logData);

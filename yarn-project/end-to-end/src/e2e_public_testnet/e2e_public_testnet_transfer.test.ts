@@ -1,4 +1,4 @@
-import type { AztecAddress, Logger, Wallet } from '@aztec/aztec.js';
+import type { AccountWalletWithSecretKey, AztecAddress, Logger } from '@aztec/aztec.js';
 import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 
 import { foundry, sepolia } from 'viem/chains';
@@ -11,7 +11,7 @@ import { setup } from '../fixtures/utils.js';
 // process.env.L1_CHAIN_ID = '11155111';
 
 describe(`deploys and transfers a private only token`, () => {
-  let wallet: Wallet;
+  let deployerWallet: AccountWalletWithSecretKey;
 
   let deployerAddress: AztecAddress;
   let recipientAddress: AztecAddress;
@@ -22,8 +22,9 @@ describe(`deploys and transfers a private only token`, () => {
   beforeEach(async () => {
     const chainId = !process.env.L1_CHAIN_ID ? foundry.id : +process.env.L1_CHAIN_ID;
     const chain = chainId == sepolia.id ? sepolia : foundry; // Not the best way of doing this.
+    let wallets: AccountWalletWithSecretKey[];
     let accounts: AztecAddress[];
-    ({ logger, teardown, wallet, accounts } = await setup(
+    ({ logger, teardown, wallets, accounts } = await setup(
       2, // Deploy 2 accounts.
       {
         numberOfInitialFundedAccounts: 2, // Fund 2 accounts.
@@ -34,6 +35,7 @@ describe(`deploys and transfers a private only token`, () => {
       chain,
     ));
 
+    [deployerWallet] = wallets;
     [deployerAddress, recipientAddress] = accounts;
   }, 600_000);
 
@@ -45,7 +47,7 @@ describe(`deploys and transfers a private only token`, () => {
     const initialBalance = 100_000_000_000n;
     const transferValue = 5n;
 
-    const token = await PrivateTokenContract.deploy(wallet, initialBalance, deployerAddress)
+    const token = await PrivateTokenContract.deploy(deployerWallet, initialBalance, deployerAddress)
       .send({
         from: deployerAddress,
         universalDeploy: true,

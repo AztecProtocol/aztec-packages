@@ -35,7 +35,7 @@ function build_sol {
         git submodule update --init --recursive ./lib
 
         forge fmt || true
-        denoise "forge build"
+        forge build
 
         cache_upload $artifact out
     fi

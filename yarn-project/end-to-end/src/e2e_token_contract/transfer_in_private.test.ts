@@ -5,13 +5,13 @@ import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer private', () => {
   const t = new TokenContractTest('transfer_private');
-  let { asset, tokenSim, wallet, node, adminAddress, account1Address, account2Address, badAccount } = t;
+  let { asset, tokenSim, admin, adminAddress, account1, account1Address, account2, account2Address, badAccount } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    ({ asset, tokenSim, wallet, node, adminAddress, account1Address, account2Address, badAccount } = t);
+    ({ asset, tokenSim, admin, adminAddress, account1, account1Address, account2, account2Address, badAccount } = t);
   });
 
   afterAll(async () => {
@@ -30,9 +30,15 @@ describe('e2e_token_contract transfer private', () => {
 
     // We need to compute the message we want to sign and add it to the wallet as approved
     // docs:start:authwit_transfer_example
-    const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
+    const action = asset
+      .withWallet(account1)
+      .methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
 
-    const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
+    const witness = await admin.createAuthWit({ caller: account1Address, action });
+    expect(await admin.lookupValidity(adminAddress, { caller: account1Address, action }, witness)).toEqual({
+      isValidInPrivate: true,
+      isValidInPublic: false,
+    });
     // docs:end:authwit_transfer_example
 
     // Perform the transfer
@@ -40,8 +46,9 @@ describe('e2e_token_contract transfer private', () => {
     tokenSim.transferPrivate(adminAddress, account1Address, amount);
 
     // Perform the transfer again, should fail
-    const txReplay = asset.methods
-      .transfer_in_private(adminAddress, account1Address, amount, authwitNonce)
+    const txReplay = asset
+      .withWallet(account1)
+      .methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce)
       .send({ from: account1Address, authWitnesses: [witness] });
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
@@ -71,9 +78,11 @@ describe('e2e_token_contract transfer private', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
+      const action = asset
+        .withWallet(account1)
+        .methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
 
-      const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
+      const witness = await admin.createAuthWit({ caller: account1Address, action });
 
       // Perform the transfer
       await expect(action.simulate({ from: account1Address, authWitnesses: [witness] })).rejects.toThrow(
@@ -99,10 +108,15 @@ describe('e2e_token_contract transfer private', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
+      const action = asset
+        .withWallet(account1)
+        .methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
       const messageHash = await computeAuthWitMessageHash(
         { caller: account1Address, action },
-        { chainId: new Fr(await node.getChainId()), version: new Fr(await node.getVersion()) },
+        {
+          chainId: admin.getChainId(),
+          version: admin.getVersion(),
+        },
       );
 
       await expect(action.simulate({ from: account1Address })).rejects.toThrow(
@@ -117,13 +131,18 @@ describe('e2e_token_contract transfer private', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
+      const action = asset
+        .withWallet(account2)
+        .methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
       const expectedMessageHash = await computeAuthWitMessageHash(
         { caller: account2Address, action },
-        { chainId: new Fr(await node.getChainId()), version: new Fr(await node.getVersion()) },
+        {
+          chainId: admin.getChainId(),
+          version: admin.getVersion(),
+        },
       );
 
-      const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
+      const witness = await admin.createAuthWit({ caller: account1Address, action });
 
       await expect(action.simulate({ from: account2Address, authWitnesses: [witness] })).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
@@ -138,18 +157,31 @@ describe('e2e_token_contract transfer private', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
+      const action = asset
+        .withWallet(account1)
+        .methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
 
       const intent = { caller: account1Address, action };
 
-      const witness = await wallet.createAuthWit(adminAddress, intent);
+      const witness = await admin.createAuthWit(intent);
+
+      expect(await admin.lookupValidity(adminAddress, intent, witness)).toEqual({
+        isValidInPrivate: true,
+        isValidInPublic: false,
+      });
 
       const innerHash = await computeInnerAuthWitHashFromAction(account1Address, action);
-      await asset.methods.cancel_authwit(innerHash).send({ from: adminAddress }).wait();
+      await asset.withWallet(admin).methods.cancel_authwit(innerHash).send({ from: adminAddress }).wait();
+
+      expect(await admin.lookupValidity(adminAddress, intent, witness)).toEqual({
+        isValidInPrivate: false,
+        isValidInPublic: false,
+      });
 
       // Perform the transfer, should fail because nullifier already emitted
-      const txCancelledAuthwit = asset.methods
-        .transfer_in_private(adminAddress, account1Address, amount, authwitNonce)
+      const txCancelledAuthwit = asset
+        .withWallet(account1)
+        .methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce)
         .send({ from: account1Address, authWitnesses: [witness] });
       await expect(txCancelledAuthwit.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
@@ -158,12 +190,9 @@ describe('e2e_token_contract transfer private', () => {
       const authwitNonce = Fr.random();
 
       // Should fail as the returned value from the badAccount is malformed
-      const txCancelledAuthwit = asset.methods.transfer_in_private(
-        badAccount.address,
-        account1Address,
-        0,
-        authwitNonce,
-      );
+      const txCancelledAuthwit = asset
+        .withWallet(account1)
+        .methods.transfer_in_private(badAccount.address, account1Address, 0, authwitNonce);
       await expect(txCancelledAuthwit.simulate({ from: account1Address })).rejects.toThrow(
         'Assertion failed: Message not authorized by account',
       );

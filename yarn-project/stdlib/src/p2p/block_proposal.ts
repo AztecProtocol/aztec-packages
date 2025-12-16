@@ -5,7 +5,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import type { L2BlockInfo } from '../block/l2_block_info.js';
+import type { BlockInfo } from '../block/l2_block.js';
 import { TxHash } from '../tx/index.js';
 import { Tx } from '../tx/tx.js';
 import type { UInt32 } from '../types/index.js';
@@ -71,13 +71,11 @@ export class BlockProposal extends Gossipable {
     return this.payload.header.slotNumber;
   }
 
-  toBlockInfo(): L2BlockInfo {
+  toBlockInfo(): BlockInfo {
     return {
       blockNumber: this.blockNumber,
       slotNumber: this.slotNumber.toNumber(),
-      lastArchive: this.payload.header.lastArchiveRoot,
-      timestamp: this.payload.header.timestamp,
-      archive: this.archive,
+      archive: this.archive.toString(),
       txCount: this.txHashes.length,
     };
   }

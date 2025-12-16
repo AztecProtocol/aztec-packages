@@ -386,11 +386,11 @@ export class SequencerPublisher {
     }
 
     const { reason, block } = validationResult;
-    const blockNumber = block.blockNumber;
-    const logData = { ...block, reason };
+    const blockNumber = block.block.number;
+    const logData = { ...block.block.toBlockInfo(), reason };
 
     const currentBlockNumber = await this.rollupContract.getBlockNumber();
-    if (currentBlockNumber < validationResult.block.blockNumber) {
+    if (currentBlockNumber < validationResult.block.block.number) {
       this.log.verbose(
         `Skipping block ${blockNumber} invalidation since it has already been removed from the pending chain`,
         { currentBlockNumber, ...logData },
@@ -444,23 +444,21 @@ export class SequencerPublisher {
     }
 
     const { block, committee, reason } = validationResult;
-    const logData = { ...block, reason };
-    this.log.debug(`Simulating invalidate block ${block.blockNumber}`, logData);
+    const logData = { ...block.block.toBlockInfo(), reason };
+    this.log.debug(`Simulating invalidate block ${block.block.number}`, logData);
 
-    const attestationsAndSigners = new CommitteeAttestationsAndSigners(
-      validationResult.attestations,
-    ).getPackedAttestations();
+    const attestationsAndSigners = new CommitteeAttestationsAndSigners(block.attestations).getPackedAttestations();
 
     if (reason === 'invalid-attestation') {
       return this.rollupContract.buildInvalidateBadAttestationRequest(
-        block.blockNumber,
+        block.block.number,
         attestationsAndSigners,
         committee,
         validationResult.invalidIndex,
       );
     } else if (reason === 'insufficient-attestations') {
       return this.rollupContract.buildInvalidateInsufficientAttestationsRequest(
-        block.blockNumber,
+        block.block.number,
         attestationsAndSigners,
         committee,
       );

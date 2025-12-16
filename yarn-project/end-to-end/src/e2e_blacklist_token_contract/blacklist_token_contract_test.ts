@@ -1,6 +1,9 @@
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
+  type AccountWallet,
   AztecAddress,
   type AztecNode,
+  type CompleteAddress,
   Fr,
   type Logger,
   type PXE,
@@ -13,7 +16,6 @@ import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import type { TestWallet } from '@aztec/test-wallet';
 
 import { jest } from '@jest/globals';
 
@@ -61,8 +63,9 @@ export class BlacklistTokenContractTest {
 
   private snapshotManager: ISnapshotManager;
   logger: Logger;
-  wallet!: TestWallet;
+  wallets: AccountWallet[] = [];
   pxe!: PXE;
+  accounts: CompleteAddress[] = [];
   asset!: TokenBlacklistContract;
   tokenSim!: TokenSimulator;
   badAccount!: InvalidAccountContract;
@@ -70,8 +73,11 @@ export class BlacklistTokenContractTest {
   sequencer!: SequencerClient;
   aztecNode!: AztecNode;
 
+  admin!: AccountWallet;
   adminAddress!: AztecAddress;
+  other!: AccountWallet;
   otherAddress!: AztecAddress;
+  blacklisted!: AccountWallet;
   blacklistedAddress!: AztecAddress;
 
   constructor(testName: string) {
@@ -99,16 +105,19 @@ export class BlacklistTokenContractTest {
     await this.snapshotManager.snapshot(
       '3_accounts',
       deployAccounts(3, this.logger),
-      ({ deployedAccounts }, { pxe, cheatCodes, aztecNode, sequencer, wallet }) => {
+      async ({ deployedAccounts }, { pxe, cheatCodes, aztecNode, sequencer }) => {
         this.pxe = pxe;
         this.cheatCodes = cheatCodes;
         this.aztecNode = aztecNode;
         this.sequencer = sequencer;
-        this.wallet = wallet;
-        this.adminAddress = deployedAccounts[0].address;
-        this.otherAddress = deployedAccounts[1].address;
-        this.blacklistedAddress = deployedAccounts[2].address;
-        return Promise.resolve();
+        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
+        this.admin = this.wallets[0];
+        this.adminAddress = this.admin.getAddress();
+        this.other = this.wallets[1];
+        this.otherAddress = this.other.getAddress();
+        this.blacklisted = this.wallets[2];
+        this.blacklistedAddress = this.blacklisted.getAddress();
+        this.accounts = this.wallets.map(w => w.getCompleteAddress());
       },
     );
 
@@ -118,16 +127,16 @@ export class BlacklistTokenContractTest {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallet, [this.adminAddress, this.otherAddress, this.blacklistedAddress]);
+        await publicDeployAccounts(this.admin, this.accounts.slice(0, 3));
 
         this.logger.verbose(`Deploying TokenContract...`);
-        this.asset = await TokenBlacklistContract.deploy(this.wallet, this.adminAddress)
+        this.asset = await TokenBlacklistContract.deploy(this.admin, this.adminAddress)
           .send({ from: this.adminAddress })
           .deployed();
         this.logger.verbose(`Token deployed to ${this.asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        this.badAccount = await InvalidAccountContract.deploy(this.wallet).send({ from: this.adminAddress }).deployed();
+        this.badAccount = await InvalidAccountContract.deploy(this.admin).send({ from: this.adminAddress }).deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         await this.crossTimestampOfChange();
@@ -136,18 +145,18 @@ export class BlacklistTokenContractTest {
       },
       async ({ tokenContractAddress, badAccountAddress }) => {
         // Restore the token contract state.
-        this.asset = await TokenBlacklistContract.at(tokenContractAddress, this.wallet);
+        this.asset = await TokenBlacklistContract.at(tokenContractAddress, this.wallets[0]);
         this.logger.verbose(`Token contract address: ${this.asset.address}`);
 
         this.tokenSim = new TokenSimulator(
           this.asset as unknown as TokenContract,
-          this.wallet,
+          this.admin,
           this.adminAddress,
           this.logger,
-          [this.adminAddress, this.otherAddress, this.blacklistedAddress],
+          this.accounts.map(a => a.address),
         );
 
-        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallet);
+        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallets[0]);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         expect(await this.asset.methods.get_roles(this.adminAddress).simulate({ from: this.adminAddress })).toEqual(
@@ -196,38 +205,40 @@ export class BlacklistTokenContractTest {
     await this.snapshotManager.snapshot(
       'mint',
       async () => {
-        const { asset } = this;
+        const { asset, accounts, wallets } = this;
         const amount = 10000n;
 
         const adminMinterRole = new Role().withAdmin().withMinter();
-        await this.asset.methods
-          .update_roles(this.adminAddress, adminMinterRole.toNoirStruct())
+        await this.asset
+          .withWallet(this.admin)
+          .methods.update_roles(this.admin.getAddress(), adminMinterRole.toNoirStruct())
           .send({ from: this.adminAddress })
           .wait();
 
         const blacklistRole = new Role().withBlacklisted();
-        await this.asset.methods
-          .update_roles(this.blacklistedAddress, blacklistRole.toNoirStruct())
+        await this.asset
+          .withWallet(this.admin)
+          .methods.update_roles(this.blacklisted.getAddress(), blacklistRole.toNoirStruct())
           .send({ from: this.adminAddress })
           .wait();
 
         await this.crossTimestampOfChange();
 
-        expect(await this.asset.methods.get_roles(this.adminAddress).simulate({ from: this.adminAddress })).toEqual(
-          adminMinterRole.toNoirStruct(),
-        );
+        expect(
+          await this.asset.methods.get_roles(this.admin.getAddress()).simulate({ from: this.adminAddress }),
+        ).toEqual(adminMinterRole.toNoirStruct());
 
         this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(this.adminAddress, amount).send({ from: this.adminAddress }).wait();
+        await asset.methods.mint_public(accounts[0].address, amount).send({ from: this.adminAddress }).wait();
 
         this.logger.verbose(`Minting ${amount} privately...`);
         const secret = Fr.random();
         const secretHash = await computeSecretHash(secret);
         const receipt = await asset.methods.mint_private(amount, secretHash).send({ from: this.adminAddress }).wait();
 
-        await this.addPendingShieldNoteToPXE(asset, this.adminAddress, amount, secretHash, receipt.txHash);
+        await this.addPendingShieldNoteToPXE(asset, wallets[0].getAddress(), amount, secretHash, receipt.txHash);
         const txClaim = asset.methods
-          .redeem_shield(this.adminAddress, amount, secret)
+          .redeem_shield(accounts[0].address, amount, secret)
           .send({ from: this.adminAddress });
         await txClaim.wait();
         this.logger.verbose(`Minting complete.`);
@@ -235,23 +246,23 @@ export class BlacklistTokenContractTest {
         return { amount };
       },
       async ({ amount }) => {
-        const { asset, tokenSim } = this;
-        tokenSim.mintPublic(this.adminAddress, amount);
+        const {
+          asset,
+          accounts: [{ address }],
+          tokenSim,
+        } = this;
+        tokenSim.mintPublic(address, amount);
 
-        const publicBalance = await asset.methods
-          .balance_of_public(this.adminAddress)
-          .simulate({ from: this.adminAddress });
+        const publicBalance = await asset.methods.balance_of_public(address).simulate({ from: address });
         this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
-        expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(this.adminAddress));
+        expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
-        tokenSim.mintPrivate(this.adminAddress, amount);
-        const privateBalance = await asset.methods
-          .balance_of_private(this.adminAddress)
-          .simulate({ from: this.adminAddress });
+        tokenSim.mintPrivate(address, amount);
+        const privateBalance = await asset.methods.balance_of_private(address).simulate({ from: address });
         this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
-        expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(this.adminAddress));
+        expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
 
-        const totalSupply = await asset.methods.total_supply().simulate({ from: this.adminAddress });
+        const totalSupply = await asset.methods.total_supply().simulate({ from: address });
         this.logger.verbose(`Total supply: ${totalSupply}`);
         expect(totalSupply).toEqual(tokenSim.totalSupply);
 

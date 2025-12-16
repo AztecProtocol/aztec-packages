@@ -12,16 +12,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  CommitteeAttestation,
-  EthAddress,
-  L2Block,
-  L2BlockHash,
-  PublishedL2Block,
-  type ValidateBlockResult,
-  randomBlockInfo,
-  wrapInBlock,
-} from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, L2BlockHash, wrapInBlock } from '@aztec/stdlib/block';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -43,6 +34,7 @@ import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.j
 import { BlockNumberNotSequentialError, InitialBlockNumberNotSequentialError } from './errors.js';
 import { MessageStoreError } from './kv_archiver_store/message_store.js';
 import type { InboxMessage } from './structs/inbox_message.js';
+import type { PublishedL2Block } from './structs/published.js';
 
 /**
  * @param testName - The name of the test suite.
@@ -66,16 +58,15 @@ export function describeArchiverDataStore(
 
     const makeBlockHash = (blockNumber: number) => `0x${blockNumber.toString(16).padStart(64, '0')}`;
 
-    const makePublished = (block: L2Block, l1BlockNumber: number): PublishedL2Block =>
-      PublishedL2Block.fromFields({
-        block: block,
-        l1: {
-          blockNumber: BigInt(l1BlockNumber),
-          blockHash: makeBlockHash(l1BlockNumber),
-          timestamp: BigInt(l1BlockNumber * 1000),
-        },
-        attestations: times(3, CommitteeAttestation.random),
-      });
+    const makePublished = (block: L2Block, l1BlockNumber: number): PublishedL2Block => ({
+      block: block,
+      l1: {
+        blockNumber: BigInt(l1BlockNumber),
+        blockHash: makeBlockHash(l1BlockNumber),
+        timestamp: BigInt(l1BlockNumber * 1000),
+      },
+      attestations: times(3, CommitteeAttestation.random),
+    });
 
     const expectBlocksEqual = (actual: PublishedL2Block[], expected: PublishedL2Block[]) => {
       expect(actual.length).toEqual(expected.length);
@@ -766,7 +757,7 @@ export function describeArchiverDataStore(
           return txEffect;
         });
 
-        return PublishedL2Block.fromFields({
+        return {
           block: block,
           attestations: times(3, CommitteeAttestation.random),
           l1: {
@@ -774,7 +765,7 @@ export function describeArchiverDataStore(
             blockHash: makeBlockHash(blockNumber),
             timestamp: BigInt(blockNumber),
           },
-        });
+        };
       };
 
       beforeEach(async () => {
@@ -887,13 +878,11 @@ export function describeArchiverDataStore(
       let blocks: PublishedL2Block[];
 
       beforeEach(async () => {
-        blocks = await timesParallel(numBlocks, async (index: number) =>
-          PublishedL2Block.fromFields({
-            block: await L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
-            l1: { blockNumber: BigInt(index), blockHash: makeBlockHash(index), timestamp: BigInt(index) },
-            attestations: times(3, CommitteeAttestation.random),
-          }),
-        );
+        blocks = await timesParallel(numBlocks, async (index: number) => ({
+          block: await L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
+          l1: { blockNumber: BigInt(index), blockHash: makeBlockHash(index), timestamp: BigInt(index) },
+          attestations: times(3, CommitteeAttestation.random),
+        }));
 
         await store.addBlocks(blocks);
         await store.addLogs(blocks.map(b => b.block));
@@ -1065,97 +1054,6 @@ export function describeArchiverDataStore(
             }
           }
         }
-      });
-    });
-
-    describe('pendingChainValidationStatus', () => {
-      it('should return undefined when no status is set', async () => {
-        const status = await store.getPendingChainValidationStatus();
-        expect(status).toBeUndefined();
-      });
-
-      it('should store and retrieve a valid validation status', async () => {
-        const validStatus: ValidateBlockResult = { valid: true };
-
-        await store.setPendingChainValidationStatus(validStatus);
-        const retrievedStatus = await store.getPendingChainValidationStatus();
-
-        expect(retrievedStatus).toEqual(validStatus);
-      });
-
-      it('should store and retrieve an invalid validation status with insufficient attestations', async () => {
-        const invalidStatus: ValidateBlockResult = {
-          valid: false,
-          block: randomBlockInfo(1),
-          committee: [EthAddress.random(), EthAddress.random()],
-          epoch: 123n,
-          seed: 456n,
-          attestors: [EthAddress.random()],
-          attestations: [CommitteeAttestation.random()],
-          reason: 'insufficient-attestations',
-        };
-
-        await store.setPendingChainValidationStatus(invalidStatus);
-        const retrievedStatus = await store.getPendingChainValidationStatus();
-
-        expect(retrievedStatus).toEqual(invalidStatus);
-      });
-
-      it('should store and retrieve an invalid validation status with invalid attestation', async () => {
-        const invalidStatus: ValidateBlockResult = {
-          valid: false,
-          block: randomBlockInfo(2),
-          committee: [EthAddress.random()],
-          attestors: [EthAddress.random()],
-          epoch: 789n,
-          seed: 101n,
-          attestations: [CommitteeAttestation.random()],
-          reason: 'invalid-attestation',
-          invalidIndex: 5,
-        };
-
-        await store.setPendingChainValidationStatus(invalidStatus);
-        const retrievedStatus = await store.getPendingChainValidationStatus();
-
-        expect(retrievedStatus).toEqual(invalidStatus);
-      });
-
-      it('should overwrite existing status when setting a new one', async () => {
-        const firstStatus: ValidateBlockResult = { valid: true };
-        const secondStatus: ValidateBlockResult = {
-          valid: false,
-          block: randomBlockInfo(3),
-          committee: [EthAddress.random()],
-          epoch: 999n,
-          seed: 888n,
-          attestors: [EthAddress.random()],
-          attestations: [CommitteeAttestation.random()],
-          reason: 'insufficient-attestations',
-        };
-
-        await store.setPendingChainValidationStatus(firstStatus);
-        await store.setPendingChainValidationStatus(secondStatus);
-        const retrievedStatus = await store.getPendingChainValidationStatus();
-
-        expect(retrievedStatus).toEqual(secondStatus);
-      });
-
-      it('should handle empty committee and attestations arrays', async () => {
-        const statusWithEmptyArrays: ValidateBlockResult = {
-          valid: false,
-          block: randomBlockInfo(4),
-          committee: [],
-          epoch: 0n,
-          seed: 0n,
-          attestors: [],
-          attestations: [],
-          reason: 'insufficient-attestations',
-        };
-
-        await store.setPendingChainValidationStatus(statusWithEmptyArrays);
-        const retrievedStatus = await store.getPendingChainValidationStatus();
-
-        expect(retrievedStatus).toEqual(statusWithEmptyArrays);
       });
     });
   });

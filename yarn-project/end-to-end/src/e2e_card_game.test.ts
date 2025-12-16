@@ -1,4 +1,5 @@
 import {
+  type AccountWallet,
   AztecAddress,
   type GrumpkinScalar,
   type Logger,
@@ -62,14 +63,20 @@ describe('e2e_card_game', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
 
-  let wallet: Wallet;
+  let wallets: AccountWallet[];
   let masterNullifierSecretKeys: GrumpkinScalar[];
+
+  let firstPlayerWallet: Wallet;
+  let secondPlayerWallet: Wallet;
+  let thirdPlayerWallet: Wallet;
 
   let firstPlayer: AztecAddress;
   let secondPlayer: AztecAddress;
   let thirdPlayer: AztecAddress;
 
   let contract: CardGameContract;
+  let contractAsSecondPlayer: CardGameContract;
+  let contractAsThirdPlayer: CardGameContract;
 
   const getPackedCards = async (accountIndex: number, seed: bigint): Promise<Card[]> => {
     // First we get the app nullifier secret key for the account
@@ -90,9 +97,10 @@ describe('e2e_card_game', () => {
 
   beforeAll(async () => {
     const context = await setup(3);
-    ({ logger, teardown, wallet } = context);
+    ({ logger, teardown, wallets } = context);
 
-    [firstPlayer, secondPlayer, thirdPlayer] = context.accounts;
+    [firstPlayerWallet, secondPlayerWallet, thirdPlayerWallet] = wallets;
+    [firstPlayer, secondPlayer, thirdPlayer] = wallets.map(a => a.getAddress());
 
     masterNullifierSecretKeys = context.initialFundedAccounts.map(({ secret }) =>
       deriveMasterNullifierSecretKey(secret),
@@ -107,9 +115,14 @@ describe('e2e_card_game', () => {
 
   const deployContract = async () => {
     logger.debug(`Deploying L2 contract...`);
-    contract = await CardGameContract.deploy(wallet).send({ from: firstPlayer }).deployed();
+    contract = await CardGameContract.deploy(firstPlayerWallet).send({ from: firstPlayer }).deployed();
+    contractAsSecondPlayer = contract.withWallet(secondPlayerWallet);
+    contractAsThirdPlayer = contract.withWallet(thirdPlayerWallet);
     logger.info(`L2 contract deployed at ${contract.address}`);
   };
+
+  const getWallet = (address: AztecAddress) => wallets.find(w => w.getAddress().equals(address))!;
+  const contractFor = (address: AztecAddress) => contract.withWallet(getWallet(address))!;
 
   it('should be able to buy packs', async () => {
     const seed = 27n;
@@ -128,7 +141,7 @@ describe('e2e_card_game', () => {
     beforeEach(async () => {
       await Promise.all([
         contract.methods.buy_pack(seed).send({ from: firstPlayer }).wait(),
-        contract.methods.buy_pack(seed).send({ from: secondPlayer }).wait(),
+        contractAsSecondPlayer.methods.buy_pack(seed).send({ from: secondPlayer }).wait(),
       ]);
       firstPlayerCollection = boundedVecToArray(
         await contract.methods.view_collection_cards(firstPlayer, 0).simulate({ from: firstPlayer }),
@@ -142,7 +155,7 @@ describe('e2e_card_game', () => {
         .wait();
 
       await expect(
-        contract.methods
+        contractAsSecondPlayer.methods
           .join_game(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[1])])
           .send({ from: secondPlayer })
           .wait(),
@@ -184,7 +197,7 @@ describe('e2e_card_game', () => {
           .join_game(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[2])])
           .send({ from: firstPlayer })
           .wait(),
-        contract.methods
+        contractAsSecondPlayer.methods
           .join_game(GAME_ID, [cardToField(secondPlayerCollection[0]), cardToField(secondPlayerCollection[2])])
           .send({ from: secondPlayer })
           .wait(),
@@ -222,8 +235,8 @@ describe('e2e_card_game', () => {
       const seed = 27n;
       await Promise.all([
         contract.methods.buy_pack(seed).send({ from: firstPlayer }).wait(),
-        contract.methods.buy_pack(seed).send({ from: secondPlayer }).wait(),
-        contract.methods.buy_pack(seed).send({ from: thirdPlayer }).wait(),
+        contractAsSecondPlayer.methods.buy_pack(seed).send({ from: secondPlayer }).wait(),
+        contractAsThirdPlayer.methods.buy_pack(seed).send({ from: thirdPlayer }).wait(),
       ]);
 
       firstPlayerCollection = boundedVecToArray(
@@ -231,11 +244,11 @@ describe('e2e_card_game', () => {
       );
 
       secondPlayerCollection = boundedVecToArray(
-        await contract.methods.view_collection_cards(secondPlayer, 0).simulate({ from: secondPlayer }),
+        await contractAsSecondPlayer.methods.view_collection_cards(secondPlayer, 0).simulate({ from: secondPlayer }),
       );
 
       thirdPlayerCOllection = boundedVecToArray(
-        await contract.methods.view_collection_cards(thirdPlayer, 0).simulate({ from: thirdPlayer }),
+        await contractAsThirdPlayer.methods.view_collection_cards(thirdPlayer, 0).simulate({ from: thirdPlayer }),
       );
     });
 
@@ -258,7 +271,7 @@ describe('e2e_card_game', () => {
         for (let playerIndex = 0; playerIndex < players.length; playerIndex++) {
           const player = players[playerIndex];
           const card = cards[playerIndex][roundIndex];
-          await contract.methods.play_card(id, card).send({ from: player }).wait();
+          await contractFor(player).methods.play_card(id, card).send({ from: player }).wait();
         }
       }
 
@@ -272,8 +285,8 @@ describe('e2e_card_game', () => {
       const firstPlayerGameDeck = [firstPlayerCollection[0], firstPlayerCollection[2]];
       const secondPlayerGameDeck = [secondPlayerCollection[0], secondPlayerCollection[2]];
       await Promise.all([
-        joinGame(wallet, firstPlayer, firstPlayerGameDeck),
-        joinGame(wallet, secondPlayer, secondPlayerGameDeck),
+        joinGame(firstPlayerWallet, firstPlayer, firstPlayerGameDeck),
+        joinGame(secondPlayerWallet, secondPlayer, secondPlayerGameDeck),
       ]);
       await contract.methods.start_game(GAME_ID).send({ from: firstPlayer }).wait();
 
@@ -287,10 +300,13 @@ describe('e2e_card_game', () => {
       const loser = sortedByPoints[1].address;
 
       await expect(
-        contract.methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).simulate({ from: loser }),
+        contractFor(loser).methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).simulate({ from: loser }),
       ).rejects.toThrow(/Not the winner/);
 
-      await contract.methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).send({ from: winner }).wait();
+      await contractFor(winner)
+        .methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField))
+        .send({ from: winner })
+        .wait();
 
       const winnerCollection = boundedVecToArray(
         (await contract.methods.view_collection_cards(winner, 0).simulate({ from: winner })) as NoirBoundedVec<Card>,
@@ -300,12 +316,12 @@ describe('e2e_card_game', () => {
       const thirdPlayerGameDeck = [thirdPlayerCOllection[0], thirdPlayerCOllection[2]];
 
       await Promise.all([
-        joinGame(wallet, winner, winnerGameDeck, GAME_ID + 1),
-        joinGame(wallet, thirdPlayer, thirdPlayerGameDeck, GAME_ID + 1),
+        joinGame(getWallet(winner), winner, winnerGameDeck, GAME_ID + 1),
+        joinGame(thirdPlayerWallet, thirdPlayer, thirdPlayerGameDeck, GAME_ID + 1),
       ]);
 
-      await contract.methods
-        .start_game(GAME_ID + 1)
+      await contractFor(winner)
+        .methods.start_game(GAME_ID + 1)
         .send({ from: winner })
         .wait();
 
