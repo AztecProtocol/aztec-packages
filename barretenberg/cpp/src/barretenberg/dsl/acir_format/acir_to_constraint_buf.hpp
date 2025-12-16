@@ -16,15 +16,6 @@ namespace acir_format {
 /// representations.
 
 /**
- * @brief Convert an array of 32 bytes into a uint256_t by interpreting the bytes as the big-endian
- * (most-significant-byte first) representation of that number.
- *
- * @param bytes
- * @return uint256_t
- */
-uint256_t from_big_endian_bytes(std::vector<uint8_t> const& bytes);
-
-/**
  * @brief Parse an Acir::FunctionInput (which can either be a witness or a constant) into a WitnessOrConstant.
  */
 WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input);

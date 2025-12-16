@@ -990,7 +990,7 @@ __metadata:
     pino: "npm:^9.5.0"
     tslib: "npm:^2.4.0"
   bin:
-    bb.js: dest/node/main.js
+    bb: dest/node/bin/index.js
   languageName: node
   linkType: soft
 

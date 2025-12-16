@@ -28,6 +28,11 @@ export interface TestAccounts {
   tokenAddress: AztecAddress;
 }
 
+export type TestAccountsWithoutTokens = Omit<
+  TestAccounts,
+  'tokenAddress' | 'tokenContract' | 'tokenName' | 'tokenAdminAddress'
+>;
+
 const TOKEN_NAME = 'USDC';
 const TOKEN_SYMBOL = 'USD';
 const TOKEN_DECIMALS = 18n;
@@ -63,7 +68,7 @@ export async function setupTestAccountsWithTokens(
   };
 }
 
-export async function deploySponsoredTestAccounts(
+export async function deploySponsoredTestAccountsWithTokens(
   wallet: TestWallet,
   aztecNode: AztecNode,
   mintAmount: bigint,
@@ -106,6 +111,37 @@ export async function deploySponsoredTestAccounts(
     tokenName: TOKEN_NAME,
     tokenAddress,
     tokenContract,
+    recipientAddress: recipientAccount.address,
+  };
+}
+
+export async function deploySponsoredTestAccounts(
+  wallet: TestWallet,
+  aztecNode: AztecNode,
+  logger: Logger,
+  numberOfFundedWallets = 1,
+): Promise<TestAccountsWithoutTokens> {
+  const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
+  const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
+  const fundedAccounts = await Promise.all(funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt)));
+
+  await registerSponsoredFPC(wallet);
+
+  const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+  const recipientDeployMethod = await recipientAccount.getDeployMethod();
+  await recipientDeployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait({ timeout: 2400 });
+  await Promise.all(
+    fundedAccounts.map(async a => {
+      const deployMethod = await a.getDeployMethod();
+      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait({ timeout: 2400 }); // increase timeout on purpose in order to account for two empty epochs
+      logger.info(`Account deployed at ${a.address}`);
+    }),
+  );
+
+  return {
+    aztecNode,
+    wallet,
+    accounts: fundedAccounts.map(acc => acc.address),
     recipientAddress: recipientAccount.address,
   };
 }
