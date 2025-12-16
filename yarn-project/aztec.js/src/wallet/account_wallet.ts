@@ -2,11 +2,13 @@ import type { FeeOptions, TxExecutionOptions } from '@aztec/entrypoints/interfac
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/stdlib/abi';
+import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
+import type { AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import {
   type IntentAction,
@@ -14,45 +16,18 @@ import {
   computeAuthWitMessageHash,
   computeInnerAuthWitHashFromAction,
 } from '../utils/authwit.js';
-import type { Wallet } from '../wallet/wallet.js';
-import type { AccountInterface } from './interface.js';
+import { BaseWallet } from './base_wallet.js';
 
 /**
- * An authwit provider that can create both private and public authwits
- * with an intent as input, as opposed to just a precomputed inner hash
+ * A wallet implementation that forwards authentication requests to a provided account.
  */
-interface AuthwitnessIntentProvider {
-  /**
-   * Creates a private authwit from an intent or inner hash, to be provided
-   * during function execution
-   * @param intent - The action (or inner hash) to authorize
-   */
-  createAuthWit(intent: IntentInnerHash | IntentAction | Buffer | Fr): Promise<AuthWitness>;
-  /**
-   * Sets a public authwit for an intent or inner hash
-   * @param wallet - The wallet to send the transaction authorizing the action from
-   * @param messageHashOrIntent - The action (or inner hash) to authorize/deny
-   * @param authorized - Whether to authorize or deny the action
-   */
-  setPublicAuthWit(
-    wallet: Wallet,
-    messageHashOrIntent: Fr | Buffer | IntentInnerHash | IntentAction,
-    authorized: boolean,
-  ): Promise<ContractFunctionInteraction>;
-}
-
-/**
- * A type defining an account, capable of both creating authwits and using them
- * to authenticate transaction execution requests.
- */
-export type Account = AccountInterface & AuthwitnessIntentProvider;
-
-/**
- * An account implementation that uses authwits as an authentication mechanism
- * and can assemble transaction execution requests for an entrypoint.
- */
-export class BaseAccount implements Account {
-  constructor(protected account: AccountInterface) {}
+export class AccountWallet extends BaseWallet {
+  constructor(
+    pxe: PXE,
+    protected account: AccountInterface,
+  ) {
+    super(pxe);
+  }
 
   createTxExecutionRequest(
     exec: ExecutionPayload,
@@ -68,16 +43,6 @@ export class BaseAccount implements Account {
 
   getVersion(): Fr {
     return this.account.getVersion();
-  }
-
-  /** Returns the complete address of the account that implements this wallet. */
-  public getCompleteAddress() {
-    return this.account.getCompleteAddress();
-  }
-
-  /** Returns the address of the account that implements this wallet. */
-  public getAddress() {
-    return this.getCompleteAddress().address;
   }
 
   /**
@@ -108,13 +73,11 @@ export class BaseAccount implements Account {
    *
    * Public calls can then consume this authorization.
    *
-   * @param wallet - The wallet to send the transaction authorizing the action from
    * @param messageHashOrIntent - The message hash or intent to authorize/revoke
    * @param authorized - True to authorize, false to revoke authorization.
    * @returns - A function interaction.
    */
   public async setPublicAuthWit(
-    wallet: Wallet,
     messageHashOrIntent: Fr | Buffer | IntentInnerHash | IntentAction,
     authorized: boolean,
   ): Promise<ContractFunctionInteraction> {
@@ -127,7 +90,7 @@ export class BaseAccount implements Account {
       messageHash = await this.getMessageHash(messageHashOrIntent);
     }
 
-    return new ContractFunctionInteraction(wallet, ProtocolContractAddress.AuthRegistry, this.getSetAuthorizedAbi(), [
+    return new ContractFunctionInteraction(this, ProtocolContractAddress.AuthRegistry, this.getSetAuthorizedAbi(), [
       messageHash,
       authorized,
     ]);
@@ -169,14 +132,12 @@ export class BaseAccount implements Account {
    *
    * Uses the chain id and version of the wallet.
    *
-   * @param wallet - The wallet use to simulate and read the public data
    * @param onBehalfOf - The address of the "approver"
    * @param intent - The consumer and inner hash or the caller and action to lookup
    * @param witness - The computed authentication witness to check
    * @returns - A struct containing the validity of the authwit in private and public contexts.
    */
   async lookupValidity(
-    wallet: Wallet,
     onBehalfOf: AztecAddress,
     intent: IntentInnerHash | IntentAction,
     witness: AuthWitness,
@@ -193,25 +154,33 @@ export class BaseAccount implements Account {
 
     // Check private
     try {
-      results.isValidInPrivate = (await new ContractFunctionInteraction(
-        wallet,
-        onBehalfOf,
-        this.getLookupValidityAbi(),
-        [consumer, innerHash],
-      ).simulate({ from: this.getAddress(), authWitnesses: [witness] })) as boolean;
+      results.isValidInPrivate = (await new ContractFunctionInteraction(this, onBehalfOf, this.getLookupValidityAbi(), [
+        consumer,
+        innerHash,
+      ]).simulate({ from: this.getAddress(), authWitnesses: [witness] })) as boolean;
       // TODO: Narrow down the error to make sure simulation failed due to an invalid authwit
       // eslint-disable-next-line no-empty
     } catch {}
 
     // check public
     results.isValidInPublic = (await new ContractFunctionInteraction(
-      wallet,
+      this,
       ProtocolContractAddress.AuthRegistry,
       this.getIsConsumableAbi(),
       [onBehalfOf, messageHash],
     ).simulate({ from: this.getAddress() })) as boolean;
 
     return results;
+  }
+
+  /** Returns the complete address of the account that implements this wallet. */
+  public getCompleteAddress() {
+    return this.account.getCompleteAddress();
+  }
+
+  /** Returns the address of the account that implements this wallet. */
+  public override getAddress() {
+    return this.getCompleteAddress().address;
   }
 
   private getSetAuthorizedAbi(): FunctionAbi {

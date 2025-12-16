@@ -1,29 +1,27 @@
-import { AztecAddress, type DeployOptions, ProtocolContractAddress } from '@aztec/aztec.js';
+import { type AccountManager, AztecAddress, type DeployAccountOptions } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
-import type { CLIFeeArgs } from '../utils/options/fees.js';
+import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
-import type { CLIWallet } from '../utils/wallet.js';
 
 export async function deployAccount(
-  wallet: CLIWallet,
-  address: AztecAddress,
+  account: AccountManager,
   wait: boolean,
   registerClass: boolean,
   publicDeploy: boolean,
-  feeOpts: CLIFeeArgs,
+  feeOpts: IFeeOpts,
   json: boolean,
   verbose: boolean,
   debugLogger: Logger,
   log: LogFn,
 ) {
   const out: Record<string, any> = {};
-
-  const account = await wallet.createOrRetrieveAccount(address);
-  const { partialAddress, publicKeys } = await account.getCompleteAddress();
+  const { address, partialAddress, publicKeys } = await account.getCompleteAddress();
   const { initializationHash, deployer, salt } = account.getInstance();
+  const wallet = await account.getWallet();
+  const secretKey = wallet.getSecretKey();
 
   if (json) {
     out.address = address;
@@ -35,6 +33,9 @@ export async function deployAccount(
     log(`\nNew account:\n`);
     log(`Address:         ${address.toString()}`);
     log(`Public key:      ${publicKeys.toString()}`);
+    if (secretKey) {
+      log(`Secret key:     ${secretKey.toString()}`);
+    }
     log(`Partial address: ${partialAddress.toString()}`);
     log(`Salt:            ${salt.toString()}`);
     log(`Init hash:       ${initializationHash.toString()}`);
@@ -44,26 +45,10 @@ export async function deployAccount(
   let tx;
   let txReceipt;
 
-  const userFeeOptions = await feeOpts.toUserFeeOptions(wallet, address);
-  const feePayer = await userFeeOptions.paymentMethod?.getFeePayer();
-  let paymentAsset;
-  try {
-    paymentAsset = await userFeeOptions.paymentMethod?.getAsset();
-    // eslint-disable-next-line no-empty
-  } catch {}
-
-  // If someone else is paying the fee, set them as the deployment account.
-  // What we're trying to identify here is that the fee payment method is
-  // FeeJuicePaymentMethod(anAddressThatsNotTheAccountBeingDeployed)
-  const delegatedDeployment =
-    paymentAsset?.equals(ProtocolContractAddress.FeeJuice) && !feePayer?.equals(account.getAddress());
-  const from = delegatedDeployment ? feePayer! : AztecAddress.ZERO;
-
-  const deployOpts: DeployOptions = {
+  const deployOpts: DeployAccountOptions = {
     skipInstancePublication: !publicDeploy,
     skipClassPublication: !registerClass,
-    from,
-    fee: userFeeOptions,
+    ...(await feeOpts.toDeployAccountOpts(wallet)),
   };
 
   /*
@@ -75,16 +60,17 @@ export async function deployAccount(
    * Also, salt and universalDeploy have to be explicitly provided
    */
   deployOpts.fee =
-    !delegatedDeployment && deployOpts?.fee
+    !deployOpts?.deployWallet && deployOpts?.fee
       ? { ...deployOpts.fee, paymentMethod: await account.getSelfPaymentMethod(deployOpts.fee.paymentMethod) }
       : deployOpts?.fee;
 
-  const deployMethod = await account.getDeployMethod();
+  const deployMethod = await account.getDeployMethod(deployOpts.deployWallet);
 
   if (feeOpts.estimateOnly) {
     const gas = await deployMethod.estimateGas({
       ...deployOpts,
-      universalDeploy: !deployer,
+      from: AztecAddress.ZERO,
+      universalDeploy: true,
       contractAddressSalt: salt,
     });
     if (json) {
@@ -98,10 +84,13 @@ export async function deployAccount(
           l2: gas.teardownGasLimits,
         },
       };
+    } else {
+      printGasEstimates(feeOpts, gas, log);
     }
   } else {
     const provenTx = await deployMethod.prove({
       ...deployOpts,
+      from: AztecAddress.ZERO,
       universalDeploy: true,
       contractAddressSalt: salt,
     });
@@ -135,4 +124,6 @@ export async function deployAccount(
       log(`Deploy tx fee:   ${txReceipt.transactionFee}`);
     }
   }
+
+  return { address, secretKey, salt };
 }

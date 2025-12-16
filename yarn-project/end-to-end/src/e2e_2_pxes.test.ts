@@ -1,10 +1,10 @@
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
 // docs:start:import_aztecjs
-import type { InitialAccountData } from '@aztec/accounts/testing';
-import { type AztecAddress, type AztecNode, Fr, type Logger, type PXE, sleep } from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, Fr, type Logger, type PXE, type Wallet, sleep } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 // docs:end:import_aztecjs
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
-import { TestWallet } from '@aztec/test-wallet';
 
 import { expect, jest } from '@jest/globals';
 
@@ -19,8 +19,8 @@ describe('e2e_2_pxes', () => {
   let aztecNode: AztecNode | undefined;
   let pxeA: PXE;
   let pxeB: PXE;
-  let walletA: TestWallet;
-  let walletB: TestWallet;
+  let walletA: Wallet;
+  let walletB: Wallet;
   let accountAAddress: AztecAddress;
   let accountBAddress: AztecAddress;
   let initialFundedAccounts: InitialAccountData[];
@@ -34,7 +34,6 @@ describe('e2e_2_pxes', () => {
       pxe: pxeA,
       initialFundedAccounts,
       wallet: walletA,
-      accounts: [accountAAddress],
       logger,
       teardown: teardownA,
     } = await setup(1, { numberOfInitialFundedAccounts: 3 }));
@@ -43,14 +42,15 @@ describe('e2e_2_pxes', () => {
 
     // Deploy accountB via pxeB.
     ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode!, {}, undefined, true));
-    walletB = new TestWallet(pxeB);
-    const accountB = await walletB.createSchnorrAccount(initialFundedAccounts[1].secret, initialFundedAccounts[1].salt);
-    accountBAddress = accountB.getAddress();
-    await accountB.deploy().wait();
+    const accountB = await deployFundedSchnorrAccount(pxeB, initialFundedAccounts[1]);
+    walletB = await accountB.getWallet();
 
     /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
      What is a more robust solution? */
     await sleep(5000);
+
+    accountAAddress = walletA.getAddress();
+    accountBAddress = walletB.getAddress();
 
     await walletA.registerSender(accountBAddress);
     await walletB.registerSender(accountAAddress);
@@ -146,7 +146,7 @@ describe('e2e_2_pxes', () => {
     await pxeB.registerContract(token);
 
     // Mint tokens to user B
-    await mintTokensToPrivate(token, accountAAddress, accountBAddress, userBBalance);
+    await mintTokensToPrivate(token, accountAAddress, walletA, accountBAddress, userBBalance);
 
     // Check that user A balance is 100 on server A
     await expectTokenBalance(walletA, token, accountAAddress, userABalance, logger);
@@ -187,12 +187,22 @@ describe('e2e_2_pxes', () => {
 
     // setup an account that is shared across PXEs
     const sharedAccount = initialFundedAccounts[2];
-    const sharedAccountOnA = await walletA.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);
-    await sharedAccountOnA.deploy().wait();
-    const sharedAccountAddress = sharedAccountOnA.getAddress();
+    const sharedAccountOnA = await deployFundedSchnorrAccount(pxeA, sharedAccount);
+    const sharedWalletOnA = await sharedAccountOnA.getWallet();
+    const sharedAccountAddress = sharedWalletOnA.getAddress();
+    await sharedWalletOnA.registerSender(accountAAddress);
 
     // Register the shared account on pxeB.
-    await walletB.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);
+    const sharedAccountOnB = await getSchnorrAccount(
+      pxeB,
+      sharedAccount.secret,
+      sharedAccount.signingKey,
+      sharedAccount.salt,
+    );
+    await sharedAccountOnB.register();
+    const sharedWalletOnB = await sharedAccountOnB.getWallet();
+
+    await sharedWalletOnB.registerSender(sharedAccountAddress);
 
     // deploy the contract on PXE A
     const token = await deployToken(walletA, accountAAddress, initialBalance, logger);
@@ -205,14 +215,15 @@ describe('e2e_2_pxes', () => {
       .wait();
 
     // Now send funds from Shared Wallet to B via PXE A
-    await contractWithWalletA.methods
+    const contractWithSharedWalletA = await TokenContract.at(token.address, sharedWalletOnA);
+    await contractWithSharedWalletA.methods
       .transfer(accountBAddress, transferAmount2)
       .send({ from: sharedAccountAddress })
       .wait();
 
     // check balances from PXE-A's perspective
     await expectTokenBalance(walletA, token, accountAAddress, initialBalance - transferAmount1, logger);
-    await expectTokenBalance(walletA, token, sharedAccountAddress, transferAmount1 - transferAmount2, logger);
+    await expectTokenBalance(sharedWalletOnA, token, sharedAccountAddress, transferAmount1 - transferAmount2, logger);
 
     // now add the contract and check balances from PXE-B's perspective.
     // The process should be:
@@ -221,6 +232,6 @@ describe('e2e_2_pxes', () => {
     // PXE-B reprocesses the deferred notes, and sees the nullifier for A -> Shared
     await pxeB.registerContract(token);
     await expectTokenBalance(walletB, token, accountBAddress, transferAmount2, logger);
-    await expectTokenBalance(walletB, token, sharedAccountAddress, transferAmount1 - transferAmount2, logger);
+    await expectTokenBalance(sharedWalletOnB, token, sharedAccountAddress, transferAmount1 - transferAmount2, logger);
   });
 });

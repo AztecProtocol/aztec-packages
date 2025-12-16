@@ -1,6 +1,7 @@
 /* eslint-disable import/no-duplicates */
 // docs:start:create_account_imports
-import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { Fr, GrumpkinScalar, createPXEClient } from '@aztec/aztec.js';
 // docs:end:create_account_imports
 // docs:start:import_contract
@@ -8,7 +9,6 @@ import { Contract } from '@aztec/aztec.js';
 // docs:end:import_contract
 // docs:start:import_token_contract
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet';
 
 // docs:end:import_token_contract
 
@@ -24,13 +24,13 @@ describe('docs_examples', () => {
 
     // docs:start:create_wallet
     // Use a pre-funded wallet to pay for the fees for the deployments.
-    const wallet = new TestWallet(pxe);
-    const [accountData] = await getInitialTestAccountsData();
-    const prefundedAccount = await wallet.createSchnorrAccount(accountData.secret, accountData.salt);
-    const newAccount = await wallet.createSchnorrAccount(secretKey, Fr.random(), signingPrivateKey);
-    await newAccount.deploy({ deployAccount: prefundedAccount.getAddress() }).wait();
-    const newAccountAddress = newAccount.getAddress();
-    const defaultAccountAddress = prefundedAccount.getAddress();
+    const wallet = (await getDeployedTestAccountsWallets(pxe))[0];
+    const newAccount = await getSchnorrAccount(pxe, secretKey, signingPrivateKey);
+    await newAccount.deploy({ deployWallet: wallet }).wait();
+    const newWallet = await newAccount.getWallet();
+    const newAccountAddress = newWallet.getAddress();
+
+    const defaultAccountAddress = wallet.getAddress();
     // docs:end:create_wallet
 
     const deployedContract = await TokenContract.deploy(

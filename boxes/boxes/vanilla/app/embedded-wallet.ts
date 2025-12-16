@@ -4,87 +4,63 @@ import {
   createAztecNodeClient,
   AztecAddress,
   getContractInstanceFromInstantiationParams,
+  ContractFunctionInteraction,
   SponsoredFeePaymentMethod,
-  BaseWallet,
-  Account,
-  SignerlessAccount,
-  AccountManager,
-  SimulateMethodOptions,
+  type PXE,
+  AccountWallet,
 } from '@aztec/aztec.js';
+import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { EcdsaRAccountContract } from '@aztec/accounts/ecdsa/lazy';
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr/lazy';
-
+import { getEcdsaRAccount } from '@aztec/accounts/ecdsa/lazy';
+import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import { getPXEServiceConfig } from '@aztec/pxe/config';
 import { createPXEService } from '@aztec/pxe/client/lazy';
-import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
 import {
-  getStubAccountContractArtifact,
-  createStubAccount,
-} from '@aztec/accounts/stub/lazy';
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
+  type ContractArtifact,
+  getDefaultInitializer,
+} from '@aztec/stdlib/abi';
+import { getInitialTestAccounts } from '@aztec/accounts/testing';
 
 const PROVER_ENABLED = true;
 
 const logger = createLogger('wallet');
 const LocalStorageKey = 'aztec-account';
 
-// This is a minimal implementation of an Aztec wallet
-// WARNING: This example code stores the wallet in plain text in LocalStorage. Do not use in production without understanding the security implications
-export class EmbeddedWallet extends BaseWallet {
-  connectedAccount: AztecAddress | null = null;
-  protected accounts: Map<string, Account> = new Map();
+// This is a minimal implementation of an Aztec wallet, that saves the private keys in local storage.
+// This does not implement `@aztec.js/Wallet` interface though
+// This is not meant for production use
+export class EmbeddedWallet {
+  private pxe!: PXE;
+  connectedAccount: AccountWallet | null = null;
 
-  protected async getAccountFromAddress(
-    address: AztecAddress
-  ): Promise<Account> {
-    let account: Account | undefined;
-    if (address.equals(AztecAddress.ZERO)) {
-      const { l1ChainId: chainId, rollupVersion } =
-        await this.pxe.getNodeInfo();
-      account = new SignerlessAccount(
-        new DefaultMultiCallEntrypoint(chainId, rollupVersion)
-      );
-    } else {
-      account = this.accounts.get(address?.toString() ?? '');
-    }
+  constructor(private nodeUrl: string) {}
 
-    if (!account) {
-      throw new Error(`Account not found in wallet for address: ${address}`);
-    }
-
-    return account;
-  }
-
-  static async initialize(nodeUrl: string) {
+  async initialize() {
     // Create Aztec Node Client
-    const aztecNode = await createAztecNodeClient(nodeUrl);
+    const aztecNode = await createAztecNodeClient(this.nodeUrl);
 
     // Create PXE Service
     const config = getPXEServiceConfig();
     config.l1Contracts = await aztecNode.getL1ContractAddresses();
     config.proverEnabled = PROVER_ENABLED;
-    const pxe = await createPXEService(aztecNode, config, {
+    this.pxe = await createPXEService(aztecNode, config, {
       useLogSuffix: true,
     });
 
     // Register Sponsored FPC Contract with PXE
-    await pxe.registerContract(await EmbeddedWallet.#getSponsoredPFCContract());
+    await this.pxe.registerContract({
+      instance: await this.#getSponsoredPFCContract(),
+      artifact: SponsoredFPCContractArtifact,
+    });
 
     // Log the Node Info
-    const nodeInfo = await pxe.getNodeInfo();
+    const nodeInfo = await this.pxe.getNodeInfo();
     logger.info('PXE Connected to node', nodeInfo);
-    return new EmbeddedWallet(pxe);
   }
 
   // Internal method to use the Sponsored FPC Contract for fee payment
-  static async #getSponsoredPFCContract() {
-    const { SponsoredFPCContractArtifact } = await import(
-      '@aztec/noir-contracts.js/SponsoredFPC'
-    );
+  async #getSponsoredPFCContract() {
     const instance = await getContractInstanceFromInstantiationParams(
       SponsoredFPCContractArtifact,
       {
@@ -92,10 +68,7 @@ export class EmbeddedWallet extends BaseWallet {
       }
     );
 
-    return {
-      instance,
-      artifact: SponsoredFPCContractArtifact,
-    };
+    return instance;
   }
 
   getConnectedAccount() {
@@ -106,25 +79,20 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   async connectTestAccount(index: number) {
-    const testAccounts = await getInitialTestAccountsData();
+    const testAccounts = await getInitialTestAccounts();
     const account = testAccounts[index];
-
-    const accountManager = await AccountManager.create(
-      this,
+    const schnorrAccount = await getSchnorrAccount(
       this.pxe,
       account.secret,
-      new SchnorrAccountContract(account.signingKey),
+      account.signingKey,
       account.salt
     );
 
-    await accountManager.register();
-    this.accounts.set(
-      accountManager.getAddress().toString(),
-      await accountManager.getAccount()
-    );
+    await schnorrAccount.register();
+    const wallet = await schnorrAccount.getWallet();
 
-    this.connectedAccount = accountManager.getAddress();
-    return this.connectedAccount;
+    this.connectedAccount = wallet;
+    return wallet;
   }
 
   // Create a new account
@@ -139,25 +107,22 @@ export class EmbeddedWallet extends BaseWallet {
     const signingKey = randomBytes(32);
 
     // Create an ECDSA account
-    const contract = new EcdsaRAccountContract(signingKey);
-    const accountManager = await AccountManager.create(
-      this,
+    const ecdsaAccount = await getEcdsaRAccount(
       this.pxe,
       secretKey,
-      contract,
+      signingKey,
       salt
     );
 
     // Deploy the account
-    const deployMethod = await accountManager.getDeployMethod();
-    const sponsoredPFCContract =
-      await EmbeddedWallet.#getSponsoredPFCContract();
+    const deployMethod = await ecdsaAccount.getDeployMethod();
+    const sponsoredPFCContract = await this.#getSponsoredPFCContract();
     const deployOpts = {
       from: AztecAddress.ZERO,
-      contractAddressSalt: Fr.fromString(salt.toString()),
+      contractAddressSalt: Fr.fromString(ecdsaAccount.salt.toString()),
       fee: {
-        paymentMethod: await accountManager.getSelfPaymentMethod(
-          new SponsoredFeePaymentMethod(sponsoredPFCContract.instance.address)
+        paymentMethod: await ecdsaAccount.getSelfPaymentMethod(
+          new SponsoredFeePaymentMethod(sponsoredPFCContract.address)
         ),
       },
       universalDeploy: true,
@@ -171,10 +136,11 @@ export class EmbeddedWallet extends BaseWallet {
     logger.info('Account deployed', receipt);
 
     // Store the account in local storage
+    const ecdsaWallet = await ecdsaAccount.getWallet();
     localStorage.setItem(
       LocalStorageKey,
       JSON.stringify({
-        address: accountManager.getAddress().toString(),
+        address: ecdsaWallet.getAddress().toString(),
         signingKey: signingKey.toString('hex'),
         secretKey: secretKey.toString(),
         salt: salt.toString(),
@@ -182,13 +148,10 @@ export class EmbeddedWallet extends BaseWallet {
     );
 
     // Register the account with PXE
-    await accountManager.register();
-    this.accounts.set(
-      accountManager.getAddress().toString(),
-      await accountManager.getAccount()
-    );
-    this.connectedAccount = accountManager.getAddress();
-    return this.connectedAccount;
+    await ecdsaAccount.register();
+    this.connectedAccount = ecdsaWallet;
+
+    return ecdsaWallet;
   }
 
   async connectExistingAccount() {
@@ -199,111 +162,63 @@ export class EmbeddedWallet extends BaseWallet {
     }
     const parsed = JSON.parse(account);
 
-    const contract = new EcdsaRAccountContract(
-      Buffer.from(parsed.signingKey, 'hex')
-    );
-    const accountManager = await AccountManager.create(
-      this,
+    const ecdsaAccount = await getEcdsaRAccount(
       this.pxe,
       Fr.fromString(parsed.secretKey),
-      contract,
+      Buffer.from(parsed.signingKey, 'hex'),
       Fr.fromString(parsed.salt)
     );
 
-    await accountManager.register();
-    this.accounts.set(
-      accountManager.getAddress().toString(),
-      await accountManager.getAccount()
-    );
-    this.connectedAccount = accountManager.getAddress();
-    return this.connectedAccount;
+    await ecdsaAccount.register();
+    const ecdsaWallet = await ecdsaAccount.getWallet();
+
+    this.connectedAccount = ecdsaWallet;
+    return ecdsaWallet;
   }
 
-  private async getFakeAccountDataFor(address: AztecAddress) {
-    const nodeInfo = await this.pxe.getNodeInfo();
-    const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = await originalAccount.getCompleteAddress();
-    const { contractInstance } = await this.pxe.getContractMetadata(
-      originalAddress.address
-    );
-    if (!contractInstance) {
-      throw new Error(
-        `No contract instance found for address: ${originalAddress.address}`
-      );
-    }
-    const stubAccount = createStubAccount(originalAddress, nodeInfo);
-    const StubAccountContractArtifact = await getStubAccountContractArtifact();
+  // Register a contract with PXE
+  async registerContract(
+    artifact: ContractArtifact,
+    deployer: AztecAddress,
+    deploymentSalt: Fr,
+    constructorArgs: any[]
+  ) {
     const instance = await getContractInstanceFromInstantiationParams(
-      StubAccountContractArtifact,
-      {}
+      artifact,
+      {
+        constructorArtifact: getDefaultInitializer(artifact),
+        constructorArgs: constructorArgs,
+        deployer: deployer,
+        salt: deploymentSalt,
+      }
     );
-    return {
-      account: stubAccount,
-      instance,
-      artifact: StubAccountContractArtifact,
-    };
-  }
 
-  async simulateTx(
-    executionPayload: ExecutionPayload,
-    opts: SimulateMethodOptions
-  ): Promise<TxSimulationResult> {
-    if (!opts.fee) {
-      const sponsoredPFCContract =
-        await EmbeddedWallet.#getSponsoredPFCContract();
-      opts.fee = {
-        paymentMethod: new SponsoredFeePaymentMethod(
-          sponsoredPFCContract.instance.address
-        ),
-      };
-    }
-    const executionOptions = { txNonce: Fr.random(), cancellable: false };
-    const {
-      account: fromAccount,
+    await this.pxe.registerContract({
       instance,
       artifact,
-    } = await this.getFakeAccountDataFor(opts.from);
-    const fee = await this.getFeeOptions(
-      fromAccount,
-      executionPayload,
-      opts.fee,
-      executionOptions
-    );
-    const txRequest = await fromAccount.createTxExecutionRequest(
-      executionPayload,
-      fee,
-      executionOptions
-    );
-    const contractOverrides = {
-      [opts.from.toString()]: { instance, artifact },
-    };
-    return this.pxe.simulateTx(
-      txRequest,
-      true /* simulatePublic */,
-      true,
-      true,
-      { contracts: contractOverrides }
-    );
+    });
   }
 
-  async proveTx(
-    exec: ExecutionPayload,
-    opts: SimulateMethodOptions
-  ): Promise<TxProvingResult> {
-    if (!opts.fee) {
-      const sponsoredPFCContract =
-        await EmbeddedWallet.#getSponsoredPFCContract();
-      opts.fee = {
+  // Send a transaction with the Sponsored FPC Contract for fee payment
+  async sendTransaction(interaction: ContractFunctionInteraction) {
+    const sponsoredPFCContract = await this.#getSponsoredPFCContract();
+    const provenInteraction = await interaction.prove({
+      from: this.connectedAccount.getAddress(),
+      fee: {
         paymentMethod: new SponsoredFeePaymentMethod(
-          sponsoredPFCContract.instance.address
+          sponsoredPFCContract.address
         ),
-      };
-    }
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(
-      exec,
-      opts.from,
-      opts.fee
-    );
-    return this.pxe.proveTx(txRequest);
+      },
+    });
+
+    await provenInteraction.send().wait({ timeout: 120 });
+  }
+
+  // Simulate a transaction
+  async simulateTransaction(interaction: ContractFunctionInteraction) {
+    const res = await interaction.simulate({
+      from: this.connectedAccount.getAddress(),
+    });
+    return res;
   }
 }

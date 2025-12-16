@@ -79,7 +79,7 @@ describe('e2e_note_getter', () => {
 
     beforeAll(async () => {
       contract = await TestContract.deploy(wallet).send({ from: defaultAddress }).deployed();
-      owner = defaultAddress;
+      owner = wallet.getCompleteAddress().address;
     });
 
     const VALUE = 5;

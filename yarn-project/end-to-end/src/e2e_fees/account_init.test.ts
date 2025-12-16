@@ -1,22 +1,24 @@
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
-  AccountManager,
-  CompleteAddress,
+  type AccountManager,
+  type AccountWallet,
   FeeJuicePaymentMethod,
   FeeJuicePaymentMethodWithClaim,
   Fr,
   type Logger,
+  type PXE,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   Schnorr,
+  type Wallet,
   deriveKeys,
 } from '@aztec/aztec.js';
 import { Fq } from '@aztec/foundation/fields';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { SchnorrAccountContract as SchnorrAccountContractInterface } from '@aztec/noir-contracts.js/SchnorrAccount';
+import { SchnorrAccountContract } from '@aztec/noir-contracts.js/SchnorrAccount';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { CompleteAddress } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
@@ -31,7 +33,7 @@ describe('e2e_fees account_init', () => {
     await t.applyBaseSnapshots();
     await t.applyFundAliceWithBananas();
     await t.applyFPCSetupSnapshot();
-    ({ aliceAddress, wallet, bananaCoin, bananaFPC, logger } = await t.setup());
+    ({ aliceAddress, aliceWallet, bananaCoin, bananaFPC, pxe, logger } = await t.setup());
   });
 
   afterAll(async () => {
@@ -40,12 +42,12 @@ describe('e2e_fees account_init', () => {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let logger: Logger;
+  let pxe: PXE;
   let bananaCoin: BananaCoin;
   let bananaFPC: FPCContract;
 
-  let wallet: TestWallet;
-
   // Alice pays for deployments when we need someone else to intervene
+  let aliceWallet: Wallet;
   let aliceAddress: AztecAddress;
 
   // Bob is the account being created (a fresh account is generated for each test)
@@ -54,7 +56,7 @@ describe('e2e_fees account_init', () => {
   let bobsAccountManager: AccountManager;
   let bobsCompleteAddress: CompleteAddress;
   let bobsAddress: AztecAddress;
-  let bobsSalt: Fr;
+  let bobsWallet: AccountWallet;
 
   // Seeded by initBalances below in a beforeEach hook
   let fpcsInitialGas: bigint;
@@ -70,15 +72,12 @@ describe('e2e_fees account_init', () => {
   beforeEach(async () => {
     bobsSecretKey = Fr.random();
     bobsPrivateSigningKey = Fq.random();
-    bobsSalt = Fr.random();
-    bobsAccountManager = await wallet.createAccount({
-      secret: bobsSecretKey,
-      salt: bobsSalt,
-      contract: new SchnorrAccountContract(bobsPrivateSigningKey),
-    });
+    bobsAccountManager = await getSchnorrAccount(pxe, bobsSecretKey, bobsPrivateSigningKey, Fr.random());
     bobsCompleteAddress = await bobsAccountManager.getCompleteAddress();
     bobsAddress = bobsCompleteAddress.address;
+    bobsWallet = await bobsAccountManager.getWallet();
 
+    await bobsAccountManager.register();
     await initBalances();
   });
 
@@ -100,7 +99,7 @@ describe('e2e_fees account_init', () => {
 
     it('pays natively in the Fee Juice by bridging funds themselves', async () => {
       const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(bobsAddress);
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, claim);
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsWallet, claim);
       const tx = await bobsAccountManager.deploy({ fee: { paymentMethod } }).wait();
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([claim.claimAmount - tx.transactionFee!]);
@@ -112,7 +111,7 @@ describe('e2e_fees account_init', () => {
       await t.mintPrivateBananas(mintedBananas, bobsAddress);
 
       // Bob deploys his account through the private FPC
-      const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet);
+      const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, await bobsAccountManager.getWallet());
       const tx = await bobsAccountManager.deploy({ fee: { paymentMethod } }).wait();
       const actualFee = tx.transactionFee!;
       expect(actualFee).toBeGreaterThan(0n);
@@ -133,7 +132,7 @@ describe('e2e_fees account_init', () => {
       const mintedBananas = await t.feeJuiceBridgeTestHarness.l1TokenManager.getMintAmount();
       await bananaCoin.methods.mint_to_public(bobsAddress, mintedBananas).send({ from: aliceAddress }).wait();
 
-      const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsAddress, wallet);
+      const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsWallet);
       const tx = await bobsAccountManager
         .deploy({
           skipInstancePublication: false,
@@ -168,9 +167,9 @@ describe('e2e_fees account_init', () => {
 
       const [aliceBalanceBefore] = await t.getGasBalanceFn(aliceAddress);
       const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
-      const tx = await SchnorrAccountContractInterface.deployWithPublicKeys(
+      const tx = await SchnorrAccountContract.deployWithPublicKeys(
         bobsPublicKeys,
-        wallet,
+        aliceWallet,
         bobsSigningPubKey.x,
         bobsSigningPubKey.y,
       )
@@ -191,9 +190,10 @@ describe('e2e_fees account_init', () => {
       expect(aliceBalanceAfter).toBe(aliceBalanceBefore - tx.transactionFee!);
 
       // bob can now use his wallet for sending txs
-      const bobPaymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet);
-      await bananaCoin.methods
-        .transfer_in_public(bobsAddress, aliceAddress, 0n, 0n)
+      const bobPaymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsWallet);
+      await bananaCoin
+        .withWallet(bobsWallet)
+        .methods.transfer_in_public(bobsAddress, aliceAddress, 0n, 0n)
         .send({ from: bobsAddress, fee: { paymentMethod: bobPaymentMethod } })
         .wait();
     });

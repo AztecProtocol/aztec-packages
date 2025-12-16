@@ -36,11 +36,13 @@ describe('e2e_deploy_contract legacy', () => {
    */
   it('should deploy a test contract', async () => {
     const salt = Fr.random();
+    const publicKeys = wallet.getCompleteAddress().publicKeys;
     const deploymentData = await getContractInstanceFromInstantiationParams(TestContractArtifact, {
       salt,
-      deployer: defaultAccountAddress,
+      publicKeys,
+      deployer: wallet.getAddress(),
     });
-    const deployer = new ContractDeployer(TestContractArtifact, wallet);
+    const deployer = new ContractDeployer(TestContractArtifact, wallet, publicKeys);
     const receipt = await deployer
       .deploy()
       .send({ from: defaultAccountAddress, contractAddressSalt: salt })
@@ -76,7 +78,7 @@ describe('e2e_deploy_contract legacy', () => {
         .wait({ wallet });
       logger.info(`Sending TX to contract ${index + 1}...`);
       await receipt.contract.methods
-        .get_master_incoming_viewing_public_key(defaultAccountAddress)
+        .get_master_incoming_viewing_public_key(wallet.getAddress())
         .send({ from: defaultAccountAddress })
         .wait();
     }
@@ -100,7 +102,7 @@ describe('e2e_deploy_contract legacy', () => {
     // This test requires at least another good transaction to go through in the same block as the bad one.
     const artifact = TokenContractArtifact;
     const initArgs = ['TokenName', 'TKN', 18] as const;
-    const goodDeploy = StatefulTestContract.deploy(wallet, defaultAccountAddress, 42);
+    const goodDeploy = StatefulTestContract.deploy(wallet, wallet.getAddress(), 42);
     const badDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.ZERO, ...initArgs);
 
     const firstOpts: DeployOptions = {

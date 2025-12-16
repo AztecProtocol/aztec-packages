@@ -1,4 +1,10 @@
-import { type AztecAddress, type AztecNode, FeeJuicePaymentMethod, type Wallet, retryUntil } from '@aztec/aztec.js';
+import {
+  type AccountWallet,
+  type AztecAddress,
+  type AztecNode,
+  FeeJuicePaymentMethod,
+  retryUntil,
+} from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { Fr } from '@aztec/foundation/fields';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -13,7 +19,7 @@ describe('e2e_fees fee settings', () => {
   let aztecNode: AztecNode;
   let cheatCodes: CheatCodes;
   let aliceAddress: AztecAddress;
-  let wallet: Wallet;
+  let aliceWallet: AccountWallet;
   let gasSettings: Partial<GasSettings>;
   let paymentMethod: FeeJuicePaymentMethod;
   let testContract: TestContract;
@@ -23,9 +29,9 @@ describe('e2e_fees fee settings', () => {
   beforeAll(async () => {
     await t.applyBaseSnapshots();
 
-    ({ aliceAddress, wallet, gasSettings, cheatCodes, aztecNode } = await t.setup());
+    ({ aliceAddress, aliceWallet, gasSettings, cheatCodes, aztecNode } = await t.setup());
 
-    testContract = await TestContract.deploy(wallet).send({ from: aliceAddress }).deployed();
+    testContract = await TestContract.deploy(aliceWallet).send({ from: aliceAddress }).deployed();
     gasSettings = { ...gasSettings, maxFeesPerGas: undefined };
     paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
   }, 60_000);

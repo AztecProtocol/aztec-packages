@@ -2,11 +2,11 @@ import {
   createAztecNodeClient,
   type AztecNode,
   AztecAddress,
+  AccountWalletWithSecretKey,
   type PXE,
   type Logger,
   createLogger,
   type ContractArtifact,
-  type Wallet,
 } from '@aztec/aztec.js';
 
 import { createPXEService, type PXEServiceConfig, getPXEServiceConfig } from '@aztec/pxe/client/lazy';
@@ -95,8 +95,7 @@ export const AztecContext = createContext<{
   connecting: boolean;
   network: Network;
   node: AztecNode;
-  wallet: Wallet | null;
-  from: AztecAddress;
+  wallet: AccountWalletWithSecretKey | null;
   isPXEInitialized: boolean;
   walletDB: WalletDB | null;
   currentContractAddress: AztecAddress;
@@ -116,8 +115,7 @@ export const AztecContext = createContext<{
   setLogs: (logs: Log[]) => void;
   setWalletDB: (walletDB: WalletDB) => void;
   setPXEInitialized: (isPXEInitialized: boolean) => void;
-  setWallet: (wallet: Wallet) => void;
-  setFrom: (address: AztecAddress) => void;
+  setWallet: (wallet: AccountWalletWithSecretKey) => void;
   setAztecNode: (node: AztecNode) => void;
   setPXE: (pxe: PXE) => void;
   setNetwork: (network: Network) => void;
@@ -133,7 +131,6 @@ export const AztecContext = createContext<{
   network: null,
   node: null,
   wallet: null,
-  from: null,
   isPXEInitialized: false,
   walletDB: null,
   currentContractArtifact: null,
@@ -154,7 +151,6 @@ export const AztecContext = createContext<{
   setWalletDB: () => {},
   setPXEInitialized: () => {},
   setWallet: () => {},
-  setFrom: () => {},
   setNetwork: () => {},
   setPXE: () => {},
   setAztecNode: () => {},

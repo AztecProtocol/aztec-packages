@@ -1,5 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
-import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
+import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
@@ -28,7 +29,6 @@ import {
   getConfigEnvVars as getTelemetryClientConfig,
   initTelemetryClient,
 } from '@aztec/telemetry-client';
-import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, http as httpViemTransport } from 'viem';
@@ -145,7 +145,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
         userLog(`Not setting up test accounts as we are connecting to a network`);
       } else {
         userLog(`Setting up test accounts`);
-        return await getInitialTestAccountsData();
+        return await getInitialTestAccounts();
       }
     }
     return [];
@@ -198,19 +198,19 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   );
   const pxeServiceConfig = { proverEnabled: aztecNodeConfig.realProofs };
   const pxe = await createAztecPXE(node, pxeServiceConfig);
-  const wallet = new TestWallet(pxe);
 
   if (initialAccounts.length) {
     userLog('Setting up funded test accounts...');
-    const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);
-    const accountsWithSecrets = accountManagers.map((manager, i) => ({
-      account: manager,
+    const accounts = await deployFundedSchnorrAccounts(pxe, initialAccounts);
+    const accountsWithSecrets = accounts.map((account, i) => ({
+      account,
       secretKey: initialAccounts[i].secret,
     }));
     const accLogs = await createAccountLogs(accountsWithSecrets, pxe);
     userLog(accLogs.join(''));
 
-    await setupBananaFPC(initialAccounts, wallet, userLog);
+    const deployer = await getSchnorrWallet(pxe, initialAccounts[0].address, initialAccounts[0].signingKey);
+    await setupBananaFPC(initialAccounts, deployer, userLog);
     await setupSponsoredFPC(pxe, userLog);
   }
 

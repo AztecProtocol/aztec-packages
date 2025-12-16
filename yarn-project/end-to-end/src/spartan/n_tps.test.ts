@@ -1,10 +1,11 @@
 import { Fr, type PXE, ProvenTx, Tx, readFieldCompressedString, sleep } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
-import { type TestAccounts, deploySponsoredTestAccounts, startCompatiblePXE } from './setup_test_wallets.js';
+import { type TestWallets, deploySponsoredTestWallets, startCompatiblePXE } from './setup_test_wallets.js';
 import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
 const config = { ...setupEnvironment(process.env), REAL_VERIFIER: true }; // TODO: remove REAL_VERIFIER: true
@@ -18,7 +19,7 @@ describe('sustained 10 TPS test', () => {
   const TARGET_TPS = 5; // 10
   const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
 
-  let testAccounts: TestAccounts;
+  let testWallets: TestWallets;
   let pxe: PXE;
   let cleanup: undefined | (() => Promise<void>);
   const forwardProcesses: ChildProcess[] = [];
@@ -38,8 +39,8 @@ describe('sustained 10 TPS test', () => {
 
     // Setup wallets
     logger.info('deploying test wallets');
-    testAccounts = await deploySponsoredTestAccounts(pxe, MINT_AMOUNT, logger);
-    logger.info(`testAccounts ready`);
+    testWallets = await deploySponsoredTestWallets(pxe, MINT_AMOUNT, logger);
+    logger.info(`testWallets ready`);
 
     logger.info(
       `Test setup complete. Planning ${TOTAL_TXS} transactions over ${TEST_DURATION_SECONDS} seconds at ${TARGET_TPS} TPS`,
@@ -55,34 +56,34 @@ describe('sustained 10 TPS test', () => {
 
   it('can get info', async () => {
     const name = readFieldCompressedString(
-      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
+      await testWallets.tokenAdminWallet.methods.private_get_name().simulate({ from: testWallets.tokenAdminAddress }),
     );
-    expect(name).toBe(testAccounts.tokenName);
+    expect(name).toBe(testWallets.tokenName);
   });
 
   it('can transfer 10tps tokens', async () => {
-    const recipient = testAccounts.recipientAddress;
+    const recipient = testWallets.recipientWallet.getAddress();
     const transferAmount = 1n;
 
-    for (const acc of testAccounts.accounts) {
+    for (const w of testWallets.wallets) {
       expect(MINT_AMOUNT).toBe(
-        await testAccounts.tokenContract.methods
-          .balance_of_public(acc)
-          .simulate({ from: testAccounts.tokenAdminAddress }),
+        await testWallets.tokenAdminWallet.methods
+          .balance_of_public(w.getAddress())
+          .simulate({ from: testWallets.tokenAdminAddress }),
       );
     }
 
     expect(0n).toBe(
-      await testAccounts.tokenContract.methods
+      await testWallets.tokenAdminWallet.methods
         .balance_of_public(recipient)
-        .simulate({ from: testAccounts.tokenAdminAddress }),
+        .simulate({ from: testWallets.tokenAdminAddress }),
     );
 
-    const defaultAccountAddress = testAccounts.accounts[0];
+    const wallet = testWallets.wallets[0];
 
-    const baseTx = await testAccounts.tokenContract.methods
-      .transfer_in_public(defaultAccountAddress, recipient, transferAmount, 0)
-      .prove({ from: testAccounts.tokenAdminAddress });
+    const baseTx = await (await TokenContract.at(testWallets.tokenAddress, wallet)).methods
+      .transfer_in_public(wallet.getAddress(), recipient, transferAmount, 0)
+      .prove({ from: testWallets.tokenAdminAddress });
 
     const allSentTxs: any[] = []; // Store sent transactions separately
 
@@ -106,7 +107,7 @@ describe('sustained 10 TPS test', () => {
           }
         }
 
-        const clonedTx = new ProvenTx(testAccounts.wallet, clonedTxData, []);
+        const clonedTx = new ProvenTx(wallet, clonedTxData, []);
         batchTxs.push(clonedTx);
       }
 
@@ -166,9 +167,9 @@ describe('sustained 10 TPS test', () => {
       `Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed out of ${TOTAL_TXS} total`,
     );
 
-    const recipientBalance = await testAccounts.tokenContract.methods
+    const recipientBalance = await testWallets.tokenAdminWallet.methods
       .balance_of_public(recipient)
-      .simulate({ from: testAccounts.tokenAdminAddress });
+      .simulate({ from: testWallets.tokenAdminAddress });
     logger.info(`recipientBalance after load test: ${recipientBalance}`);
   });
 });

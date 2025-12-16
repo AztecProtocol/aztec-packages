@@ -62,13 +62,7 @@ export default defineConfig(({ mode }) => {
         // Bump log:
         // - AD: bumped from 1600 => 1680 as we now have a 20kb msgpack lib in bb.js and other logic got us 50kb higher, adding some wiggle room.
         // - MW: bumped from 1700 => 1750 after adding the noble curves pkg to foundation required for blob batching calculations.
-        limits: [
-          // Main entrypoint, hard limit
-          { name: 'assets/index-*', limit: '1750kB' },
-          // This limit is to detect wheter our json artifacts or bb.js wasm get out of control. At the time
-          // of writing, all the .js files bundled in the app are below 4MB
-          { name: "**/*", limit: "4000kB" }
-        ],
+        limits: [{ name: 'assets/index-*', limit: '1750kB' }],
       }),
     ],
     define: {

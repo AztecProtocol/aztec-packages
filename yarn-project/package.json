@@ -59,7 +59,6 @@
     "stdlib",
     "telemetry-client",
     "txe",
-    "test-wallet",
     "validator-client",
     "world-state"
   ],

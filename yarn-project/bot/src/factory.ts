@@ -1,6 +1,7 @@
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/accounts/testing';
 import {
+  type AccountWallet,
   AztecAddress,
   BatchCall,
   ContractBase,
@@ -23,7 +24,6 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { makeTracedFetch } from '@aztec/telemetry-client';
-import { TestWallet } from '@aztec/test-wallet';
 
 import { type BotConfig, SupportedTokenContracts, getVersions } from './config.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
@@ -33,7 +33,6 @@ const MIN_BALANCE = 1e3;
 
 export class BotFactory {
   private pxe: PXE;
-  private wallet: TestWallet;
   private node?: AztecNode;
   private nodeAdmin?: AztecNodeAdmin;
   private log = createLogger('bot');
@@ -62,11 +61,10 @@ export class BotFactory {
     if (dependencies.pxe) {
       this.log.info(`Using local PXE`);
       this.pxe = dependencies.pxe;
-    } else {
-      this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
-      this.pxe = createPXEClient(config.pxeUrl!, getVersions(), makeTracedFetch([1, 2, 3], false));
+      return;
     }
-    this.wallet = new TestWallet(this.pxe);
+    this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
+    this.pxe = createPXEClient(config.pxeUrl!, getVersions(), makeTracedFetch([1, 2, 3], false));
   }
 
   /**
@@ -75,34 +73,50 @@ export class BotFactory {
    */
   public async setup() {
     const recipient = await this.registerRecipient();
-    const defaultAccountAddress = await this.setupAccount();
-    const token = await this.setupToken(defaultAccountAddress);
+    const wallet = await this.setupAccount();
+    const defaultAccountAddress = wallet.getAddress();
+    const token = await this.setupToken(wallet, defaultAccountAddress);
     await this.mintTokens(token, defaultAccountAddress);
-    return { wallet: this.wallet, defaultAccountAddress, token, pxe: this.pxe, recipient };
+    return { wallet, defaultAccountAddress, token, pxe: this.pxe, recipient };
   }
 
   public async setupAmm() {
-    const defaultAccountAddress = await this.setupAccount();
-    const token0 = await this.setupTokenContract(defaultAccountAddress, this.config.tokenSalt, 'BotToken0', 'BOT0');
-    const token1 = await this.setupTokenContract(defaultAccountAddress, this.config.tokenSalt, 'BotToken1', 'BOT1');
+    const wallet = await this.setupAccount();
+    const defaultAccountAddress = wallet.getAddress();
+    const token0 = await this.setupTokenContract(
+      wallet,
+      wallet.getAddress(),
+      this.config.tokenSalt,
+      'BotToken0',
+      'BOT0',
+    );
+    const token1 = await this.setupTokenContract(
+      wallet,
+      wallet.getAddress(),
+      this.config.tokenSalt,
+      'BotToken1',
+      'BOT1',
+    );
     const liquidityToken = await this.setupTokenContract(
-      defaultAccountAddress,
+      wallet,
+      wallet.getAddress(),
       this.config.tokenSalt,
       'BotLPToken',
       'BOTLP',
     );
     const amm = await this.setupAmmContract(
-      defaultAccountAddress,
+      wallet,
+      wallet.getAddress(),
       this.config.tokenSalt,
       token0,
       token1,
       liquidityToken,
     );
 
-    await this.fundAmm(defaultAccountAddress, defaultAccountAddress, amm, token0, token1, liquidityToken);
+    await this.fundAmm(wallet, wallet.getAddress(), amm, token0, token1, liquidityToken);
     this.log.info(`AMM initialized and funded`);
 
-    return { wallet: this.wallet, defaultAccountAddress, amm, token0, token1, pxe: this.pxe };
+    return { wallet, defaultAccountAddress, amm, token0, token1, pxe: this.pxe };
   }
 
   /**
@@ -118,49 +132,48 @@ export class BotFactory {
     }
   }
 
-  private async setupAccountWithPrivateKey(secret: Fr) {
+  private async setupAccountWithPrivateKey(privateKey: Fr) {
     const salt = this.config.senderSalt ?? Fr.ONE;
-    const signingKey = deriveSigningKey(secret);
-    const accountData = {
-      secret,
-      salt,
-      contract: new SchnorrAccountContract(signingKey!),
-    };
-    const accountManager = await this.wallet.createAccount(accountData);
-    const isInit = (await this.pxe.getContractMetadata(accountManager.getAddress())).isContractInitialized;
+    const signingKey = deriveSigningKey(privateKey);
+    const account = await getSchnorrAccount(this.pxe, privateKey, signingKey, salt);
+    const isInit = (await this.pxe.getContractMetadata(account.getAddress())).isContractInitialized;
     if (isInit) {
-      this.log.info(`Account at ${accountManager.getAddress().toString()} already initialized`);
+      this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
       const timer = new Timer();
-      await accountManager.register();
-      this.log.info(`Account at ${accountManager.getAddress()} registered. duration=${timer.ms()}`);
-      return accountManager.getAddress();
+      const wallet = await account.register();
+      this.log.info(`Account at ${account.getAddress()} registered. duration=${timer.ms()}`);
+      return wallet;
     } else {
-      const address = accountManager.getAddress();
+      const address = account.getAddress();
       this.log.info(`Deploying account at ${address}`);
 
       const claim = await this.bridgeL1FeeJuice(address);
 
       // docs:start:claim_and_deploy
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountManager.getAddress(), claim);
-      const sentTx = accountManager.deploy({ fee: { paymentMethod } });
+      const wallet = await account.getWallet();
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claim);
+      const sentTx = account.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
       // docs:end:claim_and_deploy
       this.log.info(`Sent tx for account deployment with hash ${txHash.toString()}`);
       await this.withNoMinTxsPerBlock(() => sentTx.wait({ timeout: this.config.txMinedWaitSeconds }));
       this.log.info(`Account deployed at ${address}`);
-      return accountManager.getAddress();
+      return wallet;
     }
   }
 
   private async setupTestAccount() {
-    const [initialAccountData] = await getInitialTestAccountsData();
-    const accountData = {
-      secret: initialAccountData.secret,
-      salt: initialAccountData.salt,
-      contract: new SchnorrAccountContract(initialAccountData.signingKey),
-    };
-    const accountManager = await this.wallet.createAccount(accountData);
-    return accountManager.getAddress();
+    let [wallet] = await getDeployedTestAccountsWallets(this.pxe);
+    if (wallet) {
+      this.log.info(`Using funded test account: ${wallet.getAddress()}`);
+    } else {
+      this.log.info('Registering funded test account');
+      const [account] = await getInitialTestAccounts();
+      const manager = await getSchnorrAccount(this.pxe, account.secret, account.signingKey, account.salt);
+      wallet = await manager.register();
+      this.log.info(`Funded test account registered: ${wallet.getAddress()}`);
+    }
+    return wallet;
   }
 
   /**
@@ -176,7 +189,7 @@ export class BotFactory {
    * @param wallet - Wallet to deploy the token contract from.
    * @returns The TokenContract instance.
    */
-  private async setupToken(sender: AztecAddress): Promise<TokenContract | PrivateTokenContract> {
+  private async setupToken(wallet: AccountWallet, sender: AztecAddress): Promise<TokenContract | PrivateTokenContract> {
     let deploy: DeployMethod<TokenContract | PrivateTokenContract>;
     const deployOpts: DeployOptions = {
       from: sender,
@@ -184,9 +197,9 @@ export class BotFactory {
       universalDeploy: true,
     };
     if (this.config.contract === SupportedTokenContracts.TokenContract) {
-      deploy = TokenContract.deploy(this.wallet, sender, 'BotToken', 'BOT', 18);
+      deploy = TokenContract.deploy(wallet, sender, 'BotToken', 'BOT', 18);
     } else if (this.config.contract === SupportedTokenContracts.PrivateTokenContract) {
-      deploy = PrivateTokenContract.deploy(this.wallet, MINT_BALANCE, sender);
+      deploy = PrivateTokenContract.deploy(wallet, MINT_BALANCE, sender);
       deployOpts.skipInstancePublication = true;
       deployOpts.skipClassPublication = true;
       deployOpts.skipInitialization = false;
@@ -213,6 +226,7 @@ export class BotFactory {
    * @returns The TokenContract instance.
    */
   private setupTokenContract(
+    wallet: AccountWallet,
     deployer: AztecAddress,
     contractAddressSalt: Fr,
     name: string,
@@ -220,11 +234,12 @@ export class BotFactory {
     decimals = 18,
   ): Promise<TokenContract> {
     const deployOpts: DeployOptions = { from: deployer, contractAddressSalt, universalDeploy: true };
-    const deploy = TokenContract.deploy(this.wallet, deployer, name, ticker, decimals);
+    const deploy = TokenContract.deploy(wallet, deployer, name, ticker, decimals);
     return this.registerOrDeployContract('Token - ' + name, deploy, deployOpts);
   }
 
   private async setupAmmContract(
+    wallet: AccountWallet,
     deployer: AztecAddress,
     contractAddressSalt: Fr,
     token0: TokenContract,
@@ -232,7 +247,7 @@ export class BotFactory {
     lpToken: TokenContract,
   ): Promise<AMMContract> {
     const deployOpts: DeployOptions = { from: deployer, contractAddressSalt, universalDeploy: true };
-    const deploy = AMMContract.deploy(this.wallet, token0.address, token1.address, lpToken.address);
+    const deploy = AMMContract.deploy(wallet, token0.address, token1.address, lpToken.address);
     const amm = await this.registerOrDeployContract('AMM', deploy, deployOpts);
 
     this.log.info(`AMM deployed at ${amm.address}`);
@@ -245,7 +260,7 @@ export class BotFactory {
   }
 
   private async fundAmm(
-    defaultAccountAddress: AztecAddress,
+    wallet: AccountWallet,
     liquidityProvider: AztecAddress,
     amm: AMMContract,
     token0: TokenContract,
@@ -274,7 +289,7 @@ export class BotFactory {
     );
 
     // Add authwitnesses for the transfers in AMM::add_liquidity function
-    const token0Authwit = await this.wallet.createAuthWit(defaultAccountAddress, {
+    const token0Authwit = await wallet.createAuthWit({
       caller: amm.address,
       action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
         liquidityProvider,
@@ -283,7 +298,7 @@ export class BotFactory {
         authwitNonce,
       ),
     });
-    const token1Authwit = await this.wallet.createAuthWit(defaultAccountAddress, {
+    const token1Authwit = await wallet.createAuthWit({
       caller: amm.address,
       action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
         liquidityProvider,
@@ -293,7 +308,7 @@ export class BotFactory {
       ),
     });
 
-    const mintTx = new BatchCall(this.wallet, [
+    const mintTx = new BatchCall(wallet, [
       token0.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
       token1.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
     ]).send({ from: liquidityProvider });
@@ -314,7 +329,7 @@ export class BotFactory {
 
     const [newT0Bal, newT1Bal, newLPBal] = await getPrivateBalances();
     this.log.info(
-      `Updated private balances of ${defaultAccountAddress} after minting and funding AMM: token0=${newT0Bal}, token1=${newT1Bal}, lp=${newLPBal}`,
+      `Updated private balances of ${wallet.getAddress()} after minting and funding AMM: token0=${newT0Bal}, token1=${newT1Bal}, lp=${newLPBal}`,
     );
   }
 

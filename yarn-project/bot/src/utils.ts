@@ -13,19 +13,14 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 export async function getBalances(
   token: TokenContract,
   who: AztecAddress,
-  from?: AztecAddress,
 ): Promise<{ privateBalance: bigint; publicBalance: bigint }> {
-  const privateBalance = await token.methods.balance_of_private(who).simulate({ from: from ?? who });
-  const publicBalance = await token.methods.balance_of_public(who).simulate({ from: from ?? who });
+  const privateBalance = await token.methods.balance_of_private(who).simulate({ from: who });
+  const publicBalance = await token.methods.balance_of_public(who).simulate({ from: who });
   return { privateBalance, publicBalance };
 }
 
-export async function getPrivateBalance(
-  token: PrivateTokenContract,
-  who: AztecAddress,
-  from?: AztecAddress,
-): Promise<bigint> {
-  const privateBalance = await token.methods.get_balance(who).simulate({ from: from ?? who });
+export async function getPrivateBalance(token: PrivateTokenContract, who: AztecAddress): Promise<bigint> {
+  const privateBalance = await token.methods.get_balance(who).simulate({ from: who });
   return privateBalance;
 }
 
