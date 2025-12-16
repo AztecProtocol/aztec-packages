@@ -14,7 +14,7 @@ global DAPP_MAX_CALLS: u32 = 1;
 // FUNCTION_CALL_SIZE_IN_BYTES * DAPP_MAX_CALLS + 32
 global DAPP_PAYLOAD_SIZE_IN_BYTES: u32 = 130;
 
-// Note: If you change the following struct you have to update default_entrypoint.ts
+// @dev: If you change the following struct you have to update default_entrypoint.ts
 #[derive(Serialize)]
 pub struct DAppPayload {
     function_calls: [FunctionCall; DAPP_MAX_CALLS],
@@ -54,8 +54,13 @@ impl DAppPayload {
                     call.target_address,
                     call.args_hash,
                     call.is_static,
+                    call.hide_msg_sender,
                 );
             } else {
+                assert(
+                    !call.hide_msg_sender,
+                    "Incompatible flag. `hide_msg_sender = true` is only available for public calls.",
+                );
                 let _result = context.call_private_function_with_args_hash(
                     call.target_address,
                     call.function_selector,

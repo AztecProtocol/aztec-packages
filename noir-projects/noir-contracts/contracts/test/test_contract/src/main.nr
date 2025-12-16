@@ -297,6 +297,7 @@ pub contract Test {
             context.this_address(),
             comptime { FunctionSelector::from_signature("dummy_public_call()") },
             [],
+            false,
         );
     }
 

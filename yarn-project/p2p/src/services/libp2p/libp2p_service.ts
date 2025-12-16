@@ -28,6 +28,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
+import { ENR } from '@chainsafe/enr';
 import {
   type GossipSub,
   type GossipSubComponents,
@@ -44,7 +45,6 @@ import { type Message, type MultiaddrConnection, type PeerId, TopicValidatorResu
 import type { ConnectionManager } from '@libp2p/interface-internal';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
-import { ENR } from '@nethermindeth/enr';
 import { createLibp2p } from 'libp2p';
 
 import type { P2PConfig } from '../../config.js';

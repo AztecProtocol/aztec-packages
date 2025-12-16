@@ -202,9 +202,7 @@ template <typename Builder> class cycle_group {
      */
     static cycle_group reconstruct_from_public(const std::span<const field_t, 2>& limbs)
     {
-        cycle_group result(limbs[0], limbs[1], false);
-        result.validate_on_curve();
-        return result;
+        return cycle_group(limbs[0], limbs[1], false);
     }
 
     field_t x;

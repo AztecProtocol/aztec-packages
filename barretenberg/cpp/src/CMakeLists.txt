@@ -93,10 +93,7 @@ add_subdirectory(barretenberg/ext/starknet/transcript)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
-if(NOT WASM)
-    add_subdirectory(barretenberg/lmdblib)
-endif()
-add_subdirectory(barretenberg/multilinear_batching)
+add_subdirectory(barretenberg/lmdblib)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/op_queue)
 add_subdirectory(barretenberg/polynomials)
@@ -113,9 +110,7 @@ add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/wasi)
 if(NOT FUZZING)
-    if(NOT WASM)
-        add_subdirectory(barretenberg/world_state)
-    endif()
+    add_subdirectory(barretenberg/world_state)
     add_subdirectory(barretenberg/vm2)
 endif()
 
@@ -160,7 +155,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
     $<TARGET_OBJECTS:honk>
-    $<TARGET_OBJECTS:multilinear_batching_objects>
     $<TARGET_OBJECTS:numeric_objects>
     $<TARGET_OBJECTS:op_queue_objects>
     $<TARGET_OBJECTS:polynomials_objects>

@@ -61,7 +61,7 @@ pub contract DocsExample {
 
     #[public]
     fn initialize_public_immutable(points: u8) {
-        let mut new_leader = Leader { account: context.msg_sender(), points };
+        let mut new_leader = Leader { account: context.msg_sender().unwrap(), points };
         storage.public_immutable.initialize(new_leader);
     }
 
@@ -72,11 +72,11 @@ pub contract DocsExample {
 
     #[private]
     fn initialize_private_immutable(points: u8) {
-        let new_card = CardNote::new(points, context.msg_sender());
+        let new_card = CardNote::new(points, context.msg_sender().unwrap());
 
         storage.private_immutable.initialize(new_card).emit(
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
@@ -98,9 +98,9 @@ pub contract DocsExample {
             .legendary_card
             .replace(|old_card| {
                 let points = old_card.get_points() + 1;
-                CardNote::new(points, context.msg_sender())
+                CardNote::new(points, context.msg_sender().unwrap())
             })
-            .emit(&mut context, context.msg_sender(), MessageDelivery.CONSTRAINED_ONCHAIN);
+            .emit(&mut context, context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[utility]

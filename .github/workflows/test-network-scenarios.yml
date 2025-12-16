@@ -84,7 +84,6 @@ jobs:
           echo "DOCKER_IMAGE=$docker_image" >> $GITHUB_ENV
           echo "NAMESPACE_ID=$namespace_id" >> $GITHUB_ENV
 
-
       - name: Setup
         if: env.SEMVER != '' || env.DOCKER_IMAGE != ''
         run: |
@@ -160,7 +159,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
           NAMESPACE: ${{ env.NAMESPACE }}
           REF_NAME: ${{ (github.event_name == 'workflow_run' && format('v{0}', env.SEMVER)) || (github.event_name == 'workflow_dispatch' && inputs.ref) }}
-          AWS_SHUTDOWN_TIME: 180 # 3 hours as we are running tests that may take a while
+          AWS_SHUTDOWN_TIME: 360 # 6 hours as we are running tests that may take a while
           NO_SPOT: 1
         run: |
           # the network env file and gcp credentials file are mounted into the ec2 instance

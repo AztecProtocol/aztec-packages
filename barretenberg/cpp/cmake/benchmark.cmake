@@ -3,8 +3,7 @@ include(FetchContent)
 FetchContent_Declare(
     benchmark
     GIT_REPOSITORY https://github.com/AztecProtocol/google-benchmark
-    GIT_TAG v0.0.1 # arbitrary tag we used so that GIT_SHALLOW works
-    GIT_SHALLOW TRUE
+    GIT_TAG 7638387d2727853d970fc9420dcf95cf3e9bd112
     FIND_PACKAGE_ARGS
 )
 
