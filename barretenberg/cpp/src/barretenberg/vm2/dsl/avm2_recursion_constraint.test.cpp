@@ -114,12 +114,10 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
 
     auto prover_instance = std::make_shared<OuterProverInstance>(layer_2_circuit);
     auto verification_key = std::make_shared<OuterVerificationKey>(prover_instance->get_precomputed());
-    auto vk_and_hash = std::make_shared<UltraRollupFlavor::VKAndHash>(verification_key);
-
     OuterProver prover(prover_instance, verification_key);
     info("prover gates = ", prover_instance->dyadic_size());
     auto proof = prover.construct_proof();
-    UltraRollupVerifier verifier(vk_and_hash);
+    UltraRollupVerifier verifier(std::make_shared<UltraRollupFlavor::VKAndHash>(verification_key));
     bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
     EXPECT_TRUE(result);
 }
@@ -153,14 +151,12 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 
         auto prover_instance = std::make_shared<OuterProverInstance>(layer_2_circuit);
         expected_vk = std::make_shared<OuterVerificationKey>(prover_instance->get_precomputed());
-        auto expected_vk_and_hash = std::make_shared<UltraRollupFlavor::VKAndHash>(expected_vk);
-
         OuterProver prover(prover_instance, expected_vk);
         info("prover gates = ", prover_instance->dyadic_size());
 
         // Construct and verify a proof of the outer AVM verifier circuits
         auto proof = prover.construct_proof();
-        UltraRollupVerifier verifier(expected_vk_and_hash);
+        UltraRollupVerifier verifier(std::make_shared<UltraRollupFlavor::VKAndHash>(expected_vk));
 
         bool result = verifier.verify_proof(proof, prover_instance->ipa_proof).result;
         EXPECT_TRUE(result);

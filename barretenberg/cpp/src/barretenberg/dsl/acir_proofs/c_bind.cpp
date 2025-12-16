@@ -234,9 +234,8 @@ WASM_EXPORT void acir_verify_ultra_zk_honk(uint8_t const* proof_buf, uint8_t con
 
     auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
-    auto vk_and_hash = std::make_shared<UltraZKFlavor::VKAndHash>(verification_key);
 
-    Verifier verifier{ vk_and_hash };
+    Verifier verifier{ std::make_shared<UltraZKFlavor::VKAndHash>(verification_key) };
 
     *result = verifier.verify_proof(proof).result;
 }
@@ -248,9 +247,8 @@ WASM_EXPORT void acir_verify_ultra_keccak_honk(uint8_t const* proof_buf, uint8_t
 
     auto proof = many_from_buffer<uint256_t>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
-    auto vk_and_hash = std::make_shared<UltraKeccakFlavor::VKAndHash>(verification_key);
 
-    Verifier verifier{ vk_and_hash };
+    Verifier verifier{ std::make_shared<UltraKeccakFlavor::VKAndHash>(verification_key) };
 
     *result = verifier.verify_proof(proof).result;
 }
@@ -262,9 +260,8 @@ WASM_EXPORT void acir_verify_ultra_keccak_zk_honk(uint8_t const* proof_buf, uint
 
     auto proof = many_from_buffer<uint256_t>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
-    auto vk_and_hash = std::make_shared<UltraKeccakZKFlavor::VKAndHash>(verification_key);
 
-    Verifier verifier{ vk_and_hash };
+    Verifier verifier{ std::make_shared<UltraKeccakZKFlavor::VKAndHash>(verification_key) };
 
     *result = verifier.verify_proof(proof).result;
 }
@@ -279,9 +276,8 @@ WASM_EXPORT void acir_verify_ultra_starknet_honk([[maybe_unused]] uint8_t const*
 
     auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
-    auto vk_and_hash = std::make_shared<UltraStarknetFlavor::VKAndHash>(verification_key);
 
-    Verifier verifier{ vk_and_hash };
+    Verifier verifier{ std::make_shared<UltraStarknetFlavor::VKAndHash>(verification_key) };
 
     *result = verifier.verify_proof(proof).result;
 #else
@@ -299,9 +295,7 @@ WASM_EXPORT void acir_verify_ultra_starknet_zk_honk([[maybe_unused]] uint8_t con
 
     auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
-    auto vk_and_hash = std::make_shared<UltraStarknetZKFlavor::VKAndHash>(verification_key);
-
-    Verifier verifier{ vk_and_hash };
+    Verifier verifier{ std::make_shared<UltraStarknetZKFlavor::VKAndHash>(verification_key) };
 
     *result = verifier.verify_proof(proof).result;
 #else
