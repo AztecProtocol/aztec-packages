@@ -188,7 +188,7 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
         bool pairing_verified = pairing_points.check();
         vinfo("pairing_check_verified: ", pairing_verified);
 
-        UltraVerifierOutput output;
+        Output output;
         output.result = reduction_result.reduction_succeeded && pairing_verified;
 
         // HidingKernelIO-specific: Extract kernel return data and ecc op tables
@@ -237,7 +237,7 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
         bool pairing_verified = pairing_points.check();
         vinfo("pairing_check_verified: ", pairing_verified);
 
-        UltraVerifierOutput output;
+        Output output;
         output.result = reduction_result.reduction_succeeded && pairing_verified;
 
         // Perform IPA verification

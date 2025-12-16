@@ -49,7 +49,7 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
 
     Proof proof = prover.construct_proof();
     {
-        if (!verifier.verify_proof(proof)) {
+        if (!verifier.verify_proof(proof).result) {
             throw_or_abort("Verification failed");
         }
 

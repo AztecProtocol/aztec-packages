@@ -87,7 +87,7 @@ class RecursiveCircuit {
         InnerVerifier native_verifier(inner_vk_and_hash);
         native_verifier.transcript->enable_manifest();
         auto native_result = native_verifier.verify_proof(inner_proof);
-        if (!native_result) {
+        if (!native_result.result) {
             throw std::runtime_error("Inner proof verification failed");
         }
 
