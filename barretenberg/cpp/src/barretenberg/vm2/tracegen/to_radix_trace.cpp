@@ -44,13 +44,12 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
             FF limb_p_diff = limb == p_limb ? 0 : limb > p_limb ? limb - p_limb - 1 : p_limb - limb - 1;
 
             bool is_unsafe_limb = i == safe_limbs;
-            FF safety_diff_inverse = is_unsafe_limb ? FF(0) : (FF(i) - FF(safe_limbs)).invert();
+            FF safety_diff = FF(i) - FF(safe_limbs);
 
             acc += exponent * limb;
 
             FF rem = value - acc;
             found = rem == 0;
-            FF rem_inverse = found ? 0 : rem.invert();
 
             bool end = i == (event.limbs.size() - 1);
 
@@ -69,10 +68,10 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::to_radix_acc, acc },
                           { C::to_radix_found, found },
                           { C::to_radix_limb_radix_diff, radix - 1 - limb },
-                          { C::to_radix_rem_inverse, rem_inverse },
+                          { C::to_radix_rem_inverse, rem }, // Will be inverted in batch later
                           { C::to_radix_safe_limbs, safe_limbs },
                           { C::to_radix_is_unsafe_limb, is_unsafe_limb },
-                          { C::to_radix_safety_diff_inverse, safety_diff_inverse },
+                          { C::to_radix_safety_diff_inverse, safety_diff }, // Will be inverted in batch later
                           { C::to_radix_p_limb, p_limb },
                           { C::to_radix_acc_under_p, acc_under_p },
                           { C::to_radix_limb_lt_p, limb < p_limb },
@@ -87,6 +86,9 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
             exponent *= radix;
         }
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::to_radix_safety_diff_inverse, C::to_radix_rem_inverse } });
 }
 
 void ToRadixTraceBuilder::process_with_memory(
@@ -98,9 +100,9 @@ void ToRadixTraceBuilder::process_with_memory(
     for (const auto& event : events) {
         // Helpers
         uint8_t num_limbs_is_zero = event.num_limbs == 0 ? 1 : 0;
-        FF num_limbs_inv = event.num_limbs == 0 ? FF(0) : FF(event.num_limbs).invert();
+        FF num_limbs_inv = event.num_limbs == 0 ? FF(0) : FF(event.num_limbs); // Will be inverted in batch later
         uint8_t value_is_zero = event.value == FF(0) ? 1 : 0;
-        FF value_inv = event.value == FF(0) ? FF(0) : event.value.invert();
+        FF value_inv = event.value == FF(0) ? FF(0) : event.value; // Will be inverted in batch later
 
         // Error Handling - Out of Memory Access
         uint64_t dst_addr = static_cast<uint64_t>(event.dst_addr);
@@ -212,7 +214,7 @@ void ToRadixTraceBuilder::process_with_memory(
                           { C::to_radix_mem_sel, 1 },
                           { C::to_radix_mem_num_limbs, remaining_limbs },
                           { C::to_radix_mem_num_limbs_minus_one_inv,
-                            remaining_limbs - 1 == 0 ? 0 : FF(remaining_limbs - 1).invert() },
+                            remaining_limbs - 1 == 0 ? 0 : FF(remaining_limbs - 1) }, // Will be inverted in batch later
                           { C::to_radix_mem_last, last ? 1 : 0 },
                           // Decomposition
                           { C::to_radix_mem_sel_should_decompose, 1 },
@@ -236,6 +238,10 @@ void ToRadixTraceBuilder::process_with_memory(
             row++;
         }
     }
+
+    // Batch invert the columns.
+    trace.invert_columns(
+        { { C::to_radix_mem_num_limbs_inv, C::to_radix_mem_value_inv, C::to_radix_mem_num_limbs_minus_one_inv } });
 }
 
 const InteractionDefinition ToRadixTraceBuilder::interactions =

@@ -201,10 +201,10 @@ sel_instruction_fetching_success {
     // subtraces, mem ops, etc (defined later in this file)
     subtrace_id, subtrace_operation_id, dyn_gas_id,
     // register information
-    sel_mem_op_reg[0], sel_mem_op_reg[1], sel_mem_op_reg[2], sel_mem_op_reg[3], sel_mem_op_reg[4], sel_mem_op_reg[5], sel_mem_op_reg[6],
-    rw_reg[0], rw_reg[1], rw_reg[2], rw_reg[3], rw_reg[4], rw_reg[5], rw_reg[6],
-    sel_tag_check_reg[0], sel_tag_check_reg[1], sel_tag_check_reg[2], sel_tag_check_reg[3], sel_tag_check_reg[4], sel_tag_check_reg[5], sel_tag_check_reg[6],
-    expected_tag_reg[0], expected_tag_reg[1], expected_tag_reg[2], expected_tag_reg[3], expected_tag_reg[4], expected_tag_reg[5], expected_tag_reg[6]
+    sel_mem_op_reg[0], sel_mem_op_reg[1], sel_mem_op_reg[2], sel_mem_op_reg[3], sel_mem_op_reg[4], sel_mem_op_reg[5],
+    rw_reg[0], rw_reg[1], rw_reg[2], rw_reg[3], rw_reg[4], rw_reg[5],
+    sel_tag_check_reg[0], sel_tag_check_reg[1], sel_tag_check_reg[2], sel_tag_check_reg[3], sel_tag_check_reg[4], sel_tag_check_reg[5],
+    expected_tag_reg[0], expected_tag_reg[1], expected_tag_reg[2], expected_tag_reg[3], expected_tag_reg[4], expected_tag_reg[5]
 } in
 precomputed.sel_exec_spec {
     // execution opcode
@@ -233,7 +233,6 @@ precomputed.sel_exec_spec {
     precomputed.sel_mem_op_reg[3],
     precomputed.sel_mem_op_reg[4],
     precomputed.sel_mem_op_reg[5],
-    precomputed.sel_mem_op_reg[6],
     // read / write per register
     precomputed.rw_reg[0],
     precomputed.rw_reg[1],
@@ -241,7 +240,6 @@ precomputed.sel_exec_spec {
     precomputed.rw_reg[3],
     precomputed.rw_reg[4],
     precomputed.rw_reg[5],
-    precomputed.rw_reg[6],
     // whether we should perform a tag check on the register
     precomputed.sel_tag_check_reg[0],
     precomputed.sel_tag_check_reg[1],
@@ -249,15 +247,13 @@ precomputed.sel_exec_spec {
     precomputed.sel_tag_check_reg[3],
     precomputed.sel_tag_check_reg[4],
     precomputed.sel_tag_check_reg[5],
-    precomputed.sel_tag_check_reg[6],
     // expected register tag to perform the check against
     precomputed.expected_tag_reg[0],
     precomputed.expected_tag_reg[1],
     precomputed.expected_tag_reg[2],
     precomputed.expected_tag_reg[3],
     precomputed.expected_tag_reg[4],
-    precomputed.expected_tag_reg[5],
-    precomputed.expected_tag_reg[6]
+    precomputed.expected_tag_reg[5]
 };
 
 //////// ADDRESSING ////////
@@ -280,17 +276,17 @@ pol commit sel_should_read_registers;
 sel_should_read_registers = SEL_SHOULD_RESOLVE_ADDRESS * (1 - sel_addressing_error);
 
 // Registers
-pol commit register[7];
+pol commit register[6];
 // Memory Acccesses
-pol commit sel_mem_op_reg[7];
+pol commit sel_mem_op_reg[6];
 // Read / Write selectors
-pol commit rw_reg[7];
+pol commit rw_reg[6];
 // Memory Tag
-pol commit mem_tag_reg[7];
+pol commit mem_tag_reg[6];
 // Whether we should perform a tag check on the register
-pol commit sel_tag_check_reg[7];
+pol commit sel_tag_check_reg[6];
 // Expected tag
-pol commit expected_tag_reg[7];
+pol commit expected_tag_reg[6];
 
 // NOTE: Constraints on the registers are in execution_registers.pil.
 // The "output we want is" sel_register_read_error from execution_registers.pil.

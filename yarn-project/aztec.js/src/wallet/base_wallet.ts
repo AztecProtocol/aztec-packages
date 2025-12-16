@@ -42,6 +42,9 @@ import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
 import type {
   Aliased,
+  BatchResults,
+  BatchableMethods,
+  BatchedMethod,
   ContractInstanceAndArtifact,
   ProfileOptions,
   SendOptions,
@@ -120,6 +123,25 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<AuthWitness> {
     const account = await this.getAccountFromAddress(from);
     return account.createAuthWit(messageHashOrIntent);
+  }
+
+  public async batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(
+    methods: T,
+  ): Promise<BatchResults<T>> {
+    const results: any[] = [];
+    for (const method of methods) {
+      const { name, args } = method;
+      // Type safety is guaranteed by the BatchedMethod type, which ensures that:
+      // 1. `name` is a valid batchable method name
+      // 2. `args` matches the parameter types of that specific method
+      // 3. The return type is correctly mapped in BatchResults<T>
+      // We use dynamic dispatch here for simplicity, but the types are enforced at the call site.
+
+      const fn = this[name] as (...args: any[]) => Promise<any>;
+      const result = await fn.apply(this, args);
+      results.push(result);
+    }
+    return results as BatchResults<T>;
   }
 
   /**

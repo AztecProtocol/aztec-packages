@@ -15,8 +15,7 @@ import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { TestWallet, registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
