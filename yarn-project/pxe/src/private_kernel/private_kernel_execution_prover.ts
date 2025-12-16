@@ -93,7 +93,7 @@ export class PrivateKernelExecutionProver {
 
     const isPrivateOnlyTx = executionResult.publicFunctionCalldata.length === 0;
 
-    // Initialize an executionStack, beginning with the PrivateCallExecutionResult
+    // Initialise an executionStack, beginning with the PrivateCallExecutionResult
     // of the entrypoint function of the tx.
     const executionStack = [executionResult.entrypoint];
     let firstIteration = true;

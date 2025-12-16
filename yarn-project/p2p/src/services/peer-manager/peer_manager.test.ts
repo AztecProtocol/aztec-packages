@@ -2032,7 +2032,7 @@ describe('PeerManager', () => {
           syncSummary: {
             latestBlockHash,
             latestBlockNumber: 100,
-            finalizedBlockNumber: 90,
+            finalisedBlockNumber: 90,
             oldestHistoricBlockNumber: 43,
             treesAreSynched: true,
           } as WorldStateSyncStatus,

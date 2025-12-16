@@ -120,7 +120,7 @@ describe('BlockBuilder', () => {
         syncSummary: {
           latestBlockNumber: lastBlockNumber,
           latestBlockHash: hash,
-          finalizedBlockNumber: 0,
+          finalisedBlockNumber: 0,
           oldestHistoricBlockNumber: 0,
           treesAreSynched: true,
         },

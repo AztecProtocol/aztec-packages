@@ -23,9 +23,8 @@ constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = PROPAGATED_DATABUS_COMM
  */
 struct BusVector {
 
-    // A default value added to every databus column to avoid the point at infinity commitment and to ensure the
-    // validity of the databus commitment consistency checks. Note: in principle we could allow point at infinity
-    // default commitment but there is precedent for avoiding this by default.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): A default value added to every databus column to
+    // avoid the point at infinity commitment and to ensure the validity of the databus commitment consistency checks.
     static constexpr bb::fr DEFAULT_VALUE = 25;
 
     /**

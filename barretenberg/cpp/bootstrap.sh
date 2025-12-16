@@ -231,7 +231,7 @@ function test_cmds {
 # This is not called in ci. It is just for a developer to run the tests.
 function test {
   echo_header "bb test"
-  test_cmds | filter_test_cmds | parallelize
+  test_cmds | filter_test_cmds | parallelise
 }
 
 function build_bench {
@@ -260,7 +260,7 @@ function bench_cmds {
 function bench {
   echo_header "bb bench"
   rm -rf bench-out && mkdir -p bench-out
-  bench_cmds | STRICT_SCHEDULING=1 parallelize
+  bench_cmds | STRICT_SCHEDULING=1 parallelise
 }
 
 # Upload assets to release.
@@ -328,7 +328,7 @@ case "$cmd" in
     echo "Running commands:"
     ivc_bench_cmds "$flow_filter"
 
-    ivc_bench_cmds "$flow_filter" | STRICT_SCHEDULING=1 parallelize
+    ivc_bench_cmds "$flow_filter" | STRICT_SCHEDULING=1 parallelise
     ;;
   "hash")
     echo $hash

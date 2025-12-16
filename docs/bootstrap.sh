@@ -44,7 +44,7 @@ function test_cmds {
 
 function test {
   echo_header "docs test"
-  test_cmds | parallelize
+  test_cmds | parallelise
 }
 
 case "$cmd" in

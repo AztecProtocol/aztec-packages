@@ -3,7 +3,6 @@ import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
-  type EmpireSlashingProposerContract,
   FormattedViemError,
   type GasPrice,
   type GovernanceProposerContract,
@@ -11,6 +10,7 @@ import {
   type L1TxUtilsConfig,
   Multicall3,
   RollupContract,
+  type SlashingProposerContract,
   defaultL1TxUtilsConfig,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
@@ -20,7 +20,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { L2Block, Signature } from '@aztec/stdlib/block';
-import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { ProposedBlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -37,7 +36,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
-import { SequencerPublisher } from './sequencer-publisher.js';
+import { SequencerPublisher, SignalType } from './sequencer-publisher.js';
 
 const mockRollupAddress = EthAddress.random().toString();
 const mockGovernanceProposerAddress = EthAddress.random().toString();
@@ -47,9 +46,8 @@ const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
 
 describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
-  let slashingProposerContract: MockProxy<EmpireSlashingProposerContract>;
+  let slashingProposerContract: MockProxy<SlashingProposerContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
-  let slashFactoryContract: MockProxy<SlashFactoryContract>;
   let l1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
 
@@ -120,9 +118,8 @@ describe('SequencerPublisher', () => {
     (rollup as any).address = mockRollupAddress;
     forwardSpy = jest.spyOn(Multicall3, 'forward');
 
-    slashingProposerContract = mock<EmpireSlashingProposerContract>();
+    slashingProposerContract = mock<SlashingProposerContract>();
     governanceProposerContract = mock<GovernanceProposerContract>();
-    slashFactoryContract = mock<SlashFactoryContract>();
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n, now: 3n });
@@ -135,7 +132,6 @@ describe('SequencerPublisher', () => {
       epochCache,
       slashingProposerContract,
       governanceProposerContract,
-      slashFactoryContract,
       dateProvider: new TestDateProvider(),
     });
 
@@ -233,11 +229,12 @@ describe('SequencerPublisher', () => {
     });
     rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
     expect(
-      await publisher.enqueueGovernanceCastSignal(
+      await publisher.enqueueCastSignal(
         2n,
         1n,
+        SignalType.GOVERNANCE,
         EthAddress.fromString(testHarnessPrivateKey.address),
-        (msg: any) => testHarnessPrivateKey.signTypedData(msg),
+        msg => testHarnessPrivateKey.signTypedData(msg),
       ),
     ).toEqual(true);
 
@@ -266,7 +263,6 @@ describe('SequencerPublisher', () => {
       [],
       blobInput,
     ] as const;
-
     expect(forwardSpy).toHaveBeenCalledWith(
       [
         {

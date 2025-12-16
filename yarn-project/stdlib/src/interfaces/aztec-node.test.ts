@@ -470,7 +470,7 @@ class MockAztecNode implements AztecNode {
 
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
     return Promise.resolve({
-      finalizedBlockNumber: 1,
+      finalisedBlockNumber: 1,
       latestBlockHash: '0x',
       latestBlockNumber: 1,
       oldestHistoricBlockNumber: 1,

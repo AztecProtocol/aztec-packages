@@ -35,7 +35,7 @@ export const MUTATING_MSG_TYPES = new Set([
   WorldStateMessageType.SYNC_BLOCK,
   WorldStateMessageType.CREATE_FORK,
   WorldStateMessageType.DELETE_FORK,
-  WorldStateMessageType.FINALIZE_BLOCKS,
+  WorldStateMessageType.FINALISE_BLOCKS,
   WorldStateMessageType.UNWIND_BLOCKS,
   WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
   WorldStateMessageType.CREATE_CHECKPOINT,

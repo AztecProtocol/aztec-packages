@@ -22,7 +22,7 @@ import { readFile, readdir } from 'fs/promises';
 import { join, parse } from 'path';
 import { z } from 'zod';
 
-import { type TXEOracleFunctionName, TXESession } from './txe_session.js';
+import { TXEService } from './txe_service/txe_service.js';
 import {
   type ForeignCallArgs,
   ForeignCallArgsSchema,
@@ -36,7 +36,7 @@ import {
 } from './util/encoding.js';
 import type { ContractArtifactWithHash } from './util/txe_contract_data_provider.js';
 
-const sessions = new Map<number, TXESession>();
+const TXESessions = new Map<number, TXEService>();
 
 /*
  * TXE typically has to load the same contract artifacts over and over again for multiple tests,
@@ -47,9 +47,13 @@ const TXEArtifactsCache = new Map<
   { artifact: ContractArtifactWithHash; instance: ContractInstanceWithAddress }
 >();
 
+type MethodNames<T> = {
+  [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never;
+}[keyof T];
+
 type TXEForeignCallInput = {
   session_id: number;
-  function: TXEOracleFunctionName;
+  function: MethodNames<TXEService>;
   root_path: string;
   package_name: string;
   inputs: ForeignCallArgs;
@@ -58,7 +62,7 @@ type TXEForeignCallInput = {
 const TXEForeignCallInputSchema = z.object({
   // eslint-disable-next-line camelcase
   session_id: z.number().int().nonnegative(),
-  function: z.string() as ZodFor<TXEOracleFunctionName>,
+  function: z.string() as ZodFor<MethodNames<TXEService>>,
   // eslint-disable-next-line camelcase
   root_path: z.string(),
   // eslint-disable-next-line camelcase
@@ -201,14 +205,14 @@ class TXEDispatcher {
     const { session_id: sessionId, function: functionName, inputs } = callData;
     this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
 
-    if (!sessions.has(sessionId)) {
+    if (!TXESessions.has(sessionId)) {
       this.logger.debug(`Creating new session ${sessionId}`);
       if (!this.protocolContracts) {
         this.protocolContracts = await Promise.all(
           protocolContractNames.map(name => new BundledProtocolContractsProvider().getProtocolContractArtifact(name)),
         );
       }
-      sessions.set(sessionId, await TXESession.init(this.protocolContracts));
+      TXESessions.set(sessionId, await TXEService.init(this.logger, this.protocolContracts));
     }
 
     switch (functionName) {
@@ -222,7 +226,21 @@ class TXEDispatcher {
       }
     }
 
-    return await sessions.get(sessionId)!.processFunction(functionName, inputs);
+    const txeService = TXESessions.get(sessionId);
+
+    // Check if the function exists on the txeService before calling it
+    if (typeof (txeService as any)[functionName] !== 'function') {
+      const availableMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(txeService))
+        .filter(name => typeof (txeService as any)[name] === 'function' && name !== 'constructor')
+        .sort();
+
+      throw new Error(
+        `TXE function '${functionName}' is not available. ` + `Available methods: ${availableMethods.join(', ')}`,
+      );
+    }
+
+    const response = await (txeService as any)[functionName](...inputs);
+    return response;
   }
 }
 

@@ -206,7 +206,7 @@ contract MinimalDelegationTest is GSEBase {
     gse.voteWithBonus(proposalId, powerToVoteSelf, true);
 
     {
-      // Finalize the exit. We are doing it down here because the timetravel messes with voting
+      // Finalise the exit. We are doing it down here because the timetravel messes with voting
       Timestamp govUnlocks = governance.getWithdrawal(0).unlocksAt;
       Timestamp exitAt = ROLLUP.getExit(ATTESTER2).exitableAt;
 
@@ -220,9 +220,9 @@ contract MinimalDelegationTest is GSEBase {
     }
 
     if (_claim) {
-      governance.finalizeWithdraw(0);
+      governance.finaliseWithdraw(0);
     }
-    ROLLUP.finalizeWithdraw(ATTESTER2);
+    ROLLUP.finaliseWithdraw(ATTESTER2);
 
     assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), activationThreshold * 2);
     assertEq(stakingAsset.balanceOf(WITHDRAWER), activationThreshold);

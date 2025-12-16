@@ -101,7 +101,7 @@ export class BlockProvingState {
     }
 
     this.baseOrMergeProvingOutputs = new UnbalancedTreeStore(numTxs);
-    // Initialize the sponge which will eventually absorb all tx effects to be added to the blob.
+    // Initialise the sponge which will eventually absorb all tx effects to be added to the blob.
     // Like l1 to l2 messages, we need to know beforehand how many effects will be absorbed.
     this.spongeBlobState = SpongeBlob.init(numBlobFields);
     this.totalNumTxs = numTxs;

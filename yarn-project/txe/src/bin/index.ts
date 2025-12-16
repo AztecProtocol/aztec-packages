@@ -20,7 +20,7 @@ async function main() {
     process.exit(0);
   });
 
-  const logger = createLogger('txe:rpc');
+  const logger = createLogger('txe:service');
   logger.info(`Setting up TXE...`);
 
   const txeServer = createTXERpcServer(logger);

@@ -196,7 +196,7 @@ function test_cmds {
 }
 
 function test {
-  test_cmds | filter_test_cmds | parallelize
+  test_cmds | filter_test_cmds | parallelise
 }
 
 function format {
@@ -221,7 +221,7 @@ function bench_cmds {
 function bench {
   rm -rf bench-out && mkdir -p bench-out
 
-  bench_cmds | STRICT_SCHEDULING=1 parallelize
+  bench_cmds | STRICT_SCHEDULING=1 parallelise
 }
 
 case "$cmd" in

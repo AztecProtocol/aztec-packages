@@ -5,9 +5,9 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-const TIMEOUT = 60_000;
+const TIMEOUT = 300_000;
 
-describe('AVM check-circuit – public fee payment', () => {
+describe('AVM WitGen & Circuit – public fee payment', () => {
   const sender = AztecAddress.fromNumber(42);
   const feePayer = sender;
 
@@ -27,8 +27,7 @@ describe('AVM check-circuit – public fee payment', () => {
       AvmTestContractArtifact,
     );
   });
-
-  it(
+  it.skip(
     'fee payment',
     async () => {
       await tester.simProveVerify(

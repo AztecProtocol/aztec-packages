@@ -7,12 +7,12 @@ import type { TelemetryClient } from './telemetry.js';
 
 export * from './config.js';
 
-let initialized = false;
+let initialised = false;
 let telemetry: TelemetryClient = new NoopTelemetryClient();
 
 export function initTelemetryClient(config: TelemetryClientConfig): TelemetryClient {
   const log = createLogger('telemetry:client');
-  if (initialized) {
+  if (initialised) {
     log.warn('Telemetry client has already been initialized once');
     return telemetry;
   }
@@ -24,7 +24,7 @@ export function initTelemetryClient(config: TelemetryClientConfig): TelemetryCli
     log.info('Using NoopTelemetryClient');
   }
 
-  initialized = true;
+  initialised = true;
   return telemetry;
 }
 

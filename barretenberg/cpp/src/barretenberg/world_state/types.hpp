@@ -43,19 +43,19 @@ struct WorldStateRevision {
 };
 
 struct WorldStateStatusSummary {
-    index_t unfinalizedBlockNumber;
-    index_t finalizedBlockNumber;
+    index_t unfinalisedBlockNumber;
+    index_t finalisedBlockNumber;
     index_t oldestHistoricalBlock;
     bool treesAreSynched;
-    MSGPACK_FIELDS(unfinalizedBlockNumber, finalizedBlockNumber, oldestHistoricalBlock, treesAreSynched);
+    MSGPACK_FIELDS(unfinalisedBlockNumber, finalisedBlockNumber, oldestHistoricalBlock, treesAreSynched);
 
     WorldStateStatusSummary() = default;
-    WorldStateStatusSummary(const index_t& unfinalizedBlockNumber,
-                            const index_t& finalizedBlockNumber,
+    WorldStateStatusSummary(const index_t& unfinalisedBlockNumber,
+                            const index_t& finalisedBlockNumber,
                             const index_t& oldestHistoricBlock,
                             bool treesAreSynched)
-        : unfinalizedBlockNumber(unfinalizedBlockNumber)
-        , finalizedBlockNumber(finalizedBlockNumber)
+        : unfinalisedBlockNumber(unfinalisedBlockNumber)
+        , finalisedBlockNumber(finalisedBlockNumber)
         , oldestHistoricalBlock(oldestHistoricBlock)
         , treesAreSynched(treesAreSynched)
     {}
@@ -76,15 +76,15 @@ struct WorldStateStatusSummary {
 
     bool operator==(const WorldStateStatusSummary& other) const
     {
-        return unfinalizedBlockNumber == other.unfinalizedBlockNumber &&
-               finalizedBlockNumber == other.finalizedBlockNumber &&
+        return unfinalisedBlockNumber == other.unfinalisedBlockNumber &&
+               finalisedBlockNumber == other.finalisedBlockNumber &&
                oldestHistoricalBlock == other.oldestHistoricalBlock && treesAreSynched == other.treesAreSynched;
     }
 
     friend std::ostream& operator<<(std::ostream& os, const WorldStateStatusSummary& status)
     {
-        os << "unfinalizedBlockNumber: " << status.unfinalizedBlockNumber
-           << ", finalizedBlockNumber: " << status.finalizedBlockNumber
+        os << "unfinalisedBlockNumber: " << status.unfinalisedBlockNumber
+           << ", finalisedBlockNumber: " << status.finalisedBlockNumber
            << ", oldestHistoricalBlock: " << status.oldestHistoricalBlock
            << ", treesAreSynched: " << status.treesAreSynched;
         return os;

@@ -14,12 +14,7 @@ import { ValidatorClient } from './validator.js';
 
 export function createValidatorClient(
   config: ValidatorClientConfig &
-    Pick<
-      SlasherConfig,
-      | 'slashBroadcastedInvalidBlockEnabled'
-      | 'slashBroadcastedInvalidBlockPenalty'
-      | 'slashBroadcastedInvalidBlockMaxPenalty'
-    >,
+    Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>,
   deps: {
     blockBuilder: IFullNodeBlockBuilder;
     p2pClient: P2PClient;

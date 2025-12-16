@@ -71,7 +71,7 @@ describe('p2p client integration message propagation', () => {
       syncSummary: {
         latestBlockNumber: 0,
         latestBlockHash: '',
-        finalizedBlockNumber: 0,
+        finalisedBlockNumber: 0,
         treesAreSynched: false,
         oldestHistoricBlockNumber: 0,
       },

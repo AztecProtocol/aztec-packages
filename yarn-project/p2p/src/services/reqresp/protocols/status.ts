@@ -17,9 +17,9 @@ export class StatusMessage {
     readonly compressedComponentsVersion: string,
     readonly latestBlockNumber: number,
     readonly latestBlockHash: string,
-    readonly finalizedBlockNumber: number,
-    //TODO: add finalizedBlockHash
-    //readonly finalizedBlockHash: string,
+    readonly finalisedBlockNumber: number,
+    //TODO: add finalisedBlockHash
+    //readonly finalisedBlockHash: string,
   ) {}
 
   /**
@@ -33,9 +33,9 @@ export class StatusMessage {
       reader.readString(), // compressedComponentsVersion
       reader.readNumber(), // latestBlockNumber
       reader.readString(), // latestBlockHash
-      reader.readNumber(), // finalizedBlockNumber
-      //TODO: add finalizedBlockHash
-      //reader.readString(), // finalizedBlockHash
+      reader.readNumber(), // finalisedBlockNumber
+      //TODO: add finalisedBlockHash
+      //reader.readString(), // finalisedBlockHash
     );
   }
 
@@ -48,9 +48,9 @@ export class StatusMessage {
       this.compressedComponentsVersion,
       this.latestBlockNumber,
       this.latestBlockHash,
-      this.finalizedBlockNumber,
-      //TODO: add finalizedBlockHash
-      // this.finalizedBlockHash,
+      this.finalisedBlockNumber,
+      //TODO: add finalisedBlockHash
+      // this.finalisedBlockHash,
     ]);
   }
 
@@ -65,8 +65,8 @@ export class StatusMessage {
       version,
       syncStatus.latestBlockNumber,
       syncStatus.latestBlockHash,
-      syncStatus.finalizedBlockNumber,
-      //TODO: add finalizedBlockHash
+      syncStatus.finalisedBlockNumber,
+      //TODO: add finalisedBlockHash
     );
   }
 
@@ -76,7 +76,7 @@ export class StatusMessage {
       Math.floor(Math.random() * 100),
       Buffer32.random().toString(),
       Math.floor(Math.random() * 100),
-      //TODO: add finalizedBlockHash
+      //TODO: add finalisedBlockHash
     );
   }
 
@@ -90,7 +90,7 @@ export class StatusMessage {
       this.compressedComponentsVersion === other.compressedComponentsVersion &&
       this.latestBlockNumber === other.latestBlockNumber &&
       this.latestBlockHash === other.latestBlockHash &&
-      this.finalizedBlockNumber === other.finalizedBlockNumber
+      this.finalisedBlockNumber === other.finalisedBlockNumber
     );
   }
 }

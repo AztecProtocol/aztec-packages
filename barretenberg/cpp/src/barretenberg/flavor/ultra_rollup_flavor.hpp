@@ -58,7 +58,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         // Don't statically check for object completeness.
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
 
-        // For serialising and deserializing data
+        // For serialising and deserialising data
         MSGPACK_FIELDS(log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,

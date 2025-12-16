@@ -202,9 +202,9 @@ export type L2BlockHandledStats = {
   /** Total duration in ms. */
   duration: number;
   /** Pending block number. */
-  unfinalizedBlockNumber: bigint;
+  unfinalisedBlockNumber: bigint;
   /** Proven block number. */
-  finalizedBlockNumber: bigint;
+  finalisedBlockNumber: bigint;
   /** Oldest historic block number. */
   oldestHistoricBlock: bigint;
 } & L2BlockStats;

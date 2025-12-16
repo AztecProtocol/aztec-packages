@@ -63,7 +63,7 @@ function test_cmds {
 
 function test {
   echo_header "e2e tests"
-  test_cmds | filter_test_cmds | parallelize
+  test_cmds | filter_test_cmds | parallelise
 }
 
 function bench_cmds {
@@ -105,7 +105,7 @@ function build_bench {
 function bench {
   rm -rf bench-out
   mkdir -p bench-out
-  bench_cmds | STRICT_SCHEDULING=1 parallelize
+  bench_cmds | STRICT_SCHEDULING=1 parallelise
 }
 
 case "$cmd" in

@@ -104,7 +104,7 @@ describe('prover-node', () => {
       syncSummary: {
         latestBlockNumber: 1,
         latestBlockHash: '',
-        finalizedBlockNumber: 0,
+        finalisedBlockNumber: 0,
         oldestHistoricBlockNumber: 0,
         treesAreSynched: true,
       },
