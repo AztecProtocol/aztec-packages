@@ -1,10 +1,11 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 // Re-export L2 block number constants with proper BlockNumber type
 // Note: The generated constants are plain numbers, but we provide typed versions here
 import {
   GENESIS_BLOCK_HEADER_HASH as GENESIS_BLOCK_HEADER_HASH_BIGINT,
+  INITIAL_CHECKPOINT_NUMBER as INITIAL_CHECKPOINT_NUM_RAW,
   INITIAL_L2_BLOCK_NUM as INITIAL_L2_BLOCK_NUM_RAW,
 } from './constants.gen.js';
 
@@ -19,6 +20,11 @@ export * from './constants.gen.js';
 // Shadow the export from constants.gen above
 // eslint-disable-next-line import/export
 export const INITIAL_L2_BLOCK_NUM: BlockNumber = BlockNumber(INITIAL_L2_BLOCK_NUM_RAW);
+
+/** The initial L2 checkpoint number (typed as CheckpointNumber). This is the first checkpont number in the Aztec L2 chain. */
+// Shadow the export from constants.gen above
+// eslint-disable-next-line import/export
+export const INITIAL_L2_CHECKPOINT_NUM: CheckpointNumber = CheckpointNumber(INITIAL_CHECKPOINT_NUM_RAW);
 
 /** The block header hash for the genesis block 0. */
 // Shadow the export from constants.gen above

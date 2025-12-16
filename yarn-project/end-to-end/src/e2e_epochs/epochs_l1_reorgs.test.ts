@@ -244,7 +244,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // Manually update the archiver's L1 syncpoint to ensure we look back when needed
       // Otherwise this test just passes because we do not update the L1 syncpoint in the archiver since there are no new blocks
-      await archiver.dataStore.setBlockSynchedL1BlockNumber(BigInt(archiver.getL1BlockNumber()!));
+      await archiver.dataStore.setCheckpointSynchedL1BlockNumber(BigInt(archiver.getL1BlockNumber()!));
 
       // Now trigger the reorg. Note that we cannot use reorgWithReplacement here for the reorg, due to an anvil bug with
       // blob txs (now fixed, we can just update its version), so we reorg, then replay the tx, and then mine.

@@ -3,7 +3,8 @@ import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { SyncDataProvider } from '@aztec/pxe/server';
-import { type L2Block, PublishedL2Block } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
+import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
@@ -58,20 +59,20 @@ export class TXEStateMachine {
   }
 
   public async handleL2Block(block: L2Block) {
+    const checkpoint = block.toCheckpoint();
+    const publishedCheckpoint = new PublishedCheckpoint(
+      checkpoint,
+      new L1PublishedData(
+        BigInt(block.header.globalVariables.blockNumber),
+        block.header.globalVariables.timestamp,
+        block.header.globalVariables.blockNumber.toString(),
+      ),
+      [],
+    );
     await Promise.all([
       this.synchronizer.handleL2Block(block.toL2Block()),
-      this.archiver.addBlocks([
-        PublishedL2Block.fromFields({
-          block,
-          l1: {
-            blockHash: block.header.globalVariables.blockNumber.toString(),
-            blockNumber: BigInt(block.header.globalVariables.blockNumber),
-            timestamp: block.header.globalVariables.timestamp,
-          },
-          attestations: [],
-        }),
-      ]),
-      this.syncDataProvider.setHeader(block.getBlockHeader()),
+      this.archiver.addCheckpoints([publishedCheckpoint], undefined),
+      this.syncDataProvider.setHeader(block.header.toBlockHeader()),
     ]);
   }
 }
