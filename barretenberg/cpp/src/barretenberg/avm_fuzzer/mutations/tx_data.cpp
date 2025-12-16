@@ -6,6 +6,7 @@
 #include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 
 #include <random>
 
@@ -248,12 +249,7 @@ void mutate_fuzzer_data_vec(std::vector<FuzzerData>& enqueued_calls, std::mt1993
         fuzz_info("Adding a new enqueued call");
         // Add a new enqueued call
         if (enqueued_calls.size() < max_size) {
-            FuzzerData new_enqueued_call = FuzzerData();
-            mutate_fuzzer_data(new_enqueued_call, rng);
-            // Ensure at least 1 instruction block exists for bytecode generation
-            if (new_enqueued_call.instruction_blocks.empty()) {
-                new_enqueued_call.instruction_blocks.push_back(generate_instruction_block(rng));
-            }
+            FuzzerData new_enqueued_call = generate_fuzzer_data(rng);
             enqueued_calls.push_back(new_enqueued_call);
         }
         break;
@@ -265,10 +261,7 @@ void mutate_fuzzer_data_vec(std::vector<FuzzerData>& enqueued_calls, std::mt1993
             size_t idx = std::uniform_int_distribution<size_t>(0, enqueued_calls.size() - 1)(rng);
             fuzz_info("Mutating enqueued call at index: ", idx);
             mutate_fuzzer_data(enqueued_calls[idx], rng);
-            // Ensure at least 1 instruction block exists for bytecode generation
-            if (enqueued_calls[idx].instruction_blocks.empty()) {
-                enqueued_calls[idx].instruction_blocks.push_back(generate_instruction_block(rng));
-            }
+            add_default_instruction_block_if_empty(enqueued_calls[idx], rng);
         }
         break;
     }
