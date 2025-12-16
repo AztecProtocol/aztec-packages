@@ -5,10 +5,10 @@ use aztec::macros::aztec;
 
 #[aztec]
 contract MarkedPrivateUnconstrained {
-    use aztec::macros::functions::external;
+    use aztec::macros::functions::private;
 
 
-    #[external("private")]
+    #[private]
     unconstrained fn unconstrained_private_function() {}
 }
 

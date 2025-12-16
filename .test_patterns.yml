@@ -86,11 +86,6 @@ tests:
     error_regex: "combined_a.get_value() > fq_ct::modulus"
     owners:
       - *suyash
-  # http://ci.aztec-labs.com/1593f7c89e22b51b
-  - regex: stdlib_primitives_tests stdlibBiggroupSecp256k1/1.WnafSecp256k1StaggerOutOfRangeFails
-    error_regex: "biggroup_nafs: stagger fragment is not in range"
-    owners:
-      - *luke
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -304,10 +299,6 @@ tests:
     error_regex: "will propagate messages to peers at the same version"
     owners:
       - *palla
-  - regex: "src/client/test/p2p_client.integration_txs.test.ts"
-    error_regex: "Expected number of calls"
-    owners:
-      - *palla
   - regex: "src/client/test/p2p_client.integration_status_handshake.test.ts"
     error_regex: "Expected number of calls"
     owners:
@@ -417,21 +408,6 @@ tests:
     owners:
       - *palla
 
-  - regex: "src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts"
-    owners:
-      - *grego
-
-  - regex: "src/e2e_epochs/epochs_invalidate_block.parallel.test.ts"
-    owners:
-      - *grego
-
-  - regex: "amm_flow.sh"
-    owners:
-      - *grego
-
-  - regex: "src/e2e_p2p/gossip_network.test.ts"
-    owners:
-      - *grego
   # Slack testing.
   - regex: "nonsense to match"
     error_regex: "something else"

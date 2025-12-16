@@ -14,7 +14,7 @@ pub contract PrivateVoting {
     // docs:start:imports
     use dep::aztec::{
         keys::getters::get_public_keys,
-        macros::{functions::{external, initializer, internal}, storage::storage},
+        macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
     };
     use dep::aztec::protocol_types::{
         address::AztecAddress,
@@ -35,7 +35,7 @@ pub contract PrivateVoting {
     // docs:end:storage_struct
 
     // docs:start:constructor
-    #[external("public")]
+    #[public]
     #[initializer]
     // annotation to mark function as a constructor
     fn constructor(admin: AztecAddress) {
@@ -45,7 +45,7 @@ pub contract PrivateVoting {
     }
     // docs:end:constructor
 
-    #[external("private")]
+    #[private]
     // annotation to mark function as private and expose private context
     fn cast_vote(candidate: Field) {
         let msg_sender_nullifier_public_key_message_hash =
@@ -59,7 +59,7 @@ pub contract PrivateVoting {
         );
     }
 
-    #[external("public")]
+    #[public]
     #[internal]
     fn add_to_tally_public(candidate: Field) {
         assert(storage.vote_ended.read() == false, "Vote has ended"); // assert that vote has not ended
@@ -67,12 +67,12 @@ pub contract PrivateVoting {
         storage.tally.at(candidate).write(new_tally);
     }
 
-    #[external("public")]
+    #[public]
     fn end_vote() {
         assert(storage.admin.read().eq(context.msg_sender().unwrap()), "Only admin can end votes"); // assert that caller is admin
         storage.vote_ended.write(true);
     }
-    #[external("utility")]
+    #[utility]
     unconstrained fn get_vote(candidate: Field) -> Field {
         storage.tally.at(candidate).read()
     }

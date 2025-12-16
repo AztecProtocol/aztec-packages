@@ -14,6 +14,8 @@ function bench {
     ./testbench/run_testbench.sh $config ./bench-out/$config
   done
   ./testbench/consolidate_benchmarks.sh
+
+  cache_upload yarn-project-p2p-bench-results-$COMMIT_HASH.tar.gz ./bench-out/p2p-bench.json
 }
 
 case "$cmd" in

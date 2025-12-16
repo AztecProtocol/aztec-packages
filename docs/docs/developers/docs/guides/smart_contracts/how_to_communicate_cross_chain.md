@@ -58,7 +58,7 @@ To consume a message coming from L1, use the `consume_l1_to_l2_message` function
 - "Consuming" a message pushes a nullifier to prevent double-spending
 
 ```rust
-#[external("public")]
+#[public]
 fn consume_message_from_l1(
     secret: Field,
     message_leaf_index: Field,
@@ -86,7 +86,7 @@ fn consume_message_from_l1(
 Use `message_portal` in your `context` to send messages from L2 to L1:
 
 ```rust
-#[external("public")]
+#[public]
 fn send_message_to_l1(
     // your function parameters
 ) {

@@ -819,7 +819,7 @@ groups:
                 conditions:
                     - evaluator:
                         params:
-                            - 2
+                            - 10
                         type: lt
                       operator:
                         type: and

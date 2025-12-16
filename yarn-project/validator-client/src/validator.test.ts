@@ -38,8 +38,7 @@ import { type ValidatorClientConfig, validatorClientConfigMappings } from './con
 import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
-  let config: ValidatorClientConfig &
-    Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'> & { disableTransactions: boolean };
+  let config: ValidatorClientConfig & Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>;
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource>;
@@ -76,7 +75,6 @@ describe('ValidatorClient', () => {
       validatorReexecute: false,
       validatorReexecuteDeadlineMs: 6000,
       slashBroadcastedInvalidBlockPenalty: 1n,
-      disableTransactions: false,
     };
 
     const keyStore: KeyStore = {

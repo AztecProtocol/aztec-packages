@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract StateVars {
     use aztec::{
-        macros::{functions::{external, view}, storage::{storage, storage_no_init}},
+        macros::{functions::{private, public, utility, view}, storage::{storage, storage_no_init}},
         messages::message_delivery::MessageDelivery,
         protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
         state_vars::{PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable},
@@ -37,13 +37,13 @@ pub contract StateVars {
         }
     }
 
-    #[external("public")]
+    #[public]
     fn initialize_public_immutable(value: u8) {
         let mut new_mock_struct = MockStruct { account: context.msg_sender().unwrap(), value };
         storage.public_immutable.initialize(new_mock_struct);
     }
 
-    #[external("private")]
+    #[private]
     fn match_public_immutable(account: AztecAddress, value: u8) {
         let expected = MockStruct { account, value };
         let read = storage.public_immutable.read();
@@ -52,7 +52,7 @@ pub contract StateVars {
         assert(read.value == expected.value, "Invalid value");
     }
 
-    #[external("private")]
+    #[private]
     fn get_public_immutable_constrained_private_indirect() -> MockStruct {
         let mut mock_struct = StateVars::at(context.this_address())
             .get_public_immutable_constrained_private()
@@ -61,7 +61,7 @@ pub contract StateVars {
         mock_struct
     }
 
-    #[external("public")]
+    #[public]
     fn get_public_immutable_constrained_public_indirect() -> MockStruct {
         // This is a public function that calls another public function
         // and returns the response.
@@ -74,30 +74,30 @@ pub contract StateVars {
         mock_struct
     }
 
-    #[external("public")]
+    #[public]
     #[view]
     fn get_public_immutable_constrained_public() -> MockStruct {
         storage.public_immutable.read()
     }
 
-    #[external("public")]
+    #[public]
     fn get_public_immutable_constrained_public_multiple() -> [MockStruct; 5] {
         let a = storage.public_immutable.read();
         [a, a, a, a, a]
     }
 
-    #[external("private")]
+    #[private]
     #[view]
     fn get_public_immutable_constrained_private() -> MockStruct {
         storage.public_immutable.read()
     }
 
-    #[external("utility")]
+    #[utility]
     unconstrained fn get_public_immutable() -> MockStruct {
         storage.public_immutable.read()
     }
 
-    #[external("private")]
+    #[private]
     fn initialize_private_immutable(randomness: Field, value: Field) {
         let new_note = ValueNote::new(value, context.msg_sender().unwrap());
 
@@ -108,7 +108,7 @@ pub contract StateVars {
         );
     }
 
-    #[external("private")]
+    #[private]
     fn initialize_private(randomness: Field, value: Field) {
         let private_mutable = ValueNote::new(value, context.msg_sender().unwrap());
 
@@ -119,7 +119,7 @@ pub contract StateVars {
         );
     }
 
-    #[external("private")]
+    #[private]
     fn update_private_mutable(randomness: Field, value: Field) {
         storage
             .private_mutable
@@ -127,7 +127,7 @@ pub contract StateVars {
             .emit(&mut context, context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
-    #[external("private")]
+    #[private]
     fn increase_private_value() {
         // Replace existing note with new note containing incremented value
         storage
@@ -139,22 +139,22 @@ pub contract StateVars {
             .emit(&mut context, context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
-    #[external("utility")]
+    #[utility]
     unconstrained fn get_private_mutable() -> ValueNote {
         storage.private_mutable.view_note()
     }
 
-    #[external("utility")]
+    #[utility]
     unconstrained fn is_private_mutable_initialized() -> bool {
         storage.private_mutable.is_initialized()
     }
 
-    #[external("utility")]
+    #[utility]
     unconstrained fn view_private_immutable() -> ValueNote {
         storage.private_immutable.view_note()
     }
 
-    #[external("utility")]
+    #[utility]
     unconstrained fn is_priv_imm_initialized() -> bool {
         storage.private_immutable.is_initialized()
     }

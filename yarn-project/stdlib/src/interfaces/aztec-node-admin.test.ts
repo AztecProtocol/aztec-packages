@@ -5,7 +5,7 @@ import { type Offense, OffenseType, type SlashPayloadRound } from '../slashing/i
 import { type AztecNodeAdmin, AztecNodeAdminApiSchema } from './aztec-node-admin.js';
 import type { SequencerConfig } from './configs.js';
 import type { ProverConfig } from './prover-client.js';
-import type { ValidatorClientFullConfig } from './server.js';
+import type { ValidatorClientConfig } from './server.js';
 import type { SlasherConfig } from './slasher.js';
 
 describe('AztecNodeAdminApiSchema', () => {
@@ -126,7 +126,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
     ]);
   }
   getConfig(): Promise<
-    ValidatorClientFullConfig & SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number }
+    ValidatorClientConfig & SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number }
   > {
     return Promise.resolve({
       realProofs: false,
@@ -164,7 +164,6 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       attestationPollingIntervalMs: 1000,
       validatorReexecute: true,
       validatorReexecuteDeadlineMs: 1000,
-      disableTransactions: false,
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {

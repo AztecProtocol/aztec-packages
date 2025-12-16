@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract NFTBridge {
     use dep::aztec::{
-        macros::{storage::storage, functions::{external, initializer}},
+        macros::{storage::storage, functions::{public, initializer, private}},
         protocol_types::{address::AztecAddress, address::EthAddress, hash::sha256_to_field},
         state_vars::{PublicImmutable},
     };
@@ -16,20 +16,20 @@ pub contract NFTBridge {
         portal: PublicImmutable<EthAddress, Context>,
     }
     
-    #[external("public")]
+    #[public]
     #[initializer]
     fn constructor(nft: AztecAddress) {
         storage.nft.initialize(nft);
     }
     
-    #[external("public")]
+    #[public]
     fn set_portal(portal: EthAddress) {
         storage.portal.initialize(portal);
     }
     // docs:end:bridge_setup
 
     // docs:start:claim
-    #[external("private")]
+    #[private]
     fn claim(to: AztecAddress, token_id: Field, secret: Field, message_leaf_index: Field) {
         // Compute the message hash that was sent from L1
         let token_id_bytes: [u8; 32] = (token_id as Field).to_be_bytes();
@@ -50,7 +50,7 @@ pub contract NFTBridge {
     // docs:end:claim
 
     // docs:start:exit
-    #[external("private")]
+    #[private]
     fn exit(
         token_id: Field,
         recipient: EthAddress

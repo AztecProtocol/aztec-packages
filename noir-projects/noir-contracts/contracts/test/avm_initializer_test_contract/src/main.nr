@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 pub contract AvmInitializerTest {
     // Libs
     use dep::aztec::{
-        macros::{functions::{external, initializer}, storage::storage},
+        macros::{functions::{initializer, public}, storage::storage},
         state_vars::PublicImmutable,
     };
 
@@ -16,13 +16,13 @@ pub contract AvmInitializerTest {
     /************************************************************************
      * Storage
      ************************************************************************/
-    #[external("public")]
+    #[public]
     #[initializer]
     fn constructor() {
         storage.immutable.initialize(42);
     }
 
-    #[external("public")]
+    #[public]
     fn read_storage_immutable() -> pub Field {
         storage.immutable.read()
     }

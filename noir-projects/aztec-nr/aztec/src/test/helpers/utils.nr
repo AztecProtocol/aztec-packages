@@ -23,7 +23,7 @@ impl<let N: u32> ContractDeployment<N> {
     /// `interface()` with its arguments:
     /// ```noir
     /// contract MyContract {
-    ///   #[external("private")]
+    ///   #[private]
     ///   #[initializer]
     ///   fn init_fn(owner: AztecAddress) { ... }
     /// }
@@ -75,7 +75,7 @@ impl<let N: u32> ContractDeployment<N> {
     /// `interface()` with its arguments:
     /// ```noir
     /// contract MyContract {
-    ///   #[external("public")]
+    ///   #[public]
     ///   #[initializer]
     ///   fn init_fn(owner: AztecAddress) { ... }
     /// }
