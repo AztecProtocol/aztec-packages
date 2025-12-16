@@ -71,7 +71,7 @@ const validatorKeyStoreSchema = z.object({
   coinbase: ethAddressSchema.optional(),
   publisher: ethAccountsSchema.optional(),
   feeRecipient: aztecAddressSchema,
-  remoteSigner: remoteSignerConfigSchema.optional(),
+  remoteSigner: remoteSignerConfigSchema.nullish(),
 });
 
 // Main keystore schema
@@ -80,7 +80,7 @@ export const keystoreSchema = z
     schemaVersion: z.literal(1),
     validators: z.array(validatorKeyStoreSchema).optional(),
     slasher: ethAccountsSchema.optional(),
-    remoteSigner: remoteSignerConfigSchema.optional(),
+    remoteSigner: remoteSignerConfigSchema.nullish(),
     prover: proverKeyStoreSchema.optional(),
   })
   .refine(data => data.validators || data.prover, {

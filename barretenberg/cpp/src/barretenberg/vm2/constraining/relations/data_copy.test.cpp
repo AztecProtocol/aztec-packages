@@ -9,15 +9,20 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_data_copy.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tracegen/calldata_trace.hpp"
 #include "barretenberg/vm2/tracegen/data_copy_trace.hpp"
+#include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -42,9 +47,13 @@ class DataCopyConstrainingBuilderTest : public ::testing::Test {
     ExecutionIdManager execution_id_manager = ExecutionIdManager(0);
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
     RangeCheck range_check = RangeCheck(range_check_event_emitter);
+    EventEmitter<GreaterThanEvent> gt_event_emitter;
+    StrictMock<MockFieldGreaterThan> mock_field_gt;
+    GreaterThan gt = GreaterThan(mock_field_gt, range_check, gt_event_emitter);
     EventEmitter<DataCopyEvent> event_emitter;
-    DataCopy copy_data = DataCopy(execution_id_manager, range_check, event_emitter);
+    DataCopy copy_data = DataCopy(execution_id_manager, gt, event_emitter);
     StrictMock<MockContext> context;
+
     MemoryStore mem;
 
     TestTraceContainer trace;
@@ -77,15 +86,15 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopy)
     DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
 
-    tracegen::RangeCheckTraceBuilder range_check_builder;
-    range_check_builder.process(range_check_event_emitter.dump_events(), trace);
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_range_read_settings,
-                      lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_reads_left_settings,
-                      lookup_data_copy_range_max_read_size_diff_settings>(trace);
+                      lookup_data_copy_max_read_index_gt_settings,
+                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
 
 TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPadded)
@@ -104,15 +113,15 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPadded)
     DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
 
-    tracegen::RangeCheckTraceBuilder range_check_builder;
-    range_check_builder.process(range_check_event_emitter.dump_events(), trace);
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_range_read_settings,
-                      lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_reads_left_settings,
-                      lookup_data_copy_range_max_read_size_diff_settings>(trace);
+                      lookup_data_copy_max_read_index_gt_settings,
+                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
 
 TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPartial)
@@ -130,15 +139,15 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPartial)
     DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
 
-    tracegen::RangeCheckTraceBuilder range_check_builder;
-    range_check_builder.process(range_check_event_emitter.dump_events(), trace);
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_range_read_settings,
-                      lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_reads_left_settings,
-                      lookup_data_copy_range_max_read_size_diff_settings>(trace);
+                      lookup_data_copy_max_read_index_gt_settings,
+                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
 
 TEST_F(NestedCdConstrainingBuilderTest, OutofRangeError)
@@ -152,15 +161,15 @@ TEST_F(NestedCdConstrainingBuilderTest, OutofRangeError)
     DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
 
-    tracegen::RangeCheckTraceBuilder range_check_builder;
-    range_check_builder.process(range_check_event_emitter.dump_events(), trace);
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_range_read_settings,
-                      lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_reads_left_settings,
-                      lookup_data_copy_range_max_read_size_diff_settings>(trace);
+                      lookup_data_copy_max_read_index_gt_settings,
+                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
 
 class EnqueuedCdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest {
@@ -197,16 +206,16 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, SimpleEnqueuedCdCopy)
     DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
 
-    tracegen::RangeCheckTraceBuilder range_check_builder;
-    range_check_builder.process(range_check_event_emitter.dump_events(), trace);
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_range_read_settings,
-                      lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_reads_left_settings,
-                      lookup_data_copy_range_max_read_size_diff_settings,
-                      lookup_data_copy_col_read_settings>(trace);
+                      lookup_data_copy_col_read_settings,
+                      lookup_data_copy_max_read_index_gt_settings,
+                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
 
 TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPadding)
@@ -224,15 +233,16 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPadding)
     DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
 
-    tracegen::RangeCheckTraceBuilder range_check_builder;
-    range_check_builder.process(range_check_event_emitter.dump_events(), trace);
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_range_read_settings,
-                      lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_reads_left_settings,
-                      lookup_data_copy_range_max_read_size_diff_settings,
+                      lookup_data_copy_col_read_settings,
+                      lookup_data_copy_max_read_index_gt_settings,
+                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings,
                       lookup_data_copy_col_read_settings>(trace);
 }
 
@@ -251,15 +261,16 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPartial)
     DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
 
-    tracegen::RangeCheckTraceBuilder range_check_builder;
-    range_check_builder.process(range_check_event_emitter.dump_events(), trace);
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_range_read_settings,
-                      lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_reads_left_settings,
-                      lookup_data_copy_range_max_read_size_diff_settings,
+                      lookup_data_copy_col_read_settings,
+                      lookup_data_copy_max_read_index_gt_settings,
+                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings,
                       lookup_data_copy_col_read_settings>(trace);
 }
 
@@ -300,11 +311,10 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
     EXPECT_CALL(context, get_context_id).WillRepeatedly(Return(context_id));
     EXPECT_CALL(context, get_parent_id).WillRepeatedly(Return(parent_context_id));
 
-    EventEmitter<RangeCheckEvent> range_check_event_emitter;
-    RangeCheck range_check = RangeCheck(range_check_event_emitter);
+    FakeGreaterThan gt;
 
     EventEmitter<DataCopyEvent> event_emitter;
-    DataCopy copy_data = DataCopy(execution_id_manager, range_check, event_emitter);
+    DataCopy copy_data = DataCopy(execution_id_manager, gt, event_emitter);
     // Set up execution trace
     TestTraceContainer trace({
         {
@@ -363,11 +373,10 @@ TEST(DataCopyWithExecutionPerm, RdCopy)
     EXPECT_CALL(context, get_last_child_id).WillRepeatedly(Return(child_context_id));
     EXPECT_CALL(context, get_context_id).WillRepeatedly(Return(context_id));
 
-    EventEmitter<RangeCheckEvent> range_check_event_emitter;
-    RangeCheck range_check = RangeCheck(range_check_event_emitter);
+    FakeGreaterThan gt;
 
     EventEmitter<DataCopyEvent> event_emitter;
-    DataCopy copy_data = DataCopy(execution_id_manager, range_check, event_emitter);
+    DataCopy copy_data = DataCopy(execution_id_manager, gt, event_emitter);
     // Set up execution trace
     TestTraceContainer trace({
         {
@@ -420,11 +429,11 @@ TEST(DataCopyWithExecutionPerm, ErrorPropagation)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
-    EventEmitter<RangeCheckEvent> range_check_event_emitter;
-    RangeCheck range_check = RangeCheck(range_check_event_emitter);
+
+    FakeGreaterThan gt;
 
     EventEmitter<DataCopyEvent> event_emitter;
-    DataCopy copy_data = DataCopy(execution_id_manager, range_check, event_emitter);
+    DataCopy copy_data = DataCopy(execution_id_manager, gt, event_emitter);
 
     TestTraceContainer trace({
         {
