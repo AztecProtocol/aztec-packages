@@ -7,6 +7,7 @@
 #include "acir_to_constraint_buf.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 
 #include "barretenberg/serialize/test_helper.hpp"
@@ -108,7 +109,7 @@ TYPED_TEST(OpcodeGateCountTests, BigQuad)
     Acir::Program acir_program{ .functions = { circuit } };
 
     // Serialize the program to bytes
-    auto acir_program_bytes = acir_program.bincodeSerialize();
+    auto acir_program_bytes = msgpack_compact_serialize(acir_program);
 
     // Process through circuit_buf_to_acir_format (this calls handle_arithmetic internally)
     AcirFormat constraint_system = circuit_buf_to_acir_format(std::move(acir_program_bytes));

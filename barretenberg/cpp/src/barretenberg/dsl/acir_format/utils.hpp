@@ -9,6 +9,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include <msgpack.hpp>
 #include <vector>
 
 namespace acir_format {
@@ -125,5 +126,23 @@ void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fiel
         builder.set_variable(field.get_witness_index(), value);
     }
 };
+
+/**
+ * @brief Serialize an object to msgpack-compact format with format marker.
+ *
+ * @details The serialization prefixes the data with format marker 3 (FORMAT_MSGPACK_COMPACT).
+ * This is the format expected by deserialize_msgpack_compact.
+ */
+template <typename T> inline std::vector<uint8_t> msgpack_compact_serialize(const T& obj)
+{
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, obj);
+    // Add format marker for msgpack-compact (3) at the beginning
+    std::vector<uint8_t> result;
+    result.reserve(buffer.size() + 1);
+    result.push_back(3); // FORMAT_MSGPACK_COMPACT
+    result.insert(result.end(), buffer.data(), buffer.data() + buffer.size());
+    return result;
+}
 
 } // namespace acir_format

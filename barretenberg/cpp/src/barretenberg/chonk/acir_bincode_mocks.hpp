@@ -4,11 +4,25 @@
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include <cstddef>
+#include <msgpack.hpp>
 #include <vector>
 
 namespace bb::acir_bincode_mocks {
 
 const size_t BIT_COUNT = 254;
+
+// Serialize an object to msgpack-compact format with format marker
+template <typename T> inline std::vector<uint8_t> msgpack_compact_serialize(const T& obj)
+{
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, obj);
+    // Add format marker for msgpack-compact (3) at the beginning
+    std::vector<uint8_t> result;
+    result.reserve(buffer.size() + 1);
+    result.push_back(3); // FORMAT_MSGPACK_COMPACT
+    result.insert(result.end(), buffer.data(), buffer.data() + buffer.size());
+    return result;
+}
 
 inline uint8_t hex_char_to_value(char c)
 {
@@ -116,7 +130,7 @@ inline std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circu
     }
     witness_stack.stack.push_back(stack_item);
 
-    return { program.bincodeSerialize(), witness_stack.bincodeSerialize() };
+    return { msgpack_compact_serialize(program), msgpack_compact_serialize(witness_stack) };
 }
 
 /**
@@ -170,8 +184,8 @@ inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_init_ke
     // Create the program with the circuit
     Acir::Program program;
     program.functions = { circuit };
-    // Serialize the program using bincode
-    return program.bincodeSerialize();
+    // Serialize the program using msgpack-compact
+    return msgpack_compact_serialize(program);
 }
 
 /**
@@ -193,7 +207,7 @@ inline std::vector<uint8_t> create_kernel_witness(const std::vector<bb::fr>& app
     kernel_witness.stack.back().witness.value[Witnesses::Witness{ static_cast<uint32_t>(app_vk_fields.size()) }] =
         hex_string_to_bytes(ss.str());
 
-    return kernel_witness.bincodeSerialize();
+    return msgpack_compact_serialize(kernel_witness);
 }
 
 } // namespace bb::acir_bincode_mocks
